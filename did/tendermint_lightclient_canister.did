@@ -1,0 +1,3 @@
+service : (nat64, text, text, nat64, nat32) {
+    "height": () -> (nat64) query;
+}

@@ -1,0 +1,17 @@
+{
+  "canisters": {
+    "tendermint_lightclient_backend": {
+      "candid": "did/tendermint_lightclient_canister.did",
+      "package": "tendermint_lightclient_canister",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
