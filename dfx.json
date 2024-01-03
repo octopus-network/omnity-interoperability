@@ -1,7 +1,7 @@
 {
   "canisters": {
     "tendermint_lightclient_backend": {
-      "candid": "did/tendermint_lightclient_canister.did",
+      "candid": "tendermint_lightclient/tendermint_lightclient_canister.did",
       "package": "tendermint_lightclient_canister",
       "type": "rust"
     }

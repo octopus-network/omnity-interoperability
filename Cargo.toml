@@ -1,16 +1,5 @@
-[package]
-name = "tendermint_lightclient_canister"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-crate-type = ["cdylib"]
-
-[dependencies]
-candid = "0.8"
-ic-cdk = "0.7"
-ic-cdk-timers = "0.1"
-tm-verifier = { version = "0.34", features = ["rust-crypto"], default-features = false, package = "tendermint-light-client-verifier" }
-thiserror = { version = "1", default-features = false }
-serde_json = { version = "1", default-features = false }
-serde = { version = "1", default-features = false }
+[workspace]
+members = [
+    "tendermint_lightclient",
+]
+resolver = "2"
