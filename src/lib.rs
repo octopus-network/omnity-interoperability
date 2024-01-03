@@ -32,8 +32,8 @@ impl Clock for SubnetClock {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("IO request {0} couldn't be executed.")]
-    Io(String),
+    #[error("Rpc {0} onto {1} couldn't be executed due to {2}.")]
+    Rpc(&'static str, String, String),
 }
 
 impl<C: Clock> Port<C> {
@@ -61,8 +61,8 @@ impl<C: Clock> Port<C> {
             primary_rpcs,
             trusted_state,
             options,
-            verifier: Default::default(),
             clock,
+            verifier: Default::default(),
         }
     }
 
@@ -210,12 +210,6 @@ mod rpc {
         BlockSearch,
         /// Get blockchain info
         Blockchain,
-        /// Broadcast transaction asynchronously
-        BroadcastTxAsync,
-        /// Broadcast transaction synchronously
-        BroadcastTxSync,
-        /// Broadcast transaction commit
-        BroadcastTxCommit,
         /// Get commit info for a block
         Commit,
         /// Get consensus parameters
@@ -240,12 +234,6 @@ mod rpc {
         TxSearch,
         /// Get validator info for a block
         Validators,
-        /// Subscribe to events
-        Subscribe,
-        /// Unsubscribe from events
-        Unsubscribe,
-        /// Broadcast evidence
-        BroadcastEvidence,
     }
 
     impl RpcMethod {
@@ -259,10 +247,6 @@ mod rpc {
                 RpcMethod::BlockResults => "block_results",
                 RpcMethod::BlockSearch => "block_search",
                 RpcMethod::Blockchain => "blockchain",
-                RpcMethod::BroadcastEvidence => "broadcast_evidence",
-                RpcMethod::BroadcastTxAsync => "broadcast_tx_async",
-                RpcMethod::BroadcastTxSync => "broadcast_tx_sync",
-                RpcMethod::BroadcastTxCommit => "broadcast_tx_commit",
                 RpcMethod::Commit => "commit",
                 RpcMethod::ConsensusParams => "consensus_params",
                 RpcMethod::ConsensusState => "consensus_state",
@@ -272,10 +256,8 @@ mod rpc {
                 RpcMethod::Health => "health",
                 RpcMethod::NetInfo => "net_info",
                 RpcMethod::Status => "status",
-                RpcMethod::Subscribe => "subscribe",
                 RpcMethod::Tx => "tx",
                 RpcMethod::TxSearch => "tx_search",
-                RpcMethod::Unsubscribe => "unsubscribe",
                 RpcMethod::Validators => "validators",
             }
         }
@@ -323,7 +305,7 @@ mod rpc {
         };
         let response = http_request(args)
             .await
-            .map_err(|(_, e)| super::Error::Io(e))?;
+            .map_err(|(_, e)| super::Error::Rpc(method.as_str(), url.to_string(), e))?;
         Ok(())
     }
 
