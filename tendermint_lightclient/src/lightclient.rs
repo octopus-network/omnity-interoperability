@@ -152,14 +152,11 @@ pub(crate) fn acquire() -> Rc<LightClient<SysClock>> {
     })
 }
 
-pub(crate) fn get_state<F, R>(f: F) -> R
+pub(crate) fn try_get_state<F, R>(f: F) -> R
 where
-    F: Fn(&LightBlock) -> R,
+    F: Fn(Option<&LightBlock>) -> R,
 {
-    STATE.with_borrow(|state| {
-        let state = state.as_ref().expect("LightClient not initialized");
-        f(state)
-    })
+    STATE.with_borrow(|state| f(state.as_ref()))
 }
 
 /// start a timer to fetch blocks periodically
@@ -175,6 +172,7 @@ pub(crate) fn start(interval_secs: u64) {
                     ic_cdk::println!("{:?}", e);
                 }
             }
+            STATE.replace(state);
         });
     });
 }

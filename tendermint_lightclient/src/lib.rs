@@ -9,5 +9,5 @@ fn init(chain_id: String, height: u64, trust_period: u64, clock_drift: u64, prim
 /// query the verified block height
 #[ic_cdk::query]
 fn height() -> u64 {
-    lightclient::get_state(|s| s.height().value())
+    lightclient::try_get_state(|s| s.map(|s|s.height().value()).unwrap_or_default())
 }
