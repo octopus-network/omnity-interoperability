@@ -18,7 +18,7 @@ enum RpcEndpoint {
     Commit(Option<Height>),
     Genesis,
     Header(Option<Height>),
-    Validators(Option<Height>, Option<u32>, Option<u8>),
+    Validators(Height, Option<u32>, Option<u8>),
 }
 
 impl RpcEndpoint {
@@ -48,8 +48,8 @@ impl RpcEndpoint {
             RpcEndpoint::Validators(height, page, per_page) => {
                 serde_json::json!({
                     "height": height,
-                    "page": page,
-                    "per_page": per_page,
+                    "page": page.map(|x| x.to_string()),
+                    "per_page": per_page.map(|x| x.to_string()),
                 })
             }
         }
@@ -70,11 +70,17 @@ struct Reply<R> {
     pub jsonrpc: String,
     #[allow(dead_code)]
     pub id: i64,
-    pub error: Option<String>,
+    pub error: Option<ErrorMsg>,
     pub result: Option<R>,
 }
 
-async fn make_rpc<R>(url: impl ToString, endpoint: RpcEndpoint) -> Result<R, RpcError>
+#[derive(Deserialize, Debug)]
+struct ErrorMsg {
+    code: i64,
+    message: String,
+}
+
+async fn make_rpc<R>(url: impl AsRef<str>, endpoint: RpcEndpoint) -> Result<R, RpcError>
 where
     R: DeserializeOwned,
 {
@@ -85,6 +91,7 @@ where
         params: endpoint.params().into(),
     };
     let body = serde_json::to_vec(&payload).unwrap();
+    let url = url.as_ref();
     let args = CanisterHttpRequestArgument {
         url: url.to_string(),
         method: HttpMethod::POST,
@@ -111,31 +118,77 @@ where
         return Err(RpcError::Endpoint(
             endpoint.method(),
             url.to_string(),
-            reply.error.unwrap(),
+            reply.error.map(|e| e.message).unwrap(),
         ));
     }
     return Ok(reply.result.unwrap());
 }
 
-pub(crate) async fn fetch_signed_header(
-    url: impl ToString,
-    height: Option<Height>,
-) -> Result<SignedHeader, RpcError> {
-    make_rpc(url, RpcEndpoint::Commit(height)).await
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CommitResponse {
+    pub signed_header: SignedHeader,
+    pub canonical: bool,
 }
 
-pub(crate) async fn fetch_validator_set() {}
-
-// TODO fetch the block
-pub(crate) async fn fetch_block(
-    rpcs: &[String],
+pub(crate) async fn fetch_signed_header(
+    url: &str,
     height: Option<Height>,
-) -> Result<LightBlock, RpcError> {
-    ic_cdk::println!("Fetching block at {:?} from {:?}.", height, rpcs);
-    // rpc::fetch_signed_header(rpcs, height).await
-    Err(RpcError::Io(
-        "fetch_block",
-        "rpcs".to_string(),
-        "height".to_string(),
-    ))
+) -> Result<SignedHeader, RpcError> {
+    let commit = make_rpc::<CommitResponse>(url, RpcEndpoint::Commit(height)).await?;
+    Ok(commit.signed_header)
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ValidatorResponse {
+    pub block_height: Height,
+    pub validators: Vec<Validator>,
+    pub total: String,
+}
+
+pub(crate) async fn fetch_validator_set(
+    url: &str,
+    height: Height,
+    proposer: Option<ValidatorAddress>,
+) -> Result<ValidatorSet, RpcError> {
+    let mut validators = Vec::new();
+    let mut page = 1;
+    let per_page = 30;
+    loop {
+        let v = make_rpc::<ValidatorResponse>(
+            url,
+            RpcEndpoint::Validators(height, Some(page), Some(per_page)),
+        )
+        .await?;
+        validators.extend(v.validators);
+        let total = v
+            .total
+            .parse::<usize>()
+            .map_err(|e| RpcError::Decode("validators", url.to_string(), e.to_string()))?;
+        if validators.len() == total {
+            break;
+        }
+        page += 1;
+    }
+    let validators = match proposer {
+        Some(addr) => ValidatorSet::with_proposer(validators, addr)
+            .map_err(|e| RpcError::Decode("validators", url.to_string(), e.to_string()))?,
+        None => ValidatorSet::without_proposer(validators),
+    };
+    Ok(validators)
+}
+
+// TODO if we would like to make an RPC from canister, we'd better take care of the networking issues
+pub(crate) async fn fetch_block(rpc: &str, height: Option<Height>) -> Result<LightBlock, RpcError> {
+    let signed_header = fetch_signed_header(rpc, height).await?;
+    let at = signed_header.header.height;
+    let proposer = signed_header.header.proposer_address;
+    let validator_set = fetch_validator_set(rpc, at, Some(proposer)).await?;
+    let next_validator_set = fetch_validator_set(rpc, at.increment(), None).await?;
+    let light_block = LightBlock::new(
+        signed_header,
+        validator_set,
+        next_validator_set,
+        PeerId::new([0u8; 20]),
+    );
+    Ok(light_block)
 }

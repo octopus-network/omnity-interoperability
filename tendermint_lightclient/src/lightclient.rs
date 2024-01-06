@@ -4,6 +4,7 @@ use tm_verifier::{options::Options, types::*, ProdVerifier, Verdict, Verifier};
 
 thread_local! {
     static CLIENT: RefCell<Option<Rc<LightClient<SysClock>>>> = RefCell::new(None);
+    static STATE: RefCell<Option<LightBlock>> = RefCell::new(None);
 }
 
 pub trait Clock: Send + Sync {
@@ -21,8 +22,8 @@ impl Clock for SysClock {
 
 pub struct LightClient<C: Clock> {
     pub chain_id: String,
-    pub primary_rpcs: Vec<String>,
-    pub init_trusted_state: LightBlock,
+    pub primary_rpc: String,
+    pub init_trusted_height: Height,
     pub options: Options,
     pub verifier: ProdVerifier,
     pub clock: C,
@@ -31,8 +32,8 @@ pub struct LightClient<C: Clock> {
 impl<C: Clock> LightClient<C> {
     fn setup(
         chain_id: String,
-        primary_rpcs: Vec<String>,
-        init_trusted_state: LightBlock,
+        primary_rpc: String,
+        init_trusted_height: Height,
         trust_threshold: TrustThreshold,
         trusting_period: Duration,
         clock_drift: Duration,
@@ -45,75 +46,104 @@ impl<C: Clock> LightClient<C> {
         };
         LightClient {
             chain_id,
-            primary_rpcs,
-            init_trusted_state,
+            primary_rpc,
+            init_trusted_height,
             options,
             clock,
             verifier: Default::default(),
         }
     }
 
-    // TODO unit-tests friendly: use a seperate IO interface
-    // TODO verify the mandatory blocks only
-    async fn verify_to_target(&self, target: Height) -> Result<Height, RpcError> {
-        // let height = self.trusted_state.height();
-        // let recent_block = rpc::fetch_block(&self.primary_rpcs, None).await?;
-        // if height >= recent_block.height() {
-        //     return Ok(height);
-        // }
-        // // TODO verify the mandatory blocks using bisection
-        // let unverified = recent_block;
-        // let verdict = self.verifier.verify_update_header(
-        //     unverified.as_untrusted_state(),
-        //     self.trusted_state.as_trusted_state(),
-        //     &self.options,
-        //     self.clock.now(),
-        // );
-        // match verdict {
-        //     Verdict::Success => {
-        //         //self.trusted_state = unverified;
-        //         // TODO
-        //     }
-        //     _ => {
-        //         ic_cdk::println!(
-        //             "Verification failed at {:?}: {:?}.",
-        //             unverified.height(),
-        //             verdict
-        //         );
-        //     }
-        // }
-        Ok(target)
+    async fn verify_to_target(
+        &self,
+        target: Height,
+        state: &mut Option<LightBlock>,
+        mandatory_blocks: Vec<LightBlock>,
+    ) -> Result<(), RpcError> {
+        let mut current_state = state.take().expect("LightClient not initialized");
+        if current_state.height() >= target {
+            state.replace(current_state);
+            return Ok(());
+        }
+        for untrusted in mandatory_blocks {
+            let verdict = self.verifier.verify_update_header(
+                untrusted.as_untrusted_state(),
+                current_state.as_trusted_state(),
+                &self.options,
+                self.clock.now(),
+            );
+            match verdict {
+                Verdict::Success => {
+                    current_state = untrusted;
+                }
+                _ => {
+                    ic_cdk::println!(
+                        "Verification failed at {:?}: {:?}.",
+                        untrusted.height(),
+                        verdict
+                    );
+                    break;
+                }
+            }
+        }
+        state.replace(current_state);
+        Ok(())
     }
 
-    async fn verify_to_highest(&self) -> Result<Height, RpcError> {
-        let recent_block = rpc::fetch_block(&self.primary_rpcs, None).await?;
-        self.verify_to_target(recent_block.height()).await
+    // TODO if we would like to pull blocks from RPC from canister
+    async fn collect_mandatory_blocks(&self, _target: Height, _current: Height) -> Vec<LightBlock> {
+        vec![]
+    }
+
+    async fn verify_to_highest(
+        &self,
+        target: Height,
+        state: &mut Option<LightBlock>,
+    ) -> Result<(), RpcError> {
+        let mandatory_blocks = self
+            .collect_mandatory_blocks(
+                target,
+                state.as_ref().expect("already initialized").height(),
+            )
+            .await;
+        self.verify_to_target(target, state, mandatory_blocks).await
     }
 }
 
-// TODO rebind if something bad happened on initialization, e.g. couldn't fetch the `init_trust_state`
 /// bind a COSMOS chain instance with config on initialization
 pub(crate) fn bind(
     chain_id: String,
-    primary_rpcs: Vec<String>,
-    height: i64,
-    trust_threshold: (u64, u64),
+    height: u64,
     trust_period: u64,
     clock_drift: u64,
+    primary_rpc: String,
 ) {
+    CLIENT.with_borrow_mut(|client| {
+        *client = Some(Rc::new(LightClient::<SysClock>::setup(
+            chain_id,
+            primary_rpc,
+            height.try_into().unwrap(),
+            TrustThreshold::ONE_THIRD,
+            Duration::from_secs(trust_period),
+            Duration::from_secs(clock_drift),
+            SysClock {},
+        )));
+    });
+}
+
+pub(crate) fn activate() {
+    if STATE.with_borrow(|state| state.is_some()) {
+        return;
+    }
     ic_cdk::spawn(async move {
-        let height = height.try_into().ok();
-        let state = rpc::fetch_block(&primary_rpcs, height).await.unwrap();
-        CLIENT.with_borrow_mut(|client| {
-            *client = Some(Rc::new(LightClient::<SysClock>::setup(
-                chain_id,
-                primary_rpcs,
-                state,
-                TrustThreshold::new(trust_threshold.0, trust_threshold.1).unwrap(),
-                Duration::from_secs(trust_period),
-                Duration::from_secs(clock_drift),
-                SysClock {},
-            )));
+        let client = acquire();
+        let height = client.init_trusted_height;
+        let block = rpc::fetch_block(&client.primary_rpc, Some(height))
+            .await
+            .inspect_err(|e| ic_cdk::println!("{:?}", e))
+            .expect("initialization failed");
+        STATE.with_borrow_mut(|state| {
+            *state = Some(block);
         });
     });
 }
@@ -127,21 +157,27 @@ pub(crate) fn acquire() -> Rc<LightClient<SysClock>> {
     })
 }
 
+pub(crate) fn try_get_state<F, R>(f: F) -> R
+where
+    F: Fn(Option<&LightBlock>) -> R,
+{
+    STATE.with_borrow(|state| f(state.as_ref()))
+}
+
 /// start a timer to fetch blocks periodically
-///
-/// this is a little bit weird, the state could be only accessed through TLS while the `http_request` is an async function,
-/// so we have to sperate the storage from lightclient itself
 pub(crate) fn start(interval_secs: u64) {
     let interval = Duration::from_secs(interval_secs);
     ic_cdk::println!("Starting to fetch blocks with {interval:?}.");
     ic_cdk_timers::set_timer_interval(interval, || {
         ic_cdk::spawn(async move {
             let client = acquire();
-            match client.verify_to_highest().await {
-                Err(e) => ic_cdk::println!("{:?}", e),
-                // TODO
-                Ok(n) => {}
+            let mut state = STATE.take();
+            if let Ok(block) = rpc::fetch_block(&client.primary_rpc, None).await {
+                if let Err(e) = client.verify_to_highest(block.height(), &mut state).await {
+                    ic_cdk::println!("{:?}", e);
+                }
             }
+            STATE.replace(state);
         });
     });
 }
