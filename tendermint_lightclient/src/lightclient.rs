@@ -110,7 +110,6 @@ impl<C: Clock> LightClient<C> {
     }
 }
 
-// TODO rebind if something bad happened on initialization
 /// bind a COSMOS chain instance with config on initialization
 pub(crate) fn bind(
     chain_id: String,
@@ -119,26 +118,32 @@ pub(crate) fn bind(
     clock_drift: u64,
     primary_rpc: String,
 ) {
-    // FIXME now we know that we can't use await in init function
+    CLIENT.with_borrow_mut(|client| {
+        *client = Some(Rc::new(LightClient::<SysClock>::setup(
+            chain_id,
+            primary_rpc,
+            height.try_into().unwrap(),
+            TrustThreshold::ONE_THIRD,
+            Duration::from_secs(trust_period),
+            Duration::from_secs(clock_drift),
+            SysClock {},
+        )));
+    });
+}
+
+pub(crate) fn activate() {
+    if STATE.with_borrow(|state| state.is_some()) {
+        return;
+    }
     ic_cdk::spawn(async move {
-        let height = height.try_into().ok();
-        let block = rpc::fetch_block(&primary_rpc, height)
+        let client = acquire();
+        let height = client.init_trusted_height;
+        let block = rpc::fetch_block(&client.primary_rpc, Some(height))
             .await
             .inspect_err(|e| ic_cdk::println!("{:?}", e))
             .expect("initialization failed");
         STATE.with_borrow_mut(|state| {
             *state = Some(block);
-        });
-        CLIENT.with_borrow_mut(|client| {
-            *client = Some(Rc::new(LightClient::<SysClock>::setup(
-                chain_id,
-                primary_rpc,
-                height.unwrap(),
-                TrustThreshold::ONE_THIRD,
-                Duration::from_secs(trust_period),
-                Duration::from_secs(clock_drift),
-                SysClock {},
-            )));
         });
     });
 }

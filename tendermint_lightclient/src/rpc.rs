@@ -70,8 +70,14 @@ struct Reply<R> {
     pub jsonrpc: String,
     #[allow(dead_code)]
     pub id: i64,
-    pub error: Option<String>,
+    pub error: Option<ErrorMsg>,
     pub result: Option<R>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ErrorMsg {
+    code: i64,
+    message: String,
 }
 
 async fn make_rpc<R>(url: impl AsRef<str>, endpoint: RpcEndpoint) -> Result<R, RpcError>
@@ -112,7 +118,7 @@ where
         return Err(RpcError::Endpoint(
             endpoint.method(),
             url.to_string(),
-            reply.error.unwrap(),
+            reply.error.map(|e| e.message).unwrap(),
         ));
     }
     return Ok(reply.result.unwrap());
