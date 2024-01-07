@@ -16,9 +16,7 @@ pub enum RpcError {
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 enum RpcEndpoint {
     Commit(Option<Height>),
-    Genesis,
-    Header(Option<Height>),
-    Validators(Height, Option<u32>, Option<u8>),
+    Validators(Height, u32, u8),
 }
 
 impl RpcEndpoint {
@@ -26,8 +24,6 @@ impl RpcEndpoint {
     fn method(&self) -> &'static str {
         match self {
             RpcEndpoint::Commit(_) => "commit",
-            RpcEndpoint::Genesis => "genesis",
-            RpcEndpoint::Header(_) => "header",
             RpcEndpoint::Validators(..) => "validators",
         }
     }
@@ -35,22 +31,10 @@ impl RpcEndpoint {
     pub fn params(&self) -> impl Into<serde_json::Value> {
         match self {
             RpcEndpoint::Commit(height) => {
-                serde_json::json!({
-                    "height": height
-                })
-            }
-            RpcEndpoint::Genesis => serde_json::Value::Null,
-            RpcEndpoint::Header(height) => {
-                serde_json::json!({
-                    "height": height
-                })
+                serde_json::json!([height.map(|x| x.to_string())])
             }
             RpcEndpoint::Validators(height, page, per_page) => {
-                serde_json::json!({
-                    "height": height,
-                    "page": page.map(|x| x.to_string()),
-                    "per_page": per_page.map(|x| x.to_string()),
-                })
+                serde_json::json!([height.to_string(), page.to_string(), per_page.to_string(),])
             }
         }
     }
@@ -76,6 +60,7 @@ struct Reply<R> {
 
 #[derive(Deserialize, Debug)]
 struct ErrorMsg {
+    #[allow(dead_code)]
     code: i64,
     message: String,
 }
@@ -154,11 +139,8 @@ pub(crate) async fn fetch_validator_set(
     let mut page = 1;
     let per_page = 30;
     loop {
-        let v = make_rpc::<ValidatorResponse>(
-            url,
-            RpcEndpoint::Validators(height, Some(page), Some(per_page)),
-        )
-        .await?;
+        let v = make_rpc::<ValidatorResponse>(url, RpcEndpoint::Validators(height, page, per_page))
+            .await?;
         validators.extend(v.validators);
         let total = v
             .total
