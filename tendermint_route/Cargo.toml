@@ -1,5 +1,5 @@
 [package]
-name = "tendermint_lightclient_canister"
+name = "tendermint_route_canister"
 version = "0.1.0"
 edition = "2021"
 

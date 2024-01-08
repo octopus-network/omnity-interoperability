@@ -1,8 +1,13 @@
 {
   "canisters": {
-    "tendermint_lightclient_canister": {
-      "candid": "tendermint_lightclient/tendermint_lightclient_canister.did",
-      "package": "tendermint_lightclient_canister",
+    "tendermint_route_canister": {
+      "candid": "tendermint_route/tendermint_route_canister.did",
+      "package": "tendermint_route_canister",
+      "type": "rust"
+    },
+    "near_route_canister": {
+      "candid": "near_route/near_route_canister.did",
+      "package": "near_route_canister",
       "type": "rust"
     }
   },

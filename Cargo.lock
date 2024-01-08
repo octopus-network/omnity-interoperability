@@ -732,6 +732,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "523dc4f511e55ab87b694dc30d0f820d60906ef06413f93d4d7a1385599cc149"
 
 [[package]]
+name = "near_route_canister"
+version = "0.1.0"
+dependencies = [
+ "candid",
+ "ic-cdk",
+ "ic-cdk-timers",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "new_debug_unreachable"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1305,7 +1317,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tendermint_lightclient_canister"
+name = "tendermint_route_canister"
 version = "0.1.0"
 dependencies = [
  "candid",

@@ -1,5 +1,6 @@
 [workspace]
 members = [
-    "tendermint_lightclient",
+    "near_route",
+    "tendermint_route",
 ]
 resolver = "2"

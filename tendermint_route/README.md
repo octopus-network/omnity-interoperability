@@ -1,4 +1,4 @@
-# Tendermint Lightclient Canister
+# Tendermint Route Canister
 
 
 Build & Deploy & Activate
