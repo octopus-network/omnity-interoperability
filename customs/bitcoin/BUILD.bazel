@@ -1,0 +1,162 @@
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+load("//bazel:canisters.bzl", "rust_canister")
+load("//bazel:defs.bzl", "rust_ic_test")
+
+package(default_visibility = ["//visibility:public"])
+
+LIB_DEPS = [
+    "//packages/icrc-ledger-client-cdk:icrc_ledger_client_cdk",
+    "//packages/icrc-ledger-types:icrc_ledger_types",
+    "//rs/crypto/extended_bip32",
+    "//rs/crypto/getrandom_for_wasm",
+    "//rs/crypto/sha2",
+    "//rs/rust_canisters/canister_log",
+    "//rs/rosetta-api/icrc1/ledger",
+    "//rs/rosetta-api/ledger_core",
+    "//rs/bitcoin/ckbtc/kyt",
+    "//rs/types/base_types",
+    "//rs/types/ic00_types",
+    "//rs/utils/ensure",
+    "@crate_index//:bech32",
+    "@crate_index//:ic0",
+    "@crate_index//:ic-btc-interface",
+    "@crate_index//:ic-metrics-encoder",
+    "@crate_index//:ic-stable-structures",
+    "@crate_index//:bs58",
+    "@crate_index//:ciborium",
+    "@crate_index//:candid",
+    "@crate_index//:hex",
+    "@crate_index//:ic-cdk",
+    "@crate_index//:lazy_static",
+    "@crate_index//:minicbor",
+    "@crate_index//:num-traits",
+    "@crate_index//:ripemd",
+    "@crate_index//:scopeguard",
+    "@crate_index//:serde",
+    "@crate_index//:serde_bytes",
+]
+
+LIB_PROC_MACRO_DEPS = [
+    "@crate_index//:async-trait",
+    "@crate_index//:ic-cdk-macros",
+    "@crate_index//:minicbor-derive",
+]
+
+rust_library(
+    name = "ckbtc_minter_lib",
+    srcs = glob(
+        ["src/**"],
+        exclude = ["src/main.rs"],
+    ),
+    crate_name = "ic_ckbtc_minter",
+    proc_macro_deps = LIB_PROC_MACRO_DEPS,
+    version = "0.1.0",
+    deps = LIB_DEPS,
+)
+
+alias(
+    name = "minter",
+    actual = ":ckbtc_minter_lib",
+)
+
+[
+    rust_canister(
+        name = name,
+        srcs = ["src/main.rs"],
+        compile_data = [":ckbtc_minter.did"],
+        crate_features = features,
+        crate_name = "ic_ckbtc_minter_canister",
+        proc_macro_deps = [
+            "@crate_index//:ic-cdk-macros",
+        ],
+        rustc_env = {
+            "CKBTC_MINTER_DID_PATH": "$(execpath :ckbtc_minter.did)",
+        },
+        service_file = ":ckbtc_minter.did",
+        deps = [
+            ":ckbtc_minter_lib",
+            "//packages/icrc-ledger-types:icrc_ledger_types",
+            "//rs/crypto/getrandom_for_wasm",
+            "//rs/rust_canisters/canister_log",
+            "//rs/rust_canisters/http_types",
+            "@crate_index//:candid",
+            "@crate_index//:ic-cdk",
+            "@crate_index//:ic-metrics-encoder",
+            "@crate_index//:serde_json",
+        ],
+    )
+    for (name, features) in [
+        # Production version without debug assertions.
+        (
+            "ckbtc_minter",
+            [],
+        ),
+        # Test version with internal consistency checks.
+        (
+            "ckbtc_minter_debug",
+            ["self_check"],
+        ),
+    ]
+]
+
+rust_test(
+    name = "ckbtc_minter_lib_unit_tests",
+    crate = ":ckbtc_minter_lib",
+    deps = [
+        "@crate_index//:bitcoin",
+        "@crate_index//:proptest",
+        "@crate_index//:simple_asn1",
+    ],
+)
+
+rust_test(
+    name = "ckbtc_unit_tests",
+    crate = ":_wasm_ckbtc_minter",
+    data = [":ckbtc_minter.did"],
+    env = {
+        "CARGO_MANIFEST_DIR": "rs/bitcoin/ckbtc/minter",
+    },
+    deps = [
+        "@crate_index//:candid_parser",
+    ],
+)
+
+# integration tests defined in ckbtc minter tests/
+rust_ic_test(
+    name = "ckbtc_minter_tests",
+    srcs = ["tests/tests.rs"],
+    data = [
+        ":ckbtc_minter_debug.wasm",
+        "//rs/bitcoin/ckbtc/kyt:kyt_canister.wasm",
+        "//rs/bitcoin/mock:bitcoin_canister_mock.wasm",
+        "//rs/rosetta-api/icrc1/ledger:ledger_canister.wasm",
+    ],
+    env = {
+        "CARGO_MANIFEST_DIR": "rs/bitcoin/ckbtc/minter",
+        "IC_CKBTC_MINTER_WASM_PATH": "$(rootpath :ckbtc_minter_debug.wasm)",
+        "IC_ICRC1_LEDGER_WASM_PATH": "$(rootpath //rs/rosetta-api/icrc1/ledger:ledger_canister.wasm)",
+        "IC_CKBTC_KYT_WASM_PATH": "$(rootpath //rs/bitcoin/ckbtc/kyt:kyt_canister.wasm)",
+        "IC_BITCOIN_CANISTER_MOCK_WASM_PATH": "$(rootpath //rs/bitcoin/mock:bitcoin_canister_mock.wasm)",
+    },
+    deps = [
+        ":ckbtc_minter_lib",
+        "//packages/icrc-ledger-types:icrc_ledger_types",
+        "//rs/bitcoin/ckbtc/kyt",
+        "//rs/bitcoin/mock",
+        "//rs/config",
+        "//rs/rosetta-api/icrc1",
+        "//rs/rosetta-api/icrc1/ledger",
+        "//rs/rust_canisters/canister_test",
+        "//rs/rust_canisters/http_types",
+        "//rs/state_machine_tests",
+        "//rs/test_utilities/load_wasm",
+        "//rs/types/base_types",
+        "@crate_index//:assert_matches",
+        "@crate_index//:bitcoin",
+        "@crate_index//:candid",
+        "@crate_index//:ic-btc-interface",
+        "@crate_index//:minicbor",
+        "@crate_index//:serde_bytes",
+        "@crate_index//:serde_json",
+    ],
+)
