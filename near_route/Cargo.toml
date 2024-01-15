@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
+near-client = { git = "https://github.com/octopus-network/near-light-client-rs.git", package = "near-light-client", branch = "main", default-features = false }
 ic-cdk-timers = "0.1"
 thiserror = { workspace = true }
 serde_json = { workspace = true }
