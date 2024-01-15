@@ -9,6 +9,11 @@
       "candid": "near_route/near_route_canister.did",
       "package": "near_route_canister",
       "type": "rust"
+    },
+    "hub_canister": {
+      "candid": "hub/hub_canister.did",
+      "package": "hub",
+      "type": "rust"
     }
   },
   "defaults": {

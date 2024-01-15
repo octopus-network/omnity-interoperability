@@ -7,10 +7,10 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-candid = "0.8"
-ic-cdk = "0.7"
+candid ={ workspace = true }
+ic-cdk = { workspace = true }
 ic-cdk-timers = "0.1"
 tm-verifier = { version = "0.34", features = ["rust-crypto"], default-features = false, package = "tendermint-light-client-verifier" }
-thiserror = { version = "1", default-features = false }
-serde_json = { version = "1", default-features = false }
-serde = { version = "1", default-features = false }
+thiserror = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
