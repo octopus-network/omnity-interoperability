@@ -1,4 +1,4 @@
-use super::{get_btc_address::init_ecdsa_public_key, get_withdrawal_account::compute_subaccount};
+use super::get_btc_address::init_ecdsa_public_key;
 use crate::logs::P0;
 use crate::logs::P1;
 use crate::management::fetch_withdrawal_alerts;
@@ -11,7 +11,6 @@ use crate::{
     state::{self, mutate_state, read_state, RetrieveBtcRequest},
 };
 use candid::{CandidType, Deserialize, Nat, Principal};
-use ic_base_types::PrincipalId;
 use ic_canister_log::log;
 use ic_ckbtc_kyt::Error as KytError;
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
@@ -430,11 +429,11 @@ async fn balance_of(user: Principal) -> Result<u64, RetrieveBtcError> {
         ledger_canister_id: read_state(|s| s.ledger_id.get().into()),
     };
     let minter = ic_cdk::id();
-    let subaccount = compute_subaccount(PrincipalId(user), 0);
+    // let subaccount = compute_subaccount(PrincipalId(user), 0);
     let result = client
         .balance_of(Account {
             owner: minter,
-            subaccount: Some(subaccount),
+            subaccount: None,
         })
         .await
         .map_err(|(code, msg)| {
@@ -454,10 +453,10 @@ async fn burn_ckbtcs(user: Principal, amount: u64, memo: Memo) -> Result<u64, Re
         ledger_canister_id: read_state(|s| s.ledger_id.get().into()),
     };
     let minter = ic_cdk::id();
-    let from_subaccount = compute_subaccount(PrincipalId(user), 0);
+    // let from_subaccount = compute_subaccount(PrincipalId(user), 0);
     let result = client
         .transfer(TransferArg {
-            from_subaccount: Some(from_subaccount),
+            from_subaccount: None,
             to: Account {
                 owner: minter,
                 subaccount: None,

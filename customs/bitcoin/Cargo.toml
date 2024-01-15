@@ -46,6 +46,7 @@ serde_json = { workspace = true }
 [dev-dependencies]
 assert_matches = "1.5.0"
 bitcoin = "0.28.1"
+candid_parser = { workspace = true }
 canister-test = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-config = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-icrc1-ledger = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }

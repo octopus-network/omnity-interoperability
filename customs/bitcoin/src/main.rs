@@ -135,12 +135,6 @@ async fn get_btc_address(args: GetBtcAddressArgs) -> String {
 }
 
 #[update]
-async fn get_withdrawal_account() -> Account {
-    check_anonymous_caller();
-    updates::get_withdrawal_account::get_withdrawal_account().await
-}
-
-#[update]
 async fn retrieve_btc(args: RetrieveBtcArgs) -> Result<RetrieveBtcOk, RetrieveBtcError> {
     check_anonymous_caller();
     check_postcondition(updates::retrieve_btc::retrieve_btc(args).await)
