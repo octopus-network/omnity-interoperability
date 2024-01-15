@@ -12,7 +12,7 @@ use bitcoin_custom::state::{
 };
 use bitcoin_custom::tasks::{schedule_now, TaskType};
 use bitcoin_custom::updates::retrieve_btc::{
-    RetrieveBtcArgs, RetrieveBtcError, RetrieveBtcOk, RetrieveBtcWithApprovalArgs,
+    RetrieveBtcOk, RetrieveBtcWithApprovalArgs,
     RetrieveBtcWithApprovalError,
 };
 use bitcoin_custom::updates::{
@@ -132,12 +132,6 @@ fn post_upgrade(minter_arg: Option<MinterArg>) {
 async fn get_btc_address(args: GetBtcAddressArgs) -> String {
     check_anonymous_caller();
     updates::get_btc_address::get_btc_address(args).await
-}
-
-#[update]
-async fn retrieve_btc(args: RetrieveBtcArgs) -> Result<RetrieveBtcOk, RetrieveBtcError> {
-    check_anonymous_caller();
-    check_postcondition(updates::retrieve_btc::retrieve_btc(args).await)
 }
 
 #[update]
