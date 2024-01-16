@@ -20,6 +20,7 @@ use std::time::Duration;
 pub mod address;
 pub mod blocklist;
 pub mod dashboard;
+pub mod destination;
 pub mod guard;
 pub mod lifecycle;
 pub mod logs;

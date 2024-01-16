@@ -1,6 +1,7 @@
 //! Utilities to derive, display, and parse bitcoin addresses.
 
-use crate::ECDSAPublicKey;
+use crate::destination::Destination;
+use crate::{destination, ECDSAPublicKey};
 use bech32::Variant;
 use ic_btc_interface::Network;
 use ic_crypto_extended_bip32::{DerivationIndex, DerivationPath, ExtendedBip32DerivationOutput};
@@ -98,6 +99,15 @@ pub fn derivation_path(account: &Account) -> Vec<ByteBuf> {
     ]
 }
 
+pub fn derivation_path_by_dest(destination: &Destination) -> Vec<ByteBuf> {
+    const SCHEMA_V1: u8 = 1;
+    vec![
+        ByteBuf::from(vec![SCHEMA_V1]),
+        ByteBuf::from(destination.target_chain_id.as_bytes()),
+        ByteBuf::from(destination.receiver.as_bytes()),
+    ]
+}
+
 /// Returns a valid extended BIP-32 derivation path from an Account (Principal + subaccount)
 pub fn derive_public_key(ecdsa_public_key: &ECDSAPublicKey, account: &Account) -> ECDSAPublicKey {
     let ExtendedBip32DerivationOutput {
@@ -117,16 +127,37 @@ pub fn derive_public_key(ecdsa_public_key: &ECDSAPublicKey, account: &Account) -
     }
 }
 
-/// Derives a Bitcoin address for the specified account and converts it into
+pub fn derive_public_key_by_dest(
+    ecdsa_public_key: &ECDSAPublicKey,
+    destination: &Destination,
+) -> ECDSAPublicKey {
+    let ExtendedBip32DerivationOutput {
+        derived_public_key,
+        derived_chain_code,
+    } = DerivationPath::new(
+        derivation_path_by_dest(destination)
+            .into_iter()
+            .map(|x| DerivationIndex(x.into_vec()))
+            .collect(),
+    )
+    .public_key_derivation(&ecdsa_public_key.public_key, &ecdsa_public_key.chain_code)
+    .expect("bug: failed to derive an ECDSA public key from valid inputs");
+    ECDSAPublicKey {
+        public_key: derived_public_key,
+        chain_code: derived_chain_code,
+    }
+}
+
+/// Derives a Bitcoin address for the specified destination and converts it into
 /// bech32 textual representation.
-pub fn account_to_p2wpkh_address(
+pub fn destination_to_p2wpkh_address(
     network: Network,
     ecdsa_public_key: &ECDSAPublicKey,
-    account: &Account,
+    destination: &Destination,
 ) -> String {
     network_and_public_key_to_p2wpkh(
         network,
-        &derive_public_key(ecdsa_public_key, account).public_key,
+        &derive_public_key_by_dest(ecdsa_public_key, destination).public_key,
     )
 }
 

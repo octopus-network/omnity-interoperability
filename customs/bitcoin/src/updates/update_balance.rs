@@ -1,3 +1,4 @@
+use crate::destination::{Destination, self};
 use crate::logs::{P0, P1};
 use crate::memo::MintMemo;
 use crate::state::{mutate_state, read_state, UtxoCheckStatus};
@@ -26,11 +27,8 @@ use crate::{
 /// The argument of the [update_balance] endpoint.
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UpdateBalanceArgs {
-    /// The owner of the account on the ledger.
-    /// The minter uses the caller principal if the owner is None.
-    pub owner: Option<Principal>,
-    /// The desired subaccount on the ledger, if any.
-    pub subaccount: Option<Subaccount>,
+    pub target_chain_id: String,
+    pub receiver: String,
 }
 
 /// The outcome of UTXO processing.
@@ -128,9 +126,6 @@ pub async fn update_balance(
     args: UpdateBalanceArgs,
 ) -> Result<Vec<UtxoStatus>, UpdateBalanceError> {
     let caller = ic_cdk::caller();
-    if args.owner.unwrap_or(caller) == ic_cdk::id() {
-        ic_cdk::trap("cannot update minter's balance");
-    }
 
     state::read_state(|s| s.mode.is_deposit_available_for(&caller))
         .map_err(UpdateBalanceError::TemporarilyUnavailable)?;
@@ -138,13 +133,13 @@ pub async fn update_balance(
     init_ecdsa_public_key().await;
     let _guard = balance_update_guard(args.owner.unwrap_or(caller))?;
 
-    let caller_account = Account {
-        owner: args.owner.unwrap_or(caller),
-        subaccount: args.subaccount,
+    let destination = Destination {
+        target_chain_id: args.target_chain_id,
+        receiver: args.receiver,
     };
 
     let address = state::read_state(|s| {
-        get_btc_address::account_to_p2wpkh_address_from_state(s, &caller_account)
+        get_btc_address::destination_to_p2wpkh_address_from_state(s, &caller_account)
     });
 
     let (btc_network, min_confirmations) =

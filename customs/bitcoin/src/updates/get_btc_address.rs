@@ -1,42 +1,43 @@
 use crate::{
+    destination::Destination,
     logs::P1,
     state::{mutate_state, read_state, CkBtcMinterState},
     ECDSAPublicKey,
 };
-use candid::{CandidType, Deserialize, Principal};
+use candid::{CandidType, Deserialize};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
-use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GetBtcAddressArgs {
-    pub owner: Option<Principal>,
-    pub subaccount: Option<Subaccount>,
+    pub target_chain_id: String,
+    pub receiver: String,
 }
 
 /// PRECONDITION: s.ecdsa_public_key.is_some()
-pub fn account_to_p2wpkh_address_from_state(s: &CkBtcMinterState, account: &Account) -> String {
-    crate::address::account_to_p2wpkh_address(
+pub fn destination_to_p2wpkh_address_from_state(
+    s: &CkBtcMinterState,
+    destination: &Destination,
+) -> String {
+    crate::address::destination_to_p2wpkh_address(
         s.btc_network,
         s.ecdsa_public_key
             .as_ref()
             .expect("bug: the ECDSA public key must be initialized"),
-        account,
+        destination,
     )
 }
 
 pub async fn get_btc_address(args: GetBtcAddressArgs) -> String {
-    let owner = args.owner.unwrap_or_else(ic_cdk::caller);
-
     init_ecdsa_public_key().await;
 
     read_state(|s| {
-        account_to_p2wpkh_address_from_state(
+        destination_to_p2wpkh_address_from_state(
             s,
-            &Account {
-                owner,
-                subaccount: args.subaccount,
+            &&Destination {
+                target_chain_id: args.target_chain_id,
+                receiver: args.receiver,
             },
         )
     })
