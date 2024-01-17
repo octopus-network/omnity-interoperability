@@ -1,4 +1,4 @@
-use crate::destination::{Destination, self};
+use crate::destination::Destination;
 use crate::logs::{P0, P1};
 use crate::memo::MintMemo;
 use crate::state::{mutate_state, read_state, UtxoCheckStatus};
@@ -8,7 +8,7 @@ use ic_btc_interface::{GetUtxosError, GetUtxosResponse, OutPoint, Utxo};
 use ic_canister_log::log;
 use ic_ckbtc_kyt::Error as KytError;
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
-use icrc_ledger_types::icrc1::account::{Account, Subaccount};
+use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::Memo;
 use icrc_ledger_types::icrc1::transfer::{TransferArg, TransferError};
 use num_traits::ToPrimitive;
@@ -127,7 +127,7 @@ pub async fn update_balance(
 ) -> Result<Vec<UtxoStatus>, UpdateBalanceError> {
     let caller = ic_cdk::caller();
 
-    state::read_state(|s| s.mode.is_deposit_available_for(&caller))
+    state::read_state(|s| s.mode.is_transport_available_for())
         .map_err(UpdateBalanceError::TemporarilyUnavailable)?;
 
     init_ecdsa_public_key().await;

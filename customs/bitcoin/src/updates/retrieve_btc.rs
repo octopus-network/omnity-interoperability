@@ -140,7 +140,7 @@ pub async fn retrieve_btc_with_approval(
 ) -> Result<RetrieveBtcOk, RetrieveBtcWithApprovalError> {
     let caller = ic_cdk::caller();
 
-    state::read_state(|s| s.mode.is_withdrawal_available_for(&caller))
+    state::read_state(|s| s.mode.is_redeem_available_for())
         .map_err(RetrieveBtcWithApprovalError::TemporarilyUnavailable)?;
 
     if crate::blocklist::BTC_ADDRESS_BLOCKLIST

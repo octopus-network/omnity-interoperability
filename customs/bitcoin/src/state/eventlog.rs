@@ -1,7 +1,7 @@
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::{
-    ChangeOutput, CkBtcMinterState, FinalizedBtcRetrieval, FinalizedStatus, Overdraft,
+    ChangeOutput, CustomState, FinalizedBtcRetrieval, FinalizedStatus, Overdraft,
     RetrieveBtcRequest, SubmittedBtcTransaction, UtxoCheckStatus,
 };
 use crate::state::{ReimburseDepositTask, ReimbursedDeposit, ReimbursementReason};
@@ -188,9 +188,9 @@ pub enum ReplayLogError {
 }
 
 /// Reconstructs the minter state from an event log.
-pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CkBtcMinterState, ReplayLogError> {
+pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, ReplayLogError> {
     let mut state = match events.next() {
-        Some(Event::Init(args)) => CkBtcMinterState::from(args),
+        Some(Event::Init(args)) => CustomState::from(args),
         Some(evt) => {
             return Err(ReplayLogError::InconsistentLog(format!(
                 "The first event is not Init: {:?}",
