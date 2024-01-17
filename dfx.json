@@ -1,16 +1,10 @@
 {
   "canisters": {
-    "tendermint_route_canister": {
-      "candid": "tendermint_route/tendermint_route_canister.did",
-      "package": "tendermint_route_canister",
-      "type": "rust"
-    },
     "near_route_canister": {
-      "candid": "near_route/near_route_canister.did",
+      "candid": "route/near/near_route_canister.did",
       "package": "near_route_canister",
       "type": "rust"
     },
-    
     "hub": {
       "candid": "hub/hub_canister.did",
       "package": "omnity-hub",

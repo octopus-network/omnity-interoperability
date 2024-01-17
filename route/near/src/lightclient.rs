@@ -1,12 +1,21 @@
 pub use near_client::{
-    near_types::{hash::sha256, merkle::merklize, ValidatorStakeView},
+    near_types::{hash::sha256, merkle::merklize},
     types::*,
-    BasicNearLightClient, HeaderVerificationError,
+    BasicNearLightClient, HeaderVerificationError, StateProofVerificationError,
 };
 use std::{cell::RefCell, collections::BTreeMap};
+use thiserror::Error;
 
 thread_local! {
     static STATES: RefCell<BTreeMap<Height, ConsensusState>> = RefCell::new(Default::default());
+}
+
+#[derive(Clone, Debug, Error)]
+pub enum LightClientError {
+    #[error("State verification error: {0:?}")]
+    StateError(StateProofVerificationError),
+    #[error("Header verification error: {0:?}")]
+    HeaderError(HeaderVerificationError),
 }
 
 pub struct DummyLightClient;
@@ -22,25 +31,41 @@ impl BasicNearLightClient for DummyLightClient {
 }
 
 impl DummyLightClient {
-    fn init_or_return(state: ConsensusState) {
+    pub fn init_or_return(state: ConsensusState) {
         STATES.with_borrow_mut(|s| {
             s.entry(state.header.height()).or_insert(state);
         });
     }
 
-    fn accept(&self, header: Header) -> Result<Height, HeaderVerificationError> {
+    pub fn verify_proofs(
+        &self,
+        header: Header,
+        key: &[u8],
+        value: &[u8],
+        proofs: Vec<Vec<u8>>,
+    ) -> Result<(), LightClientError> {
+        let state = self
+            .try_accept_header(header)
+            .map_err(|e| LightClientError::HeaderError(e))?;
+        state
+            .verify_membership(key, value, &proofs)
+            .map_err(|e| LightClientError::StateError(e))
+    }
+
+    fn try_accept_header(&self, header: Header) -> Result<ConsensusState, HeaderVerificationError> {
         let height = header.height();
+        if let Some(state) = self.get_consensus_state(&height) {
+            return Ok(state);
+        }
         let ancestor = self.verify_header(&header)?;
+        let accepted = ConsensusState {
+            current_bps: ancestor.current_bps,
+            header,
+        };
         STATES.with_borrow_mut(|s| {
-            s.insert(
-                height,
-                ConsensusState {
-                    current_bps: ancestor.current_bps,
-                    header,
-                },
-            );
+            s.insert(height, accepted.clone());
         });
-        Ok(height)
+        Ok(accepted)
     }
 
     fn find_nearest_ancestor(&self, header: &Header) -> Option<ConsensusState> {
