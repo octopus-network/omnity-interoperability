@@ -5361,6 +5361,7 @@ dependencies = [
 name = "near_route_canister"
 version = "0.1.0"
 dependencies = [
+ "borsh",
  "candid 0.10.2",
  "ic-cdk 0.12.1",
  "ic-cdk-timers",
