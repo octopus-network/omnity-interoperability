@@ -1,18 +1,28 @@
+mod auth;
+mod errors;
+mod memory;
+mod signer;
+mod utils;
+
 use candid::types::principal::Principal;
 use candid::CandidType;
 
+use auth::auth;
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
-use log::{debug, error, info};
+use log::debug;
 use omnity_types::{
-    Action, BoardingPass, ChainInfo, ChainStatus, Directive, Error, Fee, LandingPass, TokenInfo,
+    Action, BoardingPass, ChainInfo, Directive, Error, Fee, LandingPass, TokenInfo,
 };
-mod memory;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
+use utils::init_log;
 pub type Timestamp = u64;
 pub type ChainId = String;
+pub type TokenId = String;
+pub type TransId = String;
 
 thread_local! {
     static STATE: RefCell<State> = RefCell::new(State::default());
@@ -20,35 +30,35 @@ thread_local! {
 
 #[derive(CandidType, Deserialize, Serialize, Debug)]
 struct Transaction {
+    pub trans_id: String,
     pub timestamp: u64,
-    pub source: String,
-    pub target: String,
+    pub nonce: u64,
+    pub src_chain_id: String,
+    pub dst_chain_id: String,
     pub action: Action,
     pub token: String,
+    pub memo: Option<Vec<u8>>,
     pub receiver: String,
     pub amount: u64,
-    pub nonce: u64,
     pub signature: Option<Vec<u8>>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
 struct CrossLedger {
-    pub transfer: HashMap<Timestamp, Transaction>,
-    pub redeem: HashMap<Timestamp, Transaction>,
+    pub transfers: HashMap<TransId, Transaction>,
+    pub redeems: HashMap<TransId, Transaction>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
 struct State {
-    pub directives: HashMap<Timestamp, Directive>,
     pub chains: HashMap<ChainId, ChainInfo>,
-    pub tokens: HashMap<ChainId, TokenInfo>,
+    pub tokens: HashMap<(ChainId, TokenId), TokenInfo>,
     pub fees: HashMap<ChainId, Fee>,
+    pub directives: Vec<Directive>,
     pub cross_ledger: CrossLedger,
-    pub authed_whitelist: HashSet<Principal>,
-}
-
-fn auth() -> Result<(), String> {
-    Ok(())
+    pub landing_passes: Vec<LandingPass>,
+    pub owner: Option<Principal>,
+    pub whitelist: HashSet<Principal>,
 }
 
 /// A helper method to read the state.
@@ -71,7 +81,9 @@ fn set_state(state: State) {
     STATE.with(|cell| *cell.borrow_mut() = state);
 }
 #[init]
-fn init() {}
+fn init() {
+    init_log()
+}
 
 #[pre_upgrade]
 fn pre_upgrade() {
@@ -85,9 +97,12 @@ fn pre_upgrade() {
     // Write the length of the serialized bytes to memory, followed by the
     // by the bytes themselves.
     let len = state_bytes.len() as u32;
-    let memory = memory::get_upgrades_memory();
-    crate::memory::write(&memory, 0, &len.to_le_bytes());
-    crate::memory::write(&memory, 4, &state_bytes);
+    let mut memory = memory::get_upgrades_memory();
+    let mut writer = Writer::new(&mut memory, 0);
+    writer
+        .write(&len.to_le_bytes())
+        .expect("failed to save config len");
+    writer.write(&state_bytes).expect("failed to save config");
 }
 
 #[post_upgrade]
@@ -108,43 +123,34 @@ fn post_upgrade() {
 
     set_state(state);
 }
-
+/// input diretive without signature and sign it
 #[update(guard = "auth")]
-pub fn add_chain(chain: ChainInfo) -> Result<(), Error> {
+pub fn signe_directive(_directive: Directive) -> Result<(), Error> {
     Ok(())
 }
 
+/// input fee without signature ,sign it and build directive
 #[update(guard = "auth")]
-pub fn add_token(token: TokenInfo) -> Result<(), Error> {
-    Ok(())
-}
-
-#[update(guard = "auth")]
-pub fn set_chain_status(chain_id: String, status: ChainStatus) -> Result<(), Error> {
-    Ok(())
-}
-
-fn signe_directive(directive: Directive) -> Result<(), Error> {
+pub fn update_fee(_fee: Fee) -> Result<(), Error> {
+    // signe and build update fee directive
+    // signe_directive(directive)
     Ok(())
 }
 
 #[query]
-pub fn get_directive() -> Result<Directive, Error> {
-    let directive = Directive::AddChain(ChainInfo::default());
-    Ok(directive)
+pub fn get_directives() -> Result<Vec<Directive>, Error> {
+    let directives = Vec::new();
+    Ok(directives)
 }
 
+/// input a boarding pass and create a landing pass with signature
 #[update(guard = "auth")]
-pub fn update_fee(fee: Fee) -> Result<(), Error> {
+pub fn generate_landing_pass(_boarding_pass: BoardingPass) -> Result<(), Error> {
     Ok(())
 }
 
-#[update(guard = "auth")]
-pub fn generate_landing_pass(bp: BoardingPass) -> Result<(), Error> {
-    Ok(())
-}
 #[query]
-pub fn get_landing_pass() -> Result<LandingPass, Error> {
-    let landing_pass = LandingPass::default();
-    Ok(landing_pass)
+pub fn get_landing_passes() -> Result<Vec<LandingPass>, Error> {
+    let landing_passes = Vec::new();
+    Ok(landing_passes)
 }
