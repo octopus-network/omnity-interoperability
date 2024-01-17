@@ -1,5 +1,5 @@
 [workspace]
-members = ["near_route", "tendermint_route", "customs/bitcoin", "types", "hub"]
+members = ["types", "hub", "route/near"]
 resolver = "2"
 
 [workspace.package]
