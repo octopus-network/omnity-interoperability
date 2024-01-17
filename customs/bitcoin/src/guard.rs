@@ -1,4 +1,4 @@
-use crate::state::{mutate_state, CkBtcMinterState};
+use crate::state::{mutate_state, CustomState};
 use candid::Principal;
 use std::collections::BTreeSet;
 use std::marker::PhantomData;
@@ -12,20 +12,20 @@ pub enum GuardError {
 }
 
 pub trait PendingRequests {
-    fn pending_requests(state: &mut CkBtcMinterState) -> &mut BTreeSet<Principal>;
+    fn pending_requests(state: &mut CustomState) -> &mut BTreeSet<Principal>;
 }
 
 pub struct PendingBalanceUpdates;
 
 impl PendingRequests for PendingBalanceUpdates {
-    fn pending_requests(state: &mut CkBtcMinterState) -> &mut BTreeSet<Principal> {
+    fn pending_requests(state: &mut CustomState) -> &mut BTreeSet<Principal> {
         &mut state.update_balance_principals
     }
 }
 pub struct RetrieveBtcUpdates;
 
 impl PendingRequests for RetrieveBtcUpdates {
-    fn pending_requests(state: &mut CkBtcMinterState) -> &mut BTreeSet<Principal> {
+    fn pending_requests(state: &mut CustomState) -> &mut BTreeSet<Principal> {
         &mut state.retrieve_btc_principals
     }
 }

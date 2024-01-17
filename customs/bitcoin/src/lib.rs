@@ -723,7 +723,7 @@ async fn finalize_requests() {
 
 /// Builds the minimal OutPoint -> Account map required to sign a transaction.
 fn filter_output_accounts(
-    state: &state::CkBtcMinterState,
+    state: &state::CustomState,
     unsigned_tx: &tx::UnsignedTransaction,
 ) -> BTreeMap<OutPoint, Account> {
     unsigned_tx

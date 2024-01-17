@@ -1,7 +1,3 @@
-use candid::Principal;
-use ic_canister_log::export as export_logs;
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use ic_cdk_macros::{init, post_upgrade, query, update};
 use bitcoin_custom::dashboard::build_dashboard;
 use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_custom::lifecycle::{self, init::MinterArg};
@@ -12,12 +8,13 @@ use bitcoin_custom::state::{
 };
 use bitcoin_custom::tasks::{schedule_now, TaskType};
 use bitcoin_custom::updates::retrieve_btc::{
-    RetrieveBtcOk, RetrieveBtcWithApprovalArgs,
-    RetrieveBtcWithApprovalError,
+    RetrieveBtcOk, RetrieveBtcWithApprovalArgs, RetrieveBtcWithApprovalError,
 };
+use bitcoin_custom::updates::transport_token::TransportTokenArgs;
 use bitcoin_custom::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
+    transport_token::TransportTokenArgs,
     update_balance::{UpdateBalanceArgs, UpdateBalanceError, UtxoStatus},
 };
 use bitcoin_custom::MinterInfo;
@@ -25,6 +22,10 @@ use bitcoin_custom::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
 };
+use candid::Principal;
+use ic_canister_log::export as export_logs;
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_cdk_macros::{init, post_upgrade, query, update};
 use icrc_ledger_types::icrc1::account::Account;
 
 #[init]
@@ -160,6 +161,11 @@ fn retrieve_btc_status_v2_by_account(target: Option<Account>) -> Vec<BtcRetrieva
 async fn update_balance(args: UpdateBalanceArgs) -> Result<Vec<UtxoStatus>, UpdateBalanceError> {
     check_anonymous_caller();
     check_postcondition(updates::update_balance::update_balance(args).await)
+}
+
+#[update]
+async fn transport_token(args: TransportTokenArgs) {
+    check_postcondition(updates::transport_token::transport_token(args).await)
 }
 
 #[update]

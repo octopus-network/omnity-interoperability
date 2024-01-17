@@ -1,7 +1,7 @@
 use crate::{
     destination::Destination,
     logs::P1,
-    state::{mutate_state, read_state, CkBtcMinterState},
+    state::{mutate_state, read_state, CustomState},
     ECDSAPublicKey,
 };
 use candid::{CandidType, Deserialize};
@@ -17,7 +17,7 @@ pub struct GetBtcAddressArgs {
 
 /// PRECONDITION: s.ecdsa_public_key.is_some()
 pub fn destination_to_p2wpkh_address_from_state(
-    s: &CkBtcMinterState,
+    s: &CustomState,
     destination: &Destination,
 ) -> String {
     crate::address::destination_to_p2wpkh_address(

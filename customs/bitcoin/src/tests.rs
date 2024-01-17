@@ -6,7 +6,7 @@ use crate::{
 use crate::{
     lifecycle::init::InitArgs,
     state::{
-        ChangeOutput, CkBtcMinterState, Mode, RetrieveBtcRequest, RetrieveBtcStatus,
+        ChangeOutput, CustomState, Mode, RetrieveBtcRequest, RetrieveBtcStatus,
         SubmittedBtcTransaction,
     },
 };
@@ -829,7 +829,7 @@ proptest! {
         utxos_acc_idx in pvec((arb_utxo(5_000u64..1_000_000_000), 0..5usize), 10..20),
         accounts in pvec(arb_account(), 5),
     ) {
-        let mut state = CkBtcMinterState::from(InitArgs {
+        let mut state = CustomState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
             retrieve_btc_min_amount: 0,
@@ -853,7 +853,7 @@ proptest! {
         requests in arb_retrieve_btc_requests(5_000u64..1_000_000_000, 1..25),
         limit in 1..25usize,
     ) {
-        let mut state = CkBtcMinterState::from(InitArgs {
+        let mut state = CustomState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
             retrieve_btc_min_amount: 5_000u64,
@@ -896,7 +896,7 @@ proptest! {
         main_pkhash in uniform20(any::<u8>()),
         resubmission_chain_length in 1..=5,
     ) {
-        let mut state = CkBtcMinterState::from(InitArgs {
+        let mut state = CustomState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
             retrieve_btc_min_amount: 100_000,

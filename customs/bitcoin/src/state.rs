@@ -30,7 +30,7 @@ use std::collections::btree_map::Entry;
 const MAX_FINALIZED_REQUESTS: usize = 100;
 
 thread_local! {
-    static __STATE: RefCell<Option<CkBtcMinterState>> = RefCell::default();
+    static __STATE: RefCell<Option<CustomState>> = RefCell::default();
 }
 
 // A pending retrieve btc request
@@ -56,6 +56,16 @@ pub struct RetrieveBtcRequest {
     #[serde(rename = "reimbursement_account")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reimbursement_account: Option<Account>,
+}
+
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TransportTokenRequest {
+    pub address: String,
+    pub target_chain_id: String,
+    pub receiver: String,
+    pub token: String,
+    pub amount: u128,
+    pub tx_id: Txid,
 }
 
 /// A transaction output storing the minter's change.
@@ -182,47 +192,33 @@ pub enum RetrieveBtcStatusV2 {
 /// Controls which operations the minter can perform.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
 pub enum Mode {
-    /// Minter's state is read-only.
+    /// Custom's state is read-only.
     ReadOnly,
-    /// Only the specified principals can modify the minter's state.
-    RestrictedTo(Vec<Principal>),
-    /// Only the specified principals can deposit BTC.
-    DepositsRestrictedTo(Vec<Principal>),
-    /// No restrictions on the minter interactions.
+    /// Transport operations are restricted.
+    TransportRestricted,
+    /// Redeem operations are restricted.
+    RedeemRestricted,
+    /// No restrictions on the custom interactions.
     GeneralAvailability,
 }
 
 impl Mode {
-    /// Returns Ok if the specified principal can convert BTC to ckBTC.
-    pub fn is_deposit_available_for(&self, p: &Principal) -> Result<(), String> {
+    /// Returns Ok if the transport operation is avaliable.
+    pub fn is_transport_available_for(&self) -> Result<(), String> {
         match self {
-            Self::GeneralAvailability => Ok(()),
-            Self::ReadOnly => Err("the minter is in read-only mode".to_string()),
-            Self::RestrictedTo(allow_list) => {
-                if !allow_list.contains(p) {
-                    return Err("access to the minter is temporarily restricted".to_string());
-                }
-                Ok(())
-            }
-            Self::DepositsRestrictedTo(allow_list) => {
-                if !allow_list.contains(p) {
-                    return Err("BTC deposits are temporarily restricted".to_string());
-                }
-                Ok(())
+            Self::GeneralAvailability | Self::RedeemRestricted => Ok(()),
+            Self::ReadOnly | Self::TransportRestricted => {
+                Err("transport operations are restricted".to_string())
             }
         }
     }
 
-    /// Returns Ok if the specified principal can convert ckBTC to BTC.
-    pub fn is_withdrawal_available_for(&self, p: &Principal) -> Result<(), String> {
+    /// Returns Ok if the redeem operation is avaliable.
+    pub fn is_redeem_available_for(&self) -> Result<(), String> {
         match self {
-            Self::GeneralAvailability | Self::DepositsRestrictedTo(_) => Ok(()),
-            Self::ReadOnly => Err("the minter is in read-only mode".to_string()),
-            Self::RestrictedTo(allow_list) => {
-                if !allow_list.contains(p) {
-                    return Err("BTC withdrawals are temporarily restricted".to_string());
-                }
-                Ok(())
+            Self::GeneralAvailability | Self::TransportRestricted => Ok(()),
+            Self::ReadOnly | Self::RedeemRestricted => {
+                Err("redeem operations are restricted".to_string())
             }
         }
     }
@@ -265,7 +261,7 @@ pub struct Overdraft(pub u64);
 ///
 /// Every piece of state of the Minter should be stored as field of this struct.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
-pub struct CkBtcMinterState {
+pub struct CustomState {
     /// The bitcoin network that the minter will connect to
     pub btc_network: Network,
 
@@ -291,6 +287,8 @@ pub struct CkBtcMinterState {
 
     /// Minimum amount of bitcoin that can be retrieved
     pub retrieve_btc_min_amount: u64,
+
+    pub pending_transport_token_request: BTreeMap<Txid, TransportTokenRequest>,
 
     /// Retrieve_btc requests that are waiting to be served, sorted by
     /// received_at.
@@ -411,7 +409,7 @@ pub enum ReimbursementReason {
     CallFailed,
 }
 
-impl CkBtcMinterState {
+impl CustomState {
     pub fn reinit(
         &mut self,
         InitArgs {
@@ -1192,7 +1190,7 @@ fn as_sorted_vec<T, K: Ord>(values: impl Iterator<Item = T>, key: impl Fn(&T) ->
     v
 }
 
-impl From<InitArgs> for CkBtcMinterState {
+impl From<InitArgs> for CustomState {
     fn from(args: InitArgs) -> Self {
         Self {
             btc_network: args.btc_network.into(),
@@ -1205,6 +1203,7 @@ impl From<InitArgs> for CkBtcMinterState {
             update_balance_principals: Default::default(),
             retrieve_btc_principals: Default::default(),
             retrieve_btc_min_amount: args.retrieve_btc_min_amount,
+            pending_transport_token_request: Default::default(),
             pending_retrieve_btc_requests: Default::default(),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
@@ -1245,7 +1244,7 @@ impl From<InitArgs> for CkBtcMinterState {
 /// Panics if there is no state.
 pub fn take_state<F, R>(f: F) -> R
 where
-    F: FnOnce(CkBtcMinterState) -> R,
+    F: FnOnce(CustomState) -> R,
 {
     __STATE.with(|s| f(s.take().expect("State not initialized!")))
 }
@@ -1255,7 +1254,7 @@ where
 /// Panics if there is no state.
 pub fn mutate_state<F, R>(f: F) -> R
 where
-    F: FnOnce(&mut CkBtcMinterState) -> R,
+    F: FnOnce(&mut CustomState) -> R,
 {
     __STATE.with(|s| f(s.borrow_mut().as_mut().expect("State not initialized!")))
 }
@@ -1265,13 +1264,13 @@ where
 /// Panics if there is no state.
 pub fn read_state<F, R>(f: F) -> R
 where
-    F: FnOnce(&CkBtcMinterState) -> R,
+    F: FnOnce(&CustomState) -> R,
 {
     __STATE.with(|s| f(s.borrow().as_ref().expect("State not initialized!")))
 }
 
 /// Replaces the current state.
-pub fn replace_state(state: CkBtcMinterState) {
+pub fn replace_state(state: CustomState) {
     __STATE.with(|s| {
         *s.borrow_mut() = Some(state);
     });
