@@ -1,7 +1,7 @@
 use ic_cdk::api::management_canister::http_request::*;
+use near_primitives::{types::BlockHeight, views::BlockView};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
-use tm_verifier::types::*;
 
 #[derive(Debug, Error)]
 pub enum RpcError {
@@ -15,26 +15,21 @@ pub enum RpcError {
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 enum RpcEndpoint {
-    Commit(Option<Height>),
-    Validators(Height, u32, u8),
+    Block(BlockHeight),
 }
 
 impl RpcEndpoint {
     /// Get a static string which represents this method name
     fn method(&self) -> &'static str {
         match self {
-            RpcEndpoint::Commit(_) => "commit",
-            RpcEndpoint::Validators(..) => "validators",
+            RpcEndpoint::Block(_) => "block",
         }
     }
 
     pub fn params(&self) -> impl Into<serde_json::Value> {
         match self {
-            RpcEndpoint::Commit(height) => {
-                serde_json::json!([height.map(|x| x.to_string())])
-            }
-            RpcEndpoint::Validators(height, page, per_page) => {
-                serde_json::json!([height.to_string(), page.to_string(), per_page.to_string(),])
+            RpcEndpoint::Block(height) => {
+                serde_json::json!([height])
             }
         }
     }
@@ -94,8 +89,8 @@ where
             },
         ],
     };
-    // TODO max cycles
-    let (response,) = http_request(args, 10000)
+    // TODO max cycle
+    let (response,) = http_request(args, 100000)
         .await
         .map_err(|(_, e)| RpcError::Io(endpoint.method(), url.to_string(), e))?;
     let reply: Reply<R> = serde_json::from_slice(response.body.as_slice())
@@ -110,68 +105,7 @@ where
     return Ok(reply.result.unwrap());
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CommitResponse {
-    pub signed_header: SignedHeader,
-    pub canonical: bool,
-}
-
-pub(crate) async fn fetch_signed_header(
-    url: &str,
-    height: Option<Height>,
-) -> Result<SignedHeader, RpcError> {
-    let commit = make_rpc::<CommitResponse>(url, RpcEndpoint::Commit(height)).await?;
-    Ok(commit.signed_header)
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ValidatorResponse {
-    pub block_height: Height,
-    pub validators: Vec<Validator>,
-    pub total: String,
-}
-
-pub(crate) async fn fetch_validator_set(
-    url: &str,
-    height: Height,
-    proposer: Option<ValidatorAddress>,
-) -> Result<ValidatorSet, RpcError> {
-    let mut validators = Vec::new();
-    let mut page = 1;
-    let per_page = 30;
-    loop {
-        let v = make_rpc::<ValidatorResponse>(url, RpcEndpoint::Validators(height, page, per_page))
-            .await?;
-        validators.extend(v.validators);
-        let total = v
-            .total
-            .parse::<usize>()
-            .map_err(|e| RpcError::Decode("validators", url.to_string(), e.to_string()))?;
-        if validators.len() == total {
-            break;
-        }
-        page += 1;
-    }
-    let validators = match proposer {
-        Some(addr) => ValidatorSet::with_proposer(validators, addr)
-            .map_err(|e| RpcError::Decode("validators", url.to_string(), e.to_string()))?,
-        None => ValidatorSet::without_proposer(validators),
-    };
-    Ok(validators)
-}
-
-// TODO if we would like to make an RPC from canister, we'd better take care of the networking issues
-pub(crate) async fn fetch_block(rpc: &str, height: Option<Height>) -> Result<LightBlock, RpcError> {
-    let signed_header = fetch_signed_header(rpc, height).await?;
-    let at = signed_header.header.height;
-    let proposer = signed_header.header.proposer_address;
-    let validator_set = fetch_validator_set(rpc, at, Some(proposer)).await?;
-    let next_validator_set = fetch_validator_set(rpc, at.increment(), None).await?;
-    let light_block = LightBlock::new(
-        signed_header,
-        validator_set,
-        next_validator_set,
-        PeerId::new([0u8; 20]),
-    );
-    Ok(light_block)
+pub(crate) async fn fetch_block(url: &str, height: BlockHeight) -> Result<BlockView, RpcError> {
+    let block = make_rpc::<BlockView>(url, RpcEndpoint::Block(height)).await?;
+    Ok(block)
 }

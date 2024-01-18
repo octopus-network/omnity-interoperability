@@ -6,6 +6,9 @@ pub use near_client::{
 use std::{cell::RefCell, collections::BTreeMap};
 use thiserror::Error;
 
+const GENESIS_HEIGHT: Height = 9820210;
+const EPOCH_DURATION: Height = 43200;
+
 thread_local! {
     static STATES: RefCell<BTreeMap<Height, ConsensusState>> = RefCell::new(Default::default());
 }
@@ -30,6 +33,13 @@ impl BasicNearLightClient for DummyLightClient {
     }
 }
 
+fn epoch_of_height(height: Height) -> Height {
+    if height <= GENESIS_HEIGHT {
+        return 0;
+    }
+    (height - GENESIS_HEIGHT) / EPOCH_DURATION
+}
+
 impl DummyLightClient {
     pub fn init_or_return(state: ConsensusState) {
         STATES.with_borrow_mut(|s| {
@@ -37,16 +47,22 @@ impl DummyLightClient {
         });
     }
 
-    pub fn verify_proofs(
+    pub async fn verify_proofs(
         &self,
         header: Header,
         key: &[u8],
         value: &[u8],
         proofs: Vec<Vec<u8>>,
     ) -> Result<(), LightClientError> {
+        let highest_epoch = epoch_of_height(self.latest_height());
+        let requested_epoch = epoch_of_height(header.height());
+        if highest_epoch < requested_epoch {
+            // TODO fetch headers through RPC
+        }
         let state = self
             .try_accept_header(header)
             .map_err(|e| LightClientError::HeaderError(e))?;
+        // TODO change to verify transactions
         state
             .verify_membership(key, value, &proofs)
             .map_err(|e| LightClientError::StateError(e))
@@ -62,23 +78,19 @@ impl DummyLightClient {
             current_bps: ancestor.current_bps,
             header,
         };
-        STATES.with_borrow_mut(|s| {
-            s.insert(height, accepted.clone());
-        });
         Ok(accepted)
     }
 
     fn find_nearest_ancestor(&self, header: &Header) -> Option<ConsensusState> {
-        let mut height = header.height();
-        let min =
-            STATES.with_borrow(|s| s.keys().next().expect("Client not initialized").to_owned());
-        while height > min {
-            if let Some(state) = self.get_consensus_state(&height) {
-                return Some(state);
+        let height = header.height();
+        STATES.with_borrow(|states| {
+            for s in states.keys().rev() {
+                if *s < height {
+                    return states.get(s).map(|cs| cs.clone());
+                }
             }
-            height -= 1;
-        }
-        None
+            return None;
+        })
     }
 
     fn verify_header(&self, header: &Header) -> Result<ConsensusState, HeaderVerificationError> {
@@ -90,8 +102,12 @@ impl DummyLightClient {
         let approval_message = header.light_client_block.approval_message();
 
         // Check the height of the block is higher than the height of the current head.
-        if header.height() <= ancestor.header.height() {
+        if header.height() < ancestor.header.height() {
             return Err(HeaderVerificationError::InvalidBlockHeight);
+        }
+
+        if header.height() == ancestor.header.height() {
+            return Ok(ancestor);
         }
 
         // Check the epoch of the block is equal to the epoch_id or next_epoch_id
