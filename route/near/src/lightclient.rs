@@ -54,11 +54,8 @@ impl DummyLightClient {
         value: &[u8],
         proofs: Vec<Vec<u8>>,
     ) -> Result<(), LightClientError> {
-        let highest_epoch = epoch_of_height(self.latest_height());
-        let requested_epoch = epoch_of_height(header.height());
-        if highest_epoch < requested_epoch {
-            // TODO fetch headers through RPC
-        }
+        // FIXME sybil attack: this rpc will cost around 12k bytes response, we shall limit the input Header
+        self.ensure_continuous_epoches(&header).await;
         let state = self
             .try_accept_header(header)
             .map_err(|e| LightClientError::HeaderError(e))?;
@@ -66,6 +63,18 @@ impl DummyLightClient {
         state
             .verify_membership(key, value, &proofs)
             .map_err(|e| LightClientError::StateError(e))
+    }
+
+    async fn ensure_continuous_epoches(&self, header: &Header) {
+        let highest_epoch = epoch_of_height(self.latest_height());
+        let requested_epoch = epoch_of_height(header.height());
+        if highest_epoch + 1 >= requested_epoch {
+            return;
+        } else {
+            // TODO
+            let h = EPOCH_DURATION - (self.latest_height() - GENESIS_HEIGHT) % EPOCH_DURATION + 1;
+            if let Ok(b) = crate::rpc::fetch_block("", h).await {}
+        }
     }
 
     fn try_accept_header(&self, header: Header) -> Result<ConsensusState, HeaderVerificationError> {
