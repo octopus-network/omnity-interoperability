@@ -9,7 +9,7 @@ use k256::ecdsa::{signature::Signer, Signature, SigningKey};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use std::convert::TryFrom;
+
 use std::str::FromStr; // requires 'getrandom' feature
 pub const CYCLES_NUMBER: u64 = 27_000_000_000;
 

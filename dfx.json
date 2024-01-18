@@ -5,9 +5,10 @@
       "package": "near_route_canister",
       "type": "rust"
     },
-    "hub": {
-      "candid": "hub/hub_canister.did",
-      "package": "omnity-hub",
+    "omnity_hub": {
+      "gzip": true,
+      "candid": "hub/omnity_hub.did",
+      "package": "omnity_hub",
       "type": "rust"
     }
   },

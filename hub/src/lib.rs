@@ -19,6 +19,9 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 // use utils::init_log;
+use crate::signer::PublicKeyReply;
+use crate::utils::Network;
+
 pub type Timestamp = u64;
 pub type ChainId = String;
 pub type TokenId = String;
@@ -154,3 +157,5 @@ pub fn get_landing_passes() -> Result<Vec<LandingPass>, Error> {
     let landing_passes = Vec::new();
     Ok(landing_passes)
 }
+
+ic_cdk::export_candid!();
