@@ -7,6 +7,7 @@ use bitcoin_custom::state::{
     read_state, BtcRetrievalStatusV2, RetrieveBtcStatus, RetrieveBtcStatusV2,
 };
 use bitcoin_custom::tasks::{schedule_now, TaskType};
+use bitcoin_custom::updates::finalize_transport::FinalizeTransportArgs;
 use bitcoin_custom::updates::retrieve_btc::{
     RetrieveBtcOk, RetrieveBtcWithApprovalArgs, RetrieveBtcWithApprovalError,
 };
@@ -158,9 +159,10 @@ fn retrieve_btc_status_v2_by_account(target: Option<Account>) -> Vec<BtcRetrieva
 }
 
 #[update]
-async fn update_balance(args: UpdateBalanceArgs) -> Result<Vec<UtxoStatus>, UpdateBalanceError> {
-    check_anonymous_caller();
-    check_postcondition(updates::update_balance::update_balance(args).await)
+async fn finalize_transport(
+    args: FinalizeTransportArgs,
+) -> Result<Vec<UtxoStatus>, UpdateBalanceError> {
+    check_postcondition(updates::finalize_transport::finalize_transport(args).await)
 }
 
 #[update]

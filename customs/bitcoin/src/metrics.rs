@@ -161,13 +161,13 @@ pub fn encode_metrics(
 
     metrics.encode_gauge(
         "ckbtc_minter_managed_addresses_count",
-        state::read_state(|s| s.utxos_state_addresses.len()) as f64,
+        state::read_state(|s| s.utxos_state_destinations.len()) as f64,
         "Total number of minter addresses owning UTXOs.",
     )?;
 
     metrics.encode_gauge(
         "ckbtc_minter_outpoint_count",
-        state::read_state(|s| s.outpoint_account.len()) as f64,
+        state::read_state(|s| s.outpoint_destination.len()) as f64,
         "Total number of outputs the minter has to remember.",
     )?;
 

@@ -4,7 +4,7 @@ use crate::memo::MintMemo;
 use crate::state::{mutate_state, read_state, UtxoCheckStatus};
 use crate::tasks::{schedule_now, TaskType};
 use candid::{CandidType, Deserialize, Nat, Principal};
-use ic_btc_interface::{GetUtxosError, GetUtxosResponse, OutPoint, Utxo};
+use ic_btc_interface::{GetUtxosError, GetUtxosResponse, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ckbtc_kyt::Error as KytError;
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
@@ -29,6 +29,20 @@ use crate::{
 pub struct UpdateBalanceArgs {
     pub target_chain_id: String,
     pub receiver: String,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct FinalizeTransportArgs {
+    pub tx_id: Txid,
+    pub runes_utxos: Vec<RunesUtxo>,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct RunesUtxo {
+    pub address: String,
+    /// The amount of bitcoin in utxo
+    pub amount: u128,
+    pub runes_amount: u128,
 }
 
 /// The outcome of UTXO processing.
@@ -121,6 +135,8 @@ impl From<CallError> for UpdateBalanceError {
     }
 }
 
+pub async fn finalize_transport(args: FinalizeTransportArgs) {}
+
 /// Notifies the ckBTC minter to update the balance of the user subaccount.
 pub async fn update_balance(
     args: UpdateBalanceArgs,
@@ -149,7 +165,7 @@ pub async fn update_balance(
         .await?
         .utxos;
 
-    let new_utxos = state::read_state(|s| s.new_utxos_for_account(utxos, &caller_account));
+    let new_utxos = state::read_state(|s| s.new_utxos_for_destination(utxos, &caller_account));
 
     // Remove pending finalized transactions for the affected principal.
     state::mutate_state(|s| s.finalized_utxos.remove(&caller_account.owner));
@@ -210,26 +226,6 @@ pub async fn update_balance(
     let kyt_fee = read_state(|s| s.kyt_fee);
     let mut utxo_statuses: Vec<UtxoStatus> = vec![];
     for utxo in new_utxos {
-        if utxo.value <= kyt_fee {
-            mutate_state(|s| crate::state::audit::ignore_utxo(s, utxo.clone()));
-            log!(
-                P1,
-                "Ignored UTXO {} for account {caller_account} because UTXO value {} is lower than the KYT fee {}",
-                DisplayOutpoint(&utxo.outpoint),
-                DisplayAmount(utxo.value),
-                DisplayAmount(kyt_fee),
-            );
-            utxo_statuses.push(UtxoStatus::ValueTooSmall(utxo));
-            continue;
-        }
-        let (uuid, status, kyt_provider) = kyt_check_utxo(caller_account.owner, &utxo).await?;
-        mutate_state(|s| {
-            crate::state::audit::mark_utxo_checked(s, &utxo, uuid.clone(), status, kyt_provider);
-        });
-        if status == UtxoCheckStatus::Tainted {
-            utxo_statuses.push(UtxoStatus::Tainted(utxo.clone()));
-            continue;
-        }
         let amount = utxo.value - kyt_fee;
         let memo = MintMemo::Convert {
             txid: Some(utxo.outpoint.txid.as_ref()),

@@ -70,27 +70,6 @@ pub fn confirm_transaction(state: &mut CustomState, txid: &Txid) {
     state.finalize_transaction(txid);
 }
 
-pub fn mark_utxo_checked(
-    state: &mut CustomState,
-    utxo: &Utxo,
-    uuid: String,
-    status: UtxoCheckStatus,
-    kyt_provider: Principal,
-) {
-    record_event(&Event::CheckedUtxo {
-        utxo: utxo.clone(),
-        uuid: uuid.clone(),
-        clean: status.is_clean(),
-        kyt_provider: Some(kyt_provider),
-    });
-    state.mark_utxo_checked(utxo.clone(), uuid, status, kyt_provider);
-}
-
-pub fn ignore_utxo(state: &mut CustomState, utxo: Utxo) {
-    record_event(&Event::IgnoredUtxo { utxo: utxo.clone() });
-    state.ignore_utxo(utxo);
-}
-
 pub fn replace_transaction(
     state: &mut CustomState,
     old_txid: Txid,

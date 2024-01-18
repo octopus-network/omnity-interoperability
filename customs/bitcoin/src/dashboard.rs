@@ -198,7 +198,6 @@ pub fn build_dashboard() -> Vec<u8> {
         build_finalized_requests(),
         build_available_utxos(),
         build_unconfirmed_change(),
-        build_quarantined_utxos(),
         build_ignored_utxos(),
         build_account_to_utxos_table(),
         build_update_balance_principals(),
@@ -212,7 +211,7 @@ pub fn build_account_to_utxos_table() -> String {
     with_utf8_buffer(|buf| {
         state::read_state(|s| {
             let mut total = 0;
-            for (account, set) in s.utxos_state_addresses.iter() {
+            for (account, set) in s.utxos_state_destinations.iter() {
                 for (i, utxo) in set.iter().enumerate() {
                     write!(buf, "<tr>").unwrap();
                     if i == 0 {
@@ -457,29 +456,6 @@ pub fn build_available_utxos() -> String {
             )
             .unwrap();
         })
-    })
-}
-
-pub fn build_quarantined_utxos() -> String {
-    with_utf8_buffer(|buf| {
-        state::read_state(|s| {
-            for utxo in &s.quarantined_utxos {
-                writeln!(
-                    buf,
-                    "<tr>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                </tr>",
-                    txid_link(&utxo.outpoint.txid),
-                    utxo.outpoint.vout,
-                    utxo.height,
-                    DisplayAmount(utxo.value)
-                )
-                .unwrap()
-            }
-        });
     })
 }
 

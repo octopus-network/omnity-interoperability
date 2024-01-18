@@ -11,10 +11,11 @@ use std::{
 pub mod audit;
 pub mod eventlog;
 
-use crate::lifecycle::init::InitArgs;
+use crate::destination::Destination;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::logs::P0;
 use crate::{address::BitcoinAddress, ECDSAPublicKey};
+use crate::{destination, lifecycle::init::InitArgs};
 use candid::{CandidType, Deserialize, Principal};
 use ic_base_types::CanisterId;
 pub use ic_btc_interface::Network;
@@ -59,7 +60,7 @@ pub struct RetrieveBtcRequest {
 }
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TransportTokenRequest {
+pub struct GenBoardingPassReq {
     pub address: String,
     pub target_chain_id: String,
     pub receiver: String,
@@ -230,29 +231,6 @@ impl Default for Mode {
     }
 }
 
-/// The outcome of a UTXO KYT check.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
-pub enum UtxoCheckStatus {
-    /// The KYT check did not reveal any problems.
-    Clean,
-    /// The UTXO in question is tainted.
-    Tainted,
-}
-
-impl UtxoCheckStatus {
-    pub fn from_clean_flag(clean: bool) -> Self {
-        if clean {
-            Self::Clean
-        } else {
-            Self::Tainted
-        }
-    }
-
-    pub fn is_clean(self) -> bool {
-        self == Self::Clean
-    }
-}
-
 /// Indicates that fee distribution overdrafted.
 #[derive(Clone, Copy, Debug)]
 pub struct Overdraft(pub u64);
@@ -288,7 +266,7 @@ pub struct CustomState {
     /// Minimum amount of bitcoin that can be retrieved
     pub retrieve_btc_min_amount: u64,
 
-    pub pending_transport_token_request: BTreeMap<Txid, TransportTokenRequest>,
+    pub pending_gen_boarding_pass_requests: BTreeMap<Txid, GenBoardingPassReq>,
 
     /// Retrieve_btc requests that are waiting to be served, sorted by
     /// received_at.
@@ -333,12 +311,12 @@ pub struct CustomState {
     /// The set of UTXOs unused in pending transactions.
     pub available_utxos: BTreeSet<Utxo>,
 
-    /// The mapping from output points to the ledger accounts to which they
+    /// The mapping from output points to the destination to which they
     /// belong.
-    pub outpoint_account: BTreeMap<OutPoint, Account>,
+    pub outpoint_destination: BTreeMap<OutPoint, Destination>,
 
-    /// The map of known addresses to their utxos.
-    pub utxos_state_addresses: BTreeMap<Account, BTreeSet<Utxo>>,
+    /// The map of known destinations to their utxos.
+    pub utxos_state_destinations: BTreeMap<Destination, BTreeSet<Utxo>>,
 
     /// This map contains the UTXOs we removed due to a transaction finalization
     /// while there was a concurrent update_balance call for the principal whose
@@ -367,15 +345,6 @@ pub struct CustomState {
 
     /// The total amount of fees we owe to the KYT provider.
     pub owed_kyt_amount: BTreeMap<Principal, u64>,
-
-    /// A cache of UTXO KYT check statuses.
-    pub checked_utxos: BTreeMap<Utxo, (String, UtxoCheckStatus, Principal)>,
-
-    /// UTXOs whose values are too small to pay the KYT check fee.
-    pub ignored_utxos: BTreeSet<Utxo>,
-
-    /// UTXOs that the KYT provider considered tainted.
-    pub quarantined_utxos: BTreeSet<Utxo>,
 
     /// Map from burn block index to amount to reimburse because of
     /// KYT fees.
@@ -494,13 +463,13 @@ impl CustomState {
     pub fn check_invariants(&self) -> Result<(), String> {
         for utxo in self.available_utxos.iter() {
             ensure!(
-                self.outpoint_account.contains_key(&utxo.outpoint),
+                self.outpoint_destination.contains_key(&utxo.outpoint),
                 "the output_account map is missing an entry for {:?}",
                 utxo.outpoint
             );
 
             ensure!(
-                self.utxos_state_addresses
+                self.utxos_state_destinations
                     .iter()
                     .any(|(_, utxos)| utxos.contains(utxo)),
                 "available utxo {:?} does not belong to any account",
@@ -508,10 +477,10 @@ impl CustomState {
             );
         }
 
-        for (addr, utxos) in self.utxos_state_addresses.iter() {
+        for (addr, utxos) in self.utxos_state_destinations.iter() {
             for utxo in utxos.iter() {
                 ensure_eq!(
-                    self.outpoint_account.get(&utxo.outpoint),
+                    self.outpoint_destination.get(&utxo.outpoint),
                     Some(addr),
                     "missing outpoint account for {:?}",
                     utxo.outpoint
@@ -583,12 +552,12 @@ impl CustomState {
 
         self.tokens_minted += utxos.iter().map(|u| u.value).sum::<u64>();
 
-        let account_bucket = self.utxos_state_addresses.entry(account).or_default();
+        let account_bucket = self.utxos_state_destinations.entry(account).or_default();
 
         for utxo in utxos {
-            self.outpoint_account.insert(utxo.outpoint.clone(), account);
+            self.outpoint_destination
+                .insert(utxo.outpoint.clone(), account);
             self.available_utxos.insert(utxo.clone());
-            self.checked_utxos.remove(&utxo);
             account_bucket.insert(utxo);
         }
 
@@ -729,7 +698,7 @@ impl CustomState {
     }
 
     fn forget_utxo(&mut self, utxo: &Utxo) {
-        if let Some(account) = self.outpoint_account.remove(&utxo.outpoint) {
+        if let Some(account) = self.outpoint_destination.remove(&utxo.outpoint) {
             if self.update_balance_principals.contains(&account.owner) {
                 self.finalized_utxos
                     .entry(account.owner)
@@ -737,7 +706,7 @@ impl CustomState {
                     .insert(utxo.clone());
             }
 
-            let last_utxo = match self.utxos_state_addresses.get_mut(&account) {
+            let last_utxo = match self.utxos_state_destinations.get_mut(&account) {
                 Some(utxo_set) => {
                     utxo_set.remove(utxo);
                     utxo_set.is_empty()
@@ -745,7 +714,7 @@ impl CustomState {
                 None => false,
             };
             if last_utxo {
-                self.utxos_state_addresses.remove(&account);
+                self.utxos_state_destinations.remove(&account);
             }
         }
     }
@@ -963,57 +932,22 @@ impl CustomState {
         self.finalized_requests.push_back(req)
     }
 
-    /// Filters out known UTXOs of the given account from the given UTXO list.
-    pub fn new_utxos_for_account(&self, mut utxos: Vec<Utxo>, account: &Account) -> Vec<Utxo> {
-        let maybe_existing_utxos = self.utxos_state_addresses.get(account);
-        let maybe_finalized_utxos = self.finalized_utxos.get(&account.owner);
+    /// Filters out known UTXOs of the given destination from the given UTXO list.
+    pub fn new_utxos_for_destination(
+        &self,
+        mut utxos: Vec<Utxo>,
+        destination: &Destination,
+        tx_id: Txid,
+    ) -> Vec<Utxo> {
+        let maybe_existing_utxos = self.utxos_state_destinations.get(destination);
+        // let maybe_finalized_utxos = self.finalized_utxos.get(&account.owner);
         utxos.retain(|utxo| {
             !maybe_existing_utxos
                 .map(|utxos| utxos.contains(utxo))
                 .unwrap_or(false)
-                && !maybe_finalized_utxos
-                    .map(|utxos| utxos.contains(utxo))
-                    .unwrap_or(false)
-                && !self.ignored_utxos.contains(utxo)
-                && !self.quarantined_utxos.contains(utxo)
+                && utxo.outpoint.txid == tx_id
         });
         utxos
-    }
-
-    /// Adds given UTXO to the set of ignored UTXOs.
-    fn ignore_utxo(&mut self, utxo: Utxo) {
-        assert!(utxo.value <= self.kyt_fee);
-        self.ignored_utxos.insert(utxo);
-    }
-
-    /// Marks the given UTXO as checked.
-    /// If the UTXO is clean, we increase the owed KYT amount and remember that UTXO until we see it
-    /// again in a [add_utxos] call.
-    /// If the UTXO is tainted, we put it in the quarantine area without increasing the owed KYT
-    /// amount.
-    fn mark_utxo_checked(
-        &mut self,
-        utxo: Utxo,
-        uuid: String,
-        status: UtxoCheckStatus,
-        kyt_provider: Principal,
-    ) {
-        match status {
-            UtxoCheckStatus::Clean => {
-                if self
-                    .checked_utxos
-                    .insert(utxo, (uuid, status, kyt_provider))
-                    .is_none()
-                {
-                    // Updated the owed amount only if it's the first time we mark this UTXO as
-                    // clean.
-                    *self.owed_kyt_amount.entry(kyt_provider).or_insert(0) += self.kyt_fee;
-                }
-            }
-            UtxoCheckStatus::Tainted => {
-                self.quarantined_utxos.insert(utxo);
-            }
-        }
     }
 
     /// Decreases the owed amount for the given provider by the amount.
@@ -1103,26 +1037,9 @@ impl CustomState {
             "available_utxos do not match"
         );
         ensure_eq!(
-            self.utxos_state_addresses,
-            other.utxos_state_addresses,
+            self.utxos_state_destinations,
+            other.utxos_state_destinations,
             "utxos_state_addresses do not match"
-        );
-        ensure_eq!(
-            self.quarantined_utxos,
-            other.quarantined_utxos,
-            "quarantined_utxos do not match"
-        );
-
-        ensure_eq!(
-            self.ignored_utxos,
-            other.ignored_utxos,
-            "ignored_utxos do not match"
-        );
-
-        ensure_eq!(
-            self.checked_utxos,
-            other.checked_utxos,
-            "checked_utxos do not match"
         );
 
         ensure_eq!(self.kyt_fee, other.kyt_fee, "kyt_fee does not match");
@@ -1203,7 +1120,7 @@ impl From<InitArgs> for CustomState {
             update_balance_principals: Default::default(),
             retrieve_btc_principals: Default::default(),
             retrieve_btc_min_amount: args.retrieve_btc_min_amount,
-            pending_transport_token_request: Default::default(),
+            pending_gen_boarding_pass_requests: Default::default(),
             pending_retrieve_btc_requests: Default::default(),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
@@ -1218,8 +1135,8 @@ impl From<InitArgs> for CustomState {
             ledger_id: args.ledger_id,
             kyt_principal: args.kyt_principal,
             available_utxos: Default::default(),
-            outpoint_account: Default::default(),
-            utxos_state_addresses: Default::default(),
+            outpoint_destination: Default::default(),
+            utxos_state_destinations: Default::default(),
             finalized_utxos: Default::default(),
             is_timer_running: false,
             is_distributing_fee: false,
@@ -1229,9 +1146,6 @@ impl From<InitArgs> for CustomState {
                 .kyt_fee
                 .unwrap_or(crate::lifecycle::init::DEFAULT_KYT_FEE),
             owed_kyt_amount: Default::default(),
-            checked_utxos: Default::default(),
-            ignored_utxos: Default::default(),
-            quarantined_utxos: Default::default(),
             pending_reimbursements: Default::default(),
             reimbursed_transactions: Default::default(),
         }

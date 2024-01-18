@@ -155,7 +155,7 @@ async fn fetch_main_utxos(main_account: &Account, main_address: &BitcoinAddress)
         }
     };
 
-    state::read_state(|s| match s.utxos_state_addresses.get(main_account) {
+    state::read_state(|s| match s.utxos_state_destinations.get(main_account) {
         Some(known_utxos) => utxos
             .into_iter()
             .filter(|u| !known_utxos.contains(u))
@@ -449,7 +449,7 @@ async fn reimburse_failed_kyt() {
             status: Some(memo_status),
             associated_burn_index: Some(burn_block_index),
         };
-        if let Ok(block_index) = crate::updates::update_balance::mint(
+        if let Ok(block_index) = crate::updates::finalize_transport::mint(
             entry
                 .amount
                 .checked_sub(kyt_fee)
@@ -733,7 +733,7 @@ fn filter_output_accounts(
             (
                 input.previous_output.clone(),
                 *state
-                    .outpoint_account
+                    .outpoint_destination
                     .get(&input.previous_output)
                     .unwrap_or_else(|| {
                         panic!(

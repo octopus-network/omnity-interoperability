@@ -112,15 +112,6 @@ pub enum Event {
         txid: Txid,
     },
 
-    /// Indicates that the given UTXO went through a KYT check.
-    #[serde(rename = "checked_utxo")]
-    CheckedUtxo {
-        utxo: Utxo,
-        uuid: String,
-        clean: bool,
-        kyt_provider: Option<Principal>,
-    },
-
     /// Indicates that the given UTXO's value is too small to pay for a KYT check.
     #[serde(rename = "ignored_utxo")]
     IgnoredUtxo { utxo: Utxo },
@@ -297,32 +288,6 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             }
             Event::ConfirmedBtcTransaction { txid } => {
                 state.finalize_transaction(&txid);
-            }
-            Event::CheckedUtxo {
-                utxo,
-                uuid,
-                clean,
-                kyt_provider,
-            } => {
-                let kyt_provider =
-                    match kyt_provider.or_else(|| state.kyt_principal.map(Principal::from)) {
-                        Some(p) => p,
-                        None => {
-                            return Err(ReplayLogError::InconsistentLog(format!(
-                                "Found CheckUTXO {} event with no provider and KYT principal",
-                                uuid,
-                            )))
-                        }
-                    };
-                state.mark_utxo_checked(
-                    utxo,
-                    uuid,
-                    UtxoCheckStatus::from_clean_flag(clean),
-                    kyt_provider,
-                );
-            }
-            Event::IgnoredUtxo { utxo } => {
-                state.ignore_utxo(utxo);
             }
             Event::DistributedKytFee {
                 kyt_provider,
