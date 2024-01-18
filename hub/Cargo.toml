@@ -1,0 +1,33 @@
+[package]
+name = "omnity_hub"
+version = "0.1.0"
+edition = "2021"
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = { workspace = true }
+ic-cdk = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+derive_more = { workspace = true }
+k256 = { version = "0.12.0", features = ["ecdsa"] }
+# Enable `custom` feature of k256's getrandom dependency. See lib.rs for more details.
+getrandom = { version = "0.2", features = ["custom"] }
+
+# log deps
+# ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
+ciborium = { workspace = true }
+ic-stable-structures = { workspace = true }
+lazy_static = { workspace = true }
+omnity_types = { path = "../types" }
+
+
+[dev-dependencies.tokio]
+version = "1.35.1"
+features = ["full"]

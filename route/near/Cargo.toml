@@ -1,0 +1,17 @@
+[package]
+name = "near_route_canister"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = { workspace = true }
+ic-cdk = { workspace = true }
+thiserror = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+near-client = { git = "https://github.com/octopus-network/near-light-client-rs.git", package = "near-light-client", branch = "main" }
+borsh = { version = "1.1", default-features = false, features = ["derive"] }
+omnity_types = { path = "../../types" }

@@ -1,9 +1,5 @@
 [workspace]
-members = [
-    "near_route",
-    "tendermint_route",
-    "customs/bitcoin",
-]
+members = ["types", "hub", "route/near", "route/tendermint","customs/bitcoin"]
 resolver = "2"
 
 [workspace.package]
@@ -16,10 +12,25 @@ ciborium = "0.2.1"
 ic-btc-interface = { git = "https://github.com/dfinity/bitcoin-canister", rev = "9b239d1d67253eb14a35be6061e3967d5ec9db9d" }
 ic-cdk = "0.12.0"
 ic-cdk-macros = "0.8.3"
-ic-stable-structures = "0.5.4"
 minicbor = { version = "0.19.1", features = ["alloc", "derive"] }
 minicbor-derive = "0.13.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"
 serde_json = { version = "1.0.107", features = ["std"] }
 simple_asn1 = "0.6.2"
+thiserror = "1"
+log = "0.4"
+hex = "0.4.3"
+sha2 = "0.10.6"
+serde_with = { version = "3.1.0", features = ["json"] }
+derive_more = { version = "0.99.17", default-features = false, features = [
+    "from",
+    "into",
+    "display",
+    "try_into",
+] }
+
+# log deps
+# ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
+ic-stable-structures = "0.6"
+lazy_static = "1.4.0"
