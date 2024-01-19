@@ -2,11 +2,12 @@
 
 use super::{
     eventlog::Event, CustomState, FinalizedBtcRetrieval, FinalizedStatus, RetrieveBtcRequest,
-    SubmittedBtcTransaction, UtxoCheckStatus,
+    SubmittedBtcTransaction,
 };
+use crate::destination::Destination;
 use crate::state::{ReimburseDepositTask, ReimbursedDeposit};
 use crate::storage::record_event;
-use crate::ReimbursementReason;
+use crate::{ReimbursementReason, destination};
 use candid::Principal;
 use ic_btc_interface::{Txid, Utxo};
 use icrc_ledger_types::icrc1::account::Account;
@@ -29,7 +30,7 @@ pub fn accept_retrieve_btc_request(state: &mut CustomState, request: RetrieveBtc
 pub fn add_utxos(
     state: &mut CustomState,
     mint_txid: Option<u64>,
-    account: Account,
+    destination: Destination,
     utxos: Vec<Utxo>,
 ) {
     record_event(&Event::ReceivedUtxos {
@@ -38,7 +39,7 @@ pub fn add_utxos(
         utxos: utxos.clone(),
     });
 
-    state.add_utxos(account, utxos);
+    state.add_utxos(destination, utxos);
 }
 
 pub fn remove_retrieve_btc_request(state: &mut CustomState, request: RetrieveBtcRequest) {

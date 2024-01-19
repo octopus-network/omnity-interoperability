@@ -1,7 +1,9 @@
 use crate::destination::Destination;
 use crate::management::{get_utxos, CallSource};
-use crate::state::{mutate_state, read_state, GenBoardingPassReq};
-use crate::updates::get_btc_address::destination_to_p2wpkh_address_from_state;
+use crate::state::{audit, mutate_state, read_state, GenBoardingPassReq};
+use crate::updates::get_btc_address::{
+    destination_to_p2wpkh_address_from_state, init_ecdsa_public_key,
+};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
 use serde::Serialize;
@@ -11,7 +13,6 @@ pub struct GenBoardingPassArgs {
     pub target_chain_id: String,
     pub receiver: String,
     pub token: String,
-    pub amount: u128,
     pub tx_id: Txid,
 }
 
@@ -20,6 +21,8 @@ pub enum GenBoardingPassError {
     TemporarilyUnavailable(String),
     AlreadyProcessing,
     NoNewUtxos,
+    PendingReqNotFound,
+    UtxoNotFound,
 }
 
 pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), GenBoardingPassError> {
@@ -29,8 +32,10 @@ pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), Gen
     // TODO invoke hub canister, check if the token and target_chain_id is in whitelist
 
     read_state(|s| {
-        if s.pending_gen_boarding_pass_requests
-            .contains_key(&args.tx_id)
+        if let Some(_) = s
+            .pending_gen_boarding_pass_requests
+            .iter()
+            .find(|req| (req.tx_id == args.tx_id))
         {
             Err(GenBoardingPassError::AlreadyProcessing)
         } else {
@@ -40,6 +45,8 @@ pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), Gen
 
     let (btc_network, min_confirmations) = read_state(|s| (s.btc_network, s.min_confirmations));
 
+    init_ecdsa_public_key().await;
+
     let destination = Destination {
         target_chain_id: args.target_chain_id.clone(),
         receiver: args.receiver.clone(),
@@ -47,6 +54,8 @@ pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), Gen
 
     let address = read_state(|s| destination_to_p2wpkh_address_from_state(s, &destination));
 
+    // In order to prevent the memory from being exhausted,
+    // ensure that the user has transferred token to this address.
     let utxos = get_utxos(btc_network, &address, min_confirmations, CallSource::Client)
         .await
         .map_err(|call_err| {
@@ -67,13 +76,13 @@ pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), Gen
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
         token: args.token,
-        amount: args.amount,
         tx_id: args.tx_id,
     };
 
     mutate_state(|s| {
-        s.pending_gen_boarding_pass_requests
-            .insert(args.tx_id, request)
+        s.pending_gen_boarding_pass_requests.push(request);
+
+        audit::add_utxos(s, None, destination, new_utxos);
     });
     Ok(())
 }

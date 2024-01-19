@@ -143,13 +143,6 @@ pub async fn retrieve_btc_with_approval(
     state::read_state(|s| s.mode.is_redeem_available_for())
         .map_err(RetrieveBtcWithApprovalError::TemporarilyUnavailable)?;
 
-    if crate::blocklist::BTC_ADDRESS_BLOCKLIST
-        .binary_search(&args.address.trim())
-        .is_ok()
-    {
-        ic_cdk::trap("attempted to retrieve BTC to a blocked address");
-    }
-
     let ecdsa_public_key = init_ecdsa_public_key().await;
     let main_address = account_to_bitcoin_address(
         &ecdsa_public_key,

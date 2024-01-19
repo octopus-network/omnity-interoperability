@@ -7,7 +7,9 @@ use bitcoin_custom::state::{
     read_state, BtcRetrievalStatusV2, RetrieveBtcStatus, RetrieveBtcStatusV2,
 };
 use bitcoin_custom::tasks::{schedule_now, TaskType};
+use bitcoin_custom::updates::finalize_boarding_pass::FinalizeBoardingPassArgs;
 use bitcoin_custom::updates::finalize_transport::FinalizeTransportArgs;
+use bitcoin_custom::updates::gen_boarding_pass::GenBoardingPassArgs;
 use bitcoin_custom::updates::retrieve_btc::{
     RetrieveBtcOk, RetrieveBtcWithApprovalArgs, RetrieveBtcWithApprovalError,
 };
@@ -159,15 +161,15 @@ fn retrieve_btc_status_v2_by_account(target: Option<Account>) -> Vec<BtcRetrieva
 }
 
 #[update]
-async fn finalize_transport(
-    args: FinalizeTransportArgs,
-) -> Result<Vec<UtxoStatus>, UpdateBalanceError> {
-    check_postcondition(updates::finalize_transport::finalize_transport(args).await)
+async fn finalize_boarding_pass(
+    args: FinalizeBoardingPassArgs,
+) -> Result<(), GenBoardingPassError> {
+    check_postcondition(updates::finalize_boarding_pass::finalize_boarding_pass(args).await)
 }
 
 #[update]
-async fn transport_token(args: TransportTokenArgs) {
-    check_postcondition(updates::transport_token::transport_token(args).await)
+async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), GenBoardingPassError> {
+    check_postcondition(updates::gen_boarding_pass::generate_boarding_pass(args).await)
 }
 
 #[update]

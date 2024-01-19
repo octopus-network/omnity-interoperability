@@ -18,7 +18,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 pub mod address;
-pub mod blocklist;
 pub mod dashboard;
 pub mod destination;
 pub mod guard;
@@ -122,7 +121,7 @@ struct SignTxRequest {
 fn undo_sign_request(requests: Vec<state::RetrieveBtcRequest>, utxos: Vec<Utxo>) {
     state::mutate_state(|s| {
         for utxo in utxos {
-            assert!(s.available_utxos.insert(utxo));
+            assert!(s.available_utxos.insert(utxo.outpoint, utxo).is_none());
         }
         // Insert requests in reverse order so that they are still sorted.
         s.push_from_in_flight_to_pending_requests(requests);

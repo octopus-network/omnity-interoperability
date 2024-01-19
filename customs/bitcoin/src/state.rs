@@ -65,8 +65,16 @@ pub struct GenBoardingPassReq {
     pub target_chain_id: String,
     pub receiver: String,
     pub token: String,
-    pub amount: u128,
     pub tx_id: Txid,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RunesUtxo {
+    /// The index of the output within the transaction.
+    pub vout: u32,
+    /// The amount of bitcoin in utxo
+    pub amount: u128,
+    pub runes_amount: u128,
 }
 
 /// A transaction output storing the minter's change.
@@ -266,7 +274,9 @@ pub struct CustomState {
     /// Minimum amount of bitcoin that can be retrieved
     pub retrieve_btc_min_amount: u64,
 
-    pub pending_gen_boarding_pass_requests: BTreeMap<Txid, GenBoardingPassReq>,
+    pub pending_gen_boarding_pass_requests: Vec<GenBoardingPassReq>,
+
+    pub finalized_gen_boarding_pass_requests: BTreeMap<Txid, GenBoardingPassReq>,
 
     /// Retrieve_btc requests that are waiting to be served, sorted by
     /// received_at.
@@ -308,8 +318,11 @@ pub struct CustomState {
     /// The principal of the KYT canister.
     pub kyt_principal: Option<CanisterId>,
 
-    /// The set of UTXOs unused in pending transactions.
-    pub available_utxos: BTreeSet<Utxo>,
+    /// The set of raw UTXOs unused in pending transactions.
+    pub available_utxos: BTreeMap<OutPoint, Utxo>,
+
+    /// The set of runes UTXOs unused in pending transactions.
+    pub available_runes_utxos: BTreeSet<RunesUtxo>,
 
     /// The mapping from output points to the destination to which they
     /// belong.
@@ -461,7 +474,7 @@ impl CustomState {
     }
 
     pub fn check_invariants(&self) -> Result<(), String> {
-        for utxo in self.available_utxos.iter() {
+        for (_, utxo) in self.available_utxos.iter() {
             ensure!(
                 self.outpoint_destination.contains_key(&utxo.outpoint),
                 "the output_account map is missing an entry for {:?}",
@@ -545,20 +558,21 @@ impl CustomState {
     }
 
     // public for only for tests
-    pub(crate) fn add_utxos(&mut self, account: Account, utxos: Vec<Utxo>) {
+    pub(crate) fn add_utxos(&mut self, destination: Destination, utxos: Vec<Utxo>) {
         if utxos.is_empty() {
             return;
         }
 
-        self.tokens_minted += utxos.iter().map(|u| u.value).sum::<u64>();
-
-        let account_bucket = self.utxos_state_destinations.entry(account).or_default();
+        let bucket = self
+            .utxos_state_destinations
+            .entry(destination)
+            .or_default();
 
         for utxo in utxos {
             self.outpoint_destination
-                .insert(utxo.outpoint.clone(), account);
-            self.available_utxos.insert(utxo.clone());
-            account_bucket.insert(utxo);
+                .insert(utxo.outpoint.clone(), destination);
+            self.available_utxos.insert(utxo.outpoint, utxo.clone());
+            bucket.insert(utxo);
         }
 
         #[cfg(debug_assertions)]
@@ -661,7 +675,11 @@ impl CustomState {
 
     /// Forms a batch of retrieve_btc requests that the minter can fulfill.
     pub fn build_batch(&mut self, max_size: usize) -> Vec<RetrieveBtcRequest> {
-        let available_utxos_value = self.available_utxos.iter().map(|u| u.value).sum::<u64>();
+        let available_utxos_value = self
+            .available_utxos
+            .iter()
+            .map(|(_, u)| u.value)
+            .sum::<u64>();
         let mut batch = vec![];
         let mut tx_amount = 0;
         for req in std::mem::take(&mut self.pending_retrieve_btc_requests) {
@@ -699,13 +717,6 @@ impl CustomState {
 
     fn forget_utxo(&mut self, utxo: &Utxo) {
         if let Some(account) = self.outpoint_destination.remove(&utxo.outpoint) {
-            if self.update_balance_principals.contains(&account.owner) {
-                self.finalized_utxos
-                    .entry(account.owner)
-                    .or_default()
-                    .insert(utxo.clone());
-            }
-
             let last_utxo = match self.utxos_state_destinations.get_mut(&account) {
                 Some(utxo_set) => {
                     utxo_set.remove(utxo);
@@ -1129,12 +1140,14 @@ impl From<InitArgs> for CustomState {
             rev_replacement_txid: Default::default(),
             stuck_transactions: Default::default(),
             finalized_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
+            finalized_gen_boarding_pass_requests: Default::default(),
             finalized_requests_count: 0,
             tokens_minted: 0,
             tokens_burned: 0,
             ledger_id: args.ledger_id,
             kyt_principal: args.kyt_principal,
             available_utxos: Default::default(),
+            available_runes_utxos: Default::default(),
             outpoint_destination: Default::default(),
             utxos_state_destinations: Default::default(),
             finalized_utxos: Default::default(),
