@@ -32,11 +32,7 @@ pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), Gen
     // TODO invoke hub canister, check if the token and target_chain_id is in whitelist
 
     read_state(|s| {
-        if let Some(_) = s
-            .pending_gen_boarding_pass_requests
-            .iter()
-            .find(|req| (req.tx_id == args.tx_id))
-        {
+        if s.pending_transport_requests.contains_key(&args.tx_id) {
             Err(GenBoardingPassError::AlreadyProcessing)
         } else {
             Ok(())
@@ -80,7 +76,7 @@ pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), Gen
     };
 
     mutate_state(|s| {
-        s.pending_gen_boarding_pass_requests.push(request);
+        s.pending_transport_requests.insert(args.tx_id, request);
 
         audit::add_utxos(s, None, destination, new_utxos);
     });

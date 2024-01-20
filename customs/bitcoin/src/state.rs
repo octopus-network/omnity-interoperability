@@ -47,16 +47,6 @@ pub struct RetrieveBtcRequest {
     pub block_index: u64,
     /// The time at which the minter accepted the request.
     pub received_at: u64,
-    /// The KYT provider that validated this request.
-    /// The field is optional because old retrieve_btc requests
-    /// didn't go through the KYT check.
-    #[serde(rename = "kyt_provider")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kyt_provider: Option<Principal>,
-    /// The reimbursement_account of the retrieve_btc transaction.
-    #[serde(rename = "reimbursement_account")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reimbursement_account: Option<Account>,
 }
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -68,8 +58,11 @@ pub struct GenBoardingPassReq {
     pub tx_id: Txid,
 }
 
+pub type Token = String;
+
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesUtxo {
+    pub token: Token,
     /// The index of the output within the transaction.
     pub vout: u32,
     /// The amount of bitcoin in utxo
@@ -156,6 +149,16 @@ pub enum RetrieveBtcStatus {
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
+pub enum GenBoardingPassStatus {
+    /// The custom has no data for this request.
+    /// The request is either invalid or too old.
+    Unknown,
+    /// The request is in the queue.
+    Pending,
+    Finalized,
+}
+
+#[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct BtcRetrievalStatusV2 {
     pub block_index: u64,
     pub status_v2: Option<RetrieveBtcStatusV2>,
@@ -192,10 +195,6 @@ pub enum RetrieveBtcStatusV2 {
     AmountTooLow,
     /// Confirmed a transaction satisfying this request.
     Confirmed { txid: Txid },
-    /// The retrieve bitcoin request has been reimbursed.
-    Reimbursed(ReimbursedDeposit),
-    /// The minter will try to reimburse this transaction.
-    WillReimburse(ReimburseDepositTask),
 }
 
 /// Controls which operations the minter can perform.
@@ -205,8 +204,8 @@ pub enum Mode {
     ReadOnly,
     /// Transport operations are restricted.
     TransportRestricted,
-    /// Redeem operations are restricted.
-    RedeemRestricted,
+    /// Release operations are restricted.
+    ReleaseRestricted,
     /// No restrictions on the custom interactions.
     GeneralAvailability,
 }
@@ -215,19 +214,19 @@ impl Mode {
     /// Returns Ok if the transport operation is avaliable.
     pub fn is_transport_available_for(&self) -> Result<(), String> {
         match self {
-            Self::GeneralAvailability | Self::RedeemRestricted => Ok(()),
+            Self::GeneralAvailability | Self::ReleaseRestricted => Ok(()),
             Self::ReadOnly | Self::TransportRestricted => {
                 Err("transport operations are restricted".to_string())
             }
         }
     }
 
-    /// Returns Ok if the redeem operation is avaliable.
-    pub fn is_redeem_available_for(&self) -> Result<(), String> {
+    /// Returns Ok if the release operation is avaliable.
+    pub fn is_release_available_for(&self) -> Result<(), String> {
         match self {
             Self::GeneralAvailability | Self::TransportRestricted => Ok(()),
-            Self::ReadOnly | Self::RedeemRestricted => {
-                Err("redeem operations are restricted".to_string())
+            Self::ReadOnly | Self::ReleaseRestricted => {
+                Err("release operations are restricted".to_string())
             }
         }
     }
@@ -271,19 +270,16 @@ pub struct CustomState {
     /// Per-principal lock for retrieve_btc
     pub retrieve_btc_principals: BTreeSet<Principal>,
 
-    /// Minimum amount of bitcoin that can be retrieved
-    pub retrieve_btc_min_amount: u64,
+    /// Minimum amount of token that can be released
+    pub release_min_amount: u64,
 
-    pub pending_gen_boarding_pass_requests: Vec<GenBoardingPassReq>,
+    pub pending_transport_requests: BTreeMap<Txid, GenBoardingPassReq>,
 
-    pub finalized_gen_boarding_pass_requests: BTreeMap<Txid, GenBoardingPassReq>,
+    pub finalized_gen_boarding_pass_requests: VecDeque<GenBoardingPassReq>,
 
     /// Retrieve_btc requests that are waiting to be served, sorted by
     /// received_at.
     pub pending_retrieve_btc_requests: Vec<RetrieveBtcRequest>,
-
-    /// Maps Account to its retrieve_btc requests burn block indices.
-    pub retrieve_btc_account_to_block_indices: BTreeMap<Account, Vec<u64>>,
 
     /// The identifiers of retrieve_btc requests which we're currently signing a
     /// transaction or sending to the Bitcoin network.
@@ -321,8 +317,8 @@ pub struct CustomState {
     /// The set of raw UTXOs unused in pending transactions.
     pub available_utxos: BTreeMap<OutPoint, Utxo>,
 
-    /// The set of runes UTXOs unused in pending transactions.
-    pub available_runes_utxos: BTreeSet<RunesUtxo>,
+    /// The mappring from token to runes UTXOs unused in pending transactions.
+    pub available_runes_utxos: BTreeMap<Token, BTreeSet<RunesUtxo>>,
 
     /// The mapping from output points to the destination to which they
     /// belong.
@@ -330,16 +326,6 @@ pub struct CustomState {
 
     /// The map of known destinations to their utxos.
     pub utxos_state_destinations: BTreeMap<Destination, BTreeSet<Utxo>>,
-
-    /// This map contains the UTXOs we removed due to a transaction finalization
-    /// while there was a concurrent update_balance call for the principal whose
-    /// UTXOs participated in the transaction. The UTXOs can belong to any
-    /// subaccount of the principal.
-    ///
-    /// We insert a new entry into this map if we discover a concurrent
-    /// update_balance calls during a transaction finalization and remove the
-    /// entry once the update_balance call completes.
-    pub finalized_utxos: BTreeMap<Principal, BTreeSet<Utxo>>,
 
     /// Process one timer event at a time.
     #[serde(skip)]
@@ -352,43 +338,6 @@ pub struct CustomState {
     pub mode: Mode,
 
     pub last_fee_per_vbyte: Vec<u64>,
-
-    /// The fee for a single KYT request.
-    pub kyt_fee: u64,
-
-    /// The total amount of fees we owe to the KYT provider.
-    pub owed_kyt_amount: BTreeMap<Principal, u64>,
-
-    /// Map from burn block index to amount to reimburse because of
-    /// KYT fees.
-    pub pending_reimbursements: BTreeMap<u64, ReimburseDepositTask>,
-
-    /// Map from burn block index to the the reimbursed request.
-    pub reimbursed_transactions: BTreeMap<u64, ReimbursedDeposit>,
-}
-
-#[derive(CandidType, Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
-pub struct ReimburseDepositTask {
-    pub account: Account,
-    pub amount: u64,
-    pub reason: ReimbursementReason,
-}
-
-#[derive(CandidType, Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
-pub struct ReimbursedDeposit {
-    pub account: Account,
-    pub amount: u64,
-    pub reason: ReimbursementReason,
-    pub mint_block_index: u64,
-}
-
-#[derive(Debug, Deserialize, Eq, PartialEq, Clone, Serialize, candid::CandidType, Copy)]
-pub enum ReimbursementReason {
-    TaintedDestination {
-        kyt_provider: Principal,
-        kyt_fee: u64,
-    },
-    CallFailed,
 }
 
 impl CustomState {
@@ -408,14 +357,11 @@ impl CustomState {
     ) {
         self.btc_network = btc_network.into();
         self.ecdsa_key_name = ecdsa_key_name;
-        self.retrieve_btc_min_amount = retrieve_btc_min_amount;
+        self.release_min_amount = retrieve_btc_min_amount;
         self.ledger_id = ledger_id;
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         self.mode = mode;
         self.kyt_principal = kyt_principal;
-        if let Some(kyt_fee) = kyt_fee {
-            self.kyt_fee = kyt_fee;
-        }
         if let Some(min_confirmations) = min_confirmations {
             self.min_confirmations = min_confirmations;
         }
@@ -433,7 +379,7 @@ impl CustomState {
         }: UpgradeArgs,
     ) {
         if let Some(retrieve_btc_min_amount) = retrieve_btc_min_amount {
-            self.retrieve_btc_min_amount = retrieve_btc_min_amount;
+            self.release_min_amount = retrieve_btc_min_amount;
         }
         if let Some(max_time_in_queue_nanos) = max_time_in_queue_nanos {
             self.max_time_in_queue_nanos = max_time_in_queue_nanos;
@@ -456,15 +402,9 @@ impl CustomState {
         if let Some(kyt_principal) = kyt_principal {
             self.kyt_principal = Some(kyt_principal);
         }
-        if let Some(kyt_fee) = kyt_fee {
-            self.kyt_fee = kyt_fee;
-        }
     }
 
     pub fn validate_config(&self) {
-        if self.kyt_fee > self.retrieve_btc_min_amount {
-            ic_cdk::trap("kyt_fee cannot be greater than retrieve_btc_min_amount");
-        }
         if self.ecdsa_key_name.is_empty() {
             ic_cdk::trap("ecdsa_key_name is not set");
         }
@@ -580,44 +520,18 @@ impl CustomState {
             .expect("state invariants are violated");
     }
 
-    pub fn retrieve_btc_status_v2_by_account(
-        &self,
-        target: Option<Account>,
-    ) -> Vec<BtcRetrievalStatusV2> {
-        let target_account = target.unwrap_or(Account {
-            owner: ic_cdk::caller(),
-            subaccount: None,
-        });
-
-        let block_indices: Vec<u64> = self
-            .retrieve_btc_account_to_block_indices
-            .get(&target_account)
-            .unwrap_or(&vec![])
-            .to_vec();
-
-        let result: Vec<BtcRetrievalStatusV2> = block_indices
+    pub fn gen_boarding_pass_status(&self, tx_id: Txid) -> GenBoardingPassStatus {
+        if self.pending_transport_requests.contains_key(&tx_id) {
+            return GenBoardingPassStatus::Pending;
+        }
+        if self
+            .finalized_gen_boarding_pass_requests
             .iter()
-            .map(|&block_index| BtcRetrievalStatusV2 {
-                block_index,
-                status_v2: Some(self.retrieve_btc_status_v2(block_index)),
-            })
-            .collect();
-
-        result
-    }
-
-    pub fn retrieve_btc_status_v2(&self, block_index: u64) -> RetrieveBtcStatusV2 {
-        if let Some(reimbursement) = self.pending_reimbursements.get(&block_index) {
-            return RetrieveBtcStatusV2::WillReimburse(reimbursement.clone());
+            .any(|req| req.tx_id == tx_id)
+        {
+            return GenBoardingPassStatus::Finalized;
         }
-
-        if let Some(reimbursement) = self.reimbursed_transactions.get(&block_index) {
-            return RetrieveBtcStatusV2::Reimbursed(reimbursement.clone());
-        }
-
-        let status_v2: RetrieveBtcStatusV2 = self.retrieve_btc_status(block_index).into();
-
-        status_v2
+        GenBoardingPassStatus::Unknown
     }
 
     /// Returns the status of the retrieve_btc request with the specified
@@ -865,6 +779,8 @@ impl CustomState {
         }
     }
 
+    fn remove_pending_transport_request() {}
+
     /// Marks the specified retrieve_btc request as in-flight.
     ///
     /// # Panics
@@ -907,9 +823,6 @@ impl CustomState {
             assert!(last_req.received_at <= request.received_at);
         }
         self.tokens_burned += request.amount;
-        if let Some(kyt_provider) = request.kyt_provider {
-            *self.owed_kyt_amount.entry(kyt_provider).or_insert(0) += self.kyt_fee;
-        }
         self.pending_retrieve_btc_requests.push(request);
     }
 
@@ -961,57 +874,6 @@ impl CustomState {
         utxos
     }
 
-    /// Decreases the owed amount for the given provider by the amount.
-    /// Returns an error if the distributed amount exceeds the amount owed to the provider.
-    ///
-    /// NOTE: The owed balance decreases even in the case of an overdraft.
-    /// That's because we mint tokens on the ledger before calling this method, so preserving the
-    /// original owed amount does not make sense.
-    fn distribute_kyt_fee(&mut self, provider: Principal, amount: u64) -> Result<(), Overdraft> {
-        if amount == 0 {
-            return Ok(());
-        }
-        match self.owed_kyt_amount.entry(provider) {
-            Entry::Occupied(mut entry) => {
-                let balance = *entry.get();
-                if amount > balance {
-                    entry.remove();
-                    Err(Overdraft(amount - balance))
-                } else {
-                    *entry.get_mut() -= amount;
-                    if *entry.get() == 0 {
-                        entry.remove();
-                    }
-                    Ok(())
-                }
-            }
-            Entry::Vacant(_) => Err(Overdraft(amount)),
-        }
-    }
-
-    pub fn schedule_deposit_reimbursement(
-        &mut self,
-        burn_block_index: u64,
-        reimburse_deposit_task: ReimburseDepositTask,
-    ) {
-        match reimburse_deposit_task.reason {
-            ReimbursementReason::TaintedDestination {
-                kyt_provider,
-                kyt_fee,
-            } => {
-                *self.owed_kyt_amount.entry(kyt_provider).or_insert(0) += kyt_fee;
-            }
-            ReimbursementReason::CallFailed => {}
-        }
-        self.retrieve_btc_account_to_block_indices
-            .entry(reimburse_deposit_task.account)
-            .and_modify(|entry| entry.push(burn_block_index))
-            .or_insert(vec![burn_block_index]);
-
-        self.pending_reimbursements
-            .insert(burn_block_index, reimburse_deposit_task);
-    }
-
     /// Checks whether the internal state of the minter matches the other state
     /// semantically (the state holds the same data, but maybe in a slightly
     /// different form).
@@ -1053,24 +915,10 @@ impl CustomState {
             "utxos_state_addresses do not match"
         );
 
-        ensure_eq!(self.kyt_fee, other.kyt_fee, "kyt_fee does not match");
-
-        ensure_eq!(
-            self.owed_kyt_amount,
-            other.owed_kyt_amount,
-            "owed_kyt_amount does not match"
-        );
-
         ensure_eq!(
             self.kyt_principal,
             other.kyt_principal,
             "kyt_principal does not match"
-        );
-
-        ensure_eq!(
-            self.retrieve_btc_account_to_block_indices,
-            other.retrieve_btc_account_to_block_indices,
-            "retrieve_btc_account_to_block_indices does not match"
         );
 
         let my_txs = as_sorted_vec(self.submitted_transactions.iter().cloned(), |tx| tx.txid);
@@ -1130,17 +978,16 @@ impl From<InitArgs> for CustomState {
             max_time_in_queue_nanos: args.max_time_in_queue_nanos,
             update_balance_principals: Default::default(),
             retrieve_btc_principals: Default::default(),
-            retrieve_btc_min_amount: args.retrieve_btc_min_amount,
-            pending_gen_boarding_pass_requests: Default::default(),
+            release_min_amount: args.retrieve_btc_min_amount,
+            pending_transport_requests: Default::default(),
             pending_retrieve_btc_requests: Default::default(),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
             replacement_txid: Default::default(),
-            retrieve_btc_account_to_block_indices: Default::default(),
             rev_replacement_txid: Default::default(),
             stuck_transactions: Default::default(),
             finalized_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
-            finalized_gen_boarding_pass_requests: Default::default(),
+            finalized_gen_boarding_pass_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             finalized_requests_count: 0,
             tokens_minted: 0,
             tokens_burned: 0,
@@ -1150,17 +997,10 @@ impl From<InitArgs> for CustomState {
             available_runes_utxos: Default::default(),
             outpoint_destination: Default::default(),
             utxos_state_destinations: Default::default(),
-            finalized_utxos: Default::default(),
             is_timer_running: false,
             is_distributing_fee: false,
             mode: args.mode,
             last_fee_per_vbyte: vec![1; 100],
-            kyt_fee: args
-                .kyt_fee
-                .unwrap_or(crate::lifecycle::init::DEFAULT_KYT_FEE),
-            owed_kyt_amount: Default::default(),
-            pending_reimbursements: Default::default(),
-            reimbursed_transactions: Default::default(),
         }
     }
 }

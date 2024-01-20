@@ -1,11 +1,9 @@
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::{
-    ChangeOutput, CustomState, FinalizedBtcRetrieval, FinalizedStatus, Overdraft,
-    RetrieveBtcRequest, SubmittedBtcTransaction, UtxoCheckStatus,
+    ChangeOutput, CustomState, FinalizedBtcRetrieval, FinalizedStatus,
+    RetrieveBtcRequest, SubmittedBtcTransaction,
 };
-use crate::state::{ReimburseDepositTask, ReimbursedDeposit, ReimbursementReason};
-use candid::Principal;
 use ic_btc_interface::{Txid, Utxo};
 use icrc_ledger_types::icrc1::account::Account;
 use serde::{Deserialize, Serialize};
@@ -115,59 +113,6 @@ pub enum Event {
     /// Indicates that the given UTXO's value is too small to pay for a KYT check.
     #[serde(rename = "ignored_utxo")]
     IgnoredUtxo { utxo: Utxo },
-
-    /// Indicates that the given KYT provider received owed fees.
-    #[serde(rename = "distributed_kyt_fee")]
-    DistributedKytFee {
-        /// The beneficiary.
-        #[serde(rename = "kyt_provider")]
-        kyt_provider: Principal,
-        /// The token amount minted.
-        #[serde(rename = "amount")]
-        amount: u64,
-        /// The mint block on the ledger.
-        #[serde(rename = "block_index")]
-        block_index: u64,
-    },
-
-    /// Indicates that the KYT check for the specified address failed.
-    #[serde(rename = "retrieve_btc_kyt_failed")]
-    RetrieveBtcKytFailed {
-        /// The owner of the address.
-        owner: Principal,
-        /// The address that failed the KYT check.
-        address: String,
-        /// The amount associated with the failed KYT check.
-        amount: u64,
-        /// Unique identifier for the failed check.
-        uuid: String,
-        /// The KYT provider responsible for the failed check.
-        kyt_provider: Principal,
-        /// The block index where the failed check occurred.
-        block_index: u64,
-    },
-
-    /// Indicates a reimbursement.
-    #[serde(rename = "schedule_deposit_reimbursement")]
-    ScheduleDepositReimbursement {
-        /// The beneficiary.
-        account: Account,
-        /// The token amount to reimburse.
-        amount: u64,
-        /// The reason of the reimbursement.
-        reason: ReimbursementReason,
-        /// The corresponding burn block on the ledger.
-        burn_block_index: u64,
-    },
-
-    /// Indicates that a reimbursement has been executed.
-    #[serde(rename = "reimbursed_failed_deposit")]
-    ReimbursedFailedDeposit {
-        /// The burn block on the ledger.
-        burn_block_index: u64,
-        /// The mint block on the ledger.
-        mint_block_index: u64,
-    },
 }
 
 #[derive(Debug)]
@@ -201,13 +146,6 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                 to_account, utxos, ..
             } => state.add_utxos(to_account, utxos),
             Event::AcceptedRetrieveBtcRequest(req) => {
-                if let Some(account) = req.reimbursement_account {
-                    state
-                        .retrieve_btc_account_to_block_indices
-                        .entry(account)
-                        .and_modify(|entry| entry.push(req.block_index))
-                        .or_insert(vec![req.block_index]);
-                }
                 state.push_back_pending_request(req);
             }
             Event::RemovedRetrieveBtcRequest { block_index } => {
@@ -242,7 +180,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                     retrieve_btc_requests.push(request);
                 }
                 for utxo in utxos.iter() {
-                    state.available_utxos.remove(utxo);
+                    state.available_utxos.remove(&utxo.outpoint);
                 }
                 state.push_submitted_transaction(SubmittedBtcTransaction {
                     requests: retrieve_btc_requests,
@@ -288,51 +226,6 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             }
             Event::ConfirmedBtcTransaction { txid } => {
                 state.finalize_transaction(&txid);
-            }
-            Event::DistributedKytFee {
-                kyt_provider,
-                amount,
-                ..
-            } => {
-                if let Err(Overdraft(overdraft)) = state.distribute_kyt_fee(kyt_provider, amount) {
-                    return Err(ReplayLogError::InconsistentLog(format!("Attempted to distribute {amount} to {kyt_provider}, causing an overdraft of {overdraft}")));
-                }
-            }
-            Event::RetrieveBtcKytFailed { kyt_provider, .. } => {
-                *state.owed_kyt_amount.entry(kyt_provider).or_insert(0) += state.kyt_fee;
-            }
-            Event::ScheduleDepositReimbursement {
-                account,
-                amount,
-                burn_block_index,
-                reason,
-            } => {
-                state.schedule_deposit_reimbursement(
-                    burn_block_index,
-                    ReimburseDepositTask {
-                        account,
-                        amount,
-                        reason,
-                    },
-                );
-            }
-            Event::ReimbursedFailedDeposit {
-                burn_block_index,
-                mint_block_index,
-            } => {
-                let reimbursed_tx = state
-                    .pending_reimbursements
-                    .remove(&burn_block_index)
-                    .expect("bug: reimbursement task should be present");
-                state.reimbursed_transactions.insert(
-                    burn_block_index,
-                    ReimbursedDeposit {
-                        account: reimbursed_tx.account,
-                        amount: reimbursed_tx.amount,
-                        reason: reimbursed_tx.reason,
-                        mint_block_index,
-                    },
-                );
             }
         }
     }

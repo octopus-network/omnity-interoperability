@@ -301,7 +301,7 @@ pub fn build_metadata() -> String {
                 .map(|p| p.to_string())
                 .unwrap_or_else(|| "N/A".to_string()),
             DisplayAmount(s.kyt_fee),
-            DisplayAmount(s.retrieve_btc_min_amount),
+            DisplayAmount(s.release_min_amount),
             DisplayAmount(get_total_btc_managed())
         )
     })

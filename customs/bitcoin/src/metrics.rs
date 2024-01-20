@@ -112,7 +112,7 @@ pub fn encode_metrics(
 
     metrics.encode_gauge(
         "ckbtc_minter_min_retrievable_amount",
-        state::read_state(|s| s.retrieve_btc_min_amount) as f64,
+        state::read_state(|s| s.release_min_amount) as f64,
         "Minimum number of ckBTC a user can withdraw.",
     )?;
 
@@ -145,7 +145,7 @@ pub fn encode_metrics(
     metrics.encode_gauge(
         "ckbtc_minter_btc_balance",
         state::read_state(|s| {
-            s.available_utxos.iter().map(|u| u.value).sum::<u64>()
+            s.available_utxos.iter().map(|(_, u)| u.value).sum::<u64>()
                 + s.submitted_transactions
                     .iter()
                     .map(|tx| {
@@ -193,12 +193,6 @@ pub fn encode_metrics(
         "ckbtc_minter_median_fee_per_vbyte",
         state::read_state(|s| s.last_fee_per_vbyte[50]) as f64,
         "Median Bitcoin transaction fee per vbyte in Satoshi.",
-    )?;
-
-    metrics.encode_gauge(
-        "ckbtc_minter_owed_kyt_amount",
-        state::read_state(|s| s.owed_kyt_amount.iter().map(|e| e.1).sum::<u64>()) as f64,
-        "The total amount of ckBTC that minter owes to the KYT canister.",
     )?;
 
     Ok(())

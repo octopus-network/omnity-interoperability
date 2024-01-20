@@ -1,9 +1,15 @@
 use candid::CandidType;
+use ic_btc_interface::Txid;
 use serde::Deserialize;
 
 #[derive(CandidType, Deserialize)]
 pub struct RetrieveBtcStatusRequest {
     pub block_index: u64,
+}
+
+#[derive(CandidType, Deserialize)]
+pub struct GenBoardingPassStatusRequest {
+    pub tx_id: Txid,
 }
 
 #[derive(CandidType, Deserialize)]

@@ -1,16 +1,12 @@
 use crate::address::BitcoinAddress;
 use crate::logs::{P0, P1};
-use crate::memo::Status;
 use crate::queries::WithdrawalFee;
-use crate::state::ReimbursementReason;
 use crate::tasks::schedule_after;
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Satoshi, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use icrc_ledger_types::icrc1::account::Account;
-use icrc_ledger_types::icrc1::transfer::{Memo, TransferError};
-use num_traits::ToPrimitive;
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
@@ -198,7 +194,7 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
             if fees.len() >= 100 {
                 state::mutate_state(|s| {
                     s.last_fee_per_vbyte = fees.clone();
-                    s.retrieve_btc_min_amount = compute_min_withdrawal_amount(fees[50]);
+                    s.release_min_amount = compute_min_withdrawal_amount(fees[50]);
                 });
                 Some(fees[50])
             } else {
@@ -434,35 +430,6 @@ fn finalized_txids(candidates: &[state::SubmittedBtcTransaction], new_utxos: &[U
             })
         })
         .collect()
-}
-
-async fn reimburse_failed_kyt() {
-    let try_to_reimburse = state::read_state(|s| s.pending_reimbursements.clone());
-    for (burn_block_index, entry) in try_to_reimburse {
-        let (memo_status, kyt_fee) = match entry.reason {
-            ReimbursementReason::TaintedDestination { kyt_fee, .. } => (Status::Rejected, kyt_fee),
-            ReimbursementReason::CallFailed => (Status::CallFailed, 0),
-        };
-        let reimburse_memo = crate::memo::MintMemo::KytFail {
-            kyt_fee: Some(kyt_fee),
-            status: Some(memo_status),
-            associated_burn_index: Some(burn_block_index),
-        };
-        if let Ok(block_index) = crate::updates::finalize_transport::mint(
-            entry
-                .amount
-                .checked_sub(kyt_fee)
-                .expect("reimburse underflow"),
-            entry.account,
-            crate::memo::encode(&reimburse_memo).into(),
-        )
-        .await
-        {
-            state::mutate_state(|s| {
-                state::audit::reimbursed_failed_deposit(s, burn_block_index, block_index)
-            });
-        }
-    }
 }
 
 async fn finalize_requests() {
@@ -1078,84 +1045,6 @@ fn distribute(amount: u64, n: u64) -> Vec<u64> {
     shares
 }
 
-pub async fn distribute_kyt_fees() {
-    use icrc_ledger_client_cdk::CdkRuntime;
-    use icrc_ledger_client_cdk::ICRC1Client;
-    use icrc_ledger_types::icrc1::transfer::TransferArg;
-
-    #[derive(Debug)]
-    enum MintError {
-        TransferError(TransferError),
-        CallError(i32, String),
-    }
-
-    async fn mint(amount: u64, to: candid::Principal, memo: Memo) -> Result<u64, MintError> {
-        debug_assert!(memo.0.len() <= CKBTC_LEDGER_MEMO_SIZE as usize);
-
-        let client = ICRC1Client {
-            runtime: CdkRuntime,
-            ledger_canister_id: state::read_state(|s| s.ledger_id.get().into()),
-        };
-        client
-            .transfer(TransferArg {
-                from_subaccount: None,
-                to: Account {
-                    owner: to,
-                    subaccount: None,
-                },
-                fee: None,
-                created_at_time: None,
-                memo: Some(memo),
-                amount: candid::Nat::from(amount),
-            })
-            .await
-            .map_err(|(code, msg)| MintError::CallError(code, msg))?
-            .map_err(MintError::TransferError)
-            .map(|n| n.0.to_u64().expect("nat does not fit into u64"))
-    }
-
-    let fees_to_distribute = state::read_state(|s| s.owed_kyt_amount.clone());
-    for (provider, amount) in fees_to_distribute {
-        let memo = crate::memo::MintMemo::Kyt;
-        match mint(amount, provider, crate::memo::encode(&memo).into()).await {
-            Ok(block_index) => {
-                state::mutate_state(|s| {
-                    if let Err(state::Overdraft(overdraft)) =
-                        state::audit::distributed_kyt_fee(s, provider, amount, block_index)
-                    {
-                        // This should never happen because:
-                        //  1. The fee distribution task is guarded (at most one copy is active).
-                        //  2. Fee distribution is the only way to decrease the balance.
-                        log!(
-                            P0,
-                            "BUG[distribute_kyt_fees]: distributed {} to {} but the balance is only {}",
-                            tx::DisplayAmount(amount),
-                            provider,
-                            tx::DisplayAmount(amount - overdraft),
-                        );
-                    } else {
-                        log!(
-                            P0,
-                            "[distribute_kyt_fees]: minted {} to {}",
-                            tx::DisplayAmount(amount),
-                            provider,
-                        );
-                    }
-                });
-            }
-            Err(error) => {
-                log!(
-                    P0,
-                    "[distribute_kyt_fees]: failed to mint {} to {} with error: {:?}",
-                    tx::DisplayAmount(amount),
-                    provider,
-                    error
-                );
-            }
-        }
-    }
-}
-
 pub fn timer() {
     use tasks::{pop_if_ready, TaskType};
 
@@ -1180,7 +1069,6 @@ pub fn timer() {
 
                 submit_pending_requests().await;
                 finalize_requests().await;
-                reimburse_failed_kyt().await;
             });
         }
         TaskType::RefreshFeePercentiles => {
@@ -1188,30 +1076,6 @@ pub fn timer() {
                 const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
                 let _ = estimate_fee_per_vbyte().await;
                 schedule_after(FEE_ESTIMATE_DELAY, TaskType::RefreshFeePercentiles);
-            });
-        }
-        TaskType::DistributeKytFee => {
-            ic_cdk::spawn(async {
-                let _guard = match crate::guard::DistributeKytFeeGuard::new() {
-                    Some(guard) => guard,
-                    None => return,
-                };
-
-                const MAINNET_KYT_FEE_DISTRIBUTION_PERIOD: Duration =
-                    Duration::from_secs(24 * 60 * 60);
-
-                match crate::state::read_state(|s| s.btc_network) {
-                    Network::Mainnet | Network::Testnet => {
-                        distribute_kyt_fees().await;
-                        schedule_after(
-                            MAINNET_KYT_FEE_DISTRIBUTION_PERIOD,
-                            TaskType::DistributeKytFee,
-                        );
-                    }
-                    // We use a debug canister build exposing an endpoint
-                    // triggering the fee distribution in tests.
-                    Network::Regtest => {}
-                }
             });
         }
     }
