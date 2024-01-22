@@ -13,14 +13,12 @@ The NEAR Route is under management of the Hub which accepts 4 kinds of directive
 
 ## NEAR Light Client
 
-The NEAR Route internally maintains a serious of block headers of NEAR Protocol. For each transport relay, a user must submit 3 parts:
+The NEAR Route internally maintains a serious of block headers(at least 1 block header for each epoch) of NEAR Protocol. For each transport relay, a user must submit 3 parts:
 
 - Header
-- Proofs of state(fetched from height-1)
-- Token burnt
+- Proof of exists
+- Origin transaction
 
-After the light client validates the request, it accepts the header and updates the height to `H` if the header > max(accepted_headers).
+For each transport request, the light client must find the nearest ancestor either from the internal storage or RPC. The nearest ancestor's epoch must satisfy `epoch(ancestor) == epoch(header)` or `epoch(ancestor) + 1 == epoch(header)`.
 
-** Question: What if two users submit 2 transport transactions on NEAR at `H` and `H+1` respectively, then the light client handle the `H+1` first.
-
-** Assume the light client already maintains a header `X` where `X` < `H` < `H+1`. After the newly `H+1` handled, the highest height becomes `H+1` but the light client still has `X`, so we could validate the `H` in terms of `X`.
+TODO

@@ -1,9 +1,9 @@
 pub use near_client::{
-    near_types::{hash::sha256, merkle::merklize},
+    near_types::{hash::sha256, merkle::merklize, ValidatorStakeView},
     types::*,
     BasicNearLightClient, HeaderVerificationError, StateProofVerificationError,
 };
-use std::{cell::RefCell, collections::BTreeMap};
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 use thiserror::Error;
 
 const GENESIS_HEIGHT: Height = 9820210;
@@ -11,6 +11,7 @@ const EPOCH_DURATION: Height = 43200;
 
 thread_local! {
     static STATES: RefCell<BTreeMap<Height, ConsensusState>> = RefCell::new(Default::default());
+    static RPC: RefCell<Option<Rc<String>>> = RefCell::new(None);
 }
 
 #[derive(Clone, Debug, Error)]
@@ -41,23 +42,27 @@ fn epoch_of_height(height: Height) -> Height {
 }
 
 impl DummyLightClient {
-    pub fn init_or_return(state: ConsensusState) {
+    pub fn init_or_return(rpc: impl ToString, state: ConsensusState) {
         STATES.with_borrow_mut(|s| {
             s.entry(state.header.height()).or_insert(state);
         });
+        RPC.with_borrow_mut(|r| r.replace(Rc::new(rpc.to_string())));
+    }
+
+    pub fn rpc(&self) -> Rc<String> {
+        RPC.with_borrow(|r| r.as_ref().expect("Client already initialized.").clone())
     }
 
     pub async fn verify_proofs(
         &self,
-        header: Header,
+        target: Header,
         key: &[u8],
         value: &[u8],
         proofs: Vec<Vec<u8>>,
     ) -> Result<(), LightClientError> {
-        // FIXME sybil attack: this rpc will cost around 12k bytes response, we shall limit the input Header
-        self.ensure_continuous_epoches(&header).await;
+        self.ensure_continuous_epoches(&target).await?;
         let state = self
-            .try_accept_header(header)
+            .verify_header(&target)
             .map_err(|e| LightClientError::HeaderError(e))?;
         // TODO change to verify transactions
         state
@@ -65,29 +70,50 @@ impl DummyLightClient {
             .map_err(|e| LightClientError::StateError(e))
     }
 
-    async fn ensure_continuous_epoches(&self, header: &Header) {
+    async fn ensure_continuous_epoches(&self, target: &Header) -> Result<(), LightClientError> {
         let highest_epoch = epoch_of_height(self.latest_height());
-        let requested_epoch = epoch_of_height(header.height());
-        if highest_epoch + 1 >= requested_epoch {
-            return;
+        let requested_epoch = epoch_of_height(target.height());
+        if highest_epoch >= requested_epoch {
+            return Ok(());
+        } else if requested_epoch == highest_epoch + 1 {
+            let epoch_height =
+                EPOCH_DURATION - (self.latest_height() - GENESIS_HEIGHT) % EPOCH_DURATION + 1;
+            if let Ok(header) = crate::rpc::fetch_header(self.rpc().as_str(), epoch_height).await {
+                let cs = STATES.with_borrow(|s| {
+                    s.get(&highest_epoch)
+                        .map(|cs| cs.header.light_client_block.next_bps.clone())
+                        .flatten()
+                        .expect("Should not fail based on previous checking.")
+                });
+                self.try_accept_new_epoch(header, cs)
+                    .map_err(|e| LightClientError::HeaderError(e))?;
+            }
+            return Ok(());
         } else {
-            // TODO
-            let h = EPOCH_DURATION - (self.latest_height() - GENESIS_HEIGHT) % EPOCH_DURATION + 1;
-            if let Ok(b) = crate::rpc::fetch_block("", h).await {}
+            return Err(LightClientError::HeaderError(
+                HeaderVerificationError::InvalidBlockHeight,
+            ));
         }
     }
 
-    fn try_accept_header(&self, header: Header) -> Result<ConsensusState, HeaderVerificationError> {
+    fn try_accept_new_epoch(
+        &self,
+        header: Header,
+        bps: Vec<ValidatorStakeView>,
+    ) -> Result<(), HeaderVerificationError> {
         let height = header.height();
-        if let Some(state) = self.get_consensus_state(&height) {
-            return Ok(state);
+        if let Some(_s) = self.get_consensus_state(&height) {
+            return Ok(());
         }
-        let ancestor = self.verify_header(&header)?;
+        self.verify_header(&header)?;
         let accepted = ConsensusState {
-            current_bps: ancestor.current_bps,
+            current_bps: Some(bps),
             header,
         };
-        Ok(accepted)
+        STATES.with_borrow_mut(|s| {
+            s.insert(height, accepted.clone());
+        });
+        Ok(())
     }
 
     fn find_nearest_ancestor(&self, header: &Header) -> Option<ConsensusState> {

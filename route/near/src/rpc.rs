@@ -1,5 +1,16 @@
 use ic_cdk::api::management_canister::http_request::*;
-use near_primitives::{types::BlockHeight, views::BlockView};
+use near_client::{
+    near_types::{
+        hash::CryptoHash,
+        signature::{ED25519PublicKey, PublicKey, Signature},
+        *,
+    },
+    types::*,
+};
+use near_primitives::views::{
+    validator_stake_view::ValidatorStakeView as ValidatorStakeViewN, BlockView as BlockViewN,
+    LightClientBlockView as LightClientBlockViewN,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 
@@ -16,6 +27,7 @@ pub enum RpcError {
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 enum RpcEndpoint {
     Block(BlockHeight),
+    NextLightBlock(CryptoHash),
 }
 
 impl RpcEndpoint {
@@ -23,6 +35,7 @@ impl RpcEndpoint {
     fn method(&self) -> &'static str {
         match self {
             RpcEndpoint::Block(_) => "block",
+            RpcEndpoint::NextLightBlock(_) => "next_light_client_block",
         }
     }
 
@@ -30,6 +43,9 @@ impl RpcEndpoint {
         match self {
             RpcEndpoint::Block(height) => {
                 serde_json::json!([height])
+            }
+            RpcEndpoint::NextLightBlock(hash) => {
+                serde_json::json!([format!("{}", hash)])
             }
         }
     }
@@ -105,7 +121,77 @@ where
     return Ok(reply.result.unwrap());
 }
 
-pub(crate) async fn fetch_block(url: &str, height: BlockHeight) -> Result<BlockView, RpcError> {
-    let block = make_rpc::<BlockView>(url, RpcEndpoint::Block(height)).await?;
+async fn fetch_block(url: &str, height: BlockHeight) -> Result<BlockViewN, RpcError> {
+    let block = make_rpc::<BlockViewN>(url, RpcEndpoint::Block(height)).await?;
     Ok(block)
+}
+
+async fn fetch_next_light_block(
+    url: &str,
+    hash: CryptoHash,
+) -> Result<LightClientBlockViewN, RpcError> {
+    let light_block =
+        make_rpc::<LightClientBlockViewN>(url, RpcEndpoint::NextLightBlock(hash)).await?;
+    Ok(light_block)
+}
+
+pub(crate) async fn fetch_header(url: &str, height: BlockHeight) -> Result<Header, RpcError> {
+    let block = fetch_block(url, height).await?;
+    let light_block = fetch_next_light_block(url, CryptoHash(block.header.hash.0)).await?;
+    Ok(Header {
+        light_client_block: LightClientBlock {
+            prev_block_hash: CryptoHash(light_block.prev_block_hash.0),
+            next_block_inner_hash: CryptoHash(light_block.next_block_inner_hash.0),
+            inner_lite: BlockHeaderInnerLite {
+                height: light_block.inner_lite.height,
+                epoch_id: EpochId(CryptoHash(light_block.inner_lite.epoch_id.0)),
+                next_epoch_id: EpochId(CryptoHash(light_block.inner_lite.next_epoch_id.0)),
+                prev_state_root: CryptoHash(light_block.inner_lite.prev_state_root.0),
+                outcome_root: CryptoHash(light_block.inner_lite.outcome_root.0),
+                timestamp: light_block.inner_lite.timestamp_nanosec,
+                next_bp_hash: CryptoHash(light_block.inner_lite.next_bp_hash.0),
+                block_merkle_root: CryptoHash(light_block.inner_lite.block_merkle_root.0),
+            },
+            inner_rest_hash: CryptoHash(light_block.inner_rest_hash.0),
+            next_bps: Some(
+                light_block
+                    .next_bps
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .map(|f| match f {
+                        ValidatorStakeViewN::V1(v) => {
+                            ValidatorStakeView::V1(ValidatorStakeViewV1 {
+                                account_id: v.account_id.to_string(),
+                                public_key: match &v.public_key {
+                                    near_crypto::PublicKey::ED25519(data) => {
+                                        PublicKey::ED25519(ED25519PublicKey(data.clone().0))
+                                    }
+                                    _ => panic!("Unsupported publickey in next block producers."),
+                                },
+                                stake: v.stake,
+                            })
+                        }
+                    })
+                    .collect(),
+            ),
+            approvals_after_next: light_block
+                .approvals_after_next
+                .iter()
+                .map(|f| {
+                    f.as_ref().map(|s| match **s {
+                        near_crypto::Signature::ED25519(data) => {
+                            Signature::ED25519(data.to_bytes().to_vec())
+                        }
+                        _ => panic!("Unsupported signature in approvals after next."),
+                    })
+                })
+                .collect(),
+        },
+        prev_state_root_of_chunks: block
+            .chunks
+            .iter()
+            .map(|header| CryptoHash(header.prev_state_root.0))
+            .collect(),
+    })
 }
