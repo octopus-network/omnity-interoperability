@@ -153,11 +153,6 @@ fn retrieve_btc_status(req: RetrieveBtcStatusRequest) -> RetrieveBtcStatus {
 }
 
 #[query]
-fn retrieve_btc_status_v2(req: RetrieveBtcStatusRequest) -> RetrieveBtcStatusV2 {
-    read_state(|s| s.retrieve_btc_status_v2(req.block_index))
-}
-
-#[query]
 fn gen_boarding_pass_status(req: GenBoardingPassStatusRequest) -> GenBoardingPassStatus {
     read_state(|s| s.gen_boarding_pass_status(req.tx_id))
 }

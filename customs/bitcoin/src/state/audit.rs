@@ -1,34 +1,32 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomState, FinalizedBtcRetrieval, FinalizedStatus, RetrieveBtcRequest,
+    eventlog::Event, CustomState, FinalizedBtcRetrieval, FinalizedStatus, ReleaseTokenRequest,
     SubmittedBtcTransaction,
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
 use ic_btc_interface::{Txid, Utxo};
 
-pub fn accept_retrieve_btc_request(state: &mut CustomState, request: RetrieveBtcRequest) {
-    record_event(&Event::AcceptedRetrieveBtcRequest(request.clone()));
-    state.pending_retrieve_btc_requests.push(request.clone());
+pub fn accept_release_token_request(state: &mut CustomState, request: ReleaseTokenRequest) {
+    record_event(&Event::AcceptedReleaseTokenRequest(request.clone()));
+    state.pending_release_token_requests.push(request.clone());
 }
 
 pub fn add_utxos(
     state: &mut CustomState,
-    mint_txid: Option<u64>,
     destination: Destination,
     utxos: Vec<Utxo>,
 ) {
     record_event(&Event::ReceivedUtxos {
-        mint_txid,
-        to_account: account,
+        destination: destination,
         utxos: utxos.clone(),
     });
 
     state.add_utxos(destination, utxos);
 }
 
-pub fn remove_retrieve_btc_request(state: &mut CustomState, request: RetrieveBtcRequest) {
+pub fn remove_retrieve_btc_request(state: &mut CustomState, request: ReleaseTokenRequest) {
     record_event(&Event::RemovedRetrieveBtcRequest {
         block_index: request.block_index,
     });

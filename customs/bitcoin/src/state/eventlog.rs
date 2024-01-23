@@ -1,8 +1,9 @@
+use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::{
-    ChangeOutput, CustomState, FinalizedBtcRetrieval, FinalizedStatus,
-    RetrieveBtcRequest, SubmittedBtcTransaction,
+    ChangeOutput, CustomState, FinalizedBtcRetrieval, FinalizedStatus, ReleaseTokenRequest,
+    SubmittedBtcTransaction,
 };
 use ic_btc_interface::{Txid, Utxo};
 use icrc_ledger_types::icrc1::account::Account;
@@ -25,18 +26,12 @@ pub enum Event {
     #[serde(rename = "upgrade")]
     Upgrade(UpgradeArgs),
 
-    /// Indicates that the minter received new UTXOs to the specified account.
-    /// The minter emits this event _after_ it minted ckBTC.
+    /// Indicates that the customs received new UTXOs to the specified destination.
     #[serde(rename = "received_utxos")]
     ReceivedUtxos {
-        /// The index of the transaction that mints ckBTC corresponding to the
-        /// received UTXOs.
-        #[serde(rename = "mint_txid")]
-        #[serde(skip_serializing_if = "Option::is_none")]
-        mint_txid: Option<u64>,
-        /// That minter's account owning the UTXOs.
-        #[serde(rename = "to_account")]
-        to_account: Account,
+        /// That destination owning the UTXOs.
+        #[serde(rename = "destination")]
+        destination: Destination,
         #[serde(rename = "utxos")]
         utxos: Vec<Utxo>,
     },
@@ -44,7 +39,7 @@ pub enum Event {
     /// Indicates that the minter accepted a new retrieve_btc request.
     /// The minter emits this event _after_ it burnt ckBTC.
     #[serde(rename = "accepted_retrieve_btc_request")]
-    AcceptedRetrieveBtcRequest(RetrieveBtcRequest),
+    AcceptedReleaseTokenRequest(ReleaseTokenRequest),
 
     /// Indicates that the minter removed a previous retrieve_btc request
     /// because the retrieval amount was not enough to cover the transaction
@@ -145,7 +140,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             Event::ReceivedUtxos {
                 to_account, utxos, ..
             } => state.add_utxos(to_account, utxos),
-            Event::AcceptedRetrieveBtcRequest(req) => {
+            Event::AcceptedReleaseTokenRequest(req) => {
                 state.push_back_pending_request(req);
             }
             Event::RemovedRetrieveBtcRequest { block_index } => {

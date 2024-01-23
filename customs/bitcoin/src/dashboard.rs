@@ -310,7 +310,7 @@ pub fn build_metadata() -> String {
 pub fn build_pending_request_tx() -> String {
     with_utf8_buffer(|buf| {
         state::read_state(|s| {
-            for req in s.pending_retrieve_btc_requests.iter() {
+            for req in s.pending_release_token_requests.iter() {
                 writeln!(
                     buf,
                     "<tr><td>{}</td><td><code>{}</code></td><td>{}</td></tr>",

@@ -6,7 +6,7 @@ use crate::{
 use crate::{
     lifecycle::init::InitArgs,
     state::{
-        ChangeOutput, CustomState, Mode, RetrieveBtcRequest, RetrieveBtcStatus,
+        ChangeOutput, CustomState, Mode, ReleaseTokenRequest, RetrieveBtcStatus,
         SubmittedBtcTransaction,
     },
 };
@@ -455,7 +455,7 @@ fn arb_account() -> impl Strategy<Value = Account> {
 fn arb_retrieve_btc_requests(
     amount: impl Strategy<Value = Satoshi>,
     num: impl Into<SizeRange>,
-) -> impl Strategy<Value = Vec<RetrieveBtcRequest>> {
+) -> impl Strategy<Value = Vec<ReleaseTokenRequest>> {
     let request_strategy = (
         amount,
         arb_address(),
@@ -466,7 +466,7 @@ fn arb_retrieve_btc_requests(
     )
         .prop_map(
             |(amount, address, block_index, received_at, provider, reimbursement_account)| {
-                RetrieveBtcRequest {
+                ReleaseTokenRequest {
                     amount,
                     address,
                     block_index,

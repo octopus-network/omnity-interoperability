@@ -107,14 +107,14 @@ struct SignTxRequest {
     outpoint_account: BTreeMap<OutPoint, Account>,
     /// The original requests that we keep around to place back to the queue
     /// if the signature fails.
-    requests: Vec<state::RetrieveBtcRequest>,
+    requests: Vec<state::ReleaseTokenRequest>,
     /// The list of UTXOs we use as transaction inputs.
     utxos: Vec<Utxo>,
 }
 
 /// Undoes changes we make to the ckBTC state when we construct a pending transaction.
 /// We call this function if we fail to sign or send a Bitcoin transaction.
-fn undo_sign_request(requests: Vec<state::RetrieveBtcRequest>, utxos: Vec<Utxo>) {
+fn undo_sign_request(requests: Vec<state::ReleaseTokenRequest>, utxos: Vec<Utxo>) {
     state::mutate_state(|s| {
         for utxo in utxos {
             assert!(s.available_utxos.insert(utxo.outpoint, utxo).is_none());
