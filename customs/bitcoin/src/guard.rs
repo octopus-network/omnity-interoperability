@@ -1,9 +1,7 @@
 use crate::state::{mutate_state, CustomState};
-use candid::Principal;
-use std::collections::BTreeSet;
 use std::marker::PhantomData;
 
-const MAX_CONCURRENT: usize = 100;
+const MAX_CONCURRENT: u64 = 100;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum GuardError {
@@ -12,48 +10,55 @@ pub enum GuardError {
 }
 
 pub trait PendingRequests {
-    fn pending_requests(state: &mut CustomState) -> &mut BTreeSet<Principal>;
+    fn pending_requests(state: &mut CustomState) -> u64;
+    fn incre_counter(state: &mut CustomState);
+    fn decre_counter(state: &mut CustomState);
 }
 
-pub struct PendingBalanceUpdates;
+pub struct GenBoardingPassUpdates;
 
-impl PendingRequests for PendingBalanceUpdates {
-    fn pending_requests(state: &mut CustomState) -> &mut BTreeSet<Principal> {
-        &mut state.update_balance_principals
+impl PendingRequests for GenBoardingPassUpdates {
+    fn pending_requests(state: &mut CustomState) -> u64 {
+        state.gen_boarding_pass_counter
+    }
+    fn incre_counter(state: &mut CustomState) {
+        state.gen_boarding_pass_counter += 1;
+    }
+    fn decre_counter(state: &mut CustomState) {
+        state.gen_boarding_pass_counter -= 1;
     }
 }
-pub struct RetrieveBtcUpdates;
+pub struct ReleaseTokenUpdates;
 
-impl PendingRequests for RetrieveBtcUpdates {
-    fn pending_requests(state: &mut CustomState) -> &mut BTreeSet<Principal> {
-        &mut state.retrieve_btc_principals
+impl PendingRequests for ReleaseTokenUpdates {
+    fn pending_requests(state: &mut CustomState) -> u64 {
+        state.release_token_counter
+    }
+    fn incre_counter(state: &mut CustomState) {
+        state.release_token_counter += 1;
+    }
+    fn decre_counter(state: &mut CustomState) {
+        state.release_token_counter -= 1;
     }
 }
 
-/// Guards a block from executing twice when called by the same user and from being
-/// executed [MAX_CONCURRENT] or more times in parallel.
+/// Guards a block from being executed [MAX_CONCURRENT] or more times in parallel.
 #[must_use]
 pub struct Guard<PR: PendingRequests> {
-    principal: Principal,
     _marker: PhantomData<PR>,
 }
 
 impl<PR: PendingRequests> Guard<PR> {
-    /// Attempts to create a new guard for the current block. Fails if there is
-    /// already a pending request for the specified [principal] or if there
-    /// are at least [MAX_CONCURRENT] pending requests.
-    pub fn new(principal: Principal) -> Result<Self, GuardError> {
+    /// Attempts to create a new guard for the current block.
+    /// Fails if there are at least [MAX_CONCURRENT] pending requests.
+    pub fn new() -> Result<Self, GuardError> {
         mutate_state(|s| {
-            let principals = PR::pending_requests(s);
-            if principals.contains(&principal) {
-                return Err(GuardError::AlreadyProcessing);
-            }
-            if principals.len() >= MAX_CONCURRENT {
+            let counter = PR::pending_requests(s);
+            if counter >= MAX_CONCURRENT {
                 return Err(GuardError::TooManyConcurrentRequests);
             }
-            principals.insert(principal);
+            PR::incre_counter(s);
             Ok(Self {
-                principal,
                 _marker: PhantomData,
             })
         })
@@ -62,7 +67,7 @@ impl<PR: PendingRequests> Guard<PR> {
 
 impl<PR: PendingRequests> Drop for Guard<PR> {
     fn drop(&mut self) {
-        mutate_state(|s| PR::pending_requests(s).remove(&self.principal));
+        mutate_state(|s| PR::decre_counter(s));
     }
 }
 
@@ -89,48 +94,24 @@ impl Drop for TimerLogicGuard {
     }
 }
 
-#[must_use]
-pub struct DistributeKytFeeGuard(());
-
-impl DistributeKytFeeGuard {
-    pub fn new() -> Option<Self> {
-        mutate_state(|s| {
-            if s.is_distributing_fee {
-                return None;
-            }
-            s.is_distributing_fee = true;
-            Some(DistributeKytFeeGuard(()))
-        })
-    }
+pub fn gen_boarding_pass_guard() -> Result<Guard<GenBoardingPassUpdates>, GuardError> {
+    Guard::new()
 }
 
-impl Drop for DistributeKytFeeGuard {
-    fn drop(&mut self) {
-        mutate_state(|s| {
-            s.is_distributing_fee = false;
-        });
-    }
-}
-
-pub fn balance_update_guard(p: Principal) -> Result<Guard<PendingBalanceUpdates>, GuardError> {
-    Guard::new(p)
-}
-
-pub fn retrieve_btc_guard(p: Principal) -> Result<Guard<RetrieveBtcUpdates>, GuardError> {
-    Guard::new(p)
+pub fn release_token_guard() -> Result<Guard<ReleaseTokenUpdates>, GuardError> {
+    Guard::new()
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        guard::{GuardError, MAX_CONCURRENT},
         lifecycle::init::{init, BtcNetwork, InitArgs},
         state::read_state,
     };
     use candid::Principal;
     use ic_base_types::CanisterId;
 
-    use super::{balance_update_guard, TimerLogicGuard};
+    use super::TimerLogicGuard;
 
     fn test_principal(id: u64) -> Principal {
         Principal::try_from_slice(&id.to_le_bytes()).unwrap()
@@ -148,41 +129,6 @@ mod tests {
             kyt_principal: Some(CanisterId::from(0)),
             kyt_fee: None,
         }
-    }
-
-    #[test]
-    fn guard_limits_one_principal() {
-        // test that two guards for the same principal cannot exist in the same block
-        // and that a guard is properly dropped at end of the block
-
-        init(test_state_args());
-        let p = test_principal(0);
-        {
-            let _guard = balance_update_guard(p).unwrap();
-            let res = balance_update_guard(p).err();
-            assert_eq!(res, Some(GuardError::AlreadyProcessing));
-        }
-        let _ = balance_update_guard(p).unwrap();
-    }
-
-    #[test]
-    #[allow(clippy::needless_collect)]
-    fn guard_prevents_more_than_max_concurrent_principals() {
-        // test that at most MAX_CONCURRENT guards can be created if each one
-        // is for a different principal
-
-        init(test_state_args());
-        let guards: Vec<_> = (0..MAX_CONCURRENT)
-            .map(|id| {
-                balance_update_guard(test_principal(id as u64)).unwrap_or_else(|e| {
-                    panic!("Could not create guard for principal num {}: {:#?}", id, e)
-                })
-            })
-            .collect();
-        assert_eq!(guards.len(), MAX_CONCURRENT);
-        let pid = test_principal(MAX_CONCURRENT as u64 + 1);
-        let res = balance_update_guard(pid).err();
-        assert_eq!(res, Some(GuardError::TooManyConcurrentRequests));
     }
 
     #[test]
