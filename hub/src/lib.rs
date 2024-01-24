@@ -13,11 +13,11 @@ use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 use log::debug;
 use omnity_types::{
-    Action, BoardingPass, ChainInfo, Directive, Error, Fee, LandingPass, TokenInfo,
+    Action, BoardingPass, ChainInfo, Directive, DirectiveStatus, Error, Fee, LandingPass, TokenInfo,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 // use utils::init_log;
 use crate::signer::PublicKeyReply;
 use crate::utils::Network;
@@ -28,14 +28,14 @@ pub type TokenId = String;
 pub type TransId = String;
 
 thread_local! {
-    static STATE: RefCell<State> = RefCell::new(State::default());
+    static STATE: RefCell<HubState> = RefCell::new(HubState::default());
 }
 
 #[derive(CandidType, Deserialize, Serialize, Debug)]
 struct Transaction {
     pub trans_id: String,
     pub timestamp: u64,
-    pub nonce: u64,
+    pub seq: u64,
     pub src_chain_id: String,
     pub dst_chain_id: String,
     pub action: Action,
@@ -53,11 +53,12 @@ struct CrossLedger {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
-struct State {
+struct HubState {
+    pub latest_seq: u64,
     pub chains: HashMap<ChainId, ChainInfo>,
     pub tokens: HashMap<(ChainId, TokenId), TokenInfo>,
     pub fees: HashMap<ChainId, Fee>,
-    pub directives: Vec<Directive>,
+    pub directives: BTreeMap<Timestamp, (Directive, DirectiveStatus)>,
     pub cross_ledger: CrossLedger,
     pub landing_passes: Vec<LandingPass>,
     pub owner: Option<Principal>,
@@ -67,20 +68,20 @@ struct State {
 /// A helper method to read the state.
 ///
 /// Precondition: the state is already initialized.
-fn with_state<R>(f: impl FnOnce(&State) -> R) -> R {
+fn with_state<R>(f: impl FnOnce(&HubState) -> R) -> R {
     STATE.with(|cell| f(&cell.borrow()))
 }
 /// A helper method to mutate the state.
 ///
 /// Precondition: the state is already initialized.
-fn with_state_mut<R>(f: impl FnOnce(&mut State) -> R) -> R {
+fn with_state_mut<R>(f: impl FnOnce(&mut HubState) -> R) -> R {
     STATE.with(|cell| f(&mut cell.borrow_mut()))
 }
 
 // A helper method to set the state.
 //
 // Precondition: the state is _not_ initialized.
-fn set_state(state: State) {
+fn set_state(state: HubState) {
     STATE.with(|cell| *cell.borrow_mut() = state);
 }
 #[init]
@@ -122,38 +123,50 @@ fn post_upgrade() {
     memory.read(4, &mut state_bytes);
 
     // Deserialize and set the state.
-    let state: State = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-
+    let state: HubState = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
     set_state(state);
 }
+
+/// validate directive ,this method will be called by sns
+#[update(guard = "auth")]
+pub fn validate_directive(_d: Directive) -> Result<String, String> {
+    Ok("".to_string())
+}
+
 /// input diretive without signature and sign it
 #[update(guard = "auth")]
-pub fn signe_directive(_directive: Directive) -> Result<(), Error> {
+pub async fn handl_directive(_directive: Directive) -> Result<(), Error> {
+    Ok(())
+}
+
+/// input diretive without signature and sign it
+#[update(guard = "auth")]
+pub async fn sign_directive(_directive: Directive) -> Result<(), Error> {
     Ok(())
 }
 
 /// input fee without signature ,sign it and build directive
 #[update(guard = "auth")]
-pub fn update_fee(_fee: Fee) -> Result<(), Error> {
+pub async fn update_fee(_fee: Fee) -> Result<(), Error> {
     // signe and build update fee directive
     // signe_directive(directive)
     Ok(())
 }
 
-#[query]
-pub fn get_directives() -> Result<Vec<Directive>, Error> {
+#[update(guard = "auth")]
+pub async fn get_directives() -> Result<Vec<Directive>, Error> {
     let directives = Vec::new();
     Ok(directives)
 }
 
 /// input a boarding pass and create a landing pass with signature
 #[update(guard = "auth")]
-pub fn generate_landing_pass(_boarding_pass: BoardingPass) -> Result<(), Error> {
+pub async fn generate_landing_pass(_boarding_pass: BoardingPass) -> Result<(), Error> {
     Ok(())
 }
 
-#[query]
-pub fn get_landing_passes() -> Result<Vec<LandingPass>, Error> {
+#[update(guard = "auth")]
+pub async fn get_landing_passes() -> Result<Vec<LandingPass>, Error> {
     let landing_passes = Vec::new();
     Ok(landing_passes)
 }
