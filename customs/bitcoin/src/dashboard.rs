@@ -292,7 +292,8 @@ pub fn build_metadata() -> String {
             s.ecdsa_public_key
                 .clone()
                 .map(|key| {
-                    address::account_to_bitcoin_address(&key, &main_account).display(s.btc_network)
+                    address::destination_to_bitcoin_address(&key, &main_account)
+                        .display(s.btc_network)
                 })
                 .unwrap_or_default(),
             s.min_confirmations,
@@ -413,7 +414,7 @@ pub fn build_finalized_requests() -> String {
                     DisplayAmount(req.request.amount),
                 )
                 .unwrap();
-                match &req.state {
+                match &req.status {
                     state::FinalizedStatus::AmountTooLow => {
                         write!(buf, "<td>Amount is too low to cover fees</td>").unwrap()
                     }

@@ -1,29 +1,62 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomState, FinalizedBtcRetrieval, FinalizedStatus, ReleaseTokenRequest,
-    SubmittedBtcTransaction,
+    eventlog::Event, CustomState, FinalizedBoardingPass, FinalizedBoardingPassStatus,
+    FinalizedBtcRetrieval, FinalizedStatus, GenBoardingPassRequest, ReleaseTokenRequest,
+    RunesBalance, SubmittedBtcTransaction,
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
-use ic_btc_interface::{Txid, Utxo};
+use ic_btc_interface::{OutPoint, Txid, Utxo};
 
 pub fn accept_release_token_request(state: &mut CustomState, request: ReleaseTokenRequest) {
     record_event(&Event::AcceptedReleaseTokenRequest(request.clone()));
-    state.pending_release_token_requests.push(request.clone());
+    state.pending_release_token_requests.push(request);
 }
 
-pub fn add_utxos(
-    state: &mut CustomState,
-    destination: Destination,
-    utxos: Vec<Utxo>,
-) {
+pub fn accept_gen_boarding_pass_request(state: &mut CustomState, request: GenBoardingPassRequest) {
+    record_event(&&Event::AcceptedGenBoardingPassRequest(request.clone()));
+    state
+        .pending_boarding_pass_requests
+        .insert(request.tx_id, request);
+}
+
+pub fn add_utxos(state: &mut CustomState, destination: Destination, utxos: Vec<Utxo>) {
     record_event(&Event::ReceivedUtxos {
-        destination: destination,
+        destination,
         utxos: utxos.clone(),
     });
 
     state.add_utxos(destination, utxos);
+}
+
+pub fn update_runes_balance(
+    state: &mut CustomState,
+    outpoint: &OutPoint,
+    balances: Vec<RunesBalance>,
+) {
+    record_event(&Event::ReceivedRunesToken {
+        balances,
+        outpoint: outpoint.clone(),
+    });
+
+    state.update_runes_balance(outpoint, balances);
+}
+
+pub fn finalize_boarding_pass_request(
+    state: &mut CustomState,
+    request: &GenBoardingPassRequest,
+    status: FinalizedBoardingPassStatus,
+) {
+    record_event(&Event::FinalizedBoardingPassRequest {
+        tx_id: request.tx_id,
+        status,
+    });
+
+    state.push_finalized_boarding_pass(FinalizedBoardingPass {
+        request: request.clone(),
+        status,
+    });
 }
 
 pub fn remove_retrieve_btc_request(state: &mut CustomState, request: ReleaseTokenRequest) {
@@ -31,9 +64,9 @@ pub fn remove_retrieve_btc_request(state: &mut CustomState, request: ReleaseToke
         block_index: request.block_index,
     });
 
-    state.push_finalized_request(FinalizedBtcRetrieval {
+    state.push_finalized_release_token(FinalizedBtcRetrieval {
         request,
-        state: FinalizedStatus::AmountTooLow,
+        status: FinalizedStatus::AmountTooLow,
     });
 }
 

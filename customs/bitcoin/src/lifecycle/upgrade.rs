@@ -26,12 +26,6 @@ pub struct UpgradeArgs {
     /// The mode in which the minter is running.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mode: Option<Mode>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kyt_fee: Option<u64>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kyt_principal: Option<CanisterId>,
 }
 
 pub fn post_upgrade(upgrade_args: Option<UpgradeArgs>) {

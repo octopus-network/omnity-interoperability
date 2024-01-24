@@ -5,9 +5,12 @@ use crate::state::{
     ChangeOutput, CustomState, FinalizedBtcRetrieval, FinalizedStatus, ReleaseTokenRequest,
     SubmittedBtcTransaction,
 };
-use ic_btc_interface::{Txid, Utxo};
-use icrc_ledger_types::icrc1::account::Account;
+use ic_btc_interface::{OutPoint, Txid, Utxo};
 use serde::{Deserialize, Serialize};
+
+use super::{
+    FinalizedBoardingPass, FinalizedBoardingPassStatus, GenBoardingPassRequest, RunesBalance,
+};
 
 #[derive(candid::CandidType, Deserialize)]
 pub struct GetEventsArg {
@@ -36,9 +39,20 @@ pub enum Event {
         utxos: Vec<Utxo>,
     },
 
+    #[serde(rename = "received_runes_utxos")]
+    ReceivedRunesToken {
+        #[serde(rename = "runes")]
+        balances: Vec<RunesBalance>,
+        #[serde(rename = "outpoint")]
+        outpoint: OutPoint,
+    },
+
+    #[serde(rename = "accepted_gen_boarding_pass_request")]
+    AcceptedGenBoardingPassRequest(GenBoardingPassRequest),
+
     /// Indicates that the minter accepted a new retrieve_btc request.
     /// The minter emits this event _after_ it burnt ckBTC.
-    #[serde(rename = "accepted_retrieve_btc_request")]
+    #[serde(rename = "accepted_release_token_request")]
     AcceptedReleaseTokenRequest(ReleaseTokenRequest),
 
     /// Indicates that the minter removed a previous retrieve_btc request
@@ -48,6 +62,14 @@ pub enum Event {
     RemovedRetrieveBtcRequest {
         #[serde(rename = "block_index")]
         block_index: u64,
+    },
+
+    #[serde(rename = "removed_boarding_pass_request")]
+    FinalizedBoardingPassRequest {
+        #[serde(rename = "tx_id")]
+        tx_id: Txid,
+        #[serde(rename = "status")]
+        status: FinalizedBoardingPassStatus,
     },
 
     /// Indicates that the minter sent out a new transaction to the Bitcoin
@@ -104,10 +126,6 @@ pub enum Event {
         #[serde(rename = "txid")]
         txid: Txid,
     },
-
-    /// Indicates that the given UTXO's value is too small to pay for a KYT check.
-    #[serde(rename = "ignored_utxo")]
-    IgnoredUtxo { utxo: Utxo },
 }
 
 #[derive(Debug)]
@@ -138,8 +156,32 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             }
             Event::Upgrade(args) => state.upgrade(args),
             Event::ReceivedUtxos {
-                to_account, utxos, ..
-            } => state.add_utxos(to_account, utxos),
+                destination, utxos, ..
+            } => state.add_utxos(destination, utxos),
+            Event::ReceivedRunesToken {
+                balances: runes,
+                outpoint,
+            } => {
+                state.update_runes_balance(&outpoint, runes);
+            }
+            Event::AcceptedGenBoardingPassRequest(req) => {
+                state.pending_boarding_pass_requests.insert(req.tx_id, req);
+            }
+            Event::FinalizedBoardingPassRequest { tx_id, status } => {
+                let req = state
+                    .pending_boarding_pass_requests
+                    .remove(&tx_id)
+                    .ok_or_else(|| {
+                        ReplayLogError::InconsistentLog(format!(
+                            "Attempted to remove a non-pending boarding pass request {}",
+                            tx_id
+                        ))
+                    })?;
+                state.push_finalized_boarding_pass(FinalizedBoardingPass {
+                    request: req,
+                    status,
+                });
+            }
             Event::AcceptedReleaseTokenRequest(req) => {
                 state.push_back_pending_request(req);
             }
@@ -151,9 +193,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                     ))
                 })?;
 
-                state.push_finalized_request(FinalizedBtcRetrieval {
+                state.push_finalized_release_token(FinalizedBtcRetrieval {
                     request,
-                    state: FinalizedStatus::AmountTooLow,
+                    status: FinalizedStatus::AmountTooLow,
                 })
             }
             Event::SentBtcTransaction {

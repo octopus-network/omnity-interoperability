@@ -1,19 +1,19 @@
 use super::get_btc_address::init_ecdsa_public_key;
+use crate::address::main_bitcoin_address;
 use crate::guard::release_token_guard;
 use crate::tasks::{schedule_now, TaskType};
 use crate::{
-    address::{account_to_bitcoin_address, BitcoinAddress, ParseAddressError},
-    state::{self, mutate_state, read_state, ReleaseTokenRequest, RuneId},
+    address::{BitcoinAddress, ParseAddressError},
+    state::{self, mutate_state, read_state, ReleaseTokenRequest, RunesId},
 };
 use candid::{CandidType, Deserialize};
-use icrc_ledger_types::icrc1::account::Account;
 
 const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 
 /// The arguments of the [release_token] endpoint.
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct ReleaseTokenArgs {
-    pub rune_id: RuneId,
+    pub rune_id: RunesId,
     // amount to retrieve
     pub amount: u64,
     // address where to send tokens
@@ -53,13 +53,7 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
         .map_err(ReleaseTokenError::TemporarilyUnavailable)?;
 
     let ecdsa_public_key = init_ecdsa_public_key().await;
-    let main_address = account_to_bitcoin_address(
-        &ecdsa_public_key,
-        &Account {
-            owner: ic_cdk::id(),
-            subaccount: None,
-        },
-    );
+    let main_address = main_bitcoin_address(&ecdsa_public_key);
 
     if args.address == main_address.display(state::read_state(|s| s.btc_network)) {
         ic_cdk::trap("illegal release token target");

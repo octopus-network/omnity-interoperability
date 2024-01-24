@@ -9,7 +9,7 @@ use bitcoin_custom::state::{
     read_state, BtcRetrievalStatusV2, GenBoardingPassStatus, RetrieveBtcStatus, RetrieveBtcStatusV2,
 };
 use bitcoin_custom::tasks::{schedule_now, TaskType};
-use bitcoin_custom::updates::finalize_boarding_pass::FinalizeBoardingPassArgs;
+use bitcoin_custom::updates::finalize_boarding_pass::UpdateRunesTokenArgs;
 use bitcoin_custom::updates::finalize_transport::FinalizeTransportArgs;
 use bitcoin_custom::updates::gen_boarding_pass::GenBoardingPassArgs;
 use bitcoin_custom::updates::retrieve_btc::{
@@ -158,10 +158,8 @@ fn gen_boarding_pass_status(req: GenBoardingPassStatusRequest) -> GenBoardingPas
 }
 
 #[update]
-async fn finalize_boarding_pass(
-    args: FinalizeBoardingPassArgs,
-) -> Result<(), GenBoardingPassError> {
-    check_postcondition(updates::finalize_boarding_pass::finalize_boarding_pass(args).await)
+async fn finalize_boarding_pass(args: UpdateRunesTokenArgs) -> Result<(), GenBoardingPassError> {
+    check_postcondition(updates::finalize_boarding_pass::update_runes_tokens(args).await)
 }
 
 #[update]
@@ -184,12 +182,7 @@ async fn get_canister_status() -> ic_cdk::api::management_canister::main::Canist
 #[query]
 fn estimate_withdrawal_fee(arg: EstimateFeeArg) -> WithdrawalFee {
     read_state(|s| {
-        bitcoin_custom::estimate_fee(
-            &s.available_utxos,
-            arg.amount,
-            s.last_fee_per_vbyte[50],
-            s.kyt_fee,
-        )
+        bitcoin_custom::estimate_fee(&s.available_utxos, arg.amount, s.last_fee_per_vbyte[50])
     })
 }
 

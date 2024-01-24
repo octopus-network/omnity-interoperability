@@ -34,7 +34,7 @@ thread_local! {
 // A pending release token request
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReleaseTokenRequest {
-    pub rune_id: RuneId,
+    pub rune_id: RunesId,
     /// The amount to release token.
     pub amount: u64,
     /// The destination BTC address.
@@ -44,7 +44,7 @@ pub struct ReleaseTokenRequest {
 }
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GenBoardingPassReq {
+pub struct GenBoardingPassRequest {
     pub address: String,
     pub target_chain_id: String,
     pub receiver: String,
@@ -52,16 +52,18 @@ pub struct GenBoardingPassReq {
     pub tx_id: Txid,
 }
 
-pub type RuneId = u128;
+pub type RunesId = u128;
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RunesBalance {
+    pub rune_id: RunesId,
+    pub amount: u128,
+}
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesUtxo {
-    pub rune_id: RuneId,
-    /// The index of the output within the transaction.
-    pub vout: u32,
-    /// The amount of bitcoin in utxo
-    pub amount: u128,
-    pub rune_amount: u128,
+    pub utxo: Utxo,
+    pub runes: BTreeMap<RunesId, RunesBalance>,
 }
 
 /// A transaction output storing the minter's change.
@@ -97,8 +99,8 @@ pub struct SubmittedBtcTransaction {
 pub struct FinalizedBtcRetrieval {
     /// The original retrieve_btc request that initiated the transaction.
     pub request: ReleaseTokenRequest,
-    /// The state of the finalized request.
-    pub state: FinalizedStatus,
+    /// The status of the finalized request.
+    pub status: FinalizedStatus,
 }
 
 /// The outcome of a retrieve_btc request.
@@ -115,14 +117,13 @@ pub enum FinalizedStatus {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FinalizedBoardingPass {
-    pub request: GenBoardingPassReq,
-    pub state: FinalizedBoardingPassStatus,
+    pub request: GenBoardingPassRequest,
+    pub status: FinalizedBoardingPassStatus,
 }
 
 /// The outcome of a gen_boarding_pass request.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedBoardingPassStatus {
-    UtxoNotFound,
     Finalized,
 }
 
@@ -155,7 +156,7 @@ pub enum RetrieveBtcStatus {
     Confirmed { txid: Txid },
 }
 
-#[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GenBoardingPassStatus {
     /// The custom has no data for this request.
     /// The request is either invalid or too old.
@@ -240,7 +241,7 @@ pub struct CustomState {
     /// Minimum amount of token that can be released
     pub release_min_amount: u64,
 
-    pub pending_boarding_pass_requests: BTreeMap<Txid, GenBoardingPassReq>,
+    pub pending_boarding_pass_requests: BTreeMap<Txid, GenBoardingPassRequest>,
 
     pub finalized_boarding_pass_requests: VecDeque<FinalizedBoardingPass>,
 
@@ -270,10 +271,7 @@ pub struct CustomState {
     pub finalized_requests_count: u64,
 
     /// The set of raw UTXOs unused in pending transactions.
-    pub available_utxos: BTreeMap<OutPoint, Utxo>,
-
-    /// The mappring from token to runes UTXOs unused in pending transactions.
-    pub available_runes_utxos: BTreeMap<RuneId, BTreeSet<RunesUtxo>>,
+    pub available_utxos: BTreeMap<OutPoint, RunesUtxo>,
 
     /// The mapping from output points to the destination to which they
     /// belong.
@@ -303,8 +301,6 @@ impl CustomState {
             max_time_in_queue_nanos,
             min_confirmations,
             mode,
-            kyt_fee,
-            kyt_principal,
         }: InitArgs,
     ) {
         self.btc_network = btc_network.into();
@@ -324,8 +320,6 @@ impl CustomState {
             max_time_in_queue_nanos,
             min_confirmations,
             mode,
-            kyt_principal,
-            kyt_fee,
         }: UpgradeArgs,
     ) {
         if let Some(retrieve_btc_min_amount) = retrieve_btc_min_amount {
@@ -464,6 +458,17 @@ impl CustomState {
             .expect("state invariants are violated");
     }
 
+    pub(crate) fn update_runes_balance(&mut self, outpoint: &OutPoint, runes: Vec<RunesBalance>) {
+        assert!(self.available_utxos.contains_key(&outpoint));
+
+        if let Some(utxo) = self.available_utxos.get(outpoint) {
+            assert!(utxo.runes.is_empty());
+            for balance in runes {
+                utxo.runes.insert(balance.rune_id, balance);
+            }
+        }
+    }
+
     pub fn gen_boarding_pass_status(&self, tx_id: Txid) -> GenBoardingPassStatus {
         if self.pending_boarding_pass_requests.contains_key(&tx_id) {
             return GenBoardingPassStatus::Pending;
@@ -472,7 +477,7 @@ impl CustomState {
             .finalized_boarding_pass_requests
             .iter()
             .find(|req| req.request.tx_id == tx_id)
-            .map(|r| r.state)
+            .map(|r| r.status)
         {
             Some(FinalizedBoardingPassStatus::UtxoNotFound) => GenBoardingPassStatus::UtxoNotFound,
             Some(FinalizedBoardingPassStatus::Finalized) => GenBoardingPassStatus::Finalized,
@@ -508,7 +513,7 @@ impl CustomState {
             .finalized_requests
             .iter()
             .find(|finalized_request| finalized_request.request.block_index == block_index)
-            .map(|final_req| final_req.state.clone())
+            .map(|final_req| final_req.status.clone())
         {
             Some(FinalizedStatus::AmountTooLow) => return RetrieveBtcStatus::AmountTooLow,
             Some(FinalizedStatus::Confirmed { txid }) => {
@@ -615,24 +620,13 @@ impl CustomState {
         }
         self.finalized_requests_count += finalized_tx.requests.len() as u64;
         for request in finalized_tx.requests {
-            self.push_finalized_request(FinalizedBtcRetrieval {
+            self.push_finalized_release_token(FinalizedBtcRetrieval {
                 request,
-                state: FinalizedStatus::Confirmed { txid: *txid },
+                status: FinalizedStatus::Confirmed { txid: *txid },
             });
         }
 
         self.cleanup_tx_replacement_chain(txid);
-    }
-
-    pub(crate) fn finalize_boarding_pass_request(&mut self, req: FinalizedBoardingPass) {
-        assert!(!self
-            .pending_boarding_pass_requests
-            .contains_key(&req.request.tx_id));
-
-        if self.finalized_boarding_pass_requests.len() >= MAX_FINALIZED_REQUESTS {
-            self.finalized_boarding_pass_requests.pop_front();
-        }
-        self.finalized_boarding_pass_requests.push_back(req)
     }
 
     fn cleanup_tx_replacement_chain(&mut self, confirmed_txid: &Txid) {
@@ -803,13 +797,24 @@ impl CustomState {
     ///
     /// This function panics if there is a pending retrieve_btc request with the
     /// same identifier.
-    fn push_finalized_request(&mut self, req: FinalizedBtcRetrieval) {
+    fn push_finalized_release_token(&mut self, req: FinalizedBtcRetrieval) {
         assert!(!self.has_pending_request(req.request.block_index));
 
         if self.finalized_requests.len() >= MAX_FINALIZED_REQUESTS {
             self.finalized_requests.pop_front();
         }
         self.finalized_requests.push_back(req)
+    }
+
+    fn push_finalized_boarding_pass(&mut self, req: FinalizedBoardingPass) {
+        assert!(!self
+            .pending_boarding_pass_requests
+            .contains_key(&req.request.tx_id));
+
+        if self.finalized_boarding_pass_requests.len() >= MAX_FINALIZED_REQUESTS {
+            self.finalized_boarding_pass_requests.pop_front();
+        }
+        self.finalized_boarding_pass_requests.push_back(req)
     }
 
     /// Filters out known UTXOs of the given destination from the given UTXO list.

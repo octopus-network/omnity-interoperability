@@ -20,7 +20,6 @@ pub mod guard;
 pub mod lifecycle;
 pub mod logs;
 pub mod management;
-pub mod memo;
 pub mod metrics;
 pub mod queries;
 pub mod signature;
@@ -165,13 +164,11 @@ fn compute_min_withdrawal_amount(median_fee_rate_e3s: MillisatoshiPerByte) -> u6
     const PER_REQUEST_RBF_BOUND: u64 = 22_100;
     const PER_REQUEST_VSIZE_BOUND: u64 = 221;
     const PER_REQUEST_MINTER_FEE_BOUND: u64 = 305;
-    const PER_REQUEST_KYT_FEE: u64 = 2_000;
 
     let median_fee_rate = median_fee_rate_e3s / 1_000;
     ((PER_REQUEST_RBF_BOUND
         + PER_REQUEST_VSIZE_BOUND * median_fee_rate
-        + PER_REQUEST_MINTER_FEE_BOUND
-        + PER_REQUEST_KYT_FEE)
+        + PER_REQUEST_MINTER_FEE_BOUND)
         / 50_000)
         * 50_000
         + 100_000
@@ -232,7 +229,7 @@ async fn submit_pending_requests() {
     };
 
     let ecdsa_public_key = updates::get_btc_address::init_ecdsa_public_key().await;
-    let main_address = address::account_to_bitcoin_address(&ecdsa_public_key, &main_account);
+    let main_address = address::destination_to_bitcoin_address(&ecdsa_public_key, &main_account);
 
     let fee_millisatoshi_per_vbyte = match estimate_fee_per_vbyte().await {
         Some(fee) => fee,
@@ -460,7 +457,7 @@ async fn finalize_requests() {
         subaccount: None,
     };
 
-    let main_address = address::account_to_bitcoin_address(&ecdsa_public_key, &main_account);
+    let main_address = address::destination_to_bitcoin_address(&ecdsa_public_key, &main_account);
     let new_utxos = fetch_main_utxos(&main_account, &main_address).await;
 
     // Transactions whose change outpoint is present in the newly fetched UTXOs
@@ -476,7 +473,7 @@ async fn finalize_requests() {
 
     state::mutate_state(|s| {
         if !new_utxos.is_empty() {
-            state::audit::add_utxos(s, None, main_account, new_utxos);
+            state::audit::add_utxos(s, main_account, new_utxos);
         }
         for txid in &confirmed_transactions {
             state::audit::confirm_transaction(s, txid);
@@ -1105,7 +1102,6 @@ pub fn estimate_fee(
     available_utxos: &BTreeSet<Utxo>,
     maybe_amount: Option<u64>,
     median_fee_millisatoshi_per_vbyte: u64,
-    kyt_fee: u64,
 ) -> WithdrawalFee {
     const DEFAULT_INPUT_COUNT: u64 = 2;
     // One output for the caller and one for the change.
@@ -1139,7 +1135,7 @@ pub fn estimate_fee(
         vsize * median_fee_millisatoshi_per_vbyte / 1000 / (DEFAULT_OUTPUT_COUNT - 1).max(1);
     let minter_fee = minter_fee / (DEFAULT_OUTPUT_COUNT - 1).max(1);
     WithdrawalFee {
-        minter_fee: kyt_fee + minter_fee,
+        minter_fee,
         bitcoin_fee,
     }
 }

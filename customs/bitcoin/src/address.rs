@@ -1,12 +1,11 @@
 //! Utilities to derive, display, and parse bitcoin addresses.
 
-use crate::destination::Destination;
-use crate::{destination, ECDSAPublicKey};
+use crate::ECDSAPublicKey;
+use crate::{destination::Destination, updates::get_btc_address::init_ecdsa_public_key};
 use bech32::Variant;
 use ic_btc_interface::Network;
 use ic_crypto_extended_bip32::{DerivationIndex, DerivationPath, ExtendedBip32DerivationOutput};
 use ic_crypto_sha2::Sha256;
-use icrc_ledger_types::icrc1::account::Account;
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use std::fmt;
@@ -16,6 +15,8 @@ const BTC_MAINNET_PREFIX: u8 = 0;
 const BTC_MAINNET_P2SH_PREFIX: u8 = 5;
 const BTC_TESTNET_PREFIX: u8 = 111;
 const BTC_TESTNET_P2SH_PREFIX: u8 = 196;
+
+const MAIN_ACCOUNT_CHAIN_ID: &str = "ominity";
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BitcoinAddress {
@@ -88,18 +89,20 @@ impl BitcoinAddress {
     }
 }
 
-/// Returns the derivation path that should be used to sign a message from a
-/// specified account.
-pub fn derivation_path(account: &Account) -> Vec<ByteBuf> {
-    const SCHEMA_V1: u8 = 1;
-    vec![
-        ByteBuf::from(vec![SCHEMA_V1]),
-        ByteBuf::from(account.owner.as_slice().to_vec()),
-        ByteBuf::from(account.effective_subaccount().to_vec()),
-    ]
+pub fn main_bitcoin_address(ecdsa_public_key: &ECDSAPublicKey) -> BitcoinAddress {
+    destination_to_bitcoin_address(ecdsa_public_key, &main_destination())
 }
 
-pub fn derivation_path_by_dest(destination: &Destination) -> Vec<ByteBuf> {
+pub fn main_destination() -> Destination {
+    Destination {
+        target_chain_id: String::from(MAIN_ACCOUNT_CHAIN_ID),
+        receiver: ic_cdk::id().to_string(),
+    }
+}
+
+/// Returns the derivation path that should be used to sign a message from a
+/// specified destination.
+pub fn derivation_path(destination: &Destination) -> Vec<ByteBuf> {
     const SCHEMA_V1: u8 = 1;
     vec![
         ByteBuf::from(vec![SCHEMA_V1]),
@@ -108,26 +111,8 @@ pub fn derivation_path_by_dest(destination: &Destination) -> Vec<ByteBuf> {
     ]
 }
 
-/// Returns a valid extended BIP-32 derivation path from an Account (Principal + subaccount)
-pub fn derive_public_key(ecdsa_public_key: &ECDSAPublicKey, account: &Account) -> ECDSAPublicKey {
-    let ExtendedBip32DerivationOutput {
-        derived_public_key,
-        derived_chain_code,
-    } = DerivationPath::new(
-        derivation_path(account)
-            .into_iter()
-            .map(|x| DerivationIndex(x.into_vec()))
-            .collect(),
-    )
-    .public_key_derivation(&ecdsa_public_key.public_key, &ecdsa_public_key.chain_code)
-    .expect("bug: failed to derive an ECDSA public key from valid inputs");
-    ECDSAPublicKey {
-        public_key: derived_public_key,
-        chain_code: derived_chain_code,
-    }
-}
-
-pub fn derive_public_key_by_dest(
+/// Returns a valid extended BIP-32 derivation path from an Destination
+pub fn derive_public_key(
     ecdsa_public_key: &ECDSAPublicKey,
     destination: &Destination,
 ) -> ECDSAPublicKey {
@@ -135,7 +120,7 @@ pub fn derive_public_key_by_dest(
         derived_public_key,
         derived_chain_code,
     } = DerivationPath::new(
-        derivation_path_by_dest(destination)
+        derivation_path(destination)
             .into_iter()
             .map(|x| DerivationIndex(x.into_vec()))
             .collect(),
@@ -157,16 +142,16 @@ pub fn destination_to_p2wpkh_address(
 ) -> String {
     network_and_public_key_to_p2wpkh(
         network,
-        &derive_public_key_by_dest(ecdsa_public_key, destination).public_key,
+        &derive_public_key(ecdsa_public_key, destination).public_key,
     )
 }
 
-/// Constructs the bitcoin address corresponding to the specified account.
-pub fn account_to_bitcoin_address(
+/// Constructs the bitcoin address corresponding to the specified destination.
+pub fn destination_to_bitcoin_address(
     ecdsa_public_key: &ECDSAPublicKey,
-    account: &Account,
+    destination: &Destination,
 ) -> BitcoinAddress {
-    let pk = derive_public_key(ecdsa_public_key, account).public_key;
+    let pk = derive_public_key(ecdsa_public_key, destination).public_key;
     BitcoinAddress::P2wpkhV0(crate::tx::hash160(&pk))
 }
 

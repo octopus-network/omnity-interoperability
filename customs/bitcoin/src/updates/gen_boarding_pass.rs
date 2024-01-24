@@ -1,7 +1,7 @@
 use crate::destination::Destination;
 use crate::guard::gen_boarding_pass_guard;
 use crate::management::{get_utxos, CallSource};
-use crate::state::{audit, mutate_state, read_state, GenBoardingPassReq};
+use crate::state::{audit, mutate_state, read_state, GenBoardingPassRequest};
 use crate::updates::get_btc_address::{
     destination_to_p2wpkh_address_from_state, init_ecdsa_public_key,
 };
@@ -22,8 +22,6 @@ pub enum GenBoardingPassError {
     TemporarilyUnavailable(String),
     AlreadyProcessing,
     NoNewUtxos,
-    PendingReqNotFound,
-    UtxoNotFound,
 }
 
 pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), GenBoardingPassError> {
@@ -69,7 +67,7 @@ pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), Gen
         return Err(GenBoardingPassError::NoNewUtxos);
     }
 
-    let request = GenBoardingPassReq {
+    let request = GenBoardingPassRequest {
         address,
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
@@ -78,7 +76,7 @@ pub async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), Gen
     };
 
     mutate_state(|s| {
-        s.pending_boarding_pass_requests.insert(args.tx_id, request);
+        audit::accept_gen_boarding_pass_request(s, request);
         audit::add_utxos(s, destination, new_utxos);
     });
     Ok(())
