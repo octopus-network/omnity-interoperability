@@ -36,7 +36,7 @@ pub fn encode_metrics(
         )?
         .value(
             &[("status", "pending")],
-            state::read_state(|s| s.pending_retrieve_btc_requests.len()) as f64,
+            state::read_state(|s| s.pending_release_token_requests.len()) as f64,
         )?
         .value(
             &[("status", "signing")],
@@ -98,21 +98,9 @@ pub fn encode_metrics(
         "Total number of finalized retrieve_btc requests.",
     )?;
 
-    metrics.encode_counter(
-        "ckbtc_minter_minted_tokens",
-        state::read_state(|s| s.tokens_minted) as f64,
-        "Total number of minted tokens.",
-    )?;
-
-    metrics.encode_counter(
-        "ckbtc_minter_burned_tokens",
-        state::read_state(|s| s.tokens_burned) as f64,
-        "Total number of burned tokens.",
-    )?;
-
     metrics.encode_gauge(
         "ckbtc_minter_min_retrievable_amount",
-        state::read_state(|s| s.retrieve_btc_min_amount) as f64,
+        state::read_state(|s| s.release_min_amount) as f64,
         "Minimum number of ckBTC a user can withdraw.",
     )?;
 
@@ -145,7 +133,7 @@ pub fn encode_metrics(
     metrics.encode_gauge(
         "ckbtc_minter_btc_balance",
         state::read_state(|s| {
-            s.available_utxos.iter().map(|u| u.value).sum::<u64>()
+            s.available_utxos.iter().map(|(_, u)| u.value).sum::<u64>()
                 + s.submitted_transactions
                     .iter()
                     .map(|tx| {
@@ -161,26 +149,14 @@ pub fn encode_metrics(
 
     metrics.encode_gauge(
         "ckbtc_minter_managed_addresses_count",
-        state::read_state(|s| s.utxos_state_addresses.len()) as f64,
+        state::read_state(|s| s.utxos_state_destinations.len()) as f64,
         "Total number of minter addresses owning UTXOs.",
     )?;
 
     metrics.encode_gauge(
         "ckbtc_minter_outpoint_count",
-        state::read_state(|s| s.outpoint_account.len()) as f64,
+        state::read_state(|s| s.outpoint_destination.len()) as f64,
         "Total number of outputs the minter has to remember.",
-    )?;
-
-    metrics.encode_gauge(
-        "ckbtc_minter_concurrent_update_balance_count",
-        state::read_state(|s| s.update_balance_principals.len()) as f64,
-        "Total number of concurrent update_balance requests.",
-    )?;
-
-    metrics.encode_gauge(
-        "ckbtc_minter_concurrent_retrieve_btc_count",
-        state::read_state(|s| s.retrieve_btc_principals.len()) as f64,
-        "Total number of concurrent retrieve_btc requests.",
     )?;
 
     metrics.encode_gauge(
@@ -193,12 +169,6 @@ pub fn encode_metrics(
         "ckbtc_minter_median_fee_per_vbyte",
         state::read_state(|s| s.last_fee_per_vbyte[50]) as f64,
         "Median Bitcoin transaction fee per vbyte in Satoshi.",
-    )?;
-
-    metrics.encode_gauge(
-        "ckbtc_minter_owed_kyt_amount",
-        state::read_state(|s| s.owed_kyt_amount.iter().map(|e| e.1).sum::<u64>()) as f64,
-        "The total amount of ckBTC that minter owes to the KYT canister.",
     )?;
 
     Ok(())

@@ -198,7 +198,6 @@ pub fn build_dashboard() -> Vec<u8> {
         build_finalized_requests(),
         build_available_utxos(),
         build_unconfirmed_change(),
-        build_quarantined_utxos(),
         build_ignored_utxos(),
         build_account_to_utxos_table(),
         build_update_balance_principals(),
@@ -212,7 +211,7 @@ pub fn build_account_to_utxos_table() -> String {
     with_utf8_buffer(|buf| {
         state::read_state(|s| {
             let mut total = 0;
-            for (account, set) in s.utxos_state_addresses.iter() {
+            for (account, set) in s.utxos_state_destinations.iter() {
                 for (i, utxo) in set.iter().enumerate() {
                     write!(buf, "<tr>").unwrap();
                     if i == 0 {
@@ -302,7 +301,7 @@ pub fn build_metadata() -> String {
                 .map(|p| p.to_string())
                 .unwrap_or_else(|| "N/A".to_string()),
             DisplayAmount(s.kyt_fee),
-            DisplayAmount(s.retrieve_btc_min_amount),
+            DisplayAmount(s.release_min_amount),
             DisplayAmount(get_total_btc_managed())
         )
     })
@@ -311,7 +310,7 @@ pub fn build_metadata() -> String {
 pub fn build_pending_request_tx() -> String {
     with_utf8_buffer(|buf| {
         state::read_state(|s| {
-            for req in s.pending_retrieve_btc_requests.iter() {
+            for req in s.pending_release_token_requests.iter() {
                 writeln!(
                     buf,
                     "<tr><td>{}</td><td><code>{}</code></td><td>{}</td></tr>",
@@ -457,29 +456,6 @@ pub fn build_available_utxos() -> String {
             )
             .unwrap();
         })
-    })
-}
-
-pub fn build_quarantined_utxos() -> String {
-    with_utf8_buffer(|buf| {
-        state::read_state(|s| {
-            for utxo in &s.quarantined_utxos {
-                writeln!(
-                    buf,
-                    "<tr>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                </tr>",
-                    txid_link(&utxo.outpoint.txid),
-                    utxo.outpoint.vout,
-                    utxo.height,
-                    DisplayAmount(utxo.value)
-                )
-                .unwrap()
-            }
-        });
     })
 }
 

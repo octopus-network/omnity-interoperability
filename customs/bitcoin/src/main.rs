@@ -2,11 +2,16 @@ use bitcoin_custom::dashboard::build_dashboard;
 use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_custom::lifecycle::{self, init::MinterArg};
 use bitcoin_custom::metrics::encode_metrics;
-use bitcoin_custom::queries::{EstimateFeeArg, RetrieveBtcStatusRequest, WithdrawalFee};
+use bitcoin_custom::queries::{
+    EstimateFeeArg, GenBoardingPassStatusRequest, RetrieveBtcStatusRequest, WithdrawalFee,
+};
 use bitcoin_custom::state::{
-    read_state, BtcRetrievalStatusV2, RetrieveBtcStatus, RetrieveBtcStatusV2,
+    read_state, BtcRetrievalStatusV2, GenBoardingPassStatus, RetrieveBtcStatus, RetrieveBtcStatusV2,
 };
 use bitcoin_custom::tasks::{schedule_now, TaskType};
+use bitcoin_custom::updates::finalize_boarding_pass::FinalizeBoardingPassArgs;
+use bitcoin_custom::updates::finalize_transport::FinalizeTransportArgs;
+use bitcoin_custom::updates::gen_boarding_pass::GenBoardingPassArgs;
 use bitcoin_custom::updates::retrieve_btc::{
     RetrieveBtcOk, RetrieveBtcWithApprovalArgs, RetrieveBtcWithApprovalError,
 };
@@ -148,24 +153,20 @@ fn retrieve_btc_status(req: RetrieveBtcStatusRequest) -> RetrieveBtcStatus {
 }
 
 #[query]
-fn retrieve_btc_status_v2(req: RetrieveBtcStatusRequest) -> RetrieveBtcStatusV2 {
-    read_state(|s| s.retrieve_btc_status_v2(req.block_index))
-}
-
-#[query]
-fn retrieve_btc_status_v2_by_account(target: Option<Account>) -> Vec<BtcRetrievalStatusV2> {
-    read_state(|s| s.retrieve_btc_status_v2_by_account(target))
+fn gen_boarding_pass_status(req: GenBoardingPassStatusRequest) -> GenBoardingPassStatus {
+    read_state(|s| s.gen_boarding_pass_status(req.tx_id))
 }
 
 #[update]
-async fn update_balance(args: UpdateBalanceArgs) -> Result<Vec<UtxoStatus>, UpdateBalanceError> {
-    check_anonymous_caller();
-    check_postcondition(updates::update_balance::update_balance(args).await)
+async fn finalize_boarding_pass(
+    args: FinalizeBoardingPassArgs,
+) -> Result<(), GenBoardingPassError> {
+    check_postcondition(updates::finalize_boarding_pass::finalize_boarding_pass(args).await)
 }
 
 #[update]
-async fn transport_token(args: TransportTokenArgs) {
-    check_postcondition(updates::transport_token::transport_token(args).await)
+async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), GenBoardingPassError> {
+    check_postcondition(updates::gen_boarding_pass::generate_boarding_pass(args).await)
 }
 
 #[update]
@@ -197,7 +198,7 @@ fn get_minter_info() -> MinterInfo {
     read_state(|s| MinterInfo {
         kyt_fee: s.kyt_fee,
         min_confirmations: s.min_confirmations,
-        retrieve_btc_min_amount: s.retrieve_btc_min_amount,
+        retrieve_btc_min_amount: s.release_min_amount,
     })
 }
 

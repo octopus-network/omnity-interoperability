@@ -6,7 +6,7 @@ use crate::{
 use crate::{
     lifecycle::init::InitArgs,
     state::{
-        ChangeOutput, CustomState, Mode, RetrieveBtcRequest, RetrieveBtcStatus,
+        ChangeOutput, CustomState, Mode, ReleaseTokenRequest, RetrieveBtcStatus,
         SubmittedBtcTransaction,
     },
 };
@@ -373,17 +373,6 @@ fn test_no_dust_outputs() {
     assert_eq!(available_utxos.len(), 1);
 }
 
-#[test]
-fn blocklist_is_sorted() {
-    use crate::blocklist::BTC_ADDRESS_BLOCKLIST;
-    for (l, r) in BTC_ADDRESS_BLOCKLIST
-        .iter()
-        .zip(BTC_ADDRESS_BLOCKLIST.iter().skip(1))
-    {
-        assert!(l < r, "the block list is not sorted: {} >= {}", l, r);
-    }
-}
-
 fn arb_amount() -> impl Strategy<Value = Satoshi> {
     1..10_000_000_000u64
 }
@@ -466,7 +455,7 @@ fn arb_account() -> impl Strategy<Value = Account> {
 fn arb_retrieve_btc_requests(
     amount: impl Strategy<Value = Satoshi>,
     num: impl Into<SizeRange>,
-) -> impl Strategy<Value = Vec<RetrieveBtcRequest>> {
+) -> impl Strategy<Value = Vec<ReleaseTokenRequest>> {
     let request_strategy = (
         amount,
         arb_address(),
@@ -477,7 +466,7 @@ fn arb_retrieve_btc_requests(
     )
         .prop_map(
             |(amount, address, block_index, received_at, provider, reimbursement_account)| {
-                RetrieveBtcRequest {
+                ReleaseTokenRequest {
                     amount,
                     address,
                     block_index,
