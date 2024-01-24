@@ -16,13 +16,23 @@ pub enum Error {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Debug)]
-pub struct BoardingPass {}
+pub struct BoardingPass {
+    pub trans_id: String,
+    pub timestamp: u64,
+    pub src_chain_id: String,
+    pub dst_chain_id: String,
+    pub action: Action,
+    pub token: String,
+    pub memo: Option<Vec<u8>>,
+    pub receiver: String,
+    pub amount: u64,
+}
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
 pub struct LandingPass {
     pub trans_id: String,
     pub timestamp: u64,
-    pub nonce: u64,
+    pub seq: u64,
     pub src_chain_id: String,
     pub dst_chain_id: String,
     pub action: Action,
@@ -39,8 +49,9 @@ pub enum ChainType {
     SettlementChain,
     ExecutionChain,
 }
+
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
-pub enum Status {
+pub enum ChainStatus {
     #[default]
     Active,
     Suspend,
@@ -67,15 +78,15 @@ pub struct ChainInfo {
     pub chain_id: String,
     pub chain_type: ChainType,
     pub chain_name: String,
-    pub chain_state: Status,
+    pub chain_state: ChainStatus,
     pub seq: u64,
     pub signature: Option<Vec<u8>>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
-pub struct ChainStatue {
+pub struct ExecutionChainStatue {
     pub chain_id: String,
-    pub chain_state: Status,
+    pub chain_state: ChainStatus,
     pub seq: u64,
     pub signature: Option<Vec<u8>>,
 }
@@ -94,6 +105,14 @@ pub struct TokenInfo {
 pub enum Directive {
     AddChain(ChainInfo),
     AddToken(TokenInfo),
-    SetChainStatus(ChainStatue),
+    SetChainStatus(ExecutionChainStatue),
     UpdateFee(Fee),
+}
+
+#[derive(CandidType, Deserialize, Serialize, Default, Debug)]
+pub enum DirectiveStatus {
+    #[default]
+    Relaying,
+    Executed,
+    NonExecution,
 }
