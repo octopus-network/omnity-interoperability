@@ -488,7 +488,7 @@ pub fn build_unconfirmed_change() -> String {
         state::read_state(|s| {
             let mut total = 0;
             for tx in &s.submitted_transactions {
-                if let Some(change) = tx.change_output.as_ref() {
+                if let Some(change) = tx.runes_change_output.as_ref() {
                     writeln!(
                         buf,
                         "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
@@ -524,7 +524,7 @@ fn get_total_btc_managed() -> u64 {
     state::read_state(|s| {
         let mut total_btc = 0_u64;
         for req in s.submitted_transactions.iter() {
-            if let Some(change_output) = &req.change_output {
+            if let Some(change_output) = &req.runes_change_output {
                 total_btc += change_output.value;
             }
         }

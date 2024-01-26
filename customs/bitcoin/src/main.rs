@@ -3,26 +3,28 @@ use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_custom::lifecycle::{self, init::MinterArg};
 use bitcoin_custom::metrics::encode_metrics;
 use bitcoin_custom::queries::{
-    EstimateFeeArg, GenBoardingPassStatusRequest, RetrieveBtcStatusRequest, WithdrawalFee,
+    EstimateFeeArg, GenTicketStatusRequest, RetrieveBtcStatusRequest, WithdrawalFee,
 };
 use bitcoin_custom::state::{
-    read_state, BtcRetrievalStatusV2, GenBoardingPassStatus, RetrieveBtcStatus, RetrieveBtcStatusV2,
+    read_state, BtcRetrievalStatusV2, GenTicketStatus, ReleaseTokenStatus, RetrieveBtcStatusV2,
 };
 use bitcoin_custom::tasks::{schedule_now, TaskType};
 use bitcoin_custom::updates::finalize_boarding_pass::UpdateRunesTokenArgs;
 use bitcoin_custom::updates::finalize_transport::FinalizeTransportArgs;
-use bitcoin_custom::updates::gen_boarding_pass::GenBoardingPassArgs;
+use bitcoin_custom::updates::generate_ticket::GenerateTicketArgs;
+use bitcoin_custom::updates::generate_tocket::GenerateTicketError;
 use bitcoin_custom::updates::retrieve_btc::{
     RetrieveBtcOk, RetrieveBtcWithApprovalArgs, RetrieveBtcWithApprovalError,
 };
 use bitcoin_custom::updates::transport_token::TransportTokenArgs;
+use bitcoin_custom::updates::update_runes_balance::UpdateRunesBalanceError;
 use bitcoin_custom::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
     transport_token::TransportTokenArgs,
     update_balance::{UpdateBalanceArgs, UpdateBalanceError, UtxoStatus},
 };
-use bitcoin_custom::MinterInfo;
+use bitcoin_custom::CustomInfo;
 use bitcoin_custom::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
@@ -148,22 +150,22 @@ async fn retrieve_btc_with_approval(
 }
 
 #[query]
-fn retrieve_btc_status(req: RetrieveBtcStatusRequest) -> RetrieveBtcStatus {
-    read_state(|s| s.retrieve_btc_status(req.block_index))
+fn retrieve_btc_status(req: RetrieveBtcStatusRequest) -> ReleaseTokenStatus {
+    read_state(|s| s.release_token_status(req.block_index))
 }
 
 #[query]
-fn gen_boarding_pass_status(req: GenBoardingPassStatusRequest) -> GenBoardingPassStatus {
+fn gen_boarding_pass_status(req: GenTicketStatusRequest) -> GenTicketStatus {
     read_state(|s| s.gen_boarding_pass_status(req.tx_id))
 }
 
 #[update]
-async fn finalize_boarding_pass(args: UpdateRunesTokenArgs) -> Result<(), GenBoardingPassError> {
-    check_postcondition(updates::finalize_boarding_pass::update_runes_tokens(args).await)
+async fn update_runes_balance(args: UpdateRunesTokenArgs) -> Result<(), UpdateRunesBalanceError> {
+    check_postcondition(updates::update_runes_balance::update_runes_balance(args).await)
 }
 
 #[update]
-async fn generate_boarding_pass(args: GenBoardingPassArgs) -> Result<(), GenBoardingPassError> {
+async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     check_postcondition(updates::gen_boarding_pass::generate_boarding_pass(args).await)
 }
 
@@ -187,9 +189,8 @@ fn estimate_withdrawal_fee(arg: EstimateFeeArg) -> WithdrawalFee {
 }
 
 #[query]
-fn get_minter_info() -> MinterInfo {
-    read_state(|s| MinterInfo {
-        kyt_fee: s.kyt_fee,
+fn get_minter_info() -> CustomInfo {
+    read_state(|s| CustomInfo {
         min_confirmations: s.min_confirmations,
         retrieve_btc_min_amount: s.release_min_amount,
     })

@@ -131,23 +131,6 @@ pub fn encode_metrics(
         )?;
 
     metrics.encode_gauge(
-        "ckbtc_minter_btc_balance",
-        state::read_state(|s| {
-            s.available_utxos.iter().map(|(_, u)| u.value).sum::<u64>()
-                + s.submitted_transactions
-                    .iter()
-                    .map(|tx| {
-                        tx.change_output
-                            .as_ref()
-                            .map(|out| out.value)
-                            .unwrap_or_default()
-                    })
-                    .sum::<u64>()
-        }) as f64,
-        "Total BTC amount locked in available UTXOs.",
-    )?;
-
-    metrics.encode_gauge(
         "ckbtc_minter_managed_addresses_count",
         state::read_state(|s| s.utxos_state_destinations.len()) as f64,
         "Total number of minter addresses owning UTXOs.",

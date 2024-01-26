@@ -15,17 +15,17 @@ pub trait PendingRequests {
     fn decre_counter(state: &mut CustomState);
 }
 
-pub struct GenBoardingPassUpdates;
+pub struct GenerateTicketUpdates;
 
-impl PendingRequests for GenBoardingPassUpdates {
+impl PendingRequests for GenerateTicketUpdates {
     fn pending_requests(state: &mut CustomState) -> u64 {
-        state.gen_boarding_pass_counter
+        state.generate_ticket_counter
     }
     fn incre_counter(state: &mut CustomState) {
-        state.gen_boarding_pass_counter += 1;
+        state.generate_ticket_counter += 1;
     }
     fn decre_counter(state: &mut CustomState) {
-        state.gen_boarding_pass_counter -= 1;
+        state.generate_ticket_counter -= 1;
     }
 }
 pub struct ReleaseTokenUpdates;
@@ -94,7 +94,7 @@ impl Drop for TimerLogicGuard {
     }
 }
 
-pub fn gen_boarding_pass_guard() -> Result<Guard<GenBoardingPassUpdates>, GuardError> {
+pub fn gen_boarding_pass_guard() -> Result<Guard<GenerateTicketUpdates>, GuardError> {
     Guard::new()
 }
 
@@ -121,7 +121,7 @@ mod tests {
         InitArgs {
             btc_network: BtcNetwork::Regtest,
             ecdsa_key_name: "some_key".to_string(),
-            retrieve_btc_min_amount: 2000,
+            release_min_amount: 2000,
             ledger_id: CanisterId::from_u64(42),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,

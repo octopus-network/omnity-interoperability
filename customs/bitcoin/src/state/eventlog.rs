@@ -2,15 +2,14 @@ use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::{
-    ChangeOutput, CustomState, FinalizedBtcRetrieval, FinalizedStatus, ReleaseTokenRequest,
+    CustomState, FinalizedBtcRetrieval, FinalizedStatus, ReleaseTokenRequest, RunesChangeOutput,
     SubmittedBtcTransaction,
 };
+use crate::tx;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use serde::{Deserialize, Serialize};
 
-use super::{
-    FinalizedBoardingPass, FinalizedBoardingPassStatus, GenBoardingPassRequest, RunesBalance,
-};
+use super::{FinalizedTicket, FinalizedTicketStatus, GenTicketRequest, RunesBalance};
 
 #[derive(candid::CandidType, Deserialize)]
 pub struct GetEventsArg {
@@ -41,14 +40,14 @@ pub enum Event {
 
     #[serde(rename = "received_runes_utxos")]
     ReceivedRunesToken {
-        #[serde(rename = "runes")]
-        balances: Vec<RunesBalance>,
         #[serde(rename = "outpoint")]
         outpoint: OutPoint,
+        #[serde(rename = "balance")]
+        balance: RunesBalance,
     },
 
     #[serde(rename = "accepted_gen_boarding_pass_request")]
-    AcceptedGenBoardingPassRequest(GenBoardingPassRequest),
+    AcceptedGenTicketRequest(GenTicketRequest),
 
     /// Indicates that the minter accepted a new retrieve_btc request.
     /// The minter emits this event _after_ it burnt ckBTC.
@@ -65,11 +64,11 @@ pub enum Event {
     },
 
     #[serde(rename = "removed_boarding_pass_request")]
-    FinalizedBoardingPassRequest {
+    FinalizedTicketRequest {
         #[serde(rename = "tx_id")]
         tx_id: Txid,
         #[serde(rename = "status")]
-        status: FinalizedBoardingPassStatus,
+        status: FinalizedTicketStatus,
     },
 
     /// Indicates that the minter sent out a new transaction to the Bitcoin
@@ -88,7 +87,7 @@ pub enum Event {
         /// The output with the minter's change, if any.
         #[serde(rename = "change_output")]
         #[serde(skip_serializing_if = "Option::is_none")]
-        change_output: Option<ChangeOutput>,
+        change_output: Option<RunesChangeOutput>,
         /// The IC time at which the minter submitted the transaction.
         #[serde(rename = "submitted_at")]
         submitted_at: u64,
@@ -110,7 +109,7 @@ pub enum Event {
         new_txid: Txid,
         /// The output with the minter's change.
         #[serde(rename = "change_output")]
-        change_output: ChangeOutput,
+        change_output: RunesChangeOutput,
         /// The IC time at which the minter submitted the transaction.
         #[serde(rename = "submitted_at")]
         submitted_at: u64,
@@ -158,18 +157,15 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             Event::ReceivedUtxos {
                 destination, utxos, ..
             } => state.add_utxos(destination, utxos),
-            Event::ReceivedRunesToken {
-                balances: runes,
-                outpoint,
-            } => {
-                state.update_runes_balance(&outpoint, runes);
+            Event::ReceivedRunesToken { outpoint, balance } => {
+                state.update_runes_balance(outpoint, balance);
             }
-            Event::AcceptedGenBoardingPassRequest(req) => {
-                state.pending_boarding_pass_requests.insert(req.tx_id, req);
+            Event::AcceptedGenTicketRequest(req) => {
+                state.pending_gen_ticket_requests.insert(req.tx_id, req);
             }
-            Event::FinalizedBoardingPassRequest { tx_id, status } => {
+            Event::FinalizedTicketRequest { tx_id, status } => {
                 let req = state
-                    .pending_boarding_pass_requests
+                    .pending_gen_ticket_requests
                     .remove(&tx_id)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
@@ -177,7 +173,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                             tx_id
                         ))
                     })?;
-                state.push_finalized_boarding_pass(FinalizedBoardingPass {
+                state.push_finalized_boarding_pass(FinalizedTicket {
                     request: req,
                     status,
                 });
@@ -224,7 +220,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                     txid,
                     used_utxos: utxos,
                     fee_per_vbyte,
-                    change_output,
+                    runes_change_output: change_output,
                     submitted_at,
                 });
             }
@@ -255,7 +251,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                         txid: new_txid,
                         requests,
                         used_utxos,
-                        change_output: Some(change_output),
+                        runes_change_output: Some(change_output),
                         submitted_at,
                         fee_per_vbyte: Some(fee_per_vbyte),
                     },

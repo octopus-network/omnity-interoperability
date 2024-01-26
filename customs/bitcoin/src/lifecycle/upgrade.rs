@@ -9,9 +9,9 @@ use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
 pub struct UpgradeArgs {
-    /// Minimum amount of bitcoin that can be retrieved.
+    /// Minimum amount of token that can be released.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub retrieve_btc_min_amount: Option<u64>,
+    pub release_min_amount: Option<u128>,
 
     /// Specifies the minimum number of confirmations on the Bitcoin network
     /// required for the minter to accept a transaction.

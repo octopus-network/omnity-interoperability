@@ -1,31 +1,30 @@
 use assert_matches::assert_matches;
 use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
-use candid::{Decode, Encode, Nat, Principal};
-use ic_base_types::{CanisterId, PrincipalId};
-use ic_bitcoin_canister_mock::{OutPoint, PushUtxoToAddress, Utxo};
-use ic_btc_interface::{Network, Txid};
-use ic_canisters_http_types::{HttpRequest, HttpResponse};
-use ic_ckbtc_kyt::{InitArg as KytInitArg, KytMode, LifecycleArg, SetApiKeyArg};
 use bitcoin_custom::lifecycle::init::{InitArgs as CkbtcMinterInitArgs, MinterArg};
 use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_custom::queries::{EstimateFeeArg, RetrieveBtcStatusRequest, WithdrawalFee};
 use bitcoin_custom::state::{
     BtcRetrievalStatusV2, Mode, ReimburseDepositTask, ReimbursedDeposit,
     ReimbursementReason::{CallFailed, TaintedDestination},
-    RetrieveBtcStatus, RetrieveBtcStatusV2,
+    ReleaseTokenStatus, RetrieveBtcStatusV2,
 };
 use bitcoin_custom::updates::get_btc_address::GetBtcAddressArgs;
 use bitcoin_custom::updates::retrieve_btc::{
-    RetrieveBtcError, RetrieveBtcOk, RetrieveBtcWithApprovalArgs,
-    RetrieveBtcWithApprovalError,
+    RetrieveBtcError, RetrieveBtcOk, RetrieveBtcWithApprovalArgs, RetrieveBtcWithApprovalError,
 };
 use bitcoin_custom::updates::update_balance::{
     PendingUtxo, UpdateBalanceArgs, UpdateBalanceError, UtxoStatus,
 };
 use bitcoin_custom::{
-    Log, MinterInfo, CKBTC_LEDGER_MEMO_SIZE, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY,
+    CustomInfo, Log, CKBTC_LEDGER_MEMO_SIZE, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY,
 };
+use candid::{Decode, Encode, Nat, Principal};
+use ic_base_types::{CanisterId, PrincipalId};
+use ic_bitcoin_canister_mock::{OutPoint, PushUtxoToAddress, Utxo};
+use ic_btc_interface::{Network, Txid};
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_ckbtc_kyt::{InitArg as KytInitArg, KytMode, LifecycleArg, SetApiKeyArg};
 use ic_icrc1_ledger::{InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument};
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
@@ -104,7 +103,7 @@ fn install_minter(env: &StateMachine, ledger_id: CanisterId) -> CanisterId {
         // The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
         // a testing key for testnet and mainnet
         ecdsa_key_name: "dfx_test_key".parse().unwrap(),
-        retrieve_btc_min_amount: 2000,
+        release_min_amount: 2000,
         ledger_id,
         max_time_in_queue_nanos: 0,
         min_confirmations: Some(1),
@@ -169,7 +168,7 @@ fn test_wrong_upgrade_parameter() {
     let args = MinterArg::Init(CkbtcMinterInitArgs {
         btc_network: Network::Regtest.into(),
         ecdsa_key_name: "".into(),
-        retrieve_btc_min_amount: 100_000,
+        release_min_amount: 100_000,
         ledger_id: CanisterId::from_u64(0),
         max_time_in_queue_nanos: MAX_TIME_IN_QUEUE.as_nanos() as u64,
         min_confirmations: Some(6_u32),
@@ -184,7 +183,7 @@ fn test_wrong_upgrade_parameter() {
     let args = MinterArg::Init(CkbtcMinterInitArgs {
         btc_network: Network::Regtest.into(),
         ecdsa_key_name: "some_key".into(),
-        retrieve_btc_min_amount: 100_000,
+        release_min_amount: 100_000,
         ledger_id: CanisterId::from_u64(0),
         max_time_in_queue_nanos: MAX_TIME_IN_QUEUE.as_nanos() as u64,
         min_confirmations: Some(6_u32),
@@ -204,7 +203,7 @@ fn test_wrong_upgrade_parameter() {
     // upgrade only with wrong parameters
 
     let upgrade_args = UpgradeArgs {
-        retrieve_btc_min_amount: Some(100),
+        release_min_amount: Some(100),
         min_confirmations: None,
         max_time_in_queue_nanos: Some(100),
         mode: Some(Mode::ReadOnly),
@@ -274,7 +273,7 @@ fn test_no_new_utxos() {
 fn update_balance_should_return_correct_confirmations() {
     let ckbtc = CkBtcSetup::new();
     let upgrade_args = UpgradeArgs {
-        retrieve_btc_min_amount: None,
+        release_min_amount: None,
         min_confirmations: Some(3),
         max_time_in_queue_nanos: None,
         mode: None,
@@ -391,7 +390,7 @@ fn test_minter() {
     let args = MinterArg::Init(CkbtcMinterInitArgs {
         btc_network: Network::Regtest.into(),
         ecdsa_key_name: "master_ecdsa_public_key".into(),
-        retrieve_btc_min_amount: 100_000,
+        release_min_amount: 100_000,
         ledger_id: CanisterId::from_u64(0),
         max_time_in_queue_nanos: MAX_TIME_IN_QUEUE.as_nanos() as u64,
         min_confirmations: Some(6_u32),
@@ -485,7 +484,7 @@ impl CkBtcSetup {
             Encode!(&MinterArg::Init(CkbtcMinterInitArgs {
                 btc_network: Network::Mainnet.into(),
                 ecdsa_key_name: "master_ecdsa_public_key".to_string(),
-                retrieve_btc_min_amount: 100_000,
+                release_min_amount: 100_000,
                 ledger_id,
                 max_time_in_queue_nanos: 100,
                 min_confirmations: Some(MIN_CONFIRMATIONS),
@@ -595,14 +594,14 @@ impl CkBtcSetup {
         .unwrap()
     }
 
-    pub fn get_minter_info(&self) -> MinterInfo {
+    pub fn get_minter_info(&self) -> CustomInfo {
         Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress(self.minter_id, "get_minter_info", Encode!().unwrap(),)
                     .expect("failed to get minter info")
             ),
-            MinterInfo
+            CustomInfo
         )
         .unwrap()
     }
@@ -811,7 +810,7 @@ impl CkBtcSetup {
         ).unwrap()
     }
 
-    pub fn retrieve_btc_status(&self, block_index: u64) -> RetrieveBtcStatus {
+    pub fn retrieve_btc_status(&self, block_index: u64) -> ReleaseTokenStatus {
         Decode!(
             &assert_reply(
                 self.env
@@ -822,7 +821,7 @@ impl CkBtcSetup {
                     )
                     .expect("failed to get ckbtc withdrawal account")
             ),
-            RetrieveBtcStatus
+            ReleaseTokenStatus
         )
         .unwrap()
     }
@@ -911,7 +910,7 @@ impl CkBtcSetup {
             let status = self.retrieve_btc_status(block_index);
             assert_eq!(RetrieveBtcStatusV2::from(status.clone()), status_v2);
             match status {
-                RetrieveBtcStatus::Submitted { txid } => {
+                ReleaseTokenStatus::Submitted { txid } => {
                     return txid;
                 }
                 status => {
@@ -965,7 +964,7 @@ impl CkBtcSetup {
             let status = self.retrieve_btc_status(block_index);
             assert_eq!(RetrieveBtcStatusV2::from(status.clone()), status_v2);
             match status {
-                RetrieveBtcStatus::Confirmed { txid } => {
+                ReleaseTokenStatus::Confirmed { txid } => {
                     return txid;
                 }
                 status => {

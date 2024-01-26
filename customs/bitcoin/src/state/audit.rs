@@ -1,9 +1,9 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomState, FinalizedBoardingPass, FinalizedBoardingPassStatus,
-    FinalizedBtcRetrieval, FinalizedStatus, GenBoardingPassRequest, ReleaseTokenRequest,
-    RunesBalance, SubmittedBtcTransaction,
+    eventlog::Event, CustomState, FinalizedBtcRetrieval, FinalizedStatus, FinalizedTicket,
+    FinalizedTicketStatus, GenTicketRequest, ReleaseTokenRequest, RunesBalance,
+    SubmittedBtcTransaction,
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
@@ -11,13 +11,13 @@ use ic_btc_interface::{OutPoint, Txid, Utxo};
 
 pub fn accept_release_token_request(state: &mut CustomState, request: ReleaseTokenRequest) {
     record_event(&Event::AcceptedReleaseTokenRequest(request.clone()));
-    state.pending_release_token_requests.push(request);
+    state.push_back_pending_request(request);
 }
 
-pub fn accept_gen_boarding_pass_request(state: &mut CustomState, request: GenBoardingPassRequest) {
-    record_event(&&Event::AcceptedGenBoardingPassRequest(request.clone()));
+pub fn accept_generate_ticket_request(state: &mut CustomState, request: GenTicketRequest) {
+    record_event(&&Event::AcceptedGenTicketRequest(request.clone()));
     state
-        .pending_boarding_pass_requests
+        .pending_gen_ticket_requests
         .insert(request.tx_id, request);
 }
 
@@ -30,30 +30,23 @@ pub fn add_utxos(state: &mut CustomState, destination: Destination, utxos: Vec<U
     state.add_utxos(destination, utxos);
 }
 
-pub fn update_runes_balance(
-    state: &mut CustomState,
-    outpoint: &OutPoint,
-    balances: Vec<RunesBalance>,
-) {
-    record_event(&Event::ReceivedRunesToken {
-        balances,
-        outpoint: outpoint.clone(),
-    });
+pub fn update_runes_balance(state: &mut CustomState, outpoint: OutPoint, balance: RunesBalance) {
+    record_event(&Event::ReceivedRunesToken { outpoint, balance });
 
-    state.update_runes_balance(outpoint, balances);
+    state.update_runes_balance(outpoint, balance);
 }
 
-pub fn finalize_boarding_pass_request(
+pub fn finalize_ticket_request(
     state: &mut CustomState,
-    request: &GenBoardingPassRequest,
-    status: FinalizedBoardingPassStatus,
+    request: &GenTicketRequest,
+    status: FinalizedTicketStatus,
 ) {
-    record_event(&Event::FinalizedBoardingPassRequest {
+    record_event(&Event::FinalizedTicketRequest {
         tx_id: request.tx_id,
         status,
     });
 
-    state.push_finalized_boarding_pass(FinalizedBoardingPass {
+    state.push_finalized_boarding_pass(FinalizedTicket {
         request: request.clone(),
         status,
     });
@@ -75,7 +68,7 @@ pub fn sent_transaction(state: &mut CustomState, tx: SubmittedBtcTransaction) {
         request_block_indices: tx.requests.iter().map(|r| r.block_index).collect(),
         txid: tx.txid,
         utxos: tx.used_utxos.clone(),
-        change_output: tx.change_output.clone(),
+        change_output: tx.runes_change_output.clone(),
         submitted_at: tx.submitted_at,
         fee_per_vbyte: tx.fee_per_vbyte,
     });
@@ -97,7 +90,7 @@ pub fn replace_transaction(
         old_txid,
         new_txid: new_tx.txid,
         change_output: new_tx
-            .change_output
+            .runes_change_output
             .clone()
             .expect("bug: all replacement transactions must have the change output"),
         submitted_at: new_tx.submitted_at,

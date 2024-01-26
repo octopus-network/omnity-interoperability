@@ -56,7 +56,7 @@ pub struct InitArgs {
     pub ecdsa_key_name: String,
 
     /// Minimum amount of bitcoin that can be retrieved
-    pub retrieve_btc_min_amount: u64,
+    pub release_min_amount: u128,
 
     /// The CanisterId of the ckBTC Ledger
     pub ledger_id: CanisterId,

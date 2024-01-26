@@ -8,7 +8,7 @@ pub struct RetrieveBtcStatusRequest {
 }
 
 #[derive(CandidType, Deserialize)]
-pub struct GenBoardingPassStatusRequest {
+pub struct GenTicketStatusRequest {
     pub tx_id: Txid,
 }
 

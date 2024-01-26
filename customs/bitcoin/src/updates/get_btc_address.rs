@@ -38,6 +38,7 @@ pub async fn get_btc_address(args: GetBtcAddressArgs) -> String {
             &&Destination {
                 target_chain_id: args.target_chain_id,
                 receiver: args.receiver,
+                token: None,
             },
         )
     })

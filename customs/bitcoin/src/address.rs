@@ -1,7 +1,7 @@
 //! Utilities to derive, display, and parse bitcoin addresses.
 
+use crate::destination::Destination;
 use crate::ECDSAPublicKey;
-use crate::{destination::Destination, updates::get_btc_address::init_ecdsa_public_key};
 use bech32::Variant;
 use ic_btc_interface::Network;
 use ic_crypto_extended_bip32::{DerivationIndex, DerivationPath, ExtendedBip32DerivationOutput};
@@ -16,7 +16,7 @@ const BTC_MAINNET_P2SH_PREFIX: u8 = 5;
 const BTC_TESTNET_PREFIX: u8 = 111;
 const BTC_TESTNET_P2SH_PREFIX: u8 = 196;
 
-const MAIN_ACCOUNT_CHAIN_ID: &str = "ominity";
+const MAIN_DESTINATION_CHAIN_ID: &str = "ominity";
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BitcoinAddress {
@@ -89,14 +89,18 @@ impl BitcoinAddress {
     }
 }
 
-pub fn main_bitcoin_address(ecdsa_public_key: &ECDSAPublicKey) -> BitcoinAddress {
-    destination_to_bitcoin_address(ecdsa_public_key, &main_destination())
+pub fn main_bitcoin_address(
+    ecdsa_public_key: &ECDSAPublicKey,
+    token: String,
+) -> BitcoinAddress {
+    destination_to_bitcoin_address(ecdsa_public_key, &main_destination(token))
 }
 
-pub fn main_destination() -> Destination {
+pub fn main_destination(token: String) -> Destination {
     Destination {
-        target_chain_id: String::from(MAIN_ACCOUNT_CHAIN_ID),
+        target_chain_id: String::from(MAIN_DESTINATION_CHAIN_ID),
         receiver: ic_cdk::id().to_string(),
+        token: Some(token),
     }
 }
 
@@ -108,6 +112,7 @@ pub fn derivation_path(destination: &Destination) -> Vec<ByteBuf> {
         ByteBuf::from(vec![SCHEMA_V1]),
         ByteBuf::from(destination.target_chain_id.as_bytes()),
         ByteBuf::from(destination.receiver.as_bytes()),
+        ByteBuf::from(destination.effective_subaccount().as_bytes()),
     ]
 }
 
