@@ -3,7 +3,7 @@ use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_custom::lifecycle::init::{InitArgs as CkbtcMinterInitArgs, MinterArg};
 use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
-use bitcoin_custom::queries::{EstimateFeeArg, RetrieveBtcStatusRequest, WithdrawalFee};
+use bitcoin_custom::queries::{EstimateFeeArg, ReleaseTokenStatusRequest, WithdrawalFee};
 use bitcoin_custom::state::{
     BtcRetrievalStatusV2, Mode, ReimburseDepositTask, ReimbursedDeposit,
     ReimbursementReason::{CallFailed, TaintedDestination},
@@ -817,7 +817,7 @@ impl CkBtcSetup {
                     .query(
                         self.minter_id,
                         "retrieve_btc_status",
-                        Encode!(&RetrieveBtcStatusRequest { block_index }).unwrap()
+                        Encode!(&ReleaseTokenStatusRequest { block_index }).unwrap()
                     )
                     .expect("failed to get ckbtc withdrawal account")
             ),
@@ -833,7 +833,7 @@ impl CkBtcSetup {
                     .query(
                         self.minter_id,
                         "retrieve_btc_status_v2",
-                        Encode!(&RetrieveBtcStatusRequest { block_index }).unwrap()
+                        Encode!(&ReleaseTokenStatusRequest { block_index }).unwrap()
                     )
                     .expect("failed to retrieve_btc_status_v2")
             ),
@@ -1042,28 +1042,28 @@ fn test_min_retrieval_amount() {
     let ckbtc = CkBtcSetup::new();
 
     ckbtc.refresh_fee_percentiles();
-    let retrieve_btc_min_amount = ckbtc.get_minter_info().retrieve_btc_min_amount;
+    let retrieve_btc_min_amount = ckbtc.get_minter_info().release_min_amount;
     assert_eq!(retrieve_btc_min_amount, 100_000);
 
     // The numbers used in this test have been re-computed using a python script using integers.
     ckbtc.set_fee_percentiles(&vec![0; 100]);
     ckbtc.refresh_fee_percentiles();
-    let retrieve_btc_min_amount = ckbtc.get_minter_info().retrieve_btc_min_amount;
+    let retrieve_btc_min_amount = ckbtc.get_minter_info().release_min_amount;
     assert_eq!(retrieve_btc_min_amount, 100_000);
 
     ckbtc.set_fee_percentiles(&vec![116_000; 100]);
     ckbtc.refresh_fee_percentiles();
-    let retrieve_btc_min_amount = ckbtc.get_minter_info().retrieve_btc_min_amount;
+    let retrieve_btc_min_amount = ckbtc.get_minter_info().release_min_amount;
     assert_eq!(retrieve_btc_min_amount, 150_000);
 
     ckbtc.set_fee_percentiles(&vec![342_000; 100]);
     ckbtc.refresh_fee_percentiles();
-    let retrieve_btc_min_amount = ckbtc.get_minter_info().retrieve_btc_min_amount;
+    let retrieve_btc_min_amount = ckbtc.get_minter_info().release_min_amount;
     assert_eq!(retrieve_btc_min_amount, 150_000);
 
     ckbtc.set_fee_percentiles(&vec![343_000; 100]);
     ckbtc.refresh_fee_percentiles();
-    let retrieve_btc_min_amount = ckbtc.get_minter_info().retrieve_btc_min_amount;
+    let retrieve_btc_min_amount = ckbtc.get_minter_info().release_min_amount;
     assert_eq!(retrieve_btc_min_amount, 200_000);
 }
 

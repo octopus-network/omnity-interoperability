@@ -28,7 +28,7 @@ pub fn add_utxos(
     is_runes: bool,
 ) {
     record_event(&Event::ReceivedUtxos {
-        destination,
+        destination: destination.clone(),
         utxos: utxos.clone(),
         is_runes,
     });
@@ -37,7 +37,10 @@ pub fn add_utxos(
 }
 
 pub fn update_runes_balance(state: &mut CustomState, outpoint: OutPoint, balance: RunesBalance) {
-    record_event(&Event::ReceivedRunesToken { outpoint, balance });
+    record_event(&Event::ReceivedRunesToken {
+        outpoint: outpoint.clone(),
+        balance: balance.clone(),
+    });
 
     state.update_runes_balance(outpoint, balance);
 }
@@ -49,7 +52,7 @@ pub fn finalize_ticket_request(
 ) {
     record_event(&Event::FinalizedTicketRequest {
         tx_id: request.tx_id,
-        status,
+        status: status.clone(),
     });
 
     state.push_finalized_boarding_pass(FinalizedTicket {
@@ -60,7 +63,7 @@ pub fn finalize_ticket_request(
 
 pub fn remove_retrieve_btc_request(state: &mut CustomState, request: ReleaseTokenRequest) {
     record_event(&Event::RemovedReleaseTokenRequest {
-        release_id: request.release_id,
+        release_id: request.release_id.clone(),
     });
 
     state.push_finalized_release_token(FinalizedBtcRetrieval {
@@ -71,13 +74,13 @@ pub fn remove_retrieve_btc_request(state: &mut CustomState, request: ReleaseToke
 
 pub fn sent_transaction(state: &mut CustomState, tx: SubmittedBtcTransaction) {
     record_event(&Event::SentBtcTransaction {
-        runes_id: tx.runes_id,
-        request_release_ids: tx.requests.iter().map(|r| r.release_id).collect(),
+        runes_id: tx.runes_id.clone(),
+        request_release_ids: tx.requests.iter().map(|r| r.release_id.clone()).collect(),
         txid: tx.txid,
         runes_utxos: tx.runes_utxos.clone(),
         btc_utxos: tx.btc_utxos.clone(),
         runes_change_output: tx.runes_change_output.clone(),
-        btc_change_output: tx.btc_change_output,
+        btc_change_output: tx.btc_change_output.clone(),
         submitted_at: tx.submitted_at,
         fee_per_vbyte: tx.fee_per_vbyte,
     });
@@ -98,8 +101,8 @@ pub fn replace_transaction(
     record_event(&Event::ReplacedBtcTransaction {
         old_txid,
         new_txid: new_tx.txid,
-        runes_change_output: new_tx.runes_change_output,
-        btc_change_output: new_tx.btc_change_output,
+        runes_change_output: new_tx.runes_change_output.clone(),
+        btc_change_output: new_tx.btc_change_output.clone(),
         submitted_at: new_tx.submitted_at,
         fee_per_vbyte: new_tx
             .fee_per_vbyte

@@ -1,8 +1,8 @@
-use crate::address::{main_destination, BitcoinAddress};
+use crate::address::{main_bitcoin_address, main_destination, BitcoinAddress};
 use crate::logs::{P0, P1};
 use crate::queries::WithdrawalFee;
 use crate::runestone::{Edict, Runestone};
-use crate::state::BtcChangeOutput;
+use crate::state::{audit, BtcChangeOutput};
 use crate::tasks::schedule_after;
 use candid::{CandidType, Deserialize};
 use destination::Destination;
@@ -12,7 +12,7 @@ use ic_ic00_types::DerivationPath;
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
-use state::{read_state, RunesChangeOutput, RunesId, RunesUtxo};
+use state::{read_state, RunesBalance, RunesChangeOutput, RunesId, RunesUtxo};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
@@ -44,7 +44,7 @@ const MIN_NANOS: u64 = 60 * SEC_NANOS;
 pub const MIN_PENDING_REQUESTS: usize = 20;
 pub const MAX_REQUESTS_PER_BATCH: usize = 100;
 
-const BTC_TOKEN: String = String::from("BTC");
+const BTC_TOKEN: &str = "BTC";
 
 /// The constants used to compute the minter's fee to cover its own cycle consumption.
 /// The values are set to cover the cycle cost on a 28-node subnet.
@@ -93,7 +93,7 @@ pub struct Log {
 #[derive(CandidType, Debug, Deserialize, Serialize)]
 pub struct CustomInfo {
     pub min_confirmations: u32,
-    pub retrieve_btc_min_amount: u64,
+    pub release_min_amount: u128,
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -140,53 +140,45 @@ fn undo_sign_request(
 
 /// Updates the UTXOs for the main account of the custom to pick up change from
 /// previous redeem token requests.
-async fn fetch_main_utxos(main_dest: &Destination, main_address: &BitcoinAddress) -> Vec<Utxo> {
-    let (btc_network, min_confirmations) =
-        state::read_state(|s| (s.btc_network, s.min_confirmations));
+async fn fetch_main_utxos(
+    addresses: Vec<(Destination, BitcoinAddress)>,
+    btc_network: Network,
+    min_confirmations: u32,
+) -> BTreeMap<Destination, Vec<Utxo>> {
+    let mut result = BTreeMap::default();
+    for (main_dest, main_address) in addresses {
+        let utxos = match management::get_utxos(
+            btc_network,
+            &main_address.display(btc_network),
+            min_confirmations,
+            management::CallSource::Custom,
+        )
+        .await
+        {
+            Ok(response) => response.utxos,
+            Err(e) => {
+                log!(
+                    P0,
+                    "[fetch_main_utxos]: failed to fetch UTXOs for the main address {}: {}",
+                    main_address.display(btc_network),
+                    e
+                );
+                return BTreeMap::default();
+            }
+        };
 
-    let utxos = match management::get_utxos(
-        btc_network,
-        &main_address.display(btc_network),
-        min_confirmations,
-        management::CallSource::Custom,
-    )
-    .await
-    {
-        Ok(response) => response.utxos,
-        Err(e) => {
-            log!(
-                P0,
-                "[fetch_main_utxos]: failed to fetch UTXOs for the main address {}: {}",
-                main_address.display(btc_network),
-                e
-            );
-            return vec![];
-        }
-    };
-
-    state::read_state(|s| match s.utxos_state_destinations.get(main_dest) {
-        Some(known_utxos) => utxos
-            .into_iter()
-            .filter(|u| !known_utxos.contains(u))
-            .collect(),
-        None => utxos,
-    })
-}
-
-/// Returns the minimum withdrawal amount based on the current median fee rate (in millisatoshi per byte).
-/// The returned amount is in satoshi.
-fn compute_min_withdrawal_amount(median_fee_rate_e3s: MillisatoshiPerByte) -> u64 {
-    const PER_REQUEST_RBF_BOUND: u64 = 22_100;
-    const PER_REQUEST_VSIZE_BOUND: u64 = 221;
-    const PER_REQUEST_MINTER_FEE_BOUND: u64 = 305;
-
-    let median_fee_rate = median_fee_rate_e3s / 1_000;
-    ((PER_REQUEST_RBF_BOUND
-        + PER_REQUEST_VSIZE_BOUND * median_fee_rate
-        + PER_REQUEST_MINTER_FEE_BOUND)
-        / 50_000)
-        * 50_000
-        + 100_000
+        result.insert(
+            main_dest.clone(),
+            state::read_state(|s| match s.utxos_state_destinations.get(&main_dest) {
+                Some(known_utxos) => utxos
+                    .into_iter()
+                    .filter(|u| !known_utxos.contains(u))
+                    .collect(),
+                None => utxos,
+            }),
+        );
+    }
+    result
 }
 
 /// Returns an estimate for transaction fees in millisatoshi per vbyte. Returns
@@ -206,7 +198,8 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
             if fees.len() >= 100 {
                 state::mutate_state(|s| {
                     s.last_fee_per_vbyte = fees.clone();
-                    s.release_min_amount = compute_min_withdrawal_amount(fees[50]);
+                    // TODO define release min amount
+                    s.release_min_amount = 10000;
                 });
                 Some(fees[50])
             } else {
@@ -253,7 +246,8 @@ async fn submit_pending_requests() {
         }
 
         let ecdsa_public_key = updates::get_btc_address::init_ecdsa_public_key().await;
-        let btc_main_address = address::main_bitcoin_address(&ecdsa_public_key, BTC_TOKEN);
+        let btc_main_address =
+            address::main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN));
 
         // Each runes tokens use isolated main addresses
         let runes_main_address =
@@ -422,9 +416,12 @@ fn finalization_time_estimate(min_confirmations: u32, network: Network) -> Durat
     )
 }
 
-/// Returns identifiers of finalized transactions from the list of `candidates` according to the
+/// Returns finalized transactions from the list of `candidates` according to the
 /// list of newly received UTXOs for the main minter account.
-fn finalized_txids(candidates: &[state::SubmittedBtcTransaction], new_utxos: &[Utxo]) -> Vec<Txid> {
+fn finalized_txs(
+    candidates: &[state::SubmittedBtcTransaction],
+    new_utxos: &[Utxo],
+) -> Vec<state::SubmittedBtcTransaction> {
     candidates
         .iter()
         .filter_map(|tx| {
@@ -434,7 +431,7 @@ fn finalized_txids(candidates: &[state::SubmittedBtcTransaction], new_utxos: &[U
                     utxo.outpoint.vout == tx.runes_change_output.vout
                         && utxo.outpoint.txid == tx.txid
                 })
-                .then_some(tx.txid)
+                .then_some(tx.clone())
         })
         .collect()
 }
@@ -462,48 +459,84 @@ async fn finalize_requests() {
         return;
     }
 
-    let main_dest = main_destination();
-    let main_address = address::main_bitcoin_address(&ecdsa_public_key);
-    let new_utxos = fetch_main_utxos(&main_dest, &main_address).await;
+    let main_btc_address = (
+        main_destination(String::from(BTC_TOKEN)),
+        address::main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN)),
+    );
+    let main_runes_addresses: Vec<(Destination, BitcoinAddress)> = maybe_finalized_transactions
+        .iter()
+        .map(|(_, tx)| {
+            (
+                main_destination(tx.runes_id.to_string()),
+                address::main_bitcoin_address(&ecdsa_public_key, tx.runes_id.to_string()),
+            )
+        })
+        .collect();
+
+    let (btc_network, min_confirmations) =
+        state::read_state(|s| (s.btc_network, s.min_confirmations));
+
+    let dest_btc_utxos =
+        fetch_main_utxos(vec![main_btc_address], btc_network, min_confirmations).await;
+    let dest_runes_utxos =
+        fetch_main_utxos(main_runes_addresses.clone(), btc_network, min_confirmations).await;
+
+    let new_runes_utxos = dest_btc_utxos
+        .iter()
+        .map(|(_, utxos)| utxos)
+        .flatten()
+        .map(|u| u.clone())
+        .collect::<Vec<Utxo>>();
 
     // Transactions whose change outpoint is present in the newly fetched UTXOs
     // can be finalized. Note that all new minter transactions must have a
     // change output because minter always charges a fee for converting tokens.
     let confirmed_transactions: Vec<_> =
-        state::read_state(|s| finalized_txids(&s.submitted_transactions, &new_utxos));
+        state::read_state(|s| finalized_txs(&s.submitted_transactions, &new_runes_utxos));
 
     // It's possible that some transactions we considered lost or rejected became finalized in the
     // meantime. If that happens, we should stop waiting for replacement transactions to finalize.
     let unstuck_transactions: Vec<_> =
-        state::read_state(|s| finalized_txids(&s.stuck_transactions, &new_utxos));
+        state::read_state(|s| finalized_txs(&s.stuck_transactions, &new_runes_utxos));
 
     state::mutate_state(|s| {
-        if !new_utxos.is_empty() {
-            state::audit::add_utxos(s, main_dest, new_utxos, true);
-            // TODO update runes balance
+        for (dest, utxos) in dest_btc_utxos {
+            audit::add_utxos(s, dest, utxos, false);
         }
-        for txid in &confirmed_transactions {
-            state::audit::confirm_transaction(s, txid);
-            maybe_finalized_transactions.remove(txid);
+        for (dest, utxos) in dest_runes_utxos {
+            audit::add_utxos(s, dest, utxos, true);
+        }
+        for tx in &confirmed_transactions {
+            state::audit::confirm_transaction(s, &tx.txid);
+            let outpoint = OutPoint {
+                txid: tx.txid,
+                vout: tx.runes_change_output.vout,
+            };
+            let balance = RunesBalance {
+                rune_id: tx.runes_change_output.runes_id,
+                value: tx.runes_change_output.value,
+            };
+            audit::update_runes_balance(s, outpoint, balance);
+            maybe_finalized_transactions.remove(&tx.txid);
         }
     });
 
-    for txid in &unstuck_transactions {
+    for tx in &unstuck_transactions {
         state::read_state(|s| {
-            if let Some(replacement_txid) = s.find_last_replacement_tx(txid) {
+            if let Some(replacement_txid) = s.find_last_replacement_tx(&tx.txid) {
                 maybe_finalized_transactions.remove(replacement_txid);
             }
         });
     }
 
     state::mutate_state(|s| {
-        for txid in unstuck_transactions {
+        for tx in unstuck_transactions {
             log!(
                 P0,
                 "[finalize_requests]: finalized transaction {} assumed to be stuck",
-                &txid
+                &tx.txid
             );
-            state::audit::confirm_transaction(s, &txid);
+            state::audit::confirm_transaction(s, &tx.txid);
         }
     });
 
@@ -523,29 +556,14 @@ async fn finalize_requests() {
     // Bitcoin network knows about them or they got lost in the meantime. Note that the Bitcoin
     // canister doesn't have access to the mempool, we can detect only transactions with at least
     // one confirmation.
-    let main_utxos_zero_confirmations = match management::get_utxos(
-        btc_network,
-        &main_address.display(btc_network),
-        /*min_confirmations=*/ 0,
-        management::CallSource::Custom,
-    )
-    .await
-    {
-        Ok(response) => response.utxos,
-        Err(e) => {
-            log!(
-                P0,
-                "[finalize_requests]: failed to fetch UTXOs for the main address {}: {}",
-                main_address.display(btc_network),
-                e
-            );
-            return;
-        }
-    };
+    let main_utxos_zero_confirmations =
+        fetch_main_utxos(main_runes_addresses, btc_network, 0).await;
 
-    for utxo in main_utxos_zero_confirmations {
-        // This transaction got at least one confirmation, we don't need to replace it.
-        maybe_finalized_transactions.remove(&utxo.outpoint.txid);
+    for (_, utxos) in main_utxos_zero_confirmations {
+        for utxo in utxos {
+            // This transaction got at least one confirmation, we don't need to replace it.
+            maybe_finalized_transactions.remove(&utxo.outpoint.txid);
+        }
     }
 
     if maybe_finalized_transactions.is_empty() {
@@ -602,8 +620,8 @@ async fn finalize_requests() {
                 &submitted_tx.runes_id,
                 &mut runes_utxos,
                 &mut btc_utxos,
-                main_address.clone(),
-                main_address.clone(),
+                main_bitcoin_address(&ecdsa_public_key, submitted_tx.runes_id.to_string()),
+                main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN)),
                 outputs,
                 tx_fee_per_vbyte,
             ) {
@@ -711,7 +729,7 @@ fn filter_output_destinations(
         .map(|input| {
             (
                 input.previous_output.clone(),
-                *state
+                state
                     .outpoint_destination
                     .get(&input.previous_output)
                     .unwrap_or_else(|| {
@@ -719,7 +737,8 @@ fn filter_output_destinations(
                             "bug: missing account for output point {:?}",
                             input.previous_output
                         )
-                    }),
+                    })
+                    .clone(),
             )
         })
         .collect()
@@ -742,7 +761,7 @@ fn utxos_selection<F, U>(
     get_value: F,
 ) -> Vec<U>
 where
-    F: Fn(&U) -> u128,
+    F: Fn(&U) -> u128 + Copy,
     U: Ord + Clone,
 {
     let mut input_utxos = greedy(target, available_utxos, get_value);
@@ -753,7 +772,7 @@ where
 
     if available_utxos.len() > UTXOS_COUNT_THRESHOLD {
         while input_utxos.len() < output_count + 2 {
-            if let Some(min_utxo) = available_utxos.iter().min_by_key(|u| get_value(u.clone())) {
+            if let Some(min_utxo) = available_utxos.iter().min_by_key(|u| get_value(u)) {
                 input_utxos.push(min_utxo.clone());
                 assert!(available_utxos.remove(&min_utxo.clone()));
             } else {
@@ -1023,10 +1042,9 @@ pub fn build_unsigned_transaction(
 
     let input_btc_amount = utxos_guard.iter().map(|input| input.raw.value).sum::<u64>();
 
-    let mut btc_change_amount: u64 = 0;
     let mut btc_utxos: Vec<Utxo> = vec![];
 
-    if input_btc_amount < fee {
+    let btc_change_amount = if input_btc_amount < fee {
         let target_fee = fee - input_btc_amount;
         btc_utxos = utxos_selection(target_fee as u128, available_btc_utxos, 1, |u| {
             u.value as u128
@@ -1048,10 +1066,10 @@ pub fn build_unsigned_transaction(
                 .collect::<Vec<tx::UnsignedInput>>(),
         );
 
-        btc_change_amount = btc_amount - target_fee;
+        btc_amount - target_fee
     } else {
-        btc_change_amount = input_btc_amount - fee;
-    }
+        input_btc_amount - fee
+    };
 
     let mut btc_change_out: Option<BtcChangeOutput> = None;
     if btc_change_amount >= MIN_OUTPUT_AMOUNT {
@@ -1065,7 +1083,7 @@ pub fn build_unsigned_transaction(
         });
     }
 
-    let mut unsigned_tx = tx::UnsignedTransaction {
+    let unsigned_tx = tx::UnsignedTransaction {
         inputs: tx_inputs,
         outputs: tx_outputs,
         lock_time: 0,
@@ -1137,8 +1155,9 @@ pub fn tx_vsize_estimate(input_count: u64, output_count: u64) -> u64 {
 ///   * `maybe_amount` - the withdrawal amount.
 ///   * `median_fee_millisatoshi_per_vbyte` - the median network fee, in millisatoshi per vbyte.
 pub fn estimate_fee(
-    available_utxos: &BTreeSet<Utxo>,
-    maybe_amount: Option<u64>,
+    runes_id: RunesId,
+    available_utxos: &BTreeSet<RunesUtxo>,
+    maybe_amount: Option<u128>,
     median_fee_millisatoshi_per_vbyte: u64,
 ) -> WithdrawalFee {
     const DEFAULT_INPUT_COUNT: u64 = 2;
@@ -1152,7 +1171,13 @@ pub fn estimate_fee(
             // will use.
             let mut utxos = available_utxos.clone();
             let selected_utxos =
-                utxos_selection(amount, &mut utxos, DEFAULT_OUTPUT_COUNT as usize - 1);
+                utxos_selection(amount, &mut utxos, DEFAULT_OUTPUT_COUNT as usize - 1, |u| {
+                    if u.runes.rune_id.eq(&runes_id) {
+                        u.runes.value
+                    } else {
+                        0
+                    }
+                });
 
             if !selected_utxos.is_empty() {
                 selected_utxos.len() as u64

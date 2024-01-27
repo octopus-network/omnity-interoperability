@@ -11,6 +11,6 @@ pub struct Destination {
 impl Destination {
     #[inline]
     pub fn effective_subaccount(&self) -> String {
-        self.token.unwrap_or(String::new())
+        self.token.clone().unwrap_or(String::new())
     }
 }

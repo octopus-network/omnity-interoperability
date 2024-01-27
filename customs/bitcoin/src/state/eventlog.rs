@@ -197,7 +197,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                 state.push_back_pending_request(req);
             }
             Event::RemovedReleaseTokenRequest { release_id } => {
-                let request = state.remove_pending_request(release_id).ok_or_else(|| {
+                let request = state.remove_pending_request(release_id.clone()).ok_or_else(|| {
                     ReplayLogError::InconsistentLog(format!(
                         "Attempted to remove a non-pending release_token request {:?}",
                         release_id
@@ -222,7 +222,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             } => {
                 let mut release_token_requests = Vec::with_capacity(request_release_ids.len());
                 for release_id in request_release_ids {
-                    let request = state.remove_pending_request(release_id).ok_or_else(|| {
+                    let request = state.remove_pending_request(release_id.clone()).ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
                             "Attempted to send a non-pending retrieve_btc request {:?}",
                             release_id

@@ -2,7 +2,6 @@ use crate::lifecycle::upgrade::UpgradeArgs;
 pub use crate::state::Mode;
 use crate::state::{replace_state, CustomState};
 use candid::{CandidType, Deserialize};
-use ic_base_types::CanisterId;
 use ic_btc_interface::Network;
 use serde::Serialize;
 
@@ -57,9 +56,6 @@ pub struct InitArgs {
 
     /// Minimum amount of bitcoin that can be retrieved
     pub release_min_amount: u128,
-
-    /// The CanisterId of the ckBTC Ledger
-    pub ledger_id: CanisterId,
 
     /// Maximum time in nanoseconds that a transaction should spend in the queue
     /// before being sent.

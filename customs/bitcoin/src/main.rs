@@ -2,37 +2,24 @@ use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_custom::lifecycle::{self, init::MinterArg};
 use bitcoin_custom::metrics::encode_metrics;
 use bitcoin_custom::queries::{
-    EstimateFeeArg, GenTicketStatusRequest, RetrieveBtcStatusRequest, WithdrawalFee,
+    EstimateFeeArg, GenTicketStatusRequest, ReleaseTokenStatusRequest, WithdrawalFee,
 };
-use bitcoin_custom::state::{
-    read_state, BtcRetrievalStatusV2, GenTicketStatus, ReleaseTokenStatus, RetrieveBtcStatusV2,
-};
+use bitcoin_custom::state::{read_state, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_custom::tasks::{schedule_now, TaskType};
-use bitcoin_custom::updates::finalize_boarding_pass::UpdateRunesTokenArgs;
-use bitcoin_custom::updates::finalize_transport::FinalizeTransportArgs;
-use bitcoin_custom::updates::generate_ticket::GenerateTicketArgs;
-use bitcoin_custom::updates::generate_tocket::GenerateTicketError;
-use bitcoin_custom::updates::retrieve_btc::{
-    RetrieveBtcOk, RetrieveBtcWithApprovalArgs, RetrieveBtcWithApprovalError,
-};
-use bitcoin_custom::updates::transport_token::TransportTokenArgs;
-use bitcoin_custom::updates::update_runes_balance::UpdateRunesBalanceError;
+use bitcoin_custom::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_custom::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
-    transport_token::TransportTokenArgs,
-    update_balance::{UpdateBalanceArgs, UpdateBalanceError, UtxoStatus},
+    update_runes_balance::{UpdateRunesBalanceError, UpdateRunesBlanceArgs},
 };
 use bitcoin_custom::CustomInfo;
 use bitcoin_custom::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
 };
-use candid::Principal;
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk_macros::{init, post_upgrade, query, update};
-use icrc_ledger_types::icrc1::account::Account;
 
 #[init]
 fn init(args: MinterArg) {
@@ -42,7 +29,6 @@ fn init(args: MinterArg) {
             lifecycle::init::init(args);
             schedule_now(TaskType::ProcessLogic);
             schedule_now(TaskType::RefreshFeePercentiles);
-            schedule_now(TaskType::DistributeKytFee);
 
             #[cfg(feature = "self_check")]
             ok_or_die(check_invariants())
@@ -106,12 +92,6 @@ fn check_postcondition<T>(t: T) -> T {
     t
 }
 
-fn check_anonymous_caller() {
-    if ic_cdk::caller() == Principal::anonymous() {
-        panic!("anonymous caller not allowed")
-    }
-}
-
 #[export_name = "canister_global_timer"]
 fn timer() {
     #[cfg(feature = "self_check")]
@@ -132,7 +112,6 @@ fn post_upgrade(minter_arg: Option<MinterArg>) {
     lifecycle::upgrade::post_upgrade(upgrade_arg);
     schedule_now(TaskType::ProcessLogic);
     schedule_now(TaskType::RefreshFeePercentiles);
-    schedule_now(TaskType::DistributeKytFee);
 }
 
 #[update]
@@ -140,17 +119,9 @@ async fn get_btc_address(args: GetBtcAddressArgs) -> String {
     updates::get_btc_address::get_btc_address(args).await
 }
 
-#[update]
-async fn retrieve_btc_with_approval(
-    args: RetrieveBtcWithApprovalArgs,
-) -> Result<RetrieveBtcOk, RetrieveBtcWithApprovalError> {
-    check_anonymous_caller();
-    check_postcondition(updates::retrieve_btc::retrieve_btc_with_approval(args).await)
-}
-
 #[query]
-fn retrieve_btc_status(req: RetrieveBtcStatusRequest) -> ReleaseTokenStatus {
-    read_state(|s| s.release_token_status(req.block_index))
+fn retrieve_btc_status(req: ReleaseTokenStatusRequest) -> ReleaseTokenStatus {
+    read_state(|s| s.release_token_status(req.release_id))
 }
 
 #[query]
@@ -159,13 +130,13 @@ fn gen_boarding_pass_status(req: GenTicketStatusRequest) -> GenTicketStatus {
 }
 
 #[update]
-async fn update_runes_balance(args: UpdateRunesTokenArgs) -> Result<(), UpdateRunesBalanceError> {
+async fn update_runes_balance(args: UpdateRunesBlanceArgs) -> Result<(), UpdateRunesBalanceError> {
     check_postcondition(updates::update_runes_balance::update_runes_balance(args).await)
 }
 
 #[update]
 async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
-    check_postcondition(updates::gen_boarding_pass::generate_boarding_pass(args).await)
+    check_postcondition(updates::generate_ticket::generate_ticket(args).await)
 }
 
 #[update]
@@ -184,6 +155,7 @@ async fn get_canister_status() -> ic_cdk::api::management_canister::main::Canist
 fn estimate_withdrawal_fee(arg: EstimateFeeArg) -> WithdrawalFee {
     read_state(|s| {
         bitcoin_custom::estimate_fee(
+            arg.runes_id,
             &s.available_runes_utxos,
             arg.amount,
             s.last_fee_per_vbyte[50],
@@ -195,13 +167,8 @@ fn estimate_withdrawal_fee(arg: EstimateFeeArg) -> WithdrawalFee {
 fn get_minter_info() -> CustomInfo {
     read_state(|s| CustomInfo {
         min_confirmations: s.min_confirmations,
-        retrieve_btc_min_amount: s.release_min_amount,
+        release_min_amount: s.release_min_amount,
     })
-}
-
-#[query]
-fn get_deposit_fee() -> u64 {
-    read_state(|s| s.kyt_fee)
 }
 
 #[query(hidden = true)]
