@@ -112,7 +112,7 @@ pub fn encode_metrics(
 
     metrics.encode_gauge(
         "ckbtc_minter_utxos_available",
-        state::read_state(|s| s.available_utxos.len()) as f64,
+        state::read_state(|s| s.available_runes_utxos.len()) as f64,
         "Total number of UTXOs the minter can use for retrieve_btc requests.",
     )?;
 

@@ -128,8 +128,8 @@ where
 pub enum CallSource {
     /// The client initiated the call.
     Client,
-    /// The minter initiated the call for internal bookkeeping.
-    Minter,
+    /// The custom initiated the call for internal bookkeeping.
+    Custom,
 }
 
 /// Fetches the full list of UTXOs for the specified address.
@@ -156,7 +156,7 @@ pub async fn get_utxos(
     ) -> Result<GetUtxosResponse, CallError> {
         match source {
             CallSource::Client => &crate::metrics::GET_UTXOS_CLIENT_CALLS,
-            CallSource::Minter => &crate::metrics::GET_UTXOS_MINTER_CALLS,
+            CallSource::Custom => &crate::metrics::GET_UTXOS_MINTER_CALLS,
         }
         .with(|cell| cell.set(cell.get() + 1));
         call("bitcoin_get_utxos", cycles, req).await

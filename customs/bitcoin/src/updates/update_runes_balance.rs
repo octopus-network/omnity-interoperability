@@ -36,7 +36,7 @@ pub async fn update_runes_balance(
         None => Err(UpdateRunesBalanceError::PendingReqNotFound),
     })?;
 
-    if args.balance.rune_id != req.runes_id || args.balance.amount != req.amount {
+    if args.balance.rune_id != req.runes_id || args.balance.value != req.amount {
         return Err(UpdateRunesBalanceError::MismatchWithPendingReq);
     }
 

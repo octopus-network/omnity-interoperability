@@ -1,4 +1,3 @@
-use bitcoin_custom::dashboard::build_dashboard;
 use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_custom::lifecycle::{self, init::MinterArg};
 use bitcoin_custom::metrics::encode_metrics;
@@ -184,7 +183,11 @@ async fn get_canister_status() -> ic_cdk::api::management_canister::main::Canist
 #[query]
 fn estimate_withdrawal_fee(arg: EstimateFeeArg) -> WithdrawalFee {
     read_state(|s| {
-        bitcoin_custom::estimate_fee(&s.available_utxos, arg.amount, s.last_fee_per_vbyte[50])
+        bitcoin_custom::estimate_fee(
+            &s.available_runes_utxos,
+            arg.amount,
+            s.last_fee_per_vbyte[50],
+        )
     })
 }
 
@@ -221,12 +224,6 @@ fn http_request(req: HttpRequest) -> HttpResponse {
                     .build()
             }
         }
-    } else if req.path() == "/dashboard" {
-        let dashboard: Vec<u8> = build_dashboard();
-        HttpResponseBuilder::ok()
-            .header("Content-Type", "text/html; charset=utf-8")
-            .with_body_and_content_length(dashboard)
-            .build()
     } else if req.path() == "/logs" {
         use serde_json;
         use std::str::FromStr;

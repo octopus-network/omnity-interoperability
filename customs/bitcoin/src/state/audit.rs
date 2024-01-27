@@ -21,13 +21,19 @@ pub fn accept_generate_ticket_request(state: &mut CustomState, request: GenTicke
         .insert(request.tx_id, request);
 }
 
-pub fn add_utxos(state: &mut CustomState, destination: Destination, utxos: Vec<Utxo>) {
+pub fn add_utxos(
+    state: &mut CustomState,
+    destination: Destination,
+    utxos: Vec<Utxo>,
+    is_runes: bool,
+) {
     record_event(&Event::ReceivedUtxos {
         destination,
         utxos: utxos.clone(),
+        is_runes,
     });
 
-    state.add_utxos(destination, utxos);
+    state.add_utxos(destination, utxos, is_runes);
 }
 
 pub fn update_runes_balance(state: &mut CustomState, outpoint: OutPoint, balance: RunesBalance) {
@@ -53,8 +59,8 @@ pub fn finalize_ticket_request(
 }
 
 pub fn remove_retrieve_btc_request(state: &mut CustomState, request: ReleaseTokenRequest) {
-    record_event(&Event::RemovedRetrieveBtcRequest {
-        block_index: request.block_index,
+    record_event(&Event::RemovedReleaseTokenRequest {
+        release_id: request.release_id,
     });
 
     state.push_finalized_release_token(FinalizedBtcRetrieval {
@@ -65,10 +71,13 @@ pub fn remove_retrieve_btc_request(state: &mut CustomState, request: ReleaseToke
 
 pub fn sent_transaction(state: &mut CustomState, tx: SubmittedBtcTransaction) {
     record_event(&Event::SentBtcTransaction {
-        request_block_indices: tx.requests.iter().map(|r| r.block_index).collect(),
+        runes_id: tx.runes_id,
+        request_release_ids: tx.requests.iter().map(|r| r.release_id).collect(),
         txid: tx.txid,
-        utxos: tx.used_utxos.clone(),
-        change_output: tx.runes_change_output.clone(),
+        runes_utxos: tx.runes_utxos.clone(),
+        btc_utxos: tx.btc_utxos.clone(),
+        runes_change_output: tx.runes_change_output.clone(),
+        btc_change_output: tx.btc_change_output,
         submitted_at: tx.submitted_at,
         fee_per_vbyte: tx.fee_per_vbyte,
     });
@@ -89,10 +98,8 @@ pub fn replace_transaction(
     record_event(&Event::ReplacedBtcTransaction {
         old_txid,
         new_txid: new_tx.txid,
-        change_output: new_tx
-            .runes_change_output
-            .clone()
-            .expect("bug: all replacement transactions must have the change output"),
+        runes_change_output: new_tx.runes_change_output,
+        btc_change_output: new_tx.btc_change_output,
         submitted_at: new_tx.submitted_at,
         fee_per_vbyte: new_tx
             .fee_per_vbyte

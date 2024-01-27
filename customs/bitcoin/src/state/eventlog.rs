@@ -5,11 +5,13 @@ use crate::state::{
     CustomState, FinalizedBtcRetrieval, FinalizedStatus, ReleaseTokenRequest, RunesChangeOutput,
     SubmittedBtcTransaction,
 };
-use crate::tx;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use serde::{Deserialize, Serialize};
 
-use super::{FinalizedTicket, FinalizedTicketStatus, GenTicketRequest, RunesBalance};
+use super::{
+    BtcChangeOutput, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest, RunesBalance,
+    RunesId, RunesUtxo,
+};
 
 #[derive(candid::CandidType, Deserialize)]
 pub struct GetEventsArg {
@@ -36,6 +38,8 @@ pub enum Event {
         destination: Destination,
         #[serde(rename = "utxos")]
         utxos: Vec<Utxo>,
+        #[serde(rename = "is_runes")]
+        is_runes: bool,
     },
 
     #[serde(rename = "received_runes_utxos")]
@@ -57,13 +61,13 @@ pub enum Event {
     /// Indicates that the minter removed a previous retrieve_btc request
     /// because the retrieval amount was not enough to cover the transaction
     /// fees.
-    #[serde(rename = "removed_retrieve_btc_request")]
-    RemovedRetrieveBtcRequest {
-        #[serde(rename = "block_index")]
-        block_index: u64,
+    #[serde(rename = "removed_release_token_request")]
+    RemovedReleaseTokenRequest {
+        #[serde(rename = "release_id")]
+        release_id: Vec<u8>,
     },
 
-    #[serde(rename = "removed_boarding_pass_request")]
+    #[serde(rename = "finalized_ticket_request")]
     FinalizedTicketRequest {
         #[serde(rename = "tx_id")]
         tx_id: Txid,
@@ -75,19 +79,26 @@ pub enum Event {
     /// network.
     #[serde(rename = "sent_transaction")]
     SentBtcTransaction {
-        /// Block indices of retrieve_btc requests that caused the transaction.
+        #[serde(rename = "runes_id")]
+        runes_id: RunesId,
+        /// Release id list of release_token requests that caused the transaction.
         #[serde(rename = "requests")]
-        request_block_indices: Vec<u64>,
+        request_release_ids: Vec<Vec<u8>>,
         /// The Txid of the Bitcoin transaction.
         #[serde(rename = "txid")]
         txid: Txid,
-        /// UTXOs used for the transaction.
-        #[serde(rename = "utxos")]
-        utxos: Vec<Utxo>,
+        /// Runes UTXOs used for the transaction.
+        #[serde(rename = "runes_utxos")]
+        runes_utxos: Vec<RunesUtxo>,
+        /// BTC UTXOs used for the transaction.
+        #[serde(rename = "btc_utxos")]
+        btc_utxos: Vec<Utxo>,
         /// The output with the minter's change, if any.
-        #[serde(rename = "change_output")]
+        #[serde(rename = "runes_change_output")]
+        runes_change_output: RunesChangeOutput,
+        #[serde(rename = "btc_change_output")]
         #[serde(skip_serializing_if = "Option::is_none")]
-        change_output: Option<RunesChangeOutput>,
+        btc_change_output: Option<BtcChangeOutput>,
         /// The IC time at which the minter submitted the transaction.
         #[serde(rename = "submitted_at")]
         submitted_at: u64,
@@ -108,8 +119,10 @@ pub enum Event {
         #[serde(rename = "new_txid")]
         new_txid: Txid,
         /// The output with the minter's change.
-        #[serde(rename = "change_output")]
-        change_output: RunesChangeOutput,
+        #[serde(rename = "runes_change_output")]
+        runes_change_output: RunesChangeOutput,
+        #[serde(rename = "btc_change_output")]
+        btc_change_output: Option<BtcChangeOutput>,
         /// The IC time at which the minter submitted the transaction.
         #[serde(rename = "submitted_at")]
         submitted_at: u64,
@@ -155,8 +168,10 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             }
             Event::Upgrade(args) => state.upgrade(args),
             Event::ReceivedUtxos {
-                destination, utxos, ..
-            } => state.add_utxos(destination, utxos),
+                destination,
+                utxos,
+                is_runes,
+            } => state.add_utxos(destination, utxos, is_runes),
             Event::ReceivedRunesToken { outpoint, balance } => {
                 state.update_runes_balance(outpoint, balance);
             }
@@ -181,11 +196,11 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             Event::AcceptedReleaseTokenRequest(req) => {
                 state.push_back_pending_request(req);
             }
-            Event::RemovedRetrieveBtcRequest { block_index } => {
-                let request = state.remove_pending_request(block_index).ok_or_else(|| {
+            Event::RemovedReleaseTokenRequest { release_id } => {
+                let request = state.remove_pending_request(release_id).ok_or_else(|| {
                     ReplayLogError::InconsistentLog(format!(
-                        "Attempted to remove a non-pending retrieve_btc request {}",
-                        block_index
+                        "Attempted to remove a non-pending release_token request {:?}",
+                        release_id
                     ))
                 })?;
 
@@ -195,48 +210,62 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                 })
             }
             Event::SentBtcTransaction {
-                request_block_indices,
+                runes_id,
+                request_release_ids,
                 txid,
-                utxos,
+                runes_utxos,
+                btc_utxos,
                 fee_per_vbyte,
-                change_output,
+                runes_change_output,
+                btc_change_output,
                 submitted_at,
             } => {
-                let mut retrieve_btc_requests = Vec::with_capacity(request_block_indices.len());
-                for block_index in request_block_indices {
-                    let request = state.remove_pending_request(block_index).ok_or_else(|| {
+                let mut release_token_requests = Vec::with_capacity(request_release_ids.len());
+                for release_id in request_release_ids {
+                    let request = state.remove_pending_request(release_id).ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
-                            "Attempted to send a non-pending retrieve_btc request {}",
-                            block_index
+                            "Attempted to send a non-pending retrieve_btc request {:?}",
+                            release_id
                         ))
                     })?;
-                    retrieve_btc_requests.push(request);
+                    release_token_requests.push(request);
                 }
-                for utxo in utxos.iter() {
-                    state.available_utxos.remove(&utxo.outpoint);
+                for utxo in runes_utxos.iter() {
+                    state.available_runes_utxos.remove(utxo);
+                }
+                for utxo in btc_utxos.iter() {
+                    state.available_btc_utxos.remove(utxo);
                 }
                 state.push_submitted_transaction(SubmittedBtcTransaction {
-                    requests: retrieve_btc_requests,
+                    runes_id,
+                    requests: release_token_requests,
                     txid,
-                    used_utxos: utxos,
+                    runes_utxos,
+                    btc_utxos,
                     fee_per_vbyte,
-                    runes_change_output: change_output,
+                    runes_change_output,
+                    btc_change_output,
                     submitted_at,
                 });
             }
             Event::ReplacedBtcTransaction {
                 old_txid,
                 new_txid,
-                change_output,
+                runes_change_output,
+                btc_change_output,
                 submitted_at,
                 fee_per_vbyte,
             } => {
-                let (requests, used_utxos) = match state
+                let (requests, runes_utxos, btc_utxos) = match state
                     .submitted_transactions
                     .iter()
                     .find(|tx| tx.txid == old_txid)
                 {
-                    Some(tx) => (tx.requests.clone(), tx.used_utxos.clone()),
+                    Some(tx) => (
+                        tx.requests.clone(),
+                        tx.runes_utxos.clone(),
+                        tx.btc_utxos.clone(),
+                    ),
                     None => {
                         return Err(ReplayLogError::InconsistentLog(format!(
                             "Cannot replace a non-existent transaction {}",
@@ -248,10 +277,13 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                 state.replace_transaction(
                     &old_txid,
                     SubmittedBtcTransaction {
+                        runes_id: runes_change_output.runes_id,
                         txid: new_txid,
                         requests,
-                        used_utxos,
-                        runes_change_output: Some(change_output),
+                        runes_utxos,
+                        btc_utxos,
+                        runes_change_output,
+                        btc_change_output,
                         submitted_at,
                         fee_per_vbyte: Some(fee_per_vbyte),
                     },

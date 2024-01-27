@@ -80,7 +80,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     mutate_state(|s| {
         audit::accept_generate_ticket_request(s, request);
-        audit::add_utxos(s, destination, new_utxos);
+        audit::add_utxos(s, destination, new_utxos, true);
     });
     Ok(())
 }

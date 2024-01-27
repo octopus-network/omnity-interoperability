@@ -61,27 +61,17 @@ pub type RunesId = u128;
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesBalance {
     pub rune_id: RunesId,
-    pub amount: u128,
+    pub value: u128,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesUtxo {
     pub raw: Utxo,
     // A utxo is only bound to one runes token
-    pub runes: Option<RunesBalance>,
+    pub runes: RunesBalance,
 }
 
-impl RunesUtxo {
-    pub fn new(raw: Utxo) -> Self {
-        Self { raw, runes: None }
-    }
-
-    pub fn runes_value(&self) -> u128 {
-        self.runes.map_or(0, |r| r.amount)
-    }
-}
-
-/// A transaction output storing the minter's change.
+/// A transaction output storing the custom's runes change.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RunesChangeOutput {
     pub runes_id: RunesId,
@@ -91,20 +81,33 @@ pub struct RunesChangeOutput {
     pub value: u128,
 }
 
+/// A transaction output storing the custom's BTC change.
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BtcChangeOutput {
+    /// The index of the output in the transaction.
+    pub vout: u32,
+    /// The value of the output.
+    pub value: u64,
+}
+
 /// Represents a transaction sent to the Bitcoin network.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubmittedBtcTransaction {
+    pub runes_id: RunesId,
     /// The original retrieve_btc requests that initiated the transaction.
     pub requests: Vec<ReleaseTokenRequest>,
     /// The identifier of the unconfirmed transaction.
     pub txid: Txid,
-    /// The list of UTXOs we used in the transaction.
-    pub used_utxos: Vec<Utxo>,
+    /// The list of Runes UTXOs we used in the transaction.
+    pub runes_utxos: Vec<RunesUtxo>,
+    /// The list of BTC UTXOs we used in the transaction.
+    pub btc_utxos: Vec<Utxo>,
     /// The IC time at which we submitted the Bitcoin transaction.
     pub submitted_at: u64,
     /// The tx output from the submitted transaction that the minter owns.
+    pub runes_change_output: RunesChangeOutput,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub runes_change_output: Option<RunesChangeOutput>,
+    pub btc_change_output: Option<BtcChangeOutput>,
     /// Fee per vbyte in millisatoshi.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fee_per_vbyte: Option<u64>,
@@ -287,8 +290,14 @@ pub struct CustomState {
     /// The total number of finalized requests.
     pub finalized_requests_count: u64,
 
-    /// The set of raw UTXOs unused in pending transactions.
-    pub available_utxos: BTreeMap<OutPoint, RunesUtxo>,
+    /// The set of Runes UTXOs unused in pending transactions.
+    pub available_runes_utxos: BTreeSet<RunesUtxo>,
+
+    /// The set of BTC UTXOs unused in pending transactions.
+    pub available_btc_utxos: BTreeSet<Utxo>,
+
+    /// The mapping from output points to the utxo.
+    pub outpoint_utxos: BTreeMap<OutPoint, Utxo>,
 
     /// The mapping from output points to the destination to which they
     /// belong.
@@ -369,7 +378,7 @@ impl CustomState {
     }
 
     pub fn check_invariants(&self) -> Result<(), String> {
-        for (_, utxo) in self.available_utxos.iter() {
+        for utxo in self.available_runes_utxos.iter() {
             ensure!(
                 self.outpoint_destination.contains_key(&utxo.raw.outpoint),
                 "the output_account map is missing an entry for {:?}",
@@ -451,7 +460,7 @@ impl CustomState {
     }
 
     // public for only for tests
-    pub(crate) fn add_utxos(&mut self, destination: Destination, utxos: Vec<Utxo>) {
+    pub(crate) fn add_utxos(&mut self, destination: Destination, utxos: Vec<Utxo>, is_runes: bool) {
         if utxos.is_empty() {
             return;
         }
@@ -464,9 +473,11 @@ impl CustomState {
         for utxo in utxos {
             self.outpoint_destination
                 .insert(utxo.outpoint.clone(), destination);
-            self.available_utxos
-                .insert(utxo.outpoint, RunesUtxo::new(utxo));
+            self.outpoint_utxos.insert(utxo.outpoint, utxo);
             bucket.insert(utxo);
+            if !is_runes {
+                self.available_btc_utxos.insert(utxo);
+            }
         }
 
         #[cfg(debug_assertions)]
@@ -475,10 +486,12 @@ impl CustomState {
     }
 
     pub(crate) fn update_runes_balance(&mut self, outpoint: OutPoint, balance: RunesBalance) {
-        assert!(self.available_utxos.contains_key(&outpoint));
-        if let Some(utxo) = self.available_utxos.get(&outpoint) {
-            assert!(utxo.runes.is_none());
-            utxo.runes = Some(balance);
+        assert!(self.outpoint_utxos.contains_key(&outpoint));
+        if let Some(utxo) = self.outpoint_utxos.get(&outpoint) {
+            assert!(self.available_runes_utxos.insert(RunesUtxo {
+                raw: utxo.clone(),
+                runes: balance,
+            }));
         }
     }
 
@@ -559,10 +572,10 @@ impl CustomState {
         assert!(self.pending_release_token_requests.contains_key(runes_id));
 
         let available_utxos_value = self
-            .available_utxos
+            .available_runes_utxos
             .iter()
-            .filter(|(_, u)| u.runes.is_some_and(|b| b.rune_id.eq(runes_id)))
-            .map(|(_, u)| u.runes.unwrap().amount)
+            .filter(|u| u.runes.rune_id.eq(runes_id))
+            .map(|u| u.runes.value)
             .sum::<u128>();
         let mut batch = vec![];
         let mut tx_amount = 0;
@@ -605,6 +618,7 @@ impl CustomState {
 
     fn forget_utxo(&mut self, utxo: &Utxo) {
         if let Some(account) = self.outpoint_destination.remove(&utxo.outpoint) {
+            self.outpoint_utxos.remove(&utxo.outpoint);
             let last_utxo = match self.utxos_state_destinations.get_mut(&account) {
                 Some(utxo_set) => {
                     utxo_set.remove(utxo);
@@ -638,7 +652,10 @@ impl CustomState {
             ));
         };
 
-        for utxo in finalized_tx.used_utxos.iter() {
+        for utxo in finalized_tx.runes_utxos.iter() {
+            self.forget_utxo(&utxo.raw);
+        }
+        for utxo in finalized_tx.btc_utxos.iter() {
             self.forget_utxo(utxo);
         }
         self.finalized_requests_count += finalized_tx.requests.len() as u64;
@@ -893,8 +910,8 @@ impl CustomState {
             "requests_in_flight do not match"
         );
         ensure_eq!(
-            self.available_utxos,
-            other.available_utxos,
+            self.available_runes_utxos,
+            other.available_runes_utxos,
             "available_utxos do not match"
         );
         ensure_eq!(
@@ -978,7 +995,9 @@ impl From<InitArgs> for CustomState {
             finalized_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             finalized_boarding_pass_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             finalized_requests_count: 0,
-            available_utxos: Default::default(),
+            available_runes_utxos: Default::default(),
+            available_btc_utxos: Default::default(),
+            outpoint_utxos: Default::default(),
             outpoint_destination: Default::default(),
             utxos_state_destinations: Default::default(),
             is_timer_running: false,
