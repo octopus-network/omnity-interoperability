@@ -1,5 +1,5 @@
 fn main() {
-    let did_path = std::path::PathBuf::from("ckbtc_minter.did")
+    let did_path = std::path::PathBuf::from("bitcoin_custom.did")
         .canonicalize()
         .unwrap();
 

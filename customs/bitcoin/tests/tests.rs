@@ -1,7 +1,7 @@
 use assert_matches::assert_matches;
 use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
-use bitcoin_custom::lifecycle::init::{InitArgs as CkbtcMinterInitArgs, MinterArg};
+use bitcoin_custom::lifecycle::init::{CustomArg, InitArgs as CkbtcMinterInitArgs};
 use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_custom::queries::{EstimateFeeArg, ReleaseTokenStatusRequest, WithdrawalFee};
 use bitcoin_custom::state::{
@@ -111,7 +111,7 @@ fn install_minter(env: &StateMachine, ledger_id: CanisterId) -> CanisterId {
         kyt_fee: None,
         kyt_principal: Some(CanisterId::from(0)),
     };
-    let minter_arg = MinterArg::Init(args);
+    let minter_arg = CustomArg::Init(args);
     env.install_canister(minter_wasm(), Encode!(&minter_arg).unwrap(), None)
         .unwrap()
 }
@@ -165,7 +165,7 @@ fn test_wrong_upgrade_parameter() {
 
     // wrong init args
 
-    let args = MinterArg::Init(CkbtcMinterInitArgs {
+    let args = CustomArg::Init(CkbtcMinterInitArgs {
         btc_network: Network::Regtest.into(),
         ecdsa_key_name: "".into(),
         release_min_amount: 100_000,
@@ -180,7 +180,7 @@ fn test_wrong_upgrade_parameter() {
     if env.install_canister(minter_wasm(), args, None).is_ok() {
         panic!("init expected to fail")
     }
-    let args = MinterArg::Init(CkbtcMinterInitArgs {
+    let args = CustomArg::Init(CkbtcMinterInitArgs {
         btc_network: Network::Regtest.into(),
         ecdsa_key_name: "some_key".into(),
         release_min_amount: 100_000,
@@ -210,7 +210,7 @@ fn test_wrong_upgrade_parameter() {
         kyt_principal: None,
         kyt_fee: None,
     };
-    let minter_arg = MinterArg::Upgrade(Some(upgrade_args));
+    let minter_arg = CustomArg::Upgrade(Some(upgrade_args));
     if env
         .upgrade_canister(minter_id, minter_wasm(), Encode!(&minter_arg).unwrap())
         .is_ok()
@@ -280,7 +280,7 @@ fn update_balance_should_return_correct_confirmations() {
         kyt_principal: None,
         kyt_fee: None,
     };
-    let minter_arg = MinterArg::Upgrade(Some(upgrade_args));
+    let minter_arg = CustomArg::Upgrade(Some(upgrade_args));
     ckbtc
         .env
         .upgrade_canister(
@@ -387,7 +387,7 @@ fn test_minter() {
     use bitcoin::Address;
 
     let env = StateMachine::new();
-    let args = MinterArg::Init(CkbtcMinterInitArgs {
+    let args = CustomArg::Init(CkbtcMinterInitArgs {
         btc_network: Network::Regtest.into(),
         ecdsa_key_name: "master_ecdsa_public_key".into(),
         release_min_amount: 100_000,
@@ -481,7 +481,7 @@ impl CkBtcSetup {
         env.install_existing_canister(
             minter_id,
             minter_wasm(),
-            Encode!(&MinterArg::Init(CkbtcMinterInitArgs {
+            Encode!(&CustomArg::Init(CkbtcMinterInitArgs {
                 btc_network: Network::Mainnet.into(),
                 ecdsa_key_name: "master_ecdsa_public_key".to_string(),
                 release_min_amount: 100_000,

@@ -8,7 +8,7 @@ use serde::Serialize;
 pub const DEFAULT_MIN_CONFIRMATIONS: u32 = 6;
 
 #[derive(CandidType, serde::Deserialize)]
-pub enum MinterArg {
+pub enum CustomArg {
     Init(InitArgs),
     Upgrade(Option<UpgradeArgs>),
 }

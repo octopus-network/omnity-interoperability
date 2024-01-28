@@ -1,5 +1,5 @@
-use crate::state::{audit, RunesBalance};
-use crate::state::{mutate_state, read_state, FinalizedTicketStatus};
+use crate::state::{audit, FinalizedTicketStatus, GenTicketStatus, RunesBalance};
+use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
 use serde::Serialize;
@@ -13,8 +13,9 @@ pub struct UpdateRunesBlanceArgs {
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum UpdateRunesBalanceError {
-    PendingReqNotFound,
-    MismatchWithPendingReq,
+    RequestNotFound,
+    AleardyProcessed,
+    MismatchWithTicketReq,
     UtxoNotFound,
 }
 
@@ -26,27 +27,32 @@ pub async fn update_runes_balance(
         vout: args.vout,
     };
     read_state(|s| match s.outpoint_destination.get(&outpoint) {
-        Some(dest) => Ok(dest.clone()),
+        Some(_) => Ok(()),
         None => Err(UpdateRunesBalanceError::UtxoNotFound),
     })?;
 
-    let req = read_state(|s| match s.pending_gen_ticket_requests.get(&args.tx_id) {
-        Some(req) => Ok(req.clone()),
-        None => Err(UpdateRunesBalanceError::PendingReqNotFound),
+    let req = read_state(|s| match s.generate_ticket_status(args.tx_id) {
+        GenTicketStatus::Finalized => Err(UpdateRunesBalanceError::AleardyProcessed),
+        GenTicketStatus::Unknown => Err(UpdateRunesBalanceError::RequestNotFound),
+        GenTicketStatus::Pending(req) => Ok(req),
     })?;
 
-    if args.balance.rune_id != req.runes_id || args.balance.value != req.value {
-        return Err(UpdateRunesBalanceError::MismatchWithPendingReq);
-    }
+    let result = {
+        // TODO invoke hub to generate landing pass
+        if args.balance.rune_id != req.runes_id || args.balance.value != req.value {
+            Err(UpdateRunesBalanceError::MismatchWithTicketReq)
+        } else {
+            Ok(())
+        }
+    };
 
-    // TODO invoke hub to generate landing pass
-
-    mutate_state(|s| {
-        audit::update_runes_balance(s, outpoint, args.balance.clone());
-
-        s.pending_gen_ticket_requests.remove(&args.tx_id);
-        audit::finalize_ticket_request(s, &req, FinalizedTicketStatus::Finalized);
+    mutate_state(|s| match result {
+        Ok(_) => audit::finalize_ticket_request(s, &req, args.vout),
+        Err(UpdateRunesBalanceError::MismatchWithTicketReq) => {
+            audit::remove_ticket_request(s, &req, FinalizedTicketStatus::MismatchWithTicketReq)
+        }
+        _ => {}
     });
 
-    Ok(())
+    result
 }

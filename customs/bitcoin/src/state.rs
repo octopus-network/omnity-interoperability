@@ -115,7 +115,7 @@ pub struct SubmittedBtcTransaction {
 
 /// Pairs a retrieve_btc request with its outcome.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FinalizedBtcRetrieval {
+pub struct FinalizedTokenRetrieval {
     /// The original retrieve_btc request that initiated the transaction.
     pub request: ReleaseTokenRequest,
     /// The status of the finalized request.
@@ -126,10 +126,7 @@ pub struct FinalizedBtcRetrieval {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedStatus {
     /// The transaction that retrieves BTC got enough confirmations.
-    Confirmed {
-        /// The witness transaction identifier of the transaction.
-        txid: Txid,
-    },
+    Confirmed(Txid),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,6 +139,7 @@ pub struct FinalizedTicket {
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedTicketStatus {
     Finalized,
+    MismatchWithTicketReq,
 }
 
 /// The status of a Bitcoin transaction that the minter hasn't yet sent to the Bitcoin network.
@@ -164,13 +162,11 @@ pub enum ReleaseTokenStatus {
     /// Waiting for a signature on a transaction satisfy this request.
     Signing,
     /// Sending the transaction satisfying this request.
-    Sending { txid: Txid },
+    Sending(Txid),
     /// Awaiting for confirmations on the transaction satisfying this request.
-    Submitted { txid: Txid },
-    /// The retrieval amount was too low. Satisfying the request is impossible.
-    AmountTooLow,
+    Submitted(Txid),
     /// Confirmed a transaction satisfying this request.
-    Confirmed { txid: Txid },
+    Confirmed(Txid),
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -179,8 +175,7 @@ pub enum GenTicketStatus {
     /// The request is either invalid or too old.
     Unknown,
     /// The request is in the queue.
-    Pending,
-    UtxoNotFound,
+    Pending(GenTicketRequest),
     Finalized,
 }
 
@@ -260,7 +255,7 @@ pub struct CustomState {
 
     pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
 
-    pub finalized_boarding_pass_requests: VecDeque<FinalizedTicket>,
+    pub finalized_gen_ticket_requests: VecDeque<FinalizedTicket>,
 
     /// Release_token requests that are waiting to be served, sorted by
     /// received_at.
@@ -283,7 +278,7 @@ pub struct CustomState {
     pub rev_replacement_txid: BTreeMap<Txid, Txid>,
 
     /// Finalized retrieve_btc requests for which we received enough confirmations.
-    pub finalized_requests: VecDeque<FinalizedBtcRetrieval>,
+    pub finalized_release_token_requests: VecDeque<FinalizedTokenRetrieval>,
 
     /// The total number of finalized requests.
     pub finalized_requests_count: u64,
@@ -501,54 +496,53 @@ impl CustomState {
         }
     }
 
-    pub fn gen_boarding_pass_status(&self, tx_id: Txid) -> GenTicketStatus {
-        if self.pending_gen_ticket_requests.contains_key(&tx_id) {
-            return GenTicketStatus::Pending;
+    pub fn generate_ticket_status(&self, tx_id: Txid) -> GenTicketStatus {
+        if let Some(req) = self.pending_gen_ticket_requests.get(&tx_id) {
+            return GenTicketStatus::Pending(req.clone());
         }
         match self
-            .finalized_boarding_pass_requests
+            .finalized_gen_ticket_requests
             .iter()
             .find(|req| req.request.tx_id == tx_id)
             .map(|r| r.status.clone())
         {
-            Some(FinalizedTicketStatus::Finalized) => GenTicketStatus::Finalized,
+            Some(FinalizedTicketStatus::Finalized)
+            | Some(FinalizedTicketStatus::MismatchWithTicketReq) => GenTicketStatus::Finalized,
             None => GenTicketStatus::Unknown,
         }
     }
 
     /// Returns the status of the release_token request with the specified
     /// identifier.
-    pub fn release_token_status(&self, release_id: Vec<u8>) -> ReleaseTokenStatus {
+    pub fn release_token_status(&self, release_id: &Vec<u8>) -> ReleaseTokenStatus {
         if self
             .pending_release_token_requests
             .iter()
-            .any(|(_, reqs)| reqs.iter().any(|req| req.release_id == release_id))
+            .any(|(_, reqs)| reqs.iter().any(|req| req.release_id.eq(release_id)))
         {
             return ReleaseTokenStatus::Pending;
         }
 
-        if let Some(status) = self.requests_in_flight.get(&release_id).cloned() {
+        if let Some(status) = self.requests_in_flight.get(release_id).cloned() {
             return match status {
                 InFlightStatus::Signing => ReleaseTokenStatus::Signing,
-                InFlightStatus::Sending { txid } => ReleaseTokenStatus::Sending { txid },
+                InFlightStatus::Sending { txid } => ReleaseTokenStatus::Sending(txid),
             };
         }
 
         if let Some(txid) = self.submitted_transactions.iter().find_map(|tx| {
-            (tx.requests.iter().any(|r| r.release_id == release_id)).then_some(tx.txid)
+            (tx.requests.iter().any(|r| r.release_id.eq(release_id))).then_some(tx.txid)
         }) {
-            return ReleaseTokenStatus::Submitted { txid };
+            return ReleaseTokenStatus::Submitted(txid);
         }
 
         match self
-            .finalized_requests
+            .finalized_release_token_requests
             .iter()
-            .find(|finalized_request| finalized_request.request.release_id == release_id)
+            .find(|finalized_request| finalized_request.request.release_id.eq(release_id))
             .map(|final_req| final_req.status.clone())
         {
-            Some(FinalizedStatus::Confirmed { txid }) => {
-                return ReleaseTokenStatus::Confirmed { txid }
-            }
+            Some(FinalizedStatus::Confirmed(txid)) => return ReleaseTokenStatus::Confirmed(txid),
             None => (),
         }
 
@@ -665,9 +659,9 @@ impl CustomState {
         }
         self.finalized_requests_count += finalized_tx.requests.len() as u64;
         for request in finalized_tx.requests {
-            self.push_finalized_release_token(FinalizedBtcRetrieval {
+            self.push_finalized_release_token(FinalizedTokenRetrieval {
                 request,
-                status: FinalizedStatus::Confirmed { txid: *txid },
+                status: FinalizedStatus::Confirmed(*txid),
             });
         }
 
@@ -844,24 +838,24 @@ impl CustomState {
     ///
     /// This function panics if there is a pending retrieve_btc request with the
     /// same identifier.
-    fn push_finalized_release_token(&mut self, req: FinalizedBtcRetrieval) {
+    fn push_finalized_release_token(&mut self, req: FinalizedTokenRetrieval) {
         assert!(!self.has_pending_request(&req.request.release_id));
 
-        if self.finalized_requests.len() >= MAX_FINALIZED_REQUESTS {
-            self.finalized_requests.pop_front();
+        if self.finalized_release_token_requests.len() >= MAX_FINALIZED_REQUESTS {
+            self.finalized_release_token_requests.pop_front();
         }
-        self.finalized_requests.push_back(req)
+        self.finalized_release_token_requests.push_back(req)
     }
 
-    fn push_finalized_boarding_pass(&mut self, req: FinalizedTicket) {
+    fn push_finalized_ticket(&mut self, req: FinalizedTicket) {
         assert!(!self
             .pending_gen_ticket_requests
             .contains_key(&req.request.tx_id));
 
-        if self.finalized_boarding_pass_requests.len() >= MAX_FINALIZED_REQUESTS {
-            self.finalized_boarding_pass_requests.pop_front();
+        if self.finalized_gen_ticket_requests.len() >= MAX_FINALIZED_REQUESTS {
+            self.finalized_gen_ticket_requests.pop_front();
         }
-        self.finalized_boarding_pass_requests.push_back(req)
+        self.finalized_gen_ticket_requests.push_back(req)
     }
 
     /// Filters out known UTXOs of the given destination from the given UTXO list.
@@ -902,8 +896,8 @@ impl CustomState {
             "min_confirmations does not match"
         );
         ensure_eq!(
-            self.finalized_requests,
-            other.finalized_requests,
+            self.finalized_release_token_requests,
+            other.finalized_release_token_requests,
             "finalized_requests do not match"
         );
         ensure_eq!(
@@ -995,8 +989,8 @@ impl From<InitArgs> for CustomState {
             replacement_txid: Default::default(),
             rev_replacement_txid: Default::default(),
             stuck_transactions: Default::default(),
-            finalized_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
-            finalized_boarding_pass_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
+            finalized_release_token_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
+            finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             finalized_requests_count: 0,
             available_runes_utxos: Default::default(),
             available_btc_utxos: Default::default(),

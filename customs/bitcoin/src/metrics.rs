@@ -88,7 +88,7 @@ pub fn encode_metrics(
 
     metrics.encode_gauge(
         "ckbtc_minter_stored_finalized_requests",
-        state::read_state(|s| s.finalized_requests.len()) as f64,
+        state::read_state(|s| s.finalized_release_token_requests.len()) as f64,
         "Total number of finalized retrieve_btc requests the minter keeps in memory.",
     )?;
 

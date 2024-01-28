@@ -57,8 +57,16 @@ pub enum Event {
 
     #[serde(rename = "finalized_ticket_request")]
     FinalizedTicketRequest {
-        #[serde(rename = "tx_id")]
-        tx_id: Txid,
+        #[serde(rename = "txid")]
+        txid: Txid,
+        #[serde(rename = "vout")]
+        vout: u32,
+    },
+
+    #[serde(rename = "removed_ticket_request")]
+    RemovedTicketRequest {
+        #[serde(rename = "txid")]
+        txid: Txid,
         #[serde(rename = "status")]
         status: FinalizedTicketStatus,
     },
@@ -166,20 +174,39 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             Event::AcceptedGenTicketRequest(req) => {
                 state.pending_gen_ticket_requests.insert(req.tx_id, req);
             }
-            Event::FinalizedTicketRequest { tx_id, status } => {
-                let req = state
+            Event::FinalizedTicketRequest { txid, vout } => {
+                let request = state
                     .pending_gen_ticket_requests
-                    .remove(&tx_id)
+                    .remove(&txid)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
                             "Attempted to remove a non-pending boarding pass request {}",
-                            tx_id
+                            txid
                         ))
                     })?;
-                state.push_finalized_boarding_pass(FinalizedTicket {
-                    request: req,
-                    status,
+                state.update_runes_balance(
+                    OutPoint { txid, vout },
+                    RunesBalance {
+                        rune_id: request.runes_id,
+                        value: request.value,
+                    },
+                );
+                state.push_finalized_ticket(FinalizedTicket {
+                    request,
+                    status: FinalizedTicketStatus::Finalized,
                 });
+            }
+            Event::RemovedTicketRequest { txid, status } => {
+                let request = state
+                    .pending_gen_ticket_requests
+                    .remove(&txid)
+                    .ok_or_else(|| {
+                        ReplayLogError::InconsistentLog(format!(
+                            "Attempted to remove a non-pending boarding pass request {}",
+                            txid
+                        ))
+                    })?;
+                state.push_finalized_ticket(FinalizedTicket { request, status });
             }
             Event::AcceptedReleaseTokenRequest(req) => {
                 state.push_back_pending_request(req);

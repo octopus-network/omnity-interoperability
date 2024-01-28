@@ -1,5 +1,5 @@
 use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
-use bitcoin_custom::lifecycle::{self, init::MinterArg};
+use bitcoin_custom::lifecycle::{self, init::CustomArg};
 use bitcoin_custom::metrics::encode_metrics;
 use bitcoin_custom::queries::{
     EstimateFeeArg, GenTicketStatusRequest, ReleaseTokenStatusRequest, WithdrawalFee,
@@ -23,9 +23,9 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk_macros::{init, post_upgrade, query, update};
 
 #[init]
-fn init(args: MinterArg) {
+fn init(args: CustomArg) {
     match args {
-        MinterArg::Init(args) => {
+        CustomArg::Init(args) => {
             storage::record_event(&Event::Init(args.clone()));
             lifecycle::init::init(args);
             schedule_now(TaskType::ProcessLogic);
@@ -34,7 +34,7 @@ fn init(args: MinterArg) {
             #[cfg(feature = "self_check")]
             ok_or_die(check_invariants())
         }
-        MinterArg::Upgrade(_) => {
+        CustomArg::Upgrade(_) => {
             panic!("expected InitArgs got UpgradeArgs");
         }
     }
@@ -113,12 +113,12 @@ pub fn is_hub() -> Result<(), String> {
 }
 
 #[post_upgrade]
-fn post_upgrade(minter_arg: Option<MinterArg>) {
+fn post_upgrade(minter_arg: Option<CustomArg>) {
     let mut upgrade_arg: Option<UpgradeArgs> = None;
     if let Some(minter_arg) = minter_arg {
         upgrade_arg = match minter_arg {
-            MinterArg::Upgrade(upgrade_args) => upgrade_args,
-            MinterArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
+            CustomArg::Upgrade(upgrade_args) => upgrade_args,
+            CustomArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
         };
     }
     lifecycle::upgrade::post_upgrade(upgrade_arg);
@@ -133,12 +133,12 @@ async fn get_btc_address(args: GetBtcAddressArgs) -> String {
 
 #[query]
 fn release_token_status(req: ReleaseTokenStatusRequest) -> ReleaseTokenStatus {
-    read_state(|s| s.release_token_status(req.release_id))
+    read_state(|s| s.release_token_status(&req.release_id))
 }
 
 #[query]
 fn generate_ticket_status(req: GenTicketStatusRequest) -> GenTicketStatus {
-    read_state(|s| s.gen_boarding_pass_status(req.tx_id))
+    read_state(|s| s.generate_ticket_status(req.tx_id))
 }
 
 #[update]
@@ -326,3 +326,6 @@ fn check_candid_interface_compatibility() {
         candid_parser::utils::CandidSource::File(old_interface.as_path()),
     );
 }
+
+// Enable Candid export
+ic_cdk::export_candid!();

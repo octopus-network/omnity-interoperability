@@ -1,5 +1,5 @@
 use crate::guard::release_token_guard;
-use crate::state::ReleaseId;
+use crate::state::{ReleaseId, ReleaseTokenStatus};
 use crate::tasks::{schedule_now, TaskType};
 use crate::{
     address::{BitcoinAddress, ParseAddressError},
@@ -24,6 +24,8 @@ pub struct ReleaseTokenArgs {
 pub enum ReleaseTokenError {
     /// There is another request for this principal.
     AlreadyProcessing,
+
+    AlreadyProcessed,
 
     /// The withdrawal amount is too low.
     AmountTooLow(u128),
@@ -53,10 +55,12 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
         .map_err(ReleaseTokenError::TemporarilyUnavailable)?;
 
     let _guard = release_token_guard();
+
     let (min_amount, btc_network) = read_state(|s| (s.release_min_amount, s.btc_network));
     if args.amount < min_amount {
         return Err(ReleaseTokenError::AmountTooLow(min_amount));
     }
+
     let parsed_address = BitcoinAddress::parse(&args.address, btc_network)?;
     if read_state(|s| s.count_incomplete_retrieve_btc_requests() >= MAX_CONCURRENT_PENDING_REQUESTS)
     {
@@ -64,6 +68,15 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
             "too many pending release_token requests".to_string(),
         ));
     }
+
+    read_state(|s| match s.release_token_status(&args.release_id) {
+        ReleaseTokenStatus::Pending
+        | ReleaseTokenStatus::Signing
+        | ReleaseTokenStatus::Sending(_)
+        | ReleaseTokenStatus::Submitted(_) => Err(ReleaseTokenError::AlreadyProcessing),
+        ReleaseTokenStatus::Confirmed(_) => Err(ReleaseTokenError::AlreadyProcessed),
+        ReleaseTokenStatus::Unknown => Ok(()),
+    })?;
 
     let request = ReleaseTokenRequest {
         release_id: args.release_id.clone(),
@@ -77,7 +90,7 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
 
     assert_eq!(
         crate::state::ReleaseTokenStatus::Pending,
-        read_state(|s| s.release_token_status(args.release_id))
+        read_state(|s| s.release_token_status(&args.release_id))
     );
 
     schedule_now(TaskType::ProcessLogic);

@@ -1,9 +1,8 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomState, FinalizedTicket,
-    FinalizedTicketStatus, GenTicketRequest, ReleaseTokenRequest, RunesBalance,
-    SubmittedBtcTransaction,
+    eventlog::Event, CustomState, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest,
+    ReleaseTokenRequest, RunesBalance, SubmittedBtcTransaction,
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
@@ -45,17 +44,40 @@ pub fn update_runes_balance(state: &mut CustomState, outpoint: OutPoint, balance
     state.update_runes_balance(outpoint, balance);
 }
 
-pub fn finalize_ticket_request(
+pub fn finalize_ticket_request(state: &mut CustomState, request: &GenTicketRequest, vout: u32) {
+    record_event(&Event::FinalizedTicketRequest {
+        txid: request.tx_id,
+        vout,
+    });
+
+    state.pending_gen_ticket_requests.remove(&request.tx_id);
+    state.update_runes_balance(
+        OutPoint {
+            txid: request.tx_id,
+            vout,
+        },
+        RunesBalance {
+            rune_id: request.runes_id,
+            value: request.value,
+        },
+    );
+    state.push_finalized_ticket(FinalizedTicket {
+        request: request.clone(),
+        status: FinalizedTicketStatus::Finalized,
+    });
+}
+
+pub fn remove_ticket_request(
     state: &mut CustomState,
     request: &GenTicketRequest,
     status: FinalizedTicketStatus,
 ) {
-    record_event(&Event::FinalizedTicketRequest {
-        tx_id: request.tx_id,
+    record_event(&Event::RemovedTicketRequest {
+        txid: request.tx_id,
         status: status.clone(),
     });
-
-    state.push_finalized_boarding_pass(FinalizedTicket {
+    state.pending_gen_ticket_requests.remove(&request.tx_id);
+    state.push_finalized_ticket(FinalizedTicket {
         request: request.clone(),
         status,
     });
