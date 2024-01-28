@@ -12,9 +12,7 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 use log::debug;
-use omnity_types::{
-    Action, BoardingPass, ChainInfo, Directive, DirectiveStatus, Error, Fee, LandingPass, TokenInfo,
-};
+use omnity_types::{Action, ChainId, ChainInfo, DeliverStatus, Directive, DirectiveId, Error, Fee, Ticket, TicketId, TokenId, TokenInfo};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -22,10 +20,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use crate::signer::PublicKeyReply;
 use crate::utils::Network;
 
-pub type Timestamp = u64;
-pub type ChainId = String;
-pub type TokenId = String;
-pub type TransId = String;
+
 
 thread_local! {
     static STATE: RefCell<HubState> = RefCell::new(HubState::default());
@@ -48,19 +43,18 @@ struct Transaction {
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
 struct CrossLedger {
-    pub transfers: HashMap<TransId, Transaction>,
-    pub redeems: HashMap<TransId, Transaction>,
+    pub transfers: HashMap<TicketId, Ticket>,
+    pub redeems: HashMap<TicketId, Ticket>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
 struct HubState {
-    pub latest_seq: u64,
     pub chains: HashMap<ChainId, ChainInfo>,
     pub tokens: HashMap<(ChainId, TokenId), TokenInfo>,
     pub fees: HashMap<ChainId, Fee>,
-    pub directives: BTreeMap<Timestamp, (Directive, DirectiveStatus)>,
+    pub directives: BTreeMap<DirectiveId, (Directive, DeliverStatus)>,
     pub cross_ledger: CrossLedger,
-    pub landing_passes: Vec<LandingPass>,
+    pub tickets: Vec<Ticket>,
     pub owner: Option<Principal>,
     pub whitelist: HashSet<Principal>,
 }
@@ -135,13 +129,7 @@ pub fn validate_directive(_d: Directive) -> Result<String, String> {
 
 /// input diretive without signature and sign it
 #[update(guard = "auth")]
-pub async fn handl_directive(_directive: Directive) -> Result<(), Error> {
-    Ok(())
-}
-
-/// input diretive without signature and sign it
-#[update(guard = "auth")]
-pub async fn sign_directive(_directive: Directive) -> Result<(), Error> {
+pub async fn handl_directive(_d: Directive) -> Result<(), Error> {
     Ok(())
 }
 
@@ -153,22 +141,57 @@ pub async fn update_fee(_fee: Fee) -> Result<(), Error> {
     Ok(())
 }
 
+/// input diretive without signature and sign it
 #[update(guard = "auth")]
-pub async fn get_directives() -> Result<Vec<Directive>, Error> {
-    let directives = Vec::new();
-    Ok(directives)
-}
-
-/// input a boarding pass and create a landing pass with signature
-#[update(guard = "auth")]
-pub async fn generate_landing_pass(_boarding_pass: BoardingPass) -> Result<(), Error> {
+pub async fn send_directive(_d: Directive) -> Result<(), Error> {
     Ok(())
 }
 
 #[update(guard = "auth")]
-pub async fn get_landing_passes() -> Result<Vec<LandingPass>, Error> {
-    let landing_passes = Vec::new();
-    Ok(landing_passes)
+pub async fn update_directive_status(_id: DirectiveId, _s: DeliverStatus) -> Result<(), Error> {
+    Ok(())
+}
+
+/// check the ticket availability
+#[update(guard = "auth")]
+pub async fn check_ticket(_t: Ticket) -> Result<(), Error> {
+    Ok(())
+}
+
+#[update(guard = "auth")]
+pub async fn send_ticket(_t: Ticket) -> Result<(), Error> {
+    Ok(())
+}
+
+#[update(guard = "auth")]
+pub async fn update_ticket_status(_tid: TicketId, _s: DeliverStatus) -> Result<(), Error> {
+    Ok(())
+}
+
+#[query(guard = "auth")]
+pub async fn query_ticket(_tid: String) -> Result<Ticket, Error> {
+    let ticket = Ticket::default();
+    Ok(ticket)
+}
+
+#[query(guard = "auth")]
+pub async fn query_tickets() -> Result<Vec<Ticket>, Error> {
+    let tickets = Vec::new();
+    Ok(tickets)
 }
 
 ic_cdk::export_candid!();
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
+    use crypto::digest::Digest;
+    use crypto::sha3::Sha3;
+    #[test]
+    fn hash() {
+        let mut hasher = Sha3::keccak256();
+        hasher.input_str("Hi,Boern");
+        let hex = hasher.result_str();
+        println!("{}", hex);
+    }
+}

@@ -4,6 +4,11 @@ use thiserror::Error;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
+pub type Timestamp = u64;
+pub type DirectiveId = u64;
+pub type ChainId = String;
+pub type TokenId = String;
+pub type TicketId = String;
 
 #[derive(CandidType, Deserialize, Debug, Error)]
 pub enum Error {
@@ -15,22 +20,9 @@ pub enum Error {
     CustomError(String),
 }
 
-#[derive(CandidType, Deserialize, Serialize, Debug)]
-pub struct BoardingPass {
-    pub trans_id: String,
-    pub timestamp: u64,
-    pub src_chain_id: String,
-    pub dst_chain_id: String,
-    pub action: Action,
-    pub token: String,
-    pub memo: Option<Vec<u8>>,
-    pub receiver: String,
-    pub amount: u64,
-}
-
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
-pub struct LandingPass {
-    pub trans_id: String,
+pub struct Ticket {
+    pub ticket_id: String,
     pub timestamp: u64,
     pub seq: u64,
     pub src_chain_id: String,
@@ -41,6 +33,7 @@ pub struct LandingPass {
     pub receiver: String,
     pub amount: u64,
     pub signature: Option<Vec<u8>>,
+    pub deliver_status: DeliverStatus,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
@@ -84,7 +77,7 @@ pub struct ChainInfo {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
-pub struct ExecutionChainStatue {
+pub struct ChainStatue {
     pub chain_id: String,
     pub chain_state: ChainStatus,
     pub seq: u64,
@@ -105,14 +98,15 @@ pub struct TokenInfo {
 pub enum Directive {
     AddChain(ChainInfo),
     AddToken(TokenInfo),
-    SetChainStatus(ExecutionChainStatue),
+    SetChainStatus(ChainStatue),
     UpdateFee(Fee),
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
-pub enum DirectiveStatus {
+pub enum DeliverStatus {
+    Delivering,
+    Success,
+    Failure(String),
     #[default]
-    Relaying,
-    Executed,
-    NonExecution,
+    NonDelivering,
 }
