@@ -1,10 +1,7 @@
 use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
-use crate::state::{
-    CustomState, FinalizedBtcRetrieval, FinalizedStatus, ReleaseTokenRequest, RunesChangeOutput,
-    SubmittedBtcTransaction,
-};
+use crate::state::{CustomState, ReleaseTokenRequest, RunesChangeOutput, SubmittedBtcTransaction};
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use serde::{Deserialize, Serialize};
 
@@ -57,15 +54,6 @@ pub enum Event {
     /// The minter emits this event _after_ it burnt ckBTC.
     #[serde(rename = "accepted_release_token_request")]
     AcceptedReleaseTokenRequest(ReleaseTokenRequest),
-
-    /// Indicates that the minter removed a previous retrieve_btc request
-    /// because the retrieval amount was not enough to cover the transaction
-    /// fees.
-    #[serde(rename = "removed_release_token_request")]
-    RemovedReleaseTokenRequest {
-        #[serde(rename = "release_id")]
-        release_id: Vec<u8>,
-    },
 
     #[serde(rename = "finalized_ticket_request")]
     FinalizedTicketRequest {
@@ -196,19 +184,6 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             Event::AcceptedReleaseTokenRequest(req) => {
                 state.push_back_pending_request(req);
             }
-            Event::RemovedReleaseTokenRequest { release_id } => {
-                let request = state.remove_pending_request(release_id.clone()).ok_or_else(|| {
-                    ReplayLogError::InconsistentLog(format!(
-                        "Attempted to remove a non-pending release_token request {:?}",
-                        release_id
-                    ))
-                })?;
-
-                state.push_finalized_release_token(FinalizedBtcRetrieval {
-                    request,
-                    status: FinalizedStatus::AmountTooLow,
-                })
-            }
             Event::SentBtcTransaction {
                 runes_id,
                 request_release_ids,
@@ -222,12 +197,14 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
             } => {
                 let mut release_token_requests = Vec::with_capacity(request_release_ids.len());
                 for release_id in request_release_ids {
-                    let request = state.remove_pending_request(release_id.clone()).ok_or_else(|| {
-                        ReplayLogError::InconsistentLog(format!(
-                            "Attempted to send a non-pending retrieve_btc request {:?}",
-                            release_id
-                        ))
-                    })?;
+                    let request = state
+                        .remove_pending_request(release_id.clone())
+                        .ok_or_else(|| {
+                            ReplayLogError::InconsistentLog(format!(
+                                "Attempted to send a non-pending retrieve_btc request {:?}",
+                                release_id
+                            ))
+                        })?;
                     release_token_requests.push(request);
                 }
                 for utxo in runes_utxos.iter() {

@@ -1,7 +1,7 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomState, FinalizedBtcRetrieval, FinalizedStatus, FinalizedTicket,
+    eventlog::Event, CustomState, FinalizedTicket,
     FinalizedTicketStatus, GenTicketRequest, ReleaseTokenRequest, RunesBalance,
     SubmittedBtcTransaction,
 };
@@ -58,17 +58,6 @@ pub fn finalize_ticket_request(
     state.push_finalized_boarding_pass(FinalizedTicket {
         request: request.clone(),
         status,
-    });
-}
-
-pub fn remove_retrieve_btc_request(state: &mut CustomState, request: ReleaseTokenRequest) {
-    record_event(&Event::RemovedReleaseTokenRequest {
-        release_id: request.release_id.clone(),
-    });
-
-    state.push_finalized_release_token(FinalizedBtcRetrieval {
-        request,
-        status: FinalizedStatus::AmountTooLow,
     });
 }
 

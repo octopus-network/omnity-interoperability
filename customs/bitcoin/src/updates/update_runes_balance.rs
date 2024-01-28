@@ -21,14 +21,13 @@ pub enum UpdateRunesBalanceError {
 pub async fn update_runes_balance(
     args: UpdateRunesBlanceArgs,
 ) -> Result<(), UpdateRunesBalanceError> {
-    read_state(|s| {
-        match s.outpoint_destination.get(&OutPoint {
-            txid: args.tx_id,
-            vout: args.vout,
-        }) {
-            Some(dest) => Ok(dest.clone()),
-            None => Err(UpdateRunesBalanceError::UtxoNotFound),
-        }
+    let outpoint = OutPoint {
+        txid: args.tx_id,
+        vout: args.vout,
+    };
+    read_state(|s| match s.outpoint_destination.get(&outpoint) {
+        Some(dest) => Ok(dest.clone()),
+        None => Err(UpdateRunesBalanceError::UtxoNotFound),
     })?;
 
     let req = read_state(|s| match s.pending_gen_ticket_requests.get(&args.tx_id) {
@@ -36,21 +35,14 @@ pub async fn update_runes_balance(
         None => Err(UpdateRunesBalanceError::PendingReqNotFound),
     })?;
 
-    if args.balance.rune_id != req.runes_id || args.balance.value != req.amount {
+    if args.balance.rune_id != req.runes_id || args.balance.value != req.value {
         return Err(UpdateRunesBalanceError::MismatchWithPendingReq);
     }
 
     // TODO invoke hub to generate landing pass
 
     mutate_state(|s| {
-        audit::update_runes_balance(
-            s,
-            OutPoint {
-                txid: args.tx_id,
-                vout: args.vout,
-            },
-            args.balance.clone(),
-        );
+        audit::update_runes_balance(s, outpoint, args.balance.clone());
 
         s.pending_gen_ticket_requests.remove(&args.tx_id);
         audit::finalize_ticket_request(s, &req, FinalizedTicketStatus::Finalized);

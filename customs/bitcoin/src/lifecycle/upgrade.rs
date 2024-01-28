@@ -2,7 +2,7 @@ use crate::logs::P0;
 use crate::state::eventlog::{replay, Event};
 use crate::state::{replace_state, Mode};
 use crate::storage::{count_events, events, record_event};
-use candid::{CandidType, Deserialize};
+use candid::{CandidType, Deserialize, Principal};
 use ic_canister_log::log;
 use serde::Serialize;
 
@@ -25,6 +25,9 @@ pub struct UpgradeArgs {
     /// The mode in which the minter is running.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mode: Option<Mode>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hub_principal: Option<Principal>,
 }
 
 pub fn post_upgrade(upgrade_args: Option<UpgradeArgs>) {

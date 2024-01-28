@@ -89,10 +89,7 @@ impl BitcoinAddress {
     }
 }
 
-pub fn main_bitcoin_address(
-    ecdsa_public_key: &ECDSAPublicKey,
-    token: String,
-) -> BitcoinAddress {
+pub fn main_bitcoin_address(ecdsa_public_key: &ECDSAPublicKey, token: String) -> BitcoinAddress {
     destination_to_bitcoin_address(ecdsa_public_key, &main_destination(token))
 }
 
@@ -112,7 +109,7 @@ pub fn derivation_path(destination: &Destination) -> Vec<ByteBuf> {
         ByteBuf::from(vec![SCHEMA_V1]),
         ByteBuf::from(destination.target_chain_id.as_bytes()),
         ByteBuf::from(destination.receiver.as_bytes()),
-        ByteBuf::from(destination.effective_subaccount().as_bytes()),
+        ByteBuf::from(destination.effective_token().as_bytes()),
     ]
 }
 

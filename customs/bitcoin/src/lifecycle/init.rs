@@ -1,7 +1,7 @@
 use crate::lifecycle::upgrade::UpgradeArgs;
 pub use crate::state::Mode;
 use crate::state::{replace_state, CustomState};
-use candid::{CandidType, Deserialize};
+use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::Network;
 use serde::Serialize;
 
@@ -69,6 +69,8 @@ pub struct InitArgs {
     /// The mode controlling access to the minter.
     #[serde(default)]
     pub mode: Mode,
+
+    pub hub_principal: Principal,
 }
 
 pub fn init(args: InitArgs) {

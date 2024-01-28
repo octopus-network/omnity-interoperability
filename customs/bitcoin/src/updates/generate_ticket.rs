@@ -29,7 +29,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     read_state(|s| s.mode.is_transport_available_for())
         .map_err(GenerateTicketError::TemporarilyUnavailable)?;
 
-    // check if the token and target_chain_id is in the whitelist
+    // TODO check if the token and target_chain_id is in the whitelist
 
     read_state(|s| {
         if s.pending_gen_ticket_requests.contains_key(&args.tx_id) {
@@ -74,7 +74,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
         runes_id: args.runes_id,
-        amount: args.amount,
+        value: args.amount,
         tx_id: args.tx_id,
     };
 

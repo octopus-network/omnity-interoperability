@@ -10,7 +10,7 @@ pub struct Destination {
 
 impl Destination {
     #[inline]
-    pub fn effective_subaccount(&self) -> String {
+    pub fn effective_token(&self) -> String {
         self.token.clone().unwrap_or(String::new())
     }
 }

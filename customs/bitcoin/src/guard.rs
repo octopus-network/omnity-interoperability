@@ -104,14 +104,13 @@ pub fn release_token_guard() -> Result<Guard<ReleaseTokenUpdates>, GuardError> {
 
 #[cfg(test)]
 mod tests {
+    use super::TimerLogicGuard;
     use crate::{
         lifecycle::init::{init, BtcNetwork, InitArgs},
         state::read_state,
     };
     use candid::Principal;
     use ic_base_types::CanisterId;
-
-    use super::TimerLogicGuard;
 
     fn test_principal(id: u64) -> Principal {
         Principal::try_from_slice(&id.to_le_bytes()).unwrap()
@@ -122,10 +121,10 @@ mod tests {
             btc_network: BtcNetwork::Regtest,
             ecdsa_key_name: "some_key".to_string(),
             release_min_amount: 2000,
-            ledger_id: CanisterId::from_u64(42),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: crate::state::Mode::GeneralAvailability,
+            hub_principal: Principal::from(CanisterId::from(0)),
         }
     }
 

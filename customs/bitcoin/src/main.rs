@@ -7,6 +7,7 @@ use bitcoin_custom::queries::{
 use bitcoin_custom::state::{read_state, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_custom::tasks::{schedule_now, TaskType};
 use bitcoin_custom::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
+use bitcoin_custom::updates::release_token::{ReleaseTokenArgs, ReleaseTokenError};
 use bitcoin_custom::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
@@ -100,6 +101,17 @@ fn timer() {
     bitcoin_custom::timer();
 }
 
+pub fn is_hub() -> Result<(), String> {
+    let caller = ic_cdk::api::caller();
+    read_state(|s| {
+        if !caller.eq(&s.hub_principal) {
+            Err("Not Hub".into())
+        } else {
+            Ok(())
+        }
+    })
+}
+
 #[post_upgrade]
 fn post_upgrade(minter_arg: Option<MinterArg>) {
     let mut upgrade_arg: Option<UpgradeArgs> = None;
@@ -120,12 +132,12 @@ async fn get_btc_address(args: GetBtcAddressArgs) -> String {
 }
 
 #[query]
-fn retrieve_btc_status(req: ReleaseTokenStatusRequest) -> ReleaseTokenStatus {
+fn release_token_status(req: ReleaseTokenStatusRequest) -> ReleaseTokenStatus {
     read_state(|s| s.release_token_status(req.release_id))
 }
 
 #[query]
-fn gen_boarding_pass_status(req: GenTicketStatusRequest) -> GenTicketStatus {
+fn generate_ticket_status(req: GenTicketStatusRequest) -> GenTicketStatus {
     read_state(|s| s.gen_boarding_pass_status(req.tx_id))
 }
 
@@ -137,6 +149,11 @@ async fn update_runes_balance(args: UpdateRunesBlanceArgs) -> Result<(), UpdateR
 #[update]
 async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     check_postcondition(updates::generate_ticket::generate_ticket(args).await)
+}
+
+#[update(guard = "is_hub")]
+async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenError> {
+    check_postcondition(updates::release_token::release_token(args).await)
 }
 
 #[update]

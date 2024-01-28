@@ -16,7 +16,7 @@ use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::logs::P0;
 use crate::{address::BitcoinAddress, ECDSAPublicKey};
-use candid::{CandidType, Deserialize};
+use candid::{CandidType, Deserialize, Principal};
 pub use ic_btc_interface::Network;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use ic_canister_log::log;
@@ -52,7 +52,7 @@ pub struct GenTicketRequest {
     pub target_chain_id: String,
     pub receiver: String,
     pub runes_id: RunesId,
-    pub amount: u128,
+    pub value: u128,
     pub tx_id: Txid,
 }
 
@@ -125,8 +125,6 @@ pub struct FinalizedBtcRetrieval {
 /// The outcome of a retrieve_btc request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedStatus {
-    /// The request amount was to low to cover the fees.
-    AmountTooLow,
     /// The transaction that retrieves BTC got enough confirmations.
     Confirmed {
         /// The witness transaction identifier of the transaction.
@@ -306,6 +304,8 @@ pub struct CustomState {
     /// The map of known destinations to their utxos.
     pub utxos_state_destinations: BTreeMap<Destination, BTreeSet<Utxo>>,
 
+    pub hub_principal: Principal,
+
     /// Process one timer event at a time.
     #[serde(skip)]
     pub is_timer_running: bool,
@@ -326,6 +326,7 @@ impl CustomState {
             max_time_in_queue_nanos,
             min_confirmations,
             mode,
+            hub_principal,
         }: InitArgs,
     ) {
         self.btc_network = btc_network.into();
@@ -333,6 +334,7 @@ impl CustomState {
         self.release_min_amount = release_min_amount;
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         self.mode = mode;
+        self.hub_principal = hub_principal;
         if let Some(min_confirmations) = min_confirmations {
             self.min_confirmations = min_confirmations;
         }
@@ -345,6 +347,7 @@ impl CustomState {
             max_time_in_queue_nanos,
             min_confirmations,
             mode,
+            hub_principal,
         }: UpgradeArgs,
     ) {
         if let Some(min_amount) = release_min_amount {
@@ -367,6 +370,9 @@ impl CustomState {
         }
         if let Some(mode) = mode {
             self.mode = mode;
+        }
+        if let Some(hub_principal) = hub_principal {
+            self.hub_principal = hub_principal;
         }
     }
 
@@ -472,7 +478,8 @@ impl CustomState {
         for utxo in &utxos {
             self.outpoint_destination
                 .insert(utxo.outpoint.clone(), destination.clone());
-            self.outpoint_utxos.insert(utxo.outpoint.clone(), utxo.clone());
+            self.outpoint_utxos
+                .insert(utxo.outpoint.clone(), utxo.clone());
             bucket.insert(utxo.clone());
             if !is_runes {
                 self.available_btc_utxos.insert(utxo.clone());
@@ -539,7 +546,6 @@ impl CustomState {
             .find(|finalized_request| finalized_request.request.release_id == release_id)
             .map(|final_req| final_req.status.clone())
         {
-            Some(FinalizedStatus::AmountTooLow) => return ReleaseTokenStatus::AmountTooLow,
             Some(FinalizedStatus::Confirmed { txid }) => {
                 return ReleaseTokenStatus::Confirmed { txid }
             }
@@ -616,9 +622,9 @@ impl CustomState {
     }
 
     fn forget_utxo(&mut self, utxo: &Utxo) {
-        if let Some(account) = self.outpoint_destination.remove(&utxo.outpoint) {
+        if let Some(destination) = self.outpoint_destination.remove(&utxo.outpoint) {
             self.outpoint_utxos.remove(&utxo.outpoint);
-            let last_utxo = match self.utxos_state_destinations.get_mut(&account) {
+            let last_utxo = match self.utxos_state_destinations.get_mut(&destination) {
                 Some(utxo_set) => {
                     utxo_set.remove(utxo);
                     utxo_set.is_empty()
@@ -626,7 +632,7 @@ impl CustomState {
                 None => false,
             };
             if last_utxo {
-                self.utxos_state_destinations.remove(&account);
+                self.utxos_state_destinations.remove(&destination);
             }
         }
     }
@@ -786,10 +792,7 @@ impl CustomState {
     ///
     /// This function panics if there is a pending retrieve_btc request with the
     /// same identifier.
-    pub fn push_from_in_flight_to_pending_requests(
-        &mut self,
-        requests: Vec<ReleaseTokenRequest>,
-    ) {
+    pub fn push_from_in_flight_to_pending_requests(&mut self, requests: Vec<ReleaseTokenRequest>) {
         for req in requests.iter() {
             assert!(!self.has_pending_request(&req.release_id));
             self.requests_in_flight.remove(&req.release_id);
@@ -938,7 +941,8 @@ impl CustomState {
             let my_requests = as_sorted_vec(requests.iter().cloned(), |r| r.release_id.clone());
             match other.pending_release_token_requests.get(&runes_id) {
                 Some(requests) => {
-                    let other_requests = as_sorted_vec(requests.iter().cloned(), |r| r.release_id.clone());
+                    let other_requests =
+                        as_sorted_vec(requests.iter().cloned(), |r| r.release_id.clone());
                     ensure_eq!(
                         my_requests,
                         other_requests,
@@ -1001,6 +1005,7 @@ impl From<InitArgs> for CustomState {
             utxos_state_destinations: Default::default(),
             is_timer_running: false,
             mode: args.mode,
+            hub_principal: args.hub_principal,
             last_fee_per_vbyte: vec![1; 100],
         }
     }

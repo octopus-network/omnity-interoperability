@@ -639,7 +639,7 @@ async fn finalize_requests() {
                 }
             };
 
-        let outpoint_account = state::read_state(|s| filter_output_destinations(s, &unsigned_tx));
+        let outpoint_dests = state::read_state(|s| filter_output_destinations(s, &unsigned_tx));
 
         assert!(
             used_runes_utxos.is_empty(),
@@ -653,7 +653,7 @@ async fn finalize_requests() {
         let maybe_signed_tx = sign_transaction(
             key_name.clone(),
             &ecdsa_public_key,
-            &outpoint_account,
+            &outpoint_dests,
             unsigned_tx,
         )
         .await;
@@ -1071,17 +1071,18 @@ pub fn build_unsigned_transaction(
         input_btc_amount - fee
     };
 
-    let mut btc_change_out: Option<BtcChangeOutput> = None;
-    if btc_change_amount >= MIN_OUTPUT_AMOUNT {
+    let btc_change_out = if btc_change_amount >= MIN_OUTPUT_AMOUNT {
         tx_outputs.push(tx::TxOut {
             address: btc_main_address,
             value: btc_change_amount,
         });
-        btc_change_out = Some(BtcChangeOutput {
+        Some(BtcChangeOutput {
             vout: tx_outputs.len() as u32 - 1,
             value: btc_change_amount,
-        });
-    }
+        })
+    } else {
+        None
+    };
 
     let unsigned_tx = tx::UnsignedTransaction {
         inputs: tx_inputs,
