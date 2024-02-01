@@ -46,7 +46,6 @@ type Event = variant {
     status : FinalizedTicketStatus;
     txid : vec nat8;
   };
-  accepted_gen_boarding_pass_request : GenTicketRequest;
   sent_transaction : record {
     fee : opt nat64;
     txid : vec nat8;
@@ -71,6 +70,7 @@ type Event = variant {
     runes_change_output : RunesChangeOutput;
     submitted_at : nat64;
   };
+  accepted_generate_ticket_request : GenTicketRequest;
   received_runes_utxos : record { balance : RunesBalance; outpoint : OutPoint };
 };
 type FinalizedTicketStatus = variant { Finalized; MismatchWithTicketReq };
@@ -97,7 +97,8 @@ type GenerateTicketArgs = record {
 };
 type GenerateTicketError = variant {
   TemporarilyUnavailable : text;
-  AlreadyProcessing;
+  AlreadySubmitted;
+  AleardyProcessed;
   NoNewUtxos;
 };
 type GetBtcAddressArgs = record { target_chain_id : text; receiver : text };

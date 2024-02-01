@@ -135,7 +135,7 @@ pub struct FinalizedTicket {
     pub status: FinalizedTicketStatus,
 }
 
-/// The outcome of a gen_boarding_pass request.
+/// The outcome of a generate_ticket request.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedTicketStatus {
     Finalized,
@@ -287,7 +287,7 @@ pub struct CustomState {
     pub available_runes_utxos: BTreeSet<RunesUtxo>,
 
     /// The set of BTC UTXOs unused in pending transactions.
-    pub available_btc_utxos: BTreeSet<Utxo>,
+    pub available_fee_utxos: BTreeSet<Utxo>,
 
     /// The mapping from output points to the utxo.
     pub outpoint_utxos: BTreeMap<OutPoint, Utxo>,
@@ -477,7 +477,7 @@ impl CustomState {
                 .insert(utxo.outpoint.clone(), utxo.clone());
             bucket.insert(utxo.clone());
             if !is_runes {
-                self.available_btc_utxos.insert(utxo.clone());
+                self.available_fee_utxos.insert(utxo.clone());
             }
         }
 
@@ -993,7 +993,7 @@ impl From<InitArgs> for CustomState {
             finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             finalized_requests_count: 0,
             available_runes_utxos: Default::default(),
-            available_btc_utxos: Default::default(),
+            available_fee_utxos: Default::default(),
             outpoint_utxos: Default::default(),
             outpoint_destination: Default::default(),
             utxos_state_destinations: Default::default(),

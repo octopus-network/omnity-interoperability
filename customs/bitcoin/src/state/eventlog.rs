@@ -47,7 +47,7 @@ pub enum Event {
         balance: RunesBalance,
     },
 
-    #[serde(rename = "accepted_gen_boarding_pass_request")]
+    #[serde(rename = "accepted_generate_ticket_request")]
     AcceptedGenTicketRequest(GenTicketRequest),
 
     /// Indicates that the minter accepted a new retrieve_btc request.
@@ -180,7 +180,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                     .remove(&txid)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
-                            "Attempted to remove a non-pending boarding pass request {}",
+                            "Attempted to remove a non-pending generate ticket request {}",
                             txid
                         ))
                     })?;
@@ -202,7 +202,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                     .remove(&txid)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
-                            "Attempted to remove a non-pending boarding pass request {}",
+                            "Attempted to remove a non-pending generate ticket request {}",
                             txid
                         ))
                     })?;
@@ -238,7 +238,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                     state.available_runes_utxos.remove(utxo);
                 }
                 for utxo in btc_utxos.iter() {
-                    state.available_btc_utxos.remove(utxo);
+                    state.available_fee_utxos.remove(utxo);
                 }
                 state.push_submitted_transaction(SubmittedBtcTransaction {
                     runes_id,

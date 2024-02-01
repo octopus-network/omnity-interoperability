@@ -8,6 +8,7 @@ use bitcoin_custom::state::{read_state, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_custom::tasks::{schedule_now, TaskType};
 use bitcoin_custom::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_custom::updates::release_token::{ReleaseTokenArgs, ReleaseTokenError};
+use bitcoin_custom::updates::update_btc_utxos::UpdateBtcUtxosErr;
 use bitcoin_custom::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
@@ -18,6 +19,7 @@ use bitcoin_custom::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
 };
+use ic_btc_interface::Utxo;
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk_macros::{init, post_upgrade, query, update};
@@ -144,6 +146,11 @@ fn generate_ticket_status(req: GenTicketStatusRequest) -> GenTicketStatus {
 #[update]
 async fn update_runes_balance(args: UpdateRunesBlanceArgs) -> Result<(), UpdateRunesBalanceError> {
     check_postcondition(updates::update_runes_balance::update_runes_balance(args).await)
+}
+
+#[update]
+async fn update_btc_utxos() -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
+    check_postcondition(updates::update_btc_utxos::update_btc_utxos().await)
 }
 
 #[update]

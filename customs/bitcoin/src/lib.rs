@@ -31,7 +31,6 @@ pub mod storage;
 pub mod tasks;
 pub mod tx;
 pub mod updates;
-pub mod varint;
 
 #[cfg(test)]
 mod tests;
@@ -58,11 +57,6 @@ pub const MIN_RELAY_FEE_PER_VBYTE: MillisatoshiPerByte = 1_000;
 
 /// The minimum time the minter should wait before replacing a stuck transaction.
 pub const MIN_RESUBMISSION_DELAY: Duration = Duration::from_secs(24 * 60 * 60);
-
-/// The maximum memo size of a transaction on the ckBTC ledger.
-/// The ckBTC minter requires at least 69 bytes, we choose 80
-/// to have some room for future modifications.
-pub const CKBTC_LEDGER_MEMO_SIZE: u16 = 80;
 
 /// The threshold for the number of UTXOs under management before
 /// trying to match the number of outputs with the number of inputs
@@ -131,7 +125,7 @@ fn undo_sign_request(
             assert!(s.available_runes_utxos.insert(utxo));
         }
         for utxo in btc_utxos {
-            assert!(s.available_btc_utxos.insert(utxo));
+            assert!(s.available_fee_utxos.insert(utxo));
         }
         // Insert requests in reverse order so that they are still sorted.
         s.push_from_in_flight_to_pending_requests(requests);
@@ -268,7 +262,7 @@ async fn submit_pending_requests() {
             match build_unsigned_transaction(
                 &runes_id,
                 &mut s.available_runes_utxos,
-                &mut s.available_btc_utxos,
+                &mut s.available_fee_utxos,
                 btc_main_address,
                 runes_main_address,
                 outputs,
@@ -481,7 +475,7 @@ async fn finalize_requests() {
     let dest_runes_utxos =
         fetch_main_utxos(main_runes_addresses.clone(), btc_network, min_confirmations).await;
 
-    let new_runes_utxos = dest_btc_utxos
+    let new_runes_utxos = dest_runes_utxos
         .iter()
         .map(|(_, utxos)| utxos)
         .flatten()

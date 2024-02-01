@@ -94,7 +94,7 @@ impl Drop for TimerLogicGuard {
     }
 }
 
-pub fn gen_boarding_pass_guard() -> Result<Guard<GenerateTicketUpdates>, GuardError> {
+pub fn generate_ticket_guard() -> Result<Guard<GenerateTicketUpdates>, GuardError> {
     Guard::new()
 }
 

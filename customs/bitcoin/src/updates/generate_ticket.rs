@@ -1,7 +1,7 @@
 use crate::destination::Destination;
-use crate::guard::gen_boarding_pass_guard;
+use crate::guard::generate_ticket_guard;
 use crate::management::{get_utxos, CallSource};
-use crate::state::{audit, mutate_state, read_state, GenTicketRequest, RunesId};
+use crate::state::{audit, mutate_state, read_state, GenTicketRequest, GenTicketStatus, RunesId};
 use crate::updates::get_btc_address::{
     destination_to_p2wpkh_address_from_state, init_ecdsa_public_key,
 };
@@ -21,7 +21,8 @@ pub struct GenerateTicketArgs {
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum GenerateTicketError {
     TemporarilyUnavailable(String),
-    AlreadyProcessing,
+    AlreadySubmitted,
+    AleardyProcessed,
     NoNewUtxos,
 }
 
@@ -31,18 +32,16 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     // TODO check if the token and target_chain_id is in the whitelist
 
-    read_state(|s| {
-        if s.pending_gen_ticket_requests.contains_key(&args.tx_id) {
-            Err(GenerateTicketError::AlreadyProcessing)
-        } else {
-            Ok(())
-        }
+    read_state(|s| match s.generate_ticket_status(args.tx_id) {
+        GenTicketStatus::Pending(_) => Err(GenerateTicketError::AlreadySubmitted),
+        GenTicketStatus::Finalized => Err(GenerateTicketError::AleardyProcessed),
+        GenTicketStatus::Unknown => Ok(()),
     })?;
 
     let (btc_network, min_confirmations) = read_state(|s| (s.btc_network, s.min_confirmations));
 
     init_ecdsa_public_key().await;
-    let _guard = gen_boarding_pass_guard();
+    let _guard = generate_ticket_guard();
 
     let destination = Destination {
         target_chain_id: args.target_chain_id.clone(),
