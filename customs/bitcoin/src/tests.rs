@@ -6,7 +6,7 @@ use crate::{
 use crate::{
     lifecycle::init::InitArgs,
     state::{
-        ChangeOutput, CustomState, Mode, ReleaseTokenRequest, RetrieveBtcStatus,
+        CustomState, Mode, ReleaseTokenRequest, ReleaseTokenStatus, RunesChangeOutput,
         SubmittedBtcTransaction,
     },
 };
@@ -250,7 +250,7 @@ fn should_have_same_input_and_output_count() {
     assert_eq!(tx.outputs.len(), tx.inputs.len());
     assert_eq!(
         change_output,
-        ChangeOutput {
+        RunesChangeOutput {
             vout: 2,
             value: 1 + minter_fee
         }
@@ -318,7 +318,7 @@ fn test_min_change_amount() {
     );
     assert_eq!(
         change_output,
-        ChangeOutput {
+        RunesChangeOutput {
             vout: 2,
             value: 1 + minter_fee
         }
@@ -776,7 +776,7 @@ proptest! {
             ]
         );
 
-        prop_assert_eq!(change_output, ChangeOutput { vout: 1, value: inputs_value - target + minter_fee });
+        prop_assert_eq!(change_output, RunesChangeOutput { vout: 1, value: inputs_value - target + minter_fee });
     }
 
     #[test]
@@ -821,7 +821,7 @@ proptest! {
         let mut state = CustomState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
-            retrieve_btc_min_amount: 0,
+            release_min_amount: 0,
             ledger_id: CanisterId::from_u64(42),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
@@ -845,7 +845,7 @@ proptest! {
         let mut state = CustomState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
-            retrieve_btc_min_amount: 5_000u64,
+            release_min_amount: 5_000u64,
             ledger_id: CanisterId::from_u64(42),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
@@ -862,13 +862,13 @@ proptest! {
         for req in requests {
             let block_index = req.block_index;
             state.push_back_pending_request(req);
-            prop_assert_eq!(state.retrieve_btc_status(block_index), RetrieveBtcStatus::Pending);
+            prop_assert_eq!(state.release_token_status(block_index), ReleaseTokenStatus::Pending);
         }
 
         let batch = state.build_batch(limit);
 
         for req in batch.iter() {
-            prop_assert_eq!(state.retrieve_btc_status(req.block_index), RetrieveBtcStatus::Unknown);
+            prop_assert_eq!(state.release_token_status(req.block_index), ReleaseTokenStatus::Unknown);
         }
 
         prop_assert!(batch.iter().map(|req| req.amount).sum::<u64>() <= available_amount);
@@ -888,7 +888,7 @@ proptest! {
         let mut state = CustomState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
-            retrieve_btc_min_amount: 100_000,
+            release_min_amount: 100_000,
             ledger_id: CanisterId::from_u64(42),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
@@ -903,7 +903,7 @@ proptest! {
         let fee_per_vbyte = 100_000u64;
 
         let (tx, change_output, used_utxos) = build_unsigned_transaction(
-            &mut state.available_utxos,
+            &mut state.available_runes_utxos,
             requests.iter().map(|r| (r.address.clone(), r.amount)).collect(),
             BitcoinAddress::P2wpkhV0(main_pkhash),
             fee_per_vbyte
@@ -915,9 +915,9 @@ proptest! {
         state.push_submitted_transaction(SubmittedBtcTransaction {
             requests: requests.clone(),
             txid: txids[0],
-            used_utxos: used_utxos.clone(),
+            runes_utxos: used_utxos.clone(),
             submitted_at,
-            change_output: Some(change_output),
+            runes_change_output: Some(change_output),
             fee_per_vbyte: Some(fee_per_vbyte),
         });
 
@@ -939,9 +939,9 @@ proptest! {
             state.replace_transaction(prev_txid, SubmittedBtcTransaction {
                 requests: requests.clone(),
                 txid: new_txid,
-                used_utxos: used_utxos.clone(),
+                runes_utxos: used_utxos.clone(),
                 submitted_at,
-                change_output: Some(change_output),
+                runes_change_output: Some(change_output),
                 fee_per_vbyte: Some(fee_per_vbyte),
             });
 

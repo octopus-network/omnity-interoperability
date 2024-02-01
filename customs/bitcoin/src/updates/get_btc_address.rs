@@ -35,9 +35,10 @@ pub async fn get_btc_address(args: GetBtcAddressArgs) -> String {
     read_state(|s| {
         destination_to_p2wpkh_address_from_state(
             s,
-            &&Destination {
+            &Destination {
                 target_chain_id: args.target_chain_id,
                 receiver: args.receiver,
+                token: None,
             },
         )
     })

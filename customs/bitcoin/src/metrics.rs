@@ -88,7 +88,7 @@ pub fn encode_metrics(
 
     metrics.encode_gauge(
         "ckbtc_minter_stored_finalized_requests",
-        state::read_state(|s| s.finalized_requests.len()) as f64,
+        state::read_state(|s| s.finalized_release_token_requests.len()) as f64,
         "Total number of finalized retrieve_btc requests the minter keeps in memory.",
     )?;
 
@@ -112,7 +112,7 @@ pub fn encode_metrics(
 
     metrics.encode_gauge(
         "ckbtc_minter_utxos_available",
-        state::read_state(|s| s.available_utxos.len()) as f64,
+        state::read_state(|s| s.available_runes_utxos.len()) as f64,
         "Total number of UTXOs the minter can use for retrieve_btc requests.",
     )?;
 
@@ -129,23 +129,6 @@ pub fn encode_metrics(
             &[("source", "minter")],
             GET_UTXOS_MINTER_CALLS.with(|cell| cell.get()) as f64,
         )?;
-
-    metrics.encode_gauge(
-        "ckbtc_minter_btc_balance",
-        state::read_state(|s| {
-            s.available_utxos.iter().map(|(_, u)| u.value).sum::<u64>()
-                + s.submitted_transactions
-                    .iter()
-                    .map(|tx| {
-                        tx.change_output
-                            .as_ref()
-                            .map(|out| out.value)
-                            .unwrap_or_default()
-                    })
-                    .sum::<u64>()
-        }) as f64,
-        "Total BTC amount locked in available UTXOs.",
-    )?;
 
     metrics.encode_gauge(
         "ckbtc_minter_managed_addresses_count",

@@ -16,7 +16,7 @@ use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::logs::P0;
 use crate::{address::BitcoinAddress, ECDSAPublicKey};
-use candid::{CandidType, Deserialize};
+use candid::{CandidType, Deserialize, Principal};
 pub use ic_btc_interface::Network;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use ic_canister_log::log;
@@ -31,12 +31,15 @@ thread_local! {
     static __STATE: RefCell<Option<CustomState>> = RefCell::default();
 }
 
+pub type ReleaseId = Vec<u8>;
+
 // A pending release token request
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReleaseTokenRequest {
-    pub rune_id: RuneId,
+    pub release_id: ReleaseId,
+    pub runes_id: RunesId,
     /// The amount to release token.
-    pub amount: u64,
+    pub amount: u128,
     /// The destination BTC address.
     pub address: BitcoinAddress,
     /// The time at which the minter accepted the request.
@@ -44,29 +47,43 @@ pub struct ReleaseTokenRequest {
 }
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GenBoardingPassReq {
+pub struct GenTicketRequest {
     pub address: String,
     pub target_chain_id: String,
     pub receiver: String,
-    pub token: String,
+    pub runes_id: RunesId,
+    pub value: u128,
     pub tx_id: Txid,
 }
 
-pub type RuneId = u128;
+pub type RunesId = u128;
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RunesBalance {
+    pub rune_id: RunesId,
+    pub value: u128,
+}
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesUtxo {
-    pub rune_id: RuneId,
-    /// The index of the output within the transaction.
-    pub vout: u32,
-    /// The amount of bitcoin in utxo
-    pub amount: u128,
-    pub rune_amount: u128,
+    pub raw: Utxo,
+    // A utxo is only bound to one runes token
+    pub runes: RunesBalance,
 }
 
-/// A transaction output storing the minter's change.
+/// A transaction output storing the custom's runes change.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ChangeOutput {
+pub struct RunesChangeOutput {
+    pub runes_id: RunesId,
+    /// The index of the output in the transaction.
+    pub vout: u32,
+    /// The value of the output.
+    pub value: u128,
+}
+
+/// A transaction output storing the custom's BTC change.
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BtcChangeOutput {
     /// The index of the output in the transaction.
     pub vout: u32,
     /// The value of the output.
@@ -76,17 +93,21 @@ pub struct ChangeOutput {
 /// Represents a transaction sent to the Bitcoin network.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubmittedBtcTransaction {
+    pub runes_id: RunesId,
     /// The original retrieve_btc requests that initiated the transaction.
     pub requests: Vec<ReleaseTokenRequest>,
     /// The identifier of the unconfirmed transaction.
     pub txid: Txid,
-    /// The list of UTXOs we used in the transaction.
-    pub used_utxos: Vec<Utxo>,
+    /// The list of Runes UTXOs we used in the transaction.
+    pub runes_utxos: Vec<RunesUtxo>,
+    /// The list of BTC UTXOs we used in the transaction.
+    pub btc_utxos: Vec<Utxo>,
     /// The IC time at which we submitted the Bitcoin transaction.
     pub submitted_at: u64,
     /// The tx output from the submitted transaction that the minter owns.
+    pub runes_change_output: RunesChangeOutput,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub change_output: Option<ChangeOutput>,
+    pub btc_change_output: Option<BtcChangeOutput>,
     /// Fee per vbyte in millisatoshi.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fee_per_vbyte: Option<u64>,
@@ -94,36 +115,31 @@ pub struct SubmittedBtcTransaction {
 
 /// Pairs a retrieve_btc request with its outcome.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FinalizedBtcRetrieval {
+pub struct FinalizedTokenRetrieval {
     /// The original retrieve_btc request that initiated the transaction.
     pub request: ReleaseTokenRequest,
-    /// The state of the finalized request.
-    pub state: FinalizedStatus,
+    /// The status of the finalized request.
+    pub status: FinalizedStatus,
 }
 
 /// The outcome of a retrieve_btc request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedStatus {
-    /// The request amount was to low to cover the fees.
-    AmountTooLow,
     /// The transaction that retrieves BTC got enough confirmations.
-    Confirmed {
-        /// The witness transaction identifier of the transaction.
-        txid: Txid,
-    },
+    Confirmed(Txid),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FinalizedBoardingPass {
-    pub request: GenBoardingPassReq,
-    pub state: FinalizedBoardingPassStatus,
+pub struct FinalizedTicket {
+    pub request: GenTicketRequest,
+    pub status: FinalizedTicketStatus,
 }
 
-/// The outcome of a gen_boarding_pass request.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum FinalizedBoardingPassStatus {
-    UtxoNotFound,
+/// The outcome of a generate_ticket request.
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FinalizedTicketStatus {
     Finalized,
+    MismatchWithTicketReq,
 }
 
 /// The status of a Bitcoin transaction that the minter hasn't yet sent to the Bitcoin network.
@@ -135,10 +151,10 @@ pub enum InFlightStatus {
     Sending { txid: Txid },
 }
 
-/// The status of a retrieve_btc request.
+/// The status of a release_token request.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
-pub enum RetrieveBtcStatus {
-    /// The minter has no data for this request.
+pub enum ReleaseTokenStatus {
+    /// The custom has no data for this request.
     /// The request id is either invalid or too old.
     Unknown,
     /// The request is in the batch queue.
@@ -146,23 +162,20 @@ pub enum RetrieveBtcStatus {
     /// Waiting for a signature on a transaction satisfy this request.
     Signing,
     /// Sending the transaction satisfying this request.
-    Sending { txid: Txid },
+    Sending(Txid),
     /// Awaiting for confirmations on the transaction satisfying this request.
-    Submitted { txid: Txid },
-    /// The retrieval amount was too low. Satisfying the request is impossible.
-    AmountTooLow,
+    Submitted(Txid),
     /// Confirmed a transaction satisfying this request.
-    Confirmed { txid: Txid },
+    Confirmed(Txid),
 }
 
-#[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
-pub enum GenBoardingPassStatus {
+#[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GenTicketStatus {
     /// The custom has no data for this request.
     /// The request is either invalid or too old.
     Unknown,
     /// The request is in the queue.
-    Pending,
-    UtxoNotFound,
+    Pending(GenTicketRequest),
     Finalized,
 }
 
@@ -233,24 +246,24 @@ pub struct CustomState {
     /// before being sent.
     pub max_time_in_queue_nanos: u64,
 
-    pub gen_boarding_pass_counter: u64,
+    pub generate_ticket_counter: u64,
 
     pub release_token_counter: u64,
 
     /// Minimum amount of token that can be released
-    pub release_min_amount: u64,
+    pub release_min_amount: u128,
 
-    pub pending_boarding_pass_requests: BTreeMap<Txid, GenBoardingPassReq>,
+    pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
 
-    pub finalized_boarding_pass_requests: VecDeque<FinalizedBoardingPass>,
+    pub finalized_gen_ticket_requests: VecDeque<FinalizedTicket>,
 
     /// Release_token requests that are waiting to be served, sorted by
     /// received_at.
-    pub pending_release_token_requests: Vec<ReleaseTokenRequest>,
+    pub pending_release_token_requests: BTreeMap<RunesId, Vec<ReleaseTokenRequest>>,
 
     /// The identifiers of retrieve_btc requests which we're currently signing a
     /// transaction or sending to the Bitcoin network.
-    pub requests_in_flight: BTreeMap<u64, InFlightStatus>,
+    pub requests_in_flight: BTreeMap<ReleaseId, InFlightStatus>,
 
     /// BTC transactions waiting for finalization.
     pub submitted_transactions: Vec<SubmittedBtcTransaction>,
@@ -260,20 +273,24 @@ pub struct CustomState {
 
     /// Maps ID of a stuck transaction to the ID of the corresponding replacement transaction.
     pub replacement_txid: BTreeMap<Txid, Txid>,
+
     /// Maps ID of a replacement transaction to the ID of the corresponding stuck transaction.
     pub rev_replacement_txid: BTreeMap<Txid, Txid>,
 
     /// Finalized retrieve_btc requests for which we received enough confirmations.
-    pub finalized_requests: VecDeque<FinalizedBtcRetrieval>,
+    pub finalized_release_token_requests: VecDeque<FinalizedTokenRetrieval>,
 
     /// The total number of finalized requests.
     pub finalized_requests_count: u64,
 
-    /// The set of raw UTXOs unused in pending transactions.
-    pub available_utxos: BTreeMap<OutPoint, Utxo>,
+    /// The set of Runes UTXOs unused in pending transactions.
+    pub available_runes_utxos: BTreeSet<RunesUtxo>,
 
-    /// The mappring from token to runes UTXOs unused in pending transactions.
-    pub available_runes_utxos: BTreeMap<RuneId, BTreeSet<RunesUtxo>>,
+    /// The set of BTC UTXOs unused in pending transactions.
+    pub available_fee_utxos: BTreeSet<Utxo>,
+
+    /// The mapping from output points to the utxo.
+    pub outpoint_utxos: BTreeMap<OutPoint, Utxo>,
 
     /// The mapping from output points to the destination to which they
     /// belong.
@@ -281,6 +298,8 @@ pub struct CustomState {
 
     /// The map of known destinations to their utxos.
     pub utxos_state_destinations: BTreeMap<Destination, BTreeSet<Utxo>>,
+
+    pub hub_principal: Principal,
 
     /// Process one timer event at a time.
     #[serde(skip)]
@@ -298,20 +317,19 @@ impl CustomState {
         InitArgs {
             btc_network,
             ecdsa_key_name,
-            retrieve_btc_min_amount,
-            ledger_id,
+            release_min_amount,
             max_time_in_queue_nanos,
             min_confirmations,
             mode,
-            kyt_fee,
-            kyt_principal,
+            hub_principal,
         }: InitArgs,
     ) {
         self.btc_network = btc_network.into();
         self.ecdsa_key_name = ecdsa_key_name;
-        self.release_min_amount = retrieve_btc_min_amount;
+        self.release_min_amount = release_min_amount;
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         self.mode = mode;
+        self.hub_principal = hub_principal;
         if let Some(min_confirmations) = min_confirmations {
             self.min_confirmations = min_confirmations;
         }
@@ -320,16 +338,15 @@ impl CustomState {
     pub fn upgrade(
         &mut self,
         UpgradeArgs {
-            retrieve_btc_min_amount,
+            release_min_amount,
             max_time_in_queue_nanos,
             min_confirmations,
             mode,
-            kyt_principal,
-            kyt_fee,
+            hub_principal,
         }: UpgradeArgs,
     ) {
-        if let Some(retrieve_btc_min_amount) = retrieve_btc_min_amount {
-            self.release_min_amount = retrieve_btc_min_amount;
+        if let Some(min_amount) = release_min_amount {
+            self.release_min_amount = min_amount;
         }
         if let Some(max_time_in_queue_nanos) = max_time_in_queue_nanos {
             self.max_time_in_queue_nanos = max_time_in_queue_nanos;
@@ -349,6 +366,9 @@ impl CustomState {
         if let Some(mode) = mode {
             self.mode = mode;
         }
+        if let Some(hub_principal) = hub_principal {
+            self.hub_principal = hub_principal;
+        }
     }
 
     pub fn validate_config(&self) {
@@ -358,17 +378,17 @@ impl CustomState {
     }
 
     pub fn check_invariants(&self) -> Result<(), String> {
-        for (_, utxo) in self.available_utxos.iter() {
+        for utxo in self.available_runes_utxos.iter() {
             ensure!(
-                self.outpoint_destination.contains_key(&utxo.outpoint),
+                self.outpoint_destination.contains_key(&utxo.raw.outpoint),
                 "the output_account map is missing an entry for {:?}",
-                utxo.outpoint
+                utxo.raw.outpoint
             );
 
             ensure!(
                 self.utxos_state_destinations
                     .iter()
-                    .any(|(_, utxos)| utxos.contains(utxo)),
+                    .any(|(_, utxos)| utxos.contains(&utxo.raw)),
                 "available utxo {:?} does not belong to any account",
                 utxo
             );
@@ -385,15 +405,13 @@ impl CustomState {
             }
         }
 
-        for (l, r) in self
-            .pending_release_token_requests
-            .iter()
-            .zip(self.pending_release_token_requests.iter().skip(1))
-        {
-            ensure!(
-                l.received_at <= r.received_at,
-                "pending retrieve_btc requests are not sorted by receive time"
-            );
+        for (_, requests) in &self.pending_release_token_requests {
+            for (l, r) in requests.iter().zip(requests.iter().skip(1)) {
+                ensure!(
+                    l.received_at <= r.received_at,
+                    "pending retrieve_btc requests are not sorted by receive time"
+                );
+            }
         }
 
         for tx in &self.stuck_transactions {
@@ -442,21 +460,25 @@ impl CustomState {
     }
 
     // public for only for tests
-    pub(crate) fn add_utxos(&mut self, destination: Destination, utxos: Vec<Utxo>) {
+    pub(crate) fn add_utxos(&mut self, destination: Destination, utxos: Vec<Utxo>, is_runes: bool) {
         if utxos.is_empty() {
             return;
         }
 
         let bucket = self
             .utxos_state_destinations
-            .entry(destination)
+            .entry(destination.clone())
             .or_default();
 
-        for utxo in utxos {
+        for utxo in &utxos {
             self.outpoint_destination
-                .insert(utxo.outpoint.clone(), destination);
-            self.available_utxos.insert(utxo.outpoint, utxo.clone());
-            bucket.insert(utxo);
+                .insert(utxo.outpoint.clone(), destination.clone());
+            self.outpoint_utxos
+                .insert(utxo.outpoint.clone(), utxo.clone());
+            bucket.insert(utxo.clone());
+            if !is_runes {
+                self.available_fee_utxos.insert(utxo.clone());
+            }
         }
 
         #[cfg(debug_assertions)]
@@ -464,88 +486,106 @@ impl CustomState {
             .expect("state invariants are violated");
     }
 
-    pub fn gen_boarding_pass_status(&self, tx_id: Txid) -> GenBoardingPassStatus {
-        if self.pending_boarding_pass_requests.contains_key(&tx_id) {
-            return GenBoardingPassStatus::Pending;
-        }
-        match self
-            .finalized_boarding_pass_requests
-            .iter()
-            .find(|req| req.request.tx_id == tx_id)
-            .map(|r| r.state)
-        {
-            Some(FinalizedBoardingPassStatus::UtxoNotFound) => GenBoardingPassStatus::UtxoNotFound,
-            Some(FinalizedBoardingPassStatus::Finalized) => GenBoardingPassStatus::Finalized,
-            None => GenBoardingPassStatus::Unknown,
+    pub(crate) fn update_runes_balance(&mut self, outpoint: OutPoint, balance: RunesBalance) {
+        assert!(self.outpoint_utxos.contains_key(&outpoint));
+        if let Some(utxo) = self.outpoint_utxos.get(&outpoint) {
+            assert!(self.available_runes_utxos.insert(RunesUtxo {
+                raw: utxo.clone(),
+                runes: balance,
+            }));
         }
     }
 
-    /// Returns the status of the retrieve_btc request with the specified
+    pub fn generate_ticket_status(&self, tx_id: Txid) -> GenTicketStatus {
+        if let Some(req) = self.pending_gen_ticket_requests.get(&tx_id) {
+            return GenTicketStatus::Pending(req.clone());
+        }
+        match self
+            .finalized_gen_ticket_requests
+            .iter()
+            .find(|req| req.request.tx_id == tx_id)
+            .map(|r| r.status.clone())
+        {
+            Some(FinalizedTicketStatus::Finalized)
+            | Some(FinalizedTicketStatus::MismatchWithTicketReq) => GenTicketStatus::Finalized,
+            None => GenTicketStatus::Unknown,
+        }
+    }
+
+    /// Returns the status of the release_token request with the specified
     /// identifier.
-    pub fn retrieve_btc_status(&self, block_index: u64) -> RetrieveBtcStatus {
+    pub fn release_token_status(&self, release_id: &Vec<u8>) -> ReleaseTokenStatus {
         if self
             .pending_release_token_requests
             .iter()
-            .any(|req| req.block_index == block_index)
+            .any(|(_, reqs)| reqs.iter().any(|req| req.release_id.eq(release_id)))
         {
-            return RetrieveBtcStatus::Pending;
+            return ReleaseTokenStatus::Pending;
         }
 
-        if let Some(status) = self.requests_in_flight.get(&block_index).cloned() {
+        if let Some(status) = self.requests_in_flight.get(release_id).cloned() {
             return match status {
-                InFlightStatus::Signing => RetrieveBtcStatus::Signing,
-                InFlightStatus::Sending { txid } => RetrieveBtcStatus::Sending { txid },
+                InFlightStatus::Signing => ReleaseTokenStatus::Signing,
+                InFlightStatus::Sending { txid } => ReleaseTokenStatus::Sending(txid),
             };
         }
 
         if let Some(txid) = self.submitted_transactions.iter().find_map(|tx| {
-            (tx.requests.iter().any(|r| r.block_index == block_index)).then_some(tx.txid)
+            (tx.requests.iter().any(|r| r.release_id.eq(release_id))).then_some(tx.txid)
         }) {
-            return RetrieveBtcStatus::Submitted { txid };
+            return ReleaseTokenStatus::Submitted(txid);
         }
 
         match self
-            .finalized_requests
+            .finalized_release_token_requests
             .iter()
-            .find(|finalized_request| finalized_request.request.block_index == block_index)
-            .map(|final_req| final_req.state.clone())
+            .find(|finalized_request| finalized_request.request.release_id.eq(release_id))
+            .map(|final_req| final_req.status.clone())
         {
-            Some(FinalizedStatus::AmountTooLow) => return RetrieveBtcStatus::AmountTooLow,
-            Some(FinalizedStatus::Confirmed { txid }) => {
-                return RetrieveBtcStatus::Confirmed { txid }
-            }
+            Some(FinalizedStatus::Confirmed(txid)) => return ReleaseTokenStatus::Confirmed(txid),
             None => (),
         }
 
-        RetrieveBtcStatus::Unknown
+        ReleaseTokenStatus::Unknown
     }
 
     /// Returns true if the pending requests queue has enough requests to form a
     /// batch or there are old enough requests to form a batch.
-    pub fn can_form_a_batch(&self, min_pending: usize, now: u64) -> bool {
-        if self.pending_release_token_requests.len() >= min_pending {
-            return true;
-        }
-
-        match self.pending_release_token_requests.first() {
-            Some(req) => self.max_time_in_queue_nanos < now.saturating_sub(req.received_at),
+    pub fn can_form_a_batch(&self, runes_id: &RunesId, min_pending: usize, now: u64) -> bool {
+        match self.pending_release_token_requests.get(runes_id) {
+            Some(requests) => {
+                if requests.len() >= min_pending {
+                    return true;
+                }
+                match requests.first() {
+                    Some(req) => self.max_time_in_queue_nanos < now.saturating_sub(req.received_at),
+                    None => false,
+                }
+            }
             None => false,
         }
     }
 
     /// Forms a batch of retrieve_btc requests that the minter can fulfill.
-    pub fn build_batch(&mut self, max_size: usize) -> Vec<ReleaseTokenRequest> {
+    pub fn build_batch(&mut self, runes_id: &RunesId, max_size: usize) -> Vec<ReleaseTokenRequest> {
+        assert!(self.pending_release_token_requests.contains_key(runes_id));
+
         let available_utxos_value = self
-            .available_utxos
+            .available_runes_utxos
             .iter()
-            .map(|(_, u)| u.value)
-            .sum::<u64>();
+            .filter(|u| u.runes.rune_id.eq(runes_id))
+            .map(|u| u.runes.value)
+            .sum::<u128>();
         let mut batch = vec![];
         let mut tx_amount = 0;
-        for req in std::mem::take(&mut self.pending_release_token_requests) {
+        let requests = self
+            .pending_release_token_requests
+            .entry(*runes_id)
+            .or_default();
+        for req in std::mem::take(requests) {
             if available_utxos_value < req.amount + tx_amount || batch.len() >= max_size {
                 // Put this request back to the queue until we have enough liquid UTXOs.
-                self.pending_release_token_requests.push(req);
+                requests.push(req);
             } else {
                 tx_amount += req.amount;
                 batch.push(req);
@@ -569,15 +609,16 @@ impl CustomState {
 
     /// Returns true if there is a pending retrieve_btc request with the given
     /// identifier.
-    fn has_pending_request(&self, block_index: u64) -> bool {
+    fn has_pending_request(&self, release_id: &Vec<u8>) -> bool {
         self.pending_release_token_requests
             .iter()
-            .any(|req| req.block_index == block_index)
+            .any(|(_, reqs)| reqs.iter().any(|req| req.release_id.eq(release_id)))
     }
 
     fn forget_utxo(&mut self, utxo: &Utxo) {
-        if let Some(account) = self.outpoint_destination.remove(&utxo.outpoint) {
-            let last_utxo = match self.utxos_state_destinations.get_mut(&account) {
+        if let Some(destination) = self.outpoint_destination.remove(&utxo.outpoint) {
+            self.outpoint_utxos.remove(&utxo.outpoint);
+            let last_utxo = match self.utxos_state_destinations.get_mut(&destination) {
                 Some(utxo_set) => {
                     utxo_set.remove(utxo);
                     utxo_set.is_empty()
@@ -585,7 +626,7 @@ impl CustomState {
                 None => false,
             };
             if last_utxo {
-                self.utxos_state_destinations.remove(&account);
+                self.utxos_state_destinations.remove(&destination);
             }
         }
     }
@@ -610,29 +651,21 @@ impl CustomState {
             ));
         };
 
-        for utxo in finalized_tx.used_utxos.iter() {
+        for utxo in finalized_tx.runes_utxos.iter() {
+            self.forget_utxo(&utxo.raw);
+        }
+        for utxo in finalized_tx.btc_utxos.iter() {
             self.forget_utxo(utxo);
         }
         self.finalized_requests_count += finalized_tx.requests.len() as u64;
         for request in finalized_tx.requests {
-            self.push_finalized_request(FinalizedBtcRetrieval {
+            self.push_finalized_release_token(FinalizedTokenRetrieval {
                 request,
-                state: FinalizedStatus::Confirmed { txid: *txid },
+                status: FinalizedStatus::Confirmed(*txid),
             });
         }
 
         self.cleanup_tx_replacement_chain(txid);
-    }
-
-    pub(crate) fn finalize_boarding_pass_request(&mut self, req: FinalizedBoardingPass) {
-        assert!(!self
-            .pending_boarding_pass_requests
-            .contains_key(&req.request.tx_id));
-
-        if self.finalized_boarding_pass_requests.len() >= MAX_FINALIZED_REQUESTS {
-            self.finalized_boarding_pass_requests.pop_front();
-        }
-        self.finalized_boarding_pass_requests.push_back(req)
     }
 
     fn cleanup_tx_replacement_chain(&mut self, confirmed_txid: &Txid) {
@@ -695,7 +728,7 @@ impl CustomState {
             "replacing the same transaction twice is not allowed"
         );
         for req in tx.requests.iter() {
-            assert!(!self.has_pending_request(req.block_index));
+            assert!(!self.has_pending_request(&req.release_id));
         }
 
         let new_txid = tx.txid;
@@ -725,18 +758,15 @@ impl CustomState {
     }
 
     /// Removes a pending retrieve_btc request with the specified block index.
-    fn remove_pending_request(&mut self, block_index: u64) -> Option<ReleaseTokenRequest> {
-        match self
-            .pending_release_token_requests
-            .iter()
-            .position(|req| req.block_index == block_index)
-        {
-            Some(pos) => Some(self.pending_release_token_requests.remove(pos)),
-            None => None,
+    fn remove_pending_request(&mut self, release_id: Vec<u8>) -> Option<ReleaseTokenRequest> {
+        for (_, requests) in &mut self.pending_release_token_requests {
+            match requests.iter().position(|req| req.release_id == release_id) {
+                Some(pos) => return Some(requests.remove(pos)),
+                None => {}
+            }
         }
+        None
     }
-
-    fn remove_pending_transport_request() {}
 
     /// Marks the specified retrieve_btc request as in-flight.
     ///
@@ -744,10 +774,10 @@ impl CustomState {
     ///
     /// This function panics if there is a pending retrieve_btc request with the
     /// same identifier.
-    pub fn push_in_flight_request(&mut self, block_index: u64, status: InFlightStatus) {
-        assert!(!self.has_pending_request(block_index));
+    pub fn push_in_flight_request(&mut self, release_id: Vec<u8>, status: InFlightStatus) {
+        assert!(!self.has_pending_request(&release_id));
 
-        self.requests_in_flight.insert(block_index, status);
+        self.requests_in_flight.insert(release_id, status);
     }
 
     /// Returns a retrieve_btc requests back to the pending queue.
@@ -756,17 +786,18 @@ impl CustomState {
     ///
     /// This function panics if there is a pending retrieve_btc request with the
     /// same identifier.
-    pub fn push_from_in_flight_to_pending_requests(
-        &mut self,
-        mut requests: Vec<ReleaseTokenRequest>,
-    ) {
+    pub fn push_from_in_flight_to_pending_requests(&mut self, requests: Vec<ReleaseTokenRequest>) {
         for req in requests.iter() {
-            assert!(!self.has_pending_request(req.block_index));
-            self.requests_in_flight.remove(&req.block_index);
+            assert!(!self.has_pending_request(&req.release_id));
+            self.requests_in_flight.remove(&req.release_id);
+
+            let bucket = self
+                .pending_release_token_requests
+                .entry(req.runes_id)
+                .or_default();
+            bucket.push(req.clone());
+            bucket.sort_by_key(|r| r.received_at);
         }
-        self.pending_release_token_requests.append(&mut requests);
-        self.pending_release_token_requests
-            .sort_by_key(|r| r.received_at);
     }
 
     /// Push back a retrieve_btc request to the ordered queue.
@@ -776,10 +807,14 @@ impl CustomState {
     /// This function panics if the new request breaks the request ordering in
     /// the queue.
     pub fn push_back_pending_request(&mut self, request: ReleaseTokenRequest) {
-        if let Some(last_req) = self.pending_release_token_requests.last() {
+        let bucket = self
+            .pending_release_token_requests
+            .entry(request.runes_id)
+            .or_default();
+        if let Some(last_req) = bucket.last() {
             assert!(last_req.received_at <= request.received_at);
         }
-        self.pending_release_token_requests.push(request);
+        bucket.push(request);
     }
 
     /// Records a BTC transaction as submitted and updates statuses of all
@@ -791,8 +826,8 @@ impl CustomState {
     /// same identifier as one of the request used for the transaction.
     pub fn push_submitted_transaction(&mut self, tx: SubmittedBtcTransaction) {
         for req in tx.requests.iter() {
-            assert!(!self.has_pending_request(req.block_index));
-            self.requests_in_flight.remove(&req.block_index);
+            assert!(!self.has_pending_request(&req.release_id));
+            self.requests_in_flight.remove(&req.release_id);
         }
         self.submitted_transactions.push(tx);
     }
@@ -803,13 +838,24 @@ impl CustomState {
     ///
     /// This function panics if there is a pending retrieve_btc request with the
     /// same identifier.
-    fn push_finalized_request(&mut self, req: FinalizedBtcRetrieval) {
-        assert!(!self.has_pending_request(req.request.block_index));
+    fn push_finalized_release_token(&mut self, req: FinalizedTokenRetrieval) {
+        assert!(!self.has_pending_request(&req.request.release_id));
 
-        if self.finalized_requests.len() >= MAX_FINALIZED_REQUESTS {
-            self.finalized_requests.pop_front();
+        if self.finalized_release_token_requests.len() >= MAX_FINALIZED_REQUESTS {
+            self.finalized_release_token_requests.pop_front();
         }
-        self.finalized_requests.push_back(req)
+        self.finalized_release_token_requests.push_back(req)
+    }
+
+    fn push_finalized_ticket(&mut self, req: FinalizedTicket) {
+        assert!(!self
+            .pending_gen_ticket_requests
+            .contains_key(&req.request.tx_id));
+
+        if self.finalized_gen_ticket_requests.len() >= MAX_FINALIZED_REQUESTS {
+            self.finalized_gen_ticket_requests.pop_front();
+        }
+        self.finalized_gen_ticket_requests.push_back(req)
     }
 
     /// Filters out known UTXOs of the given destination from the given UTXO list.
@@ -850,8 +896,8 @@ impl CustomState {
             "min_confirmations does not match"
         );
         ensure_eq!(
-            self.finalized_requests,
-            other.finalized_requests,
+            self.finalized_release_token_requests,
+            other.finalized_release_token_requests,
             "finalized_requests do not match"
         );
         ensure_eq!(
@@ -860,8 +906,8 @@ impl CustomState {
             "requests_in_flight do not match"
         );
         ensure_eq!(
-            self.available_utxos,
-            other.available_utxos,
+            self.available_runes_utxos,
+            other.available_runes_utxos,
             "available_utxos do not match"
         );
         ensure_eq!(
@@ -880,18 +926,26 @@ impl CustomState {
             "stuck_transactions do not match"
         );
 
-        let my_requests = as_sorted_vec(self.pending_release_token_requests.iter().cloned(), |r| {
-            r.block_index
-        });
-        let other_requests =
-            as_sorted_vec(other.pending_release_token_requests.iter().cloned(), |r| {
-                r.block_index
-            });
         ensure_eq!(
-            my_requests,
-            other_requests,
-            "pending_retrieve_btc_requests do not match"
+            self.pending_release_token_requests.len(),
+            other.pending_release_token_requests.len(),
+            "size of pending_release_token_requests do not match"
         );
+        for (runes_id, requests) in &self.pending_release_token_requests {
+            let my_requests = as_sorted_vec(requests.iter().cloned(), |r| r.release_id.clone());
+            match other.pending_release_token_requests.get(&runes_id) {
+                Some(requests) => {
+                    let other_requests =
+                        as_sorted_vec(requests.iter().cloned(), |r| r.release_id.clone());
+                    ensure_eq!(
+                        my_requests,
+                        other_requests,
+                        "pending_release_token_requests do not match"
+                    );
+                }
+                None => return Err(String::from("pending_release_token_requests do not match")),
+            }
+        }
 
         ensure_eq!(
             self.replacement_txid,
@@ -925,23 +979,27 @@ impl From<InitArgs> for CustomState {
                 .min_confirmations
                 .unwrap_or(crate::lifecycle::init::DEFAULT_MIN_CONFIRMATIONS),
             max_time_in_queue_nanos: args.max_time_in_queue_nanos,
-            release_min_amount: args.retrieve_btc_min_amount,
-            pending_boarding_pass_requests: Default::default(),
+            generate_ticket_counter: 0,
+            release_token_counter: 0,
+            release_min_amount: args.release_min_amount,
+            pending_gen_ticket_requests: Default::default(),
             pending_release_token_requests: Default::default(),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
             replacement_txid: Default::default(),
             rev_replacement_txid: Default::default(),
             stuck_transactions: Default::default(),
-            finalized_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
-            finalized_boarding_pass_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
+            finalized_release_token_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
+            finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             finalized_requests_count: 0,
-            available_utxos: Default::default(),
             available_runes_utxos: Default::default(),
+            available_fee_utxos: Default::default(),
+            outpoint_utxos: Default::default(),
             outpoint_destination: Default::default(),
             utxos_state_destinations: Default::default(),
             is_timer_running: false,
             mode: args.mode,
+            hub_principal: args.hub_principal,
             last_fee_per_vbyte: vec![1; 100],
         }
     }

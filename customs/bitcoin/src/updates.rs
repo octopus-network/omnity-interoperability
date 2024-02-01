@@ -1,8 +1,10 @@
-pub mod finalize_boarding_pass;
-pub mod gen_boarding_pass;
+pub mod generate_ticket;
 pub mod get_btc_address;
 pub mod release_token;
+pub mod update_runes_balance;
+pub mod update_btc_utxos;
 
-pub use finalize_boarding_pass::finalize_boarding_pass;
-pub use gen_boarding_pass::generate_boarding_pass;
+pub use generate_ticket::generate_ticket;
 pub use get_btc_address::get_btc_address;
+pub use update_runes_balance::update_runes_balance;
+pub use update_btc_utxos::update_btc_utxos;

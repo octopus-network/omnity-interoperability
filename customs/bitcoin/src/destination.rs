@@ -5,4 +5,12 @@ use serde::Serialize;
 pub struct Destination {
     pub target_chain_id: String,
     pub receiver: String,
+    pub token: Option<String>,
+}
+
+impl Destination {
+    #[inline]
+    pub fn effective_token(&self) -> String {
+        self.token.clone().unwrap_or(String::new())
+    }
 }

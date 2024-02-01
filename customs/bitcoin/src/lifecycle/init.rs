@@ -1,16 +1,14 @@
 use crate::lifecycle::upgrade::UpgradeArgs;
 pub use crate::state::Mode;
 use crate::state::{replace_state, CustomState};
-use candid::{CandidType, Deserialize};
-use ic_base_types::CanisterId;
+use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::Network;
 use serde::Serialize;
 
 pub const DEFAULT_MIN_CONFIRMATIONS: u32 = 6;
-pub const DEFAULT_KYT_FEE: u64 = 1000;
 
 #[derive(CandidType, serde::Deserialize)]
-pub enum MinterArg {
+pub enum CustomArg {
     Init(InitArgs),
     Upgrade(Option<UpgradeArgs>),
 }
@@ -57,10 +55,7 @@ pub struct InitArgs {
     pub ecdsa_key_name: String,
 
     /// Minimum amount of bitcoin that can be retrieved
-    pub retrieve_btc_min_amount: u64,
-
-    /// The CanisterId of the ckBTC Ledger
-    pub ledger_id: CanisterId,
+    pub release_min_amount: u128,
 
     /// Maximum time in nanoseconds that a transaction should spend in the queue
     /// before being sent.
@@ -75,15 +70,7 @@ pub struct InitArgs {
     #[serde(default)]
     pub mode: Mode,
 
-    /// The fee that the minter will pay for each KYT check.
-    /// NOTE: this field is optional for backward compatibility.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kyt_fee: Option<u64>,
-
-    /// The principal of the KYT canister.
-    /// NOTE: this field is optional for backward compatibility.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kyt_principal: Option<CanisterId>,
+    pub hub_principal: Principal,
 }
 
 pub fn init(args: InitArgs) {

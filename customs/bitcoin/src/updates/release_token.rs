@@ -1,21 +1,21 @@
-use super::get_btc_address::init_ecdsa_public_key;
 use crate::guard::release_token_guard;
+use crate::state::{ReleaseId, ReleaseTokenStatus};
 use crate::tasks::{schedule_now, TaskType};
 use crate::{
-    address::{account_to_bitcoin_address, BitcoinAddress, ParseAddressError},
-    state::{self, mutate_state, read_state, ReleaseTokenRequest, RuneId},
+    address::{BitcoinAddress, ParseAddressError},
+    state::{self, mutate_state, read_state, ReleaseTokenRequest, RunesId},
 };
 use candid::{CandidType, Deserialize};
-use icrc_ledger_types::icrc1::account::Account;
 
 const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 
 /// The arguments of the [release_token] endpoint.
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct ReleaseTokenArgs {
-    pub rune_id: RuneId,
+    pub release_id: ReleaseId,
+    pub rune_id: RunesId,
     // amount to retrieve
-    pub amount: u64,
+    pub amount: u128,
     // address where to send tokens
     pub address: String,
 }
@@ -25,8 +25,10 @@ pub enum ReleaseTokenError {
     /// There is another request for this principal.
     AlreadyProcessing,
 
+    AlreadyProcessed,
+
     /// The withdrawal amount is too low.
-    AmountTooLow(u64),
+    AmountTooLow(u128),
 
     /// The bitcoin address is not valid.
     MalformedAddress(String),
@@ -52,24 +54,13 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
     state::read_state(|s| s.mode.is_release_available_for())
         .map_err(ReleaseTokenError::TemporarilyUnavailable)?;
 
-    let ecdsa_public_key = init_ecdsa_public_key().await;
-    let main_address = account_to_bitcoin_address(
-        &ecdsa_public_key,
-        &Account {
-            owner: ic_cdk::id(),
-            subaccount: None,
-        },
-    );
-
-    if args.address == main_address.display(state::read_state(|s| s.btc_network)) {
-        ic_cdk::trap("illegal release token target");
-    }
-
     let _guard = release_token_guard();
+
     let (min_amount, btc_network) = read_state(|s| (s.release_min_amount, s.btc_network));
     if args.amount < min_amount {
         return Err(ReleaseTokenError::AmountTooLow(min_amount));
     }
+
     let parsed_address = BitcoinAddress::parse(&args.address, btc_network)?;
     if read_state(|s| s.count_incomplete_retrieve_btc_requests() >= MAX_CONCURRENT_PENDING_REQUESTS)
     {
@@ -78,8 +69,18 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
         ));
     }
 
+    read_state(|s| match s.release_token_status(&args.release_id) {
+        ReleaseTokenStatus::Pending
+        | ReleaseTokenStatus::Signing
+        | ReleaseTokenStatus::Sending(_)
+        | ReleaseTokenStatus::Submitted(_) => Err(ReleaseTokenError::AlreadyProcessing),
+        ReleaseTokenStatus::Confirmed(_) => Err(ReleaseTokenError::AlreadyProcessed),
+        ReleaseTokenStatus::Unknown => Ok(()),
+    })?;
+
     let request = ReleaseTokenRequest {
-        rune_id: args.rune_id,
+        release_id: args.release_id.clone(),
+        runes_id: args.rune_id,
         amount: args.amount,
         address: parsed_address,
         received_at: ic_cdk::api::time(),
@@ -87,10 +88,10 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
 
     mutate_state(|s| state::audit::accept_release_token_request(s, request));
 
-    // assert_eq!(
-    //     crate::state::RetrieveBtcStatus::Pending,
-    //     read_state(|s| s.retrieve_btc_status(block_index))
-    // );
+    assert_eq!(
+        crate::state::ReleaseTokenStatus::Pending,
+        read_state(|s| s.release_token_status(&args.release_id))
+    );
 
     schedule_now(TaskType::ProcessLogic);
 

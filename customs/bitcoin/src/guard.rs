@@ -15,17 +15,17 @@ pub trait PendingRequests {
     fn decre_counter(state: &mut CustomState);
 }
 
-pub struct GenBoardingPassUpdates;
+pub struct GenerateTicketUpdates;
 
-impl PendingRequests for GenBoardingPassUpdates {
+impl PendingRequests for GenerateTicketUpdates {
     fn pending_requests(state: &mut CustomState) -> u64 {
-        state.gen_boarding_pass_counter
+        state.generate_ticket_counter
     }
     fn incre_counter(state: &mut CustomState) {
-        state.gen_boarding_pass_counter += 1;
+        state.generate_ticket_counter += 1;
     }
     fn decre_counter(state: &mut CustomState) {
-        state.gen_boarding_pass_counter -= 1;
+        state.generate_ticket_counter -= 1;
     }
 }
 pub struct ReleaseTokenUpdates;
@@ -94,7 +94,7 @@ impl Drop for TimerLogicGuard {
     }
 }
 
-pub fn gen_boarding_pass_guard() -> Result<Guard<GenBoardingPassUpdates>, GuardError> {
+pub fn generate_ticket_guard() -> Result<Guard<GenerateTicketUpdates>, GuardError> {
     Guard::new()
 }
 
@@ -104,14 +104,13 @@ pub fn release_token_guard() -> Result<Guard<ReleaseTokenUpdates>, GuardError> {
 
 #[cfg(test)]
 mod tests {
+    use super::TimerLogicGuard;
     use crate::{
         lifecycle::init::{init, BtcNetwork, InitArgs},
         state::read_state,
     };
     use candid::Principal;
     use ic_base_types::CanisterId;
-
-    use super::TimerLogicGuard;
 
     fn test_principal(id: u64) -> Principal {
         Principal::try_from_slice(&id.to_le_bytes()).unwrap()
@@ -121,13 +120,11 @@ mod tests {
         InitArgs {
             btc_network: BtcNetwork::Regtest,
             ecdsa_key_name: "some_key".to_string(),
-            retrieve_btc_min_amount: 2000,
-            ledger_id: CanisterId::from_u64(42),
+            release_min_amount: 2000,
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: crate::state::Mode::GeneralAvailability,
-            kyt_principal: Some(CanisterId::from(0)),
-            kyt_fee: None,
+            hub_principal: Principal::from(CanisterId::from(0)),
         }
     }
 
