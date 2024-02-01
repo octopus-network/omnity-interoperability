@@ -8,37 +8,24 @@ use candid::types::principal::Principal;
 use candid::CandidType;
 
 use auth::auth;
-use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_cdk::{init, post_upgrade, pre_upgrade, update};
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 use log::debug;
-use omnity_types::{Action, ChainId, ChainInfo, DeliverStatus, Directive, DirectiveId, Error, Fee, Ticket, TicketId, TokenId, TokenInfo};
+use omnity_types::{
+    Action, Chain, ChainInfo, ChainStatus, DireQueue, Directive, Error, Fee, Proposal, Seq, Ticket,
+    TicketId, TicketQueue, Token, TokenMetaData,
+};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
+
 // use utils::init_log;
 use crate::signer::PublicKeyReply;
 use crate::utils::Network;
 
-
-
 thread_local! {
     static STATE: RefCell<HubState> = RefCell::new(HubState::default());
-}
-
-#[derive(CandidType, Deserialize, Serialize, Debug)]
-struct Transaction {
-    pub trans_id: String,
-    pub timestamp: u64,
-    pub seq: u64,
-    pub src_chain_id: String,
-    pub dst_chain_id: String,
-    pub action: Action,
-    pub token: String,
-    pub memo: Option<Vec<u8>>,
-    pub receiver: String,
-    pub amount: u64,
-    pub signature: Option<Vec<u8>>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
@@ -49,12 +36,12 @@ struct CrossLedger {
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
 struct HubState {
-    pub chains: HashMap<ChainId, ChainInfo>,
-    pub tokens: HashMap<(ChainId, TokenId), TokenInfo>,
-    pub fees: HashMap<ChainId, Fee>,
-    pub directives: BTreeMap<DirectiveId, (Directive, DeliverStatus)>,
+    pub chains: HashMap<Chain, ChainInfo>,
+    pub tokens: HashMap<(Chain, Token), TokenMetaData>,
+    pub fees: HashMap<(Chain, Token), Fee>,
     pub cross_ledger: CrossLedger,
-    pub tickets: Vec<Ticket>,
+    pub dire_queue: DireQueue,
+    pub ticket_queue: TicketQueue,
     pub owner: Option<Principal>,
     pub whitelist: HashSet<Principal>,
 }
@@ -123,61 +110,151 @@ fn post_upgrade() {
 
 /// validate directive ,this method will be called by sns
 #[update(guard = "auth")]
-pub fn validate_directive(_d: Directive) -> Result<String, String> {
-    Ok("".to_string())
+pub fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
+    match proposal {
+        Proposal::AddChain(chain) => {
+            if chain.chain_name.is_empty() {
+                return Err(Error::ProposalError(
+                    "Chain name can not be empty".to_string(),
+                ));
+            }
+            match chain.chain_state {
+                ChainStatus::Reinstate | ChainStatus::Suspend => {
+                    return Err(Error::ProposalError(
+                        "The status of the new chain state must be active".to_string(),
+                    ))
+                }
+                _ => ..,
+            };
+
+            Ok(format!("Tne AddChain proposal is: {}", chain))
+        }
+        Proposal::AddToken(token) => {
+            if token.name.is_empty() || token.symbol.is_empty() || token.issue_chain.is_empty() {
+                return Err(Error::ProposalError(
+                    "Token id, token symbol or issue chain can not be empty".to_string(),
+                ));
+            }
+            Ok(format!("The AddToken proposal is: {}", token))
+        }
+        Proposal::ChangeChainStatus(statue) => {
+            if statue.chain.is_empty() {
+                return Err(Error::ProposalError(
+                    "Chain id can not be empty".to_string(),
+                ));
+            }
+            match statue.state {
+                ChainStatus::Active | ChainStatus::Reinstate | ChainStatus::Suspend => ..,
+                _ => {
+                    return Err(Error::ProposalError(
+                        "The chain state not match".to_string(),
+                    ))
+                }
+            };
+
+            Ok(format!("the ChangeChainStatus proposal is: {}", statue))
+        }
+        Proposal::UpdateFee(fee) => {
+            if fee.fee_token.is_empty() {
+                return Err(Error::ProposalError(
+                    "The Quote token can not be empty".to_string(),
+                ));
+            };
+            Ok(format!("The UpdateFee proposal is: {}", fee))
+        }
+
+        _ => Err(Error::NotSupportedProposal),
+    }
 }
 
-/// input diretive without signature and sign it
+/// build directive based on proposal, this method will be called by sns
+/// 1. add chain
+///  如果增加的是结算链，只需要在 hub 保存结算链信息即可，无需中继的其他链执行此指令；
+///  如果增加的是执行链，需要分别为所有目标链构建新增链指令，然后放入队列，等待 route 中继执行；
+///  todo：新增链需要考虑，是否为已经存在的token，构建新增 token 的指令？
+/// 2. add token
+///  需要为所有非发行链构建新增 token 指令，然后放入队列，等待route 中继执行；
+/// 3. change chain status
+///  需要通知所有支持向该链的转账的目标链，变更此链的状态；
 #[update(guard = "auth")]
-pub async fn handl_directive(_d: Directive) -> Result<(), Error> {
+pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
+    match proposal {
+        Proposal::AddChain(chain) => todo!(),
+        Proposal::AddToken(token) => todo!(),
+        Proposal::ChangeChainStatus(statue) => todo!(),
+        Proposal::UpdateFee(fee) => {
+            todo!()
+        }
+    }
     Ok(())
 }
 
-/// input fee without signature ,sign it and build directive
+/// check fee validate
+/// build update fee directive and push it to the directive queue
+/// 构建更新fee指令时，为所有支持该计费token的执行链，构建更新费指令；
 #[update(guard = "auth")]
 pub async fn update_fee(_fee: Fee) -> Result<(), Error> {
-    // signe and build update fee directive
-    // signe_directive(directive)
+    // check fee validate
+    // call build_directive
     Ok(())
 }
 
-/// input diretive without signature and sign it
+/// route 或者 custom 查询与自身相关的指令信息；
+/// 指令队列自动清理已经轮询过的跟chain id相关的指令；
 #[update(guard = "auth")]
-pub async fn send_directive(_d: Directive) -> Result<(), Error> {
-    Ok(())
-}
-
-#[update(guard = "auth")]
-pub async fn update_directive_status(_id: DirectiveId, _s: DeliverStatus) -> Result<(), Error> {
-    Ok(())
+pub async fn query_directives(
+    chain_id: Chain,
+    start: u64,
+    end: u64,
+) -> Result<Option<HashMap<Seq, Directive>>, Error> {
+    with_state_mut(|hub_state| {
+        match hub_state.dire_queue.get(&chain_id) {
+            Some(d) => {
+                // clone
+                let diretives = d.clone();
+                // remove the directive for the chain id
+                hub_state.dire_queue.remove(&chain_id);
+                Ok(Some(diretives))
+            }
+            None => Ok(None),
+        }
+    })
 }
 
 /// check the ticket availability
-#[update(guard = "auth")]
+/// check chain and status
+/// check token and amount
 pub async fn check_ticket(_t: Ticket) -> Result<(), Error> {
     Ok(())
 }
 
+/// 检查ticket 有效性，并将其放入目标链队列中
 #[update(guard = "auth")]
-pub async fn send_ticket(_t: Ticket) -> Result<(), Error> {
+pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
+    check_ticket(ticket).await?;
     Ok(())
 }
 
+/// route 或者 custom 查询与自身相关的tickets；
+/// ticket队列自动清理已经查询过的跟chain id相关的tickets;
 #[update(guard = "auth")]
-pub async fn update_ticket_status(_tid: TicketId, _s: DeliverStatus) -> Result<(), Error> {
-    Ok(())
-}
-
-#[query(guard = "auth")]
-pub async fn query_ticket(_tid: String) -> Result<Ticket, Error> {
-    let ticket = Ticket::default();
-    Ok(ticket)
-}
-
-#[query(guard = "auth")]
-pub async fn query_tickets() -> Result<Vec<Ticket>, Error> {
-    let tickets = Vec::new();
-    Ok(tickets)
+pub fn query_tickets(
+    chain_id: Chain,
+    start: u64,
+    end: u64,
+) -> Result<Option<HashMap<Seq, Ticket>>, Error> {
+    with_state_mut(|hub_state| {
+        match hub_state.ticket_queue.get(&chain_id) {
+            Some(t) => {
+                // clone
+                let tickets = t.clone();
+                // remove the tickets for the chain id
+                hub_state.ticket_queue.remove(&chain_id);
+                Ok(Some(tickets))
+            }
+            None => Ok(None),
+        }
+    })
 }
 
 ic_cdk::export_candid!();
@@ -190,7 +267,7 @@ mod tests {
     #[test]
     fn hash() {
         let mut hasher = Sha3::keccak256();
-        hasher.input_str("Hi,Boern");
+        hasher.input_str("Hi,Omnity");
         let hex = hasher.result_str();
         println!("{}", hex);
     }
