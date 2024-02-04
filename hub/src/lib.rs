@@ -13,19 +13,32 @@ use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 use log::debug;
 use omnity_types::{
-    Action, Chain, ChainInfo, ChainStatus, DireQueue, Directive, Error, Fee, Proposal, Seq, Ticket,
-    TicketId, TicketQueue, Token, TokenMetaData,
+    Action, ChainId, ChainInfo, ChainType, DireQueue, Directive, Error, Fee, Proposal, Seq, Status,
+    Ticket, TicketId, TicketQueue, TokenId, TokenMetaData,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
-
+use std::ops::Bound::Included;
 // use utils::init_log;
 use crate::signer::PublicKeyReply;
 use crate::utils::Network;
 
 thread_local! {
     static STATE: RefCell<HubState> = RefCell::new(HubState::default());
+}
+
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+pub struct ChainInfoWithSeq {
+    pub chain_name: ChainId,
+    pub chain_type: ChainType,
+    pub chain_status: Status,
+    pub latest_dire_seq: Seq,
+    pub latest_ticket_seq: Seq,
+    // Optional: settlement chain export contract address
+    // pub export_address: Option<String>,
+    // Optional: execution chain port contract address
+    // pub port_address: Option<String>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
@@ -36,9 +49,9 @@ struct CrossLedger {
 
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
 struct HubState {
-    pub chains: HashMap<Chain, ChainInfo>,
-    pub tokens: HashMap<(Chain, Token), TokenMetaData>,
-    pub fees: HashMap<(Chain, Token), Fee>,
+    pub chains: HashMap<ChainId, ChainInfoWithSeq>,
+    pub tokens: HashMap<(ChainId, TokenId), TokenMetaData>,
+    pub fees: HashMap<(ChainId, TokenId), Fee>,
     pub cross_ledger: CrossLedger,
     pub dire_queue: DireQueue,
     pub ticket_queue: TicketQueue,
@@ -119,7 +132,7 @@ pub fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
                 ));
             }
             match chain.chain_state {
-                ChainStatus::Reinstate | ChainStatus::Suspend => {
+                Status::Reinstate | Status::Suspend => {
                     return Err(Error::ProposalError(
                         "The status of the new chain state must be active".to_string(),
                     ))
@@ -144,7 +157,7 @@ pub fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
                 ));
             }
             match statue.state {
-                ChainStatus::Active | ChainStatus::Reinstate | ChainStatus::Suspend => ..,
+                Status::Active | Status::Reinstate | Status::Suspend => ..,
                 _ => {
                     return Err(Error::ProposalError(
                         "The chain state not match".to_string(),
@@ -168,22 +181,174 @@ pub fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
 }
 
 /// build directive based on proposal, this method will be called by sns
-/// 1. add chain
-///  如果增加的是结算链，只需要在 hub 保存结算链信息即可，无需中继的其他链执行此指令；
-///  如果增加的是执行链，需要分别为所有目标链构建新增链指令，然后放入队列，等待 route 中继执行；
-///  todo：新增链需要考虑，是否为已经存在的token，构建新增 token 的指令？
-/// 2. add token
-///  需要为所有非发行链构建新增 token 指令，然后放入队列，等待route 中继执行；
-/// 3. change chain status
-///  需要通知所有支持向该链的转账的目标链，变更此链的状态；
+/// add chain / add token /change chain status / update fee
 #[update(guard = "auth")]
 pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
     match proposal {
-        Proposal::AddChain(chain) => todo!(),
-        Proposal::AddToken(token) => todo!(),
-        Proposal::ChangeChainStatus(statue) => todo!(),
+        Proposal::AddChain(chain) => {
+            with_state_mut(|hub_state| {
+                let new_chain = ChainInfoWithSeq {
+                    chain_name: chain.chain_name.clone(),
+                    chain_type: chain.chain_type.clone(),
+                    chain_status: chain.chain_state.clone(),
+                    latest_dire_seq: 0,
+                    latest_ticket_seq: 0,
+                };
+                // save new chain
+                hub_state
+                    .chains
+                    .insert(chain.chain_name.clone(), new_chain.clone());
+
+                // build directives
+                match chain.chain_type {
+                    ChainType::SettlementChain => (),
+
+                    ChainType::ExecutionChain => {
+                        // add directive for existing chain
+                        let _ = hub_state
+                            .chains
+                            .iter_mut()
+                            .filter(|(&ref chain_id, _)| *chain_id != new_chain.chain_name.clone())
+                            .map(|(chain_id, existing_chain)| {
+                                // increases the new chain seq
+                                hub_state
+                                    .dire_queue
+                                    .entry(chain_id.to_string())
+                                    .and_modify(|dires| {
+                                        existing_chain.latest_dire_seq += 1;
+                                        dires.insert(
+                                            existing_chain.latest_dire_seq,
+                                            Directive::AddChain(chain.clone()),
+                                        );
+                                    })
+                                    .or_insert_with(|| {
+                                        let mut dires = BTreeMap::new();
+                                        dires.insert(0u64, Directive::AddChain(chain.clone()));
+                                        dires
+                                    });
+                            });
+
+                        // add directive for new chain
+                        let mut new_chain_seq: u64 = new_chain.latest_dire_seq;
+
+                        let _ = hub_state
+                            .chains
+                            .iter_mut()
+                            .filter(|(&ref id, _)| *id != chain.chain_name.clone())
+                            .map(|(_existing_chain_id, existing_chain)| {
+                                let dest_chain = ChainInfo {
+                                    chain_name: existing_chain.chain_name.clone(),
+                                    chain_type: existing_chain.chain_type.clone(),
+                                    chain_state: existing_chain.chain_status.clone(),
+                                };
+
+                                hub_state
+                                    .dire_queue
+                                    .entry(new_chain.chain_name.clone())
+                                    .and_modify(|dires| {
+                                        // increases the new chain seq
+                                        new_chain_seq += 1;
+                                        dires.insert(
+                                            new_chain_seq,
+                                            Directive::AddChain(dest_chain.clone()),
+                                        );
+                                    })
+                                    .or_insert_with(|| {
+                                        let mut dires = BTreeMap::new();
+                                        dires.insert(0u64, Directive::AddChain(dest_chain.clone()));
+                                        dires
+                                    });
+                            });
+                        // update the new chain latest seq
+                        hub_state
+                            .chains
+                            .get_mut(&new_chain.chain_name)
+                            .and_then(|new_chain| {
+                                new_chain.latest_dire_seq = new_chain_seq;
+                                Some(new_chain.latest_dire_seq)
+                            });
+                    }
+                }
+            });
+            //TODO: build `add token` directive for existing token;
+        }
+        Proposal::AddToken(token) => {
+            with_state_mut(|hub_state| {
+                hub_state.chains.iter_mut().map(|(chain_id, chain_info)| {
+                    // chain_dire_seq = chain.latest_dire_seq;
+                    hub_state
+                        .dire_queue
+                        .entry(chain_id.to_string())
+                        .and_modify(|dires| {
+                            chain_info.latest_dire_seq += 1;
+                            dires.insert(
+                                chain_info.latest_dire_seq,
+                                Directive::AddToken(token.clone()),
+                            );
+                        })
+                        .or_insert_with(|| {
+                            let mut dires = BTreeMap::new();
+                            dires.insert(0, Directive::AddToken(token.clone()));
+                            dires
+                        });
+                    // save token info
+                    hub_state
+                        .tokens
+                        .insert((chain_id.to_string(), token.name), token)
+                });
+            });
+        }
+        Proposal::ChangeChainStatus(status) => {
+            with_state_mut(|hub_state| {
+                let mut chain_dire_seq = 0;
+
+                if let Some(chain) = hub_state.chains.get_mut(&status.chain) {
+                    chain.latest_dire_seq += 1;
+                    chain_dire_seq = chain.latest_dire_seq;
+                    //save chain status
+                    chain.chain_status = status;
+                }
+
+                hub_state
+                    .dire_queue
+                    .entry(status.clone().chain)
+                    .and_modify(|dires| {
+                        dires.insert(chain_dire_seq, Directive::ChangeChainStatus(status.clone()));
+                    })
+                    .or_insert_with(|| {
+                        let mut dires = BTreeMap::new();
+                        dires.insert(chain_dire_seq, Directive::ChangeChainStatus(status.clone()));
+                        dires
+                    });
+            });
+        }
         Proposal::UpdateFee(fee) => {
-            todo!()
+            with_state_mut(|hub_state| {
+                let mut chain_dire_seq = 0;
+
+                if let Some(chain) = hub_state.chains.get_mut(&fee.dst_chain) {
+                    chain.latest_dire_seq += 1;
+                    chain_dire_seq = chain.latest_dire_seq;
+                }
+                //save fee in hub
+                hub_state
+                    .fees
+                    .entry((fee.dst_chain, fee.fee_token))
+                    .and_modify(|fee| fee = fee)
+                    .or_insert(fee);
+
+                hub_state
+                    .dire_queue
+                    .entry(fee.dst_chain.clone())
+                    .and_modify(|dires| {
+                        dires.insert(chain_dire_seq, Directive::UpdateFee(fee.clone()));
+                    })
+                    .or_insert_with(|| {
+                        let mut dires = BTreeMap::new();
+                        dires.insert(chain_dire_seq, Directive::UpdateFee(fee.clone()));
+                        dires
+                    });
+            });
         }
     }
     Ok(())
@@ -193,28 +358,33 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
 /// build update fee directive and push it to the directive queue
 /// 构建更新fee指令时，为所有支持该计费token的执行链，构建更新费指令；
 #[update(guard = "auth")]
-pub async fn update_fee(_fee: Fee) -> Result<(), Error> {
-    // check fee validate
-    // call build_directive
+pub async fn update_fee(fee: Fee) -> Result<(), Error> {
+    //TODO: check fee validate
+    //  build directive
+
+    let directive = Proposal::UpdateFee(fee);
+    build_directive(directive);
+
     Ok(())
 }
 
-/// route 或者 custom 查询与自身相关的指令信息；
-/// 指令队列自动清理已经轮询过的跟chain id相关的指令；
+/// query directives for chain id,this method calls by route and custom
 #[update(guard = "auth")]
 pub async fn query_directives(
-    chain_id: Chain,
+    chain_id: ChainId,
     start: u64,
     end: u64,
-) -> Result<Option<HashMap<Seq, Directive>>, Error> {
+) -> Result<Option<BTreeMap<Seq, Directive>>, Error> {
     with_state_mut(|hub_state| {
         match hub_state.dire_queue.get(&chain_id) {
             Some(d) => {
-                // clone
-                let diretives = d.clone();
+                let mut directives: BTreeMap<u64, Directive> = BTreeMap::new();
+                for (&seq, &ref dire) in d.range((Included(start), Included(end))) {
+                    directives.insert(seq, dire.clone());
+                }
                 // remove the directive for the chain id
-                hub_state.dire_queue.remove(&chain_id);
-                Ok(Some(diretives))
+                // hub_state.dire_queue.remove(&chain_id);
+                Ok(Some(directives))
             }
             None => Ok(None),
         }
@@ -224,32 +394,72 @@ pub async fn query_directives(
 /// check the ticket availability
 /// check chain and status
 /// check token and amount
-pub async fn check_ticket(_t: Ticket) -> Result<(), Error> {
+pub async fn check_ticket(_t: &Ticket) -> Result<(), Error> {
     Ok(())
 }
 
-/// 检查ticket 有效性，并将其放入目标链队列中
+/// check and push ticket into queue
 #[update(guard = "auth")]
 pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
-    check_ticket(ticket).await?;
+    // checke ticket avalidate
+    check_ticket(&ticket).await?;
+
+    // build tickets
+    with_state_mut(|hub_state| {
+        let mut chain_ticket_seq = 0;
+
+        if let Some(chain) = hub_state.chains.get_mut(&ticket.dst_chain) {
+            chain.latest_ticket_seq += 1;
+            chain_ticket_seq = chain.latest_ticket_seq;
+        }
+
+        hub_state
+            .ticket_queue
+            .entry(ticket.dst_chain.clone())
+            .and_modify(|tickets| {
+                tickets.insert(chain_ticket_seq, ticket.clone());
+            })
+            .or_insert_with(|| {
+                let mut tickets = BTreeMap::new();
+                tickets.insert(chain_ticket_seq, ticket.clone());
+                tickets
+            });
+    });
+    // keep amount
+    match ticket.action {
+        Action::Transfer => with_state_mut(|hub_state| {
+            hub_state
+                .cross_ledger
+                .transfers
+                .insert(ticket.clone().ticket_id, ticket.clone());
+        }),
+        Action::Redeem => with_state_mut(|hub_state| {
+            hub_state
+                .cross_ledger
+                .redeems
+                .insert(ticket.clone().ticket_id, ticket);
+        }),
+    }
+
     Ok(())
 }
 
-/// route 或者 custom 查询与自身相关的tickets；
-/// ticket队列自动清理已经查询过的跟chain id相关的tickets;
+/// query tickets for chain id,this method calls by route and custom
 #[update(guard = "auth")]
 pub fn query_tickets(
-    chain_id: Chain,
+    chain_id: ChainId,
     start: u64,
     end: u64,
-) -> Result<Option<HashMap<Seq, Ticket>>, Error> {
+) -> Result<Option<BTreeMap<Seq, Ticket>>, Error> {
     with_state_mut(|hub_state| {
         match hub_state.ticket_queue.get(&chain_id) {
             Some(t) => {
-                // clone
-                let tickets = t.clone();
+                let mut tickets: BTreeMap<u64, Ticket> = BTreeMap::new();
+                for (&seq, &ref ticket) in t.range((Included(start), Included(end))) {
+                    tickets.insert(seq, ticket.clone());
+                }
                 // remove the tickets for the chain id
-                hub_state.ticket_queue.remove(&chain_id);
+                // hub_state.ticket_queue.remove(&chain_id);
                 Ok(Some(tickets))
             }
             None => Ok(None),
