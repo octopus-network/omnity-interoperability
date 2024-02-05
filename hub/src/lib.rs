@@ -156,7 +156,7 @@ pub fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
                     "Chain id can not be empty".to_string(),
                 ));
             }
-            match statue.state {
+            match statue.status {
                 Status::Active | Status::Reinstate | Status::Suspend => ..,
                 _ => {
                     return Err(Error::ProposalError(
@@ -194,7 +194,7 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
                     latest_dire_seq: 0,
                     latest_ticket_seq: 0,
                 };
-                // save new chain
+                // just save new chain
                 hub_state
                     .chains
                     .insert(chain.chain_name.clone(), new_chain.clone());
@@ -210,11 +210,11 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
                             .iter_mut()
                             .filter(|(&ref chain_id, _)| *chain_id != new_chain.chain_name.clone())
                             .map(|(chain_id, existing_chain)| {
-                                // increases the new chain seq
                                 hub_state
                                     .dire_queue
                                     .entry(chain_id.to_string())
                                     .and_modify(|dires| {
+                                        // increases the new chain seq
                                         existing_chain.latest_dire_seq += 1;
                                         dires.insert(
                                             existing_chain.latest_dire_seq,
@@ -259,6 +259,7 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
                                         dires
                                     });
                             });
+
                         // update the new chain latest seq
                         hub_state
                             .chains
@@ -274,7 +275,7 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
         }
         Proposal::AddToken(token) => {
             with_state_mut(|hub_state| {
-                hub_state.chains.iter_mut().map(|(chain_id, chain_info)| {
+                let _ = hub_state.chains.iter_mut().map(|(chain_id, chain_info)| {
                     // chain_dire_seq = chain.latest_dire_seq;
                     hub_state
                         .dire_queue
@@ -294,30 +295,36 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
                     // save token info
                     hub_state
                         .tokens
-                        .insert((chain_id.to_string(), token.name), token)
+                        .insert((chain_id.to_string(), token.clone().name), token.clone());
                 });
             });
         }
-        Proposal::ChangeChainStatus(status) => {
+        Proposal::ChangeChainStatus(chain_status) => {
             with_state_mut(|hub_state| {
                 let mut chain_dire_seq = 0;
 
-                if let Some(chain) = hub_state.chains.get_mut(&status.chain) {
+                if let Some(chain) = hub_state.chains.get_mut(&chain_status.chain) {
                     chain.latest_dire_seq += 1;
                     chain_dire_seq = chain.latest_dire_seq;
                     //save chain status
-                    chain.chain_status = status;
+                    chain.chain_status = chain_status.clone().status;
                 }
 
                 hub_state
                     .dire_queue
-                    .entry(status.clone().chain)
+                    .entry(chain_status.clone().chain)
                     .and_modify(|dires| {
-                        dires.insert(chain_dire_seq, Directive::ChangeChainStatus(status.clone()));
+                        dires.insert(
+                            chain_dire_seq,
+                            Directive::ChangeChainStatus(chain_status.clone()),
+                        );
                     })
                     .or_insert_with(|| {
                         let mut dires = BTreeMap::new();
-                        dires.insert(chain_dire_seq, Directive::ChangeChainStatus(status.clone()));
+                        dires.insert(
+                            chain_dire_seq,
+                            Directive::ChangeChainStatus(chain_status.clone()),
+                        );
                         dires
                     });
             });
@@ -330,16 +337,17 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
                     chain.latest_dire_seq += 1;
                     chain_dire_seq = chain.latest_dire_seq;
                 }
-                //save fee in hub
+                // save fee in hub
                 hub_state
                     .fees
-                    .entry((fee.dst_chain, fee.fee_token))
-                    .and_modify(|fee| fee = fee)
-                    .or_insert(fee);
+                    .entry((fee.clone().dst_chain, fee.clone().fee_token))
+                    .and_modify(|f| *f = f.clone())
+                    .or_insert(fee.clone());
 
+                // build directive
                 hub_state
                     .dire_queue
-                    .entry(fee.dst_chain.clone())
+                    .entry(fee.clone().dst_chain)
                     .and_modify(|dires| {
                         dires.insert(chain_dire_seq, Directive::UpdateFee(fee.clone()));
                     })
@@ -360,10 +368,10 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
 #[update(guard = "auth")]
 pub async fn update_fee(fee: Fee) -> Result<(), Error> {
     //TODO: check fee validate
-    //  build directive
 
+    //  build directive
     let directive = Proposal::UpdateFee(fee);
-    build_directive(directive);
+    build_directive(directive).await?;
 
     Ok(())
 }
@@ -458,7 +466,7 @@ pub fn query_tickets(
                 for (&seq, &ref ticket) in t.range((Included(start), Included(end))) {
                     tickets.insert(seq, ticket.clone());
                 }
-                // remove the tickets for the chain id
+                //TODO: remove the tickets for the chain id
                 // hub_state.ticket_queue.remove(&chain_id);
                 Ok(Some(tickets))
             }

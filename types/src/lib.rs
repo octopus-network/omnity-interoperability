@@ -14,17 +14,17 @@ pub type TicketId = String;
 pub type Account = String;
 
 /// Directive Queue
-/// K: chainid and seq, V:  HashMap<Seq, Directive>
+/// K: ChainId, V:  BTreeMap<Seq, Directive>
 pub type DireQueue = HashMap<ChainId, BTreeMap<Seq, Directive>>;
 /// Ticket Queue
-/// K: chainid and seq, V: HashMap<Seq, Ticket>
+/// K: ChainId, V: BTreeMap<Seq, Ticket>
 pub type TicketQueue = HashMap<ChainId, BTreeMap<Seq, Ticket>>;
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub enum Proposal {
     AddChain(ChainInfo),
     AddToken(TokenMetaData),
-    ChangeChainStatus(Status),
+    ChangeChainStatus(ChainStatus),
     UpdateFee(Fee),
 }
 
@@ -128,11 +128,11 @@ impl core::fmt::Display for ChainInfo {
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
 pub struct ChainStatus {
     pub chain: ChainId,
-    pub state: Status,
+    pub status: Status,
 }
 impl core::fmt::Display for ChainStatus {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        write!(f, "chain:{},\nchain state:{:?}", self.chain, self.state,)
+        write!(f, "chain:{},\nchain state:{:?}", self.chain, self.status,)
     }
 }
 
