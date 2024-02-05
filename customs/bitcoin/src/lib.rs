@@ -1040,9 +1040,9 @@ pub fn build_unsigned_transaction(
 
     let btc_change_amount = if input_btc_amount < fee {
         let target_fee = fee - input_btc_amount;
-        btc_utxos = utxos_selection(target_fee as u128, available_btc_utxos, 1, |u| {
-            u.value as u128
-        });
+
+        // To avoid aggregation of btc utxo, use the greedy selection algorithm directly.
+        btc_utxos = greedy(target_fee as u128, available_btc_utxos, |u| u.value as u128);
         if btc_utxos.is_empty() {
             return Err(BuildTxError::NotEnoughGas);
         }

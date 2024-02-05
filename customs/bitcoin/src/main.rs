@@ -145,22 +145,22 @@ fn generate_ticket_status(req: GenTicketStatusRequest) -> GenTicketStatus {
 
 #[update]
 async fn update_runes_balance(args: UpdateRunesBlanceArgs) -> Result<(), UpdateRunesBalanceError> {
-    check_postcondition(updates::update_runes_balance::update_runes_balance(args).await)
+    check_postcondition(updates::update_runes_balance(args).await)
 }
 
 #[update]
 async fn update_btc_utxos() -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
-    check_postcondition(updates::update_btc_utxos::update_btc_utxos().await)
+    check_postcondition(updates::update_btc_utxos().await)
 }
 
 #[update]
 async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
-    check_postcondition(updates::generate_ticket::generate_ticket(args).await)
+    check_postcondition(updates::generate_ticket(args).await)
 }
 
 #[update(guard = "is_hub")]
 async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenError> {
-    check_postcondition(updates::release_token::release_token(args).await)
+    check_postcondition(updates::release_token(args).await)
 }
 
 #[update]

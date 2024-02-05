@@ -6,7 +6,7 @@ use crate::{
 use crate::{
     lifecycle::init::InitArgs,
     state::{
-        CustomState, Mode, ReleaseTokenRequest, ReleaseTokenStatus, RunesChangeOutput,
+        ChangeOutput, CkBtcMinterState, Mode, RetrieveBtcRequest, RetrieveBtcStatus,
         SubmittedBtcTransaction,
     },
 };
@@ -175,7 +175,7 @@ fn greedy_smoke_test() {
     let mut utxos: BTreeSet<Utxo> = (1..10u64).map(dummy_utxo_from_value).collect();
     assert_eq!(utxos.len(), 9_usize);
 
-    let res = greedy(15, &mut utxos);
+    let res = greedy(15, &mut utxos, |u| u.value as u128);
 
     assert_eq!(res[0].value, 9_u64);
     assert_eq!(res[1].value, 6_u64);
@@ -250,7 +250,7 @@ fn should_have_same_input_and_output_count() {
     assert_eq!(tx.outputs.len(), tx.inputs.len());
     assert_eq!(
         change_output,
-        RunesChangeOutput {
+        ChangeOutput {
             vout: 2,
             value: 1 + minter_fee
         }
@@ -318,7 +318,7 @@ fn test_min_change_amount() {
     );
     assert_eq!(
         change_output,
-        RunesChangeOutput {
+        ChangeOutput {
             vout: 2,
             value: 1 + minter_fee
         }
@@ -455,7 +455,7 @@ fn arb_account() -> impl Strategy<Value = Account> {
 fn arb_retrieve_btc_requests(
     amount: impl Strategy<Value = Satoshi>,
     num: impl Into<SizeRange>,
-) -> impl Strategy<Value = Vec<ReleaseTokenRequest>> {
+) -> impl Strategy<Value = Vec<RetrieveBtcRequest>> {
     let request_strategy = (
         amount,
         arb_address(),
@@ -466,7 +466,7 @@ fn arb_retrieve_btc_requests(
     )
         .prop_map(
             |(amount, address, block_index, received_at, provider, reimbursement_account)| {
-                ReleaseTokenRequest {
+                RetrieveBtcRequest {
                     amount,
                     address,
                     block_index,
@@ -533,7 +533,7 @@ proptest! {
 
         let original_utxos = utxos.clone();
 
-        let solution = greedy(target, &mut utxos);
+        let solution = greedy(target as u128, &mut utxos, |u| u.value as u128);
 
         prop_assert!(
             !solution.is_empty(),
@@ -568,7 +568,7 @@ proptest! {
         let total = utxos.iter().map(|u| u.value).sum::<u64>();
 
         let original_utxos = utxos.clone();
-        let solution = greedy(total + 1, &mut utxos);
+        let solution = greedy((total + 1) as u128, &mut utxos, |u| u.value as u128);
 
         prop_assert!(solution.is_empty());
         prop_assert_eq!(utxos, original_utxos);
@@ -776,7 +776,7 @@ proptest! {
             ]
         );
 
-        prop_assert_eq!(change_output, RunesChangeOutput { vout: 1, value: inputs_value - target + minter_fee });
+        prop_assert_eq!(change_output, ChangeOutput { vout: 1, value: inputs_value - target + minter_fee });
     }
 
     #[test]
@@ -818,10 +818,10 @@ proptest! {
         utxos_acc_idx in pvec((arb_utxo(5_000u64..1_000_000_000), 0..5usize), 10..20),
         accounts in pvec(arb_account(), 5),
     ) {
-        let mut state = CustomState::from(InitArgs {
+        let mut state = CkBtcMinterState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
-            release_min_amount: 0,
+            retrieve_btc_min_amount: 0,
             ledger_id: CanisterId::from_u64(42),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
@@ -842,10 +842,10 @@ proptest! {
         requests in arb_retrieve_btc_requests(5_000u64..1_000_000_000, 1..25),
         limit in 1..25usize,
     ) {
-        let mut state = CustomState::from(InitArgs {
+        let mut state = CkBtcMinterState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
-            release_min_amount: 5_000u64,
+            retrieve_btc_min_amount: 5_000u64,
             ledger_id: CanisterId::from_u64(42),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
@@ -862,13 +862,13 @@ proptest! {
         for req in requests {
             let block_index = req.block_index;
             state.push_back_pending_request(req);
-            prop_assert_eq!(state.release_token_status(block_index), ReleaseTokenStatus::Pending);
+            prop_assert_eq!(state.retrieve_btc_status(block_index), RetrieveBtcStatus::Pending);
         }
 
         let batch = state.build_batch(limit);
 
         for req in batch.iter() {
-            prop_assert_eq!(state.release_token_status(req.block_index), ReleaseTokenStatus::Unknown);
+            prop_assert_eq!(state.retrieve_btc_status(req.block_index), RetrieveBtcStatus::Unknown);
         }
 
         prop_assert!(batch.iter().map(|req| req.amount).sum::<u64>() <= available_amount);
@@ -885,10 +885,10 @@ proptest! {
         main_pkhash in uniform20(any::<u8>()),
         resubmission_chain_length in 1..=5,
     ) {
-        let mut state = CustomState::from(InitArgs {
+        let mut state = CkBtcMinterState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
-            release_min_amount: 100_000,
+            retrieve_btc_min_amount: 100_000,
             ledger_id: CanisterId::from_u64(42),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
@@ -903,7 +903,7 @@ proptest! {
         let fee_per_vbyte = 100_000u64;
 
         let (tx, change_output, used_utxos) = build_unsigned_transaction(
-            &mut state.available_runes_utxos,
+            &mut state.available_utxos,
             requests.iter().map(|r| (r.address.clone(), r.amount)).collect(),
             BitcoinAddress::P2wpkhV0(main_pkhash),
             fee_per_vbyte
@@ -915,9 +915,9 @@ proptest! {
         state.push_submitted_transaction(SubmittedBtcTransaction {
             requests: requests.clone(),
             txid: txids[0],
-            runes_utxos: used_utxos.clone(),
+            used_utxos: used_utxos.clone(),
             submitted_at,
-            runes_change_output: Some(change_output),
+            change_output: Some(change_output),
             fee_per_vbyte: Some(fee_per_vbyte),
         });
 
@@ -939,9 +939,9 @@ proptest! {
             state.replace_transaction(prev_txid, SubmittedBtcTransaction {
                 requests: requests.clone(),
                 txid: new_txid,
-                runes_utxos: used_utxos.clone(),
+                used_utxos: used_utxos.clone(),
                 submitted_at,
-                runes_change_output: Some(change_output),
+                change_output: Some(change_output),
                 fee_per_vbyte: Some(fee_per_vbyte),
             });
 
