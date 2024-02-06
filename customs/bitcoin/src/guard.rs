@@ -21,9 +21,11 @@ impl PendingRequests for GenerateTicketUpdates {
     fn pending_requests(state: &mut CustomState) -> u64 {
         state.generate_ticket_counter
     }
+
     fn incre_counter(state: &mut CustomState) {
         state.generate_ticket_counter += 1;
     }
+
     fn decre_counter(state: &mut CustomState) {
         state.generate_ticket_counter -= 1;
     }
@@ -34,9 +36,11 @@ impl PendingRequests for ReleaseTokenUpdates {
     fn pending_requests(state: &mut CustomState) -> u64 {
         state.release_token_counter
     }
+
     fn incre_counter(state: &mut CustomState) {
         state.release_token_counter += 1;
     }
+
     fn decre_counter(state: &mut CustomState) {
         state.release_token_counter -= 1;
     }
@@ -111,10 +115,6 @@ mod tests {
     };
     use candid::Principal;
     use ic_base_types::CanisterId;
-
-    fn test_principal(id: u64) -> Principal {
-        Principal::try_from_slice(&id.to_le_bytes()).unwrap()
-    }
 
     fn test_state_args() -> InitArgs {
         InitArgs {

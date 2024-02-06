@@ -507,6 +507,7 @@ dependencies = [
  "minicbor",
  "minicbor-derive",
  "num-traits",
+ "omnity_types",
  "proptest",
  "ripemd",
  "scopeguard",

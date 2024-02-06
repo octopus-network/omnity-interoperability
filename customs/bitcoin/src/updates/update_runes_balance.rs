@@ -39,7 +39,7 @@ pub async fn update_runes_balance(
 
     let result = {
         // TODO invoke hub to generate landing pass
-        if args.balance.rune_id != req.runes_id || args.balance.value != req.value {
+        if args.balance.runes_id != req.runes_id || args.balance.value != req.value {
             Err(UpdateRunesBalanceError::MismatchWithTicketReq)
         } else {
             Ok(())

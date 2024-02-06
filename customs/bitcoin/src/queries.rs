@@ -1,12 +1,12 @@
+use crate::state::RunesId;
 use candid::CandidType;
 use ic_btc_interface::Txid;
+use omnity_types::TicketId;
 use serde::Deserialize;
-
-use crate::state::{ReleaseId, RunesId};
 
 #[derive(CandidType, Deserialize)]
 pub struct ReleaseTokenStatusRequest {
-    pub release_id: ReleaseId,
+    pub ticket_id: TicketId,
 }
 
 #[derive(CandidType, Deserialize)]
@@ -22,6 +22,5 @@ pub struct EstimateFeeArg {
 
 #[derive(CandidType, Deserialize, Debug)]
 pub struct WithdrawalFee {
-    pub minter_fee: u64,
     pub bitcoin_fee: u64,
 }
