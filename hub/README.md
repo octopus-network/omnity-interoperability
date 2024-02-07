@@ -10,15 +10,15 @@ dfx deploy omnity_hub
 
 ```
 
-## set whilelist
+## set whitelist
 
 ```bash
 
 # add authed canister id
-dfx canister call omnity_hub set_whilelist '(principal "bkyz2-fmaaa-aaaaa-qaaaq-cai", true)'
+dfx canister call omnity_hub set_whitelist '(principal "bkyz2-fmaaa-aaaaa-qaaaq-cai", true)'
 
 # remove authed canister id
-dfx canister call omnity_hub set_whilelist '(principal "bkyz2-fmaaa-aaaaa-qaaaq-cai", false)'
+dfx canister call omnity_hub set_whitelist '(principal "bkyz2-fmaaa-aaaaa-qaaaq-cai", false)'
 ```
 
 ## add chain
