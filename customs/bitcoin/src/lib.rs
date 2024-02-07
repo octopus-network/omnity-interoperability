@@ -45,12 +45,6 @@ pub const MAX_REQUESTS_PER_BATCH: usize = 100;
 
 const BTC_TOKEN: &str = "BTC";
 
-/// The constants used to compute the minter's fee to cover its own cycle consumption.
-/// The values are set to cover the cycle cost on a 28-node subnet.
-pub const MINTER_FEE_PER_INPUT: u64 = 246;
-pub const MINTER_FEE_PER_OUTPUT: u64 = 7;
-pub const MINTER_FEE_CONSTANT: u64 = 52;
-
 /// The minimum fee increment for transaction resubmission.
 /// See https://en.bitcoin.it/wiki/Miner_fees#Relaying for more detail.
 pub const MIN_RELAY_FEE_PER_VBYTE: MillisatoshiPerByte = 1_000;
@@ -277,7 +271,7 @@ async fn submit_pending_requests() {
                 )) => {
                     for req in batch.iter() {
                         s.push_in_flight_request(
-                            req.release_id.clone(),
+                            req.ticket_id.clone(),
                             state::InFlightStatus::Signing,
                         );
                     }
@@ -298,7 +292,7 @@ async fn submit_pending_requests() {
                 Err(BuildTxError::NotEnoughFunds) | Err(BuildTxError::NotEnoughGas) => {
                     log!(P0,
                         "[submit_pending_requests]: not enough funds to unsigned transaction for requests at release ids [{}]",
-                        batch.iter().map(|req| hex::encode(req.release_id.clone())).collect::<Vec<_>>().join(",")
+                        batch.iter().map(|req| hex::encode(req.ticket_id.clone())).collect::<Vec<_>>().join(",")
                     );
 
                     s.push_from_in_flight_to_pending_requests(batch);
@@ -337,7 +331,7 @@ async fn submit_pending_requests() {
                     state::mutate_state(|s| {
                         for release_req in requests_guard.0.iter() {
                             s.push_in_flight_request(
-                                release_req.release_id.clone(),
+                                release_req.ticket_id.clone(),
                                 state::InFlightStatus::Sending { txid },
                             );
                         }
@@ -507,7 +501,7 @@ async fn finalize_requests() {
                 vout: tx.runes_change_output.vout,
             };
             let balance = RunesBalance {
-                rune_id: tx.runes_change_output.runes_id,
+                runes_id: tx.runes_change_output.runes_id,
                 value: tx.runes_change_output.value,
             };
             audit::update_runes_balance(s, outpoint, balance);
@@ -952,7 +946,7 @@ pub fn build_unsigned_transaction(
 
     let amount = outputs.iter().map(|(_, amount)| amount).sum::<u128>();
     let runes_utxo = utxos_selection(amount, available_runes_utxos, outputs.len(), |u| {
-        if u.runes.rune_id.eq(runes_id) {
+        if u.runes.runes_id.eq(runes_id) {
             u.runes.value
         } else {
             0
@@ -1040,9 +1034,9 @@ pub fn build_unsigned_transaction(
 
     let btc_change_amount = if input_btc_amount < fee {
         let target_fee = fee - input_btc_amount;
-        btc_utxos = utxos_selection(target_fee as u128, available_btc_utxos, 1, |u| {
-            u.value as u128
-        });
+
+        // To avoid aggregation of btc utxo, use the greedy selection algorithm directly.
+        btc_utxos = greedy(target_fee as u128, available_btc_utxos, |u| u.value as u128);
         if btc_utxos.is_empty() {
             return Err(BuildTxError::NotEnoughGas);
         }
@@ -1167,7 +1161,7 @@ pub fn estimate_fee(
             let mut utxos = available_utxos.clone();
             let selected_utxos =
                 utxos_selection(amount, &mut utxos, DEFAULT_OUTPUT_COUNT as usize - 1, |u| {
-                    if u.runes.rune_id.eq(&runes_id) {
+                    if u.runes.runes_id.eq(&runes_id) {
                         u.runes.value
                     } else {
                         0
@@ -1184,16 +1178,9 @@ pub fn estimate_fee(
     };
 
     let vsize = tx_vsize_estimate(input_count, DEFAULT_OUTPUT_COUNT);
-    let minter_fee = MINTER_FEE_PER_INPUT * input_count
-        + MINTER_FEE_PER_OUTPUT * DEFAULT_OUTPUT_COUNT
-        + MINTER_FEE_CONSTANT;
     // We subtract one from the outputs because the minter's output
     // does not participate in fees distribution.
     let bitcoin_fee =
         vsize * median_fee_millisatoshi_per_vbyte / 1000 / (DEFAULT_OUTPUT_COUNT - 1).max(1);
-    let minter_fee = minter_fee / (DEFAULT_OUTPUT_COUNT - 1).max(1);
-    WithdrawalFee {
-        minter_fee,
-        bitcoin_fee,
-    }
+    WithdrawalFee { bitcoin_fee }
 }

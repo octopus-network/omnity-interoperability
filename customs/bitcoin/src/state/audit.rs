@@ -57,7 +57,7 @@ pub fn finalize_ticket_request(state: &mut CustomState, request: &GenTicketReque
             vout,
         },
         RunesBalance {
-            rune_id: request.runes_id,
+            runes_id: request.runes_id,
             value: request.value,
         },
     );
@@ -86,7 +86,7 @@ pub fn remove_ticket_request(
 pub fn sent_transaction(state: &mut CustomState, tx: SubmittedBtcTransaction) {
     record_event(&Event::SentBtcTransaction {
         runes_id: tx.runes_id.clone(),
-        request_release_ids: tx.requests.iter().map(|r| r.release_id.clone()).collect(),
+        request_release_ids: tx.requests.iter().map(|r| r.ticket_id.clone()).collect(),
         txid: tx.txid,
         runes_utxos: tx.runes_utxos.clone(),
         btc_utxos: tx.btc_utxos.clone(),

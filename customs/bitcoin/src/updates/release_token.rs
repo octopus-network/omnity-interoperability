@@ -1,18 +1,19 @@
 use crate::guard::release_token_guard;
-use crate::state::{ReleaseId, ReleaseTokenStatus};
+use crate::state::ReleaseTokenStatus;
 use crate::tasks::{schedule_now, TaskType};
 use crate::{
     address::{BitcoinAddress, ParseAddressError},
     state::{self, mutate_state, read_state, ReleaseTokenRequest, RunesId},
 };
 use candid::{CandidType, Deserialize};
+use omnity_types::TicketId;
 
 const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 
 /// The arguments of the [release_token] endpoint.
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct ReleaseTokenArgs {
-    pub release_id: ReleaseId,
+    pub ticket_id: TicketId,
     pub rune_id: RunesId,
     // amount to retrieve
     pub amount: u128,
@@ -69,7 +70,7 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
         ));
     }
 
-    read_state(|s| match s.release_token_status(&args.release_id) {
+    read_state(|s| match s.release_token_status(&args.ticket_id) {
         ReleaseTokenStatus::Pending
         | ReleaseTokenStatus::Signing
         | ReleaseTokenStatus::Sending(_)
@@ -79,7 +80,7 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
     })?;
 
     let request = ReleaseTokenRequest {
-        release_id: args.release_id.clone(),
+        ticket_id: args.ticket_id.clone(),
         runes_id: args.rune_id,
         amount: args.amount,
         address: parsed_address,
@@ -90,7 +91,7 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
 
     assert_eq!(
         crate::state::ReleaseTokenStatus::Pending,
-        read_state(|s| s.release_token_status(&args.release_id))
+        read_state(|s| s.release_token_status(&args.ticket_id))
     );
 
     schedule_now(TaskType::ProcessLogic);

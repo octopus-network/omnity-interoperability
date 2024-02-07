@@ -3,6 +3,7 @@ use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::{CustomState, ReleaseTokenRequest, RunesChangeOutput, SubmittedBtcTransaction};
 use ic_btc_interface::{OutPoint, Txid, Utxo};
+use omnity_types::TicketId;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -79,7 +80,7 @@ pub enum Event {
         runes_id: RunesId,
         /// Release id list of release_token requests that caused the transaction.
         #[serde(rename = "requests")]
-        request_release_ids: Vec<Vec<u8>>,
+        request_release_ids: Vec<TicketId>,
         /// The Txid of the Bitcoin transaction.
         #[serde(rename = "txid")]
         txid: Txid,
@@ -187,7 +188,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, Re
                 state.update_runes_balance(
                     OutPoint { txid, vout },
                     RunesBalance {
-                        rune_id: request.runes_id,
+                        runes_id: request.runes_id,
                         value: request.value,
                     },
                 );
