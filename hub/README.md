@@ -4,6 +4,7 @@
 ```bash
 # start ic local network
 dfx start --clean
+
 # open other terminal
 dfx deploy omnity_hub
 
@@ -74,6 +75,7 @@ dfx canister call omnity_hub send_ticket '(record { ticket_id = "f8aee1cc-db7a-4
 
 ```bash
 dfx canister call omnity_hub query_tickets '("Near",0:nat64,5:nat64)'
+
 dfx canister call omnity_hub query_tickets '("Bitcoin",0:nat64,5:nat64)'
 
 ```

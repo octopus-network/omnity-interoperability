@@ -8,7 +8,7 @@ use candid::types::principal::Principal;
 use candid::CandidType;
 
 use auth::auth;
-use ic_cdk::{init, post_upgrade, pre_upgrade, update};
+use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 use log::debug;
@@ -158,7 +158,7 @@ pub async fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
                 ));
             }
             //TODO: check the issue chain must exsiting and not suspend!
-             //TODO: check repetitive
+            //TODO: check repetitive
             Ok(format!("The AddToken proposal is: {}", token))
         }
         Proposal::ChangeChainState(chain_state) => {
@@ -377,8 +377,7 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
 
 /// check fee validate
 /// build update fee directive and push it to the directive queue
-/// 构建更新fee指令时，为所有支持该计费token的执行链，构建更新费指令；
-#[update(guard = "auth")]
+#[query(guard = "auth")]
 pub async fn update_fee(fee: Fee) -> Result<(), Error> {
     //TODO: check fee validate
     // fee.dst_chain must be execution chain
@@ -391,7 +390,7 @@ pub async fn update_fee(fee: Fee) -> Result<(), Error> {
 }
 
 /// query directives for chain id,this method calls by route and custom
-#[update(guard = "auth")]
+#[query(guard = "auth")]
 pub async fn query_directives(
     chain_id: ChainId,
     start: u64,
