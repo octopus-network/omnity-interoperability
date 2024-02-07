@@ -9,22 +9,23 @@ pub type Seq = u64;
 pub type Timestamp = u64;
 pub type Directive = Proposal;
 pub type ChainId = String;
+pub type DstChain = ChainId;
 pub type TokenId = String;
 pub type TicketId = String;
 pub type Account = String;
 
 /// Directive Queue
-/// K: ChainId, V:  BTreeMap<Seq, Directive>
-pub type DireQueue = HashMap<ChainId, BTreeMap<Seq, Directive>>;
+/// K: DstChain, V:  BTreeMap<Seq, Directive>
+pub type DireQueue = HashMap<DstChain, BTreeMap<Seq, Directive>>;
 /// Ticket Queue
-/// K: ChainId, V: BTreeMap<Seq, Ticket>
-pub type TicketQueue = HashMap<ChainId, BTreeMap<Seq, Ticket>>;
+/// K: DstChain, V: BTreeMap<Seq, Ticket>
+pub type TicketQueue = HashMap<DstChain, BTreeMap<Seq, Ticket>>;
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub enum Proposal {
     AddChain(ChainInfo),
     AddToken(TokenMetaData),
-    ChangeChainStatus(ChainStatus),
+    ChangeChainState(ChainState),
     UpdateFee(Fee),
 }
 
@@ -69,7 +70,7 @@ pub enum ChainType {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
-pub enum Status {
+pub enum State {
     #[default]
     Active,
     Suspend,
@@ -85,7 +86,7 @@ pub enum Action {
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub struct Fee {
-    pub dst_chain: ChainId,
+    pub dst_chain_id: ChainId,
     // quote currency or token
     pub fee_token: TokenId,
     // base fee = 1 wei
@@ -99,7 +100,7 @@ impl core::fmt::Display for Fee {
         write!(
             f,
             "dst chain:{},\nfee token:{},\nfactor:{}",
-            self.dst_chain, self.fee_token, self.factor,
+            self.dst_chain_id, self.fee_token, self.factor,
         )
     }
 }
@@ -108,7 +109,7 @@ impl core::fmt::Display for Fee {
 pub struct ChainInfo {
     pub chain_name: ChainId,
     pub chain_type: ChainType,
-    pub chain_state: Status,
+    pub chain_state: State,
     // Optional: settlement chain export contract address
     // pub export_address: Option<String>,
     // Optional: execution chain port contract address
@@ -126,13 +127,13 @@ impl core::fmt::Display for ChainInfo {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
-pub struct ChainStatus {
-    pub chain: ChainId,
-    pub status: Status,
+pub struct ChainState {
+    pub chain_id: ChainId,
+    pub state: State,
 }
-impl core::fmt::Display for ChainStatus {
+impl core::fmt::Display for ChainState {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        write!(f, "chain:{},\nchain state:{:?}", self.chain, self.status,)
+        write!(f, "chain:{},\nchain state:{:?}", self.chain_id, self.state,)
     }
 }
 
