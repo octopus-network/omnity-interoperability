@@ -29,7 +29,7 @@ use serde::Serialize;
 const MAX_FINALIZED_REQUESTS: usize = 100;
 
 thread_local! {
-    static __STATE: RefCell<Option<CustomState>> = RefCell::default();
+    static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
 }
 
 // A pending release token request
@@ -227,7 +227,7 @@ pub struct Overdraft(pub u64);
 ///
 /// Every piece of state of the Minter should be stored as field of this struct.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
-pub struct CustomState {
+pub struct CustomsState {
     /// The bitcoin network that the minter will connect to
     pub btc_network: Network,
 
@@ -249,12 +249,12 @@ pub struct CustomState {
 
     pub release_token_counter: u64,
 
-    /// Minimum amount of token that can be released
-    pub release_min_amount: u128,
-
     pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
 
     pub finalized_gen_ticket_requests: VecDeque<FinalizedTicket>,
+
+    // Start index of query tickets from hub
+    pub next_release_ticket_index: u64,
 
     /// Release_token requests that are waiting to be served, sorted by
     /// received_at.
@@ -310,13 +310,12 @@ pub struct CustomState {
     pub last_fee_per_vbyte: Vec<u64>,
 }
 
-impl CustomState {
+impl CustomsState {
     pub fn reinit(
         &mut self,
         InitArgs {
             btc_network,
             ecdsa_key_name,
-            release_min_amount,
             max_time_in_queue_nanos,
             min_confirmations,
             mode,
@@ -325,7 +324,6 @@ impl CustomState {
     ) {
         self.btc_network = btc_network.into();
         self.ecdsa_key_name = ecdsa_key_name;
-        self.release_min_amount = release_min_amount;
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         self.mode = mode;
         self.hub_principal = hub_principal;
@@ -337,16 +335,12 @@ impl CustomState {
     pub fn upgrade(
         &mut self,
         UpgradeArgs {
-            release_min_amount,
             max_time_in_queue_nanos,
             min_confirmations,
             mode,
             hub_principal,
         }: UpgradeArgs,
     ) {
-        if let Some(min_amount) = release_min_amount {
-            self.release_min_amount = min_amount;
-        }
         if let Some(max_time_in_queue_nanos) = max_time_in_queue_nanos {
             self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         }
@@ -594,9 +588,9 @@ impl CustomState {
         batch
     }
 
-    /// Returns the total number of all retrieve_btc requests that we haven't
+    /// Returns the total number of all release_token requests that we haven't
     /// finalized yet.
-    pub fn count_incomplete_retrieve_btc_requests(&self) -> usize {
+    pub fn count_incomplete_release_token_requests(&self) -> usize {
         self.pending_release_token_requests.len()
             + self.requests_in_flight.len()
             + self
@@ -968,7 +962,7 @@ fn as_sorted_vec<T, K: Ord>(values: impl Iterator<Item = T>, key: impl Fn(&T) ->
     v
 }
 
-impl From<InitArgs> for CustomState {
+impl From<InitArgs> for CustomsState {
     fn from(args: InitArgs) -> Self {
         Self {
             btc_network: args.btc_network.into(),
@@ -980,8 +974,8 @@ impl From<InitArgs> for CustomState {
             max_time_in_queue_nanos: args.max_time_in_queue_nanos,
             generate_ticket_counter: 0,
             release_token_counter: 0,
-            release_min_amount: args.release_min_amount,
             pending_gen_ticket_requests: Default::default(),
+            next_release_ticket_index: 0,
             pending_release_token_requests: Default::default(),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
@@ -1010,7 +1004,7 @@ impl From<InitArgs> for CustomState {
 /// Panics if there is no state.
 pub fn take_state<F, R>(f: F) -> R
 where
-    F: FnOnce(CustomState) -> R,
+    F: FnOnce(CustomsState) -> R,
 {
     __STATE.with(|s| f(s.take().expect("State not initialized!")))
 }
@@ -1020,7 +1014,7 @@ where
 /// Panics if there is no state.
 pub fn mutate_state<F, R>(f: F) -> R
 where
-    F: FnOnce(&mut CustomState) -> R,
+    F: FnOnce(&mut CustomsState) -> R,
 {
     __STATE.with(|s| f(s.borrow_mut().as_mut().expect("State not initialized!")))
 }
@@ -1030,13 +1024,13 @@ where
 /// Panics if there is no state.
 pub fn read_state<F, R>(f: F) -> R
 where
-    F: FnOnce(&CustomState) -> R,
+    F: FnOnce(&CustomsState) -> R,
 {
     __STATE.with(|s| f(s.borrow().as_ref().expect("State not initialized!")))
 }
 
 /// Replaces the current state.
-pub fn replace_state(state: CustomState) {
+pub fn replace_state(state: CustomsState) {
     __STATE.with(|s| {
         *s.borrow_mut() = Some(state);
     });

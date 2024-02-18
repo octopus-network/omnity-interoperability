@@ -14,7 +14,7 @@ const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct ReleaseTokenArgs {
     pub ticket_id: TicketId,
-    pub rune_id: RunesId,
+    pub runes_id: RunesId,
     // amount to retrieve
     pub amount: u128,
     // address where to send tokens
@@ -28,21 +28,11 @@ pub enum ReleaseTokenError {
 
     AlreadyProcessed,
 
-    /// The withdrawal amount is too low.
-    AmountTooLow(u128),
-
     /// The bitcoin address is not valid.
     MalformedAddress(String),
 
     /// There are too many concurrent requests, retry later.
     TemporarilyUnavailable(String),
-
-    /// A generic error reserved for future extensions.
-    GenericError {
-        error_message: String,
-        /// See the [ErrorCode] enum above for the list of possible values.
-        error_code: u64,
-    },
 }
 
 impl From<ParseAddressError> for ReleaseTokenError {
@@ -57,14 +47,12 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
 
     let _guard = release_token_guard();
 
-    let (min_amount, btc_network) = read_state(|s| (s.release_min_amount, s.btc_network));
-    if args.amount < min_amount {
-        return Err(ReleaseTokenError::AmountTooLow(min_amount));
-    }
+    let btc_network = read_state(|s| s.btc_network);
 
     let parsed_address = BitcoinAddress::parse(&args.address, btc_network)?;
-    if read_state(|s| s.count_incomplete_retrieve_btc_requests() >= MAX_CONCURRENT_PENDING_REQUESTS)
-    {
+    if read_state(|s| {
+        s.count_incomplete_release_token_requests() >= MAX_CONCURRENT_PENDING_REQUESTS
+    }) {
         return Err(ReleaseTokenError::TemporarilyUnavailable(
             "too many pending release_token requests".to_string(),
         ));
@@ -81,7 +69,7 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
 
     let request = ReleaseTokenRequest {
         ticket_id: args.ticket_id.clone(),
-        runes_id: args.rune_id,
+        runes_id: args.runes_id,
         amount: args.amount,
         address: parsed_address,
         received_at: ic_cdk::api::time(),

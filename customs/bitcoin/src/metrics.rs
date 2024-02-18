@@ -3,7 +3,7 @@ use std::cell::Cell;
 
 thread_local! {
     pub static GET_UTXOS_CLIENT_CALLS: Cell<u64> = Cell::default();
-    pub static GET_UTXOS_MINTER_CALLS: Cell<u64> = Cell::default();
+    pub static GET_UTXOS_CUSTOM_CALLS: Cell<u64> = Cell::default();
 }
 
 pub fn encode_metrics(
@@ -99,12 +99,6 @@ pub fn encode_metrics(
     )?;
 
     metrics.encode_gauge(
-        "ckbtc_minter_min_retrievable_amount",
-        state::read_state(|s| s.release_min_amount) as f64,
-        "Minimum number of ckBTC a user can withdraw.",
-    )?;
-
-    metrics.encode_gauge(
         "ckbtc_minter_min_confirmations",
         state::read_state(|s| s.min_confirmations) as f64,
         "Min number of confirmations on BTC network",
@@ -127,7 +121,7 @@ pub fn encode_metrics(
         )?
         .value(
             &[("source", "minter")],
-            GET_UTXOS_MINTER_CALLS.with(|cell| cell.get()) as f64,
+            GET_UTXOS_CUSTOM_CALLS.with(|cell| cell.get()) as f64,
         )?;
 
     metrics.encode_gauge(
