@@ -859,7 +859,6 @@ impl CustomsState {
         tx_id: Txid,
     ) -> Vec<Utxo> {
         let maybe_existing_utxos = self.utxos_state_destinations.get(destination);
-        // let maybe_finalized_utxos = self.finalized_utxos.get(&account.owner);
         utxos.retain(|utxo| {
             !maybe_existing_utxos
                 .map(|utxos| utxos.contains(utxo))

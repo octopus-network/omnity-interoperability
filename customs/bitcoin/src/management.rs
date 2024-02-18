@@ -14,7 +14,7 @@ use ic_ic00_types::{
     DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
     SignWithECDSAArgs, SignWithECDSAReply,
 };
-use omnity_types::{self, Chain, Seq, Ticket};
+use omnity_types::{self, ChainId, Seq, Ticket};
 use serde::de::DeserializeOwned;
 use std::fmt;
 
@@ -293,17 +293,37 @@ pub async fn sign_with_ecdsa(
     Ok(reply.signature)
 }
 
+pub async fn send_tickets(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
+    let resp: (Result<(), omnity_types::Error>,) =
+        ic_cdk::api::call::call_with_payment(hub_principal, "send_tickets", (ticket,), 0)
+            .await
+            .map_err(|(code, message)| CallError {
+                method: "send_ticket".to_string(),
+                reason: Reason::from_reject(code, message),
+            })?;
+    let data = resp.0.map_err(|err| CallError {
+        method: "send_tickets".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
+    Ok(data)
+}
+
 pub async fn query_tickets(
     hub_principal: Principal,
-    chain_id: Chain,
+    chain_id: ChainId,
     start: u64,
     end: u64,
-) -> Result<Result<Vec<(Seq, Ticket)>, omnity_types::Error>, CallError> {
-    let (res,) = ic_cdk::api::call::call(hub_principal, "query_tickets", (chain_id, start, end))
-        .await
-        .map_err(|(code, message)| CallError {
-            method: "query_tickets".to_string(),
-            reason: Reason::from_reject(code, message),
-        })?;
-    Ok(res)
+) -> Result<Vec<(Seq, Ticket)>, CallError> {
+    let resp: (Result<Vec<(Seq, Ticket)>, omnity_types::Error>,) =
+        ic_cdk::api::call::call(hub_principal, "query_tickets", (chain_id, start, end))
+            .await
+            .map_err(|(code, message)| CallError {
+                method: "query_tickets".to_string(),
+                reason: Reason::from_reject(code, message),
+            })?;
+    let data = resp.0.map_err(|err| CallError {
+        method: "query_tickets".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
+    Ok(data)
 }

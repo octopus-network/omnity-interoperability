@@ -212,19 +212,7 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
 async fn submit_release_token_requests() {
     let (hub_principal, start) = read_state(|s| (s.hub_principal, s.next_release_ticket_index));
     let end = start + BATCH_QUERY_TICKETS_COUNT;
-    let tickets_resp =
-        match management::query_tickets(hub_principal, String::from(BTC_TOKEN), start, end).await {
-            Err(call_err) => {
-                log!(
-                    P0,
-                    "[submit_release_token_requests] failed to query tickets: {}",
-                    call_err
-                );
-                return;
-            }
-            Ok(data) => data,
-        };
-    match tickets_resp {
+    match management::query_tickets(hub_principal, String::from(BTC_TOKEN), start, end).await {
         Err(err) => {
             log!(
                 P0,
@@ -239,19 +227,23 @@ async fn submit_release_token_requests() {
                 let amount = if let Ok(amount) = u128::from_str_radix(ticket.amount.as_str(), 10) {
                     amount
                 } else {
+                    // Shouldn't happen, the hub must ensure the correctness of the data.
                     log!(
                         P0,
                         "[submit_release_token_requests]: failed to parse amount of ticket"
                     );
+                    next_index = index + 1;
                     continue;
                 };
-                let runes_id = if let Ok(runes_id) = u128::from_str_radix(ticket.token.as_str(), 10) {
+                let runes_id = if let Ok(runes_id) = u128::from_str_radix(ticket.token.as_str(), 10)
+                {
                     runes_id
                 } else {
                     log!(
                         P0,
                         "[submit_release_token_requests]: failed to parse runes id of ticket"
                     );
+                    next_index = index + 1;
                     continue;
                 };
                 let args = ReleaseTokenArgs {
