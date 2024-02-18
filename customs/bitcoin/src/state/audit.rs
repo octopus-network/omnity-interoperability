@@ -1,19 +1,19 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomState, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest,
+    eventlog::Event, CustomsState, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest,
     ReleaseTokenRequest, RunesBalance, SubmittedBtcTransaction,
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 
-pub fn accept_release_token_request(state: &mut CustomState, request: ReleaseTokenRequest) {
+pub fn accept_release_token_request(state: &mut CustomsState, request: ReleaseTokenRequest) {
     record_event(&Event::AcceptedReleaseTokenRequest(request.clone()));
     state.push_back_pending_request(request);
 }
 
-pub fn accept_generate_ticket_request(state: &mut CustomState, request: GenTicketRequest) {
+pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTicketRequest) {
     record_event(&&Event::AcceptedGenTicketRequest(request.clone()));
     state
         .pending_gen_ticket_requests
@@ -21,7 +21,7 @@ pub fn accept_generate_ticket_request(state: &mut CustomState, request: GenTicke
 }
 
 pub fn add_utxos(
-    state: &mut CustomState,
+    state: &mut CustomsState,
     destination: Destination,
     utxos: Vec<Utxo>,
     is_runes: bool,
@@ -35,7 +35,7 @@ pub fn add_utxos(
     state.add_utxos(destination, utxos, is_runes);
 }
 
-pub fn update_runes_balance(state: &mut CustomState, outpoint: OutPoint, balance: RunesBalance) {
+pub fn update_runes_balance(state: &mut CustomsState, outpoint: OutPoint, balance: RunesBalance) {
     record_event(&Event::ReceivedRunesToken {
         outpoint: outpoint.clone(),
         balance: balance.clone(),
@@ -44,7 +44,7 @@ pub fn update_runes_balance(state: &mut CustomState, outpoint: OutPoint, balance
     state.update_runes_balance(outpoint, balance);
 }
 
-pub fn finalize_ticket_request(state: &mut CustomState, request: &GenTicketRequest, vout: u32) {
+pub fn finalize_ticket_request(state: &mut CustomsState, request: &GenTicketRequest, vout: u32) {
     record_event(&Event::FinalizedTicketRequest {
         txid: request.tx_id,
         vout,
@@ -68,7 +68,7 @@ pub fn finalize_ticket_request(state: &mut CustomState, request: &GenTicketReque
 }
 
 pub fn remove_ticket_request(
-    state: &mut CustomState,
+    state: &mut CustomsState,
     request: &GenTicketRequest,
     status: FinalizedTicketStatus,
 ) {
@@ -83,7 +83,7 @@ pub fn remove_ticket_request(
     });
 }
 
-pub fn sent_transaction(state: &mut CustomState, tx: SubmittedBtcTransaction) {
+pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransaction) {
     record_event(&Event::SentBtcTransaction {
         runes_id: tx.runes_id.clone(),
         request_release_ids: tx.requests.iter().map(|r| r.ticket_id.clone()).collect(),
@@ -99,13 +99,13 @@ pub fn sent_transaction(state: &mut CustomState, tx: SubmittedBtcTransaction) {
     state.push_submitted_transaction(tx);
 }
 
-pub fn confirm_transaction(state: &mut CustomState, txid: &Txid) {
+pub fn confirm_transaction(state: &mut CustomsState, txid: &Txid) {
     record_event(&Event::ConfirmedBtcTransaction { txid: *txid });
     state.finalize_transaction(txid);
 }
 
 pub fn replace_transaction(
-    state: &mut CustomState,
+    state: &mut CustomsState,
     old_txid: Txid,
     new_tx: SubmittedBtcTransaction,
 ) {

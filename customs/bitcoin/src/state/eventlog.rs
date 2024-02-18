@@ -1,7 +1,7 @@
 use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
-use crate::state::{CustomState, ReleaseTokenRequest, RunesChangeOutput, SubmittedBtcTransaction};
+use crate::state::{CustomsState, ReleaseTokenRequest, RunesChangeOutput, SubmittedBtcTransaction};
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use omnity_types::TicketId;
 use serde::{Deserialize, Serialize};
@@ -146,9 +146,9 @@ pub enum ReplayLogError {
 }
 
 /// Reconstructs the minter state from an event log.
-pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomState, ReplayLogError> {
+pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, ReplayLogError> {
     let mut state = match events.next() {
-        Some(Event::Init(args)) => CustomState::from(args),
+        Some(Event::Init(args)) => CustomsState::from(args),
         Some(evt) => {
             return Err(ReplayLogError::InconsistentLog(format!(
                 "The first event is not Init: {:?}",

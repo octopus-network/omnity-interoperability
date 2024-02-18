@@ -1,69 +1,40 @@
-// use assert_matches::assert_matches;
-// use bitcoin::util::psbt::serialize::Deserialize;
-// use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
-// use bitcoin_custom::lifecycle::init::{CustomArg, InitArgs as CkbtcMinterInitArgs};
-// use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
-// use bitcoin_custom::queries::{EstimateFeeArg, ReleaseTokenStatusRequest, WithdrawalFee};
-// use bitcoin_custom::state::{
-//     BtcRetrievalStatusV2, Mode, ReimburseDepositTask, ReimbursedDeposit,
-//     ReimbursementReason::{CallFailed, TaintedDestination},
-//     ReleaseTokenStatus, RetrieveBtcStatusV2,
-// };
-// use bitcoin_custom::updates::get_btc_address::GetBtcAddressArgs;
-// use bitcoin_custom::updates::retrieve_btc::{
-//     RetrieveBtcError, RetrieveBtcOk, RetrieveBtcWithApprovalArgs, RetrieveBtcWithApprovalError,
-// };
-// use bitcoin_custom::updates::update_balance::{
-//     PendingUtxo, UpdateBalanceArgs, UpdateBalanceError, UtxoStatus,
-// };
-// use bitcoin_custom::{
-//     CustomInfo, Log, CKBTC_LEDGER_MEMO_SIZE, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY,
-// };
-// use candid::{Decode, Encode, Nat, Principal};
-// use ic_base_types::{CanisterId, PrincipalId};
-// use ic_bitcoin_canister_mock::{OutPoint, PushUtxoToAddress, Utxo};
-// use ic_btc_interface::{Network, Txid};
-// use ic_canisters_http_types::{HttpRequest, HttpResponse};
-// use ic_ckbtc_kyt::{InitArg as KytInitArg, KytMode, LifecycleArg, SetApiKeyArg};
-// use ic_icrc1_ledger::{InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument};
-// use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
-// use ic_test_utilities_load_wasm::load_wasm;
-// use icrc_ledger_types::icrc1::account::Account;
-// use icrc_ledger_types::icrc1::transfer::{TransferArg, TransferError};
-// use icrc_ledger_types::icrc2::approve::{ApproveArgs, ApproveError};
-// use icrc_ledger_types::icrc3::transactions::{GetTransactionsRequest, GetTransactionsResponse};
-// use std::collections::BTreeMap;
-// use std::path::PathBuf;
-// use std::str::FromStr;
-// use std::time::Duration;
+use assert_matches::assert_matches;
+use bitcoin::util::psbt::serialize::Deserialize;
+use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
+use bitcoin_custom::lifecycle::init::{CustomArg, InitArgs as CkbtcMinterInitArgs};
+use bitcoin_custom::lifecycle::{init::InitArgs, upgrade::UpgradeArgs};
+use bitcoin_custom::queries::{EstimateFeeArg, ReleaseTokenStatusRequest, WithdrawalFee};
+use bitcoin_custom::state::CustomsState;
+use bitcoin_custom::state::{
+    Mode,
+    ReleaseTokenStatus,
+};
+use bitcoin_custom::updates::get_btc_address::GetBtcAddressArgs;
+use bitcoin_custom::{CustomsInfo, Log, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
+use candid::{Decode, Encode, Nat, Principal};
+use ic_base_types::{CanisterId, PrincipalId};
+use ic_bitcoin_canister_mock::{OutPoint, PushUtxoToAddress, Utxo};
+use ic_btc_interface::{Network, Txid};
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
+use ic_test_utilities_load_wasm::load_wasm;
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::Duration;
 
-// const KYT_FEE: u64 = 2_000;
-// const TRANSFER_FEE: u64 = 10;
-// const MIN_CONFIRMATIONS: u32 = 12;
-// const MAX_TIME_IN_QUEUE: Duration = Duration::from_secs(10);
-// const WITHDRAWAL_ADDRESS: &str = "bc1q34aq5drpuwy3wgl9lhup9892qp6svr8ldzyy7c";
+const TRANSFER_FEE: u64 = 10;
+const MIN_CONFIRMATIONS: u32 = 12;
+const MAX_TIME_IN_QUEUE: Duration = Duration::from_secs(10);
+const WITHDRAWAL_ADDRESS: &str = "bc1q34aq5drpuwy3wgl9lhup9892qp6svr8ldzyy7c";
 
-// fn ledger_wasm() -> Vec<u8> {
-//     let path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
-//         .parent()
-//         .unwrap()
-//         .parent()
-//         .unwrap()
-//         .parent()
-//         .unwrap()
-//         .join("rosetta-api")
-//         .join("icrc1")
-//         .join("ledger");
-//     load_wasm(path, "ic-icrc1-ledger", &[])
-// }
-
-// fn minter_wasm() -> Vec<u8> {
-//     load_wasm(
-//         std::env::var("CARGO_MANIFEST_DIR").unwrap(),
-//         "ic-ckbtc-minter",
-//         &[],
-//     )
-// }
+fn customs_wasm() -> Vec<u8> {
+    load_wasm(
+        std::env::var("CARGO_MANIFEST_DIR").unwrap(),
+        "bitcoin-customs",
+        &[],
+    )
+}
 
 // fn bitcoin_mock_wasm() -> Vec<u8> {
 //     load_wasm(
@@ -76,45 +47,22 @@
 //     )
 // }
 
-// fn kyt_wasm() -> Vec<u8> {
-//     load_wasm(
-//         PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
-//             .parent()
-//             .unwrap()
-//             .join("kyt"),
-//         "ic-ckbtc-kyt",
-//         &[],
-//     )
-// }
-
-// fn install_ledger(env: &StateMachine) -> CanisterId {
-//     let args = LedgerArgument::Init(
-//         LedgerInitArgsBuilder::for_tests()
-//             .with_transfer_fee(0_u8)
-//             .build(),
-//     );
-//     env.install_canister(ledger_wasm(), Encode!(&args).unwrap(), None)
-//         .unwrap()
-// }
-
-// fn install_minter(env: &StateMachine, ledger_id: CanisterId) -> CanisterId {
-//     let args = CkbtcMinterInitArgs {
-//         btc_network: Network::Regtest.into(),
-//         // The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
-//         // a testing key for testnet and mainnet
-//         ecdsa_key_name: "dfx_test_key".parse().unwrap(),
-//         release_min_amount: 2000,
-//         ledger_id,
-//         max_time_in_queue_nanos: 0,
-//         min_confirmations: Some(1),
-//         mode: Mode::GeneralAvailability,
-//         kyt_fee: None,
-//         kyt_principal: Some(CanisterId::from(0)),
-//     };
-//     let minter_arg = CustomArg::Init(args);
-//     env.install_canister(minter_wasm(), Encode!(&minter_arg).unwrap(), None)
-//         .unwrap()
-// }
+fn install_customs(env: &StateMachine) -> CanisterId {
+    let args = InitArgs {
+        btc_network: Network::Regtest.into(),
+        // The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
+        // a testing key for testnet and mainnet
+        ecdsa_key_name: "dfx_test_key".parse().unwrap(),
+        release_min_amount: 2000,
+        max_time_in_queue_nanos: 0,
+        min_confirmations: Some(1),
+        mode: Mode::GeneralAvailability,
+        hub_principal: Principal::from(CanisterId::from(0)),
+    };
+    let customs_arg = CustomArg::Init(args);
+    env.install_canister(customs_wasm(), Encode!(&customs_arg).unwrap(), None)
+        .unwrap()
+}
 
 // fn assert_reply(result: WasmResult) -> Vec<u8> {
 //     match result {
@@ -152,12 +100,11 @@
 //     vec_to_txid(range.collect::<Vec<u8>>())
 // }
 
-// #[test]
-// fn test_install_ckbtc_minter_canister() {
-//     let env = StateMachine::new();
-//     let ledger_id = install_ledger(&env);
-//     install_minter(&env, ledger_id);
-// }
+#[test]
+fn test_install_bitcoin_customs_canister() {
+    let env = StateMachine::new();
+    install_customs(&env);
+}
 
 // #[test]
 // fn test_wrong_upgrade_parameter() {

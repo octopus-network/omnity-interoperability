@@ -2,7 +2,7 @@ use crate::address::{main_bitcoin_address, main_destination, BitcoinAddress};
 use crate::logs::{P0, P1};
 use crate::queries::WithdrawalFee;
 use crate::runestone::{Edict, Runestone};
-use crate::state::{audit, BtcChangeOutput};
+use crate::state::{audit, mutate_state, BtcChangeOutput};
 use crate::tasks::schedule_after;
 use candid::{CandidType, Deserialize};
 use destination::Destination;
@@ -15,6 +15,7 @@ use serde_bytes::ByteBuf;
 use state::{read_state, RunesBalance, RunesChangeOutput, RunesId, RunesUtxo};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
+use updates::release_token::{release_token, ReleaseTokenArgs, ReleaseTokenError};
 
 pub mod address;
 pub mod destination;
@@ -42,6 +43,7 @@ const MIN_NANOS: u64 = 60 * SEC_NANOS;
 /// a batch transaction.
 pub const MIN_PENDING_REQUESTS: usize = 20;
 pub const MAX_REQUESTS_PER_BATCH: usize = 100;
+pub const BATCH_QUERY_TICKETS_COUNT: u64 = 20;
 
 const BTC_TOKEN: &str = "BTC";
 
@@ -79,9 +81,8 @@ pub struct Log {
 }
 
 #[derive(CandidType, Debug, Deserialize, Serialize)]
-pub struct CustomInfo {
+pub struct CustomsInfo {
     pub min_confirmations: u32,
-    pub release_min_amount: u128,
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -186,8 +187,6 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
             if fees.len() >= 100 {
                 state::mutate_state(|s| {
                     s.last_fee_per_vbyte = fees.clone();
-                    // TODO define release min amount
-                    s.release_min_amount = 10000;
                 });
                 Some(fees[50])
             } else {
@@ -206,6 +205,76 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
                 err
             );
             None
+        }
+    }
+}
+
+async fn submit_release_token_requests() {
+    let (hub_principal, start) = read_state(|s| (s.hub_principal, s.next_release_ticket_index));
+    let end = start + BATCH_QUERY_TICKETS_COUNT;
+    let tickets_resp =
+        match management::query_tickets(hub_principal, String::from(BTC_TOKEN), start, end).await {
+            Err(call_err) => {
+                log!(
+                    P0,
+                    "[submit_release_token_requests] failed to query tickets: {}",
+                    call_err
+                );
+                return;
+            }
+            Ok(data) => data,
+        };
+    match tickets_resp {
+        Err(err) => {
+            log!(
+                P0,
+                "[submit_release_token_requests] temporarily unavailable: {}",
+                err
+            );
+            return;
+        }
+        Ok(tickets) => {
+            let mut next_index = start;
+            for (index, ticket) in tickets {
+                let amount = if let Ok(amount) = u128::from_str_radix(ticket.amount.as_str(), 10) {
+                    amount
+                } else {
+                    log!(
+                        P0,
+                        "[submit_release_token_requests]: failed to parse amount of ticket"
+                    );
+                    continue;
+                };
+                let runes_id = if let Ok(runes_id) = u128::from_str_radix(ticket.token.as_str(), 10) {
+                    runes_id
+                } else {
+                    log!(
+                        P0,
+                        "[submit_release_token_requests]: failed to parse runes id of ticket"
+                    );
+                    continue;
+                };
+                let args = ReleaseTokenArgs {
+                    ticket_id: ticket.ticket_id,
+                    runes_id,
+                    amount,
+                    address: ticket.receiver,
+                };
+                match release_token(args).await {
+                    Err(ReleaseTokenError::TemporarilyUnavailable(_)) => {
+                        log!(
+                            P0,
+                            "[submit_release_token_requests] temporarily unavailable"
+                        );
+                        break;
+                    }
+                    Err(ReleaseTokenError::AlreadyProcessing)
+                    | Err(ReleaseTokenError::AlreadyProcessed)
+                    | Err(ReleaseTokenError::MalformedAddress(_))
+                    | Ok(_) => next_index = index + 1,
+                }
+            }
+            mutate_state(|s| s.next_release_ticket_index = next_index);
         }
     }
 }
@@ -708,7 +777,7 @@ async fn finalize_requests() {
 
 /// Builds the minimal OutPoint -> Account map required to sign a transaction.
 fn filter_output_destinations(
-    state: &state::CustomState,
+    state: &state::CustomsState,
     unsigned_tx: &tx::UnsignedTransaction,
 ) -> BTreeMap<OutPoint, Destination> {
     unsigned_tx
@@ -1118,6 +1187,12 @@ pub fn timer() {
                 const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
                 let _ = estimate_fee_per_vbyte().await;
                 schedule_after(FEE_ESTIMATE_DELAY, TaskType::RefreshFeePercentiles);
+            });
+        }
+        TaskType::ProcessNewTickets => {
+            ic_cdk::spawn(async {
+                submit_release_token_requests().await;
+                schedule_after(INTERVAL_PROCESSING, TaskType::ProcessNewTickets);
             });
         }
     }

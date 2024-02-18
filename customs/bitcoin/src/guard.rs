@@ -1,4 +1,4 @@
-use crate::state::{mutate_state, CustomState};
+use crate::state::{mutate_state, CustomsState};
 use std::marker::PhantomData;
 
 const MAX_CONCURRENT: u64 = 100;
@@ -10,38 +10,38 @@ pub enum GuardError {
 }
 
 pub trait PendingRequests {
-    fn pending_requests(state: &mut CustomState) -> u64;
-    fn incre_counter(state: &mut CustomState);
-    fn decre_counter(state: &mut CustomState);
+    fn pending_requests(state: &mut CustomsState) -> u64;
+    fn incre_counter(state: &mut CustomsState);
+    fn decre_counter(state: &mut CustomsState);
 }
 
 pub struct GenerateTicketUpdates;
 
 impl PendingRequests for GenerateTicketUpdates {
-    fn pending_requests(state: &mut CustomState) -> u64 {
+    fn pending_requests(state: &mut CustomsState) -> u64 {
         state.generate_ticket_counter
     }
 
-    fn incre_counter(state: &mut CustomState) {
+    fn incre_counter(state: &mut CustomsState) {
         state.generate_ticket_counter += 1;
     }
 
-    fn decre_counter(state: &mut CustomState) {
+    fn decre_counter(state: &mut CustomsState) {
         state.generate_ticket_counter -= 1;
     }
 }
 pub struct ReleaseTokenUpdates;
 
 impl PendingRequests for ReleaseTokenUpdates {
-    fn pending_requests(state: &mut CustomState) -> u64 {
+    fn pending_requests(state: &mut CustomsState) -> u64 {
         state.release_token_counter
     }
 
-    fn incre_counter(state: &mut CustomState) {
+    fn incre_counter(state: &mut CustomsState) {
         state.release_token_counter += 1;
     }
 
-    fn decre_counter(state: &mut CustomState) {
+    fn decre_counter(state: &mut CustomsState) {
         state.release_token_counter -= 1;
     }
 }
@@ -120,7 +120,6 @@ mod tests {
         InitArgs {
             btc_network: BtcNetwork::Regtest,
             ecdsa_key_name: "some_key".to_string(),
-            release_min_amount: 2000,
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: crate::state::Mode::GeneralAvailability,

@@ -7,14 +7,13 @@ use bitcoin_custom::queries::{
 use bitcoin_custom::state::{read_state, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_custom::tasks::{schedule_now, TaskType};
 use bitcoin_custom::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
-use bitcoin_custom::updates::release_token::{ReleaseTokenArgs, ReleaseTokenError};
 use bitcoin_custom::updates::update_btc_utxos::UpdateBtcUtxosErr;
 use bitcoin_custom::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
     update_runes_balance::{UpdateRunesBalanceError, UpdateRunesBlanceArgs},
 };
-use bitcoin_custom::CustomInfo;
+use bitcoin_custom::CustomsInfo;
 use bitcoin_custom::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
@@ -32,6 +31,7 @@ fn init(args: CustomArg) {
             lifecycle::init::init(args);
             schedule_now(TaskType::ProcessLogic);
             schedule_now(TaskType::RefreshFeePercentiles);
+            schedule_now(TaskType::ProcessNewTickets);
 
             #[cfg(feature = "self_check")]
             ok_or_die(check_invariants())
@@ -103,22 +103,11 @@ fn timer() {
     bitcoin_custom::timer();
 }
 
-pub fn is_hub() -> Result<(), String> {
-    let caller = ic_cdk::api::caller();
-    read_state(|s| {
-        if !caller.eq(&s.hub_principal) {
-            Err("Not Hub".into())
-        } else {
-            Ok(())
-        }
-    })
-}
-
 #[post_upgrade]
-fn post_upgrade(minter_arg: Option<CustomArg>) {
+fn post_upgrade(custom_arg: Option<CustomArg>) {
     let mut upgrade_arg: Option<UpgradeArgs> = None;
-    if let Some(minter_arg) = minter_arg {
-        upgrade_arg = match minter_arg {
+    if let Some(custom_arg) = custom_arg {
+        upgrade_arg = match custom_arg {
             CustomArg::Upgrade(upgrade_args) => upgrade_args,
             CustomArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
         };
@@ -158,11 +147,6 @@ async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketE
     check_postcondition(updates::generate_ticket(args).await)
 }
 
-#[update(guard = "is_hub")]
-async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenError> {
-    check_postcondition(updates::release_token(args).await)
-}
-
 #[update]
 async fn get_canister_status() -> ic_cdk::api::management_canister::main::CanisterStatusResponse {
     ic_cdk::api::management_canister::main::canister_status(
@@ -188,10 +172,9 @@ fn estimate_withdrawal_fee(arg: EstimateFeeArg) -> WithdrawalFee {
 }
 
 #[query]
-fn get_minter_info() -> CustomInfo {
-    read_state(|s| CustomInfo {
+fn get_minter_info() -> CustomsInfo {
+    read_state(|s| CustomsInfo {
         min_confirmations: s.min_confirmations,
-        release_min_amount: s.release_min_amount,
     })
 }
 

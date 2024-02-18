@@ -8,7 +8,7 @@ use crate::{
 };
 use crate::{
     lifecycle::init::InitArgs,
-    state::{CustomState, Mode, ReleaseTokenStatus},
+    state::{CustomsState, Mode, ReleaseTokenStatus},
 };
 use bitcoin::network::constants::Network as BtcNetwork;
 use bitcoin::util::psbt::serialize::{Deserialize, Serialize};
@@ -689,10 +689,9 @@ proptest! {
         utxos_dest_idx in pvec((arb_btc_utxo(5_000u64..1_000_000_000), 0..5usize), 10..20),
         destinations in pvec(arb_destination(), 5),
     ) {
-        let mut state = CustomState::from(InitArgs {
+        let mut state = CustomsState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
-            release_min_amount: 0,
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: Mode::GeneralAvailability,
@@ -711,10 +710,9 @@ proptest! {
         requests in arb_release_token_requests(5_000u128..1_000_000_000, 1..25),
         limit in 1..25usize,
     ) {
-        let mut state = CustomState::from(InitArgs {
+        let mut state = CustomsState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
-            release_min_amount: 5_000u128,
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: Mode::GeneralAvailability,
@@ -756,10 +754,9 @@ proptest! {
         resubmission_chain_length in 1..=5,
     ) {
         let runes_id: RunesId = 1;
-        let mut state = CustomState::from(InitArgs {
+        let mut state = CustomsState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
-            release_min_amount: 100_000,
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: Mode::GeneralAvailability,

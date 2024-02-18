@@ -12,6 +12,7 @@ thread_local! {
 pub enum TaskType {
     ProcessLogic,
     RefreshFeePercentiles,
+    ProcessNewTickets,
 }
 
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
