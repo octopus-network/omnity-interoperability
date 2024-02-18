@@ -377,7 +377,7 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
 
 /// check fee validate
 /// build update fee directive and push it to the directive queue
-#[query(guard = "auth")]
+#[update(guard = "auth")]
 pub async fn update_fee(fee: Fee) -> Result<(), Error> {
     //TODO: check fee validate
     // fee.dst_chain must be execution chain
@@ -468,13 +468,13 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
 }
 
 /// query tickets for chain id,this method calls by route and custom
-#[update(guard = "auth")]
+#[query(guard = "auth")]
 pub async fn query_tickets(
     chain_id: ChainId,
     start: u64,
     end: u64,
 ) -> Result<Option<BTreeMap<Seq, Ticket>>, Error> {
-    with_state_mut(|hub_state| {
+    with_state(|hub_state| {
         match hub_state.ticket_queue.get(&chain_id) {
             Some(t) => {
                 let mut tickets: BTreeMap<u64, Ticket> = BTreeMap::new();

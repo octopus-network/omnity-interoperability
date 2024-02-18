@@ -54,10 +54,10 @@ service : () -> {
   build_directive : (Proposal) -> (Result);
   get_pub_key : (Network) -> (Result_1);
   query_directives : (text, nat64, nat64) -> (Result_2) query;
-  query_tickets : (text, nat64, nat64) -> (Result_3);
+  query_tickets : (text, nat64, nat64) -> (Result_3) query;
   send_ticket : (Ticket) -> (Result);
   set_owner : (principal) -> (Result);
   set_whitelist : (principal, bool) -> (Result);
-  update_fee : (Fee) -> (Result) query;
+  update_fee : (Fee) -> (Result);
   validate_proposal : (Proposal) -> (Result_4);
 }
