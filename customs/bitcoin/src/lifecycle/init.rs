@@ -1,6 +1,6 @@
 use crate::lifecycle::upgrade::UpgradeArgs;
 pub use crate::state::Mode;
-use crate::state::{replace_state, CustomState};
+use crate::state::{replace_state, CustomsState};
 use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::Network;
 use serde::Serialize;
@@ -54,9 +54,6 @@ pub struct InitArgs {
     /// a testing key for testnet and mainnet
     pub ecdsa_key_name: String,
 
-    /// Minimum amount of bitcoin that can be retrieved
-    pub release_min_amount: u128,
-
     /// Maximum time in nanoseconds that a transaction should spend in the queue
     /// before being sent.
     pub max_time_in_queue_nanos: u64,
@@ -74,7 +71,7 @@ pub struct InitArgs {
 }
 
 pub fn init(args: InitArgs) {
-    let state: CustomState = CustomState::from(args);
+    let state: CustomsState = CustomsState::from(args);
     state.validate_config();
     replace_state(state);
 }
