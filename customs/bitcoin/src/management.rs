@@ -14,6 +14,7 @@ use ic_ic00_types::{
     DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
     SignWithECDSAArgs, SignWithECDSAReply,
 };
+use omnity_types::{self, Chain, Seq, Ticket};
 use serde::de::DeserializeOwned;
 use std::fmt;
 
@@ -156,7 +157,7 @@ pub async fn get_utxos(
     ) -> Result<GetUtxosResponse, CallError> {
         match source {
             CallSource::Client => &crate::metrics::GET_UTXOS_CLIENT_CALLS,
-            CallSource::Custom => &crate::metrics::GET_UTXOS_MINTER_CALLS,
+            CallSource::Custom => &crate::metrics::GET_UTXOS_CUSTOM_CALLS,
         }
         .with(|cell| cell.set(cell.get() + 1));
         call("bitcoin_get_utxos", cycles, req).await
@@ -290,4 +291,19 @@ pub async fn sign_with_ecdsa(
     )
     .await?;
     Ok(reply.signature)
+}
+
+pub async fn query_tickets(
+    hub_principal: Principal,
+    chain_id: Chain,
+    start: u64,
+    end: u64,
+) -> Result<Result<Vec<(Seq, Ticket)>, omnity_types::Error>, CallError> {
+    let (res,) = ic_cdk::api::call::call(hub_principal, "query_tickets", (chain_id, start, end))
+        .await
+        .map_err(|(code, message)| CallError {
+            method: "query_tickets".to_string(),
+            reason: Reason::from_reject(code, message),
+        })?;
+    Ok(res)
 }
