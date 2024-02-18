@@ -393,24 +393,24 @@ pub async fn update_fee(fee: Fee) -> Result<(), Error> {
 #[query(guard = "auth")]
 pub async fn query_directives(
     chain_id: ChainId,
-    start: u64,
-    end: u64,
-) -> Result<Option<BTreeMap<Seq, Directive>>, Error> {
+    from: u64,
+    num: u64,
+) -> Result<Vec<(Seq, Directive)>, Error> {
     //TODO: check start and end is validate!
     // asset(start <= end)
-
-    with_state_mut(|hub_state| {
+    let end = from + num;
+    with_state(|hub_state| {
         match hub_state.dire_queue.get(&chain_id) {
             Some(d) => {
-                let mut directives: BTreeMap<u64, Directive> = BTreeMap::new();
-                for (&seq, &ref dire) in d.range((Included(start), Included(end))) {
-                    directives.insert(seq, dire.clone());
+                let mut directives: Vec<(u64, Directive)> = Vec::new();
+                for (&seq, &ref dire) in d.range(from..end) {
+                    directives.push((seq, dire.clone()));
                 }
                 //TODO: remove the directive for the chain id
                 // hub_state.dire_queue.remove(&chain_id);
-                Ok(Some(directives))
+                Ok(directives)
             }
-            None => Ok(None),
+            None => Err(Error::NotFoundChain(chain_id)),
         }
     })
 }
@@ -471,21 +471,24 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
 #[query(guard = "auth")]
 pub async fn query_tickets(
     chain_id: ChainId,
-    start: u64,
-    end: u64,
-) -> Result<Option<BTreeMap<Seq, Ticket>>, Error> {
+    from: u64,
+    num: u64,
+) -> Result<Vec<(Seq, Ticket)>, Error> {
+    //TODO: check from and num
+    let end = from + num;
     with_state(|hub_state| {
         match hub_state.ticket_queue.get(&chain_id) {
             Some(t) => {
-                let mut tickets: BTreeMap<u64, Ticket> = BTreeMap::new();
-                for (&seq, &ref ticket) in t.range((Included(start), Included(end))) {
-                    tickets.insert(seq, ticket.clone());
+                let mut tickets: Vec<(u64, Ticket)> = Vec::new();
+                for (&seq, &ref ticket) in t.range(from..end) {
+                    tickets.push((seq, ticket.clone()));
                 }
+
                 //TODO: remove the tickets for the chain id
                 // hub_state.ticket_queue.remove(&chain_id);
-                Ok(Some(tickets))
+                Ok(tickets)
             }
-            None => Ok(None),
+            None => Err(Error::NotFoundChain(chain_id)),
         }
     })
 }

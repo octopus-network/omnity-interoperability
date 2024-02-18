@@ -168,6 +168,8 @@ pub enum Error {
     MalformedMessageBytes,
     #[error("unauthorized")]
     Unauthorized,
+    #[error("not found chain: (`{0}`)")]
+    NotFoundChain(String),
     #[error("custom error: (`{0}`)")]
     CustomError(String),
 }
