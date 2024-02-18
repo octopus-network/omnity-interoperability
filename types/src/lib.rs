@@ -1,30 +1,31 @@
-use std::collections::HashMap;
-
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::collections::HashMap;
 use thiserror::Error;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
 pub type Timestamp = u64;
 pub type Directive = Proposal;
-pub type Chain = String;
-pub type Token = String;
+pub type ChainId = String;
+pub type DstChain = ChainId;
+pub type TokenId = String;
 pub type TicketId = String;
 pub type Account = String;
 
 /// Directive Queue
-/// K: chainid and seq, V:  HashMap<Seq, Directive>
-pub type DireQueue = HashMap<Chain, HashMap<Seq, Directive>>;
+/// K: DstChain, V:  BTreeMap<Seq, Directive>
+pub type DireQueue = HashMap<DstChain, BTreeMap<Seq, Directive>>;
 /// Ticket Queue
-/// K: chainid and seq, V: HashMap<Seq, Ticket>
-pub type TicketQueue = HashMap<Chain, HashMap<Seq, Ticket>>;
+/// K: DstChain, V: BTreeMap<Seq, Ticket>
+pub type TicketQueue = HashMap<DstChain, BTreeMap<Seq, Ticket>>;
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub enum Proposal {
     AddChain(ChainInfo),
     AddToken(TokenMetaData),
-    ChangeChainStatus(ChainStatue),
+    ChangeChainState(ChainState),
     UpdateFee(Fee),
 }
 
@@ -32,10 +33,10 @@ pub enum Proposal {
 pub struct Ticket {
     pub ticket_id: TicketId,
     pub created_time: Timestamp,
-    pub src_chain: Chain,
-    pub dst_chain: Chain,
+    pub src_chain: ChainId,
+    pub dst_chain: ChainId,
     pub action: Action,
-    pub token: Token,
+    pub token: TokenId,
     pub amount: String,
     pub sender: Account,
     pub receiver: Account,
@@ -69,7 +70,7 @@ pub enum ChainType {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
-pub enum ChainStatus {
+pub enum State {
     #[default]
     Active,
     Suspend,
@@ -85,9 +86,9 @@ pub enum Action {
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub struct Fee {
-    pub dst_chain: Chain,
+    pub dst_chain_id: ChainId,
     // quote currency or token
-    pub fee_token: Token,
+    pub fee_token: TokenId,
     // base fee = 1 wei
     pub factor: i64,
     // quote token amoute
@@ -99,16 +100,16 @@ impl core::fmt::Display for Fee {
         write!(
             f,
             "dst chain:{},\nfee token:{},\nfactor:{}",
-            self.dst_chain, self.fee_token, self.factor,
+            self.dst_chain_id, self.fee_token, self.factor,
         )
     }
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
 pub struct ChainInfo {
-    pub chain_name: Chain,
+    pub chain_name: ChainId,
     pub chain_type: ChainType,
-    pub chain_state: ChainStatus,
+    pub chain_state: State,
     // Optional: settlement chain export contract address
     // pub export_address: Option<String>,
     // Optional: execution chain port contract address
@@ -126,22 +127,22 @@ impl core::fmt::Display for ChainInfo {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
-pub struct ChainStatue {
-    pub chain: Chain,
-    pub state: ChainStatus,
+pub struct ChainState {
+    pub chain_id: ChainId,
+    pub state: State,
 }
-impl core::fmt::Display for ChainStatue {
+impl core::fmt::Display for ChainState {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        write!(f, "chain:{},\nchain state:{:?}", self.chain, self.state,)
+        write!(f, "chain:{},\nchain state:{:?}", self.chain_id, self.state,)
     }
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub struct TokenMetaData {
-    pub name: Token,
+    pub name: TokenId,
     pub symbol: String,
     // the token`s issuse chain
-    pub issue_chain: Chain,
+    pub issue_chain: ChainId,
     pub decimals: u8,
     pub icon: Option<String>,
     // pub total_amount: Option<u128>,

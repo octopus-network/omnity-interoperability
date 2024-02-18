@@ -26,7 +26,7 @@ pub fn is_owner() -> Result<(), String> {
 }
 
 #[update(guard = "is_owner")]
-pub async fn set_whilelist(principal: Principal, authorized: bool) -> Result<(), Error> {
+pub async fn set_whitelist(principal: Principal, authorized: bool) -> Result<(), Error> {
     info!("principal: {principal:?}, authorized {authorized:?}");
     if authorized {
         with_state_mut(|s| s.whitelist.insert(principal));
