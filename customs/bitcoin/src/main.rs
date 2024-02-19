@@ -307,7 +307,7 @@ fn check_candid_interface_compatibility() {
 
     // check the public interface against the actual one
     let old_interface = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
-        .join("bitcoin_custom.did");
+        .join("bitcoin_customs.did");
 
     check_service_equal(
         "actual ledger candid interface",

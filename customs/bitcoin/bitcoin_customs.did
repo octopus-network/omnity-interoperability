@@ -19,10 +19,7 @@ type CanisterStatusResponse = record {
 };
 type CanisterStatusType = variant { stopped; stopping; running };
 type CustomArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
-type CustomInfo = record {
-  min_confirmations : nat32;
-  release_min_amount : nat;
-};
+type CustomsInfo = record { min_confirmations : nat32 };
 type DefiniteCanisterSettings = record {
   freezing_threshold : nat;
   controllers : vec principal;
@@ -51,7 +48,7 @@ type Event = variant {
     txid : vec nat8;
     btc_change_output : opt BtcChangeOutput;
     btc_utxos : vec Utxo;
-    requests : vec vec nat8;
+    requests : vec text;
     runes_change_output : RunesChangeOutput;
     runes_utxos : vec RunesUtxo;
     runes_id : nat;
@@ -110,7 +107,6 @@ type InitArgs = record {
   max_time_in_queue_nanos : nat64;
   btc_network : BtcNetwork;
   min_confirmations : opt nat32;
-  release_min_amount : nat;
 };
 type Mode = variant {
   ReadOnly;
@@ -125,24 +121,10 @@ type QueryStats = record {
   num_calls_total : nat;
   request_payload_bytes_total : nat;
 };
-type ReleaseTokenArgs = record {
-  address : text;
-  release_id : vec nat8;
-  amount : nat;
-  rune_id : nat;
-};
-type ReleaseTokenError = variant {
-  MalformedAddress : text;
-  GenericError : record { error_message : text; error_code : nat64 };
-  TemporarilyUnavailable : text;
-  AlreadyProcessed;
-  AlreadyProcessing;
-  AmountTooLow : nat;
-};
 type ReleaseTokenRequest = record {
   received_at : nat64;
+  ticket_id : text;
   address : BitcoinAddress;
-  release_id : vec nat8;
   amount : nat;
   runes_id : nat;
 };
@@ -154,13 +136,14 @@ type ReleaseTokenStatus = variant {
   Submitted : vec nat8;
   Pending;
 };
-type ReleaseTokenStatusRequest = record { release_id : vec nat8 };
+type ReleaseTokenStatusRequest = record { ticket_id : text };
 type Result = variant { Ok; Err : GenerateTicketError };
-type Result_1 = variant { Ok; Err : ReleaseTokenError };
+type Result_1 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
 type Result_2 = variant { Ok; Err : UpdateRunesBalanceError };
-type RunesBalance = record { value : nat; rune_id : nat };
+type RunesBalance = record { value : nat; runes_id : nat };
 type RunesChangeOutput = record { value : nat; vout : nat32; runes_id : nat };
 type RunesUtxo = record { raw : Utxo; runes : RunesBalance };
+type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
 type UpdateRunesBalanceError = variant {
   UtxoNotFound;
   RequestNotFound;
@@ -177,10 +160,9 @@ type UpgradeArgs = record {
   mode : opt Mode;
   max_time_in_queue_nanos : opt nat64;
   min_confirmations : opt nat32;
-  release_min_amount : opt nat;
 };
 type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
-type WithdrawalFee = record { minter_fee : nat64; bitcoin_fee : nat64 };
+type WithdrawalFee = record { bitcoin_fee : nat64 };
 service : (CustomArg) -> {
   estimate_withdrawal_fee : (EstimateFeeArg) -> (WithdrawalFee) query;
   generate_ticket : (GenerateTicketArgs) -> (Result);
@@ -188,10 +170,10 @@ service : (CustomArg) -> {
   get_btc_address : (GetBtcAddressArgs) -> (text);
   get_canister_status : () -> (CanisterStatusResponse);
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_minter_info : () -> (CustomInfo) query;
-  release_token : (ReleaseTokenArgs) -> (Result_1);
+  get_minter_info : () -> (CustomsInfo) query;
   release_token_status : (ReleaseTokenStatusRequest) -> (
       ReleaseTokenStatus,
     ) query;
+  update_btc_utxos : () -> (Result_1);
   update_runes_balance : (UpdateRunesBlanceArgs) -> (Result_2);
 }
