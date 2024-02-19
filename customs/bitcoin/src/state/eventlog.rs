@@ -189,7 +189,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                     OutPoint { txid, vout },
                     RunesBalance {
                         runes_id: request.runes_id,
-                        value: request.value,
+                        value: request.amount,
                     },
                 );
                 state.push_finalized_ticket(FinalizedTicket {

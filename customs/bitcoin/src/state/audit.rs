@@ -58,7 +58,7 @@ pub fn finalize_ticket_request(state: &mut CustomsState, request: &GenTicketRequ
         },
         RunesBalance {
             runes_id: request.runes_id,
-            value: request.value,
+            value: request.amount,
         },
     );
     state.push_finalized_ticket(FinalizedTicket {

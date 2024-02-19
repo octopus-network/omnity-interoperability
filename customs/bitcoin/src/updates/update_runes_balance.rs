@@ -1,7 +1,9 @@
 use crate::state::{audit, FinalizedTicketStatus, GenTicketStatus, RunesBalance};
 use crate::state::{mutate_state, read_state};
+use crate::{management, BTC_TOKEN};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
+use omnity_types::{Action, Ticket};
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -17,6 +19,7 @@ pub enum UpdateRunesBalanceError {
     AleardyProcessed,
     MismatchWithTicketReq,
     UtxoNotFound,
+    SendTicketErr(String),
 }
 
 pub async fn update_runes_balance(
@@ -37,13 +40,28 @@ pub async fn update_runes_balance(
         GenTicketStatus::Pending(req) => Ok(req),
     })?;
 
-    let result = {
-        // TODO invoke hub to generate landing pass
-        if args.balance.runes_id != req.runes_id || args.balance.value != req.value {
-            Err(UpdateRunesBalanceError::MismatchWithTicketReq)
-        } else {
-            Ok(())
-        }
+    let result = if args.balance.runes_id == req.runes_id && args.balance.value == req.amount {
+        let hub_principal = read_state(|s| s.hub_principal);
+        management::send_tickets(
+            hub_principal,
+            Ticket {
+                ticket_id: args.tx_id.to_string(),
+                created_time: ic_cdk::api::time(),
+                src_chain: String::from(BTC_TOKEN),
+                dst_chain: req.target_chain_id.clone(),
+                action: Action::Transfer,
+                token: req.runes_id.to_string(),
+                amount: req.amount.to_string(),
+                sender: String::default(),
+                receiver: req.receiver.clone(),
+                memo: None,
+            },
+        )
+        .await
+        .map_err(|err| UpdateRunesBalanceError::SendTicketErr(format!("{}", err)))?;
+        Ok(())
+    } else {
+        Err(UpdateRunesBalanceError::MismatchWithTicketReq)
     };
 
     mutate_state(|s| match result {
@@ -54,5 +72,5 @@ pub async fn update_runes_balance(
         _ => {}
     });
 
-    result
+    Ok(())
 }

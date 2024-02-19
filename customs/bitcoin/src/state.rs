@@ -51,7 +51,7 @@ pub struct GenTicketRequest {
     pub target_chain_id: String,
     pub receiver: String,
     pub runes_id: RunesId,
-    pub value: u128,
+    pub amount: u128,
     pub tx_id: Txid,
 }
 

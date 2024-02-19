@@ -73,7 +73,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
         runes_id: args.runes_id,
-        value: args.amount,
+        amount: args.amount,
         tx_id: args.tx_id,
     };
 
