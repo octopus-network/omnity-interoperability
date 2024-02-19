@@ -5,6 +5,18 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 
+[profile.release]
+# Add debug information to the release build (does NOT reduce the level of optimization!)
+# Makes flamegraphs more readable.
+# https://doc.rust-lang.org/cargo/reference/manifest.html#the-profile-sections
+debug = true
+
+[profile.canister-release]
+inherits = "release"
+debug = false
+lto = true
+opt-level = 'z'
+
 [workspace.dependencies]
 candid = { version = "0.10.2" }
 candid_parser = { version = "0.1.2" }
