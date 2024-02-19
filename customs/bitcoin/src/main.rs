@@ -1,20 +1,20 @@
-use bitcoin_custom::lifecycle::upgrade::UpgradeArgs;
-use bitcoin_custom::lifecycle::{self, init::CustomArg};
-use bitcoin_custom::metrics::encode_metrics;
-use bitcoin_custom::queries::{
+use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
+use bitcoin_customs::lifecycle::{self, init::CustomArg};
+use bitcoin_customs::metrics::encode_metrics;
+use bitcoin_customs::queries::{
     EstimateFeeArg, GenTicketStatusRequest, ReleaseTokenStatusRequest, WithdrawalFee,
 };
-use bitcoin_custom::state::{read_state, GenTicketStatus, ReleaseTokenStatus};
-use bitcoin_custom::tasks::{schedule_now, TaskType};
-use bitcoin_custom::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
-use bitcoin_custom::updates::update_btc_utxos::UpdateBtcUtxosErr;
-use bitcoin_custom::updates::{
+use bitcoin_customs::state::{read_state, GenTicketStatus, ReleaseTokenStatus};
+use bitcoin_customs::tasks::{schedule_now, TaskType};
+use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
+use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
+use bitcoin_customs::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
     update_runes_balance::{UpdateRunesBalanceError, UpdateRunesBlanceArgs},
 };
-use bitcoin_custom::CustomsInfo;
-use bitcoin_custom::{
+use bitcoin_customs::CustomsInfo;
+use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
 };
@@ -100,7 +100,7 @@ fn timer() {
     #[cfg(feature = "self_check")]
     ok_or_die(check_invariants());
 
-    bitcoin_custom::timer();
+    bitcoin_customs::timer();
 }
 
 #[post_upgrade]
@@ -162,7 +162,7 @@ async fn get_canister_status() -> ic_cdk::api::management_canister::main::Canist
 #[query]
 fn estimate_withdrawal_fee(arg: EstimateFeeArg) -> WithdrawalFee {
     read_state(|s| {
-        bitcoin_custom::estimate_fee(
+        bitcoin_customs::estimate_fee(
             arg.runes_id,
             &s.available_runes_utxos,
             arg.amount,
@@ -215,7 +215,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
         };
 
         let mut entries: Log = Default::default();
-        for entry in export_logs(&bitcoin_custom::logs::P0) {
+        for entry in export_logs(&bitcoin_customs::logs::P0) {
             entries.entries.push(LogEntry {
                 timestamp: entry.timestamp,
                 counter: entry.counter,
@@ -225,7 +225,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
                 message: entry.message,
             });
         }
-        for entry in export_logs(&bitcoin_custom::logs::P1) {
+        for entry in export_logs(&bitcoin_customs::logs::P1) {
             entries.entries.push(LogEntry {
                 timestamp: entry.timestamp,
                 counter: entry.counter,

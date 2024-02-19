@@ -1,16 +1,16 @@
 use assert_matches::assert_matches;
 use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
-use bitcoin_custom::lifecycle::init::{CustomArg, InitArgs as CkbtcMinterInitArgs};
-use bitcoin_custom::lifecycle::{init::InitArgs, upgrade::UpgradeArgs};
-use bitcoin_custom::queries::{EstimateFeeArg, ReleaseTokenStatusRequest, WithdrawalFee};
-use bitcoin_custom::state::CustomsState;
-use bitcoin_custom::state::{
+use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs as CkbtcMinterInitArgs};
+use bitcoin_customs::lifecycle::{init::InitArgs, upgrade::UpgradeArgs};
+use bitcoin_customs::queries::{EstimateFeeArg, ReleaseTokenStatusRequest, WithdrawalFee};
+use bitcoin_customs::state::CustomsState;
+use bitcoin_customs::state::{
     Mode,
     ReleaseTokenStatus,
 };
-use bitcoin_custom::updates::get_btc_address::GetBtcAddressArgs;
-use bitcoin_custom::{CustomsInfo, Log, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
+use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
+use bitcoin_customs::{CustomsInfo, Log, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
 use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
 use ic_bitcoin_canister_mock::{OutPoint, PushUtxoToAddress, Utxo};
@@ -53,7 +53,6 @@ fn install_customs(env: &StateMachine) -> CanisterId {
         // The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
         // a testing key for testnet and mainnet
         ecdsa_key_name: "dfx_test_key".parse().unwrap(),
-        release_min_amount: 2000,
         max_time_in_queue_nanos: 0,
         min_confirmations: Some(1),
         mode: Mode::GeneralAvailability,
