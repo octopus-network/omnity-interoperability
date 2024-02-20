@@ -90,13 +90,12 @@ pub enum Event {
         /// BTC UTXOs used for the transaction.
         #[serde(rename = "btc_utxos")]
         btc_utxos: Vec<Utxo>,
-        /// The output with the minter's change, if any.
+        /// The output with the customs's change, if any.
         #[serde(rename = "runes_change_output")]
         runes_change_output: RunesChangeOutput,
         #[serde(rename = "btc_change_output")]
-        #[serde(skip_serializing_if = "Option::is_none")]
-        btc_change_output: Option<BtcChangeOutput>,
-        /// The IC time at which the minter submitted the transaction.
+        btc_change_output: BtcChangeOutput,
+        /// The IC time at which the customs submitted the transaction.
         #[serde(rename = "submitted_at")]
         submitted_at: u64,
         /// The fee per vbyte (in millisatoshi) that we used for the transaction.
@@ -105,7 +104,7 @@ pub enum Event {
         fee_per_vbyte: Option<u64>,
     },
 
-    /// Indicates that the minter sent out a new transaction to replace an older transaction
+    /// Indicates that the customs sent out a new transaction to replace an older transaction
     /// because the old transaction did not appear on the Bitcoin blockchain.
     #[serde(rename = "replaced_transaction")]
     ReplacedBtcTransaction {
@@ -119,7 +118,7 @@ pub enum Event {
         #[serde(rename = "runes_change_output")]
         runes_change_output: RunesChangeOutput,
         #[serde(rename = "btc_change_output")]
-        btc_change_output: Option<BtcChangeOutput>,
+        btc_change_output: BtcChangeOutput,
         /// The IC time at which the minter submitted the transaction.
         #[serde(rename = "submitted_at")]
         submitted_at: u64,

@@ -97,7 +97,7 @@ struct SignTxRequest {
     ecdsa_public_key: ECDSAPublicKey,
     unsigned_tx: tx::UnsignedTransaction,
     runes_change_output: RunesChangeOutput,
-    btc_change_output: Option<BtcChangeOutput>,
+    btc_change_output: BtcChangeOutput,
     outpoint_destination: BTreeMap<OutPoint, Destination>,
     /// The original requests that we keep around to place back to the queue
     /// if the signature fails.
@@ -992,7 +992,7 @@ pub fn build_unsigned_transaction(
     (
         tx::UnsignedTransaction,
         RunesChangeOutput,
-        Option<BtcChangeOutput>,
+        BtcChangeOutput,
         Vec<RunesUtxo>,
         Vec<Utxo>,
     ),
@@ -1082,20 +1082,22 @@ pub fn build_unsigned_transaction(
         })
         .collect::<Vec<tx::UnsignedInput>>();
 
-    // We assume that at most two additional input utxos as source of transaction fees,
+    // Initially assume two additional input utxos as source of transaction fees,
     // and one additional output as btc change output.
     let tx_vsize = tx_vsize_estimate(
         (utxos_guard.len() + 2) as u64,
         (tx_outputs.len() + 1) as u64,
     );
     let fee: u64 = (tx_vsize as u64 * fee_per_vbyte) / 1000;
+    // Choose enough gas to handle retransmissions.
+    let select_fee = fee * 2;
 
-    let input_btc_amount = utxos_guard.iter().map(|input| input.raw.value).sum::<u64>();
+    let mut input_btc_amount = utxos_guard.iter().map(|input| input.raw.value).sum::<u64>();
 
     let mut btc_utxos: Vec<Utxo> = vec![];
 
-    let btc_change_amount = if input_btc_amount < fee {
-        let target_fee = fee - input_btc_amount;
+    let selected_btc_amount = if input_btc_amount < select_fee {
+        let target_fee = select_fee - input_btc_amount;
 
         // To avoid aggregation of btc utxo, use the greedy selection algorithm directly.
         btc_utxos = greedy(target_fee as u128, available_btc_utxos, |u| u.value as u128);
@@ -1116,22 +1118,25 @@ pub fn build_unsigned_transaction(
                 .collect::<Vec<tx::UnsignedInput>>(),
         );
 
-        btc_amount - target_fee
+        btc_amount
     } else {
-        input_btc_amount - fee
+        0
     };
 
-    let btc_change_out = if btc_change_amount >= MIN_OUTPUT_AMOUNT {
-        tx_outputs.push(tx::TxOut {
-            address: btc_main_address,
-            value: btc_change_amount,
-        });
-        Some(BtcChangeOutput {
-            vout: tx_outputs.len() as u32 - 1,
-            value: btc_change_amount,
-        })
-    } else {
-        None
+    input_btc_amount += selected_btc_amount;
+    // We need to recaculate the fee when the number of inputs and outputs is finalized.
+    let real_fee = tx_vsize_estimate(tx_inputs.len() as u64, (tx_outputs.len() + 1) as u64)
+        * fee_per_vbyte
+        / 1000;
+    let btc_change_amount = input_btc_amount - real_fee;
+
+    tx_outputs.push(tx::TxOut {
+        address: btc_main_address,
+        value: btc_change_amount,
+    });
+    let btc_change_out = BtcChangeOutput {
+        vout: tx_outputs.len() as u32 - 1,
+        value: btc_change_amount,
     };
 
     let unsigned_tx = tx::UnsignedTransaction {
