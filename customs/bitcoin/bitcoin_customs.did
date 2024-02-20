@@ -46,7 +46,7 @@ type Event = variant {
   sent_transaction : record {
     fee : opt nat64;
     txid : vec nat8;
-    btc_change_output : opt BtcChangeOutput;
+    btc_change_output : BtcChangeOutput;
     btc_utxos : vec Utxo;
     requests : vec text;
     runes_change_output : RunesChangeOutput;
@@ -61,7 +61,7 @@ type Event = variant {
   confirmed_transaction : record { txid : vec nat8 };
   replaced_transaction : record {
     fee : nat64;
-    btc_change_output : opt BtcChangeOutput;
+    btc_change_output : BtcChangeOutput;
     old_txid : vec nat8;
     new_txid : vec nat8;
     runes_change_output : RunesChangeOutput;

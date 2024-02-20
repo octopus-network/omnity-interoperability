@@ -286,7 +286,7 @@ fn should_have_same_input_and_output_count() {
 
     assert_eq!(tx.outputs.len(), tx.inputs.len());
     assert_eq!(runes_change_output.vout, 1);
-    assert!(btc_change_output.is_some())
+    assert_eq!(btc_change_output.vout, (tx.outputs.len() - 1) as u32);
 }
 
 #[test]

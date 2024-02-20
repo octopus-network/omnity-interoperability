@@ -103,10 +103,10 @@ pub struct SubmittedBtcTransaction {
     pub btc_utxos: Vec<Utxo>,
     /// The IC time at which we submitted the Bitcoin transaction.
     pub submitted_at: u64,
-    /// The tx output from the submitted transaction that the minter owns.
+    /// The tx runes change output from the submitted transaction that the customs owns.
     pub runes_change_output: RunesChangeOutput,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub btc_change_output: Option<BtcChangeOutput>,
+    /// The tx btc change output from the submitted transaction that the customs owns.
+    pub btc_change_output: BtcChangeOutput,
     /// Fee per vbyte in millisatoshi.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fee_per_vbyte: Option<u64>,
