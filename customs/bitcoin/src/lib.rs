@@ -350,9 +350,10 @@ async fn submit_pending_requests() {
                         btc_utxos,
                     })
                 }
-                Err(BuildTxError::NotEnoughFunds) | Err(BuildTxError::NotEnoughGas) => {
+                Err(err) => {
                     log!(P0,
-                        "[submit_pending_requests]: not enough funds to unsigned transaction for requests at release ids [{}]",
+                        "[submit_pending_requests]: {:?} to unsigned transaction for requests at release ids [{}]",
+                        err,
                         batch.iter().map(|req| hex::encode(req.ticket_id.clone())).collect::<Vec<_>>().join(",")
                     );
 
@@ -927,16 +928,16 @@ pub async fn sign_transaction(
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BuildTxError {
-    /// The minter does not have enough UTXOs to make the transfer
+    /// The customs does not have enough UTXOs to make the transfer
     /// Try again later after pending transactions have settled.
     NotEnoughFunds,
     NotEnoughGas,
 }
 
 /// Builds a transaction that moves BTC to the specified destination accounts
-/// using the UTXOs that the minter owns. The receivers pay the fee.
+/// using the UTXOs that the customs owns. The receivers pay the fee.
 ///
-/// Sends the change back to the specified minter main address.
+/// Sends the change back to the specified customs main address.
 ///
 /// # Arguments
 ///

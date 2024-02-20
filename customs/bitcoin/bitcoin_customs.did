@@ -73,9 +73,9 @@ type Event = variant {
 type FinalizedTicketStatus = variant { Finalized; MismatchWithTicketReq };
 type GenTicketRequest = record {
   tx_id : vec nat8;
-  value : nat;
   target_chain_id : text;
   address : text;
+  amount : nat;
   receiver : text;
   runes_id : nat;
 };
@@ -145,6 +145,7 @@ type RunesChangeOutput = record { value : nat; vout : nat32; runes_id : nat };
 type RunesUtxo = record { raw : Utxo; runes : RunesBalance };
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
 type UpdateRunesBalanceError = variant {
+  SendTicketErr : text;
   UtxoNotFound;
   RequestNotFound;
   AleardyProcessed;
