@@ -1,5 +1,7 @@
 mod lightclient;
 mod registry;
+mod rpc;
+
 use lightclient::*;
 
 #[ic_cdk::init]

@@ -94,7 +94,8 @@ where
             },
         ],
     };
-    let (response,) = http_request(args)
+    // TODO max cycles
+    let (response,) = http_request(args, 10000)
         .await
         .map_err(|(_, e)| RpcError::Io(endpoint.method(), url.to_string(), e))?;
     let reply: Reply<R> = serde_json::from_slice(response.body.as_slice())
