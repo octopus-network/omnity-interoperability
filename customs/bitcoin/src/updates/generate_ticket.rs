@@ -34,7 +34,9 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     read_state(|s| match s.generate_ticket_status(args.tx_id) {
         GenTicketStatus::Pending(_) => Err(GenerateTicketError::AlreadySubmitted),
-        GenTicketStatus::Finalized => Err(GenerateTicketError::AleardyProcessed),
+        GenTicketStatus::Invalid | GenTicketStatus::Finalized => {
+            Err(GenerateTicketError::AleardyProcessed)
+        }
         GenTicketStatus::Unknown => Ok(()),
     })?;
 

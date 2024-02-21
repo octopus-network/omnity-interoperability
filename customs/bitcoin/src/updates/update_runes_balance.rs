@@ -17,7 +17,7 @@ pub struct UpdateRunesBlanceArgs {
 pub enum UpdateRunesBalanceError {
     RequestNotFound,
     AleardyProcessed,
-    MismatchWithTicketReq,
+    MismatchWithGenTicketReq,
     UtxoNotFound,
     SendTicketErr(String),
 }
@@ -35,7 +35,9 @@ pub async fn update_runes_balance(
     })?;
 
     let req = read_state(|s| match s.generate_ticket_status(args.tx_id) {
-        GenTicketStatus::Finalized => Err(UpdateRunesBalanceError::AleardyProcessed),
+        GenTicketStatus::Invalid | GenTicketStatus::Finalized => {
+            Err(UpdateRunesBalanceError::AleardyProcessed)
+        }
         GenTicketStatus::Unknown => Err(UpdateRunesBalanceError::RequestNotFound),
         GenTicketStatus::Pending(req) => Ok(req),
     })?;
@@ -61,13 +63,13 @@ pub async fn update_runes_balance(
         .map_err(|err| UpdateRunesBalanceError::SendTicketErr(format!("{}", err)))?;
         Ok(())
     } else {
-        Err(UpdateRunesBalanceError::MismatchWithTicketReq)
+        Err(UpdateRunesBalanceError::MismatchWithGenTicketReq)
     };
 
     mutate_state(|s| match result {
         Ok(_) => audit::finalize_ticket_request(s, &req, args.vout),
-        Err(UpdateRunesBalanceError::MismatchWithTicketReq) => {
-            audit::remove_ticket_request(s, &req, FinalizedTicketStatus::MismatchWithTicketReq)
+        Err(UpdateRunesBalanceError::MismatchWithGenTicketReq) => {
+            audit::remove_ticket_request(s, &req, FinalizedTicketStatus::Invalid)
         }
         _ => {}
     });

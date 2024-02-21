@@ -137,8 +137,8 @@ pub struct FinalizedTicket {
 /// The outcome of a generate_ticket request.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedTicketStatus {
+    Invalid,
     Finalized,
-    MismatchWithTicketReq,
 }
 
 /// The status of a Bitcoin transaction that the minter hasn't yet sent to the Bitcoin network.
@@ -175,6 +175,7 @@ pub enum GenTicketStatus {
     Unknown,
     /// The request is in the queue.
     Pending(GenTicketRequest),
+    Invalid,
     Finalized,
 }
 
@@ -499,8 +500,8 @@ impl CustomsState {
             .find(|req| req.request.tx_id == tx_id)
             .map(|r| r.status.clone())
         {
-            Some(FinalizedTicketStatus::Finalized)
-            | Some(FinalizedTicketStatus::MismatchWithTicketReq) => GenTicketStatus::Finalized,
+            Some(FinalizedTicketStatus::Finalized) => GenTicketStatus::Finalized,
+            Some(FinalizedTicketStatus::Invalid) => GenTicketStatus::Invalid,
             None => GenTicketStatus::Unknown,
         }
     }

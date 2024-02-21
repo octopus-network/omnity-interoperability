@@ -22,18 +22,14 @@ ic-canisters-http-types = { git = "https://github.com/dfinity/ic", rev = "7f6e7d
 ic-canister-log = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
-ic-ckbtc-kyt = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-crypto-extended-bip32 = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-crypto-getrandom-for-wasm = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-crypto-sha2 = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-ic00-types = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-icrc1 = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-icrc-ledger-client-cdk = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-ledger-core = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-metrics-encoder = "1"
 ic-stable-structures = { workspace = true }
 ic-utils-ensure = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-icrc-ledger-types = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 lazy_static = "1.4.0"
 minicbor = { workspace = true }
 minicbor-derive = { workspace = true }
@@ -50,9 +46,8 @@ assert_matches = "1.5.0"
 bitcoin = "0.28.1"
 candid_parser = { workspace = true }
 ic-config = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-icrc1-ledger = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-state-machine-tests = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-bitcoin-canister-mock = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+ic-bitcoin-canister-mock = { path = "../../mock/bitcoin" }
 proptest = "1.0"
 simple_asn1 = { workspace = true }

@@ -5,7 +5,6 @@ const MAX_CONCURRENT: u64 = 100;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum GuardError {
-    AlreadyProcessing,
     TooManyConcurrentRequests,
 }
 

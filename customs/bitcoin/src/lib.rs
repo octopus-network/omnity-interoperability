@@ -1089,7 +1089,7 @@ pub fn build_unsigned_transaction(
         (tx_outputs.len() + 1) as u64,
     );
     let fee: u64 = (tx_vsize as u64 * fee_per_vbyte) / 1000;
-    // Choose enough gas to handle retransmissions.
+    // Select enough gas to handle resubmissions.
     let select_fee = fee * 2;
 
     let mut input_btc_amount = utxos_guard.iter().map(|input| input.raw.value).sum::<u64>();

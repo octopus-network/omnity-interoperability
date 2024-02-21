@@ -70,7 +70,7 @@ type Event = variant {
   accepted_generate_ticket_request : GenTicketRequest;
   received_runes_utxos : record { balance : RunesBalance; outpoint : OutPoint };
 };
-type FinalizedTicketStatus = variant { Finalized; MismatchWithTicketReq };
+type FinalizedTicketStatus = variant { Invalid; Finalized };
 type GenTicketRequest = record {
   tx_id : vec nat8;
   target_chain_id : text;
@@ -80,6 +80,7 @@ type GenTicketRequest = record {
   runes_id : nat;
 };
 type GenTicketStatus = variant {
+  Invalid;
   Finalized;
   Unknown;
   Pending : GenTicketRequest;
@@ -149,7 +150,7 @@ type UpdateRunesBalanceError = variant {
   UtxoNotFound;
   RequestNotFound;
   AleardyProcessed;
-  MismatchWithTicketReq;
+  MismatchWithGenTicketReq;
 };
 type UpdateRunesBlanceArgs = record {
   tx_id : vec nat8;

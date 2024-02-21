@@ -294,6 +294,7 @@ pub async fn sign_with_ecdsa(
 }
 
 pub async fn send_tickets(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
+    // TODO determine how many cycle it will cost.
     let resp: (Result<(), omnity_types::Error>,) =
         ic_cdk::api::call::call_with_payment(hub_principal, "send_tickets", (ticket,), 0)
             .await
