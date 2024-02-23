@@ -954,7 +954,7 @@ pub fn get_btc_address(
         &env.execute_ingress_as(
             CanisterId::from_u64(100).into(),
             customs_id,
-            "get_btc_address",git s
+            "get_btc_address",
             Encode!(arg).unwrap()
         )
         .expect("failed to transfer funds")
