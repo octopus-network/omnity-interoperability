@@ -1,8 +1,5 @@
 use crate::{
-    destination::Destination,
-    logs::P1,
-    state::{mutate_state, read_state, CustomsState},
-    ECDSAPublicKey,
+    address::main_bitcoin_address, destination::Destination, logs::P1, state::{mutate_state, read_state, CustomsState}, ECDSAPublicKey
 };
 use candid::{CandidType, Deserialize};
 use ic_canister_log::log;
@@ -42,6 +39,12 @@ pub async fn get_btc_address(args: GetBtcAddressArgs) -> String {
             },
         )
     })
+}
+
+pub async fn get_main_btc_address(token: String) -> String {
+    let pub_key = init_ecdsa_public_key().await;
+    let address = main_bitcoin_address(&pub_key, token);
+    read_state(|s| address.display(s.btc_network))
 }
 
 /// Initializes the Minter ECDSA public key. This function must be called

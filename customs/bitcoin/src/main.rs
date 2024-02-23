@@ -2,7 +2,7 @@ use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::lifecycle::{self, init::CustomArg};
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{
-    EstimateFeeArg, GenTicketStatusRequest, ReleaseTokenStatusRequest, WithdrawalFee,
+    EstimateFeeArg, GenTicketStatusArgs, RedeemFee, ReleaseTokenStatusArgs,
 };
 use bitcoin_customs::state::{read_state, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_customs::tasks::{schedule_now, TaskType};
@@ -122,16 +122,22 @@ async fn get_btc_address(args: GetBtcAddressArgs) -> String {
     updates::get_btc_address::get_btc_address(args).await
 }
 
+#[update]
+async fn get_main_btc_address(token: String) -> String {
+    updates::get_main_btc_address(token).await
+}
+
 #[query]
-fn release_token_status(req: ReleaseTokenStatusRequest) -> ReleaseTokenStatus {
+fn release_token_status(req: ReleaseTokenStatusArgs) -> ReleaseTokenStatus {
     read_state(|s| s.release_token_status(&req.ticket_id))
 }
 
 #[query]
-fn generate_ticket_status(req: GenTicketStatusRequest) -> GenTicketStatus {
-    read_state(|s| s.generate_ticket_status(req.tx_id))
+fn generate_ticket_status(req: GenTicketStatusArgs) -> GenTicketStatus {
+    read_state(|s| s.generate_ticket_status(req.txid))
 }
 
+// TODO add auth of runes oracle
 #[update]
 async fn update_runes_balance(args: UpdateRunesBlanceArgs) -> Result<(), UpdateRunesBalanceError> {
     check_postcondition(updates::update_runes_balance(args).await)
@@ -160,7 +166,7 @@ async fn get_canister_status() -> ic_cdk::api::management_canister::main::Canist
 }
 
 #[query]
-fn estimate_withdrawal_fee(arg: EstimateFeeArg) -> WithdrawalFee {
+fn estimate_redeem_fee(arg: EstimateFeeArg) -> RedeemFee {
     read_state(|s| {
         bitcoin_customs::estimate_fee(
             arg.runes_id,
