@@ -15,7 +15,7 @@ pub struct GenerateTicketArgs {
     pub receiver: String,
     pub runes_id: RunesId,
     pub amount: u128,
-    pub tx_id: Txid,
+    pub txid: Txid,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -32,7 +32,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     // TODO check if the token and target_chain_id is in the whitelist
 
-    read_state(|s| match s.generate_ticket_status(args.tx_id) {
+    read_state(|s| match s.generate_ticket_status(args.txid) {
         GenTicketStatus::Pending(_) => Err(GenerateTicketError::AlreadySubmitted),
         GenTicketStatus::Invalid | GenTicketStatus::Finalized => {
             Err(GenerateTicketError::AleardyProcessed)
@@ -65,7 +65,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         })?
         .utxos;
 
-    let new_utxos = read_state(|s| s.new_utxos_for_destination(utxos, &destination, args.tx_id));
+    let new_utxos = read_state(|s| s.new_utxos_for_destination(utxos, &destination, args.txid));
     if new_utxos.len() == 0 {
         return Err(GenerateTicketError::NoNewUtxos);
     }
@@ -76,7 +76,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         receiver: args.receiver,
         runes_id: args.runes_id,
         amount: args.amount,
-        tx_id: args.tx_id,
+        tx_id: args.txid,
     };
 
     mutate_state(|s| {
