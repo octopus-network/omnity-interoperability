@@ -1,0 +1,22 @@
+[package]
+name = "ethl2_route_canister"
+version = "0.1.0"
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = { workspace = true }
+ic-cdk = { workspace = true }
+thiserror = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+omnity_types = { path = "../../types" }
+
+secp256k1 = { version = "0.28.2", features = ["recovery", "global-context"] }
+tiny-keccak = { version = "2.0.2", features = ["keccak"], default-features = false }
+rlp = { version = "0.5.2", default-features = false }
+num-traits = { version = "0.2", default-features = false }
+bytes = { version = "^1.4.0", default-features = false }
+serde_derive = "^1.0"
