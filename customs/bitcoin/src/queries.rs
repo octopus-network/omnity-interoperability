@@ -5,13 +5,13 @@ use omnity_types::TicketId;
 use serde::Deserialize;
 
 #[derive(CandidType, Deserialize)]
-pub struct ReleaseTokenStatusRequest {
+pub struct ReleaseTokenStatusArgs {
     pub ticket_id: TicketId,
 }
 
 #[derive(CandidType, Deserialize)]
-pub struct GenTicketStatusRequest {
-    pub tx_id: Txid,
+pub struct GenTicketStatusArgs {
+    pub txid: Txid,
 }
 
 #[derive(CandidType, Deserialize)]
@@ -21,6 +21,6 @@ pub struct EstimateFeeArg {
 }
 
 #[derive(CandidType, Deserialize, Debug)]
-pub struct WithdrawalFee {
+pub struct RedeemFee {
     pub bitcoin_fee: u64,
 }

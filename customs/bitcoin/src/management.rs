@@ -79,10 +79,8 @@ impl fmt::Display for Reason {
 impl Reason {
     fn from_reject(reject_code: RejectionCode, reject_message: String) -> Self {
         match reject_code {
-            RejectionCode::SysTransient => Self::QueueIsFull,
-            RejectionCode::CanisterError => Self::CanisterError(reject_message),
             RejectionCode::CanisterReject => Self::Rejected(reject_message),
-            _ => Self::QueueIsFull,
+            _ => Self::CanisterError(reject_message),
         }
     }
 }
@@ -295,11 +293,13 @@ pub async fn sign_with_ecdsa(
 
 pub async fn send_tickets(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     // TODO determine how many cycle it will cost.
+    let cost_cycles = 4_000_000_000_u64;
+
     let resp: (Result<(), omnity_types::Error>,) =
-        ic_cdk::api::call::call_with_payment(hub_principal, "send_tickets", (ticket,), 0)
+        ic_cdk::api::call::call_with_payment(hub_principal, "send_tickets", (ticket,), cost_cycles)
             .await
             .map_err(|(code, message)| CallError {
-                method: "send_ticket".to_string(),
+                method: "send_tickets".to_string(),
                 reason: Reason::from_reject(code, message),
             })?;
     let data = resp.0.map_err(|err| CallError {

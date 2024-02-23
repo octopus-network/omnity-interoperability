@@ -8,7 +8,7 @@ use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UpdateRunesBlanceArgs {
-    pub tx_id: Txid,
+    pub txid: Txid,
     pub vout: u32,
     pub balance: RunesBalance,
 }
@@ -26,7 +26,7 @@ pub async fn update_runes_balance(
     args: UpdateRunesBlanceArgs,
 ) -> Result<(), UpdateRunesBalanceError> {
     let outpoint = OutPoint {
-        txid: args.tx_id,
+        txid: args.txid,
         vout: args.vout,
     };
     read_state(|s| match s.outpoint_destination.get(&outpoint) {
@@ -34,7 +34,7 @@ pub async fn update_runes_balance(
         None => Err(UpdateRunesBalanceError::UtxoNotFound),
     })?;
 
-    let req = read_state(|s| match s.generate_ticket_status(args.tx_id) {
+    let req = read_state(|s| match s.generate_ticket_status(args.txid) {
         GenTicketStatus::Invalid | GenTicketStatus::Finalized => {
             Err(UpdateRunesBalanceError::AleardyProcessed)
         }
@@ -47,7 +47,7 @@ pub async fn update_runes_balance(
         management::send_tickets(
             hub_principal,
             Ticket {
-                ticket_id: args.tx_id.to_string(),
+                ticket_id: args.txid.to_string(),
                 created_time: ic_cdk::api::time(),
                 src_chain: String::from(BTC_TOKEN),
                 dst_chain: req.target_chain_id.clone(),
@@ -68,11 +68,8 @@ pub async fn update_runes_balance(
 
     mutate_state(|s| match result {
         Ok(_) => audit::finalize_ticket_request(s, &req, args.vout),
-        Err(UpdateRunesBalanceError::MismatchWithGenTicketReq) => {
-            audit::remove_ticket_request(s, &req, FinalizedTicketStatus::Invalid)
-        }
-        _ => {}
+        Err(_) => audit::remove_ticket_request(s, &req, FinalizedTicketStatus::Invalid),
     });
 
-    Ok(())
+    result
 }

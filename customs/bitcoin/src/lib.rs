@@ -1,6 +1,6 @@
 use crate::address::{main_bitcoin_address, main_destination, BitcoinAddress};
 use crate::logs::{P0, P1};
-use crate::queries::WithdrawalFee;
+use crate::queries::RedeemFee;
 use crate::runestone::{Edict, Runestone};
 use crate::state::{audit, mutate_state, BtcChangeOutput};
 use crate::tasks::schedule_after;
@@ -1099,7 +1099,6 @@ pub fn build_unsigned_transaction(
     let selected_btc_amount = if input_btc_amount < select_fee {
         let target_fee = select_fee - input_btc_amount;
 
-        // To avoid aggregation of btc utxo, use the greedy selection algorithm directly.
         btc_utxos = greedy(target_fee as u128, available_btc_utxos, |u| u.value as u128);
         if btc_utxos.is_empty() {
             return Err(BuildTxError::NotEnoughGas);
@@ -1210,7 +1209,7 @@ pub fn tx_vsize_estimate(input_count: u64, output_count: u64) -> u64 {
     input_count * INPUT_SIZE_VBYTES + output_count * OUTPUT_SIZE_VBYTES + TX_OVERHEAD_VBYTES
 }
 
-/// Computes an estimate for the retrieve_btc fee.
+/// Computes an estimate for the release_token fee.
 ///
 /// Arguments:
 ///   * `available_utxos` - the list of UTXOs available to the minter.
@@ -1221,7 +1220,7 @@ pub fn estimate_fee(
     available_utxos: &BTreeSet<RunesUtxo>,
     maybe_amount: Option<u128>,
     median_fee_millisatoshi_per_vbyte: u64,
-) -> WithdrawalFee {
+) -> RedeemFee {
     const DEFAULT_INPUT_COUNT: u64 = 2;
     // One output for the caller and one for the change.
     const DEFAULT_OUTPUT_COUNT: u64 = 2;
@@ -1255,5 +1254,5 @@ pub fn estimate_fee(
     // does not participate in fees distribution.
     let bitcoin_fee =
         vsize * median_fee_millisatoshi_per_vbyte / 1000 / (DEFAULT_OUTPUT_COUNT - 1).max(1);
-    WithdrawalFee { bitcoin_fee }
+    RedeemFee { bitcoin_fee }
 }

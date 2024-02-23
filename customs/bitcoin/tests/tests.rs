@@ -1,12 +1,22 @@
 use assert_matches::assert_matches;
 use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
-use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs as CkbtcMinterInitArgs};
-use bitcoin_customs::lifecycle::{init::InitArgs, upgrade::UpgradeArgs};
-use bitcoin_customs::queries::{EstimateFeeArg, ReleaseTokenStatusRequest, WithdrawalFee};
-use bitcoin_customs::state::CustomsState;
+use bitcoin_customs::destination::Destination;
+use bitcoin_customs::lifecycle::{
+    init::{CustomArg, InitArgs},
+    upgrade::UpgradeArgs,
+};
+use bitcoin_customs::queries::{
+    EstimateFeeArg, GenTicketStatusArgs, RedeemFee, ReleaseTokenStatusArgs,
+};
+use bitcoin_customs::state::{CustomsState, GenTicketStatus, RunesBalance, RunesId};
 use bitcoin_customs::state::{Mode, ReleaseTokenStatus};
+use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
+use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
+use bitcoin_customs::updates::update_runes_balance::{
+    UpdateRunesBalanceError, UpdateRunesBlanceArgs,
+};
 use bitcoin_customs::{CustomsInfo, Log, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
 use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
@@ -20,7 +30,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
-const TRANSFER_FEE: u64 = 10;
 const MIN_CONFIRMATIONS: u32 = 12;
 const MAX_TIME_IN_QUEUE: Duration = Duration::from_secs(10);
 const WITHDRAWAL_ADDRESS: &str = "bc1q34aq5drpuwy3wgl9lhup9892qp6svr8ldzyy7c";
@@ -33,10 +42,6 @@ fn customs_wasm() -> Vec<u8> {
     )
 }
 
-// fn hub_mock_wasm() -> Vec<u8> {
-
-// }
-
 fn bitcoin_mock_wasm() -> Vec<u8> {
     load_wasm(
         PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
@@ -47,6 +52,20 @@ fn bitcoin_mock_wasm() -> Vec<u8> {
             .join("mock")
             .join("bitcoin"),
         "ic-bitcoin-canister-mock",
+        &[],
+    )
+}
+
+fn hub_mock_wasm() -> Vec<u8> {
+    load_wasm(
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("mock")
+            .join("hub"),
+        "hub-mock",
         &[],
     )
 }
@@ -67,56 +86,46 @@ fn install_customs(env: &StateMachine) -> CanisterId {
         .unwrap()
 }
 
-// fn assert_reply(result: WasmResult) -> Vec<u8> {
-//     match result {
-//         WasmResult::Reply(bytes) => bytes,
-//         WasmResult::Reject(reject) => {
-//             panic!("Expected a successful reply, got a reject: {}", reject)
-//         }
-//     }
-// }
+fn assert_reply(result: WasmResult) -> Vec<u8> {
+    match result {
+        WasmResult::Reply(bytes) => bytes,
+        WasmResult::Reject(reject) => {
+            panic!("Expected a successful reply, got a reject: {}", reject)
+        }
+    }
+}
 
 fn input_utxos(tx: &bitcoin::Transaction) -> Vec<bitcoin::OutPoint> {
     tx.input.iter().map(|txin| txin.previous_output).collect()
 }
 
-// fn assert_replacement_transaction(old: &bitcoin::Transaction, new: &bitcoin::Transaction) {
-//     assert_ne!(old.txid(), new.txid());
-//     assert_eq!(input_utxos(old), input_utxos(new));
+fn assert_replacement_transaction(old: &bitcoin::Transaction, new: &bitcoin::Transaction) {
+    assert_ne!(old.txid(), new.txid());
+    assert_eq!(input_utxos(old), input_utxos(new));
 
-//     let new_out_value = new.output.iter().map(|out| out.value).sum::<u64>();
-//     let prev_out_value = old.output.iter().map(|out| out.value).sum::<u64>();
-//     let relay_cost = new.vsize() as u64 * MIN_RELAY_FEE_PER_VBYTE / 1000;
+    let new_out_value = new.output.iter().map(|out| out.value).sum::<u64>();
+    let prev_out_value = old.output.iter().map(|out| out.value).sum::<u64>();
+    let relay_cost = new.vsize() as u64 * MIN_RELAY_FEE_PER_VBYTE / 1000;
 
-//     assert!(
-//         new_out_value + relay_cost <= prev_out_value,
-//         "the transaction fees should have increased by at least {relay_cost}. prev out value: {prev_out_value}, new out value: {new_out_value}"
-//     );
-// }
+    assert!(
+        new_out_value + relay_cost <= prev_out_value,
+        "the transaction fees should have increased by at least {relay_cost}. prev out value: {prev_out_value}, new out value: {new_out_value}"
+    );
+}
 
-// fn vec_to_txid(vec: Vec<u8>) -> Txid {
-//     let bytes: [u8; 32] = vec.try_into().expect("Vector length must be exactly 32");
-//     bytes.into()
-// }
+fn vec_to_txid(vec: Vec<u8>) -> Txid {
+    let bytes: [u8; 32] = vec.try_into().expect("Vector length must be exactly 32");
+    bytes.into()
+}
 
-// fn range_to_txid(range: std::ops::RangeInclusive<u8>) -> Txid {
-//     vec_to_txid(range.collect::<Vec<u8>>())
-// }
+fn range_to_txid(range: std::ops::RangeInclusive<u8>) -> Txid {
+    vec_to_txid(range.collect::<Vec<u8>>())
+}
 
 #[test]
 fn test_install_bitcoin_customs_canister() {
     let env = StateMachine::new();
     install_customs(&env);
-}
-
-#[test]
-fn test_install_bitcoin_mock_canister() {
-    let bitcoin_id = mainnet_bitcoin_canister_id();
-    let env = StateMachineBuilder::new()
-        .with_default_canister_range()
-        .with_extra_canister_range(bitcoin_id..=bitcoin_id)
-        .build();
-    install_bitcoin_mock_canister(&env);
 }
 
 // #[test]
@@ -179,169 +188,6 @@ fn test_install_bitcoin_mock_canister() {
 //     }
 // }
 
-// #[test]
-// fn test_gen_ticket_no_new_utxos() {
-//     let customs = CustomsSetup::new();
-
-//     customs.set_tip_height(100);
-
-//     let deposit_value = 100_000_000;
-//     let utxo = Utxo {
-//         height: 99,
-//         outpoint: OutPoint {
-//             txid: range_to_txid(1..=32),
-//             vout: 1,
-//         },
-//         value: deposit_value,
-//     };
-
-//     let user = Principal::from(customs.caller);
-
-//     let deposit_address = customs.get_btc_address(user);
-
-//     customs.push_utxo(deposit_address, utxo.clone());
-
-//     let update_balance_args = UpdateBalanceArgs {
-//         owner: None,
-//         subaccount: None,
-//     };
-//     let res = customs
-//         .env
-//         .execute_ingress_as(
-//             PrincipalId::new_user_test_id(1),
-//             customs.minter_id,
-//             "update_balance",
-//             Encode!(&update_balance_args).unwrap(),
-//         )
-//         .expect("Failed to call update_balance");
-//     let res = Decode!(&res.bytes(), Result<Vec<UtxoStatus>, UpdateBalanceError>).unwrap();
-//     assert_eq!(
-//         res,
-//         Err(UpdateBalanceError::NoNewUtxos {
-//             pending_utxos: Some(vec![PendingUtxo {
-//                 outpoint: utxo.outpoint,
-//                 value: utxo.value,
-//                 confirmations: 2,
-//             }]),
-//             current_confirmations: Some(2),
-//             required_confirmations: 12,
-//         })
-//     );
-// }
-
-// #[test]
-// fn update_balance_should_return_correct_confirmations() {
-//     let ckbtc = CkBtcSetup::new();
-//     let upgrade_args = UpgradeArgs {
-//         release_min_amount: None,
-//         min_confirmations: Some(3),
-//         max_time_in_queue_nanos: None,
-//         mode: None,
-//         kyt_principal: None,
-//         kyt_fee: None,
-//     };
-//     let minter_arg = CustomArg::Upgrade(Some(upgrade_args));
-//     ckbtc
-//         .env
-//         .upgrade_canister(
-//             ckbtc.minter_id,
-//             minter_wasm(),
-//             Encode!(&minter_arg).unwrap(),
-//         )
-//         .expect("Failed to upgrade the minter canister");
-
-//     ckbtc.set_tip_height(12);
-
-//     let deposit_value = 100_000_000;
-//     let utxo = Utxo {
-//         height: 10,
-//         outpoint: OutPoint {
-//             txid: range_to_txid(1..=32),
-//             vout: 1,
-//         },
-//         value: deposit_value,
-//     };
-
-//     let user = Principal::from(ckbtc.caller);
-
-//     ckbtc.deposit_utxo(user, utxo);
-
-//     let update_balance_args = UpdateBalanceArgs {
-//         owner: None,
-//         subaccount: None,
-//     };
-
-//     let res = ckbtc
-//         .env
-//         .execute_ingress_as(
-//             PrincipalId::new_user_test_id(1),
-//             ckbtc.minter_id,
-//             "update_balance",
-//             Encode!(&update_balance_args).unwrap(),
-//         )
-//         .expect("Failed to call update_balance");
-//     let res = Decode!(&res.bytes(), Result<Vec<UtxoStatus>, UpdateBalanceError>).unwrap();
-//     assert_eq!(
-//         res,
-//         Err(UpdateBalanceError::NoNewUtxos {
-//             current_confirmations: None,
-//             required_confirmations: 3,
-//             pending_utxos: Some(vec![])
-//         })
-//     );
-// }
-
-// #[test]
-// fn test_illegal_caller() {
-//     let env = StateMachine::new();
-//     let ledger_id = install_ledger(&env);
-//     let minter_id = install_minter(&env, ledger_id);
-
-//     let authorized_principal =
-//         Principal::from_str("k2t6j-2nvnp-4zjm3-25dtz-6xhaa-c7boj-5gayf-oj3xs-i43lp-teztq-6ae")
-//             .unwrap();
-
-//     // update_balance with minter's principal as target
-//     let update_balance_args = UpdateBalanceArgs {
-//         owner: Some(Principal::from_str(&minter_id.get().to_string()).unwrap()),
-//         subaccount: None,
-//     };
-//     // This call should panick
-//     let res = env.execute_ingress_as(
-//         authorized_principal.into(),
-//         minter_id,
-//         "update_balance",
-//         Encode!(&update_balance_args).unwrap(),
-//     );
-//     assert!(res.is_err());
-//     // Anonynmous call should fail
-//     let res = env.execute_ingress(
-//         minter_id,
-//         "update_balance",
-//         Encode!(&update_balance_args).unwrap(),
-//     );
-//     assert!(res.is_err());
-// }
-
-pub fn get_btc_address(
-    env: &StateMachine,
-    customs_id: CanisterId,
-    arg: &GetBtcAddressArgs,
-) -> String {
-    Decode!(
-        &env.execute_ingress_as(
-            CanisterId::from_u64(100).into(),
-            customs_id,
-            "get_btc_address",
-            Encode!(arg).unwrap()
-        )
-        .expect("failed to transfer funds")
-        .bytes(),
-        String
-    )
-    .expect("failed to decode String response")
-}
-
 #[test]
 fn test_customs() {
     use bitcoin::Address;
@@ -399,564 +245,723 @@ fn install_bitcoin_mock_canister(env: &StateMachine) {
 struct CustomsSetup {
     pub env: StateMachine,
     pub caller: PrincipalId,
+    pub runes_oracle: PrincipalId,
     pub bitcoin_id: CanisterId,
     pub customs_id: CanisterId,
-    pub hub_id: CanisterId,
 }
 
 impl CustomsSetup {
-    // pub fn new() -> Self {
-    //     let bitcoin_id = mainnet_bitcoin_canister_id();
-    //     let env = StateMachineBuilder::new()
-    //         .with_default_canister_range()
-    //         .with_extra_canister_range(bitcoin_id..=bitcoin_id)
-    //         .build();
+    pub fn new() -> Self {
+        let bitcoin_id = mainnet_bitcoin_canister_id();
+        let env = StateMachineBuilder::new()
+            .with_default_canister_range()
+            .with_extra_canister_range(bitcoin_id..=bitcoin_id)
+            .build();
 
-    //     install_bitcoin_mock_canister(&env);
-    //     let customs_id =
-    //         env.create_canister_with_cycles(None, Cycles::new(100_000_000_000_000), None);
-    //     let hub_id = env.create_canister(None);
+        install_bitcoin_mock_canister(&env);
+        let customs_id =
+            env.create_canister_with_cycles(None, Cycles::new(100_000_000_000_000), None);
+        let hub_id = env.create_canister(None);
 
-    //     env.install_existing_canister(
-    //         customs_id,
-    //         minter_wasm(),
-    //         Encode!(&CustomArg::Init(InitArgs {
-    //             btc_network: Network::Mainnet.into(),
-    //             ecdsa_key_name: "master_ecdsa_public_key".to_string(),
-    //             max_time_in_queue_nanos: 100,
-    //             min_confirmations: Some(MIN_CONFIRMATIONS),
-    //             mode: Mode::GeneralAvailability,
-    //             hub_principal: hub_id.into(),
-    //         }))
-    //         .unwrap(),
-    //     )
-    //     .expect("failed to install the minter");
+        env.install_existing_canister(
+            customs_id,
+            customs_wasm(),
+            Encode!(&CustomArg::Init(InitArgs {
+                btc_network: Network::Mainnet.into(),
+                ecdsa_key_name: "master_ecdsa_public_key".to_string(),
+                max_time_in_queue_nanos: 100,
+                min_confirmations: Some(MIN_CONFIRMATIONS),
+                mode: Mode::GeneralAvailability,
+                hub_principal: hub_id.into(),
+            }))
+            .unwrap(),
+        )
+        .expect("failed to install the customs");
 
-    //     let caller = PrincipalId::new_user_test_id(1);
+        let caller = PrincipalId::new_user_test_id(1);
+        let runes_oracle = PrincipalId::new_node_test_id(2);
 
-    //     env.install_existing_canister(
-    //         hub_id,
-    //         hub_wasm(),
-    //         Encode!(&LifecycleArg::InitArg(KytInitArg {
-    //             minter_id: customs_id.into(),
-    //             maintainers: vec![kyt_provider.into()],
-    //             mode: KytMode::AcceptAll,
-    //         }))
-    //         .unwrap(),
-    //     )
-    //     .expect("failed to install the KYT canister");
+        env.install_existing_canister(hub_id, hub_mock_wasm(), vec![])
+            .expect("failed to install the hub canister");
 
-    //     env.execute_ingress(
-    //         bitcoin_id,
-    //         "set_fee_percentiles",
-    //         Encode!(&(1..=100).map(|i| i * 100).collect::<Vec<u64>>()).unwrap(),
-    //     )
-    //     .expect("failed to set fee percentiles");
+        env.execute_ingress(
+            bitcoin_id,
+            "set_fee_percentiles",
+            Encode!(&(1..=100).map(|i| i * 100).collect::<Vec<u64>>()).unwrap(),
+        )
+        .expect("failed to set fee percentiles");
 
-    //     Self {
-    //         env,
-    //         caller,
-    //         bitcoin_id,
-    //         customs_id,
-    //         hub_id,
-    //     }
-    // }
+        Self {
+            env,
+            caller,
+            runes_oracle,
+            bitcoin_id,
+            customs_id,
+        }
+    }
 
-    //     pub fn set_fee_percentiles(&self, fees: &Vec<u64>) {
-    //         self.env
-    //             .execute_ingress(
-    //                 self.bitcoin_id,
-    //                 "set_fee_percentiles",
-    //                 Encode!(fees).unwrap(),
-    //             )
-    //             .expect("failed to set fee percentiles");
-    //     }
+    pub fn set_fee_percentiles(&self, fees: &Vec<u64>) {
+        self.env
+            .execute_ingress(
+                self.bitcoin_id,
+                "set_fee_percentiles",
+                Encode!(fees).unwrap(),
+            )
+            .expect("failed to set fee percentiles");
+    }
 
-    //     pub fn set_tip_height(&self, tip_height: u32) {
-    //         self.env
-    //             .execute_ingress(
-    //                 self.bitcoin_id,
-    //                 "set_tip_height",
-    //                 Encode!(&tip_height).unwrap(),
-    //             )
-    //             .expect("failed to set fee tip height");
-    //     }
+    pub fn set_tip_height(&self, tip_height: u32) {
+        self.env
+            .execute_ingress(
+                self.bitcoin_id,
+                "set_tip_height",
+                Encode!(&tip_height).unwrap(),
+            )
+            .expect("failed to set fee tip height");
+    }
 
-    //     pub fn push_utxo(&self, address: String, utxo: Utxo) {
-    //         assert_reply(
-    //             self.env
-    //                 .execute_ingress(
-    //                     self.bitcoin_id,
-    //                     "push_utxo_to_address",
-    //                     Encode!(&PushUtxoToAddress { address, utxo }).unwrap(),
-    //                 )
-    //                 .expect("failed to push a UTXO"),
-    //         );
-    //     }
+    pub fn push_utxo(&self, address: String, utxo: Utxo) {
+        assert_reply(
+            self.env
+                .execute_ingress(
+                    self.bitcoin_id,
+                    "push_utxo_to_address",
+                    Encode!(&PushUtxoToAddress { address, utxo }).unwrap(),
+                )
+                .expect("failed to push a UTXO"),
+        );
+    }
 
-    //     pub fn get_btc_address(&self, account: impl Into<Account>) -> String {
-    //         let account = account.into();
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .execute_ingress_as(
-    //                         self.caller,
-    //                         self.minter_id,
-    //                         "get_btc_address",
-    //                         Encode!(&GetBtcAddressArgs {
-    //                             owner: Some(account.owner),
-    //                             subaccount: account.subaccount,
-    //                         })
-    //                         .unwrap(),
-    //                     )
-    //                     .expect("failed to get btc address")
-    //             ),
-    //             String
-    //         )
-    //         .unwrap()
-    //     }
+    pub fn get_btc_address(&self, destination: impl Into<Destination>) -> String {
+        let dest: Destination = destination.into();
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.customs_id,
+                        "get_btc_address",
+                        Encode!(&GetBtcAddressArgs {
+                            target_chain_id: dest.target_chain_id,
+                            receiver: dest.receiver,
+                        })
+                        .unwrap(),
+                    )
+                    .expect("failed to get btc address")
+            ),
+            String
+        )
+        .unwrap()
+    }
 
-    //     pub fn get_minter_info(&self) -> CustomInfo {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .execute_ingress(self.minter_id, "get_minter_info", Encode!().unwrap(),)
-    //                     .expect("failed to get minter info")
-    //             ),
-    //             CustomInfo
-    //         )
-    //         .unwrap()
-    //     }
+    pub fn get_main_btc_address(&self, token: String) -> String {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.customs_id,
+                        "get_main_btc_address",
+                        Encode!(&token).unwrap(),
+                    )
+                    .expect("failed to get main btc address")
+            ),
+            String
+        )
+        .unwrap()
+    }
 
-    //     pub fn get_logs(&self) -> Log {
-    //         let request = HttpRequest {
-    //             method: "".to_string(),
-    //             url: "/logs".to_string(),
-    //             headers: vec![],
-    //             body: serde_bytes::ByteBuf::new(),
-    //         };
-    //         let response = Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .query(self.minter_id, "http_request", Encode!(&request).unwrap(),)
-    //                     .expect("failed to get minter info")
-    //             ),
-    //             HttpResponse
-    //         )
-    //         .unwrap();
-    //         serde_json::from_slice(&response.body).expect("failed to parse ckbtc minter log")
-    //     }
+    pub fn get_customs_info(&self) -> CustomsInfo {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress(self.customs_id, "get_customs_info", Encode!().unwrap(),)
+                    .expect("failed to get customs info")
+            ),
+            CustomsInfo
+        )
+        .unwrap()
+    }
 
-    //     pub fn refresh_fee_percentiles(&self) {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .execute_ingress_as(
-    //                         self.caller,
-    //                         self.minter_id,
-    //                         "refresh_fee_percentiles",
-    //                         Encode!().unwrap()
-    //                     )
-    //                     .expect("failed to refresh fee percentiles")
-    //             ),
-    //             Option<Nat>
-    //         )
-    //         .unwrap();
-    //     }
+    pub fn get_logs(&self) -> Log {
+        let request = HttpRequest {
+            method: "".to_string(),
+            url: "/logs".to_string(),
+            headers: vec![],
+            body: serde_bytes::ByteBuf::new(),
+        };
+        let response = Decode!(
+            &assert_reply(
+                self.env
+                    .query(self.customs_id, "http_request", Encode!(&request).unwrap(),)
+                    .expect("failed to get customs info")
+            ),
+            HttpResponse
+        )
+        .unwrap();
+        serde_json::from_slice(&response.body).expect("failed to parse customs log")
+    }
 
-    //     pub fn estimate_withdrawal_fee(&self, amount: Option<u64>) -> WithdrawalFee {
-    //         self.refresh_fee_percentiles();
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .query(
-    //                         self.minter_id,
-    //                         "estimate_withdrawal_fee",
-    //                         Encode!(&EstimateFeeArg { amount }).unwrap()
-    //                     )
-    //                     .expect("failed to query minter fee estimate")
-    //             ),
-    //             WithdrawalFee
-    //         )
-    //         .unwrap()
-    //     }
+    pub fn refresh_fee_percentiles(&self) {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.customs_id,
+                        "refresh_fee_percentiles",
+                        Encode!().unwrap()
+                    )
+                    .expect("failed to refresh fee percentiles")
+            ),
+            Option<Nat>
+        )
+        .unwrap();
+    }
 
-    //     pub fn deposit_utxo(&self, account: impl Into<Account>, utxo: Utxo) {
-    //         let account = account.into();
-    //         let deposit_address = self.get_btc_address(account);
+    pub fn estimate_redeem_fee(&self, runes_id: RunesId, amount: Option<u128>) -> RedeemFee {
+        self.refresh_fee_percentiles();
+        Decode!(
+            &assert_reply(
+                self.env
+                    .query(
+                        self.customs_id,
+                        "estimate_redeem_fee",
+                        Encode!(&EstimateFeeArg { runes_id, amount }).unwrap()
+                    )
+                    .expect("failed to query minter fee estimate")
+            ),
+            RedeemFee
+        )
+        .unwrap()
+    }
 
-    //         self.push_utxo(deposit_address, utxo.clone());
+    pub fn generate_ticket(&self, args: &GenerateTicketArgs) -> Result<(), GenerateTicketError> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.customs_id,
+                        "generate_ticket",
+                        Encode!(args)
+                        .unwrap()
+                    )
+                    .expect("failed to generate ticket")
+            ),
+            Result<(), GenerateTicketError>
+        )
+        .unwrap()
+    }
 
-    //         let utxo_status = Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .execute_ingress_as(
-    //                         self.caller,
-    //                         self.minter_id,
-    //                         "update_balance",
-    //                         Encode!(&UpdateBalanceArgs {
-    //                             owner: Some(account.owner),
-    //                             subaccount: account.subaccount,
-    //                         })
-    //                         .unwrap()
-    //                     )
-    //                     .expect("failed to update balance")
-    //             ),
-    //             Result<Vec<UtxoStatus>, UpdateBalanceError>
-    //         )
-    //         .unwrap();
+    pub fn generate_ticket_status(&self, txid: Txid) -> GenTicketStatus {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .query(
+                        self.customs_id,
+                        "generate_ticket_status",
+                        Encode!(&GenTicketStatusArgs { txid }).unwrap()
+                    )
+                    .expect("failed to get generate ticket status")
+            ),
+            GenTicketStatus
+        )
+        .unwrap()
+    }
 
-    //         assert_eq!(
-    //             utxo_status.unwrap(),
-    //             vec![UtxoStatus::Minted {
-    //                 block_index: 0,
-    //                 minted_amount: utxo.value - KYT_FEE,
-    //                 utxo,
-    //             }]
-    //         );
-    //     }
+    pub fn update_runes_balance(
+        &self,
+        args: &UpdateRunesBlanceArgs,
+    ) -> Result<(), UpdateRunesBalanceError> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.runes_oracle,
+                        self.customs_id,
+                        "update_runes_balance",
+                        Encode!(args)
+                        .unwrap()
+                    )
+                    .expect("failed to update runes balance")
+            ),
+            Result<(), UpdateRunesBalanceError>
+        )
+        .unwrap()
+    }
 
-    //     pub fn get_transactions(&self, arg: GetTransactionsRequest) -> GetTransactionsResponse {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .query(self.ledger_id, "get_transactions", Encode!(&arg).unwrap())
-    //                     .expect("failed to query get_transactions on the ledger")
-    //             ),
-    //             GetTransactionsResponse
-    //         )
-    //         .unwrap()
-    //     }
+    pub fn update_btc_utxos(&self) -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.runes_oracle,
+                        self.customs_id,
+                        "update_btc_utxos",
+                        vec![]
+                    )
+                    .expect("failed to update btc utxos")
+            ),
+            Result<Vec<Utxo>, UpdateBtcUtxosErr>
+        )
+        .unwrap()
+    }
 
-    //     pub fn balance_of(&self, account: impl Into<Account>) -> Nat {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .query(
-    //                         self.ledger_id,
-    //                         "icrc1_balance_of",
-    //                         Encode!(&account.into()).unwrap()
-    //                     )
-    //                     .expect("failed to query balance on the ledger")
-    //             ),
-    //             Nat
-    //         )
-    //         .unwrap()
-    //     }
+    pub fn release_token_status(&self, ticket_id: String) -> ReleaseTokenStatus {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .query(
+                        self.customs_id,
+                        "release_token_status",
+                        Encode!(&ReleaseTokenStatusArgs { ticket_id }).unwrap()
+                    )
+                    .expect("failed to get release token status")
+            ),
+            ReleaseTokenStatus
+        )
+        .unwrap()
+    }
 
-    //     pub fn withdrawal_account(&self, owner: PrincipalId) -> Account {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .execute_ingress_as(
-    //                         owner,
-    //                         self.minter_id,
-    //                         "get_withdrawal_account",
-    //                         Encode!().unwrap()
-    //                     )
-    //                     .expect("failed to get ckbtc withdrawal account")
-    //             ),
-    //             Account
-    //         )
-    //         .unwrap()
-    //     }
+    pub fn tick_until<R>(
+        &self,
+        description: &str,
+        max_ticks: u64,
+        mut condition: impl FnMut(&CustomsSetup) -> Option<R>,
+    ) -> R {
+        if let Some(result) = condition(self) {
+            return result;
+        }
+        for _ in 0..max_ticks {
+            self.env.tick();
+            if let Some(result) = condition(self) {
+                return result;
+            }
+        }
+        self.print_customs_logs();
+        self.print_customs_events();
+        panic!(
+            "did not reach condition '{}' in {} ticks",
+            description, max_ticks
+        )
+    }
 
-    //     pub fn transfer(&self, from: impl Into<Account>, to: impl Into<Account>, amount: u64) -> Nat {
-    //         let from = from.into();
-    //         let to = to.into();
-    //         Decode!(&assert_reply(self.env.execute_ingress_as(
-    //             PrincipalId::from(from.owner),
-    //             self.ledger_id,
-    //             "icrc1_transfer",
-    //             Encode!(&TransferArg {
-    //                 from_subaccount: from.subaccount,
-    //                 to,
-    //                 fee: None,
-    //                 created_at_time: None,
-    //                 memo: None,
-    //                 amount: Nat::from(amount),
-    //             }).unwrap()
-    //             ).expect("failed to execute token transfer")),
-    //             Result<Nat, TransferError>
-    //         )
-    //         .unwrap()
-    //         .expect("token transfer failed")
-    //     }
+    /// Check that the given condition holds for the specified number of state machine ticks.
+    pub fn assert_for_n_ticks(
+        &self,
+        description: &str,
+        num_ticks: u64,
+        mut condition: impl FnMut(&CustomsSetup) -> bool,
+    ) {
+        for n in 0..num_ticks {
+            self.env.tick();
+            if !condition(self) {
+                panic!(
+                    "Condition '{}' does not hold after {} ticks",
+                    description, n
+                );
+            }
+        }
+    }
 
-    //     pub fn approve_minter(
-    //         &self,
-    //         from: Principal,
-    //         amount: u64,
-    //         from_subaccount: Option<[u8; 32]>,
-    //     ) -> Nat {
-    //         Decode!(&assert_reply(self.env.execute_ingress_as(
-    //             PrincipalId::from(from),
-    //             self.ledger_id,
-    //             "icrc2_approve",
-    //             Encode!(&ApproveArgs {
-    //                 from_subaccount,
-    //                 spender: Account {
-    //                     owner: self.minter_id.into(),
-    //                     subaccount: None
-    //                 },
-    //                 amount: Nat::from(amount),
-    //                 expected_allowance: None,
-    //                 expires_at: None,
-    //                 fee: None,
-    //                 memo: None,
-    //                 created_at_time: None,
-    //             }).unwrap()
-    //             ).expect("failed to execute token transfer")),
-    //             Result<Nat, ApproveError>
-    //         )
-    //         .unwrap()
-    //         .expect("approve failed")
-    //     }
+    pub fn await_btc_transaction(&self, ticket_id: String, max_ticks: usize) -> Txid {
+        let mut last_status = None;
+        for _ in 0..max_ticks {
+            dbg!(self.get_logs());
+            let status = self.release_token_status(ticket_id.clone());
+            match status {
+                ReleaseTokenStatus::Submitted(txid) => {
+                    return txid;
+                }
+                status => {
+                    last_status = Some(status);
+                    self.env.tick();
+                }
+            }
+        }
+        panic!(
+            "the customs did not submit a transaction in {} ticks; last status {:?}",
+            max_ticks, last_status
+        )
+    }
 
-    //     pub fn retrieve_btc_with_approval(
-    //         &self,
-    //         address: String,
-    //         amount: u64,
-    //         from_subaccount: Option<[u8; 32]>,
-    //     ) -> Result<RetrieveBtcOk, RetrieveBtcWithApprovalError> {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env.execute_ingress_as(self.caller, self.minter_id, "retrieve_btc_with_approval", Encode!(&RetrieveBtcWithApprovalArgs {
-    //                     address,
-    //                     amount,
-    //                     from_subaccount
-    //                 }).unwrap())
-    //                 .expect("failed to execute retrieve_btc request")
-    //             ),
-    //             Result<RetrieveBtcOk, RetrieveBtcWithApprovalError>
-    //         ).unwrap()
-    //     }
+    pub fn print_customs_events(&self) {
+        use bitcoin_customs::state::eventlog::{Event, GetEventsArg};
+        let events = Decode!(
+            &assert_reply(
+                self.env
+                    .query(
+                        self.customs_id,
+                        "get_events",
+                        Encode!(&GetEventsArg {
+                            start: 0,
+                            length: 2000,
+                        })
+                        .unwrap()
+                    )
+                    .expect("failed to query customs events")
+            ),
+            Vec<Event>
+        )
+        .unwrap();
+        println!("{:#?}", events);
+    }
 
-    //     pub fn retrieve_btc_status(&self, block_index: u64) -> ReleaseTokenStatus {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .query(
-    //                         self.minter_id,
-    //                         "retrieve_btc_status",
-    //                         Encode!(&ReleaseTokenStatusRequest { block_index }).unwrap()
-    //                     )
-    //                     .expect("failed to get ckbtc withdrawal account")
-    //             ),
-    //             ReleaseTokenStatus
-    //         )
-    //         .unwrap()
-    //     }
+    pub fn print_customs_logs(&self) {
+        let log = self.get_logs();
+        for entry in log.entries {
+            println!(
+                "{} {}:{} {}",
+                entry.timestamp, entry.file, entry.line, entry.message
+            );
+        }
+    }
 
-    //     pub fn retrieve_btc_status_v2(&self, block_index: u64) -> RetrieveBtcStatusV2 {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .query(
-    //                         self.minter_id,
-    //                         "retrieve_btc_status_v2",
-    //                         Encode!(&ReleaseTokenStatusRequest { block_index }).unwrap()
-    //                     )
-    //                     .expect("failed to retrieve_btc_status_v2")
-    //             ),
-    //             RetrieveBtcStatusV2
-    //         )
-    //         .unwrap()
-    //     }
+    pub fn await_finalization(&self, ticket_id: String, max_ticks: usize) -> Txid {
+        let mut last_status = None;
+        for _ in 0..max_ticks {
+            let status = self.release_token_status(ticket_id.clone());
+            match status {
+                ReleaseTokenStatus::Confirmed(txid) => {
+                    return txid;
+                }
+                status => {
+                    last_status = Some(status);
+                    self.env.tick();
+                }
+            }
+        }
+        panic!(
+            "the customs did not finalize the transaction in {} ticks; last status: {:?}",
+            max_ticks, last_status
+        )
+    }
 
-    //     pub fn retrieve_btc_status_v2_by_account(
-    //         &self,
-    //         maybe_account: Option<Account>,
-    //     ) -> Vec<BtcRetrievalStatusV2> {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .execute_ingress(
-    //                         self.minter_id,
-    //                         "retrieve_btc_status_v2_by_account",
-    //                         Encode!(&maybe_account).unwrap()
-    //                     )
-    //                     .expect("failed to retrieve_btc_status_v2_by_account")
-    //             ),
-    //             Vec<BtcRetrievalStatusV2>
-    //         )
-    //         .unwrap()
-    //     }
+    pub fn finalize_transaction(&self, tx: &bitcoin::Transaction) {
+        let btc_change_utxo = tx.output.last().unwrap();
+        let btc_change_address =
+            BtcAddress::from_script(&btc_change_utxo.script_pubkey, BtcNetwork::Bitcoin).unwrap();
 
-    //     pub fn tick_until<R>(
-    //         &self,
-    //         description: &str,
-    //         max_ticks: u64,
-    //         mut condition: impl FnMut(&CkBtcSetup) -> Option<R>,
-    //     ) -> R {
-    //         if let Some(result) = condition(self) {
-    //             return result;
-    //         }
-    //         for _ in 0..max_ticks {
-    //             self.env.tick();
-    //             if let Some(result) = condition(self) {
-    //                 return result;
-    //             }
-    //         }
-    //         self.print_minter_logs();
-    //         self.print_minter_events();
-    //         panic!(
-    //             "did not reach condition '{}' in {} ticks",
-    //             description, max_ticks
-    //         )
-    //     }
+        let main_address = self.get_main_btc_address(String::from("BTC"));
+        assert_eq!(btc_change_address.to_string(), main_address);
 
-    //     /// Check that the given condition holds for the specified number of state machine ticks.
-    //     pub fn assert_for_n_ticks(
-    //         &self,
-    //         description: &str,
-    //         num_ticks: u64,
-    //         mut condition: impl FnMut(&CkBtcSetup) -> bool,
-    //     ) {
-    //         for n in 0..num_ticks {
-    //             self.env.tick();
-    //             if !condition(self) {
-    //                 panic!(
-    //                     "Condition '{}' does not hold after {} ticks",
-    //                     description, n
-    //                 );
-    //             }
-    //         }
-    //     }
+        self.env
+            .advance_time(MIN_CONFIRMATIONS * Duration::from_secs(600) + Duration::from_secs(1));
+        let txid_bytes: [u8; 32] = tx.txid().to_vec().try_into().unwrap();
+        // TODO push runes utxos
+        self.push_utxo(
+            btc_change_address.to_string(),
+            Utxo {
+                value: btc_change_utxo.value,
+                height: 0,
+                outpoint: OutPoint {
+                    txid: txid_bytes.into(),
+                    vout: 1,
+                },
+            },
+        );
+    }
 
-    //     pub fn await_btc_transaction(&self, block_index: u64, max_ticks: usize) -> Txid {
-    //         let mut last_status = None;
-    //         for _ in 0..max_ticks {
-    //             dbg!(self.get_logs());
-    //             let status_v2 = self.retrieve_btc_status_v2(block_index);
-    //             let status = self.retrieve_btc_status(block_index);
-    //             assert_eq!(RetrieveBtcStatusV2::from(status.clone()), status_v2);
-    //             match status {
-    //                 ReleaseTokenStatus::Submitted { txid } => {
-    //                     return txid;
-    //                 }
-    //                 status => {
-    //                     last_status = Some(status);
-    //                     self.env.tick();
-    //                 }
-    //             }
-    //         }
-    //         panic!(
-    //             "the minter did not submit a transaction in {} ticks; last status {:?}",
-    //             max_ticks, last_status
-    //         )
-    //     }
+    pub fn mempool(&self) -> BTreeMap<Txid, bitcoin::Transaction> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress(self.bitcoin_id, "get_mempool", Encode!().unwrap())
+                    .expect("failed to call get_mempool on the bitcoin mock")
+            ),
+            Vec<Vec<u8>>
+        )
+        .unwrap()
+        .iter()
+        .map(|tx_bytes| {
+            let tx = bitcoin::Transaction::deserialize(tx_bytes)
+                .expect("failed to parse a bitcoin transaction");
 
-    //     pub fn print_minter_events(&self) {
-    //         use bitcoin_custom::state::eventlog::{Event, GetEventsArg};
-    //         let events = Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .query(
-    //                         self.minter_id,
-    //                         "get_events",
-    //                         Encode!(&GetEventsArg {
-    //                             start: 0,
-    //                             length: 2000,
-    //                         })
-    //                         .unwrap()
-    //                     )
-    //                     .expect("failed to query minter events")
-    //             ),
-    //             Vec<Event>
-    //         )
-    //         .unwrap();
-    //         println!("{:#?}", events);
-    //     }
+            (vec_to_txid(tx.txid().to_vec()), tx)
+        })
+        .collect()
+    }
 
-    //     pub fn print_minter_logs(&self) {
-    //         let log = self.get_logs();
-    //         for entry in log.entries {
-    //             println!(
-    //                 "{} {}:{} {}",
-    //                 entry.timestamp, entry.file, entry.line, entry.message
-    //             );
-    //         }
-    //     }
+    pub fn customs_self_check(&self) {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .query(self.customs_id, "self_check", Encode!().unwrap())
+                    .expect("failed to query self_check")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .expect("customs self-check failed")
+    }
+}
 
-    //     pub fn await_finalization(&self, block_index: u64, max_ticks: usize) -> Txid {
-    //         let mut last_status = None;
-    //         for _ in 0..max_ticks {
-    //             let status_v2 = self.retrieve_btc_status_v2(block_index);
-    //             let status = self.retrieve_btc_status(block_index);
-    //             assert_eq!(RetrieveBtcStatusV2::from(status.clone()), status_v2);
-    //             match status {
-    //                 ReleaseTokenStatus::Confirmed { txid } => {
-    //                     return txid;
-    //                 }
-    //                 status => {
-    //                     last_status = Some(status);
-    //                     self.env.tick();
-    //                 }
-    //             }
-    //         }
-    //         panic!(
-    //             "the minter did not finalize the transaction in {} ticks; last status: {:?}",
-    //             max_ticks, last_status
-    //         )
-    //     }
+#[test]
+fn test_gen_ticket_no_new_utxos() {
+    let customs = CustomsSetup::new();
+    let result = customs.generate_ticket(&GenerateTicketArgs {
+        target_chain_id: String::from("cosmoshub"),
+        receiver: String::from("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv"),
+        runes_id: 1,
+        amount: 1000,
+        txid: range_to_txid(1..=32),
+    });
+    assert_eq!(result, Err(GenerateTicketError::NoNewUtxos));
+}
 
-    //     pub fn finalize_transaction(&self, tx: &bitcoin::Transaction) {
-    //         let change_utxo = tx.output.last().unwrap();
-    //         let change_address =
-    //             BtcAddress::from_script(&change_utxo.script_pubkey, BtcNetwork::Bitcoin).unwrap();
+#[test]
+fn test_gen_ticket_with_insufficient_confirmations() {
+    let customs = CustomsSetup::new();
 
-    //         let main_address = self.get_btc_address(Principal::from(self.minter_id));
-    //         assert_eq!(change_address.to_string(), main_address);
+    customs.set_tip_height(100);
 
-    //         self.env
-    //             .advance_time(MIN_CONFIRMATIONS * Duration::from_secs(600) + Duration::from_secs(1));
-    //         let txid_bytes: [u8; 32] = tx.txid().to_vec().try_into().unwrap();
-    //         self.push_utxo(
-    //             change_address.to_string(),
-    //             Utxo {
-    //                 value: change_utxo.value,
-    //                 height: 0,
-    //                 outpoint: OutPoint {
-    //                     txid: txid_bytes.into(),
-    //                     vout: 1,
-    //                 },
-    //             },
-    //         );
-    //     }
+    let txid = range_to_txid(1..=32);
+    let utxo = Utxo {
+        height: 99,
+        outpoint: OutPoint { txid, vout: 1 },
+        value: 546,
+    };
 
-    //     pub fn mempool(&self) -> BTreeMap<Txid, bitcoin::Transaction> {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .execute_ingress(self.bitcoin_id, "get_mempool", Encode!().unwrap())
-    //                     .expect("failed to call get_mempool on the bitcoin mock")
-    //             ),
-    //             Vec<Vec<u8>>
-    //         )
-    //         .unwrap()
-    //         .iter()
-    //         .map(|tx_bytes| {
-    //             let tx = bitcoin::Transaction::deserialize(tx_bytes)
-    //                 .expect("failed to parse a bitcoin transaction");
+    let target_chain_id = "cosmoshub".to_string();
+    let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
+    let deposit_address = customs.get_btc_address(Destination {
+        target_chain_id: target_chain_id.clone(),
+        receiver: receiver.clone(),
+        token: None,
+    });
 
-    //             (vec_to_txid(tx.txid().to_vec()), tx)
-    //         })
-    //         .collect()
-    //     }
+    customs.push_utxo(deposit_address, utxo);
+    let result = customs.generate_ticket(&GenerateTicketArgs {
+        target_chain_id,
+        receiver,
+        runes_id: 1,
+        amount: 100_000_000,
+        txid,
+    });
+    assert_eq!(result, Err(GenerateTicketError::NoNewUtxos));
+}
 
-    //     pub fn minter_self_check(&self) {
-    //         Decode!(
-    //             &assert_reply(
-    //                 self.env
-    //                     .query(self.minter_id, "self_check", Encode!().unwrap())
-    //                     .expect("failed to query self_check")
-    //             ),
-    //             Result<(), String>
-    //         )
-    //         .unwrap()
-    //         .expect("minter self-check failed")
-    //     }
+#[test]
+fn test_gen_ticket_success() {
+    let customs = CustomsSetup::new();
+
+    customs.set_tip_height(100);
+
+    let txid = range_to_txid(1..=32);
+    let utxo = Utxo {
+        height: 80,
+        outpoint: OutPoint { txid, vout: 1 },
+        value: 546,
+    };
+
+    let target_chain_id = "cosmoshub".to_string();
+    let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
+    let deposit_address = customs.get_btc_address(Destination {
+        target_chain_id: target_chain_id.clone(),
+        receiver: receiver.clone(),
+        token: None,
+    });
+
+    customs.push_utxo(deposit_address, utxo);
+    let result = customs.generate_ticket(&GenerateTicketArgs {
+        target_chain_id,
+        receiver,
+        runes_id: 1,
+        amount: 100_000_000,
+        txid,
+    });
+    assert_eq!(result, Ok(()));
+
+    match customs.generate_ticket_status(txid) {
+        GenTicketStatus::Pending(_) => {}
+        _ => panic!("expect generate ticket pending status"),
+    };
+}
+
+#[test]
+fn test_duplicate_submit_gen_ticket() {
+    let customs = CustomsSetup::new();
+
+    customs.set_tip_height(100);
+
+    let txid = range_to_txid(1..=32);
+    let utxo = Utxo {
+        height: 80,
+        outpoint: OutPoint { txid, vout: 1 },
+        value: 546,
+    };
+
+    let target_chain_id = "cosmoshub".to_string();
+    let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
+    let deposit_address = customs.get_btc_address(Destination {
+        target_chain_id: target_chain_id.clone(),
+        receiver: receiver.clone(),
+        token: None,
+    });
+
+    let args = GenerateTicketArgs {
+        target_chain_id,
+        receiver,
+        runes_id: 1,
+        amount: 100_000_000,
+        txid,
+    };
+
+    customs.push_utxo(deposit_address, utxo);
+    let _ = customs.generate_ticket(&args);
+    let result = customs.generate_ticket(&args);
+    assert_eq!(result, Err(GenerateTicketError::AlreadySubmitted));
+}
+
+#[test]
+fn test_update_runes_balance_no_utxo() {
+    let customs = CustomsSetup::new();
+    let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
+        txid: range_to_txid(1..=32),
+        vout: 1,
+        balance: RunesBalance {
+            runes_id: 1,
+            value: 100_000_000,
+        },
+    });
+    assert_eq!(result, Err(UpdateRunesBalanceError::UtxoNotFound));
+}
+
+#[test]
+fn test_update_runes_balance_invalid() {
+    let customs = CustomsSetup::new();
+
+    customs.set_tip_height(100);
+
+    let txid = range_to_txid(1..=32);
+    let vout = 1;
+    let utxo = Utxo {
+        height: 80,
+        outpoint: OutPoint { txid, vout },
+        value: 546,
+    };
+
+    let target_chain_id = "cosmoshub".to_string();
+    let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
+    let deposit_address = customs.get_btc_address(Destination {
+        target_chain_id: target_chain_id.clone(),
+        receiver: receiver.clone(),
+        token: None,
+    });
+
+    let args = GenerateTicketArgs {
+        target_chain_id,
+        receiver,
+        runes_id: 1,
+        amount: 100_000_000,
+        txid,
+    };
+
+    customs.push_utxo(deposit_address, utxo);
+    let result = customs.generate_ticket(&args);
+    assert_eq!(result, Ok(()));
+
+    let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
+        txid,
+        vout,
+        balance: RunesBalance {
+            runes_id: 1,
+            // inconsistent with the value of generate ticket
+            value: 100_000,
+        },
+    });
+    assert_eq!(
+        result,
+        Err(UpdateRunesBalanceError::MismatchWithGenTicketReq)
+    );
+
+    let status = customs.generate_ticket_status(txid);
+    assert_eq!(status, GenTicketStatus::Invalid);
+}
+
+#[test]
+fn test_update_runes_balance_success() {
+    let customs = CustomsSetup::new();
+
+    let args = update_runes_balance(&customs);
+
+    let status = customs.generate_ticket_status(args.txid);
+    assert_eq!(status, GenTicketStatus::Finalized);
+}
+
+#[test]
+fn test_duplicate_update_runes_balance() {
+    let customs = CustomsSetup::new();
+
+    let args = update_runes_balance(&customs);
+
+    let status = customs.generate_ticket_status(args.txid);
+    assert_eq!(status, GenTicketStatus::Finalized);
+
+    let result = customs.update_runes_balance(&args);
+    assert_eq!(result, Err(UpdateRunesBalanceError::AleardyProcessed));
+}
+
+fn update_runes_balance(customs: &CustomsSetup) -> UpdateRunesBlanceArgs {
+    customs.set_tip_height(100);
+
+    let txid = range_to_txid(1..=32);
+    let vout = 1;
+    let utxo = Utxo {
+        height: 80,
+        outpoint: OutPoint { txid, vout },
+        value: 546,
+    };
+
+    let target_chain_id = "cosmoshub".to_string();
+    let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
+    let deposit_address = customs.get_btc_address(Destination {
+        target_chain_id: target_chain_id.clone(),
+        receiver: receiver.clone(),
+        token: None,
+    });
+
+    customs.push_utxo(deposit_address, utxo);
+    let result = customs.generate_ticket(&GenerateTicketArgs {
+        target_chain_id,
+        receiver,
+        runes_id: 1,
+        amount: 100_000_000,
+        txid,
+    });
+    assert_eq!(result, Ok(()));
+
+    let args = UpdateRunesBlanceArgs {
+        txid,
+        vout,
+        balance: RunesBalance {
+            runes_id: 1,
+            value: 100_000_000,
+        },
+    };
+    let result = customs.update_runes_balance(&args);
+    assert_eq!(result, Ok(()));
+    args
+}
+
+pub fn get_btc_address(
+    env: &StateMachine,
+    customs_id: CanisterId,
+    arg: &GetBtcAddressArgs,
+) -> String {
+    Decode!(
+        &env.execute_ingress_as(
+            CanisterId::from_u64(100).into(),
+            customs_id,
+            "get_btc_address",git s
+            Encode!(arg).unwrap()
+        )
+        .expect("failed to transfer funds")
+        .bytes(),
+        String
+    )
+    .expect("failed to decode String response")
 }
 
 // #[test]
