@@ -58,7 +58,7 @@ type Event = variant {
   accepted_release_token_request : ReleaseTokenRequest;
   init : InitArgs;
   upgrade : UpgradeArgs;
-  confirmed_transaction : record { txid : vec nat8 };
+  confirmed_transaction : GenTicketStatusArgs;
   replaced_transaction : record {
     fee : nat64;
     btc_change_output : BtcChangeOutput;
@@ -85,9 +85,9 @@ type GenTicketStatus = variant {
   Unknown;
   Pending : GenTicketRequest;
 };
-type GenTicketStatusRequest = record { tx_id : vec nat8 };
+type GenTicketStatusArgs = record { txid : vec nat8 };
 type GenerateTicketArgs = record {
-  tx_id : vec nat8;
+  txid : vec nat8;
   target_chain_id : text;
   amount : nat;
   receiver : text;
@@ -122,6 +122,7 @@ type QueryStats = record {
   num_calls_total : nat;
   request_payload_bytes_total : nat;
 };
+type RedeemFee = record { bitcoin_fee : nat64 };
 type ReleaseTokenRequest = record {
   received_at : nat64;
   ticket_id : text;
@@ -137,7 +138,7 @@ type ReleaseTokenStatus = variant {
   Submitted : vec nat8;
   Pending;
 };
-type ReleaseTokenStatusRequest = record { ticket_id : text };
+type ReleaseTokenStatusArgs = record { ticket_id : text };
 type Result = variant { Ok; Err : GenerateTicketError };
 type Result_1 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
 type Result_2 = variant { Ok; Err : UpdateRunesBalanceError };
@@ -153,8 +154,8 @@ type UpdateRunesBalanceError = variant {
   MismatchWithGenTicketReq;
 };
 type UpdateRunesBlanceArgs = record {
-  tx_id : vec nat8;
   balance : RunesBalance;
+  txid : vec nat8;
   vout : nat32;
 };
 type UpgradeArgs = record {
@@ -164,18 +165,16 @@ type UpgradeArgs = record {
   min_confirmations : opt nat32;
 };
 type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
-type WithdrawalFee = record { bitcoin_fee : nat64 };
 service : (CustomArg) -> {
-  estimate_withdrawal_fee : (EstimateFeeArg) -> (WithdrawalFee) query;
+  estimate_redeem_fee : (EstimateFeeArg) -> (RedeemFee) query;
   generate_ticket : (GenerateTicketArgs) -> (Result);
-  generate_ticket_status : (GenTicketStatusRequest) -> (GenTicketStatus) query;
+  generate_ticket_status : (GenTicketStatusArgs) -> (GenTicketStatus) query;
   get_btc_address : (GetBtcAddressArgs) -> (text);
   get_canister_status : () -> (CanisterStatusResponse);
+  get_customs_info : () -> (CustomsInfo) query;
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_minter_info : () -> (CustomsInfo) query;
-  release_token_status : (ReleaseTokenStatusRequest) -> (
-      ReleaseTokenStatus,
-    ) query;
+  get_main_btc_address : (text) -> (text);
+  release_token_status : (ReleaseTokenStatusArgs) -> (ReleaseTokenStatus) query;
   update_btc_utxos : () -> (Result_1);
   update_runes_balance : (UpdateRunesBlanceArgs) -> (Result_2);
 }

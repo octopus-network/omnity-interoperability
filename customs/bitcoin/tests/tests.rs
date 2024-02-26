@@ -112,8 +112,9 @@ fn vec_to_txid(vec: Vec<u8>) -> Txid {
     bytes.into()
 }
 
-fn range_to_txid(range: std::ops::RangeInclusive<u8>) -> Txid {
-    vec_to_txid(range.collect::<Vec<u8>>())
+fn random_txid() -> Txid {
+    let txid: [u8; 32] = rand::random();
+    txid.into()
 }
 
 #[test]
@@ -635,7 +636,7 @@ fn test_gen_ticket_no_new_utxos() {
         receiver: String::from("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv"),
         runes_id: 1,
         amount: 1000,
-        txid: range_to_txid(1..=32),
+        txid: random_txid(),
     });
     assert_eq!(result, Err(GenerateTicketError::NoNewUtxos));
 }
@@ -646,7 +647,7 @@ fn test_gen_ticket_with_insufficient_confirmations() {
 
     customs.set_tip_height(100);
 
-    let txid = range_to_txid(1..=32);
+    let txid = random_txid();
     let utxo = Utxo {
         height: 99,
         outpoint: OutPoint { txid, vout: 1 },
@@ -678,7 +679,7 @@ fn test_gen_ticket_success() {
 
     customs.set_tip_height(100);
 
-    let txid = range_to_txid(1..=32);
+    let txid = random_txid();
     let utxo = Utxo {
         height: 80,
         outpoint: OutPoint { txid, vout: 1 },
@@ -715,7 +716,7 @@ fn test_duplicate_submit_gen_ticket() {
 
     customs.set_tip_height(100);
 
-    let txid = range_to_txid(1..=32);
+    let txid = random_txid();
     let utxo = Utxo {
         height: 80,
         outpoint: OutPoint { txid, vout: 1 },
@@ -748,7 +749,7 @@ fn test_duplicate_submit_gen_ticket() {
 fn test_update_runes_balance_no_utxo() {
     let customs = CustomsSetup::new();
     let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
-        txid: range_to_txid(1..=32),
+        txid: random_txid(),
         vout: 1,
         balance: RunesBalance {
             runes_id: 1,
@@ -764,7 +765,7 @@ fn test_update_runes_balance_invalid() {
 
     customs.set_tip_height(100);
 
-    let txid = range_to_txid(1..=32);
+    let txid = random_txid();
     let vout = 1;
     let utxo = Utxo {
         height: 80,
@@ -836,7 +837,7 @@ fn test_duplicate_update_runes_balance() {
 fn deposit_runes_to_main_address(customs: &CustomsSetup) -> UpdateRunesBlanceArgs {
     customs.set_tip_height(100);
 
-    let txid = range_to_txid(1..=32);
+    let txid = random_txid();
     let vout = 1;
     let utxo = Utxo {
         height: 80,
@@ -880,7 +881,7 @@ fn deposit_btc_to_main_address(customs: &CustomsSetup) {
 
     let main_address = customs.get_main_btc_address("BTC".into());
 
-    let txid = range_to_txid(1..=32);
+    let txid = random_txid();
     let vout = 1;
     let utxo = Utxo {
         height: 80,
@@ -952,6 +953,137 @@ fn test_finalize_release_token_tx() {
     customs.finalize_transaction(tx);
     assert_eq!(customs.await_finalization(ticket_id, 10), txid);
     // customs.customs_self_check();
+}
+
+#[test]
+fn test_finalize_batch_release_token_tx() {
+    let customs = CustomsSetup::new();
+
+    // deposit sufficient btc and runes
+    deposit_runes_to_main_address(&customs);
+    deposit_btc_to_main_address(&customs);
+
+    let recivers = vec![
+        "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr",
+        "bc1qyc692qvdgyy9culeuhhl7lv50uu5ss5f8preem",
+        "bc1q74zh6anfe6ynnc86980y4haeqgqx3x424t4pay",
+        "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5",
+        "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5",
+    ];
+
+    for i in 0..5 {
+        let ticket_id: String = format!("ticket_id{}", i).into();
+        let ticket = Ticket {
+            ticket_id: ticket_id.clone(),
+            created_time: 1708911143,
+            src_chain: "cosmoshub".into(),
+            dst_chain: "BTC".into(),
+            action: Action::Redeem,
+            token: "1".into(),
+            amount: "1000000".into(),
+            sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+            receiver: recivers[i].into(),
+            memo: None,
+        };
+        customs.push_ticket(ticket);
+    }
+
+    customs.env.advance_time(Duration::from_secs(5));
+    customs.await_pending("ticket_id1".into(), 10);
+
+    customs.env.advance_time(Duration::from_secs(5));
+    let txid = customs.await_btc_transaction("ticket_id1".into(), 10);
+
+    let mempool = customs.mempool();
+    let tx = mempool
+        .get(&txid)
+        .expect("the mempool does not contain the release transaction");
+
+    customs.finalize_transaction(tx);
+    assert_eq!(customs.await_finalization("ticket_id1".into(), 10), txid);
+
+    for i in 1..5 {
+        assert_eq!(
+            customs.release_token_status(format!("ticket_id{}", i)),
+            ReleaseTokenStatus::Confirmed(txid)
+        );
+    }
+}
+
+#[test]
+fn test_exist_two_submitted_tx() {
+    let customs = CustomsSetup::new();
+
+    // Step 1: deposit sufficient btc and runes
+
+    deposit_runes_to_main_address(&customs);
+    deposit_runes_to_main_address(&customs);
+    deposit_btc_to_main_address(&customs);
+    deposit_btc_to_main_address(&customs);
+
+    // Step 2: push the first ticket
+
+    let first_ticket_id: String = "ticket_id1".into();
+    let first_ticket = Ticket {
+        ticket_id: first_ticket_id.clone(),
+        created_time: 1708911143,
+        src_chain: "cosmoshub".into(),
+        dst_chain: "BTC".into(),
+        action: Action::Redeem,
+        token: "1".into(),
+        amount: "1000000".into(),
+        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
+        memo: None,
+    };
+    customs.push_ticket(first_ticket);
+    customs.env.advance_time(Duration::from_secs(5));
+    customs.await_pending(first_ticket_id.clone(), 10);
+
+    // Step 3: wait for the first transaction to be submitted
+
+    customs.env.advance_time(Duration::from_secs(5));
+    let first_txid = customs.await_btc_transaction(first_ticket_id.clone(), 10);
+    let mempool = customs.mempool();
+    let first_tx: &bitcoin::Transaction = mempool
+        .get(&first_txid)
+        .expect("the mempool does not contain the release transaction");
+
+    // Step 4: push the second ticket
+
+    let second_ticket_id: String = "ticket_id2".into();
+    let second_ticket = Ticket {
+        ticket_id: second_ticket_id.clone(),
+        created_time: 1708911146,
+        src_chain: "cosmoshub".into(),
+        dst_chain: "BTC".into(),
+        action: Action::Redeem,
+        token: "1".into(),
+        amount: "1000000".into(),
+        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
+        memo: None,
+    };
+    customs.push_ticket(second_ticket);
+    customs.env.advance_time(Duration::from_secs(5));
+    customs.await_pending(second_ticket_id.clone(), 10);
+
+    // Step 5: wait for the second transaction to be submitted
+
+    customs.env.advance_time(Duration::from_secs(5));
+    let second_txid = customs.await_btc_transaction(second_ticket_id.clone(), 10);
+    let mempool = customs.mempool();
+    let second_tx: &bitcoin::Transaction = mempool
+        .get(&second_txid)
+        .expect("the mempool does not contain the release transaction");
+
+    // Step 5: finalize these two transactions
+
+    customs.finalize_transaction(first_tx);
+    customs.finalize_transaction(second_tx);
+
+    assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
+    assert_eq!(customs.await_finalization(second_ticket_id, 10), second_txid);
 }
 
 #[test]

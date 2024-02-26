@@ -65,7 +65,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         })?
         .utxos;
 
-    let new_utxos = read_state(|s| s.new_utxos_for_destination(utxos, &destination, args.txid));
+    let new_utxos =
+        read_state(|s| s.new_utxos_for_destination(utxos, &destination, Some(args.txid)));
     if new_utxos.len() == 0 {
         return Err(GenerateTicketError::NoNewUtxos);
     }

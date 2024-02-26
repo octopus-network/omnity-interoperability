@@ -224,9 +224,9 @@ impl Default for Mode {
 #[derive(Clone, Copy, Debug)]
 pub struct Overdraft(pub u64);
 
-/// The state of the ckBTC Minter.
+/// The state of the Bitcoin Customs.
 ///
-/// Every piece of state of the Minter should be stored as field of this struct.
+/// Every piece of state of the Customs should be stored as field of this struct.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
 pub struct CustomsState {
     /// The bitcoin network that the minter will connect to
@@ -857,14 +857,14 @@ impl CustomsState {
         &self,
         mut utxos: Vec<Utxo>,
         destination: &Destination,
-        tx_id: Txid,
+        tx_id: Option<Txid>,
     ) -> Vec<Utxo> {
         let maybe_existing_utxos = self.utxos_state_destinations.get(destination);
         utxos.retain(|utxo| {
             !maybe_existing_utxos
                 .map(|utxos| utxos.contains(utxo))
                 .unwrap_or(false)
-                && utxo.outpoint.txid == tx_id
+                && tx_id.map_or(true, |t| utxo.outpoint.txid == t)
         });
         utxos
     }
