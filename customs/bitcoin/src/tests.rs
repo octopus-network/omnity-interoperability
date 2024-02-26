@@ -281,6 +281,7 @@ fn should_have_same_input_and_output_count() {
         btc_main_addr,
         vec![(out1_addr.clone(), 100_000), (out2_addr.clone(), 99_999)],
         fee_per_vbyte,
+        false,
     )
     .expect("failed to build a transaction");
 
@@ -324,6 +325,7 @@ fn test_not_enough_gas() {
             btc_main_addr,
             vec![(out1_addr.clone(), 99_900), (out2_addr.clone(), 100)],
             fee_per_vbyte,
+            false,
         ),
         Err(BuildTxError::NotEnoughGas)
     );
@@ -646,7 +648,8 @@ proptest! {
             BitcoinAddress::P2wpkhV0(runes_pkhash),
             BitcoinAddress::P2wpkhV0(btc_pkhash),
             vec![(BitcoinAddress::P2wpkhV0(dst_pkhash), target)],
-            fee_per_vbyte
+            fee_per_vbyte,
+            false
         )
         .expect("failed to build transaction");
 
@@ -676,7 +679,8 @@ proptest! {
                 BitcoinAddress::P2wpkhV0(runes_pkhash),
                 BitcoinAddress::P2wpkhV0(btc_pkhash),
                 vec![(BitcoinAddress::P2wpkhV0(dst_pkhash), total_value * 2)],
-                fee_per_vbyte
+                fee_per_vbyte,
+                false,
             ).expect_err("build transaction should fail because the amount is too high"),
             BuildTxError::NotEnoughFunds
         );
@@ -778,7 +782,8 @@ proptest! {
             BitcoinAddress::P2wpkhV0(runes_pkhash),
             BitcoinAddress::P2wpkhV0(btc_pkhash),
             requests.iter().map(|r| (r.address.clone(), r.amount)).collect(),
-            fee_per_vbyte
+            fee_per_vbyte,
+            false
         )
         .expect("failed to build transaction");
         let mut txids = vec![tx.txid()];
@@ -809,6 +814,7 @@ proptest! {
                 BitcoinAddress::P2wpkhV0(btc_pkhash),
                 requests.iter().map(|r| (r.address.clone(), r.amount)).collect(),
                 fee_per_vbyte + 1000 * i as u64,
+                false
             )
             .expect("failed to build transaction");
 

@@ -16,7 +16,7 @@ const BTC_MAINNET_P2SH_PREFIX: u8 = 5;
 const BTC_TESTNET_PREFIX: u8 = 111;
 const BTC_TESTNET_P2SH_PREFIX: u8 = 196;
 
-const MAIN_DESTINATION_CHAIN_ID: &str = "ominity";
+const MAIN_DESTINATION_CHAIN_ID: &str = "omnity";
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BitcoinAddress {

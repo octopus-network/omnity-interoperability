@@ -178,7 +178,7 @@ fn estimate_redeem_fee(arg: EstimateFeeArg) -> RedeemFee {
 }
 
 #[query]
-fn get_minter_info() -> CustomsInfo {
+fn get_customs_info() -> CustomsInfo {
     read_state(|s| CustomsInfo {
         min_confirmations: s.min_confirmations,
     })
