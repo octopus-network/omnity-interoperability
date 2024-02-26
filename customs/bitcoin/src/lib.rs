@@ -262,8 +262,15 @@ async fn submit_release_token_requests() {
                     }
                     Err(ReleaseTokenError::AlreadyProcessing)
                     | Err(ReleaseTokenError::AlreadyProcessed)
-                    | Err(ReleaseTokenError::MalformedAddress(_))
                     | Ok(_) => next_index = index + 1,
+                    Err(ReleaseTokenError::MalformedAddress(err)) => {
+                        log!(
+                            P0,
+                            "[submit_release_token_requests] malformed address: {}",
+                            err
+                        );
+                        next_index = index + 1;
+                    }
                 }
             }
             mutate_state(|s| s.next_release_ticket_index = next_index);
@@ -318,10 +325,11 @@ async fn submit_pending_requests() {
                 &runes_id,
                 &mut s.available_runes_utxos,
                 &mut s.available_fee_utxos,
-                btc_main_address,
                 runes_main_address,
+                btc_main_address,
                 outputs,
                 fee_millisatoshi_per_vbyte,
+                false,
             ) {
                 Ok((
                     unsigned_tx,
@@ -674,6 +682,7 @@ async fn finalize_requests() {
                 main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN)),
                 outputs,
                 tx_fee_per_vbyte,
+                true,
             ) {
                 Ok(tx) => tx,
                 // If it's impossible to build a new transaction, the fees probably became too high.
@@ -692,7 +701,7 @@ async fn finalize_requests() {
         let outpoint_dests = state::read_state(|s| filter_output_destinations(s, &unsigned_tx));
 
         assert!(
-            used_runes_utxos.is_empty(),
+            runes_utxos.is_empty(),
             "build_unsigned_transaction didn't use all inputs"
         );
         assert_eq!(used_runes_utxos.len(), submitted_tx.runes_utxos.len());
@@ -878,6 +887,23 @@ where
     solution
 }
 
+pub fn fake_sign(unsigned_tx: &tx::UnsignedTransaction) -> tx::SignedTransaction {
+    tx::SignedTransaction {
+        inputs: unsigned_tx
+            .inputs
+            .iter()
+            .map(|unsigned_input| tx::SignedInput {
+                previous_output: unsigned_input.previous_output.clone(),
+                sequence: unsigned_input.sequence,
+                signature: signature::EncodedSignature::fake(),
+                pubkey: ByteBuf::from(vec![0u8; tx::PUBKEY_LEN]),
+            })
+            .collect(),
+        outputs: unsigned_tx.outputs.clone(),
+        lock_time: unsigned_tx.lock_time,
+    }
+}
+
 /// Gathers ECDSA signatures for all the inputs in the specified unsigned
 /// transaction.
 ///
@@ -988,6 +1014,7 @@ pub fn build_unsigned_transaction(
     btc_main_address: BitcoinAddress,
     outputs: Vec<(BitcoinAddress, u128)>,
     fee_per_vbyte: u64,
+    is_resubmission: bool,
 ) -> Result<
     (
         tx::UnsignedTransaction,
@@ -1096,7 +1123,11 @@ pub fn build_unsigned_transaction(
 
     let mut btc_utxos: Vec<Utxo> = vec![];
 
-    let selected_btc_amount = if input_btc_amount < select_fee {
+    let selected_btc_amount = if is_resubmission {
+        btc_utxos = available_btc_utxos.iter().map(|u| u.clone()).collect();
+        available_btc_utxos.clear();
+        btc_utxos.iter().map(|u| u.value).sum::<u64>()
+    } else if input_btc_amount < select_fee {
         let target_fee = select_fee - input_btc_amount;
 
         btc_utxos = greedy(target_fee as u128, available_btc_utxos, |u| u.value as u128);
@@ -1106,16 +1137,6 @@ pub fn build_unsigned_transaction(
 
         let btc_amount = btc_utxos.iter().map(|u| u.value).sum::<u64>();
         assert!(btc_amount >= target_fee);
-        tx_inputs.append(
-            &mut btc_utxos
-                .iter()
-                .map(|u| tx::UnsignedInput {
-                    previous_output: u.outpoint.clone(),
-                    value: u.value,
-                    sequence: SEQUENCE_RBF_ENABLED,
-                })
-                .collect::<Vec<tx::UnsignedInput>>(),
-        );
 
         btc_amount
     } else {
@@ -1123,25 +1144,38 @@ pub fn build_unsigned_transaction(
     };
 
     input_btc_amount += selected_btc_amount;
-    // We need to recaculate the fee when the number of inputs and outputs is finalized.
-    let real_fee = tx_vsize_estimate(tx_inputs.len() as u64, (tx_outputs.len() + 1) as u64)
-        * fee_per_vbyte
-        / 1000;
-    let btc_change_amount = input_btc_amount - real_fee;
+    tx_inputs.append(
+        &mut btc_utxos
+            .iter()
+            .map(|u| tx::UnsignedInput {
+                previous_output: u.outpoint.clone(),
+                value: u.value,
+                sequence: SEQUENCE_RBF_ENABLED,
+            })
+            .collect::<Vec<tx::UnsignedInput>>(),
+    );
 
     tx_outputs.push(tx::TxOut {
         address: btc_main_address,
-        value: btc_change_amount,
+        value: 0,
     });
-    let btc_change_out = BtcChangeOutput {
-        vout: tx_outputs.len() as u32 - 1,
-        value: btc_change_amount,
-    };
 
-    let unsigned_tx = tx::UnsignedTransaction {
+    let mut unsigned_tx = tx::UnsignedTransaction {
         inputs: tx_inputs,
         outputs: tx_outputs,
         lock_time: 0,
+    };
+
+    // We need to recaculate the fee when the number of inputs and outputs is finalized.
+    let real_fee = fake_sign(&unsigned_tx).vsize() as u64 * fee_per_vbyte / 1000;
+    
+    assert!(input_btc_amount > real_fee);
+    let btc_change_amount = input_btc_amount - real_fee;
+
+    unsigned_tx.outputs.iter_mut().last().unwrap().value = btc_change_amount;
+    let btc_change_out = BtcChangeOutput {
+        vout: unsigned_tx.outputs.len() as u32 - 1,
+        value: btc_change_amount,
     };
 
     Ok((
