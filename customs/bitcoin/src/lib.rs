@@ -360,9 +360,9 @@ async fn submit_pending_requests() {
                 }
                 Err(err) => {
                     log!(P0,
-                        "[submit_pending_requests]: {:?} to unsigned transaction for requests at release ids [{}]",
+                        "[submit_pending_requests]: {:?} to unsigned transaction for requests at ticket ids [{}]",
                         err,
-                        batch.iter().map(|req| hex::encode(req.ticket_id.clone())).collect::<Vec<_>>().join(",")
+                        batch.iter().map(|req| req.ticket_id.clone()).collect::<Vec<_>>().join(",")
                     );
 
                     s.push_from_in_flight_to_pending_requests(batch);
@@ -518,8 +518,8 @@ async fn finalize_requests() {
     }
 
     let main_btc_address = (
-        main_destination(String::from(BTC_TOKEN)),
-        address::main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN)),
+        main_destination(BTC_TOKEN.into()),
+        address::main_bitcoin_address(&ecdsa_public_key, BTC_TOKEN.into()),
     );
     let main_runes_addresses: Vec<(Destination, BitcoinAddress)> = maybe_finalized_transactions
         .iter()
@@ -1168,7 +1168,7 @@ pub fn build_unsigned_transaction(
 
     // We need to recaculate the fee when the number of inputs and outputs is finalized.
     let real_fee = fake_sign(&unsigned_tx).vsize() as u64 * fee_per_vbyte / 1000;
-    
+
     assert!(input_btc_amount > real_fee);
     let btc_change_amount = input_btc_amount - real_fee;
 

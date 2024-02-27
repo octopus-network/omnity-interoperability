@@ -14,7 +14,7 @@ use bitcoin_customs::updates::update_runes_balance::{
 use bitcoin_customs::{Log, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
 use candid::{Decode, Encode};
 use ic_base_types::{CanisterId, PrincipalId};
-use ic_bitcoin_canister_mock::{OutPoint, PushUtxoToAddress, Utxo};
+use ic_bitcoin_canister_mock::{OutPoint, PushUtxosToAddress, Utxo};
 use ic_btc_interface::{Network, Txid};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
@@ -247,13 +247,18 @@ impl CustomsSetup {
             .expect("failed to set fee tip height");
     }
 
-    pub fn push_utxo(&self, address: String, utxo: Utxo) {
+    pub fn push_utxos(&self, req: Vec<(String, Utxo)>) {
+        let mut utxos: BTreeMap<String, Vec<Utxo>> = BTreeMap::new();
+        req.iter().for_each(|(address, utxo)| {
+            utxos.entry(address.clone()).or_default().push(utxo.clone())
+        });
+
         assert_reply(
             self.env
                 .execute_ingress(
                     self.bitcoin_id,
-                    "push_utxo_to_address",
-                    Encode!(&PushUtxoToAddress { address, utxo }).unwrap(),
+                    "push_utxos_to_address",
+                    Encode!(&PushUtxosToAddress { utxos }).unwrap(),
                 )
                 .expect("failed to push a UTXO"),
         );
@@ -570,28 +575,31 @@ impl CustomsSetup {
         self.env
             .advance_time(MIN_CONFIRMATIONS * Duration::from_secs(600) + Duration::from_secs(1));
         let txid_bytes: [u8; 32] = tx.txid().to_vec().try_into().unwrap();
-        self.push_utxo(
-            runes_change_address.to_string(),
-            Utxo {
-                value: runes_change_utxo.value,
-                height: 0,
-                outpoint: OutPoint {
-                    txid: txid_bytes.into(),
-                    vout: 1,
+
+        self.push_utxos(vec![
+            (
+                runes_change_address.to_string(),
+                Utxo {
+                    value: runes_change_utxo.value,
+                    height: 0,
+                    outpoint: OutPoint {
+                        txid: txid_bytes.into(),
+                        vout: 1,
+                    },
                 },
-            },
-        );
-        self.push_utxo(
-            btc_change_address.to_string(),
-            Utxo {
-                value: btc_change_utxo.value,
-                height: 0,
-                outpoint: OutPoint {
-                    txid: txid_bytes.into(),
-                    vout: (tx.output.len() - 1) as u32,
+            ),
+            (
+                btc_change_address.to_string(),
+                Utxo {
+                    value: btc_change_utxo.value,
+                    height: 0,
+                    outpoint: OutPoint {
+                        txid: txid_bytes.into(),
+                        vout: (tx.output.len() - 1) as u32,
+                    },
                 },
-            },
-        );
+            ),
+        ]);
     }
 
     pub fn mempool(&self) -> BTreeMap<Txid, bitcoin::Transaction> {
@@ -662,7 +670,7 @@ fn test_gen_ticket_with_insufficient_confirmations() {
         token: None,
     });
 
-    customs.push_utxo(deposit_address, utxo);
+    customs.push_utxos(vec![(deposit_address, utxo)]);
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id,
         receiver,
@@ -694,7 +702,7 @@ fn test_gen_ticket_success() {
         token: None,
     });
 
-    customs.push_utxo(deposit_address, utxo);
+    customs.push_utxos(vec![(deposit_address, utxo)]);
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id,
         receiver,
@@ -739,7 +747,7 @@ fn test_duplicate_submit_gen_ticket() {
         txid,
     };
 
-    customs.push_utxo(deposit_address, utxo);
+    customs.push_utxos(vec![(deposit_address, utxo)]);
     let _ = customs.generate_ticket(&args);
     let result = customs.generate_ticket(&args);
     assert_eq!(result, Err(GenerateTicketError::AlreadySubmitted));
@@ -789,7 +797,7 @@ fn test_update_runes_balance_invalid() {
         txid,
     };
 
-    customs.push_utxo(deposit_address, utxo);
+    customs.push_utxos(vec![(deposit_address, utxo)]);
     let result = customs.generate_ticket(&args);
     assert_eq!(result, Ok(()));
 
@@ -853,7 +861,7 @@ fn deposit_runes_to_main_address(customs: &CustomsSetup) -> UpdateRunesBlanceArg
         token: None,
     });
 
-    customs.push_utxo(deposit_address, utxo);
+    customs.push_utxos(vec![(deposit_address, utxo)]);
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id,
         receiver,
@@ -889,7 +897,7 @@ fn deposit_btc_to_main_address(customs: &CustomsSetup) {
         value: 100_000_000,
     };
 
-    customs.push_utxo(main_address, utxo.clone());
+    customs.push_utxos(vec![(main_address, utxo.clone())]);
 
     match customs.update_btc_utxos() {
         Ok(utxos) => assert_eq!(utxos[0], utxo),
@@ -1083,7 +1091,91 @@ fn test_exist_two_submitted_tx() {
     customs.finalize_transaction(second_tx);
 
     assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
-    assert_eq!(customs.await_finalization(second_ticket_id, 10), second_txid);
+    assert_eq!(
+        customs.await_finalization(second_ticket_id, 10),
+        second_txid
+    );
+}
+
+#[test]
+fn test_transaction_use_prev_change_output() {
+    let customs = CustomsSetup::new();
+
+    // Step 1: deposit sufficient btc and runes
+
+    deposit_runes_to_main_address(&customs);
+    deposit_btc_to_main_address(&customs);
+
+    // Step 2: push the first ticket
+
+    let first_ticket_id: String = "ticket_id1".into();
+    let first_ticket = Ticket {
+        ticket_id: first_ticket_id.clone(),
+        created_time: 1708911143,
+        src_chain: "cosmoshub".into(),
+        dst_chain: "BTC".into(),
+        action: Action::Redeem,
+        token: "1".into(),
+        amount: "1000000".into(),
+        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
+        memo: None,
+    };
+    customs.push_ticket(first_ticket);
+    customs.env.advance_time(Duration::from_secs(5));
+    customs.await_pending(first_ticket_id.clone(), 10);
+
+    // Step 3: wait for the first transaction to be submitted
+
+    customs.env.advance_time(Duration::from_secs(5));
+    let first_txid = customs.await_btc_transaction(first_ticket_id.clone(), 10);
+    let mempool = customs.mempool();
+    let first_tx: &bitcoin::Transaction = mempool
+        .get(&first_txid)
+        .expect("the mempool does not contain the release transaction");
+
+    // Step 4: finalize the first transaction
+
+    customs.finalize_transaction(first_tx);
+    assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
+
+    // Step 5: push the second ticket
+
+    let second_ticket_id: String = "ticket_id2".into();
+    let second_ticket = Ticket {
+        ticket_id: second_ticket_id.clone(),
+        created_time: 1708911146,
+        src_chain: "cosmoshub".into(),
+        dst_chain: "BTC".into(),
+        action: Action::Redeem,
+        token: "1".into(),
+        amount: "1000000".into(),
+        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
+        memo: None,
+    };
+    customs.push_ticket(second_ticket);
+    customs.env.advance_time(Duration::from_secs(5));
+    customs.await_pending(second_ticket_id.clone(), 10);
+
+    // Step 6: wait for the second transaction to be submitted
+
+    customs.env.advance_time(Duration::from_secs(5));
+    let second_txid = customs.await_btc_transaction(second_ticket_id.clone(), 10);
+    let mempool = customs.mempool();
+    let second_tx: &bitcoin::Transaction = mempool
+        .get(&second_txid)
+        .expect("the mempool does not contain the release transaction");
+
+    assert_eq!(second_tx.input[0].previous_output.txid, first_tx.txid());
+
+    // Step 7: finalize the second transaction
+
+    customs.finalize_transaction(second_tx);
+    assert_eq!(
+        customs.await_finalization(second_ticket_id, 10),
+        second_txid
+    );
 }
 
 #[test]

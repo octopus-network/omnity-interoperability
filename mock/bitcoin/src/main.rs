@@ -116,14 +116,17 @@ fn bitcoin_get_utxos(utxos_request: GetUtxosRequest) -> GetUtxosResponse {
 
 #[candid_method(update)]
 #[update]
-fn push_utxo_to_address(req: ic_bitcoin_canister_mock::PushUtxoToAddress) {
+fn push_utxos_to_address(req: ic_bitcoin_canister_mock::PushUtxosToAddress) {
     mutate_state(|s| {
-        s.utxo_to_address
-            .insert(req.utxo.clone(), req.address.clone());
-        s.address_to_utxos
-            .entry(req.address)
-            .or_default()
-            .insert(req.utxo);
+        for (address, utxos) in &req.utxos {
+            for utxo in utxos {
+                s.utxo_to_address.insert(utxo.clone(), address.clone());
+                s.address_to_utxos
+                    .entry(address.clone())
+                    .or_default()
+                    .insert(utxo.clone());
+            }
+        }
     });
 }
 

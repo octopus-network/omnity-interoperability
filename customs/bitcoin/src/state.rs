@@ -277,7 +277,7 @@ pub struct CustomsState {
     /// Maps ID of a replacement transaction to the ID of the corresponding stuck transaction.
     pub rev_replacement_txid: BTreeMap<Txid, Txid>,
 
-    /// Finalized retrieve_btc requests for which we received enough confirmations.
+    /// Finalized release_token requests for which we received enough confirmations.
     pub finalized_release_token_requests: VecDeque<FinalizedTokenRetrieval>,
 
     /// The total number of finalized requests.

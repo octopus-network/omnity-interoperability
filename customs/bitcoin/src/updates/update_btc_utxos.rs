@@ -44,5 +44,5 @@ pub async fn update_btc_utxos() -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
 
     mutate_state(|s| audit::add_utxos(s, destination, new_utxos.clone(), false));
 
-    Ok(resp.utxos)
+    Ok(new_utxos)
 }

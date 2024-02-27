@@ -95,7 +95,7 @@ pub fn main_bitcoin_address(ecdsa_public_key: &ECDSAPublicKey, token: String) ->
 
 pub fn main_destination(token: String) -> Destination {
     Destination {
-        target_chain_id: String::from(MAIN_DESTINATION_CHAIN_ID),
+        target_chain_id: MAIN_DESTINATION_CHAIN_ID.into(),
         receiver: ic_cdk::id().to_string(),
         token: Some(token),
     }
