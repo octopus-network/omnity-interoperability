@@ -1,6 +1,7 @@
 mod auth;
 mod errors;
 mod memory;
+mod metrics;
 mod signer;
 mod utils;
 
@@ -13,16 +14,18 @@ use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 use log::debug;
 use omnity_types::{
-    Action, ChainId, ChainInfo, ChainType, DireQueue, Directive, Error, Fee, Proposal, Seq, State,
-    Ticket, TicketId, TicketQueue, TokenId, TokenMetaData,
+    ChainCondition, ChainId, ChainInfo, ChainState, ChainType, DireQueue, Directive, Error, Fee,
+    LockedToken, Proposal, Seq, StateAction, Ticket, TicketId, TicketQueue, TokenCondition,
+    TokenId, TokenMetaData, Topic, TxAction, TxCondition,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::ops::Bound::Included;
+
 // use utils::init_log;
 use crate::signer::PublicKeyReply;
 use crate::utils::Network;
+pub type TotalAmount = u64;
 
 thread_local! {
     static STATE: RefCell<HubState> = RefCell::new(HubState::default());
@@ -32,7 +35,7 @@ thread_local! {
 pub struct ChainInfoWithSeq {
     pub chain_name: ChainId,
     pub chain_type: ChainType,
-    pub chain_state: State,
+    pub chain_state: ChainState,
     pub latest_dire_seq: Seq,
     pub latest_ticket_seq: Seq,
     // Optional: settlement chain export contract address
@@ -53,6 +56,7 @@ struct HubState {
     pub tokens: HashMap<(ChainId, TokenId), TokenMetaData>,
     pub fees: HashMap<(ChainId, TokenId), Fee>,
     pub cross_ledger: CrossLedger,
+    pub locked_tokens: HashMap<TokenId, Vec<(ChainId, TotalAmount)>>,
     pub dire_queue: DireQueue,
     pub ticket_queue: TicketQueue,
     pub owner: Option<Principal>,
@@ -130,7 +134,7 @@ pub async fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
         proposal,
         Proposal::AddChain(_)
             | Proposal::AddToken(_)
-            | Proposal::ChangeChainState(_)
+            | Proposal::ToggleChainState(_)
             | Proposal::UpdateFee(_)
     ) {
         return Err(Error::NotSupportedProposal);
@@ -143,12 +147,19 @@ pub async fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
                 ));
             }
 
-            if matches!(chain.chain_state, State::Reinstate | State::Suspend) {
+            if matches!(chain.chain_state, ChainState::Deactive) {
                 return Err(Error::ProposalError(
                     "The status of the new chain state must be active".to_string(),
                 ));
             }
-            //TODO: check repetitive
+            // check chain repetitive
+            if with_state(|hub_state| hub_state.chains.contains_key(&chain.chain_name)) {
+                return Err(Error::ProposalError(format!(
+                    "The {} already exists",
+                    chain.chain_name
+                )));
+            }
+
             Ok(format!("Tne AddChain proposal is: {}", chain))
         }
         Proposal::AddToken(token) => {
@@ -157,26 +168,83 @@ pub async fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
                     "Token id, token symbol or issue chain can not be empty".to_string(),
                 ));
             }
-            //TODO: check the issue chain must exsiting and not suspend!
-            //TODO: check repetitive
+            // check token repetitive
+            if with_state(|hub_state| {
+                hub_state
+                    .tokens
+                    .contains_key(&(token.issue_chain.clone(), token.name.clone()))
+            }) {
+                return Err(Error::ProposalError(format!(
+                    "The {} already exists",
+                    token.name
+                )));
+            }
+            //check the issue chain must exsiting and not deactive!
+            let _ = with_state(|hub_state| {
+                match hub_state.chains.get(&token.issue_chain) {
+                    Some(chain) => {
+                        if matches!(chain.chain_state, ChainState::Deactive) {
+                            return Err(Error::ProposalError(format!(
+                                "The {} is deactive",
+                                token.issue_chain
+                            )));
+                        }
+                    }
+                    None => {
+                        return Err(Error::ProposalError(format!(
+                            "The {} not exists",
+                            token.issue_chain
+                        )))
+                    }
+                }
+
+                Ok(())
+            });
+
             Ok(format!("The AddToken proposal is: {}", token))
         }
-        Proposal::ChangeChainState(chain_state) => {
-            if chain_state.chain_id.is_empty() {
+        Proposal::ToggleChainState(toggle_state) => {
+            if toggle_state.chain_id.is_empty() {
                 return Err(Error::ProposalError(
                     "Chain id can not be empty".to_string(),
                 ));
             }
-            //TODO:dst chain must be exsiting!
             if !matches!(
-                chain_state.state,
-                State::Active | State::Reinstate | State::Suspend
+                toggle_state.action,
+                StateAction::Activate | StateAction::Deactivate
             ) {
                 return Err(Error::ProposalError("Not support chain state".to_string()));
             }
+
+            let _ = with_state(|hub_state| {
+                match hub_state.chains.get(&toggle_state.chain_id) {
+                    Some(chain) => {
+                        //If the state and action are consistent, there is no need to switch
+                        if (matches!(chain.chain_state, ChainState::Active)
+                            && matches!(toggle_state.action, StateAction::Activate))
+                            || (matches!(chain.chain_state, ChainState::Deactive)
+                                && matches!(toggle_state.action, StateAction::Deactivate))
+                        {
+                            return Err(Error::ProposalError(format!(
+                                "The {} is no need to switch",
+                                toggle_state.chain_id
+                            )));
+                        }
+                    }
+                    None => {
+                        return Err(Error::ProposalError(format!(
+                            "The {} not exists",
+                            toggle_state.chain_id
+                        )))
+                    }
+                }
+
+                Ok(())
+            });
+
             Ok(format!(
-                "the ChangeChainStatus proposal is: {}",
-                chain_state
+                "The ToggleChainStatus proposal is: {}",
+                toggle_state
             ))
         }
         Proposal::UpdateFee(fee) => {
@@ -185,7 +253,19 @@ pub async fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
                     "The Quote token can not be empty".to_string(),
                 ));
             };
-            //TODO: check the issue chain must exsiting and not suspend!
+            //check the issue chain must exsiting and not deactive!
+            let _ = with_state(|hub_state| {
+                match hub_state.chains.get(&fee.dst_chain_id) {
+                    Some(chain) => {
+                        if matches!(chain.chain_state, ChainState::Deactive) {
+                            return Err(Error::ProposalError("The chain is deactive".to_string()));
+                        }
+                    }
+                    None => return Err(Error::ProposalError("The chain not exists".to_string())),
+                }
+
+                Ok(())
+            });
             Ok(format!("The UpdateFee proposal is: {}", fee))
         }
     }
@@ -213,11 +293,10 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
 
                     ChainType::ExecutionChain => {
                         for (dst_chain_name, dst_chain_info) in hub_state.chains.iter_mut() {
-                            //check: chain state !=suspend
-                            if matches!(dst_chain_info.chain_state, State::Suspend) {
+                            //check: chain state != deactive
+                            if matches!(dst_chain_info.chain_state, ChainState::Deactive) {
                                 continue;
                             }
-
                             // build directive for exsiting chain
                             hub_state
                                 .dire_queue
@@ -269,7 +348,7 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
                     .chains
                     .insert(chain.chain_name.clone(), new_chain.clone());
             });
-            //TODO: build `add token` directive for new chain;
+            //TODO: build `add token` directive for new chain ?
         }
         Proposal::AddToken(token) => {
             with_state_mut(|hub_state| {
@@ -281,11 +360,11 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
 
                 // build directive
                 for (dst_chain_name, dst_chain_info) in hub_state.chains.iter_mut() {
-                    //check: chain state !=suspend
-                    if matches!(dst_chain_info.chain_state, State::Suspend) {
+                    //check: chain state !=Deactive
+                    if matches!(dst_chain_info.chain_state, ChainState::Deactive) {
                         continue;
                     }
-                    //TODO: except the token`s issue chain
+                    //TODO: except the token`s issue chain ?
                     hub_state
                         .dire_queue
                         .entry(dst_chain_name.to_string())
@@ -304,17 +383,20 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
                 }
             });
         }
-        Proposal::ChangeChainState(change_status) => {
+        Proposal::ToggleChainState(toggle_status) => {
             with_state_mut(|hub_state| {
-                if let Some(dst_chain) = hub_state.chains.get_mut(&change_status.chain_id) {
+                if let Some(dst_chain) = hub_state.chains.get_mut(&toggle_status.chain_id) {
                     //change dst chain status
-                    dst_chain.chain_state = change_status.clone().state;
+                    match toggle_status.action {
+                        StateAction::Activate => dst_chain.chain_state = ChainState::Active,
+                        StateAction::Deactivate => dst_chain.chain_state = ChainState::Deactive,
+                    }
 
                     // build directive
                     for (dst_chain, dst_chain_info) in hub_state.chains.iter_mut() {
-                        if dst_chain.ne(&change_status.chain_id) {
-                            //check: chain state !=suspend
-                            if matches!(dst_chain_info.chain_state, State::Suspend) {
+                        if dst_chain.ne(&toggle_status.chain_id) {
+                            //check: chain state !=Deactive
+                            if matches!(dst_chain_info.chain_state, ChainState::Deactive) {
                                 continue;
                             }
                             hub_state
@@ -324,14 +406,14 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
                                     dst_chain_info.latest_dire_seq += 1;
                                     dires.insert(
                                         dst_chain_info.latest_dire_seq,
-                                        Directive::ChangeChainState(change_status.clone()),
+                                        Directive::ToggleChainState(toggle_status.clone()),
                                     );
                                 })
                                 .or_insert_with(|| {
                                     let mut dires = BTreeMap::new();
                                     dires.insert(
                                         0,
-                                        Directive::ChangeChainState(change_status.clone()),
+                                        Directive::ToggleChainState(toggle_status.clone()),
                                     );
                                     dires
                                 });
@@ -375,30 +457,33 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
     Ok(())
 }
 
-/// check fee validate
-/// build update fee directive and push it to the directive queue
+/// check and build update fee directive and push it to the directive queue
 #[update(guard = "auth")]
 pub async fn update_fee(fee: Fee) -> Result<(), Error> {
-    //TODO: check fee validate
-    // fee.dst_chain must be execution chain
-
+    // check proposal
+    validate_proposal(Proposal::UpdateFee(fee.clone())).await?;
     //  build directive
-    let directive = Proposal::UpdateFee(fee);
-    build_directive(directive).await?;
+    build_directive(Proposal::UpdateFee(fee)).await?;
 
     Ok(())
 }
 
-/// query directives for chain id,this method calls by route and custom
+/// query directives for chain id,this method will be called by route and custom
 #[query(guard = "auth")]
 pub async fn query_directives(
     chain_id: ChainId,
     from: u64,
     num: u64,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
-    //TODO: check start and end is validate!
-    // asset(start <= end)
     let end = from + num;
+    // asset(start <= end)
+    if from > end {
+        return Err(Error::CustomError(format!(
+            "Query range error, from({}) > from + num({})",
+            from, end
+        )));
+    }
+
     with_state(|hub_state| {
         match hub_state.dire_queue.get(&chain_id) {
             Some(d) => {
@@ -406,7 +491,7 @@ pub async fn query_directives(
                 for (&seq, &ref dire) in d.range(from..end) {
                     directives.push((seq, dire.clone()));
                 }
-                //TODO: remove the directive for the chain id
+                //TODO: remove the directive for the chain id ?
                 // hub_state.dire_queue.remove(&chain_id);
                 Ok(directives)
             }
@@ -415,10 +500,151 @@ pub async fn query_directives(
     })
 }
 
+/// query directives for chain id filter by topic,this method will be called by route and custom
+#[query(guard = "auth")]
+pub async fn query_directive(
+    chain_id: ChainId,
+    topic: Option<Topic>,
+    from: u64,
+    num: u64,
+) -> Result<Vec<(Seq, Directive)>, Error> {
+    let end = from + num;
+    with_state(|hub_state| match hub_state.dire_queue.get(&chain_id) {
+        Some(d) => {
+            let mut directives: Vec<(u64, Directive)> = Vec::new();
+            if let Some(topic) = topic {
+                match topic {
+                    Topic::AddChain(chain_type) => {
+                        if let Some(dst_chain_type) = chain_type {
+                            for (&seq, &ref dire) in d.range(from..end) {
+                                if let Directive::AddChain(chain_info) = dire {
+                                    if dst_chain_type == chain_info.chain_type {
+                                        directives.push((seq, dire.clone()));
+                                    }
+                                }
+                            }
+                        } else {
+                            for (&seq, &ref dire) in d.range(from..end) {
+                                if matches!(dire, Directive::AddChain(_)) {
+                                    directives.push((seq, dire.clone()));
+                                }
+                            }
+                        }
+                    }
+                    Topic::AddToken(token_id) => {
+                        if let Some(token) = token_id {
+                            for (&seq, &ref dire) in d.range(from..end) {
+                                if let Directive::AddToken(token_meta) = dire {
+                                    if token_meta.name.eq(&token) {
+                                        directives.push((seq, dire.clone()));
+                                    }
+                                }
+                            }
+                        } else {
+                            for (&seq, &ref dire) in d.range(from..end) {
+                                if matches!(dire, Directive::AddToken(_)) {
+                                    directives.push((seq, dire.clone()));
+                                }
+                            }
+                        }
+                    }
+                    Topic::UpdateFee(token_id) => {
+                        if let Some(token) = token_id {
+                            for (&seq, &ref dire) in d.range(from..end) {
+                                if let Directive::UpdateFee(fee) = dire {
+                                    if fee.fee_token.eq(&token) {
+                                        directives.push((seq, dire.clone()));
+                                    }
+                                }
+                            }
+                        } else {
+                            for (&seq, &ref dire) in d.range(from..end) {
+                                if matches!(dire, Directive::UpdateFee(_)) {
+                                    directives.push((seq, dire.clone()));
+                                }
+                            }
+                        }
+                    }
+                    Topic::ActivateChain => {
+                        for (&seq, &ref dire) in d.range(from..end) {
+                            if let Directive::ToggleChainState(toggle_state) = dire {
+                                if toggle_state.action == StateAction::Activate {
+                                    directives.push((seq, dire.clone()));
+                                }
+                            }
+                        }
+                    }
+                    Topic::DeactivateChain => {
+                        for (&seq, &ref dire) in d.range(from..end) {
+                            if let Directive::ToggleChainState(toggle_state) = dire {
+                                if toggle_state.action == StateAction::Deactivate {
+                                    directives.push((seq, dire.clone()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(directives)
+        }
+        None => Err(Error::NotFoundChain(chain_id)),
+    })
+}
+
 /// check the ticket availability
-/// check chain and status
-/// check token and amount
-pub async fn check_ticket(_t: &Ticket) -> Result<(), Error> {
+pub async fn check_ticket(ticket: &Ticket) -> Result<(), Error> {
+    let _ = with_state(|hub_state| {
+        // check chain and status
+        match hub_state.chains.get(&ticket.src_chain) {
+            Some(chain) => {
+                if matches!(chain.chain_state, ChainState::Deactive) {
+                    return Err(Error::CustomError(format!(
+                        "The {} is deactive",
+                        ticket.src_chain
+                    )));
+                }
+            }
+            None => {
+                return Err(Error::CustomError(format!(
+                    "The {} not exists",
+                    ticket.src_chain
+                )))
+            }
+        }
+
+        match hub_state.chains.get(&ticket.dst_chain) {
+            Some(chain) => {
+                if matches!(chain.chain_state, ChainState::Deactive) {
+                    return Err(Error::CustomError(format!(
+                        "The {} is deactive",
+                        ticket.dst_chain
+                    )));
+                }
+            }
+            None => {
+                return Err(Error::CustomError(format!(
+                    "The {} not exists",
+                    ticket.dst_chain
+                )))
+            }
+        }
+
+        // check token
+        if hub_state
+            .tokens
+            .get(&(ticket.src_chain.clone(), ticket.token.clone()))
+            .is_none()
+        {
+            return Err(Error::CustomError(format!(
+                "The {} is not exists",
+                ticket.token
+            )));
+        }
+        // TODO: check sender`s token balance availability
+
+        Ok(())
+    });
     Ok(())
 }
 
@@ -450,24 +676,26 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
 
     // keep amount
     match ticket.action {
-        Action::Transfer => with_state_mut(|hub_state| {
+        TxAction::Transfer => with_state_mut(|hub_state| {
             hub_state
                 .cross_ledger
                 .transfers
                 .insert(ticket.clone().ticket_id, ticket.clone());
+            // TODO: count locked token
         }),
-        Action::Redeem => with_state_mut(|hub_state| {
+        TxAction::Redeem => with_state_mut(|hub_state| {
             hub_state
                 .cross_ledger
                 .redeems
                 .insert(ticket.clone().ticket_id, ticket);
+            // TODO: count locked token
         }),
     }
 
     Ok(())
 }
 
-/// query tickets for chain id,this method calls by route and custom
+/// query tickets for chain id,this method will be called by route and custom
 #[query(guard = "auth")]
 pub async fn query_tickets(
     chain_id: ChainId,
@@ -502,7 +730,8 @@ mod tests {
     use crypto::digest::Digest;
     use crypto::sha3::Sha3;
     use omnity_types::{
-        Action, ChainInfo, ChainState, ChainType, Fee, Proposal, State, Ticket, TokenMetaData,
+        ChainInfo, ChainType, Fee, Proposal, StateAction, Ticket, ToggleState, TokenMetaData,
+        TxAction,
     };
 
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -512,7 +741,7 @@ mod tests {
         let chain_info = ChainInfo {
             chain_name: "Bitcoin".to_string(),
             chain_type: ChainType::SettlementChain,
-            chain_state: State::Active,
+            chain_state: ChainState::Active,
         };
         let add_chain = Proposal::AddChain(chain_info);
         let _ = build_directive(add_chain).await;
@@ -520,7 +749,7 @@ mod tests {
         let chain_info = ChainInfo {
             chain_name: "Ethereum".to_string(),
             chain_type: ChainType::SettlementChain,
-            chain_state: State::Active,
+            chain_state: ChainState::Active,
         };
         let add_chain = Proposal::AddChain(chain_info);
         let _ = build_directive(add_chain).await;
@@ -528,7 +757,7 @@ mod tests {
         let chain_info = ChainInfo {
             chain_name: "Near".to_string(),
             chain_type: ChainType::ExecutionChain,
-            chain_state: State::Active,
+            chain_state: ChainState::Active,
         };
         let add_chain = Proposal::AddChain(chain_info);
         let _ = build_directive(add_chain).await;
@@ -536,7 +765,7 @@ mod tests {
         let chain_info = ChainInfo {
             chain_name: "Otto".to_string(),
             chain_type: ChainType::ExecutionChain,
-            chain_state: State::Active,
+            chain_state: ChainState::Active,
         };
         let add_chain = Proposal::AddChain(chain_info);
         let _ = build_directive(add_chain).await;
@@ -604,7 +833,7 @@ mod tests {
         let chain_info = ChainInfo {
             chain_name: "Bitcoin".to_string(),
             chain_type: ChainType::SettlementChain,
-            chain_state: State::Active,
+            chain_state: ChainState::Active,
         };
         let add_chain = Proposal::AddChain(chain_info);
         let result = validate_proposal(add_chain).await;
@@ -623,11 +852,11 @@ mod tests {
         println!("Proposal::AddToken(token) result:{:?}", result);
         assert!(result.is_ok());
 
-        let chain_state = ChainState {
+        let chain_state = ToggleState {
             chain_id: "Bitcoin".to_string(),
-            state: State::Suspend,
+            action: StateAction::Deactivate,
         };
-        let change_state = Proposal::ChangeChainState(chain_state);
+        let change_state = Proposal::ToggleChainState(chain_state);
         let result = validate_proposal(change_state).await;
         println!(
             "Proposal::ChangeChainState(chain_state) result:{:?}",
@@ -700,11 +929,11 @@ mod tests {
         add_token().await;
 
         // change chain state
-        let chain_state = ChainState {
+        let chain_state = ToggleState {
             chain_id: "Otto".to_string(),
-            state: State::Suspend,
+            action: StateAction::Deactivate,
         };
-        let chang_chain_state = Proposal::ChangeChainState(chain_state);
+        let chang_chain_state = Proposal::ToggleChainState(chain_state);
         let _ = build_directive(chang_chain_state).await;
 
         // print chain info and directives
@@ -773,7 +1002,7 @@ mod tests {
             created_time: current_timestamp,
             src_chain: "Bitcoin".to_string(),
             dst_chain: "Near".to_string(),
-            action: Action::Transfer,
+            action: TxAction::Transfer,
             token: "ODR".to_string(),
             amount: 88888.to_string(),
             sender: "sdsdfsyiesdfsdfds".to_string(),
@@ -789,7 +1018,7 @@ mod tests {
             created_time: current_timestamp,
             src_chain: "Near".to_string(),
             dst_chain: "Bitcoin".to_string(),
-            action: Action::Redeem,
+            action: TxAction::Redeem,
             token: "WODR".to_string(),
             amount: 88888.to_string(),
             sender: "sdfsdfsdffdrytrrr".to_string(),

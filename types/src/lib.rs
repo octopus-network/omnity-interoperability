@@ -25,8 +25,18 @@ pub type TicketQueue = HashMap<DstChain, BTreeMap<Seq, Ticket>>;
 pub enum Proposal {
     AddChain(ChainInfo),
     AddToken(TokenMetaData),
-    ChangeChainState(ChainState),
+    ToggleChainState(ToggleState),
     UpdateFee(Fee),
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub enum Topic {
+    // AddChain(Option<ChainType>)
+    AddChain(Option<ChainType>),
+    AddToken(Option<TokenId>),
+    UpdateFee(Option<TokenId>),
+    ActivateChain,
+    DeactivateChain,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
@@ -35,7 +45,7 @@ pub struct Ticket {
     pub created_time: Timestamp,
     pub src_chain: ChainId,
     pub dst_chain: ChainId,
-    pub action: Action,
+    pub action: TxAction,
     pub token: TokenId,
     pub amount: String,
     pub sender: Account,
@@ -62,7 +72,7 @@ impl core::fmt::Display for Ticket {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
 pub enum ChainType {
     #[default]
     SettlementChain,
@@ -70,15 +80,23 @@ pub enum ChainType {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
-pub enum State {
+pub enum ChainState {
     #[default]
     Active,
-    Suspend,
-    Reinstate,
+    Deactive,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
+pub enum StateAction {
+    // #[default]
+    // Active,
+    #[default]
+    Activate,
+    Deactivate,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
-pub enum Action {
+pub enum TxAction {
     #[default]
     Transfer,
     Redeem,
@@ -109,7 +127,8 @@ impl core::fmt::Display for Fee {
 pub struct ChainInfo {
     pub chain_name: ChainId,
     pub chain_type: ChainType,
-    pub chain_state: State,
+    // the chain default state is true
+    pub chain_state: ChainState,
     // Optional: settlement chain export contract address
     // pub export_address: Option<String>,
     // Optional: execution chain port contract address
@@ -127,13 +146,13 @@ impl core::fmt::Display for ChainInfo {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
-pub struct ChainState {
+pub struct ToggleState {
     pub chain_id: ChainId,
-    pub state: State,
+    pub action: StateAction,
 }
-impl core::fmt::Display for ChainState {
+impl core::fmt::Display for ToggleState {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        write!(f, "chain:{},\nchain state:{:?}", self.chain_id, self.state,)
+        write!(f, "chain:{},\nchain state:{:?}", self.chain_id, self.action,)
     }
 }
 
@@ -156,6 +175,40 @@ impl core::fmt::Display for TokenMetaData {
             self.name, self.symbol, self.issue_chain, self.decimals, self.icon
         )
     }
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct LockedToken {
+    pub token_id: TokenId,
+    pub total_locked_amount: u64,
+    // the chain of the token be locked
+    pub chain_id: ChainId,
+    pub chain_type: ChainType,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+pub struct ChainCondition {
+    chain_id: Option<ChainId>,
+    chain_type: Option<ChainType>,
+    chain_state: Option<ChainState>,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct TokenCondition {
+    token_id: Option<TokenId>,
+    chain_id: Option<ChainId>,
+    chain_type: Option<ChainType>,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct TxCondition {
+    src_chain: Option<ChainId>,
+    dst_chain: Option<ChainId>,
+    // chain_type: Option<ChainType>,
+    token_id: Option<TokenId>,
+    // time range
+    start_time: Option<u64>,
+    end_time: Option<u64>,
 }
 
 #[derive(CandidType, Deserialize, Debug, Error)]
