@@ -7,16 +7,20 @@ edition.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-candid = { workspace = true }
 ic-cdk = { workspace = true }
 thiserror = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
-omnity_types = { path = "../../types" }
+hex = { workspace = true }
+candid = { workspace = true }
 
+omnity_types = { path = "../../types" }
 secp256k1 = { version = "0.28.2", features = ["recovery", "global-context"] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"], default-features = false }
 rlp = { version = "0.5.2", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 bytes = { version = "^1.4.0", default-features = false }
 serde_derive = "^1.0"
+# essential dependencies of evm-rpc-canister
+# evm_rpc = { git = "https://github.com/internet-computer-protocol/evm-rpc-canister.git" }
+cketh-common = { git = "https://github.com/dfinity/ic", rev = "8511846fb6352a0a4f9abae1a8fc8569aeba5f10", package = "ic-cketh-minter" }

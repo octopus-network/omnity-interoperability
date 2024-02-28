@@ -4,6 +4,7 @@ members = [
     "hub",
     "route/near",
     "route/tendermint",
+    "route/ethl2",
     "customs/bitcoin",
     "mock/bitcoin",
 ]
@@ -25,7 +26,7 @@ lto = true
 opt-level = 'z'
 
 [workspace.dependencies]
-candid = { version = "0.10.2" }
+candid = { version = "0.10" }
 candid_parser = { version = "0.1.2" }
 ciborium = "0.2.1"
 ic-btc-interface = { git = "https://github.com/dfinity/bitcoin-canister", rev = "9b239d1d67253eb14a35be6061e3967d5ec9db9d" }
