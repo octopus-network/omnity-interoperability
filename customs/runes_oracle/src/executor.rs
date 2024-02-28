@@ -40,7 +40,7 @@ impl Executor {
 
                 match self.indexer.get_transaction(request.txid) {
                     Ok(tx) => {
-                        let balances = tx.get_runes_balance();
+                        let balances = tx.get_runes_balance(request.address.clone());
                         if balances.len() != 1 {
                             // TODO process invalid case
                             panic!("invalid runes balance")

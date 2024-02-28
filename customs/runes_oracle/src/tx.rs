@@ -46,7 +46,7 @@ impl Transaction {
         serde_json::from_str(json_str)
     }
 
-    pub fn get_runes_balance(&self) -> Vec<RuneBalance> {
+    pub fn get_runes_balance(&self, receiver_addr: String) -> Vec<RuneBalance> {
         let mut result = vec![];
         for out in &self.vout {
             if out.runestone.is_none() {
@@ -61,19 +61,22 @@ impl Transaction {
             for edict in edicts {
                 let vout = edict.output;
                 let output = &self.vout[vout as usize];
-                result.push(RuneBalance {
-                    // The address must exist as long as the transaction is valid.
-                    address: output
-                        .script_pubkey
-                        .address
-                        .as_ref()
-                        .expect("address shoud not be null")
-                        .clone(),
-                    vout,
-                    rune_id: u128::from_str_radix(edict.rune_id.clone().as_str(), 16)
-                        .expect("runes id should be legal hex number"),
-                    amount: edict.amount,
-                })
+                // The address must exist as long as the transaction is valid.
+                let address = output
+                    .script_pubkey
+                    .address
+                    .as_ref()
+                    .expect("address shoud not be null")
+                    .clone();
+                if address == receiver_addr {
+                    result.push(RuneBalance {
+                        vout,
+                        address,
+                        rune_id: u128::from_str_radix(edict.rune_id.clone().as_str(), 16)
+                            .expect("runes id should be legal hex number"),
+                        amount: edict.amount,
+                    })
+                }
             }
         }
         result
