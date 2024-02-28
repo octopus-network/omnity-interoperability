@@ -77,7 +77,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         receiver: args.receiver,
         runes_id: args.runes_id,
         amount: args.amount,
-        tx_id: args.txid,
+        txid: args.txid,
+        received_at: ic_cdk::api::time(),
     };
 
     mutate_state(|s| {

@@ -4,7 +4,7 @@ use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{
     EstimateFeeArg, GenTicketStatusArgs, RedeemFee, ReleaseTokenStatusArgs,
 };
-use bitcoin_customs::state::{read_state, GenTicketStatus, ReleaseTokenStatus};
+use bitcoin_customs::state::{read_state, GenTicketRequest, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_customs::tasks::{schedule_now, TaskType};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
@@ -135,6 +135,17 @@ fn release_token_status(req: ReleaseTokenStatusArgs) -> ReleaseTokenStatus {
 #[query]
 fn generate_ticket_status(req: GenTicketStatusArgs) -> GenTicketStatus {
     read_state(|s| s.generate_ticket_status(req.txid))
+}
+
+#[query]
+fn get_pending_gen_ticket_requets() -> Vec<GenTicketRequest> {
+    // TODO support pagination
+    read_state(|s| {
+        s.pending_gen_ticket_requests
+            .iter()
+            .map(|(_, req)| req.clone())
+            .collect()
+    })
 }
 
 // TODO add auth of runes oracle

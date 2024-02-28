@@ -17,7 +17,7 @@ pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTick
     record_event(&&Event::AcceptedGenTicketRequest(request.clone()));
     state
         .pending_gen_ticket_requests
-        .insert(request.tx_id, request);
+        .insert(request.txid, request);
 }
 
 pub fn add_utxos(
@@ -46,14 +46,14 @@ pub fn update_runes_balance(state: &mut CustomsState, outpoint: OutPoint, balanc
 
 pub fn finalize_ticket_request(state: &mut CustomsState, request: &GenTicketRequest, vout: u32) {
     record_event(&Event::FinalizedTicketRequest {
-        txid: request.tx_id,
+        txid: request.txid,
         vout,
     });
 
-    state.pending_gen_ticket_requests.remove(&request.tx_id);
+    state.pending_gen_ticket_requests.remove(&request.txid);
     state.update_runes_balance(
         OutPoint {
-            txid: request.tx_id,
+            txid: request.txid,
             vout,
         },
         RunesBalance {
@@ -73,10 +73,10 @@ pub fn remove_ticket_request(
     status: FinalizedTicketStatus,
 ) {
     record_event(&Event::RemovedTicketRequest {
-        txid: request.tx_id,
+        txid: request.txid,
         status: status.clone(),
     });
-    state.pending_gen_ticket_requests.remove(&request.tx_id);
+    state.pending_gen_ticket_requests.remove(&request.txid);
     state.push_finalized_ticket(FinalizedTicket {
         request: request.clone(),
         status,

@@ -172,7 +172,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.update_runes_balance(outpoint, balance);
             }
             Event::AcceptedGenTicketRequest(req) => {
-                state.pending_gen_ticket_requests.insert(req.tx_id, req);
+                state.pending_gen_ticket_requests.insert(req.txid, req);
             }
             Event::FinalizedTicketRequest { txid, vout } => {
                 let request = state

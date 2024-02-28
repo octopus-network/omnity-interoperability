@@ -52,7 +52,8 @@ pub struct GenTicketRequest {
     pub receiver: String,
     pub runes_id: RunesId,
     pub amount: u128,
-    pub tx_id: Txid,
+    pub txid: Txid,
+    pub received_at: u64,
 }
 
 pub type RunesId = u128;
@@ -497,7 +498,7 @@ impl CustomsState {
         match self
             .finalized_gen_ticket_requests
             .iter()
-            .find(|req| req.request.tx_id == tx_id)
+            .find(|req| req.request.txid == tx_id)
             .map(|r| r.status.clone())
         {
             Some(FinalizedTicketStatus::Finalized) => GenTicketStatus::Finalized,
@@ -844,7 +845,7 @@ impl CustomsState {
     fn push_finalized_ticket(&mut self, req: FinalizedTicket) {
         assert!(!self
             .pending_gen_ticket_requests
-            .contains_key(&req.request.tx_id));
+            .contains_key(&req.request.txid));
 
         if self.finalized_gen_ticket_requests.len() >= MAX_FINALIZED_REQUESTS {
             self.finalized_gen_ticket_requests.pop_front();
