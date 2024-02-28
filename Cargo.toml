@@ -6,7 +6,8 @@ members = [
     "route/tendermint",
     "customs/bitcoin",
     "mock/bitcoin",
-    "mock/hub"
+    "mock/hub",
+    "customs/runes_oracle",
 ]
 resolver = "2"
 

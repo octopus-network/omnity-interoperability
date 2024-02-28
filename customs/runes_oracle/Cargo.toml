@@ -1,0 +1,18 @@
+[package]
+name = "runes_oracle"
+version = "0.1.0"
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+candid = { workspace = true }
+ic-btc-interface = { workspace = true }
+ic-agent = "0.33.0"
+bitcoin-customs = { path = "../bitcoin" }
+reqwest = { version = "0.11", features = ["blocking"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ticker = "0.1.1"
+log = "0.4.20"
+futures = "0.3.30"
