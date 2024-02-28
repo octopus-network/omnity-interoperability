@@ -39,7 +39,7 @@ pub enum Topic {
     DeactivateChain,
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Ticket {
     pub ticket_id: TicketId,
     pub created_time: Timestamp,
@@ -72,14 +72,14 @@ impl core::fmt::Display for Ticket {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ChainType {
     #[default]
     SettlementChain,
     ExecutionChain,
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ChainState {
     #[default]
     Active,
@@ -95,7 +95,7 @@ pub enum StateAction {
     Deactivate,
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TxAction {
     #[default]
     Transfer,
@@ -123,7 +123,7 @@ impl core::fmt::Display for Fee {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ChainInfo {
     pub chain_name: ChainId,
     pub chain_type: ChainType,
@@ -156,7 +156,7 @@ impl core::fmt::Display for ToggleState {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TokenMetaData {
     pub name: TokenId,
     pub symbol: String,
@@ -177,7 +177,7 @@ impl core::fmt::Display for TokenMetaData {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct LockedToken {
     pub token_id: TokenId,
     pub total_locked_amount: u64,
@@ -188,27 +188,26 @@ pub struct LockedToken {
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
 pub struct ChainCondition {
-    chain_id: Option<ChainId>,
-    chain_type: Option<ChainType>,
-    chain_state: Option<ChainState>,
+    // chain_id: Option<ChainId>,
+    pub chain_type: Option<ChainType>,
+    pub chain_state: Option<ChainState>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub struct TokenCondition {
-    token_id: Option<TokenId>,
-    chain_id: Option<ChainId>,
-    chain_type: Option<ChainType>,
+    pub token_id: Option<TokenId>,
+    pub chain_id: Option<ChainId>,
+    pub chain_type: Option<ChainType>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub struct TxCondition {
-    src_chain: Option<ChainId>,
-    dst_chain: Option<ChainId>,
+    pub src_chain: Option<ChainId>,
+    pub dst_chain: Option<ChainId>,
     // chain_type: Option<ChainType>,
-    token_id: Option<TokenId>,
-    // time range
-    start_time: Option<u64>,
-    end_time: Option<u64>,
+    pub token_id: Option<TokenId>,
+    // time range: from .. end
+    pub time_range: Option<(u64, u64)>,
 }
 
 #[derive(CandidType, Deserialize, Debug, Error)]

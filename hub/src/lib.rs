@@ -56,7 +56,7 @@ struct HubState {
     pub tokens: HashMap<(ChainId, TokenId), TokenMetaData>,
     pub fees: HashMap<(ChainId, TokenId), Fee>,
     pub cross_ledger: CrossLedger,
-    pub locked_tokens: HashMap<TokenId, Vec<(ChainId, TotalAmount)>>,
+    pub locked_tokens: HashMap<TokenId, HashMap<ChainId, TotalAmount>>,
     pub dire_queue: DireQueue,
     pub ticket_queue: TicketQueue,
     pub owner: Option<Principal>,
@@ -681,16 +681,42 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
                 .cross_ledger
                 .transfers
                 .insert(ticket.clone().ticket_id, ticket.clone());
-            // TODO: count locked token
         }),
         TxAction::Redeem => with_state_mut(|hub_state| {
             hub_state
                 .cross_ledger
                 .redeems
-                .insert(ticket.clone().ticket_id, ticket);
-            // TODO: count locked token
+                .insert(ticket.clone().ticket_id, ticket.clone());
         }),
     }
+
+    // count locked token
+    with_state_mut(|hub_state| {
+        hub_state
+            .locked_tokens
+            .entry(ticket.clone().token)
+            .and_modify(|chain_tokens| {
+                chain_tokens
+                    .entry(ticket.clone().src_chain)
+                    .and_modify(|total_amount| {
+                        //TODO: covert ticket amount into number and handle the token decimal
+                        let amount: u64 = ticket.amount.parse().unwrap();
+                        *total_amount += amount
+                    })
+                    .or_insert_with(|| {
+                        let amount: u64 = ticket.amount.parse().unwrap();
+                        amount
+                    });
+            })
+            .or_insert_with(|| {
+                //TODO: covert ticket amount into number and handle the token decimal
+                let mut locked_tokens = HashMap::new();
+                let total_amount: u64 = ticket.amount.parse().unwrap();
+
+                locked_tokens.insert(ticket.src_chain, total_amount);
+                locked_tokens
+            });
+    });
 
     Ok(())
 }
