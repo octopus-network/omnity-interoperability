@@ -1,26 +1,24 @@
-use crate::tx::*;
+use crate::{tx::*, types::*};
 use candid::{CandidType, Deserialize, Principal};
-use cketh_common::eth_rpc_client::providers::{
-    EthMainnetService, EthSepoliaService, RpcApi, RpcService,
-};
+// use cketh_common::eth_rpc_client::providers::{
+//     EthMainnetService, EthSepoliaService, RpcApi, RpcService,
+// };
+use cketh_common::eth_rpc_client::RpcConfig;
+use evm_rpc::{candid_types::SendRawTransactionStatus, RpcServices};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
-use omnity_types::*;
 use std::collections::{BTreeMap, HashMap};
 
 const PULL_BATCH_SIZE: u64 = 100;
 
 /// pull tickets from hub, the return value indicates if there are tickets pulled
 pub(crate) async fn transport() -> bool {
-    if !super::is_active() {
-        return;
-    }
-    let hub = super::hub_addr();
+    let hub = super::hub_addr().expect("already initialized;qed");
     let target_chain = super::target_chain();
     let max_seq = super::max_ticket_id();
     match pull(hub, target_chain, max_seq + 1).await {
         Ok(r) => {
-            for (seq, ticket) in r.into_iter() {
-                match sign_and_broadcast(ticket.clone()) {
+            for (seq, ticket) in r.iter() {
+                match sign_and_broadcast(ticket.clone()).await {
                     Ok(hash) => {
                         // TODO save the hash
                         // TODO save the ticket
@@ -42,7 +40,7 @@ pub(crate) async fn transport() -> bool {
 
 async fn pull(
     hub: Principal,
-    target: ChainId,
+    target: Chain,
     seq: u64,
 ) -> Result<BTreeMap<u64, Ticket>, super::Error> {
     let (r,): (BTreeMap<u64, Ticket>,) =
@@ -105,16 +103,16 @@ async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
                 chain_id: super::target_chain_id(),
                 services: super::rpc_providers(),
             },
-            None,
+            None::<RpcConfig>,
             raw,
         ),
     )
     .await
     .map_err(|(_, e)| super::Error::EthRpcError(e))?;
     match r {
-        SendRawTransactionStatus::Ok(hash) => hash.ok_or(super::Error::EthRpcError(
-            "A transaction hash is expected".to_string(),
-        )),
+        SendRawTransactionStatus::Ok(hash) => hash.map(|h| h.to_string()).ok_or(
+            super::Error::EthRpcError("A transaction hash is expected".to_string()),
+        ),
         _ => Err(super::Error::EthRpcError(format!("{:?}", r))),
     }
 }
@@ -124,22 +122,21 @@ async fn trace(tx_hash: String) -> Result<bool, super::Error> {
     Ok(true)
 }
 
-// copy from evm-rpc-canister because we can't compile it with the current version of the candid crate
-#[derive(Clone, CandidType, Deserialize)]
-pub enum RpcServices {
-    EthMainnet(Option<Vec<EthMainnetService>>),
-    EthSepolia(Option<Vec<EthSepoliaService>>),
-    Custom {
-        #[serde(rename = "chainId")]
-        chain_id: u64,
-        services: Vec<RpcApi>,
-    },
-}
+// #[derive(Clone, CandidType, Deserialize)]
+// pub enum RpcServices {
+//     EthMainnet(Option<Vec<EthMainnetService>>),
+//     EthSepolia(Option<Vec<EthSepoliaService>>),
+//     Custom {
+//         #[serde(rename = "chainId")]
+//         chain_id: u64,
+//         services: Vec<RpcApi>,
+//     },
+// }
 
-#[derive(Debug, Clone, PartialEq, Eq, CandidType, Deserialize)]
-pub enum SendRawTransactionStatus {
-    Ok(Option<Hash>),
-    InsufficientFunds,
-    NonceTooLow,
-    NonceTooHigh,
-}
+// #[derive(Debug, Clone, PartialEq, Eq, CandidType, Deserialize)]
+// pub enum SendRawTransactionStatus {
+//     Ok(Option<Hash>),
+//     InsufficientFunds,
+//     NonceTooLow,
+//     NonceTooHigh,
+// }

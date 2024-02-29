@@ -1,14 +1,15 @@
 mod redeem;
 mod transport;
 mod tx;
+mod types;
 
+use crate::types::{Chain, Ticket};
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::{RpcApi, RpcService};
 use ic_cdk::api::management_canister::ecdsa::{
     ecdsa_public_key, sign_with_ecdsa, EcdsaCurve, EcdsaKeyId, EcdsaPublicKeyArgument,
     SignWithEcdsaArgument,
 };
-use omnity_types::*;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap},
@@ -23,7 +24,7 @@ thread_local! {
     static NONCE: RefCell<u64> = RefCell::new(0);
     static ACTIVE: RefCell<bool> = RefCell::new(false);
     // init on startup
-    static TARGET_CHAIN: RefCell<ChainId> = RefCell::new(ChainId::default());
+    static TARGET_CHAIN: RefCell<Chain> = RefCell::new(Chain::default());
     static TARGET_CHAIN_ID: RefCell<u64> = RefCell::new(0);
     static KEY_ID: RefCell<Option<EcdsaKeyId>> = RefCell::new(None);
     static KEY_DERIVATION_PATH: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new());
@@ -34,6 +35,7 @@ thread_local! {
     static PUBKEY: RefCell<Option<Vec<u8>>> = RefCell::new(None);
 }
 
+#[derive(Clone, Debug)]
 pub enum Error {
     HubError(String),
     EthRpcError(String),
@@ -41,7 +43,7 @@ pub enum Error {
     RouteNotInitialized,
 }
 
-pub fn init(target_chain: ChainId, target_chain_id: u64) {
+pub fn init(target_chain: Chain, target_chain_id: u64) {
     // TODO TOKEN
     TARGET_CHAIN.with_borrow_mut(|id| *id = target_chain.clone());
     TARGET_CHAIN_ID.with_borrow_mut(|id| *id = target_chain_id);
@@ -101,7 +103,7 @@ pub fn target_chain_id() -> u64 {
 }
 
 pub fn max_ticket_id() -> u64 {
-    TICKETS.with_borrow(|tickets| tickets.keys().last().unwrap_or(&0))
+    TICKETS.with_borrow(|tickets| *tickets.keys().last().unwrap_or(&0))
 }
 
 pub fn try_public_key() -> Result<Vec<u8>, Error> {
@@ -127,8 +129,8 @@ pub fn fetch_and_incr_nonce() -> u64 {
 }
 
 /// call this function every time after resuming or activating this canister
-pub fn start_pull(u64: secs) {
-    ic_cdk_timers::set_timer(Duration::from_secs(secs), || {
+pub fn start_pull(secs: u64) {
+    ic_cdk_timers::set_timer(std::time::Duration::from_secs(secs), || {
         ic_cdk::spawn(async move {
             if is_active() {
                 if transport::transport().await {
