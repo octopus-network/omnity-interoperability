@@ -9,8 +9,7 @@ use serde::Serialize;
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UpdateRunesBlanceArgs {
     pub txid: Txid,
-    pub vout: u32,
-    pub balance: RunesBalance,
+    pub balances: Vec<RunesBalance>,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -25,14 +24,16 @@ pub enum UpdateRunesBalanceError {
 pub async fn update_runes_balance(
     args: UpdateRunesBlanceArgs,
 ) -> Result<(), UpdateRunesBalanceError> {
-    let outpoint = OutPoint {
-        txid: args.txid,
-        vout: args.vout,
-    };
-    read_state(|s| match s.outpoint_destination.get(&outpoint) {
-        Some(_) => Ok(()),
-        None => Err(UpdateRunesBalanceError::UtxoNotFound),
-    })?;
+    for balance in &args.balances {
+        let outpoint = OutPoint {
+            txid: args.txid,
+            vout: balance.vout,
+        };
+        read_state(|s| match s.outpoint_destination.get(&outpoint) {
+            Some(_) => Ok(()),
+            None => Err(UpdateRunesBalanceError::UtxoNotFound),
+        })?;
+    }
 
     let req = read_state(|s| match s.generate_ticket_status(args.txid) {
         GenTicketStatus::Invalid | GenTicketStatus::Finalized => {
@@ -42,7 +43,9 @@ pub async fn update_runes_balance(
         GenTicketStatus::Pending(req) => Ok(req),
     })?;
 
-    let result = if args.balance.runes_id == req.runes_id && args.balance.value == req.amount {
+    let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
+    let result = if args.balances.iter().all(|b| b.runes_id == req.runes_id) && amount == req.amount
+    {
         let hub_principal = read_state(|s| s.hub_principal);
         management::send_tickets(
             hub_principal,
@@ -67,7 +70,7 @@ pub async fn update_runes_balance(
     };
 
     mutate_state(|s| match result {
-        Ok(_) => audit::finalize_ticket_request(s, &req, args.vout),
+        Ok(_) => audit::finalize_ticket_request(s, &req, args.balances),
         Err(_) => audit::remove_ticket_request(s, &req, FinalizedTicketStatus::Invalid),
     });
 

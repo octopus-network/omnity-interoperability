@@ -34,7 +34,7 @@ pub struct Edict {
     pub output: u32,
 }
 
-pub struct RuneBalance {
+pub struct RunesBalance {
     pub address: String,
     pub vout: u32,
     pub rune_id: u128,
@@ -46,7 +46,7 @@ impl Transaction {
         serde_json::from_str(json_str)
     }
 
-    pub fn get_runes_balance(&self, receiver_addr: String) -> Vec<RuneBalance> {
+    pub fn get_runes_balance(&self) -> Vec<RunesBalance> {
         let mut result = vec![];
         for out in &self.vout {
             if out.runestone.is_none() {
@@ -68,15 +68,13 @@ impl Transaction {
                     .as_ref()
                     .expect("address shoud not be null")
                     .clone();
-                if address == receiver_addr {
-                    result.push(RuneBalance {
-                        vout,
-                        address,
-                        rune_id: u128::from_str_radix(edict.rune_id.clone().as_str(), 16)
-                            .expect("runes id should be legal hex number"),
-                        amount: edict.amount,
-                    })
-                }
+                result.push(RunesBalance {
+                    vout,
+                    address,
+                    rune_id: u128::from_str_radix(edict.rune_id.clone().as_str(), 16)
+                        .expect("runes id should be legal hex number"),
+                    amount: edict.amount,
+                })
             }
         }
         result

@@ -2,7 +2,7 @@ use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::{CustomsState, ReleaseTokenRequest, RunesChangeOutput, SubmittedBtcTransaction};
-use ic_btc_interface::{OutPoint, Txid, Utxo};
+use ic_btc_interface::{Txid, Utxo};
 use omnity_types::TicketId;
 use serde::{Deserialize, Serialize};
 
@@ -42,8 +42,8 @@ pub enum Event {
 
     #[serde(rename = "received_runes_utxos")]
     ReceivedRunesToken {
-        #[serde(rename = "outpoint")]
-        outpoint: OutPoint,
+        #[serde(rename = "txid")]
+        txid: Txid,
         #[serde(rename = "balance")]
         balance: RunesBalance,
     },
@@ -60,8 +60,8 @@ pub enum Event {
     FinalizedTicketRequest {
         #[serde(rename = "txid")]
         txid: Txid,
-        #[serde(rename = "vout")]
-        vout: u32,
+        #[serde(rename = "balances")]
+        balances: Vec<RunesBalance>,
     },
 
     #[serde(rename = "removed_ticket_request")]
@@ -168,13 +168,13 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 utxos,
                 is_runes,
             } => state.add_utxos(destination, utxos, is_runes),
-            Event::ReceivedRunesToken { outpoint, balance } => {
-                state.update_runes_balance(outpoint, balance);
+            Event::ReceivedRunesToken { txid, balance } => {
+                state.update_runes_balance(txid, balance);
             }
             Event::AcceptedGenTicketRequest(req) => {
                 state.pending_gen_ticket_requests.insert(req.txid, req);
             }
-            Event::FinalizedTicketRequest { txid, vout } => {
+            Event::FinalizedTicketRequest { txid, balances } => {
                 let request = state
                     .pending_gen_ticket_requests
                     .remove(&txid)
@@ -184,13 +184,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                             txid
                         ))
                     })?;
-                state.update_runes_balance(
-                    OutPoint { txid, vout },
-                    RunesBalance {
-                        runes_id: request.runes_id,
-                        value: request.amount,
-                    },
-                );
+                for balance in balances {
+                    state.update_runes_balance(txid, balance);
+                }
                 state.push_finalized_ticket(FinalizedTicket {
                     request,
                     status: FinalizedTicketStatus::Finalized,

@@ -61,7 +61,8 @@ pub type RunesId = u128;
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesBalance {
     pub runes_id: RunesId,
-    pub value: u128,
+    pub vout: u32,
+    pub amount: u128,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -481,7 +482,11 @@ impl CustomsState {
             .expect("state invariants are violated");
     }
 
-    pub(crate) fn update_runes_balance(&mut self, outpoint: OutPoint, balance: RunesBalance) {
+    pub(crate) fn update_runes_balance(&mut self, txid: Txid, balance: RunesBalance) {
+        let outpoint = OutPoint {
+            txid,
+            vout: balance.vout,
+        };
         assert!(self.outpoint_utxos.contains_key(&outpoint));
         if let Some(utxo) = self.outpoint_utxos.get(&outpoint) {
             assert!(self.available_runes_utxos.insert(RunesUtxo {
@@ -569,7 +574,7 @@ impl CustomsState {
             .available_runes_utxos
             .iter()
             .filter(|u| u.runes.runes_id.eq(runes_id))
-            .map(|u| u.runes.value)
+            .map(|u| u.runes.amount)
             .sum::<u128>();
         let mut batch = vec![];
         let mut tx_amount = 0;

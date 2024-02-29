@@ -1,6 +1,7 @@
 use crate::{customs::Customs, indexer::Indexer};
 use bitcoin_customs::{
-    state::GenTicketRequest, updates::update_runes_balance::UpdateRunesBalanceError,
+    state::{self, GenTicketRequest},
+    updates::update_runes_balance::UpdateRunesBalanceError,
 };
 use log;
 use std::{collections::VecDeque, time::Duration};
@@ -40,19 +41,23 @@ impl Executor {
 
                 match self.indexer.get_transaction(request.txid) {
                     Ok(tx) => {
-                        let balances = tx.get_runes_balance(request.address.clone());
-                        if balances.len() != 1 {
-                            // TODO process invalid case
-                            panic!("invalid runes balance")
-                        }
-                        let balance = &balances[0];
+                        let mut balances = tx.get_runes_balance();
+                        balances.retain(|b| {
+                            b.address == request.address && b.rune_id == request.runes_id
+                        });
+
                         match self
                             .customs
                             .update_runes_balance(
                                 request.txid,
-                                balance.vout,
-                                balance.rune_id,
-                                balance.amount,
+                                balances
+                                    .iter()
+                                    .map(|b| state::RunesBalance {
+                                        runes_id: b.rune_id,
+                                        vout: b.vout,
+                                        amount: b.amount,
+                                    })
+                                    .collect(),
                             )
                             .await
                         {
@@ -65,18 +70,18 @@ impl Executor {
                                 }
                                 Err(UpdateRunesBalanceError::AleardyProcessed) => {}
                                 Err(UpdateRunesBalanceError::RequestNotFound) => {
-                                    // Should never happend.
+                                    // Should never happen.
                                     log::error!("request not found for txid:{}", request.txid);
                                 }
                                 Err(UpdateRunesBalanceError::MismatchWithGenTicketReq) => {
-                                    // Canister will remove the pending request.
+                                    // Customs will remove the pending request.
                                     log::error!(
                                         "mismatch with ticket request for txid:{}",
                                         request.txid
                                     );
                                 }
                                 Err(UpdateRunesBalanceError::UtxoNotFound) => {
-                                    // Should never happend.
+                                    // Should never happen.
                                     log::error!("utxo not found for txid:{}", request.txid);
                                 }
                                 Err(UpdateRunesBalanceError::SendTicketErr(err)) => {

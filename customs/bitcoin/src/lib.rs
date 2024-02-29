@@ -566,15 +566,12 @@ async fn finalize_requests() {
         }
         for tx in &confirmed_transactions {
             state::audit::confirm_transaction(s, &tx.txid);
-            let outpoint = OutPoint {
-                txid: tx.txid,
-                vout: tx.runes_change_output.vout,
-            };
             let balance = RunesBalance {
                 runes_id: tx.runes_change_output.runes_id,
-                value: tx.runes_change_output.value,
+                vout: tx.runes_change_output.vout,
+                amount: tx.runes_change_output.value,
             };
-            audit::update_runes_balance(s, outpoint, balance);
+            audit::update_runes_balance(s, tx.txid, balance);
             maybe_finalized_transactions.remove(&tx.txid);
         }
     });
@@ -1036,7 +1033,7 @@ pub fn build_unsigned_transaction(
     let amount = outputs.iter().map(|(_, amount)| amount).sum::<u128>();
     let runes_utxo = utxos_selection(amount, available_runes_utxos, outputs.len(), |u| {
         if u.runes.runes_id.eq(runes_id) {
-            u.runes.value
+            u.runes.amount
         } else {
             0
         }
@@ -1054,7 +1051,7 @@ pub fn build_unsigned_transaction(
         }
     });
 
-    let inputs_value = utxos_guard.iter().map(|u| u.runes.value).sum::<u128>();
+    let inputs_value = utxos_guard.iter().map(|u| u.runes.amount).sum::<u128>();
     debug_assert!(inputs_value >= amount);
 
     let stone = Runestone {
@@ -1268,7 +1265,7 @@ pub fn estimate_fee(
             let selected_utxos =
                 utxos_selection(amount, &mut utxos, DEFAULT_OUTPUT_COUNT as usize - 1, |u| {
                     if u.runes.runes_id.eq(&runes_id) {
-                        u.runes.value
+                        u.runes.amount
                     } else {
                         0
                     }

@@ -6,7 +6,7 @@ use super::{
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
-use ic_btc_interface::{OutPoint, Txid, Utxo};
+use ic_btc_interface::{Txid, Utxo};
 
 pub fn accept_release_token_request(state: &mut CustomsState, request: ReleaseTokenRequest) {
     record_event(&Event::AcceptedReleaseTokenRequest(request.clone()));
@@ -35,32 +35,29 @@ pub fn add_utxos(
     state.add_utxos(destination, utxos, is_runes);
 }
 
-pub fn update_runes_balance(state: &mut CustomsState, outpoint: OutPoint, balance: RunesBalance) {
+pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: RunesBalance) {
     record_event(&Event::ReceivedRunesToken {
-        outpoint: outpoint.clone(),
+        txid,
         balance: balance.clone(),
     });
 
-    state.update_runes_balance(outpoint, balance);
+    state.update_runes_balance(txid, balance);
 }
 
-pub fn finalize_ticket_request(state: &mut CustomsState, request: &GenTicketRequest, vout: u32) {
+pub fn finalize_ticket_request(
+    state: &mut CustomsState,
+    request: &GenTicketRequest,
+    balances: Vec<RunesBalance>,
+) {
     record_event(&Event::FinalizedTicketRequest {
         txid: request.txid,
-        vout,
+        balances: balances.clone(),
     });
 
     state.pending_gen_ticket_requests.remove(&request.txid);
-    state.update_runes_balance(
-        OutPoint {
-            txid: request.txid,
-            vout,
-        },
-        RunesBalance {
-            runes_id: request.runes_id,
-            value: request.amount,
-        },
-    );
+    for balance in balances {
+        state.update_runes_balance(request.txid, balance);
+    }
     state.push_finalized_ticket(FinalizedTicket {
         request: request.clone(),
         status: FinalizedTicketStatus::Finalized,

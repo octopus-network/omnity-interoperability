@@ -54,7 +54,10 @@ type Event = variant {
     runes_id : nat;
     submitted_at : nat64;
   };
-  finalized_ticket_request : OutPoint;
+  finalized_ticket_request : record {
+    txid : vec nat8;
+    balances : vec RunesBalance;
+  };
   accepted_release_token_request : ReleaseTokenRequest;
   init : InitArgs;
   upgrade : UpgradeArgs;
@@ -68,11 +71,12 @@ type Event = variant {
     submitted_at : nat64;
   };
   accepted_generate_ticket_request : GenTicketRequest;
-  received_runes_utxos : record { balance : RunesBalance; outpoint : OutPoint };
+  received_runes_utxos : record { balance : RunesBalance; txid : vec nat8 };
 };
 type FinalizedTicketStatus = variant { Invalid; Finalized };
 type GenTicketRequest = record {
-  tx_id : vec nat8;
+  received_at : nat64;
+  txid : vec nat8;
   target_chain_id : text;
   address : text;
   amount : nat;
@@ -142,7 +146,7 @@ type ReleaseTokenStatusArgs = record { ticket_id : text };
 type Result = variant { Ok; Err : GenerateTicketError };
 type Result_1 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
 type Result_2 = variant { Ok; Err : UpdateRunesBalanceError };
-type RunesBalance = record { value : nat; runes_id : nat };
+type RunesBalance = record { vout : nat32; amount : nat; runes_id : nat };
 type RunesChangeOutput = record { value : nat; vout : nat32; runes_id : nat };
 type RunesUtxo = record { raw : Utxo; runes : RunesBalance };
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
@@ -154,9 +158,8 @@ type UpdateRunesBalanceError = variant {
   MismatchWithGenTicketReq;
 };
 type UpdateRunesBlanceArgs = record {
-  balance : RunesBalance;
   txid : vec nat8;
-  vout : nat32;
+  balances : vec RunesBalance;
 };
 type UpgradeArgs = record {
   hub_principal : opt principal;
@@ -174,6 +177,7 @@ service : (CustomArg) -> {
   get_customs_info : () -> (CustomsInfo) query;
   get_events : (GetEventsArg) -> (vec Event) query;
   get_main_btc_address : (text) -> (text);
+  get_pending_gen_ticket_requets : () -> (vec GenTicketRequest) query;
   release_token_status : (ReleaseTokenStatusArgs) -> (ReleaseTokenStatus) query;
   update_btc_utxos : () -> (Result_1);
   update_runes_balance : (UpdateRunesBlanceArgs) -> (Result_2);

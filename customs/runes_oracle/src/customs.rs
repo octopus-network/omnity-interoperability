@@ -1,5 +1,5 @@
 use bitcoin_customs::{
-    state::{GenTicketRequest, RunesBalance, RunesId},
+    state::{GenTicketRequest, RunesBalance},
     updates::update_runes_balance::{UpdateRunesBalanceError, UpdateRunesBlanceArgs},
 };
 use candid::{Decode, Encode};
@@ -37,16 +37,10 @@ impl Customs {
     pub async fn update_runes_balance(
         &self,
         txid: Txid,
-        vout: u32,
-        runes_id: RunesId,
-        value: u128,
+        balances: Vec<RunesBalance>,
     ) -> Result<Result<(), UpdateRunesBalanceError>, String> {
-        let arg = Encode!(&UpdateRunesBlanceArgs {
-            txid,
-            vout,
-            balance: RunesBalance { runes_id, value }
-        })
-        .expect("failed to encode args");
+        let arg =
+            Encode!(&UpdateRunesBlanceArgs { txid, balances }).expect("failed to encode args");
 
         let response = self
             .agent

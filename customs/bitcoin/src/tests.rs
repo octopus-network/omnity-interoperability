@@ -195,7 +195,11 @@ fn should_have_same_input_and_output_count() {
                 value: 0,
                 height: 10,
             },
-            runes: RunesBalance { runes_id, value: 0 },
+            runes: RunesBalance {
+                runes_id,
+                vout: i as u32,
+                amount: 0,
+            },
         });
     }
     available_runes_utxos.insert(RunesUtxo {
@@ -209,7 +213,8 @@ fn should_have_same_input_and_output_count() {
         },
         runes: RunesBalance {
             runes_id,
-            value: 100_000,
+            vout: 0,
+            amount: 100_000,
         },
     });
 
@@ -224,7 +229,8 @@ fn should_have_same_input_and_output_count() {
         },
         runes: RunesBalance {
             runes_id,
-            value: 100_000,
+            vout: 0,
+            amount: 100_000,
         },
     });
 
@@ -239,7 +245,8 @@ fn should_have_same_input_and_output_count() {
         },
         runes: RunesBalance {
             runes_id,
-            value: 100,
+            vout: 0,
+            amount: 100,
         },
     });
 
@@ -254,7 +261,8 @@ fn should_have_same_input_and_output_count() {
         },
         runes: RunesBalance {
             runes_id,
-            value: 100,
+            vout: 0,
+            amount: 100,
         },
     });
 
@@ -306,7 +314,8 @@ fn test_not_enough_gas() {
         },
         runes: RunesBalance {
             runes_id,
-            value: 100_000,
+            vout: 0,
+            amount: 100_000,
         },
     });
 
@@ -400,7 +409,11 @@ fn arb_runes_utxo(amount: impl Strategy<Value = u128>) -> impl Strategy<Value = 
             value: 546,
             height: 0,
         },
-        runes: RunesBalance { runes_id: 1, value },
+        runes: RunesBalance {
+            runes_id: 1,
+            vout,
+            amount: value,
+        },
     })
 }
 
@@ -669,7 +682,7 @@ proptest! {
         let runes_utxos_copy = runes_utxos.clone();
         let btc_utxos_copy = btc_utxos.clone();
 
-        let total_value = runes_utxos.iter().map(|u| u.runes.value).sum::<u128>();
+        let total_value = runes_utxos.iter().map(|u| u.runes.amount).sum::<u128>();
 
         prop_assert_eq!(
             build_unsigned_transaction(
@@ -725,9 +738,9 @@ proptest! {
 
         let mut available_amount = 0;
         for (utxo, dest_idx) in utxos_dest_idx {
-            available_amount += utxo.runes.value;
+            available_amount += utxo.runes.amount;
             state.add_utxos(destinations[dest_idx].clone(), vec![utxo.raw.clone()], true);
-            state.update_runes_balance(utxo.raw.outpoint, utxo.runes);
+            state.update_runes_balance(utxo.raw.outpoint.txid, utxo.runes);
         }
         for req in requests {
             state.push_back_pending_request(req.clone());
@@ -769,7 +782,7 @@ proptest! {
 
         for (utxo, dest_idx) in runes_utxos_dest_idx {
             state.add_utxos(destinations[dest_idx].clone(), vec![utxo.raw.clone()], true);
-            state.update_runes_balance(utxo.raw.outpoint, utxo.runes);
+            state.update_runes_balance(utxo.raw.outpoint.txid, utxo.runes);
         }
         state.add_utxos(btc_main_dest, btc_utxos, false);
 

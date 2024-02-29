@@ -758,11 +758,11 @@ fn test_update_runes_balance_no_utxo() {
     let customs = CustomsSetup::new();
     let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
         txid: random_txid(),
-        vout: 1,
-        balance: RunesBalance {
+        balances: vec![RunesBalance {
             runes_id: 1,
-            value: 100_000_000,
-        },
+            vout: 1,
+            amount: 100_000_000,
+        }],
     });
     assert_eq!(result, Err(UpdateRunesBalanceError::UtxoNotFound));
 }
@@ -803,12 +803,12 @@ fn test_update_runes_balance_invalid() {
 
     let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
         txid,
-        vout,
-        balance: RunesBalance {
+        balances: vec![RunesBalance {
             runes_id: 1,
+            vout,
             // inconsistent with the value of generate ticket
-            value: 100_000,
-        },
+            amount: 100_000,
+        }],
     });
     assert_eq!(
         result,
@@ -817,6 +817,68 @@ fn test_update_runes_balance_invalid() {
 
     let status = customs.generate_ticket_status(txid);
     assert_eq!(status, GenTicketStatus::Invalid);
+}
+
+#[test]
+fn test_update_runes_balance_multi_utxos() {
+    let customs = CustomsSetup::new();
+
+    customs.set_tip_height(100);
+
+    let txid = random_txid();
+    let utxo1 = Utxo {
+        height: 80,
+        outpoint: OutPoint { txid, vout: 1 },
+        value: 546,
+    };
+    let utxo2 = Utxo {
+        height: 80,
+        outpoint: OutPoint { txid, vout: 2 },
+        value: 546,
+    };
+
+    let target_chain_id = "cosmoshub".to_string();
+    let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
+    let deposit_address = customs.get_btc_address(Destination {
+        target_chain_id: target_chain_id.clone(),
+        receiver: receiver.clone(),
+        token: None,
+    });
+
+    let args = GenerateTicketArgs {
+        target_chain_id,
+        receiver,
+        runes_id: 1,
+        amount: 300_000_000,
+        txid,
+    };
+
+    customs.push_utxos(vec![
+        (deposit_address.clone(), utxo1),
+        (deposit_address, utxo2),
+    ]);
+    let result = customs.generate_ticket(&args);
+    assert_eq!(result, Ok(()));
+
+    let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
+        txid,
+        balances: vec![
+            RunesBalance {
+                runes_id: 1,
+                vout: 1,
+                amount: 100_000_000,
+            },
+            RunesBalance {
+                runes_id: 1,
+                vout: 2,
+                amount: 200_000_000,
+            },
+        ],
+    });
+    assert_eq!(result, Ok(()));
+
+    let status = customs.generate_ticket_status(txid);
+    assert_eq!(status, GenTicketStatus::Finalized);
 }
 
 #[test]
@@ -873,11 +935,11 @@ fn deposit_runes_to_main_address(customs: &CustomsSetup) -> UpdateRunesBlanceArg
 
     let args = UpdateRunesBlanceArgs {
         txid,
-        vout,
-        balance: RunesBalance {
+        balances: vec![RunesBalance {
             runes_id: 1,
-            value: 100_000_000,
-        },
+            vout,
+            amount: 100_000_000,
+        }],
     };
     let result = customs.update_runes_balance(&args);
     assert_eq!(result, Ok(()));
@@ -976,7 +1038,7 @@ fn test_finalize_batch_release_token_tx() {
         "bc1qyc692qvdgyy9culeuhhl7lv50uu5ss5f8preem",
         "bc1q74zh6anfe6ynnc86980y4haeqgqx3x424t4pay",
         "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5",
-        "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5",
+        "bc1qsk3rh4glx4lzrwlk8v3p7wkj9felfkqc33z7yq",
     ];
 
     for i in 0..5 {
@@ -1085,7 +1147,7 @@ fn test_exist_two_submitted_tx() {
         .get(&second_txid)
         .expect("the mempool does not contain the release transaction");
 
-    // Step 5: finalize these two transactions
+    // Step 6: finalize these two transactions
 
     customs.finalize_transaction(first_tx);
     customs.finalize_transaction(second_tx);
