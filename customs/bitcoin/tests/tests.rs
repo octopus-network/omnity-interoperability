@@ -31,7 +31,7 @@ const MAX_TIME_IN_QUEUE: Duration = Duration::from_secs(10);
 fn customs_wasm() -> Vec<u8> {
     load_wasm(
         std::env::var("CARGO_MANIFEST_DIR").unwrap(),
-        "bitcoin-customs",
+        "bitcoin_customs",
         &[],
     )
 }

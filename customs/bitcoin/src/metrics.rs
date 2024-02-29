@@ -27,7 +27,7 @@ pub fn encode_metrics(
 
     metrics
         .gauge_vec("cycle_balance", "Cycle balance on this canister.")?
-        .value(&[("canister", "bitcoin-customs")], cycle_balance)?;
+        .value(&[("canister", "bitcoin_customs")], cycle_balance)?;
 
     metrics
         .gauge_vec(
