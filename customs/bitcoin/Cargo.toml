@@ -1,10 +1,10 @@
 [package]
-name = "bitcoin-customs"
+name = "bitcoin_customs"
 version = "0.1.0"
 edition.workspace = true
 
 [[bin]]
-name = "bitcoin-customs"
+name = "bitcoin_customs"
 path = "src/main.rs"
 
 [dependencies]

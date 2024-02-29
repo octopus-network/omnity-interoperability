@@ -1,8 +1,9 @@
 {
   "canisters": {
-    "near_route_canister": {
-      "candid": "route/near/near_route_canister.did",
-      "package": "near_route_canister",
+    "bitcoin_customs": {
+      "gzip": true,
+      "candid": "customs/bitcoin/bitcoin_customs.did",
+      "package": "bitcoin_customs",
       "type": "rust"
     },
     "omnity_hub": {
@@ -13,9 +14,21 @@
     }
   },
   "defaults": {
+    "bitcoin": {
+      "enabled": true,
+      "nodes": [
+        "127.0.0.1:18444"
+      ],
+      "log_level": "info"
+    },
     "build": {
-      "args": "",
-      "packtool": ""
+      "packtool": "",
+      "args": ""
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "0.0.0.0:4943"
     }
   },
   "output_env_file": ".env",
