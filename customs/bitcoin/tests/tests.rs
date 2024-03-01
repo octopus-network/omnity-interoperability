@@ -3,7 +3,7 @@ use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
 use bitcoin_customs::queries::{GenTicketStatusArgs, ReleaseTokenStatusArgs};
-use bitcoin_customs::state::{GenTicketStatus, RunesBalance};
+use bitcoin_customs::state::{GenTicketStatus, RunesBalance, RunesId};
 use bitcoin_customs::state::{Mode, ReleaseTokenStatus};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
@@ -552,7 +552,7 @@ impl CustomsSetup {
         )
     }
 
-    pub fn finalize_transaction(&self, tx: &bitcoin::Transaction) {
+    pub fn finalize_transaction(&self, tx: &bitcoin::Transaction, runes_id: RunesId) {
         let runes_change_utxo = &tx.output[1];
         let btc_change_utxo = tx.output.last().unwrap();
 
@@ -561,7 +561,7 @@ impl CustomsSetup {
 
         assert_eq!(
             runes_change_address.to_string(),
-            self.get_main_btc_address("1".into())
+            self.get_main_btc_address(runes_id.to_string())
         );
 
         let btc_change_address =
@@ -885,7 +885,7 @@ fn test_update_runes_balance_multi_utxos() {
 fn test_update_runes_balance_success() {
     let customs = CustomsSetup::new();
 
-    let args = deposit_runes_to_main_address(&customs);
+    let args = deposit_runes_to_main_address(&customs, 1);
 
     let status = customs.generate_ticket_status(args.txid);
     assert_eq!(status, GenTicketStatus::Finalized);
@@ -895,7 +895,7 @@ fn test_update_runes_balance_success() {
 fn test_duplicate_update_runes_balance() {
     let customs = CustomsSetup::new();
 
-    let args = deposit_runes_to_main_address(&customs);
+    let args = deposit_runes_to_main_address(&customs, 1);
 
     let status = customs.generate_ticket_status(args.txid);
     assert_eq!(status, GenTicketStatus::Finalized);
@@ -904,7 +904,10 @@ fn test_duplicate_update_runes_balance() {
     assert_eq!(result, Err(UpdateRunesBalanceError::AleardyProcessed));
 }
 
-fn deposit_runes_to_main_address(customs: &CustomsSetup) -> UpdateRunesBlanceArgs {
+fn deposit_runes_to_main_address(
+    customs: &CustomsSetup,
+    runes_id: RunesId,
+) -> UpdateRunesBlanceArgs {
     customs.set_tip_height(100);
 
     let txid = random_txid();
@@ -927,7 +930,7 @@ fn deposit_runes_to_main_address(customs: &CustomsSetup) -> UpdateRunesBlanceArg
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id,
         receiver,
-        runes_id: 1,
+        runes_id,
         amount: 100_000_000,
         txid,
     });
@@ -936,7 +939,7 @@ fn deposit_runes_to_main_address(customs: &CustomsSetup) -> UpdateRunesBlanceArg
     let args = UpdateRunesBlanceArgs {
         txid,
         balances: vec![RunesBalance {
-            runes_id: 1,
+            runes_id,
             vout,
             amount: 100_000_000,
         }],
@@ -991,7 +994,7 @@ fn test_finalize_release_token_tx() {
     let customs = CustomsSetup::new();
 
     // deposit sufficient btc and runes
-    deposit_runes_to_main_address(&customs);
+    deposit_runes_to_main_address(&customs, 1);
     deposit_btc_to_main_address(&customs);
 
     let ticket_id: String = "ticket_id1".into();
@@ -1020,7 +1023,7 @@ fn test_finalize_release_token_tx() {
         .get(&txid)
         .expect("the mempool does not contain the release transaction");
 
-    customs.finalize_transaction(tx);
+    customs.finalize_transaction(tx, 1);
     assert_eq!(customs.await_finalization(ticket_id, 10), txid);
     // customs.customs_self_check();
 }
@@ -1030,7 +1033,7 @@ fn test_finalize_batch_release_token_tx() {
     let customs = CustomsSetup::new();
 
     // deposit sufficient btc and runes
-    deposit_runes_to_main_address(&customs);
+    deposit_runes_to_main_address(&customs, 1);
     deposit_btc_to_main_address(&customs);
 
     let recivers = vec![
@@ -1069,7 +1072,7 @@ fn test_finalize_batch_release_token_tx() {
         .get(&txid)
         .expect("the mempool does not contain the release transaction");
 
-    customs.finalize_transaction(tx);
+    customs.finalize_transaction(tx, 1);
     assert_eq!(customs.await_finalization("ticket_id1".into(), 10), txid);
 
     for i in 1..5 {
@@ -1086,8 +1089,8 @@ fn test_exist_two_submitted_tx() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs);
-    deposit_runes_to_main_address(&customs);
+    deposit_runes_to_main_address(&customs, 1);
+    deposit_runes_to_main_address(&customs, 1);
     deposit_btc_to_main_address(&customs);
     deposit_btc_to_main_address(&customs);
 
@@ -1149,8 +1152,8 @@ fn test_exist_two_submitted_tx() {
 
     // Step 6: finalize these two transactions
 
-    customs.finalize_transaction(first_tx);
-    customs.finalize_transaction(second_tx);
+    customs.finalize_transaction(first_tx, 1);
+    customs.finalize_transaction(second_tx, 1);
 
     assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
     assert_eq!(
@@ -1165,7 +1168,7 @@ fn test_transaction_use_prev_change_output() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs);
+    deposit_runes_to_main_address(&customs, 1);
     deposit_btc_to_main_address(&customs);
 
     // Step 2: push the first ticket
@@ -1198,7 +1201,7 @@ fn test_transaction_use_prev_change_output() {
 
     // Step 4: finalize the first transaction
 
-    customs.finalize_transaction(first_tx);
+    customs.finalize_transaction(first_tx, 1);
     assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
 
     // Step 5: push the second ticket
@@ -1233,7 +1236,79 @@ fn test_transaction_use_prev_change_output() {
 
     // Step 7: finalize the second transaction
 
-    customs.finalize_transaction(second_tx);
+    customs.finalize_transaction(second_tx, 1);
+    assert_eq!(
+        customs.await_finalization(second_ticket_id, 10),
+        second_txid
+    );
+}
+
+#[test]
+fn test_transaction_multi_runes_id() {
+    let customs = CustomsSetup::new();
+
+    // Step 1: deposit sufficient btc and runes
+
+    deposit_runes_to_main_address(&customs, 1);
+    deposit_runes_to_main_address(&customs, 2);
+    deposit_btc_to_main_address(&customs);
+    deposit_btc_to_main_address(&customs);
+
+    // Step 2: push tickets
+
+    let first_ticket_id: String = "ticket_id1".into();
+    let first_ticket = Ticket {
+        ticket_id: first_ticket_id.clone(),
+        created_time: 1708911143,
+        src_chain: "cosmoshub".into(),
+        dst_chain: "BTC".into(),
+        action: Action::Redeem,
+        token: "1".into(),
+        amount: "1000000".into(),
+        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
+        memo: None,
+    };
+
+    let second_ticket_id: String = "ticket_id2".into();
+    let second_ticket = Ticket {
+        ticket_id: second_ticket_id.clone(),
+        created_time: 1708911146,
+        src_chain: "cosmoshub".into(),
+        dst_chain: "BTC".into(),
+        action: Action::Redeem,
+        token: "2".into(),
+        amount: "1000000".into(),
+        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
+        memo: None,
+    };
+    customs.push_ticket(first_ticket);
+    customs.push_ticket(second_ticket);
+    customs.env.advance_time(Duration::from_secs(5));
+    customs.await_pending(first_ticket_id.clone(), 10);
+    customs.await_pending(second_ticket_id.clone(), 10);
+
+    // Step 3: wait for the first transaction to be submitted
+
+    customs.env.advance_time(Duration::from_secs(5));
+    let first_txid = customs.await_btc_transaction(first_ticket_id.clone(), 10);
+    let second_txid = customs.await_btc_transaction(second_ticket_id.clone(), 10);
+    assert_ne!(first_txid, second_txid);
+
+    let mempool = customs.mempool();
+    let first_tx: &bitcoin::Transaction = mempool
+        .get(&first_txid)
+        .expect("the mempool does not contain the release transaction");
+    let second_tx: &bitcoin::Transaction = mempool
+        .get(&second_txid)
+        .expect("the mempool does not contain the release transaction");
+
+    // Step 4: finalize transactions
+
+    customs.finalize_transaction(first_tx, 1);
+    assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
+    customs.finalize_transaction(second_tx, 2);
     assert_eq!(
         customs.await_finalization(second_ticket_id, 10),
         second_txid
@@ -1246,7 +1321,7 @@ fn test_transaction_resubmission_finalize_new() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs);
+    deposit_runes_to_main_address(&customs, 1);
     deposit_btc_to_main_address(&customs);
 
     // Step 2: push a ticket
@@ -1305,7 +1380,7 @@ fn test_transaction_resubmission_finalize_new() {
 
     // Step 5: finalize the new transaction
 
-    customs.finalize_transaction(new_tx);
+    customs.finalize_transaction(new_tx, 1);
     assert_eq!(customs.await_finalization(ticket_id, 10), new_txid);
     // customs.customs_self_check();
 }
@@ -1316,7 +1391,7 @@ fn test_transaction_resubmission_finalize_old() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs);
+    deposit_runes_to_main_address(&customs, 1);
     deposit_btc_to_main_address(&customs);
 
     // Step 2: push a ticket
@@ -1368,7 +1443,7 @@ fn test_transaction_resubmission_finalize_old() {
 
     // Step 5: finalize the old transaction
 
-    customs.finalize_transaction(tx);
+    customs.finalize_transaction(tx, 1);
     assert_eq!(customs.await_finalization(ticket_id, 10), txid);
     // customs.minter_self_check();
 }
@@ -1379,7 +1454,7 @@ fn test_transaction_resubmission_finalize_middle() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs);
+    deposit_runes_to_main_address(&customs, 1);
     deposit_btc_to_main_address(&customs);
 
     // Step 2: push a ticket
@@ -1451,7 +1526,7 @@ fn test_transaction_resubmission_finalize_middle() {
 
     // Step 6: finalize the middle transaction
 
-    customs.finalize_transaction(second_tx);
+    customs.finalize_transaction(second_tx, 1);
     assert_eq!(customs.await_finalization(ticket_id, 10), second_txid);
     // customs.minter_self_check();
 }
@@ -1470,7 +1545,7 @@ fn test_filter_logs() {
 
     // Trigger an even to add some logs.
 
-    deposit_runes_to_main_address(&customs);
+    deposit_runes_to_main_address(&customs, 1);
 
     let system_time = customs.env.time();
 
