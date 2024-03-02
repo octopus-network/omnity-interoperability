@@ -1,6 +1,6 @@
 use crate::{with_state, with_state_mut, Error};
 use candid::types::principal::Principal;
-use ic_cdk::{ update};
+use ic_cdk::update;
 use log::info;
 
 pub fn auth() -> Result<(), String> {

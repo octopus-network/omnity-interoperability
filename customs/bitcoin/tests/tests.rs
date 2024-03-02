@@ -3,7 +3,7 @@ use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
 use bitcoin_customs::queries::{GenTicketStatusArgs, ReleaseTokenStatusArgs};
-use bitcoin_customs::state::{GenTicketStatus, RunesBalance, RunesId};
+use bitcoin_customs::state::{GenTicketStatus, RuneId, RunesBalance};
 use bitcoin_customs::state::{Mode, ReleaseTokenStatus};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
@@ -552,7 +552,7 @@ impl CustomsSetup {
         )
     }
 
-    pub fn finalize_transaction(&self, tx: &bitcoin::Transaction, runes_id: RunesId) {
+    pub fn finalize_transaction(&self, tx: &bitcoin::Transaction, rune_id: RuneId) {
         let runes_change_utxo = &tx.output[1];
         let btc_change_utxo = tx.output.last().unwrap();
 
@@ -561,7 +561,7 @@ impl CustomsSetup {
 
         assert_eq!(
             runes_change_address.to_string(),
-            self.get_main_btc_address(runes_id.to_string())
+            self.get_main_btc_address(rune_id.to_string())
         );
 
         let btc_change_address =
@@ -642,7 +642,7 @@ fn test_gen_ticket_no_new_utxos() {
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id: String::from("cosmoshub"),
         receiver: String::from("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv"),
-        runes_id: 1,
+        rune_id: 1,
         amount: 1000,
         txid: random_txid(),
     });
@@ -674,7 +674,7 @@ fn test_gen_ticket_with_insufficient_confirmations() {
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id,
         receiver,
-        runes_id: 1,
+        rune_id: 1,
         amount: 100_000_000,
         txid,
     });
@@ -706,7 +706,7 @@ fn test_gen_ticket_success() {
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id,
         receiver,
-        runes_id: 1,
+        rune_id: 1,
         amount: 100_000_000,
         txid,
     });
@@ -742,7 +742,7 @@ fn test_duplicate_submit_gen_ticket() {
     let args = GenerateTicketArgs {
         target_chain_id,
         receiver,
-        runes_id: 1,
+        rune_id: 1,
         amount: 100_000_000,
         txid,
     };
@@ -759,7 +759,7 @@ fn test_update_runes_balance_no_utxo() {
     let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
         txid: random_txid(),
         balances: vec![RunesBalance {
-            runes_id: 1,
+            rune_id: 1,
             vout: 1,
             amount: 100_000_000,
         }],
@@ -792,7 +792,7 @@ fn test_update_runes_balance_invalid() {
     let args = GenerateTicketArgs {
         target_chain_id,
         receiver,
-        runes_id: 1,
+        rune_id: 1,
         amount: 100_000_000,
         txid,
     };
@@ -804,7 +804,7 @@ fn test_update_runes_balance_invalid() {
     let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
         txid,
         balances: vec![RunesBalance {
-            runes_id: 1,
+            rune_id: 1,
             vout,
             // inconsistent with the value of generate ticket
             amount: 100_000,
@@ -848,7 +848,7 @@ fn test_update_runes_balance_multi_utxos() {
     let args = GenerateTicketArgs {
         target_chain_id,
         receiver,
-        runes_id: 1,
+        rune_id: 1,
         amount: 300_000_000,
         txid,
     };
@@ -864,12 +864,12 @@ fn test_update_runes_balance_multi_utxos() {
         txid,
         balances: vec![
             RunesBalance {
-                runes_id: 1,
+                rune_id: 1,
                 vout: 1,
                 amount: 100_000_000,
             },
             RunesBalance {
-                runes_id: 1,
+                rune_id: 1,
                 vout: 2,
                 amount: 200_000_000,
             },
@@ -904,10 +904,7 @@ fn test_duplicate_update_runes_balance() {
     assert_eq!(result, Err(UpdateRunesBalanceError::AleardyProcessed));
 }
 
-fn deposit_runes_to_main_address(
-    customs: &CustomsSetup,
-    runes_id: RunesId,
-) -> UpdateRunesBlanceArgs {
+fn deposit_runes_to_main_address(customs: &CustomsSetup, rune_id: RuneId) -> UpdateRunesBlanceArgs {
     customs.set_tip_height(100);
 
     let txid = random_txid();
@@ -930,7 +927,7 @@ fn deposit_runes_to_main_address(
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id,
         receiver,
-        runes_id,
+        rune_id,
         amount: 100_000_000,
         txid,
     });
@@ -939,7 +936,7 @@ fn deposit_runes_to_main_address(
     let args = UpdateRunesBlanceArgs {
         txid,
         balances: vec![RunesBalance {
-            runes_id,
+            rune_id,
             vout,
             amount: 100_000_000,
         }],

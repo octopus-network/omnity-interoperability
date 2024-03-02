@@ -43,7 +43,7 @@ impl Executor {
                     Ok(tx) => {
                         let mut balances = tx.get_runes_balance();
                         balances.retain(|b| {
-                            b.address == request.address && b.rune_id == request.runes_id
+                            b.address == request.address && b.rune_id == request.rune_id
                         });
 
                         match self
@@ -53,7 +53,7 @@ impl Executor {
                                 balances
                                     .iter()
                                     .map(|b| state::RunesBalance {
-                                        runes_id: b.rune_id,
+                                        rune_id: b.rune_id,
                                         vout: b.vout,
                                         amount: b.amount,
                                     })
