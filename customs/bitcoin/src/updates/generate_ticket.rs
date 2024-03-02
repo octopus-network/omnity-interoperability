@@ -1,21 +1,22 @@
 use crate::destination::Destination;
 use crate::guard::generate_ticket_guard;
 use crate::management::{get_utxos, CallSource};
-use crate::state::{audit, mutate_state, read_state, GenTicketRequest, GenTicketStatus, RunesId};
+use crate::state::{audit, mutate_state, read_state, GenTicketRequest, GenTicketStatus, RuneId};
 use crate::updates::get_btc_address::{
     destination_to_p2wpkh_address_from_state, init_ecdsa_public_key,
 };
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
 use serde::Serialize;
+use std::str::FromStr;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketArgs {
     pub target_chain_id: String,
     pub receiver: String,
-    pub runes_id: RunesId,
+    pub rune_id: RuneId,
     pub amount: u128,
-    pub txid: Txid,
+    pub txid: String,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -29,10 +30,12 @@ pub enum GenerateTicketError {
 pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     read_state(|s| s.mode.is_transport_available_for())
         .map_err(GenerateTicketError::TemporarilyUnavailable)?;
+    let txid = Txid::from_str(&args.txid)
+        .map_err(|_| GenerateTicketError::TemporarilyUnavailable("Invalid txid".to_string()))?;
 
     // TODO check if the token and target_chain_id is in the whitelist
 
-    read_state(|s| match s.generate_ticket_status(args.txid) {
+    read_state(|s| match s.generate_ticket_status(txid) {
         GenTicketStatus::Pending(_) => Err(GenerateTicketError::AlreadySubmitted),
         GenTicketStatus::Invalid | GenTicketStatus::Finalized => {
             Err(GenerateTicketError::AleardyProcessed)
@@ -65,8 +68,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         })?
         .utxos;
 
-    let new_utxos =
-        read_state(|s| s.new_utxos_for_destination(utxos, &destination, Some(args.txid)));
+    let new_utxos = read_state(|s| s.new_utxos_for_destination(utxos, &destination, Some(txid)));
     if new_utxos.len() == 0 {
         return Err(GenerateTicketError::NoNewUtxos);
     }
@@ -75,9 +77,9 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         address,
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
-        runes_id: args.runes_id,
+        rune_id: args.rune_id,
         amount: args.amount,
-        txid: args.txid,
+        txid,
         received_at: ic_cdk::api::time(),
     };
 

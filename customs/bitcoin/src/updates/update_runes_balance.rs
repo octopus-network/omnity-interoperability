@@ -44,8 +44,7 @@ pub async fn update_runes_balance(
     })?;
 
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
-    let result = if args.balances.iter().all(|b| b.runes_id == req.runes_id) && amount == req.amount
-    {
+    let result = if args.balances.iter().all(|b| b.rune_id == req.rune_id) && amount == req.amount {
         let hub_principal = read_state(|s| s.hub_principal);
         management::send_tickets(
             hub_principal,
@@ -55,7 +54,7 @@ pub async fn update_runes_balance(
                 src_chain: String::from(BTC_TOKEN),
                 dst_chain: req.target_chain_id.clone(),
                 action: Action::Transfer,
-                token: req.runes_id.to_string(),
+                token: req.rune_id.to_string(),
                 amount: req.amount.to_string(),
                 sender: String::default(),
                 receiver: req.receiver.clone(),

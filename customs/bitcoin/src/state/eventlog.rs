@@ -7,8 +7,8 @@ use omnity_types::TicketId;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    BtcChangeOutput, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest, RunesBalance,
-    RunesId, RunesUtxo,
+    BtcChangeOutput, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest, RuneId,
+    RunesBalance, RunesUtxo,
 };
 
 #[derive(candid::CandidType, Deserialize)]
@@ -76,8 +76,8 @@ pub enum Event {
     /// network.
     #[serde(rename = "sent_transaction")]
     SentBtcTransaction {
-        #[serde(rename = "runes_id")]
-        runes_id: RunesId,
+        #[serde(rename = "rune_id")]
+        rune_id: RuneId,
         /// Release id list of release_token requests that caused the transaction.
         #[serde(rename = "requests")]
         request_release_ids: Vec<TicketId>,
@@ -208,7 +208,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.push_back_pending_request(req);
             }
             Event::SentBtcTransaction {
-                runes_id,
+                rune_id,
                 request_release_ids,
                 txid,
                 runes_utxos,
@@ -237,7 +237,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                     state.available_fee_utxos.remove(utxo);
                 }
                 state.push_submitted_transaction(SubmittedBtcTransaction {
-                    runes_id,
+                    rune_id,
                     requests: release_token_requests,
                     txid,
                     runes_utxos,
@@ -277,7 +277,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.replace_transaction(
                     &old_txid,
                     SubmittedBtcTransaction {
-                        runes_id: runes_change_output.runes_id,
+                        rune_id: runes_change_output.rune_id,
                         txid: new_txid,
                         requests,
                         runes_utxos,

@@ -1,5 +1,9 @@
 use crate::{
-    address::main_bitcoin_address, destination::Destination, logs::P1, state::{mutate_state, read_state, CustomsState}, ECDSAPublicKey
+    address::main_bitcoin_address,
+    destination::Destination,
+    logs::P1,
+    state::{mutate_state, read_state, CustomsState},
+    ECDSAPublicKey,
 };
 use candid::{CandidType, Deserialize};
 use ic_canister_log::log;

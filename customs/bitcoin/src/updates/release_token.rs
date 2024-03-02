@@ -3,7 +3,7 @@ use crate::state::ReleaseTokenStatus;
 use crate::tasks::{schedule_now, TaskType};
 use crate::{
     address::{BitcoinAddress, ParseAddressError},
-    state::{self, mutate_state, read_state, ReleaseTokenRequest, RunesId},
+    state::{self, mutate_state, read_state, ReleaseTokenRequest, RuneId},
 };
 use candid::{CandidType, Deserialize};
 use omnity_types::TicketId;
@@ -14,7 +14,7 @@ const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct ReleaseTokenArgs {
     pub ticket_id: TicketId,
-    pub runes_id: RunesId,
+    pub rune_id: RuneId,
     // amount to retrieve
     pub amount: u128,
     // address where to send tokens
@@ -69,7 +69,7 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
 
     let request = ReleaseTokenRequest {
         ticket_id: args.ticket_id.clone(),
-        runes_id: args.runes_id,
+        rune_id: args.rune_id,
         amount: args.amount,
         address: parsed_address,
         received_at: ic_cdk::api::time(),
