@@ -18,12 +18,13 @@ impl Indexer {
         Self { url }
     }
 
-    pub fn get_transaction(&self, txid: Txid) -> Result<Transaction, IndexerError> {
-        let resp = reqwest::blocking::get(format!("{}/tx/{}", self.url, txid))
+    pub async fn get_transaction(&self, txid: Txid) -> Result<Transaction, IndexerError> {
+        let resp = reqwest::get(format!("{}/api/tx/{}", self.url, txid))
+            .await
             .map_err(IndexerError::RequestErr)?;
         match resp.status() {
             StatusCode::OK => {
-                let text = resp.text().map_err(IndexerError::RequestErr)?;
+                let text = resp.text().await.map_err(IndexerError::RequestErr)?;
                 Ok(Transaction::from_json(text.as_str()).map_err(IndexerError::JsonErr)?)
             }
             code => Err(IndexerError::ServerErr(code)),

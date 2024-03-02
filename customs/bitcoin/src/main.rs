@@ -11,7 +11,7 @@ use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
 use bitcoin_customs::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
-    update_runes_balance::{UpdateRunesBalanceError, UpdateRunesBlanceArgs},
+    update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
 use bitcoin_customs::CustomsInfo;
 use bitcoin_customs::{
@@ -150,7 +150,7 @@ fn get_pending_gen_ticket_requests() -> Vec<GenTicketRequest> {
 
 // TODO add auth of runes oracle
 #[update]
-async fn update_runes_balance(args: UpdateRunesBlanceArgs) -> Result<(), UpdateRunesBalanceError> {
+async fn update_runes_balance(args: UpdateRunesBalanceArgs) -> Result<(), UpdateRunesBalanceError> {
     check_postcondition(updates::update_runes_balance(args).await)
 }
 

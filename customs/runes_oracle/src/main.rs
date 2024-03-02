@@ -1,16 +1,16 @@
-use futures::executor::block_on;
 use ic_agent::export::Principal;
 use runes_oracle::{customs::Customs, executor::Executor, indexer::Indexer};
 
-const NODE_URL: &str = "http://localhost:8000";
-const INDEXER_URL: &str = "https://bitcoin.indexer.testnet.octopus.network/api";
-const CUSTOMS_CANISTER_ID: &str = "bd3st-beaaa-aaaaa-qaaba-cai";
+const NODE_URL: &str = "http://localhost:4943";
+const INDEXER_URL: &str = "http://localhost:23456";
+const CUSTOMS_CANISTER_ID: &str = "be2us-64aaa-aaaaa-qaabq-cai";
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let customs_canister = Principal::from_text(String::from(CUSTOMS_CANISTER_ID))
         .expect("failed to parse customs canister id");
-    let customs = Customs::new(NODE_URL.into(), customs_canister);
+    let customs = Customs::new(NODE_URL.into(), customs_canister).await;
     let indexer = Indexer::new(INDEXER_URL.into());
 
-    block_on(Executor::new(customs, indexer).start());
+    Executor::new(customs, indexer).start().await;
 }

@@ -7,7 +7,7 @@ use omnity_types::{Action, Ticket};
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct UpdateRunesBlanceArgs {
+pub struct UpdateRunesBalanceArgs {
     pub txid: Txid,
     pub balances: Vec<RunesBalance>,
 }
@@ -22,7 +22,7 @@ pub enum UpdateRunesBalanceError {
 }
 
 pub async fn update_runes_balance(
-    args: UpdateRunesBlanceArgs,
+    args: UpdateRunesBalanceArgs,
 ) -> Result<(), UpdateRunesBalanceError> {
     for balance in &args.balances {
         let outpoint = OutPoint {
@@ -46,7 +46,7 @@ pub async fn update_runes_balance(
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
     let result = if args.balances.iter().all(|b| b.rune_id == req.rune_id) && amount == req.amount {
         let hub_principal = read_state(|s| s.hub_principal);
-        management::send_tickets(
+        management::send_ticket(
             hub_principal,
             Ticket {
                 ticket_id: args.txid.to_string(),

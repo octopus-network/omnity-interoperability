@@ -9,7 +9,7 @@ use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTick
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
 use bitcoin_customs::updates::update_runes_balance::{
-    UpdateRunesBalanceError, UpdateRunesBlanceArgs,
+    UpdateRunesBalanceArgs, UpdateRunesBalanceError,
 };
 use bitcoin_customs::{Log, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
 use candid::{Decode, Encode};
@@ -366,7 +366,7 @@ impl CustomsSetup {
 
     pub fn update_runes_balance(
         &self,
-        args: &UpdateRunesBlanceArgs,
+        args: &UpdateRunesBalanceArgs,
     ) -> Result<(), UpdateRunesBalanceError> {
         Decode!(
             &assert_reply(
@@ -756,7 +756,7 @@ fn test_duplicate_submit_gen_ticket() {
 #[test]
 fn test_update_runes_balance_no_utxo() {
     let customs = CustomsSetup::new();
-    let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
+    let result = customs.update_runes_balance(&UpdateRunesBalanceArgs {
         txid: random_txid(),
         balances: vec![RunesBalance {
             rune_id: 1,
@@ -801,7 +801,7 @@ fn test_update_runes_balance_invalid() {
     let result = customs.generate_ticket(&args);
     assert_eq!(result, Ok(()));
 
-    let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
+    let result = customs.update_runes_balance(&UpdateRunesBalanceArgs {
         txid,
         balances: vec![RunesBalance {
             rune_id: 1,
@@ -860,7 +860,7 @@ fn test_update_runes_balance_multi_utxos() {
     let result = customs.generate_ticket(&args);
     assert_eq!(result, Ok(()));
 
-    let result = customs.update_runes_balance(&UpdateRunesBlanceArgs {
+    let result = customs.update_runes_balance(&UpdateRunesBalanceArgs {
         txid,
         balances: vec![
             RunesBalance {
@@ -904,7 +904,10 @@ fn test_duplicate_update_runes_balance() {
     assert_eq!(result, Err(UpdateRunesBalanceError::AleardyProcessed));
 }
 
-fn deposit_runes_to_main_address(customs: &CustomsSetup, rune_id: RuneId) -> UpdateRunesBlanceArgs {
+fn deposit_runes_to_main_address(
+    customs: &CustomsSetup,
+    rune_id: RuneId,
+) -> UpdateRunesBalanceArgs {
     customs.set_tip_height(100);
 
     let txid = random_txid();
@@ -933,7 +936,7 @@ fn deposit_runes_to_main_address(customs: &CustomsSetup, rune_id: RuneId) -> Upd
     });
     assert_eq!(result, Ok(()));
 
-    let args = UpdateRunesBlanceArgs {
+    let args = UpdateRunesBalanceArgs {
         txid,
         balances: vec![RunesBalance {
             rune_id,

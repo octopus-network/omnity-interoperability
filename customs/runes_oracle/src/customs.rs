@@ -1,6 +1,6 @@
 use bitcoin_customs::{
     state::{GenTicketRequest, RunesBalance},
-    updates::update_runes_balance::{UpdateRunesBalanceError, UpdateRunesBlanceArgs},
+    updates::update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
 use candid::{Decode, Encode};
 use ic_agent::{export::Principal, identity::AnonymousIdentity, Agent};
@@ -12,12 +12,18 @@ pub struct Customs {
 }
 
 impl Customs {
-    pub fn new(url: String, canister_id: Principal) -> Self {
+    pub async fn new(url: String, canister_id: Principal) -> Self {
         let agent = Agent::builder()
-            .with_url(url)
+            .with_url(&url)
             .with_identity(AnonymousIdentity)
             .build()
             .expect("failed to build agent");
+        if url.starts_with("http://") {
+            agent
+                .fetch_root_key()
+                .await
+                .expect("failed to fetch root key");
+        }
         Self { agent, canister_id }
     }
 
@@ -25,6 +31,7 @@ impl Customs {
         let response = self
             .agent
             .query(&self.canister_id, "get_pending_gen_ticket_requests")
+            .with_arg(Encode!(&Vec::<u8>::new()).unwrap())
             .call()
             .await
             .map_err(|err| err.to_string())?;
@@ -40,7 +47,7 @@ impl Customs {
         balances: Vec<RunesBalance>,
     ) -> Result<Result<(), UpdateRunesBalanceError>, String> {
         let arg =
-            Encode!(&UpdateRunesBlanceArgs { txid, balances }).expect("failed to encode args");
+            Encode!(&UpdateRunesBalanceArgs { txid, balances }).expect("failed to encode args");
 
         let response = self
             .agent

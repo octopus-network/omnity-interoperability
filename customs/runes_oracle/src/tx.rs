@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Transaction {
     pub txid: String,
     pub size: u32,
@@ -8,7 +8,7 @@ pub struct Transaction {
     pub vout: Vec<TxOut>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct TxOut {
     pub n: u32,
     #[serde(rename = "scriptPubKey")]
@@ -16,17 +16,17 @@ pub struct TxOut {
     pub runestone: Option<RuneStone>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ScriptPubkey {
     pub address: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct RuneStone {
     pub edicts: Option<Vec<Edict>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Edict {
     pub rune: String,
     pub rune_id: String,
@@ -34,6 +34,7 @@ pub struct Edict {
     pub output: u32,
 }
 
+#[derive(Debug)]
 pub struct RunesBalance {
     pub address: String,
     pub vout: u32,

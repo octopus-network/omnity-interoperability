@@ -4,8 +4,7 @@ use bitcoin_customs::{
     updates::update_runes_balance::UpdateRunesBalanceError,
 };
 use log;
-use std::{collections::VecDeque, time::Duration};
-use ticker::Ticker;
+use std::{collections::VecDeque, thread, time::Duration};
 
 pub struct Executor {
     customs: Customs,
@@ -23,8 +22,7 @@ impl Executor {
     }
 
     pub async fn start(&mut self) {
-        let ticker = Ticker::new(1.., Duration::from_secs(60));
-        for _ in ticker {
+        loop {
             if self.pending_requests.is_empty() {
                 match self.customs.get_pending_gen_ticket_requests().await {
                     Ok(requests) => requests
@@ -39,7 +37,7 @@ impl Executor {
             while !self.pending_requests.is_empty() {
                 let request = self.pending_requests.front().unwrap();
 
-                match self.indexer.get_transaction(request.txid) {
+                match self.indexer.get_transaction(request.txid).await {
                     Ok(tx) => {
                         let mut balances = tx.get_runes_balance();
                         balances.retain(|b| {
@@ -105,6 +103,7 @@ impl Executor {
                 }
                 self.pending_requests.pop_front();
             }
+            thread::sleep(Duration::from_secs(60));
         }
     }
 }

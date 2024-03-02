@@ -157,7 +157,7 @@ type UpdateRunesBalanceError = variant {
   AleardyProcessed;
   MismatchWithGenTicketReq;
 };
-type UpdateRunesBlanceArgs = record {
+type UpdateRunesBalanceArgs = record {
   txid : vec nat8;
   balances : vec RunesBalance;
 };
@@ -177,8 +177,8 @@ service : (CustomArg) -> {
   get_customs_info : () -> (CustomsInfo) query;
   get_events : (GetEventsArg) -> (vec Event) query;
   get_main_btc_address : (text) -> (text);
-  get_pending_gen_ticket_requets : () -> (vec GenTicketRequest) query;
+  get_pending_gen_ticket_requests : () -> (vec GenTicketRequest) query;
   release_token_status : (ReleaseTokenStatusArgs) -> (ReleaseTokenStatus) query;
   update_btc_utxos : () -> (Result_1);
-  update_runes_balance : (UpdateRunesBlanceArgs) -> (Result_2);
+  update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_2);
 }

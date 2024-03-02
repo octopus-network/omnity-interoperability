@@ -53,7 +53,7 @@ fn init() {
 
 #[candid_method(update)]
 #[update]
-pub async fn send_tickets(_: Ticket) -> Result<(), omnity_types::Error> {
+pub async fn send_ticket(_: Ticket) -> Result<(), omnity_types::Error> {
     Ok(())
 }
 
