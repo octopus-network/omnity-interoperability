@@ -644,7 +644,7 @@ fn test_gen_ticket_no_new_utxos() {
         receiver: String::from("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv"),
         rune_id: 1,
         amount: 1000,
-        txid: random_txid(),
+        txid: random_txid().to_string(),
     });
     assert_eq!(result, Err(GenerateTicketError::NoNewUtxos));
 }
@@ -676,7 +676,7 @@ fn test_gen_ticket_with_insufficient_confirmations() {
         receiver,
         rune_id: 1,
         amount: 100_000_000,
-        txid,
+        txid: txid.to_string(),
     });
     assert_eq!(result, Err(GenerateTicketError::NoNewUtxos));
 }
@@ -708,7 +708,7 @@ fn test_gen_ticket_success() {
         receiver,
         rune_id: 1,
         amount: 100_000_000,
-        txid,
+        txid: txid.to_string(),
     });
     assert_eq!(result, Ok(()));
 
@@ -744,7 +744,7 @@ fn test_duplicate_submit_gen_ticket() {
         receiver,
         rune_id: 1,
         amount: 100_000_000,
-        txid,
+        txid: txid.to_string(),
     };
 
     customs.push_utxos(vec![(deposit_address, utxo)]);
@@ -794,7 +794,7 @@ fn test_update_runes_balance_invalid() {
         receiver,
         rune_id: 1,
         amount: 100_000_000,
-        txid,
+        txid: txid.to_string(),
     };
 
     customs.push_utxos(vec![(deposit_address, utxo)]);
@@ -850,7 +850,7 @@ fn test_update_runes_balance_multi_utxos() {
         receiver,
         rune_id: 1,
         amount: 300_000_000,
-        txid,
+        txid: txid.to_string(),
     };
 
     customs.push_utxos(vec![
@@ -929,7 +929,7 @@ fn deposit_runes_to_main_address(customs: &CustomsSetup, rune_id: RuneId) -> Upd
         receiver,
         rune_id,
         amount: 100_000_000,
-        txid,
+        txid: txid.to_string(),
     });
     assert_eq!(result, Ok(()));
 

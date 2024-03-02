@@ -138,7 +138,7 @@ fn generate_ticket_status(req: GenTicketStatusArgs) -> GenTicketStatus {
 }
 
 #[query]
-fn get_pending_gen_ticket_requets() -> Vec<GenTicketRequest> {
+fn get_pending_gen_ticket_requests() -> Vec<GenTicketRequest> {
     // TODO support pagination
     read_state(|s| {
         s.pending_gen_ticket_requests

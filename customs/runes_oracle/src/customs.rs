@@ -21,10 +21,10 @@ impl Customs {
         Self { agent, canister_id }
     }
 
-    pub async fn get_pending_gen_ticket_requets(&self) -> Result<Vec<GenTicketRequest>, String> {
+    pub async fn get_pending_gen_ticket_requests(&self) -> Result<Vec<GenTicketRequest>, String> {
         let response = self
             .agent
-            .query(&self.canister_id, "get_pending_gen_ticket_requets")
+            .query(&self.canister_id, "get_pending_gen_ticket_requests")
             .call()
             .await
             .map_err(|err| err.to_string())?;
