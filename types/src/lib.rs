@@ -24,7 +24,7 @@ pub type TicketQueue = HashMap<DstChain, BTreeMap<Seq, Ticket>>;
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub enum Proposal {
     AddChain(ChainInfo),
-    AddToken(TokenMetaData),
+    AddToken(TokenMeta),
     ToggleChainState(ToggleState),
     UpdateFee(Fee),
 }
@@ -125,7 +125,7 @@ impl core::fmt::Display for Fee {
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ChainInfo {
-    pub chain_name: ChainId,
+    pub chain_id: ChainId,
     pub chain_type: ChainType,
     // the chain default state is true
     pub chain_state: ChainState,
@@ -140,7 +140,7 @@ impl core::fmt::Display for ChainInfo {
         write!(
             f,
             "chain name:{},\nfchain type:{:?},\nchain state:{:?}",
-            self.chain_name, self.chain_type, self.chain_state,
+            self.chain_id, self.chain_type, self.chain_state,
         )
     }
 }
@@ -157,8 +157,8 @@ impl core::fmt::Display for ToggleState {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct TokenMetaData {
-    pub name: TokenId,
+pub struct TokenMeta {
+    pub token_id: TokenId,
     pub symbol: String,
     // the token`s issuse chain
     pub issue_chain: ChainId,
@@ -167,23 +167,23 @@ pub struct TokenMetaData {
     // pub total_amount: Option<u128>,
     // pub token_constract_address: Option<String>,
 }
-impl core::fmt::Display for TokenMetaData {
+impl core::fmt::Display for TokenMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
             "token name:{},\nsymbol:{:?},\nissue chain:{},\ndecimals:{},\nicon:{:?}",
-            self.name, self.symbol, self.issue_chain, self.decimals, self.icon
+            self.token_id, self.symbol, self.issue_chain, self.decimals, self.icon
         )
     }
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct LockedToken {
+pub struct TokenOnChain {
     pub token_id: TokenId,
-    pub total_locked_amount: u64,
     // the chain of the token be locked
     pub chain_id: ChainId,
-    pub chain_type: ChainType,
+    pub amount: u64,
+    // pub chain_type: ChainType,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
@@ -197,7 +197,7 @@ pub struct ChainCondition {
 pub struct TokenCondition {
     pub token_id: Option<TokenId>,
     pub chain_id: Option<ChainId>,
-    pub chain_type: Option<ChainType>,
+    // pub chain_type: Option<ChainType>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
