@@ -1,63 +1,96 @@
-type Action = variant { Redeem; Transfer };
+type ChainCondition = record {
+  chain_state : opt ChainState;
+  chain_type : opt ChainType;
+};
 type ChainInfo = record {
-  chain_state : State;
-  chain_name : text;
+  chain_id : text;
+  chain_state : ChainState;
   chain_type : ChainType;
 };
-type ChainState = record { state : State; chain_id : text };
+type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type Error = variant {
   MalformedMessageBytes;
+  NotFoundChain : text;
   ProposalError : text;
   NotSupportedProposal;
   Unauthorized;
   CustomError : text;
 };
 type Fee = record { fee_token : text; dst_chain_id : text; factor : int64 };
-type Network = variant { mainnet; local; testnet };
 type Proposal = variant {
   UpdateFee : Fee;
-  AddToken : TokenMetaData;
-  ChangeChainState : ChainState;
+  AddToken : TokenMeta;
   AddChain : ChainInfo;
+  ToggleChainState : ToggleState;
 };
-type PublicKeyReply = record { public_key : vec nat8 };
 type Result = variant { Ok; Err : Error };
-type Result_1 = variant { Ok : PublicKeyReply; Err : Error };
-type Result_2 = variant {
-  Ok : opt vec record { nat64; Proposal };
-  Err : Error;
-};
-type Result_3 = variant { Ok : opt vec record { nat64; Ticket }; Err : Error };
-type Result_4 = variant { Ok : text; Err : Error };
-type State = variant { Active; Reinstate; Suspend };
+type Result_1 = variant { Ok : ChainInfo; Err : Error };
+type Result_10 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type Result_11 = variant { Ok : text; Err : Error };
+type Result_2 = variant { Ok : vec ChainInfo; Err : Error };
+type Result_3 = variant { Ok : vec TokenOnChain; Err : Error };
+type Result_4 = variant { Ok : ChainType; Err : Error };
+type Result_5 = variant { Ok : vec TokenMeta; Err : Error };
+type Result_6 = variant { Ok : nat64; Err : Error };
+type Result_7 = variant { Ok : Ticket; Err : Error };
+type Result_8 = variant { Ok : vec Ticket; Err : Error };
+type Result_9 = variant { Ok : vec record { nat64; Proposal }; Err : Error };
+type StateAction = variant { Deactivate; Activate };
 type Ticket = record {
   token : text;
-  action : Action;
+  action : TxAction;
   dst_chain : text;
   memo : opt vec nat8;
   ticket_id : text;
   sender : text;
+  ticket_time : nat64;
   src_chain : text;
   amount : text;
   receiver : text;
-  created_time : nat64;
 };
-type TokenMetaData = record {
+type ToggleState = record { action : StateAction; chain_id : text };
+type TokenCondition = record { token_id : opt text; chain_id : opt text };
+type TokenMeta = record {
   decimals : nat8;
+  token_id : text;
   icon : opt text;
-  name : text;
   issue_chain : text;
   symbol : text;
 };
+type TokenOnChain = record { token_id : text; chain_id : text; amount : nat64 };
+type Topic = variant {
+  UpdateFee : opt text;
+  ActivateChain;
+  AddToken : opt text;
+  DeactivateChain;
+  AddChain : opt ChainType;
+};
+type TxAction = variant { Redeem; Transfer };
+type TxCondition = record {
+  token_id : opt text;
+  dst_chain : opt text;
+  time_range : opt record { nat64; nat64 };
+  src_chain : opt text;
+};
 service : () -> {
   build_directive : (Proposal) -> (Result);
-  get_pub_key : (Network) -> (Result_1);
-  query_directives : (text, nat64, nat64) -> (Result_2) query;
-  query_tickets : (text, nat64, nat64) -> (Result_3);
+  get_chain : (text) -> (Result_1) query;
+  get_chain_list : (ChainCondition, nat64, nat64) -> (Result_2) query;
+  get_chain_tokens : (TokenCondition, nat64, nat64) -> (Result_3) query;
+  get_chain_type : (text) -> (Result_4) query;
+  get_token_list : (opt text, opt text, nat64, nat64) -> (Result_5) query;
+  get_total_tx : () -> (Result_6) query;
+  get_tx : (text) -> (Result_7) query;
+  get_tx_list : (TxCondition, nat64, nat64) -> (Result_8) query;
+  query_directive_with_topic : (text, opt Topic, nat64, nat64) -> (
+      Result_9,
+    ) query;
+  query_directives : (text, nat64, nat64) -> (Result_9) query;
+  query_tickets : (text, nat64, nat64) -> (Result_10) query;
   send_ticket : (Ticket) -> (Result);
   set_owner : (principal) -> (Result);
   set_whitelist : (principal, bool) -> (Result);
-  update_fee : (Fee) -> (Result) query;
-  validate_proposal : (Proposal) -> (Result_4);
+  update_fee : (Fee) -> (Result);
+  validate_proposal : (Proposal) -> (Result_11);
 }

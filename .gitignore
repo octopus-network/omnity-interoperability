@@ -24,3 +24,7 @@ dist/
 .env
 
 Cargo.lock
+
+# log
+*.log
+*.out
