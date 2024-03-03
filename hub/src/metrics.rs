@@ -167,7 +167,7 @@ pub async fn get_tx_list(
                     .cross_ledger
                     .iter()
                     .filter(|(_ticket_id, ticket)| {
-                        ticket.created_time >= time_range.0 && ticket.created_time <= time_range.0
+                        ticket.ticket_time >= time_range.0 && ticket.ticket_time <= time_range.0
                     })
             {
                 ticket_set.insert(ticket.clone());

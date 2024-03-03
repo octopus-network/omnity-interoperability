@@ -455,7 +455,7 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
 /// check and build update fee directive and push it to the directive queue
 #[update(guard = "auth")]
 pub async fn update_fee(fee: Fee) -> Result<(), Error> {
-    // check proposal
+    // validate proposal
     validate_proposal(Proposal::UpdateFee(fee.clone())).await?;
     //  build directive
     build_directive(Proposal::UpdateFee(fee)).await?;
@@ -494,7 +494,7 @@ pub async fn query_directives(
 
 /// query directives for chain id filter by topic,this method will be called by route and custom
 #[query(guard = "auth")]
-pub async fn query_directive(
+pub async fn query_directive_with_topic(
     chain_id: ChainId,
     topic: Option<Topic>,
     from: usize,
@@ -851,7 +851,7 @@ pub async fn query_tickets(
 
             Ok(tickets)
         }
-        None => Ok(Vec::new()),
+        None => Err(Error::NotFoundChain(chain_id.to_string())),
     })
 }
 
@@ -861,91 +861,12 @@ ic_cdk::export_candid!();
 mod tests {
 
     use super::*;
-    use crypto::digest::Digest;
-    use crypto::sha3::Sha3;
     use omnity_types::{
         ChainInfo, ChainType, Fee, Proposal, StateAction, Ticket, ToggleState, TokenMeta, TxAction,
     };
 
     use std::time::{SystemTime, UNIX_EPOCH};
     use uuid::Uuid;
-
-    async fn add_chain() {
-        let chain_info = ChainInfo {
-            chain_id: "Bitcoin".to_string(),
-            chain_type: ChainType::SettlementChain,
-            chain_state: ChainState::Active,
-        };
-        let add_chain = Proposal::AddChain(chain_info);
-        let _ = build_directive(add_chain).await;
-
-        let chain_info = ChainInfo {
-            chain_id: "Ethereum".to_string(),
-            chain_type: ChainType::SettlementChain,
-            chain_state: ChainState::Active,
-        };
-        let add_chain = Proposal::AddChain(chain_info);
-        let _ = build_directive(add_chain).await;
-
-        let chain_info = ChainInfo {
-            chain_id: "Near".to_string(),
-            chain_type: ChainType::ExecutionChain,
-            chain_state: ChainState::Active,
-        };
-        let add_chain = Proposal::AddChain(chain_info);
-        let _ = build_directive(add_chain).await;
-
-        let chain_info = ChainInfo {
-            chain_id: "Otto".to_string(),
-            chain_type: ChainType::ExecutionChain,
-            chain_state: ChainState::Active,
-        };
-        let add_chain = Proposal::AddChain(chain_info);
-        let _ = build_directive(add_chain).await;
-    }
-
-    async fn add_token() {
-        let token = TokenMeta {
-            token_id: "BTC".to_string(),
-            symbol: "BTC".to_owned(),
-            issue_chain: "Bitcion".to_string(),
-            decimals: 18,
-            icon: None,
-        };
-        let add_token = Proposal::AddToken(token);
-        let _ = build_directive(add_token).await;
-
-        let token = TokenMeta {
-            token_id: "ETH".to_string(),
-            symbol: "ETH".to_owned(),
-            issue_chain: "Ethereum".to_string(),
-            decimals: 18,
-            icon: None,
-        };
-        let add_token = Proposal::AddToken(token);
-        let _ = build_directive(add_token).await;
-
-        let token = TokenMeta {
-            token_id: "OCT".to_string(),
-            symbol: "OCT".to_owned(),
-            issue_chain: "Near".to_string(),
-            decimals: 18,
-            icon: None,
-        };
-
-        let add_token = Proposal::AddToken(token);
-        let _ = build_directive(add_token).await;
-
-        let token = TokenMeta {
-            token_id: "OTTO".to_string(),
-            symbol: "OTTO".to_owned(),
-            issue_chain: "Otto".to_string(),
-            decimals: 18,
-            icon: None,
-        };
-        let add_token = Proposal::AddToken(token);
-        let _ = build_directive(add_token).await;
-    }
 
     fn get_timestamp() -> u64 {
         let start = SystemTime::now();
@@ -954,85 +875,188 @@ mod tests {
             .expect("Time went backwards");
         since_the_epoch.as_millis() as u64
     }
-    #[test]
-    fn hash() {
-        let mut hasher = Sha3::keccak256();
-        hasher.input_str("Hi,Omnity");
-        let hex = hasher.result_str();
-        println!("{}", hex);
-    }
-    #[tokio::test]
-    async fn test_validate_proposal() {
-        let chain_info = ChainInfo {
+    async fn build_chains() {
+        let btc = ChainInfo {
             chain_id: "Bitcoin".to_string(),
             chain_type: ChainType::SettlementChain,
             chain_state: ChainState::Active,
         };
-        let add_chain = Proposal::AddChain(chain_info);
-        let result = validate_proposal(add_chain).await;
+
+        // validate proposal
+        let result = validate_proposal(Proposal::AddChain(btc.clone())).await;
+        assert!(result.is_ok());
         println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        // build directive
+        let result = build_directive(Proposal::AddChain(btc)).await;
         assert!(result.is_ok());
 
-        let token = TokenMeta {
-            token_id: "Octopus".to_string(),
-            symbol: "OCT".to_owned(),
-            issue_chain: "Near".to_string(),
+        let ethereum = ChainInfo {
+            chain_id: "Ethereum".to_string(),
+            chain_type: ChainType::SettlementChain,
+            chain_state: ChainState::Active,
+        };
+        let result = validate_proposal(Proposal::AddChain(ethereum.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        let result = build_directive(Proposal::AddChain(ethereum)).await;
+        assert!(result.is_ok());
+
+        let icp = ChainInfo {
+            chain_id: "ICP".to_string(),
+            chain_type: ChainType::SettlementChain,
+            chain_state: ChainState::Active,
+        };
+        let result = validate_proposal(Proposal::AddChain(icp.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        let result = build_directive(Proposal::AddChain(icp)).await;
+        assert!(result.is_ok());
+
+        let arbitrum = ChainInfo {
+            chain_id: "Arbitrum".to_string(),
+            chain_type: ChainType::ExecutionChain,
+            chain_state: ChainState::Active,
+        };
+        let result = validate_proposal(Proposal::AddChain(arbitrum.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        let result = build_directive(Proposal::AddChain(arbitrum)).await;
+        assert!(result.is_ok());
+
+        let optimistic = ChainInfo {
+            chain_id: "Optimistic".to_string(),
+            chain_type: ChainType::ExecutionChain,
+            chain_state: ChainState::Active,
+        };
+
+        let result = validate_proposal(Proposal::AddChain(optimistic.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        let result = build_directive(Proposal::AddChain(optimistic)).await;
+        assert!(result.is_ok());
+
+        let starknet = ChainInfo {
+            chain_id: "Starknet".to_string(),
+            chain_type: ChainType::ExecutionChain,
+            chain_state: ChainState::Active,
+        };
+        let result = validate_proposal(Proposal::AddChain(starknet.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        let result = build_directive(Proposal::AddChain(starknet)).await;
+        assert!(result.is_ok());
+    }
+
+    async fn build_tokens() {
+        let btc = TokenMeta {
+            token_id: "BTC".to_string(),
+            symbol: "BTC".to_owned(),
+            issue_chain: "Bitcion".to_string(),
             decimals: 18,
             icon: None,
         };
-        let add_token = Proposal::AddToken(token);
-        let result = validate_proposal(add_token).await;
+        // validate proposal
+        let result = validate_proposal(Proposal::AddToken(btc.clone())).await;
+        assert!(result.is_ok());
         println!("Proposal::AddToken(token) result:{:?}", result);
+        // build directive
+        let result = build_directive(Proposal::AddToken(btc)).await;
         assert!(result.is_ok());
 
-        let chain_state = ToggleState {
-            chain_id: "Bitcoin".to_string(),
-            action: StateAction::Deactivate,
+        let eth = TokenMeta {
+            token_id: "ETH".to_string(),
+            symbol: "ETH".to_owned(),
+            issue_chain: "Ethereum".to_string(),
+            decimals: 18,
+            icon: None,
         };
-        let change_state = Proposal::ToggleChainState(chain_state);
-        let result = validate_proposal(change_state).await;
-        println!(
-            "Proposal::ChangeChainState(chain_state) result:{:?}",
-            result
-        );
+        let result = validate_proposal(Proposal::AddToken(eth.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddToken(token) result:{:?}", result);
+        let result = build_directive(Proposal::AddToken(eth)).await;
         assert!(result.is_ok());
 
-        let fee = Fee {
-            dst_chain_id: "Bitcoin".to_string(),
-            fee_token: "OCT".to_string(),
-            factor: 18,
+        let icp = TokenMeta {
+            token_id: "ICP".to_string(),
+            symbol: "ICP".to_owned(),
+            issue_chain: "ICP".to_string(),
+            decimals: 18,
+            icon: None,
         };
+        let result = validate_proposal(Proposal::AddToken(icp.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddToken(token) result:{:?}", result);
+        let result = build_directive(Proposal::AddToken(icp)).await;
+        assert!(result.is_ok());
 
-        let update_fee = Proposal::UpdateFee(fee);
-        let result = validate_proposal(update_fee).await;
-        println!("Proposal::UpdateFee(fee) result:{:?}", result);
+        let arb = TokenMeta {
+            token_id: "ARB".to_string(),
+            symbol: "ARB".to_owned(),
+            issue_chain: "Arbitrum".to_string(),
+            decimals: 18,
+            icon: None,
+        };
+        let result = validate_proposal(Proposal::AddToken(arb.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddToken(token) result:{:?}", result);
+        let result = build_directive(Proposal::AddToken(arb)).await;
+        assert!(result.is_ok());
+
+        let op = TokenMeta {
+            token_id: "OP".to_string(),
+            symbol: "OP".to_owned(),
+            issue_chain: "Optimistic".to_string(),
+            decimals: 18,
+            icon: None,
+        };
+        let result = validate_proposal(Proposal::AddToken(op.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddToken(token) result:{:?}", result);
+        let result = build_directive(Proposal::AddToken(op)).await;
+        assert!(result.is_ok());
+
+        let starknet = TokenMeta {
+            token_id: "StarkNet".to_string(),
+            symbol: "StarkNet".to_owned(),
+            issue_chain: "Starknet".to_string(),
+            decimals: 18,
+            icon: None,
+        };
+        let result = validate_proposal(Proposal::AddToken(starknet.clone())).await;
+        assert!(result.is_ok());
+        println!("Proposal::AddToken(token) result:{:?}", result);
+        let result = build_directive(Proposal::AddToken(starknet)).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_build_chain_directive() {
+    async fn test_add_chain() {
         // add chain
-        add_chain().await;
+        build_chains().await;
 
-        // print all directives
-        with_state(|hs| {
-            for (chain_id, dires) in hs.dire_queue.iter() {
-                println!(
-                    "chain id: {:}, chain info: {:?}, chain dires: {:?}",
-                    chain_id,
-                    hs.chains.get(chain_id),
-                    dires
-                );
-            }
-        })
+        let chaid_ids = [
+            "Bitcoin",
+            "Ethereum",
+            "ICP",
+            "Arbitrum",
+            "Optimistic",
+            "Starknet",
+        ];
+        for chain_id in chaid_ids {
+            let result =
+                query_directive_with_topic(chain_id.to_string(), Some(Topic::AddChain(None)), 0, 5)
+                    .await;
+            println!("query_directives for {:} dires: {:?}", chain_id, result);
+            assert!(result.is_ok());
+        }
     }
 
     #[tokio::test]
-    async fn test_build_token_directive() {
+    async fn test_add_token() {
         // add chain
-        add_chain().await;
+        build_chains().await;
         // add token
-        add_token().await;
+        build_tokens().await;
 
         // print all tokens
         with_state(|hs| {
@@ -1041,64 +1065,88 @@ mod tests {
             }
         });
 
-        // print all directives
-        with_state(|hs| {
-            for (chain_id, dires) in hs.dire_queue.iter() {
-                println!(
-                    "chain id: {:}, chain info: {:?}, chain dires: {:?}",
-                    chain_id,
-                    hs.chains.get(chain_id),
-                    dires
-                );
-            }
-        })
+        let chaid_ids = [
+            "Bitcoin",
+            "Ethereum",
+            "ICP",
+            "Arbitrum",
+            "Optimistic",
+            "Starknet",
+        ];
+        for chain_id in chaid_ids {
+            let result =
+                query_directive_with_topic(chain_id.to_string(), Some(Topic::AddToken(None)), 0, 5)
+                    .await;
+            println!("query_directives for {:} dires: {:?}", chain_id, result);
+            assert!(result.is_ok());
+        }
     }
 
     #[tokio::test]
-    async fn test_build_chain_state_directive() {
+    async fn test_toggle_chain_state() {
         // add chain
-        add_chain().await;
+        build_chains().await;
         // add token
-        add_token().await;
+        build_tokens().await;
 
         // change chain state
         let chain_state = ToggleState {
-            chain_id: "Otto".to_string(),
+            chain_id: "Optimistic".to_string(),
             action: StateAction::Deactivate,
         };
-        let chang_chain_state = Proposal::ToggleChainState(chain_state);
-        let _ = build_directive(chang_chain_state).await;
 
-        // print chain info and directives
-        with_state(|hs| {
-            for (chain_id, dires) in hs.dire_queue.iter() {
-                println!(
-                    "chain id: {:}, chain info: {:?}, chain dires: {:?}",
-                    chain_id,
-                    hs.chains.get(chain_id),
-                    dires
-                );
-            }
-        })
+        let toggle_state = Proposal::ToggleChainState(chain_state);
+        let result = validate_proposal(toggle_state.clone()).await;
+        assert!(result.is_ok());
+        println!(
+            "Proposal::ToggleChainState(chain_state) result:{:?}",
+            result
+        );
+        let result = build_directive(toggle_state).await;
+        assert!(result.is_ok());
+
+        // query directives for chain id
+        let chaid_ids = [
+            "Bitcoin",
+            "Ethereum",
+            "ICP",
+            "Arbitrum",
+            "Optimistic",
+            "Starknet",
+        ];
+
+        for chain_id in chaid_ids {
+            let result = query_directive_with_topic(
+                chain_id.to_string(),
+                Some(Topic::DeactivateChain),
+                0,
+                5,
+            )
+            .await;
+            println!("query_directives for {:} dires: {:?}", chain_id, result);
+            assert!(result.is_ok());
+        }
     }
 
     #[tokio::test]
     async fn test_update_fee() {
         // add chain
-        add_chain().await;
+        build_chains().await;
         // add token
-        add_token().await;
+        build_tokens().await;
 
         // change chain state
         let fee = Fee {
-            dst_chain_id: "Near".to_string(),
-            fee_token: "OTTO".to_string(),
+            dst_chain_id: "Arbitrum".to_string(),
+            fee_token: "OP".to_string(),
             factor: 12,
         };
 
         // let update_fee = Proposal::UpdateFee(fee);
         // let _ = build_directive(update_fee).await;
-        let _ = update_fee(fee).await;
+        let result = update_fee(fee).await;
+        assert!(result.is_ok());
+        println!("Proposal::UpdateFee(fee) result:{:?}", result);
 
         // print fee info
         with_state(|hs| {
@@ -1108,71 +1156,226 @@ mod tests {
         });
 
         // query directives for chain id
-        let chaid_ids = ["Bitcoin", "Ethereum", "Near", "Otto"];
+        let chaid_ids = [
+            "Bitcoin",
+            "Ethereum",
+            "ICP",
+            "Arbitrum",
+            "Optimistic",
+            "Starknet",
+        ];
+
         for chain_id in chaid_ids {
-            let result = query_directives(chain_id.to_string(), 0, 5).await;
+            let result = query_directive_with_topic(
+                chain_id.to_string(),
+                Some(Topic::UpdateFee(None)),
+                0,
+                5,
+            )
+            .await;
             println!("query_directives for {:} dires: {:?}", chain_id, result);
             assert!(result.is_ok());
         }
     }
 
     #[tokio::test]
-    async fn test_check_ticket() {
-        assert!(true);
-    }
-
-    #[tokio::test]
-    async fn test_send_ticket() {
+    async fn test_a_b_send_ticket() {
         // add chain
-        add_chain().await;
+        build_chains().await;
         // add token
-        add_token().await;
+        build_tokens().await;
+        //
+        // A->B: `transfer` ticket
+        let src_chain = "Bitcoin";
+        let dst_chain = "Arbitrum";
+        let sender = "address_on_Bitcoin";
+        let receiver = "address_on_Arbitrum";
 
-        // build `transfer` ticket
-        let current_timestamp = get_timestamp();
         let ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
-            created_time: current_timestamp,
-            src_chain: "Bitcoin".to_string(),
-            dst_chain: "Near".to_string(),
+            ticket_time: get_timestamp(),
+            src_chain: src_chain.to_string(),
+            dst_chain: dst_chain.to_string(),
             action: TxAction::Transfer,
             token: "BTC".to_string(),
             amount: 88888.to_string(),
-            sender: "sdsdfsyiesdfsdfds".to_string(),
-            receiver: "sdfsdfsdffdrytrrr".to_string(),
+            sender: sender.to_string(),
+            receiver: receiver.to_string(),
             memo: None,
         };
-        let _ = send_ticket(ticket).await;
 
-        // build `redeem` ticket
-        let current_timestamp = get_timestamp();
+        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
+        let result = send_ticket(ticket).await;
+        assert!(result.is_ok());
+        println!(
+            "{} -> {} transfer result:{:?}",
+            src_chain, dst_chain, result
+        );
+        // query tickets for chain id
+        let result = query_tickets(dst_chain.to_string(), 0, 5).await;
+        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+        assert!(result.is_ok());
+
+        // B->A: `redeem` ticket
+        let src_chain = "Arbitrum";
+        let dst_chain = "Bitcoin";
+        let sender = "address_on_Arbitrum";
+        let receiver = "address_on_Bitcoin";
+
         let ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
-            created_time: current_timestamp,
-            src_chain: "Near".to_string(),
-            dst_chain: "Bitcoin".to_string(),
+            ticket_time: get_timestamp(),
+            src_chain: src_chain.to_string(),
+            dst_chain: dst_chain.to_string(),
             action: TxAction::Redeem,
             token: "BTC".to_string(),
             amount: 88888.to_string(),
-            sender: "sdfsdfsdffdrytrrr".to_string(),
-            receiver: "sdsdfsyiesdfsdfds".to_string(),
+            sender: sender.to_string(),
+            receiver: receiver.to_string(),
             memo: None,
         };
-        let _ = send_ticket(ticket).await;
 
-        // print tickets queue
-        with_state(|hs| {
-            for (dst_chain, tickets) in hs.ticket_queue.iter() {
-                println!("dst chain: {:?}, tickets: {:?}", dst_chain, tickets);
-            }
-        });
+        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
+        let result = send_ticket(ticket).await;
+        assert!(result.is_ok());
+        println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
 
         // query tickets for chain id
-        let chaid_ids = ["Bitcoin", "Ethereum", "Near", "Otto"];
-        for chain_id in chaid_ids {
-            let result = query_tickets(chain_id.to_string(), 0, 5).await;
-            println!("query tickets for {:} tickets: {:?}", chain_id, result);
-            assert!(result.is_ok());
-        }
+        let result = query_tickets(dst_chain.to_string(), 0, 5).await;
+        assert!(result.is_ok());
+        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+    }
+
+    #[tokio::test]
+    async fn test_a_b_c_send_ticket() {
+        // add chain
+        build_chains().await;
+        // add token
+        build_tokens().await;
+        
+        // transfer
+        // A->B: `transfer` ticket
+        let src_chain = "Ethereum";
+        let dst_chain = "Optimistic";
+        let sender = "address_on_Ethereum";
+        let receiver = "address_on_Optimistic";
+
+        let ticket = Ticket {
+            ticket_id: Uuid::new_v4().to_string(),
+            ticket_time: get_timestamp(),
+            src_chain: src_chain.to_string(),
+            dst_chain: dst_chain.to_string(),
+            action: TxAction::Transfer,
+            token: "ETH".to_string(),
+            amount: 6666.to_string(),
+            sender: sender.to_string(),
+            receiver: receiver.to_string(),
+            memo: None,
+        };
+
+        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
+        let result = send_ticket(ticket).await;
+        assert!(result.is_ok());
+        println!(
+            "{} -> {} transfer result:{:?}",
+            src_chain, dst_chain, result
+        );
+        // query tickets for chain id
+        let result = query_tickets(dst_chain.to_string(), 0, 5).await;
+        assert!(result.is_ok());
+        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+
+        // B->C: `transfer` ticket
+        let sender = "address_on_Optimistic";
+        let receiver = "address_on_Starknet";
+        let src_chain = "Optimistic";
+        let dst_chain = "Starknet";
+
+        let ticket = Ticket {
+            ticket_id: Uuid::new_v4().to_string(),
+            ticket_time: get_timestamp(),
+            src_chain: src_chain.to_string(),
+            dst_chain: dst_chain.to_string(),
+            action: TxAction::Transfer,
+            token: "ETH".to_string(),
+            amount: 6666.to_string(),
+            sender: sender.to_string(),
+            receiver: receiver.to_string(),
+            memo: None,
+        };
+
+        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
+        assert!(result.is_ok());
+        let result = send_ticket(ticket).await;
+        println!("{} -> {} transfer result:{:?}", src_chain, dst_chain, result);
+
+        // query tickets for chain id
+        let result = query_tickets(dst_chain.to_string(), 0, 5).await;
+        assert!(result.is_ok());
+        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+        
+        // redeem
+         // C->B: `redeem` ticket
+         let src_chain = "Starknet";
+         let dst_chain = "Optimistic";
+         let sender = "address_on_Starknet";
+         let receiver = "address_on_Optimistic";
+ 
+         let ticket = Ticket {
+             ticket_id: Uuid::new_v4().to_string(),
+             ticket_time: get_timestamp(),
+             src_chain: src_chain.to_string(),
+             dst_chain: dst_chain.to_string(),
+             action: TxAction::Redeem,
+             token: "ETH".to_string(),
+             amount: 6666.to_string(),
+             sender: sender.to_string(),
+             receiver: receiver.to_string(),
+             memo: None,
+         };
+ 
+         println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
+         let result = send_ticket(ticket).await;
+         assert!(result.is_ok());
+         println!(
+             "{} -> {} redeem result:{:?}",
+             src_chain, dst_chain, result
+         );
+         // query tickets for chain id
+         let result = query_tickets(dst_chain.to_string(), 0, 5).await;
+         assert!(result.is_ok());
+         println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+ 
+         // B->A: `redeem` ticket
+         let sender = "address_on_Optimistic";
+         let receiver = "address_on_Ethereum";
+         let src_chain = "Optimistic";
+         let dst_chain = "Ethereum";
+ 
+         let ticket = Ticket {
+             ticket_id: Uuid::new_v4().to_string(),
+             ticket_time: get_timestamp(),
+             src_chain: src_chain.to_string(),
+             dst_chain: dst_chain.to_string(),
+             action: TxAction::Redeem,
+             token: "ETH".to_string(),
+             amount: 6666.to_string(),
+             sender: sender.to_string(),
+             receiver: receiver.to_string(),
+             memo: None,
+         };
+ 
+         println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
+         assert!(result.is_ok());
+         let result = send_ticket(ticket).await;
+         println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
+ 
+         // query tickets for chain id
+         let result = query_tickets(dst_chain.to_string(), 0, 5).await;
+         assert!(result.is_ok());
+         println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+ 
+         
+
     }
 }

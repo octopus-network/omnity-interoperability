@@ -42,7 +42,7 @@ pub enum Topic {
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Ticket {
     pub ticket_id: TicketId,
-    pub created_time: Timestamp,
+    pub ticket_time: Timestamp,
     pub src_chain: ChainId,
     pub dst_chain: ChainId,
     pub action: TxAction,
@@ -59,7 +59,7 @@ impl core::fmt::Display for Ticket {
             f,
             "ticket id:{},\ncreated time:{},\nsrc chain:{},\ndst_chain:{},\naction:{:?},\ntoken:{},\namount:{},\nsender:{},\nrecevier:{},\nmemo:{:?}",
             self.ticket_id,
-            self.created_time,
+            self.ticket_time,
             self.src_chain,
             self.dst_chain,
             self.action,
