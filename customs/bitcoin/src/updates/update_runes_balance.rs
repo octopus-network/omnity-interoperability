@@ -3,7 +3,7 @@ use crate::state::{mutate_state, read_state};
 use crate::{management, BTC_TOKEN};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
-use omnity_types::{Action, Ticket};
+use omnity_types::{Ticket, TxAction};
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -50,10 +50,10 @@ pub async fn update_runes_balance(
             hub_principal,
             Ticket {
                 ticket_id: args.txid.to_string(),
-                created_time: ic_cdk::api::time(),
+                ticket_time: ic_cdk::api::time(),
                 src_chain: String::from(BTC_TOKEN),
                 dst_chain: req.target_chain_id.clone(),
-                action: Action::Transfer,
+                action: TxAction::Transfer,
                 token: req.rune_id.to_string(),
                 amount: req.amount.to_string(),
                 sender: String::default(),

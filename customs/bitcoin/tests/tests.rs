@@ -19,7 +19,7 @@ use ic_btc_interface::{Network, Txid};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
-use omnity_types::{Action, Ticket};
+use omnity_types::{TxAction, Ticket};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -1000,10 +1000,10 @@ fn test_finalize_release_token_tx() {
     let ticket_id: String = "ticket_id1".into();
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
-        created_time: 1708911143,
+        ticket_time: 1708911143,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "1".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1048,10 +1048,10 @@ fn test_finalize_batch_release_token_tx() {
         let ticket_id: String = format!("ticket_id{}", i).into();
         let ticket = Ticket {
             ticket_id: ticket_id.clone(),
-            created_time: 1708911143,
+            ticket_time: 1708911143,
             src_chain: "cosmoshub".into(),
             dst_chain: "BTC".into(),
-            action: Action::Redeem,
+            action: TxAction::Redeem,
             token: "1".into(),
             amount: "1000000".into(),
             sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1099,10 +1099,10 @@ fn test_exist_two_submitted_tx() {
     let first_ticket_id: String = "ticket_id1".into();
     let first_ticket = Ticket {
         ticket_id: first_ticket_id.clone(),
-        created_time: 1708911143,
+        ticket_time: 1708911143,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "1".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1127,10 +1127,10 @@ fn test_exist_two_submitted_tx() {
     let second_ticket_id: String = "ticket_id2".into();
     let second_ticket = Ticket {
         ticket_id: second_ticket_id.clone(),
-        created_time: 1708911146,
+        ticket_time: 1708911146,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "1".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1176,10 +1176,10 @@ fn test_transaction_use_prev_change_output() {
     let first_ticket_id: String = "ticket_id1".into();
     let first_ticket = Ticket {
         ticket_id: first_ticket_id.clone(),
-        created_time: 1708911143,
+        ticket_time: 1708911143,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "1".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1209,10 +1209,10 @@ fn test_transaction_use_prev_change_output() {
     let second_ticket_id: String = "ticket_id2".into();
     let second_ticket = Ticket {
         ticket_id: second_ticket_id.clone(),
-        created_time: 1708911146,
+        ticket_time: 1708911146,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "1".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1259,10 +1259,10 @@ fn test_transaction_multi_runes_id() {
     let first_ticket_id: String = "ticket_id1".into();
     let first_ticket = Ticket {
         ticket_id: first_ticket_id.clone(),
-        created_time: 1708911143,
+        ticket_time: 1708911143,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "1".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1273,10 +1273,10 @@ fn test_transaction_multi_runes_id() {
     let second_ticket_id: String = "ticket_id2".into();
     let second_ticket = Ticket {
         ticket_id: second_ticket_id.clone(),
-        created_time: 1708911146,
+        ticket_time: 1708911146,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "2".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1329,10 +1329,10 @@ fn test_transaction_resubmission_finalize_new() {
     let ticket_id: String = "ticket_id1".into();
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
-        created_time: 1708911143,
+        ticket_time: 1708911143,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "1".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1399,10 +1399,10 @@ fn test_transaction_resubmission_finalize_old() {
     let ticket_id: String = "ticket_id1".into();
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
-        created_time: 1708911143,
+        ticket_time: 1708911143,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "1".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
@@ -1462,10 +1462,10 @@ fn test_transaction_resubmission_finalize_middle() {
     let ticket_id: String = "ticket_id1".into();
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
-        created_time: 1708911143,
+        ticket_time: 1708911143,
         src_chain: "cosmoshub".into(),
         dst_chain: "BTC".into(),
-        action: Action::Redeem,
+        action: TxAction::Redeem,
         token: "1".into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
