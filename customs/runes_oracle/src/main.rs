@@ -7,6 +7,8 @@ const CUSTOMS_CANISTER_ID: &str = "be2us-64aaa-aaaaa-qaabq-cai";
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+
     let customs_canister = Principal::from_text(String::from(CUSTOMS_CANISTER_ID))
         .expect("failed to parse customs canister id");
     let customs = Customs::new(NODE_URL.into(), customs_canister).await;
