@@ -148,8 +148,18 @@ fn get_pending_gen_ticket_requests() -> Vec<GenTicketRequest> {
     })
 }
 
-// TODO add auth of runes oracle
-#[update]
+pub fn is_runes_oracle() -> Result<(), String> {
+    let caller = ic_cdk::api::caller();
+    read_state(|s| {
+        if s.runes_oracle_principal != caller {
+            Err("Not runes principal!".into())
+        } else {
+            Ok(())
+        }
+    })
+}
+
+#[update(guard = "is_runes_oracle")]
 async fn update_runes_balance(args: UpdateRunesBalanceArgs) -> Result<(), UpdateRunesBalanceError> {
     check_postcondition(updates::update_runes_balance(args).await)
 }

@@ -19,7 +19,7 @@ use ic_btc_interface::{Network, Txid};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
-use omnity_types::{TxAction, Ticket};
+use omnity_types::{Ticket, TxAction};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -59,7 +59,7 @@ fn hub_mock_wasm() -> Vec<u8> {
             .unwrap()
             .join("mock")
             .join("hub"),
-        "hub-mock",
+        "hub_mock",
         &[],
     )
 }
@@ -73,7 +73,8 @@ fn install_customs(env: &StateMachine) -> CanisterId {
         max_time_in_queue_nanos: 0,
         min_confirmations: Some(1),
         mode: Mode::GeneralAvailability,
-        hub_principal: CanisterId::from(0).into(),
+        hub_principal: CanisterId::from_u64(1).into(),
+        runes_oracle_principal: CanisterId::from_u64(2).into(),
     };
     let customs_arg = CustomArg::Init(args);
     env.install_canister(customs_wasm(), Encode!(&customs_arg).unwrap(), None)
@@ -134,7 +135,8 @@ fn test_customs() {
         max_time_in_queue_nanos: MAX_TIME_IN_QUEUE.as_nanos() as u64,
         min_confirmations: Some(6_u32),
         mode: Mode::GeneralAvailability,
-        hub_principal: CanisterId::from(0).into(),
+        hub_principal: CanisterId::from_u64(1).into(),
+        runes_oracle_principal: CanisterId::from_u64(2).into(),
     });
     let args = Encode!(&args).unwrap();
     let customs_id = env.install_canister(customs_wasm(), args, None).unwrap();
@@ -199,6 +201,9 @@ impl CustomsSetup {
             env.create_canister_with_cycles(None, Cycles::new(100_000_000_000_000), None);
         let hub_id = env.create_canister(None);
 
+        let caller = PrincipalId::new_user_test_id(1);
+        let runes_oracle = PrincipalId::new_node_test_id(2);
+
         env.install_existing_canister(
             customs_id,
             customs_wasm(),
@@ -209,13 +214,11 @@ impl CustomsSetup {
                 min_confirmations: Some(MIN_CONFIRMATIONS),
                 mode: Mode::GeneralAvailability,
                 hub_principal: hub_id.into(),
+                runes_oracle_principal: runes_oracle.into(),
             }))
             .unwrap(),
         )
         .expect("failed to install the customs");
-
-        let caller = PrincipalId::new_user_test_id(1);
-        let runes_oracle = PrincipalId::new_node_test_id(2);
 
         env.install_existing_canister(hub_id, hub_mock_wasm(), vec![])
             .expect("failed to install the hub canister");

@@ -109,6 +109,7 @@ type InitArgs = record {
   hub_principal : principal;
   ecdsa_key_name : text;
   mode : Mode;
+  runes_oracle_principal : principal;
   max_time_in_queue_nanos : nat64;
   btc_network : BtcNetwork;
   min_confirmations : opt nat32;
@@ -150,6 +151,10 @@ type RunesBalance = record { vout : nat32; amount : nat; rune_id : nat };
 type RunesChangeOutput = record { value : nat; vout : nat32; rune_id : nat };
 type RunesUtxo = record { raw : Utxo; runes : RunesBalance };
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
+type UpdateRunesBalanceArgs = record {
+  txid : vec nat8;
+  balances : vec RunesBalance;
+};
 type UpdateRunesBalanceError = variant {
   SendTicketErr : text;
   UtxoNotFound;
@@ -157,13 +162,10 @@ type UpdateRunesBalanceError = variant {
   AleardyProcessed;
   MismatchWithGenTicketReq;
 };
-type UpdateRunesBalanceArgs = record {
-  txid : vec nat8;
-  balances : vec RunesBalance;
-};
 type UpgradeArgs = record {
   hub_principal : opt principal;
   mode : opt Mode;
+  runes_oracle_principal : opt principal;
   max_time_in_queue_nanos : opt nat64;
   min_confirmations : opt nat32;
 };

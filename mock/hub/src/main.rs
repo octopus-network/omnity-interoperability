@@ -81,3 +81,6 @@ pub async fn push_ticket(ticket: Ticket) -> Result<(), omnity_types::Error> {
         Ok(())
     })
 }
+
+// Enable Candid export
+ic_cdk::export_candid!();

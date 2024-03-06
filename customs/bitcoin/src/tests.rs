@@ -10,7 +10,6 @@ use crate::{
 };
 use bitcoin::network::constants::Network as BtcNetwork;
 use bitcoin::util::psbt::serialize::{Deserialize, Serialize};
-use candid::Principal;
 use ic_base_types::CanisterId;
 use ic_btc_interface::{Network, OutPoint, Satoshi, Txid, Utxo};
 use proptest::proptest;
@@ -710,7 +709,8 @@ proptest! {
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: Mode::GeneralAvailability,
-            hub_principal: Principal::from(CanisterId::from_u64(1)),
+            hub_principal: CanisterId::from_u64(1).into(),
+            runes_oracle_principal: CanisterId::from_u64(2).into(),
         });
         for (utxo, dest_idx) in utxos_dest_idx {
             state.add_utxos(destinations[dest_idx].clone(), vec![utxo], false);
@@ -731,7 +731,8 @@ proptest! {
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: Mode::GeneralAvailability,
-            hub_principal: Principal::from(CanisterId::from_u64(1)),
+            hub_principal: CanisterId::from_u64(1).into(),
+            runes_oracle_principal: CanisterId::from_u64(2).into(),
         });
 
         let mut available_amount = 0;
@@ -775,7 +776,8 @@ proptest! {
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: Mode::GeneralAvailability,
-            hub_principal: Principal::from(CanisterId::from_u64(1)),
+            hub_principal: CanisterId::from_u64(1).into(),
+            runes_oracle_principal: CanisterId::from_u64(2).into(),
         });
 
         for (utxo, dest_idx) in runes_utxos_dest_idx {

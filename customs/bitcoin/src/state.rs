@@ -303,6 +303,8 @@ pub struct CustomsState {
 
     pub hub_principal: Principal,
 
+    pub runes_oracle_principal: Principal,
+
     /// Process one timer event at a time.
     #[serde(skip)]
     pub is_timer_running: bool,
@@ -323,6 +325,7 @@ impl CustomsState {
             min_confirmations,
             mode,
             hub_principal,
+            runes_oracle_principal,
         }: InitArgs,
     ) {
         self.btc_network = btc_network.into();
@@ -330,6 +333,7 @@ impl CustomsState {
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         self.mode = mode;
         self.hub_principal = hub_principal;
+        self.runes_oracle_principal = runes_oracle_principal;
         if let Some(min_confirmations) = min_confirmations {
             self.min_confirmations = min_confirmations;
         }
@@ -342,6 +346,7 @@ impl CustomsState {
             min_confirmations,
             mode,
             hub_principal,
+            runes_oracle_principal,
         }: UpgradeArgs,
     ) {
         if let Some(max_time_in_queue_nanos) = max_time_in_queue_nanos {
@@ -364,6 +369,9 @@ impl CustomsState {
         }
         if let Some(hub_principal) = hub_principal {
             self.hub_principal = hub_principal;
+        }
+        if let Some(runes_oracle_principal) = runes_oracle_principal {
+            self.runes_oracle_principal = runes_oracle_principal;
         }
     }
 
@@ -999,6 +1007,7 @@ impl From<InitArgs> for CustomsState {
             is_timer_running: false,
             mode: args.mode,
             hub_principal: args.hub_principal,
+            runes_oracle_principal: args.runes_oracle_principal,
             last_fee_per_vbyte: vec![1; 100],
         }
     }

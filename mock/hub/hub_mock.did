@@ -1,0 +1,28 @@
+type Error = variant {
+  MalformedMessageBytes;
+  NotFoundChain : text;
+  ProposalError : text;
+  NotSupportedProposal;
+  Unauthorized;
+  CustomError : text;
+};
+type Result = variant { Ok; Err : Error };
+type Result_1 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type Ticket = record {
+  token : text;
+  action : TxAction;
+  dst_chain : text;
+  memo : opt vec nat8;
+  ticket_id : text;
+  sender : text;
+  ticket_time : nat64;
+  src_chain : text;
+  amount : text;
+  receiver : text;
+};
+type TxAction = variant { Redeem; Transfer };
+service : () -> {
+  push_ticket : (Ticket) -> (Result);
+  query_tickets : (text, nat64, nat64) -> (Result_1) query;
+  send_ticket : (Ticket) -> (Result);
+}

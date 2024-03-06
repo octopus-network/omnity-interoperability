@@ -1,5 +1,5 @@
 [package]
-name = "hub-mock"
+name = "hub_mock"
 version = "0.1.0"
 edition.workspace = true
 

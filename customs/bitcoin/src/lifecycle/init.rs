@@ -68,6 +68,8 @@ pub struct InitArgs {
     pub mode: Mode,
 
     pub hub_principal: Principal,
+
+    pub runes_oracle_principal: Principal,
 }
 
 pub fn init(args: InitArgs) {
