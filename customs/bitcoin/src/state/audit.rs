@@ -26,6 +26,9 @@ pub fn add_utxos(
     utxos: Vec<Utxo>,
     is_runes: bool,
 ) {
+    if utxos.is_empty() {
+        return;
+    }
     record_event(&Event::ReceivedUtxos {
         destination: destination.clone(),
         utxos: utxos.clone(),
