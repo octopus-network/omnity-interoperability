@@ -13,6 +13,7 @@ use ic_log::writer::Logs;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 
+use log::error;
 use log::info;
 use omnity_types::{
     Account, ChainCondition, ChainId, ChainInfo, ChainState, ChainType, DireQueue, Directive,
@@ -206,7 +207,9 @@ pub async fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
                 toggle_state.action,
                 StateAction::Activate | StateAction::Deactivate
             ) {
-                return Err(Error::ProposalError("Not support chain state".to_string()));
+                return Err(Error::ProposalError(
+                    "Not supported chain state".to_string(),
+                ));
             }
 
             with_state(|hub_state| {
@@ -570,7 +573,7 @@ pub async fn query_directives(
             Ok(dires)
         }
         None => {
-            info!("not found directives for chain: {}", chain_id);
+            info!("no directives for chain: {}", chain_id);
             Ok(Vec::new())
         }
     })
@@ -581,9 +584,10 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
     with_state_mut(|hub_state| {
         // check ticket id repetitive
         if hub_state.ticket_queue.contains_key(&ticket.ticket_id) {
-            return Error::CustomError(
-                format!("ticket id ({}) already exists!", ticket.ticket_id,),
-            );
+            return Err(Error::CustomError(format!(
+                "ticket id ({}) already exists!",
+                ticket.ticket_id,
+            )));
         }
         // check chain and state
         let _src_chain_type = match hub_state.chains.get(&ticket.src_chain) {
@@ -671,10 +675,12 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                         {
                             // check account balance
                             if *balance < ticket_amount {
-                                return Err(Error::CustomError(format!(
-                                "Insufficient account({}) balance: sender token amount({}) <  transfer token amount({}) !)",
-                                ticket.sender,balance, ticket_amount
-                            )));
+                                let e = format!(
+                                    "Insufficient account({}) balance: sender token amount({}) <  ticket token amount({}) !)",
+                                    ticket.sender,balance, ticket_amount
+                                );
+                                error!("{}", e);
+                                return Err(Error::CustomError(e));
                             }
                             *balance -= ticket_amount;
 
@@ -861,9 +867,13 @@ pub async fn query_tickets(
                 tickets.push((seq, ticket.clone()));
             }
 
+            info!("query_tickets result : {:?}", tickets);
             Ok(tickets)
         }
-        None => Err(Error::NotFoundChain(chain_id.to_string())),
+        None => {
+            info!("no tickets for chain: {}", chain_id);
+            Ok(Vec::new())
+        }
     })
 }
 
