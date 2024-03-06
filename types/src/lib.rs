@@ -139,7 +139,7 @@ impl core::fmt::Display for ChainInfo {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "chain name:{},\nfchain type:{:?},\nchain state:{:?}",
+            "chain name:{},\nchain type:{:?},\nchain state:{:?}",
             self.chain_id, self.chain_type, self.chain_state,
         )
     }
@@ -182,7 +182,7 @@ pub struct TokenOnChain {
     pub token_id: TokenId,
     // the chain of the token be locked
     pub chain_id: ChainId,
-    pub amount: u64,
+    pub amount: u128,
     // pub chain_type: ChainType,
 }
 
