@@ -94,6 +94,7 @@ pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransaction) {
         btc_change_output: tx.btc_change_output.clone(),
         submitted_at: tx.submitted_at,
         fee_per_vbyte: tx.fee_per_vbyte,
+        raw_tx: tx.raw_tx.clone(),
     });
 
     state.push_submitted_transaction(tx);

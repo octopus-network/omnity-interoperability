@@ -25,7 +25,7 @@ pub struct Runestone {
 }
 
 impl Runestone {
-    pub fn encipher(&self) -> [u8; 20] {
+    pub fn encipher(&self) -> Vec<u8> {
         assert!(!self.edicts.is_empty());
 
         let mut payload = Vec::new();
@@ -51,12 +51,6 @@ impl Runestone {
             builder = builder.push_slice(push);
         }
 
-        builder
-            .into_script()
-            .script_hash()
-            .to_vec()
-            .as_slice()
-            .try_into()
-            .expect("slice with incorrect length")
+        builder.into_script().to_bytes()
     }
 }

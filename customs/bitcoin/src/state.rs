@@ -112,6 +112,7 @@ pub struct SubmittedBtcTransaction {
     /// Fee per vbyte in millisatoshi.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fee_per_vbyte: Option<u64>,
+    pub raw_tx: String,
 }
 
 /// Pairs a retrieve_btc request with its outcome.

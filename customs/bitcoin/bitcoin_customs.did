@@ -1,4 +1,5 @@
 type BitcoinAddress = variant {
+  OpReturn : vec nat8;
   p2wsh_v0 : vec nat8;
   p2tr_v1 : vec nat8;
   p2sh : vec nat8;
@@ -50,6 +51,7 @@ type Event = variant {
     btc_utxos : vec Utxo;
     requests : vec text;
     runes_change_output : RunesChangeOutput;
+    raw_tx : text;
     runes_utxos : vec RunesUtxo;
     rune_id : nat;
     submitted_at : nat64;

@@ -437,6 +437,7 @@ async fn submit_pending_requests() {
                                         btc_change_output: req.btc_change_output,
                                         submitted_at: ic_cdk::api::time(),
                                         fee_per_vbyte: Some(fee_millisatoshi_per_vbyte),
+                                        raw_tx: hex::encode(signed_tx.serialize()),
                                     },
                                 );
                             });
@@ -755,6 +756,7 @@ async fn finalize_requests() {
                     runes_change_output: runes_change,
                     btc_change_output: btc_change,
                     fee_per_vbyte: Some(tx_fee_per_vbyte),
+                    raw_tx: hex::encode(signed_tx.serialize()),
                 };
 
                 state::mutate_state(|s| {
@@ -1077,7 +1079,7 @@ pub fn build_unsigned_transaction(
     let mut tx_outputs = vec![
         tx::TxOut {
             value: 0,
-            address: BitcoinAddress::P2sh(stone.encipher()),
+            address: BitcoinAddress::OpReturn(stone.encipher()),
         },
         // Runes token change
         tx::TxOut {
@@ -1113,7 +1115,9 @@ pub fn build_unsigned_transaction(
     );
     let fee: u64 = (tx_vsize as u64 * fee_per_vbyte) / 1000;
     // Select enough gas to handle resubmissions.
-    let select_fee = fee * 2;
+    // Additional MIN_OUTPUT_AMOUNT are used as the value of the runes outputs(one runes chagne output + multiple dest runes outputs).
+    let sz_min_btc_outputs = (outputs.len() + 1) as u64;
+    let select_fee = fee * 2 + MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
 
     let mut input_btc_amount = utxos_guard.iter().map(|input| input.raw.value).sum::<u64>();
 
@@ -1166,7 +1170,7 @@ pub fn build_unsigned_transaction(
     let real_fee = fake_sign(&unsigned_tx).vsize() as u64 * fee_per_vbyte / 1000;
 
     assert!(input_btc_amount > real_fee);
-    let btc_change_amount = input_btc_amount - real_fee;
+    let btc_change_amount = input_btc_amount - real_fee - MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
 
     unsigned_tx.outputs.iter_mut().last().unwrap().value = btc_change_amount;
     let btc_change_out = BtcChangeOutput {

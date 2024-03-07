@@ -88,6 +88,13 @@ fn address_to_btc_address(address: &BitcoinAddress, network: Network) -> bitcoin
             },
             network: network_to_btc_network(network),
         },
+        BitcoinAddress::OpReturn(script) => bitcoin::Address {
+            payload: Payload::WitnessProgram {
+                version: WitnessVersion::V1,
+                program: script.clone(),
+            },
+            network: network_to_btc_network(network),
+        },
     }
 }
 
@@ -812,6 +819,7 @@ proptest! {
             runes_change_output,
             btc_change_output,
             fee_per_vbyte: Some(fee_per_vbyte),
+            raw_tx: "".into(),
         });
 
         state.check_invariants().expect("violated invariants");
@@ -843,6 +851,7 @@ proptest! {
                 runes_change_output,
                 btc_change_output,
                 fee_per_vbyte: Some(fee_per_vbyte),
+                raw_tx: "".into(),
             });
 
             for txid in &txids {
