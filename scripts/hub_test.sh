@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # start ic local network
+dfx stop
 dfx start --clean --background > dfx.out 2>&1
 dfx canister stop omnity_hub
 dfx canister delete omnity_hub
@@ -84,33 +85,35 @@ dfx canister call omnity_hub query_directives '("Arbitrum",opt variant {UpdateFe
 # A-B tansfer/redeem
 # transfer from Bitcoin to Arbitrum
 dfx canister call omnity_hub send_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc0247828f"; ticket_time = 1707291817947 : nat64; token = "BTC"; amount = "88888"; src_chain = "Bitcoin"; dst_chain = "Arbitrum"; action = variant { Transfer }; sender = "address_on_Bitcoin"; receiver = "address_on_Arbitrum"; memo = null;})'
-# query ticket
 dfx canister call omnity_hub query_tickets '("Arbitrum",0:nat64,5:nat64)'
+dfx canister call omnity_hub get_account_assets '("address_on_Bitcoin",null,null)'
 
 # redeem from  Arbitrum to Bitcoin
 dfx canister call omnity_hub send_ticket '(record { ticket_id = "f8aee1cc-db7a-40ea-80c2-4cf5e6c84c21"; ticket_time = 1707291817947 : nat64; token = "BTC"; amount = "88888"; src_chain = "Arbitrum"; dst_chain = "Bitcoin"; action = variant { Redeem }; sender = "address_on_Arbitrum"; receiver = "address_on_Bitcoin"; memo = null;})'
-# query ticket
 dfx canister call omnity_hub query_tickets '("Bitcoin",0:nat64,5:nat64)'
+dfx canister call omnity_hub get_account_assets '("address_on_Bitcoin",null,null)'
 
 # A-B-C tansfer/redeem
 # transfer from Ethereum to Optimistic
 dfx canister call omnity_hub send_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc024782e8f"; ticket_time = 1707291817947 : nat64; token = "ETH"; amount = "6666"; src_chain = "Ethereum"; dst_chain = "Optimistic"; action = variant { Transfer }; sender = "address_on_Ethereum"; receiver = "address_on_Optimistic"; memo = null;})'
-# query ticket
 dfx canister call omnity_hub query_tickets '("Optimistic",0:nat64,5:nat64)'
+dfx canister call omnity_hub get_account_assets '("address_on_Optimistic",null,null)'
 
 # transfer from  Optimistic to Starknet
 dfx canister call omnity_hub send_ticket '(record { ticket_id = "f8aee1cc-db7a-40ea-80c2-4cf5eg6c84c21"; ticket_time = 1707291817947 : nat64; token = "ETH"; amount = "6666"; src_chain = "Optimistic"; dst_chain = "Starknet"; action = variant { Transfer }; sender = "address_on_Optimistic"; receiver = "address_on_Starknet"; memo = null;})'
-# query ticket
 dfx canister call omnity_hub query_tickets '("Starknet",0:nat64,5:nat64)'
+dfx canister call omnity_hub get_account_assets '("address_on_Optimistic",null,null)'
+dfx canister call omnity_hub get_account_assets '("address_on_Starknet",null,null)'
 
 # redeem from Starknet to Optimistic
 dfx canister call omnity_hub send_ticket '(record { ticket_id = "28b47548-55dc-4e8f9-b41d-76bc0247828f"; ticket_time = 1707291817947 : nat64; token = "ETH"; amount = "6666"; src_chain = "Starknet"; dst_chain = "Optimistic"; action = variant { Redeem }; sender = "address_on_Starknet"; receiver = "address_on_Optimistic"; memo = null;})'
-# query ticket
 dfx canister call omnity_hub query_tickets '("Optimistic",0:nat64,5:nat64)'
+dfx canister call omnity_hub get_account_assets '("address_on_Starknet",null,null)'
+dfx canister call omnity_hub get_account_assets '("address_on_Optimistic",null,null)'
 
 # redeem from  Optimistic to Ethereum
 dfx canister call omnity_hub send_ticket '(record { ticket_id = "f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21"; ticket_time = 1707291817947 : nat64; token = "ETH"; amount = "6666"; src_chain = "Optimistic"; dst_chain = "Ethereum"; action = variant { Redeem }; sender = "address_on_Optimistic"; receiver = "address_on_Ethereum"; memo = null;})'
-# query ticket
 dfx canister call omnity_hub query_tickets '("Ethereum",0:nat64,5:nat64)'
-
-dfx stop
+dfx canister call omnity_hub get_account_assets '("address_on_Optimistic",null,null)'
+dfx canister call omnity_hub get_account_assets '("address_on_Starknet",null,null)'
+# dfx stop

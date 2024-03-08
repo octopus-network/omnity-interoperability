@@ -220,8 +220,22 @@ pub enum Error {
     MalformedMessageBytes,
     #[error("unauthorized")]
     Unauthorized,
+    #[error("The `{0}` is deactive")]
+    DeactiveChain(String),
+    #[error("The ticket id (`{0}`) already exists!")]
+    AlreadyExistingTicketId(String),
     #[error("not found chain: (`{0}`)")]
     NotFoundChain(String),
+    #[error("not found account: (`{0}`)")]
+    NotFoundAccount(String),
+    #[error("not found account(`{0}`) token(`{1}`) on the chain(`{2}`")]
+    NotFoundAccountToken(String, String, String),
+    #[error("Not found this token count info: chain(`{0}`) and token(`{1}`)")]
+    NotFoundTokenCountInfo(String, String),
+    #[error("Insufficient account(`{0}`) balance: sender token amount(`{1}`) <  ticket token amount(`{2}`) !)")]
+    NotSufficientTokens(String, String, String),
+    #[error("The ticket amount(`{0}`) parse error: `{1}`")]
+    TicketAmountParseError(String, String),
     #[error("custom error: (`{0}`)")]
     CustomError(String),
 }

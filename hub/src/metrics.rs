@@ -2,9 +2,10 @@ use std::collections::HashSet;
 
 use ic_cdk::query;
 
+use log::info;
 use omnity_types::{
-    ChainCondition, ChainId, ChainInfo, ChainType, Error, Ticket, TicketId, TokenCondition,
-    TokenId, TokenMeta, TokenOnChain, TxCondition,
+    Account, ChainCondition, ChainId, ChainInfo, ChainType, Error, Ticket, TicketId,
+    TokenCondition, TokenId, TokenMeta, TokenOnChain, TxCondition,
 };
 
 use crate::with_state;
@@ -88,7 +89,7 @@ pub async fn get_token_list(
     let _ = with_state(|hub_state| {
         if let Some(token_id) = token_id {
             for (_, token) in hub_state
-                .tokens
+                .token_metas
                 .iter()
                 .filter(|(_, token)| token.token_id == token_id)
             {
@@ -96,7 +97,7 @@ pub async fn get_token_list(
             }
         } else if let Some(chain_id) = chain_id {
             for (_, token) in hub_state
-                .tokens
+                .token_metas
                 .iter()
                 .filter(|(_, token)| token.issue_chain.eq(&chain_id))
             {
@@ -104,7 +105,7 @@ pub async fn get_token_list(
             }
         } else {
             //TODO: may be take range at this
-            for (_, token) in hub_state.tokens.iter() {
+            for (_, token) in hub_state.token_metas.iter() {
                 token_set.insert(token.clone());
             }
         }
@@ -253,4 +254,58 @@ pub async fn get_chain_type(chain_id: ChainId) -> Result<ChainType, Error> {
             Err(Error::NotFoundChain(chain_id))
         }
     })
+}
+
+#[query]
+pub async fn get_account_assets(
+    account: Account,
+    dst_chain: Option<ChainId>,
+    dst_token: Option<TokenId>,
+) -> Result<Vec<TokenOnChain>, Error> {
+    let mut assets = HashSet::new();
+    let _ = with_state(|hub_state| {
+        if let Some(account_assets) = hub_state.accounts.get(&account) {
+            if let Some(dst_chain) = dst_chain {
+                for ((chain, token), balance) in account_assets
+                    .iter()
+                    .filter(|((chain, _token), _balance)| chain.eq(&dst_chain))
+                {
+                    let chain_token = TokenOnChain {
+                        token_id: token.to_string(),
+                        amount: *balance,
+                        chain_id: chain.to_string(),
+                    };
+                    assets.insert(chain_token);
+                }
+            } else if let Some(dst_token) = dst_token {
+                for ((chain, token), balance) in account_assets
+                    .iter()
+                    .filter(|((_chain, token), _balance)| token.eq(&dst_token))
+                {
+                    let chain_token = TokenOnChain {
+                        token_id: token.to_string(),
+                        amount: *balance,
+                        chain_id: chain.to_string(),
+                    };
+                    assets.insert(chain_token);
+                }
+            } else {
+                for ((chain, token), balance) in account_assets.iter() {
+                    let chain_token = TokenOnChain {
+                        token_id: token.to_string(),
+                        amount: *balance,
+                        chain_id: chain.to_string(),
+                    };
+                    assets.insert(chain_token);
+                }
+            }
+        } else {
+            return Err(Error::NotFoundAccount(account.to_string()));
+        }
+
+        Ok(())
+    });
+    let ret = assets.into_iter().collect();
+    info!("get_account_assets: {:?}", ret);
+    Ok(ret)
 }

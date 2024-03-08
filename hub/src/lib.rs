@@ -13,7 +13,6 @@ use ic_log::writer::Logs;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 
-use log::error;
 use log::info;
 use omnity_types::{
     Account, ChainCondition, ChainId, ChainInfo, ChainState, ChainType, DireQueue, Directive,
@@ -47,7 +46,7 @@ pub struct ChainInfoWithSeq {
 #[derive(CandidType, Deserialize, Serialize, Default, Debug)]
 struct HubState {
     pub chains: HashMap<ChainId, ChainInfoWithSeq>,
-    pub tokens: HashMap<(ChainId, TokenId), TokenMeta>,
+    pub token_metas: HashMap<(ChainId, TokenId), TokenMeta>,
     pub fees: HashMap<(ChainId, TokenId), Fee>,
     pub cross_ledger: HashMap<TicketId, Ticket>,
     pub accounts: HashMap<Account, HashMap<(ChainId, TokenId), Amount>>,
@@ -169,7 +168,7 @@ pub async fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
             // check token repetitive
             if with_state(|hub_state| {
                 hub_state
-                    .tokens
+                    .token_metas
                     .contains_key(&(token.issue_chain.clone(), token.token_id.clone()))
             }) {
                 return Err(Error::ProposalError(format!(
@@ -353,7 +352,7 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
             info!("build directive for `AddToken` proposal :{:?}", token);
             with_state_mut(|hub_state| {
                 // save token info
-                hub_state.tokens.insert(
+                hub_state.token_metas.insert(
                     (token.issue_chain.to_string(), token.token_id.to_string()),
                     token.clone(),
                 );
@@ -480,7 +479,7 @@ pub async fn query_directives(
     chain_id: ChainId,
     topic: Option<Topic>,
     from: usize,
-    num: usize,
+    offset: usize,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
     info!(
         "query directive for chain: {}, with topic: {:?} ",
@@ -568,7 +567,7 @@ pub async fn query_directives(
                 }
             }
 
-            let dires = directives.into_iter().skip(from).take(num).collect();
+            let dires = directives.into_iter().skip(from).take(offset).collect();
             info!("query directive result: {:?}", dires);
             Ok(dires)
         }
@@ -584,19 +583,13 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
     with_state_mut(|hub_state| {
         // check ticket id repetitive
         if hub_state.ticket_queue.contains_key(&ticket.ticket_id) {
-            return Err(Error::CustomError(format!(
-                "ticket id ({}) already exists!",
-                ticket.ticket_id,
-            )));
+            return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
         }
         // check chain and state
         let _src_chain_type = match hub_state.chains.get(&ticket.src_chain) {
             Some(chain) => {
                 if matches!(chain.chain_state, ChainState::Deactive) {
-                    return Err(Error::CustomError(format!(
-                        "The {} is deactive",
-                        ticket.src_chain
-                    )));
+                    return Err(Error::DeactiveChain(ticket.src_chain.to_string()));
                 }
                 &chain.chain_type
             }
@@ -606,10 +599,7 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
         let _dst_chain_type = match hub_state.chains.get(&ticket.dst_chain) {
             Some(chain) => {
                 if matches!(chain.chain_state, ChainState::Deactive) {
-                    return Err(Error::CustomError(format!(
-                        "The {} is deactive",
-                        ticket.dst_chain
-                    )));
+                    return Err(Error::DeactiveChain(ticket.dst_chain.to_string()));
                 }
                 &chain.chain_type
             }
@@ -618,11 +608,7 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
 
         //parse ticket token amount to unsigned bigint
         let ticket_amount: u128 = ticket.amount.parse().map_err(|e: ParseIntError| {
-            Error::CustomError(format!(
-                "ticket amount({}) parse error: {}",
-                ticket.amount,
-                e.to_string()
-            ))
+            Error::TicketAmountParseError(ticket.amount.to_string(), e.to_string())
         })?;
 
         // check account asset availability
@@ -630,7 +616,7 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
             TxAction::Transfer => {
                 // ticket from issue chain
                 if hub_state
-                    .tokens
+                    .token_metas
                     .contains_key(&(ticket.src_chain.to_string(), ticket.token.to_string()))
                 {
                     info!(
@@ -675,12 +661,11 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                         {
                             // check account balance
                             if *balance < ticket_amount {
-                                let e = format!(
-                                    "Insufficient account({}) balance: sender token amount({}) <  ticket token amount({}) !)",
-                                    ticket.sender,balance, ticket_amount
-                                );
-                                error!("{}", e);
-                                return Err(Error::CustomError(e));
+                                return Err(Error::NotSufficientTokens(
+                                    ticket.sender.to_string(),
+                                    balance.to_string(),
+                                    ticket_amount.to_string(),
+                                ));
                             }
                             *balance -= ticket_amount;
 
@@ -691,22 +676,20 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                             {
                                 *total_amount -= ticket_amount
                             } else {
-                                return Err(Error::CustomError(format!(
-                                    "Not found this token count info: chain({}) and token({})",
-                                    ticket.src_chain, ticket.token
-                                )));
+                                return Err(Error::NotFoundTokenCountInfo(
+                                    ticket.src_chain.to_string(),
+                                    ticket.token.to_string(),
+                                ));
                             }
                         } else {
-                            return Err(Error::CustomError(format!(
-                                "Not found this account({}) asset: token({}) on chain({}) ",
-                                ticket.sender, ticket.token, ticket.src_chain
-                            )));
+                            return Err(Error::NotFoundAccountToken(
+                                ticket.sender.to_string(),
+                                ticket.token.to_string(),
+                                ticket.src_chain.to_string(),
+                            ));
                         }
                     } else {
-                        return Err(Error::CustomError(format!(
-                            "Not found this account: {}",
-                            ticket.sender
-                        )));
+                        return Err(Error::NotFoundAccount(ticket.sender.to_string()));
                     }
                     // add or increase the receiver token amount
                     hub_state
@@ -743,10 +726,11 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                     {
                         // check account balance
                         if *balance < ticket_amount {
-                            return Err(Error::CustomError(format!(
-                                "Insufficient account({}) balance: sender token amount({}) <  redeem token amount({}) !)",
-                                ticket.sender,balance, ticket_amount
-                            )));
+                            return Err(Error::NotSufficientTokens(
+                                ticket.sender.to_string(),
+                                balance.to_string(),
+                                ticket_amount.to_string(),
+                            ));
                         }
                         *balance -= ticket_amount;
 
@@ -757,26 +741,25 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                         {
                             *total_amount -= ticket_amount
                         } else {
-                            return Err(Error::CustomError(format!(
-                                "Not found this token count info: chain({}) and token({})",
-                                ticket.src_chain, ticket.token
-                            )));
+                            return Err(Error::NotFoundTokenCountInfo(
+                                ticket.src_chain.to_string(),
+                                ticket.token.to_string(),
+                            ));
                         }
                     } else {
-                        return Err(Error::CustomError(format!(
-                            "Not found this account({}) asset: token({}) on chain({}) ",
-                            ticket.sender, ticket.token, ticket.src_chain
-                        )));
+                        return Err(Error::NotFoundAccountToken(
+                            ticket.sender.to_string(),
+                            ticket.token.to_string(),
+                            ticket.src_chain.to_string(),
+                        ));
                     }
                 } else {
-                    return Err(Error::CustomError(format!(
-                        "Not found this account: {}",
-                        ticket.sender
-                    )));
+                    return Err(Error::NotFoundAccount(ticket.sender.to_string()));
                 }
+
                 // if the dst chain is not issue chain,then update receiver asset and token count
                 if !hub_state
-                    .tokens
+                    .token_metas
                     .contains_key(&(ticket.dst_chain.to_string(), ticket.token.to_string()))
                 {
                     // the receiver must be existing
@@ -793,22 +776,20 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                             {
                                 *total_amount += ticket_amount
                             } else {
-                                return Err(Error::CustomError(format!(
-                                    "Not found this token count info: chain({}) and token({})",
-                                    ticket.src_chain, ticket.token
-                                )));
+                                return Err(Error::NotFoundTokenCountInfo(
+                                    ticket.dst_chain.to_string(),
+                                    ticket.token.to_string(),
+                                ));
                             }
                         } else {
-                            return Err(Error::CustomError(format!(
-                                "Not found this account({}) asset: token({}) on chain({}) ",
-                                ticket.receiver, ticket.token, ticket.dst_chain
-                            )));
+                            return Err(Error::NotFoundAccountToken(
+                                ticket.receiver.to_string(),
+                                ticket.token.to_string(),
+                                ticket.dst_chain.to_string(),
+                            ));
                         }
                     } else {
-                        return Err(Error::CustomError(format!(
-                            "Not found receiver account: {}",
-                            ticket.receiver
-                        )));
+                        return Err(Error::NotFoundAccount(ticket.receiver.to_string()));
                     }
                 }
             }
@@ -857,13 +838,13 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
 pub async fn query_tickets(
     chain_id: ChainId,
     from: usize,
-    num: usize,
+    offset: usize,
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
     // let end = from + num;
     with_state(|hub_state| match hub_state.ticket_queue.get(&chain_id) {
         Some(t) => {
             let mut tickets: Vec<(u64, Ticket)> = Vec::new();
-            for (&seq, &ref ticket) in t.iter().skip(from).take(num) {
+            for (&seq, &ref ticket) in t.iter().skip(from).take(offset) {
                 tickets.push((seq, ticket.clone()));
             }
 
@@ -1081,7 +1062,7 @@ mod tests {
 
         // print all tokens
         with_state(|hs| {
-            for (token_key, token) in hs.tokens.iter() {
+            for (token_key, token) in hs.token_metas.iter() {
                 println!("token key: {:?}, : token meta data: {:?}", token_key, token);
             }
         });
