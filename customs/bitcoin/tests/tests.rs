@@ -3,7 +3,7 @@ use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
 use bitcoin_customs::queries::{GenTicketStatusArgs, ReleaseTokenStatusArgs};
-use bitcoin_customs::state::{GenTicketStatus, RuneId, RunesBalance};
+use bitcoin_customs::state::{GenTicketStatus, RunesBalance, String};
 use bitcoin_customs::state::{Mode, ReleaseTokenStatus};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
@@ -555,7 +555,7 @@ impl CustomsSetup {
         )
     }
 
-    pub fn finalize_transaction(&self, tx: &bitcoin::Transaction, rune_id: RuneId) {
+    pub fn finalize_transaction(&self, tx: &bitcoin::Transaction, rune_id: String) {
         let runes_change_utxo = &tx.output[1];
         let btc_change_utxo = tx.output.last().unwrap();
 
@@ -909,7 +909,7 @@ fn test_duplicate_update_runes_balance() {
 
 fn deposit_runes_to_main_address(
     customs: &CustomsSetup,
-    rune_id: RuneId,
+    rune_id: String,
 ) -> UpdateRunesBalanceArgs {
     customs.set_tip_height(100);
 

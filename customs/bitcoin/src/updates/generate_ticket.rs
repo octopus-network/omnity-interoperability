@@ -1,7 +1,7 @@
 use crate::destination::Destination;
 use crate::guard::{generate_ticket_guard, GuardError};
 use crate::management::{get_utxos, CallSource};
-use crate::state::{audit, mutate_state, read_state, GenTicketRequest, GenTicketStatus, RuneId};
+use crate::state::{audit, mutate_state, read_state, GenTicketRequest, GenTicketStatus};
 use crate::updates::get_btc_address::{
     destination_to_p2wpkh_address_from_state, init_ecdsa_public_key,
 };
@@ -14,7 +14,7 @@ use std::str::FromStr;
 pub struct GenerateTicketArgs {
     pub target_chain_id: String,
     pub receiver: String,
-    pub rune_id: RuneId,
+    pub rune_id: String,
     pub amount: u128,
     pub txid: String,
 }

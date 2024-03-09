@@ -36,7 +36,7 @@ thread_local! {
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReleaseTokenRequest {
     pub ticket_id: TicketId,
-    pub rune_id: RuneId,
+    pub rune_id: String,
     /// The amount to release token.
     pub amount: u128,
     /// The destination BTC address.
@@ -50,17 +50,15 @@ pub struct GenTicketRequest {
     pub address: String,
     pub target_chain_id: String,
     pub receiver: String,
-    pub rune_id: RuneId,
+    pub rune_id: String,
     pub amount: u128,
     pub txid: Txid,
     pub received_at: u64,
 }
 
-pub type RuneId = u128;
-
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesBalance {
-    pub rune_id: RuneId,
+    pub rune_id: String,
     pub vout: u32,
     pub amount: u128,
 }
@@ -75,7 +73,7 @@ pub struct RunesUtxo {
 /// A transaction output storing the custom's runes change.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RunesChangeOutput {
-    pub rune_id: RuneId,
+    pub rune_id: String,
     /// The index of the output in the transaction.
     pub vout: u32,
     /// The value of the output.
@@ -94,7 +92,7 @@ pub struct BtcChangeOutput {
 /// Represents a transaction sent to the Bitcoin network.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubmittedBtcTransaction {
-    pub rune_id: RuneId,
+    pub rune_id: String,
     /// The original retrieve_btc requests that initiated the transaction.
     pub requests: Vec<ReleaseTokenRequest>,
     /// The identifier of the unconfirmed transaction.
@@ -262,7 +260,7 @@ pub struct CustomsState {
 
     /// Release_token requests that are waiting to be served, sorted by
     /// received_at.
-    pub pending_release_token_requests: BTreeMap<RuneId, Vec<ReleaseTokenRequest>>,
+    pub pending_release_token_requests: BTreeMap<String, Vec<ReleaseTokenRequest>>,
 
     /// The identifiers of retrieve_btc requests which we're currently signing a
     /// transaction or sending to the Bitcoin network.
@@ -560,7 +558,7 @@ impl CustomsState {
 
     /// Returns true if the pending requests queue has enough requests to form a
     /// batch or there are old enough requests to form a batch.
-    pub fn can_form_a_batch(&self, rune_id: &RuneId, min_pending: usize, now: u64) -> bool {
+    pub fn can_form_a_batch(&self, rune_id: &str, min_pending: usize, now: u64) -> bool {
         match self.pending_release_token_requests.get(rune_id) {
             Some(requests) => {
                 if requests.len() >= min_pending {
@@ -576,7 +574,7 @@ impl CustomsState {
     }
 
     /// Forms a batch of retrieve_btc requests that the minter can fulfill.
-    pub fn build_batch(&mut self, rune_id: &RuneId, max_size: usize) -> Vec<ReleaseTokenRequest> {
+    pub fn build_batch(&mut self, rune_id: &str, max_size: usize) -> Vec<ReleaseTokenRequest> {
         assert!(self.pending_release_token_requests.contains_key(rune_id));
 
         let available_utxos_value = self
@@ -589,7 +587,7 @@ impl CustomsState {
         let mut tx_amount = 0;
         let requests = self
             .pending_release_token_requests
-            .entry(*rune_id)
+            .entry(rune_id.to_string())
             .or_default();
         for req in std::mem::take(requests) {
             if available_utxos_value < req.amount + tx_amount || batch.len() >= max_size {
@@ -802,7 +800,7 @@ impl CustomsState {
 
             let bucket = self
                 .pending_release_token_requests
-                .entry(req.rune_id)
+                .entry(req.rune_id.to_string())
                 .or_default();
             bucket.push(req.clone());
             bucket.sort_by_key(|r| r.received_at);
@@ -818,7 +816,7 @@ impl CustomsState {
     pub fn push_back_pending_request(&mut self, request: ReleaseTokenRequest) {
         let bucket = self
             .pending_release_token_requests
-            .entry(request.rune_id)
+            .entry(request.rune_id.clone())
             .or_default();
         if let Some(last_req) = bucket.last() {
             assert!(last_req.received_at <= request.received_at);
@@ -941,7 +939,7 @@ impl CustomsState {
         );
         for (rune_id, requests) in &self.pending_release_token_requests {
             let my_requests = as_sorted_vec(requests.iter().cloned(), |r| r.ticket_id.clone());
-            match other.pending_release_token_requests.get(&rune_id) {
+            match other.pending_release_token_requests.get(rune_id) {
                 Some(requests) => {
                     let other_requests =
                         as_sorted_vec(requests.iter().cloned(), |r| r.ticket_id.clone());

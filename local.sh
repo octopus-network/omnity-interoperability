@@ -4,69 +4,99 @@ $ bitcoind -conf=$(pwd)/bitcoin.conf -datadir=$(pwd)/data --port=18444
 $ dfx stop
 $ dfx start --clean
 $ dfx deploy omnity_hub --mode reinstall -y
-$ dfx deploy bitcoin_customs --mode reinstall -y --argument '(variant { Init = record { mode = variant { GeneralAvailability }; btc_network = variant { Regtest }; hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; ecdsa_key_name = "dfx_test_key"; min_confirmations = opt 1; max_time_in_queue_nanos = 600_000_000_000 } })' # 20 mins for testnet
+$ dfx identity --identity default get-principal
+o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe
+$ dfx deploy bitcoin_customs --mode reinstall -y --argument '(variant { Init = record { mode = variant { GeneralAvailability }; btc_network = variant { Regtest }; hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; ecdsa_key_name = "dfx_test_key"; min_confirmations = opt 1; max_time_in_queue_nanos = 600_000_000_000; runes_oracle_principal = principal "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe" } })' # 20 mins for testnet
 
 # https://github.com/lesterli/ord/blob/docs/runes/docs/src/guides/runes.md
-$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user ic-btc-integration --bitcoin-rpc-pass QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet create
+$ git clone https://github.com/octopus-network/ord.git
+$ git checkout runescan
+$ sudo docker run --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=mysecretpassword -v ~/dev/data:/var/lib/postgresql/data -d postgres:12
+$ sudo docker run -it --rm --network host postgres:12 psql -h 127.0.0.1 -U postgres
+postgres=# CREATE DATABASE runescan ENCODING = 'UTF8';
+$ sudo docker exec -i postgres psql -U postgres -d runescan < deploy/runescan.sql
+$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet create
 {
-  "mnemonic": "little jaguar mix coral wool violin wink hip author stable elbow grit",
+  "mnemonic": "utility organ bamboo cause venture tackle reunion else mass wing clump ill",
   "passphrase": ""
 }
 
-$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user ic-btc-integration --bitcoin-rpc-pass QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet receive
+$ export DATABASE_URL=postgres://postgres:mysecretpassword@127.0.0.1:5432/runescan
+$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= --index-runes server --http --http-port 23456 --address 0.0.0.0
+
+$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 receive
 {
-  "address": "bcrt1ppna28kx85s7mca9djugzka3hns0heex5wny5zmjcmwfaav8azpjs03q85p"
+  "address": "bcrt1pcaplepck2cu4a457xn2wep2k26hzasyv5nuusd8xf6mrwvnt0fuqg8md8c"
 }
 
-$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 101 bcrt1ppna28kx85s7mca9djugzka3hns0heex5wny5zmjcmwfaav8azpjs03q85p
+$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 101 bcrt1pcaplepck2cu4a457xn2wep2k26hzasyv5nuusd8xf6mrwvnt0fuqg8md8c
 
-$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user ic-btc-integration --bitcoin-rpc-pass QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= --index-runes --index-transactions server --http --http-port 23456 --address 0.0.0.0
-$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user ic-btc-integration --bitcoin-rpc-pass QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 balance
-$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user ic-btc-integration --bitcoin-rpc-pass QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 etch --divisibility 0 --fee-rate 1 --rune FIRSTRUNETOKEN --supply 21000000 --symbol $
+$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 balance
 {
-  "rune": "FIRSTRUNETOKEN",
-  "transaction": "52fa48b5d2c6862d3276cd58a4bd4fe53bfac0117c96b726c992ced7f037b686"
+  "cardinal": 5000000000,
+  "ordinal": 0,
+  "runes": {},
+  "runic": 0,
+  "total": 5000000000
+}
+$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 etch --divisibility 0 --fee-rate 1 --rune_id FIRST•RUNE•TOKEN --supply 21000000 --symbol $
+{
+  "rune": "FIRST•RUNE•TOKEN",
+  "transaction": "6027783e5693af7feba3797a2568a3d484a498edb2499ad9455d0cfb088d5bdc"
 }
 
 $ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 1 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
-$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user ic-btc-integration --bitcoin-rpc-pass QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 balance
+$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 balance
 {
-  "cardinal": 9999989805,
+  "cardinal": 9999989800,
   "ordinal": 0,
   "runes": {
     "FIRSTRUNETOKEN": 21000000
   },
   "runic": 10000,
-  "total": 9999999805
+  "total": 9999999800
 }
+
 $ dfx canister call bitcoin_customs get_btc_address '(record {target_chain_id = "cosmoshub"; receiver = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"})'
-("bcrt1qxvl4n26ktl7qy3ttvqh7fr33qvgdwjuf59s2k6")
-$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 101 bcrt1qxvl4n26ktl7qy3ttvqh7fr33qvgdwjuf59s2k6
-$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user ic-btc-integration --bitcoin-rpc-pass QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= --index-runes wallet --server-url http://127.0.0.1:23456 send --fee-rate 1 bcrt1qxvl4n26ktl7qy3ttvqh7fr33qvgdwjuf59s2k6 7FIRSTRUNETOKEN
+("bcrt1qnwc03kekz4zexmtd69fffy6ap6pl3x4xwagdqf")
+$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 101 bcrt1qnwc03kekz4zexmtd69fffy6ap6pl3x4xwagdqf
+
+$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= --index-runes wallet --server-url http://127.0.0.1:23456 send --fee-rate 1 bcrt1qnwc03kekz4zexmtd69fffy6ap6pl3x4xwagdqf 7FIRST•RUNE•TOKEN
 {
-  "txid": "2da1447674d97922dbe2e1d14cdbdb07b42675e97eb810fb90d3d776cf0ace46",
-  "psbt": "cHNidP8BAO0CAAAAAoa2N/DXzpLJJreWfBHA+jvlT72kWM12Mi2GxtK1SPpSAQAAAAD/////hrY38NfOkskmt5Z8EcD6O+VPvaRYzXYyLYbG0rVI+lICAAAAAP3///8EAAAAAAAAAAATaglSVU5FX1RFU1QHAIKW/wEHAhAnAAAAAAAAIlEg6HNX5Mrk1uj/V98tP+ila4JZDTy+7ZbP6ORG83NFAvoQJwAAAAAAABYAFDM/WatWX/wCRWtgL+SOMQMQ10uJDqIFKgEAAAAiUSBOHBWsntVh8UKPo9uKn0TBahuVWLoBA+iB+tXzx7OZzwAAAAAAAQErECcAAAAAAAAiUSCY4S7y3+ysjSW2/rgS4RF9SpmsicKhS0siOFhRI9oK3wEIQgFAfOpe7mIuwznjKzWhJ1Ezl4u85P0x7FK9Dc5yqmfGVB1XNyNRLY560IV2Jdfg705SDJMNe2883snEGOVFPHAQmQABASstygUqAQAAACJRIBmlSgJpw+eDaeAi2R90sCOIlnEgdG7DnRFvRuCq2QkLAQhCAUA8nvKeAL4rDp7Mhathr/pNvzVeM3VjP7Z9ilEPG6sep5K99mYNQjdOCgYKBSDci9U7b5JiPYGbLSqM+Hjr2yOcAAABBSCDDsEeI4W/FElO3bKkN6Zf4zSIj4ArvHeBtqXMnyJIQSEHgw7BHiOFvxRJTt2ypDemX+M0iI+AK7x3gbalzJ8iSEEZAN9vTNJWAACAAQAAgAAAAIABAAAAAgAAAAAAAQUgpROdi2vyhFCiUBlzhtxn22PBM+6hl+5GE1fcfnYC4vEhB6UTnYtr8oRQolAZc4bcZ9tjwTPuoZfuRhNX3H52AuLxGQDfb0zSVgAAgAEAAIAAAACAAQAAAAMAAAAA",
-  "outgoing": "7 FIRSTRUNETOKEN",
+  "txid": "4058fd4afb991a89d09dff3d79abe6abecfdb2f90ae81314e357ca2a5b052a4a",
+  "psbt": "cHNidP8BAO0CAAAAAtxbjQj7DF1F2ZpJsu2YpITUo2glenmj63+vk1Y+eCdgAQAAAAD/////3FuNCPsMXUXZmkmy7ZikhNSjaCV6eaPrf6+TVj54J2ACAAAAAP3///8EAAAAAAAAAAATaglSVU5FX1RFU1QHAIKW/wEHAhAnAAAAAAAAIlEgSDdo9VBWyHqvwks0zGlxavcaCHf/ZQtQ3O87BvzRI6EQJwAAAAAAABYAFJuw+Ns2FUWTbW3RUpSTXQ6D+JqmCaIFKgEAAAAiUSB2vRW+y2NnA+jIRfKVUkKps9y66q7QzGiWUlWr551dCAAAAAAAAQErECcAAAAAAAAiUSAY5IWZlU5/3gu7CK6fWY6IXZ/6jYAxvjArdxGBqtPogwEIQgFAs+4X48D66XGDpVUa7wsaQgDfQubACDpiwwCpEg/4ueJ/cng4P4DSUKkcJSw45gSQS2alrPbkzHAecsniQOBz1gABASsoygUqAQAAACJRII4DO6tGUYCd+a/gfY0A0C8V4+riU1pmZDv0nqqyhyLJAQhCAUAfDfVccye8RvtoYE9+D7zV1gRTSN+hJVIz1P1aeYoT9JF1VgLGi7NR47v+yHw+EeImUhEjkxKaA1SYbMD21XFtAAABBSAZ5AeHu7EUPOKclBd3DBhhXFFmqPBE/RTmZoWW3JXK+CEHGeQHh7uxFDzinJQXdwwYYVxRZqjwRP0U5maFltyVyvgZADGU4OBWAACAAQAAgAAAAIABAAAAAgAAAAAAAQUg0LE8CglocrrEDjE22qsPi05LHWeXb03MWgU31jS7Nr0hB9CxPAoJaHK6xA4xNtqrD4tOSx1nl29NzFoFN9Y0uza9GQAxlODgVgAAgAEAAIAAAACAAQAAAAMAAAAA",
+  "outgoing": "7 FIRST•RUNE•TOKEN",
   "fee": 271
 }
+
 $ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 1 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
-# http://192.168.1.105:23456/api/tx/2da1447674d97922dbe2e1d14cdbdb07b42675e97eb810fb90d3d776cf0ace46
-$ dfx canister call bitcoin_customs generate_ticket '(record {target_chain_id = "cosmoshub"; receiver = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"; rune_id = 6684673; amount = 7; txid = "2da1447674d97922dbe2e1d14cdbdb07b42675e97eb810fb90d3d776cf0ace46"})'
+http://192.168.1.105:23456/rune/FIRST%E2%80%A2RUNE%E2%80%A2TOKEN
+rune_id: 102:1
+$ dfx canister call bitcoin_customs generate_ticket '(record {target_chain_id = "cosmoshub"; receiver = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"; rune_id = "102:1"; amount = 7; txid = "4058fd4afb991a89d09dff3d79abe6abecfdb2f90ae81314e357ca2a5b052a4a"})'
 $ dfx canister call bitcoin_customs get_pending_gen_ticket_requests
 (
   vec {
     record {
-      received_at = 1_709_450_514_381_646_755 : nat64;
-      txid = blob "\46\ce\0a\cf\76\d7\d3\90\fb\10\b8\7e\e9\75\26\b4\07\db\db\4c\d1\e1\e2\db\22\79\d9\74\76\44\a1\2d";
+      received_at = 1_709_996_895_574_557_125 : nat64;
+      txid = blob "\4a\2a\05\5b\2a\ca\57\e3\14\13\e8\0a\f9\b2\fd\ec\ab\e6\ab\79\3d\ff\9d\d0\89\1a\99\fb\4a\fd\58\40";
       target_chain_id = "cosmoshub";
-      address = "bcrt1qxvl4n26ktl7qy3ttvqh7fr33qvgdwjuf59s2k6";
+      address = "bcrt1qnwc03kekz4zexmtd69fffy6ap6pl3x4xwagdqf";
       amount = 7 : nat;
       receiver = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur";
-      rune_id = 6_684_673 : nat;
+      rune_id = "102:1";
     };
   },
 )
-$ dfx canister call omnity_hub build_directive '(variant { AddChain = record { chain_state=variant { Active };chain_name = "BTC"; chain_type=variant { SettlementChain };}})'
+
+
+
+dfx canister call omnity_hub validate_proposal '(variant { AddChain = record { chain_state=variant { Active };chain_id = "BTC"; chain_type=variant { SettlementChain };}})'
+dfx canister call omnity_hub build_directive '(variant { AddChain = record { chain_state=variant { Active };chain_id = "BTC"; chain_type=variant { SettlementChain };}})'
+dfx canister call omnity_hub validate_proposal '(variant { AddToken = record { decimals = 0 : nat8; icon = opt "rune"; token_id = "102:1"; issue_chain = "BTC"; symbol = "FIRST•RUNE•TOKEN";}})'
+dfx canister call omnity_hub build_directive '(variant { AddToken = record { decimals = 0 : nat8; icon = opt "rune"; token_id = "102:1"; issue_chain = "BTC"; symbol = "FIRST•RUNE•TOKEN";}})'
+dfx canister call omnity_hub query_directive_with_topic '("Ethereum",opt variant {AddToken=null},0:nat64,5:nat64)' 
+
+
 $ dfx canister call omnity_hub set_whitelist '(principal "be2us-64aaa-aaaaa-qaabq-cai", true)'
 $ ./target/debug/runes_oracle
 $ dfx canister call omnity_hub query_tickets '("cosmoshub", 0, 10)'

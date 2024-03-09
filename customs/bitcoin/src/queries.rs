@@ -1,4 +1,3 @@
-use crate::state::RuneId;
 use candid::CandidType;
 use ic_btc_interface::Txid;
 use omnity_types::TicketId;
@@ -16,7 +15,7 @@ pub struct GenTicketStatusArgs {
 
 #[derive(CandidType, Deserialize)]
 pub struct EstimateFeeArg {
-    pub rune_id: RuneId,
+    pub rune_id: String,
     pub amount: Option<u128>,
 }
 

@@ -1,5 +1,5 @@
 use crate::destination::Destination;
-use crate::state::{ReleaseTokenRequest, RuneId, RunesBalance, RunesUtxo, SubmittedBtcTransaction};
+use crate::state::{ReleaseTokenRequest, RunesBalance, RunesUtxo, SubmittedBtcTransaction};
 use crate::{
     address::BitcoinAddress, build_unsigned_transaction, estimate_fee, greedy,
     signature::EncodedSignature, tx, BuildTxError,
@@ -186,7 +186,7 @@ fn greedy_smoke_test() {
 
 #[test]
 fn should_have_same_input_and_output_count() {
-    let rune_id: RuneId = 1;
+    let rune_id: String = "100:1".to_string();
     let mut available_runes_utxos = BTreeSet::new();
     let mut available_btc_utxos = BTreeSet::new();
     for i in 0..crate::UTXOS_COUNT_THRESHOLD {
@@ -200,7 +200,7 @@ fn should_have_same_input_and_output_count() {
                 height: 10,
             },
             runes: RunesBalance {
-                rune_id,
+                rune_id: rune_id.clone(),
                 vout: i as u32,
                 amount: 0,
             },
@@ -216,7 +216,7 @@ fn should_have_same_input_and_output_count() {
             height: 10,
         },
         runes: RunesBalance {
-            rune_id,
+            rune_id: rune_id.clone(),
             vout: 0,
             amount: 100_000,
         },
@@ -232,7 +232,7 @@ fn should_have_same_input_and_output_count() {
             height: 10,
         },
         runes: RunesBalance {
-            rune_id,
+            rune_id: rune_id.clone(),
             vout: 0,
             amount: 100_000,
         },
@@ -248,7 +248,7 @@ fn should_have_same_input_and_output_count() {
             height: 10,
         },
         runes: RunesBalance {
-            rune_id,
+            rune_id: rune_id.clone(),
             vout: 0,
             amount: 100,
         },
@@ -264,7 +264,7 @@ fn should_have_same_input_and_output_count() {
             height: 11,
         },
         runes: RunesBalance {
-            rune_id,
+            rune_id: rune_id.clone(),
             vout: 0,
             amount: 100,
         },
@@ -304,7 +304,7 @@ fn should_have_same_input_and_output_count() {
 
 #[test]
 fn test_not_enough_gas() {
-    let rune_id: RuneId = 1;
+    let rune_id: String = "100:1".to_string();
     let mut available_runes_utxos = BTreeSet::new();
     let mut available_btc_utxos = BTreeSet::new();
     available_runes_utxos.insert(RunesUtxo {
@@ -317,7 +317,7 @@ fn test_not_enough_gas() {
             height: 10,
         },
         runes: RunesBalance {
-            rune_id,
+            rune_id: rune_id.clone(),
             vout: 0,
             amount: 100_000,
         },
@@ -414,7 +414,7 @@ fn arb_runes_utxo(amount: impl Strategy<Value = u128>) -> impl Strategy<Value = 
             height: 0,
         },
         runes: RunesBalance {
-            rune_id: 1,
+            rune_id: "100:1".to_string(),
             vout,
             amount: value,
         },
@@ -458,7 +458,7 @@ fn arb_release_token_requests(
         .prop_map(
             |(amount, address, ticket_id, received_at)| ReleaseTokenRequest {
                 ticket_id,
-                rune_id: 1_u128,
+                rune_id: "100:1".to_string(),
                 amount,
                 address,
                 received_at,
@@ -657,9 +657,10 @@ proptest! {
         fee_per_vbyte in 1000..2000u64,
     ) {
         prop_assume!(dst_pkhash != runes_pkhash);
+    let rune_id: String = "100:1".to_string();
 
         let (unsigned_tx, _, _, _, _) = build_unsigned_transaction(
-            &1_u128,
+            &rune_id,
             &mut runes_utxos,
             &mut btc_utxos,
             BitcoinAddress::P2wpkhV0(runes_pkhash),
@@ -685,12 +686,13 @@ proptest! {
     ) {
         let runes_utxos_copy = runes_utxos.clone();
         let btc_utxos_copy = btc_utxos.clone();
+    let rune_id: String = "100:1".to_string();
 
         let total_value = runes_utxos.iter().map(|u| u.runes.amount).sum::<u128>();
 
         prop_assert_eq!(
             build_unsigned_transaction(
-                &1_u128,
+                &rune_id,
                 &mut runes_utxos,
                 &mut btc_utxos,
                 BitcoinAddress::P2wpkhV0(runes_pkhash),
@@ -753,7 +755,8 @@ proptest! {
             prop_assert_eq!(state.release_token_status(&req.ticket_id), ReleaseTokenStatus::Pending);
         }
 
-        let batch = state.build_batch(&1_u128, limit);
+    let rune_id: String = "100:1".to_string();
+        let batch = state.build_batch(&rune_id, limit);
 
         for req in batch.iter() {
             prop_assert_eq!(state.release_token_status(&req.ticket_id), ReleaseTokenStatus::Unknown);
@@ -776,7 +779,7 @@ proptest! {
         btc_pkhash in uniform20(any::<u8>()),
         resubmission_chain_length in 1..=5,
     ) {
-        let rune_id: RuneId = 1;
+    let rune_id: String = "100:1".to_string();
         let mut state = CustomsState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
@@ -810,7 +813,7 @@ proptest! {
         let submitted_at = 1_234_567_890;
 
         state.push_submitted_transaction(SubmittedBtcTransaction {
-            rune_id,
+            rune_id: rune_id.clone(),
             requests: requests.clone(),
             txid: txids[0],
             runes_utxos: runes_utxos.clone(),
@@ -842,7 +845,7 @@ proptest! {
             let new_txid = tx.txid();
 
             state.replace_transaction(prev_txid, SubmittedBtcTransaction {
-                rune_id,
+                rune_id: rune_id.clone(),
                 requests: requests.clone(),
                 txid: new_txid,
                 runes_utxos: runes_utxos.clone(),
@@ -987,7 +990,8 @@ proptest! {
     ) {
         const SMALLEST_TX_SIZE_VBYTES: u64 = 140; // one input, two outputs
 
-        let estimate = estimate_fee(1, &utxos, amount, fee_per_vbyte);
+    let rune_id: String = "100:1".to_string();
+        let estimate = estimate_fee(&rune_id, &utxos, amount, fee_per_vbyte);
         let lower_bound =  SMALLEST_TX_SIZE_VBYTES * fee_per_vbyte / 1000;
         let estimate_amount = estimate.bitcoin_fee;
         prop_assert!(

@@ -28,7 +28,7 @@ pub struct RuneStone {
 
 #[derive(Debug, Deserialize)]
 pub struct Edict {
-    pub rune: String,
+    pub rune_id: String,
     pub rune_id: String,
     pub amount: u128,
     pub output: u32,

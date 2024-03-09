@@ -12,7 +12,7 @@ use ic_ic00_types::DerivationPath;
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
-use state::{read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo};
+use state::{read_state, RunesBalance, RunesChangeOutput, RunesUtxo};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 use updates::release_token::{release_token, ReleaseTokenArgs, ReleaseTokenError};
@@ -235,19 +235,9 @@ async fn submit_release_token_requests() {
                     next_index = index + 1;
                     continue;
                 };
-                let rune_id = if let Ok(rune_id) = u128::from_str_radix(ticket.token.as_str(), 10) {
-                    rune_id
-                } else {
-                    log!(
-                        P0,
-                        "[submit_release_token_requests]: failed to parse runes id of ticket"
-                    );
-                    next_index = index + 1;
-                    continue;
-                };
                 let args = ReleaseTokenArgs {
                     ticket_id: ticket.ticket_id,
-                    rune_id,
+                    rune_id: ticket.token,
                     amount,
                     address: ticket.receiver,
                 };
@@ -289,9 +279,9 @@ async fn submit_pending_requests() {
         s.pending_release_token_requests
             .iter()
             .map(|(rune_id, _)| rune_id.clone())
-            .collect::<Vec<RuneId>>()
+            .collect::<Vec<String>>()
     });
-    for rune_id in runes_list {
+    for rune_id in runes_list.iter() {
         // We make requests if we have old requests in the queue or if have enough
         // requests to fill a batch.
         if !state::read_state(|s| {
@@ -305,8 +295,7 @@ async fn submit_pending_requests() {
             address::main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN));
 
         // Each runes tokens use isolated main addresses
-        let runes_main_address =
-            address::main_bitcoin_address(&ecdsa_public_key, rune_id.to_string());
+        let runes_main_address = address::main_bitcoin_address(&ecdsa_public_key, rune_id.clone());
 
         let maybe_sign_request = state::mutate_state(|s| {
             let batch = s.build_batch(&rune_id, MAX_REQUESTS_PER_BATCH);
@@ -428,7 +417,7 @@ async fn submit_pending_requests() {
                                 state::audit::sent_transaction(
                                     s,
                                     state::SubmittedBtcTransaction {
-                                        rune_id,
+                                        rune_id: rune_id.clone(),
                                         requests,
                                         txid,
                                         runes_utxos,
@@ -525,8 +514,8 @@ async fn finalize_requests() {
         .iter()
         .map(|(_, tx)| {
             (
-                main_destination(tx.rune_id.to_string()),
-                address::main_bitcoin_address(&ecdsa_public_key, tx.rune_id.to_string()),
+                main_destination(tx.rune_id.clone()),
+                address::main_bitcoin_address(&ecdsa_public_key, tx.rune_id.clone()),
             )
         })
         .collect();
@@ -567,7 +556,7 @@ async fn finalize_requests() {
         for tx in &confirmed_transactions {
             state::audit::confirm_transaction(s, &tx.txid);
             let balance = RunesBalance {
-                rune_id: tx.runes_change_output.rune_id,
+                rune_id: tx.runes_change_output.rune_id.clone(),
                 vout: tx.runes_change_output.vout,
                 amount: tx.runes_change_output.value,
             };
@@ -675,7 +664,7 @@ async fn finalize_requests() {
                 &submitted_tx.rune_id,
                 &mut runes_utxos,
                 &mut btc_utxos,
-                main_bitcoin_address(&ecdsa_public_key, submitted_tx.rune_id.to_string()),
+                main_bitcoin_address(&ecdsa_public_key, submitted_tx.rune_id.clone()),
                 main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN)),
                 outputs,
                 tx_fee_per_vbyte,
@@ -1005,7 +994,7 @@ pub enum BuildTxError {
 /// ```
 ///
 pub fn build_unsigned_transaction(
-    rune_id: &RuneId,
+    rune_id: &str,
     available_runes_utxos: &mut BTreeSet<RunesUtxo>,
     available_btc_utxos: &mut BTreeSet<Utxo>,
     runes_main_address: BitcoinAddress,
@@ -1055,12 +1044,24 @@ pub fn build_unsigned_transaction(
     let inputs_value = utxos_guard.iter().map(|u| u.runes.amount).sum::<u128>();
     debug_assert!(inputs_value >= amount);
 
+    let id = rune_id
+        .split_once(':')
+        .and_then(|(height, index)| {
+            let height = height.parse::<u32>();
+            let index = index.parse::<u16>();
+            match (height, index) {
+                (Ok(height), Ok(index)) => Some(u128::from(height) << 16 | u128::from(index)),
+                _ => None,
+            }
+        })
+        .ok_or(BuildTxError::NotEnoughFunds)?; // TODO: add this check to generate_ticket
+
     let stone = Runestone {
         edicts: outputs
             .iter()
             .enumerate()
             .map(|(idx, (_, amount))| Edict {
-                id: *rune_id,
+                id,
                 amount: *amount,
                 output: (idx + 2) as u128,
             })
@@ -1069,7 +1070,7 @@ pub fn build_unsigned_transaction(
 
     let runes_change = inputs_value - amount;
     let change_output = state::RunesChangeOutput {
-        rune_id: *rune_id,
+        rune_id: rune_id.to_string(),
         vout: 1,
         value: runes_change,
     };
@@ -1250,7 +1251,7 @@ pub fn tx_vsize_estimate(input_count: u64, output_count: u64) -> u64 {
 ///   * `maybe_amount` - the withdrawal amount.
 ///   * `median_fee_millisatoshi_per_vbyte` - the median network fee, in millisatoshi per vbyte.
 pub fn estimate_fee(
-    rune_id: RuneId,
+    rune_id: &str,
     available_utxos: &BTreeSet<RunesUtxo>,
     maybe_amount: Option<u128>,
     median_fee_millisatoshi_per_vbyte: u64,
@@ -1267,7 +1268,7 @@ pub fn estimate_fee(
             let mut utxos = available_utxos.clone();
             let selected_utxos =
                 utxos_selection(amount, &mut utxos, DEFAULT_OUTPUT_COUNT as usize - 1, |u| {
-                    if u.runes.rune_id.eq(&rune_id) {
+                    if u.runes.rune_id.eq(rune_id) {
                         u.runes.amount
                     } else {
                         0
