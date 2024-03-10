@@ -1,44 +1,66 @@
+use bitcoin::Amount;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+type RuneId = String;
+#[derive(Deserialize, Debug)]
 pub struct Transaction {
-    pub txid: String,
-    pub size: u32,
-    pub vsize: u32,
-    pub vout: Vec<TxOut>,
+    pub inputs: Vec<RsTxIn>,
+    pub outputs: Vec<RsTxOut>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct TxOut {
-    pub n: u32,
-    #[serde(rename = "scriptPubKey")]
-    pub script_pubkey: ScriptPubkey,
-    pub runestone: Option<RuneStone>,
+#[derive(Deserialize, Debug)]
+pub struct RsTxIn {
+    #[serde(with = "bitcoin::amount::serde::as_btc")]
+    pub value: Amount,
+    pub address: String,
+    pub runes: Vec<(RuneId, u128)>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ScriptPubkey {
+#[derive(Deserialize, Debug)]
+pub struct RsTxOut {
+    #[serde(with = "bitcoin::amount::serde::as_btc")]
+    pub value: Amount,
     pub address: Option<String>,
+    pub op_return: Option<Runestone>,
+    pub runes: Vec<(RuneId, u128)>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct RuneStone {
-    pub edicts: Option<Vec<Edict>>,
+#[derive(Deserialize, Debug)]
+pub struct Runestone {
+    pub burn: bool,
+    pub claim: Option<u128>,
+    pub default_output: Option<u32>,
+    pub edicts: Vec<Edict>,
+    pub etching: Option<Etching>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Edict {
-    pub rune_id: String,
-    pub rune_id: String,
+    pub id: String,
     pub amount: u128,
-    pub output: u32,
+    pub output: u128,
 }
 
-#[derive(Debug)]
+#[derive(Deserialize, Debug)]
+pub struct Etching {
+    pub divisibility: u8,
+    pub mint: Option<Mint>,
+    pub rune: Option<String>,
+    pub spacers: u32,
+    pub symbol: Option<char>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Mint {
+    pub deadline: Option<u32>,
+    pub limit: Option<u128>,
+    pub term: Option<u32>,
+}
+
 pub struct RunesBalance {
+    pub rune_id: String,
     pub address: String,
     pub vout: u32,
-    pub rune_id: u128,
     pub amount: u128,
 }
 
@@ -49,35 +71,77 @@ impl Transaction {
 
     pub fn get_runes_balance(&self) -> Vec<RunesBalance> {
         let mut result = vec![];
-        for out in &self.vout {
-            if out.runestone.is_none() {
-                continue;
-            }
-            let runestone = out.runestone.as_ref().unwrap();
-            if runestone.edicts.is_none() {
-                // Only one output of a transaction has runestone.
-                return result;
-            }
-            let edicts = runestone.edicts.as_ref().unwrap();
-            for edict in edicts {
-                let vout = edict.output;
-                let output = &self.vout[vout as usize];
-                // The address must exist as long as the transaction is valid.
-                let address = output
-                    .script_pubkey
-                    .address
-                    .as_ref()
-                    .expect("address shoud not be null")
-                    .clone();
+        for (vout, output) in self.outputs.iter().enumerate() {
+            for (rune_id, amount) in output.runes.iter() {
                 result.push(RunesBalance {
-                    vout,
-                    address,
-                    rune_id: u128::from_str_radix(edict.rune_id.clone().as_str(), 16)
-                        .expect("runes id should be legal hex number"),
-                    amount: edict.amount,
+                    rune_id: rune_id.clone(),
+                    address: output.address.clone().unwrap(),
+                    vout: vout as u32,
+                    amount: *amount,
                 })
             }
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_deserialize_transaction() {
+        let json = json!({
+            "inputs": [
+                {
+                    "runes": [["102:1", 21000000]],
+                    "value": 0.0001,
+                    "address": "bcrt1prrjgtxv4felauzampzhf7kvw3pwel75dsqcmuvptwugcr2knazps2342kq"
+                },
+                {
+                    "runes": [],
+                    "value": 49.999898,
+                    "address": "bcrt1p3cpnh26x2xqfm7d0up7c6qxs9u2786hz2ddxvepm7j024v58ytys26fwar"
+                }
+            ],
+            "outputs": [
+                {
+                    "runes": [],
+                    "value": 0.0,
+                    "address": null,
+                    "op_return": {
+                        "burn": false,
+                        "claim": null,
+                        "edicts": [{"id": "102:1", "amount": 7, "output": 2}],
+                        "etching": null,
+                        "default_output": null
+                    }
+                },
+                {
+                    "runes": [["102:1", 20999993]],
+                    "value": 0.0001,
+                    "address": "bcrt1pfqmk3a2s2my84t7zfv6vc6t3dtm35zrhlajsk5xuauasdlx3ywsszr8w7c",
+                    "op_return": null
+                },
+                {
+                    "runes": [["102:1", 7]],
+                    "value": 0.0001,
+                    "address": "bcrt1qnwc03kekz4zexmtd69fffy6ap6pl3x4xwagdqf",
+                    "op_return": null
+                },
+                {
+                    "runes": [],
+                    "value": 49.99979529,
+                    "address": "bcrt1pw673t0ktvdns86xgghef25jz4xeaewh24mgvc6yk2f26heuat5yqzmqw75",
+                    "op_return": null
+                }
+            ]
+        });
+
+        let transaction: Transaction = serde_json::from_value(json).unwrap();
+
+        assert_eq!(transaction.outputs[1].runes[0].0, "102:1");
+        assert_eq!(transaction.outputs[1].runes[0].1, 7);
     }
 }

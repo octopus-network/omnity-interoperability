@@ -53,7 +53,7 @@ impl Executor {
                                 balances
                                     .iter()
                                     .map(|b| state::RunesBalance {
-                                        rune_id: b.rune_id,
+                                        rune_id: b.rune_id.clone(),
                                         vout: b.vout,
                                         amount: b.amount,
                                     })
