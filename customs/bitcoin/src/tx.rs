@@ -502,7 +502,7 @@ fn encode_p2wsh_script(pkhash: &[u8; 32], buf: &mut impl Buffer) {
 fn encode_op_return_script(data: &Vec<u8>, buf: &mut impl Buffer) {
     let size = data.len();
     // The consensus on the OP_RETURN size limit within the Bitcoin network is 80 bytes.
-    assert!(size < 0xff);
+    assert!(size < 0xfd);
     buf.write(&[size as u8]);
     buf.write(data.as_slice());
 }
