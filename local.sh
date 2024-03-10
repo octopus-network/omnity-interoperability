@@ -70,3 +70,23 @@ $ dfx canister call omnity_hub build_directive '(variant { AddChain = record { c
 $ dfx canister call omnity_hub set_whitelist '(principal "be2us-64aaa-aaaaa-qaabq-cai", true)'
 $ ./target/debug/runes_oracle
 $ dfx canister call omnity_hub query_tickets '("cosmoshub", 0, 10)'
+
+# -------------------redeem token script--------------------------------
+# deploy the hub_mock canister instead of omnity_hub
+# when deploying customs, set the hub_principal parameter to the canister id of mock_hub
+$ dfx deploy hub_mock --mode reinstall -y
+
+# Before starting redeem, you need to complete the customs -> execution crosschain process to ensure that there is a runes balance in customs.
+
+# deposit BTC as the fee of redeem tx
+$ dfx canister call bitcoin_customs get_main_btc_address 'BTC'
+("bcrt1q72ycas7f7h0wfv8egqh6vfzhurlaeket33l4qa")
+
+$ bitcoin-cli -conf=$(pwd)/bitcoin.conf -rpcwallet=test1 sendtoaddress 'bcrt1q72ycas7f7h0wfv8egqh6vfzhurlaeket33l4qa' 1
+$ bitcoin-cli -conf=$(pwd)/bitcoin.conf -rpcwallet=test1 -generate 1
+# wait 10 seconds, make sure there is utxo in the returned result
+$ dfx canister call bitcoin_customs update_btc_utxos
+
+$ dfx canister call hub_mock push_ticket '(record {ticket_id='xxx'...})'
+# wait 10 seconds, query the event to confirm that the transaction has been sent
+$ ablrun dfx canister call bitcoin_customs get_events '(record {start = 0; length = 100})'
