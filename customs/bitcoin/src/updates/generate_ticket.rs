@@ -1,5 +1,5 @@
 use crate::destination::Destination;
-use crate::guard::generate_ticket_guard;
+use crate::guard::{generate_ticket_guard, GuardError};
 use crate::management::{get_utxos, CallSource};
 use crate::state::{audit, mutate_state, read_state, GenTicketRequest, GenTicketStatus, RuneId};
 use crate::updates::get_btc_address::{
@@ -27,6 +27,16 @@ pub enum GenerateTicketError {
     NoNewUtxos,
 }
 
+impl From<GuardError> for GenerateTicketError {
+    fn from(e: GuardError) -> Self {
+        match e {
+            GuardError::TooManyConcurrentRequests => {
+                Self::TemporarilyUnavailable("too many concurrent requests".to_string())
+            }
+        }
+    }
+}
+
 pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     read_state(|s| s.mode.is_transport_available_for())
         .map_err(GenerateTicketError::TemporarilyUnavailable)?;
@@ -46,7 +56,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     let (btc_network, min_confirmations) = read_state(|s| (s.btc_network, s.min_confirmations));
 
     init_ecdsa_public_key().await;
-    let _guard = generate_ticket_guard();
+    let _guard = generate_ticket_guard()?;
 
     let destination = Destination {
         target_chain_id: args.target_chain_id.clone(),
