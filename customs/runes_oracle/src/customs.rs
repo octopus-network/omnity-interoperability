@@ -3,7 +3,7 @@ use bitcoin_customs::{
     updates::update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
 use candid::{Decode, Encode};
-use ic_agent::{export::Principal, identity::AnonymousIdentity, Agent};
+use ic_agent::{export::Principal, identity::Secp256k1Identity, Agent};
 use ic_btc_interface::Txid;
 
 pub struct Customs {
@@ -12,10 +12,10 @@ pub struct Customs {
 }
 
 impl Customs {
-    pub async fn new(url: String, canister_id: Principal) -> Self {
+    pub async fn new(url: String, canister_id: Principal, identity: Secp256k1Identity) -> Self {
         let agent = Agent::builder()
             .with_url(&url)
-            .with_identity(AnonymousIdentity)
+            .with_identity(identity)
             .build()
             .expect("failed to build agent");
         if url.starts_with("http://") {
