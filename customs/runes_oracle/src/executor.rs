@@ -5,7 +5,7 @@ use bitcoin_customs::{
 };
 use log;
 use ticker::Ticker;
-use std::{collections::VecDeque, thread, time::Duration};
+use std::{collections::VecDeque, time::Duration};
 
 pub struct Executor {
     customs: Customs,
@@ -105,7 +105,6 @@ impl Executor {
                 }
                 self.pending_requests.pop_front();
             }
-            thread::sleep(Duration::from_secs(60));
         }
     }
 }
