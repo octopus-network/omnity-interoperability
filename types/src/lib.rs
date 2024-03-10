@@ -7,7 +7,7 @@ use thiserror::Error;
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
 pub type Timestamp = u64;
-pub type Directive = Proposal;
+// pub type Directive = Proposal;
 pub type ChainId = String;
 pub type DstChain = ChainId;
 pub type TokenId = String;
@@ -22,8 +22,15 @@ pub type DireQueue = HashMap<DstChain, BTreeMap<Seq, Directive>>;
 pub type TicketQueue = HashMap<DstChain, BTreeMap<Seq, Ticket>>;
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
-pub enum Proposal {
+pub struct Proposal {
+    pub directives: Vec<Directive>,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub enum Directive {
+    //TODO: add counterparty chains
     AddChain(ChainInfo),
+    //TODO: add dst chains
     AddToken(TokenMeta),
     ToggleChainState(ToggleState),
     UpdateFee(Fee),

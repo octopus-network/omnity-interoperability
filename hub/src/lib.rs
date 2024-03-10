@@ -124,341 +124,369 @@ fn post_upgrade() {
 
 /// validate directive ,this method will be called by sns
 #[update(guard = "auth")]
-pub async fn validate_proposal(proposal: Proposal) -> Result<String, Error> {
-    if !matches!(
-        proposal,
-        Proposal::AddChain(_)
-            | Proposal::AddToken(_)
-            | Proposal::ToggleChainState(_)
-            | Proposal::UpdateFee(_)
-    ) {
-        return Err(Error::NotSupportedProposal);
+pub async fn validate_proposal(proposal: Proposal) -> Result<Vec<String>, Error> {
+    if proposal.directives.len() == 0 {
+        return Err(Error::ProposalError(
+            "Proposal can not be empty".to_string(),
+        ));
     }
-    match proposal {
-        Proposal::AddChain(chain) => {
-            if chain.chain_id.is_empty() {
-                return Err(Error::ProposalError(
-                    "Chain name can not be empty".to_string(),
-                ));
-            }
-
-            if matches!(chain.chain_state, ChainState::Deactive) {
-                return Err(Error::ProposalError(
-                    "The status of the new chain state must be active".to_string(),
-                ));
-            }
-            // check chain repetitive
-            if with_state(|hub_state| hub_state.chains.contains_key(&chain.chain_id)) {
-                return Err(Error::ProposalError(format!(
-                    "The chain({}) already exists",
-                    chain.chain_id
-                )));
-            }
-            let result = format!("Tne AddChain proposal is: {}", chain);
-            info!("validate_proposal result:{} ", result);
-            Ok(result)
+    let mut dire_msgs = Vec::new();
+    for directive in proposal.directives.into_iter() {
+        if !matches!(
+            directive,
+            Directive::AddChain(_)
+                | Directive::AddToken(_)
+                | Directive::ToggleChainState(_)
+                | Directive::UpdateFee(_)
+        ) {
+            return Err(Error::NotSupportedProposal);
         }
-        Proposal::AddToken(token) => {
-            if token.token_id.is_empty() || token.symbol.is_empty() || token.issue_chain.is_empty()
-            {
-                return Err(Error::ProposalError(
-                    "Token id, token symbol or issue chain can not be empty".to_string(),
-                ));
-            }
-            // check token repetitive
-            if with_state(|hub_state| {
-                hub_state
-                    .token_metas
-                    .contains_key(&(token.issue_chain.clone(), token.token_id.clone()))
-            }) {
-                return Err(Error::ProposalError(format!(
-                    "The token({}) already exists",
-                    token.token_id
-                )));
-            }
-            //check the issue chain must exsiting and not deactive!
-            with_state(|hub_state| match hub_state.chains.get(&token.issue_chain) {
-                Some(chain) => {
-                    if matches!(chain.chain_state, ChainState::Deactive) {
-                        Err(Error::ProposalError(format!(
-                            "The chain({}) is deactive",
-                            token.issue_chain
-                        )))
-                    } else {
-                        let result = format!("The AddToken proposal is: {}", token);
-                        info!("validate_proposal result:{} ", result);
-                        Ok(result)
-                    }
+        match directive {
+            Directive::AddChain(chain) => {
+                if chain.chain_id.is_empty() {
+                    return Err(Error::ProposalError(
+                        "Chain name can not be empty".to_string(),
+                    ));
                 }
-                None => Err(Error::ProposalError(format!(
-                    "The chain({}) is not exists",
-                    token.issue_chain
-                ))),
-            })
-        }
-        Proposal::ToggleChainState(toggle_state) => {
-            if toggle_state.chain_id.is_empty() {
-                return Err(Error::ProposalError(
-                    "Chain id can not be empty".to_string(),
-                ));
-            }
-            if !matches!(
-                toggle_state.action,
-                StateAction::Activate | StateAction::Deactivate
-            ) {
-                return Err(Error::ProposalError(
-                    "Not supported chain state".to_string(),
-                ));
-            }
 
-            with_state(|hub_state| {
-                match hub_state.chains.get(&toggle_state.chain_id) {
-                    Some(chain) => {
-                        //If the state and action are consistent, no need to switch
-                        if (matches!(chain.chain_state, ChainState::Active)
-                            && matches!(toggle_state.action, StateAction::Activate))
-                            || (matches!(chain.chain_state, ChainState::Deactive)
-                                && matches!(toggle_state.action, StateAction::Deactivate))
-                        {
-                            Err(Error::ProposalError(format!(
-                                "The chain({}) don`nt need to switch",
-                                toggle_state.chain_id
-                            )))
-                        } else {
+                if matches!(chain.chain_state, ChainState::Deactive) {
+                    return Err(Error::ProposalError(
+                        "The status of the new chain state must be active".to_string(),
+                    ));
+                }
+                // check chain repetitive
+                if with_state(|hub_state| hub_state.chains.contains_key(&chain.chain_id)) {
+                    return Err(Error::ProposalError(format!(
+                        "The chain({}) already exists",
+                        chain.chain_id
+                    )));
+                }
+                let result = format!("Tne AddChain proposal is: {}", chain);
+                info!("validate_proposal result:{} ", result);
+                dire_msgs.push(result);
+            }
+            Directive::AddToken(token) => {
+                if token.token_id.is_empty()
+                    || token.symbol.is_empty()
+                    || token.issue_chain.is_empty()
+                {
+                    return Err(Error::ProposalError(
+                        "Token id, token symbol or issue chain can not be empty".to_string(),
+                    ));
+                }
+                let _ = with_state(|hub_state| {
+                    // check token repetitive
+                    if hub_state
+                        .token_metas
+                        .contains_key(&(token.issue_chain.clone(), token.token_id.clone()))
+                    {
+                        return Err(Error::ProposalError(format!(
+                            "The token({}) already exists",
+                            token.token_id
+                        )));
+                    }
+                    //check the issue chain must exsiting and not deactive!
+                    match hub_state.chains.get(&token.issue_chain) {
+                        Some(chain) => {
+                            if matches!(chain.chain_state, ChainState::Deactive) {
+                                return Err(Error::ProposalError(format!(
+                                    "The chain({}) is deactive",
+                                    token.issue_chain
+                                )));
+                            }
+                            let result = format!("The AddToken proposal is: {}", token);
+                            info!("validate_proposal result:{} ", result);
+                            dire_msgs.push(result);
+                        }
+                        None => {
+                            return Err(Error::ProposalError(format!(
+                                "The chain({}) is not exists",
+                                token.issue_chain
+                            )));
+                        }
+                    }
+                    Ok(())
+                });
+            }
+            Directive::ToggleChainState(toggle_state) => {
+                if toggle_state.chain_id.is_empty() {
+                    return Err(Error::ProposalError(
+                        "Chain id can not be empty".to_string(),
+                    ));
+                }
+                if !matches!(
+                    toggle_state.action,
+                    StateAction::Activate | StateAction::Deactivate
+                ) {
+                    return Err(Error::ProposalError(
+                        "Not supported chain state".to_string(),
+                    ));
+                }
+
+                let _ = with_state(|hub_state| {
+                    match hub_state.chains.get(&toggle_state.chain_id) {
+                        Some(chain) => {
+                            //If the state and action are consistent, no need to switch
+                            if (matches!(chain.chain_state, ChainState::Active)
+                                && matches!(toggle_state.action, StateAction::Activate))
+                                || (matches!(chain.chain_state, ChainState::Deactive)
+                                    && matches!(toggle_state.action, StateAction::Deactivate))
+                            {
+                                return Err(Error::ProposalError(format!(
+                                    "The chain({}) don`nt need to switch",
+                                    toggle_state.chain_id
+                                )));
+                            }
                             let result =
                                 format!("The ToggleChainStatus proposal is: {}", toggle_state);
                             info!("validate_proposal result:{} ", result);
-                            Ok(result)
+                            dire_msgs.push(result);
+                        }
+                        None => {
+                            return Err(Error::ProposalError(format!(
+                                "The chain({}) is not exists",
+                                toggle_state.chain_id
+                            )))
                         }
                     }
-                    None => Err(Error::ProposalError(format!(
-                        "The chain({}) is not exists",
-                        toggle_state.chain_id
-                    ))),
-                }
-            })
-        }
-        Proposal::UpdateFee(fee) => {
-            if fee.fee_token.is_empty() {
-                return Err(Error::ProposalError(
-                    "The fee token can not be empty".to_string(),
-                ));
-            };
-            //check the issue chain must exsiting and not deactive!
-            with_state(|hub_state| match hub_state.chains.get(&fee.dst_chain_id) {
-                Some(chain) => {
-                    if matches!(chain.chain_state, ChainState::Deactive) {
-                        Err(Error::ProposalError("The chain is deactive".to_string()))
-                    } else {
-                        let result = format!("The UpdateFee proposal is: {}", fee);
-                        info!("validate_proposal result:{} ", result);
-                        Ok(result)
+                    Ok(())
+                });
+            }
+            Directive::UpdateFee(fee) => {
+                if fee.fee_token.is_empty() {
+                    return Err(Error::ProposalError(
+                        "The fee token can not be empty".to_string(),
+                    ));
+                };
+                //check the issue chain must exsiting and not deactive!
+                let _ = with_state(|hub_state| {
+                    match hub_state.chains.get(&fee.dst_chain_id) {
+                        Some(chain) => {
+                            if matches!(chain.chain_state, ChainState::Deactive) {
+                                return Err(Error::ProposalError(
+                                    "The chain is deactive".to_string(),
+                                ));
+                            }
+                            let result = format!("The UpdateFee proposal is: {}", fee);
+                            info!("validate_proposal result:{} ", result);
+                            dire_msgs.push(result)
+                        }
+                        None => {
+                            return Err(Error::ProposalError("The chain is not exists".to_string()))
+                        }
                     }
-                }
-                None => Err(Error::ProposalError("The chain is not exists".to_string())),
-            })
+
+                    Ok(())
+                });
+            }
         }
     }
+    Ok(dire_msgs)
 }
 
 /// build directive based on proposal, this method will be called by sns
 /// add chain / add token /change chain status / update fee
 #[update(guard = "auth")]
 pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
-    match proposal {
-        Proposal::AddChain(chain) => {
-            info!("build directive for `AddChain` proposal :{:?}", chain);
+    for directive in proposal.directives.into_iter() {
+        match directive {
+            Directive::AddChain(chain) => {
+                info!("build directive for `AddChain` proposal :{:?}", chain);
 
-            with_state_mut(|hub_state| {
-                let mut new_chain = ChainInfoWithSeq {
-                    chain_id: chain.chain_id.clone(),
-                    chain_type: chain.chain_type.clone(),
-                    chain_state: chain.chain_state.clone(),
-                    latest_dire_seq: 0,
-                    latest_ticket_seq: 0,
-                };
+                with_state_mut(|hub_state| {
+                    let mut new_chain = ChainInfoWithSeq {
+                        chain_id: chain.chain_id.clone(),
+                        chain_type: chain.chain_type.clone(),
+                        chain_state: chain.chain_state.clone(),
+                        latest_dire_seq: 0,
+                        latest_ticket_seq: 0,
+                    };
 
-                // build directives
-                match chain.chain_type {
-                    // nothing to do
-                    ChainType::SettlementChain => {
-                        info!("for settlement chain,  no need to build directive!");
-                    }
+                    // build directives
+                    match chain.chain_type {
+                        // nothing to do
+                        ChainType::SettlementChain => {
+                            info!("for settlement chain,  no need to build directive!");
+                        }
 
-                    ChainType::ExecutionChain => {
-                        for (dst_chain_id, dst_chain) in hub_state.chains.iter_mut() {
-                            //check: chain state != deactive
-                            if matches!(dst_chain.chain_state, ChainState::Deactive) {
-                                continue;
-                            }
-                            // build directive for exsiting chain
-                            info!(" build directive for exsiting chain!");
-                            hub_state
-                                .dire_queue
-                                .entry(dst_chain_id.to_string())
-                                .and_modify(|dires| {
-                                    // increases the new chain seq
-                                    dst_chain.latest_dire_seq += 1;
-                                    dires.insert(
-                                        dst_chain.latest_dire_seq,
-                                        Directive::AddChain(chain.clone()),
-                                    );
-                                })
-                                .or_insert_with(|| {
-                                    let mut dires = BTreeMap::new();
-                                    dires.insert(0u64, Directive::AddChain(chain.clone()));
-                                    dires
-                                });
-
-                            // build directive for new chain except new chain self
-                            info!(" build directive for new chain, but except new chain self!");
-                            if dst_chain_id.ne(&new_chain.chain_id) {
-                                let new_dst_chain_info = ChainInfo {
-                                    chain_id: dst_chain_id.to_string(),
-                                    chain_type: dst_chain.chain_type.clone(),
-                                    chain_state: dst_chain.chain_state.clone(),
-                                };
+                        ChainType::ExecutionChain => {
+                            for (dst_chain_id, dst_chain) in hub_state.chains.iter_mut() {
+                                //check: chain state != deactive
+                                if matches!(dst_chain.chain_state, ChainState::Deactive) {
+                                    continue;
+                                }
+                                // build directive for exsiting chain
+                                info!(" build directive for exsiting chain!");
                                 hub_state
                                     .dire_queue
-                                    .entry(new_chain.chain_id.clone())
+                                    .entry(dst_chain_id.to_string())
                                     .and_modify(|dires| {
                                         // increases the new chain seq
-                                        new_chain.latest_dire_seq += 1;
+                                        dst_chain.latest_dire_seq += 1;
                                         dires.insert(
-                                            new_chain.latest_dire_seq,
-                                            Directive::AddChain(new_dst_chain_info.clone()),
+                                            dst_chain.latest_dire_seq,
+                                            Directive::AddChain(chain.clone()),
                                         );
                                     })
                                     .or_insert_with(|| {
                                         let mut dires = BTreeMap::new();
-                                        dires.insert(0u64, Directive::AddChain(new_dst_chain_info));
+                                        dires.insert(0u64, Directive::AddChain(chain.clone()));
                                         dires
                                     });
+
+                                // build directive for new chain except new chain self
+                                info!(" build directive for new chain, but except new chain self!");
+                                if dst_chain_id.ne(&new_chain.chain_id) {
+                                    let new_dst_chain_info = ChainInfo {
+                                        chain_id: dst_chain_id.to_string(),
+                                        chain_type: dst_chain.chain_type.clone(),
+                                        chain_state: dst_chain.chain_state.clone(),
+                                    };
+                                    hub_state
+                                        .dire_queue
+                                        .entry(new_chain.chain_id.clone())
+                                        .and_modify(|dires| {
+                                            // increases the new chain seq
+                                            new_chain.latest_dire_seq += 1;
+                                            dires.insert(
+                                                new_chain.latest_dire_seq,
+                                                Directive::AddChain(new_dst_chain_info.clone()),
+                                            );
+                                        })
+                                        .or_insert_with(|| {
+                                            let mut dires = BTreeMap::new();
+                                            dires.insert(
+                                                0u64,
+                                                Directive::AddChain(new_dst_chain_info),
+                                            );
+                                            dires
+                                        });
+                                }
                             }
                         }
                     }
-                }
 
-                // save new chain
-                info!(" save new chain: {:?}", new_chain);
-                hub_state
-                    .chains
-                    .insert(chain.chain_id.clone(), new_chain.clone());
-            });
-            //TODO: build `add token` directive for new chain ?
-        }
-
-        Proposal::AddToken(token) => {
-            info!("build directive for `AddToken` proposal :{:?}", token);
-            with_state_mut(|hub_state| {
-                // save token info
-                hub_state.token_metas.insert(
-                    (token.issue_chain.to_string(), token.token_id.to_string()),
-                    token.clone(),
-                );
-
-                // build directive
-                for (dst_chain_id, dst_chain) in hub_state.chains.iter_mut() {
-                    //check: chain state !=Deactive
-                    if matches!(dst_chain.chain_state, ChainState::Deactive) {
-                        continue;
-                    }
-                    //TODO: except the token`s issue chain ?
+                    // save new chain
+                    info!(" save new chain: {:?}", new_chain);
                     hub_state
-                        .dire_queue
-                        .entry(dst_chain_id.to_string())
-                        .and_modify(|dires| {
-                            dst_chain.latest_dire_seq += 1;
-                            dires.insert(
-                                dst_chain.latest_dire_seq,
-                                Directive::AddToken(token.clone()),
-                            );
-                        })
-                        .or_insert_with(|| {
-                            let mut dires = BTreeMap::new();
-                            dires.insert(0, Directive::AddToken(token.clone()));
-                            dires
-                        });
-                }
-            });
-        }
-        Proposal::ToggleChainState(toggle_status) => {
-            info!(
-                "build directive for `ToggleChainState` proposal :{:?}",
-                toggle_status
-            );
-            with_state_mut(|hub_state| {
-                if let Some(dst_chain) = hub_state.chains.get_mut(&toggle_status.chain_id) {
-                    //change dst chain status
-                    match toggle_status.action {
-                        StateAction::Activate => dst_chain.chain_state = ChainState::Active,
-                        StateAction::Deactivate => dst_chain.chain_state = ChainState::Deactive,
-                    }
+                        .chains
+                        .insert(chain.chain_id.clone(), new_chain.clone());
+                });
+            }
+
+            Directive::AddToken(token) => {
+                info!("build directive for `AddToken` proposal :{:?}", token);
+                with_state_mut(|hub_state| {
+                    // save token info
+                    hub_state.token_metas.insert(
+                        (token.issue_chain.to_string(), token.token_id.to_string()),
+                        token.clone(),
+                    );
 
                     // build directive
-                    for (dst_chain, dst_chain_info) in hub_state.chains.iter_mut() {
-                        if dst_chain.ne(&toggle_status.chain_id) {
-                            //check: chain state !=Deactive
-                            if matches!(dst_chain_info.chain_state, ChainState::Deactive) {
-                                continue;
+                    for (dst_chain_id, dst_chain) in hub_state.chains.iter_mut() {
+                        //check: chain state !=Deactive
+                        if matches!(dst_chain.chain_state, ChainState::Deactive) {
+                            continue;
+                        }
+                        //TODO: except the token`s issue chain ?
+                        hub_state
+                            .dire_queue
+                            .entry(dst_chain_id.to_string())
+                            .and_modify(|dires| {
+                                dst_chain.latest_dire_seq += 1;
+                                dires.insert(
+                                    dst_chain.latest_dire_seq,
+                                    Directive::AddToken(token.clone()),
+                                );
+                            })
+                            .or_insert_with(|| {
+                                let mut dires = BTreeMap::new();
+                                dires.insert(0, Directive::AddToken(token.clone()));
+                                dires
+                            });
+                    }
+                });
+            }
+            Directive::ToggleChainState(toggle_status) => {
+                info!(
+                    "build directive for `ToggleChainState` proposal :{:?}",
+                    toggle_status
+                );
+                with_state_mut(|hub_state| {
+                    if let Some(dst_chain) = hub_state.chains.get_mut(&toggle_status.chain_id) {
+                        //change dst chain status
+                        match toggle_status.action {
+                            StateAction::Activate => dst_chain.chain_state = ChainState::Active,
+                            StateAction::Deactivate => dst_chain.chain_state = ChainState::Deactive,
+                        }
+
+                        // build directive
+                        for (dst_chain, dst_chain_info) in hub_state.chains.iter_mut() {
+                            if dst_chain.ne(&toggle_status.chain_id) {
+                                //check: chain state !=Deactive
+                                if matches!(dst_chain_info.chain_state, ChainState::Deactive) {
+                                    continue;
+                                }
+                                hub_state
+                                    .dire_queue
+                                    .entry(dst_chain.to_string())
+                                    .and_modify(|dires| {
+                                        dst_chain_info.latest_dire_seq += 1;
+                                        dires.insert(
+                                            dst_chain_info.latest_dire_seq,
+                                            Directive::ToggleChainState(toggle_status.clone()),
+                                        );
+                                    })
+                                    .or_insert_with(|| {
+                                        let mut dires = BTreeMap::new();
+                                        dires.insert(
+                                            0,
+                                            Directive::ToggleChainState(toggle_status.clone()),
+                                        );
+                                        dires
+                                    });
+                                // TODO: for activate, need to build `add chain/add token/update fee` directive that during Deactive losted!
                             }
-                            hub_state
-                                .dire_queue
-                                .entry(dst_chain.to_string())
-                                .and_modify(|dires| {
-                                    dst_chain_info.latest_dire_seq += 1;
-                                    dires.insert(
-                                        dst_chain_info.latest_dire_seq,
-                                        Directive::ToggleChainState(toggle_status.clone()),
-                                    );
-                                })
-                                .or_insert_with(|| {
-                                    let mut dires = BTreeMap::new();
-                                    dires.insert(
-                                        0,
-                                        Directive::ToggleChainState(toggle_status.clone()),
-                                    );
-                                    dires
-                                });
-                            // TODO: for activate, need to build `add chain/add token/update fee` directive that during Deactive losted!
                         }
                     }
-                }
-            });
-        }
-        Proposal::UpdateFee(fee) => {
-            info!("build directive for `UpdateFee` proposal :{:?}", fee);
-            with_state_mut(|hub_state| {
-                if let Some(dst_chain) = hub_state.chains.get_mut(&fee.dst_chain_id) {
-                    // save fee info
-                    hub_state
-                        .fees
-                        .entry((dst_chain.chain_id.to_string(), fee.fee_token.to_string()))
-                        .and_modify(|f| *f = fee.clone())
-                        .or_insert(fee.clone());
+                });
+            }
+            Directive::UpdateFee(fee) => {
+                info!("build directive for `UpdateFee` proposal :{:?}", fee);
+                with_state_mut(|hub_state| {
+                    if let Some(dst_chain) = hub_state.chains.get_mut(&fee.dst_chain_id) {
+                        // save fee info
+                        hub_state
+                            .fees
+                            .entry((dst_chain.chain_id.to_string(), fee.fee_token.to_string()))
+                            .and_modify(|f| *f = fee.clone())
+                            .or_insert(fee.clone());
 
-                    // build `update fee` directive for dst chain
-                    hub_state
-                        .dire_queue
-                        .entry(dst_chain.chain_id.to_string())
-                        .and_modify(|dires| {
-                            // increase seq
-                            dst_chain.latest_dire_seq += 1;
-                            dires.insert(
-                                dst_chain.latest_dire_seq,
-                                Directive::UpdateFee(fee.clone()),
-                            );
-                        })
-                        .or_insert_with(|| {
-                            let mut dires = BTreeMap::new();
-                            // seq is zero
-                            dires.insert(0, Directive::UpdateFee(fee.clone()));
-                            dires
-                        });
-                }
-            });
+                        // build `update fee` directive for dst chain
+                        hub_state
+                            .dire_queue
+                            .entry(dst_chain.chain_id.to_string())
+                            .and_modify(|dires| {
+                                // increase seq
+                                dst_chain.latest_dire_seq += 1;
+                                dires.insert(
+                                    dst_chain.latest_dire_seq,
+                                    Directive::UpdateFee(fee.clone()),
+                                );
+                            })
+                            .or_insert_with(|| {
+                                let mut dires = BTreeMap::new();
+                                // seq is zero
+                                dires.insert(0, Directive::UpdateFee(fee.clone()));
+                                dires
+                            });
+                    }
+                });
+            }
         }
     }
+
     Ok(())
 }
 
@@ -466,9 +494,13 @@ pub async fn build_directive(proposal: Proposal) -> Result<(), Error> {
 #[update(guard = "auth")]
 pub async fn update_fee(fee: Fee) -> Result<(), Error> {
     // validate proposal
-    validate_proposal(Proposal::UpdateFee(fee.clone())).await?;
+    let dires = vec![Directive::UpdateFee(fee)];
+    validate_proposal(Proposal {
+        directives: dires.clone(),
+    })
+    .await?;
     //  build directive
-    build_directive(Proposal::UpdateFee(fee)).await?;
+    build_directive(Proposal { directives: dires }).await?;
 
     Ok(())
 }
@@ -886,11 +918,17 @@ mod tests {
         };
 
         // validate proposal
-        let result = validate_proposal(Proposal::AddChain(btc.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddChain(btc.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddChain(chain_info) result:{:?}", result);
         // build directive
-        let result = build_directive(Proposal::AddChain(btc)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddChain(btc)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let ethereum = ChainInfo {
@@ -898,10 +936,16 @@ mod tests {
             chain_type: ChainType::SettlementChain,
             chain_state: ChainState::Active,
         };
-        let result = validate_proposal(Proposal::AddChain(ethereum.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddChain(ethereum.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddChain(chain_info) result:{:?}", result);
-        let result = build_directive(Proposal::AddChain(ethereum)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddChain(ethereum)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let icp = ChainInfo {
@@ -909,10 +953,16 @@ mod tests {
             chain_type: ChainType::SettlementChain,
             chain_state: ChainState::Active,
         };
-        let result = validate_proposal(Proposal::AddChain(icp.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddChain(icp.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddChain(chain_info) result:{:?}", result);
-        let result = build_directive(Proposal::AddChain(icp)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddChain(icp)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let arbitrum = ChainInfo {
@@ -920,10 +970,16 @@ mod tests {
             chain_type: ChainType::ExecutionChain,
             chain_state: ChainState::Active,
         };
-        let result = validate_proposal(Proposal::AddChain(arbitrum.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddChain(arbitrum.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddChain(chain_info) result:{:?}", result);
-        let result = build_directive(Proposal::AddChain(arbitrum)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddChain(arbitrum)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let optimistic = ChainInfo {
@@ -932,10 +988,16 @@ mod tests {
             chain_state: ChainState::Active,
         };
 
-        let result = validate_proposal(Proposal::AddChain(optimistic.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddChain(optimistic.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddChain(chain_info) result:{:?}", result);
-        let result = build_directive(Proposal::AddChain(optimistic)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddChain(optimistic)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let starknet = ChainInfo {
@@ -943,10 +1005,16 @@ mod tests {
             chain_type: ChainType::ExecutionChain,
             chain_state: ChainState::Active,
         };
-        let result = validate_proposal(Proposal::AddChain(starknet.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddChain(starknet.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddChain(chain_info) result:{:?}", result);
-        let result = build_directive(Proposal::AddChain(starknet)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddChain(starknet)],
+        })
+        .await;
         assert!(result.is_ok());
     }
 
@@ -959,11 +1027,17 @@ mod tests {
             icon: None,
         };
         // validate proposal
-        let result = validate_proposal(Proposal::AddToken(btc.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddToken(btc.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddToken(token) result:{:?}", result);
         // build directive
-        let result = build_directive(Proposal::AddToken(btc)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddToken(btc)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let eth = TokenMeta {
@@ -973,10 +1047,16 @@ mod tests {
             decimals: 18,
             icon: None,
         };
-        let result = validate_proposal(Proposal::AddToken(eth.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddToken(eth.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddToken(token) result:{:?}", result);
-        let result = build_directive(Proposal::AddToken(eth)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddToken(eth)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let icp = TokenMeta {
@@ -986,10 +1066,16 @@ mod tests {
             decimals: 18,
             icon: None,
         };
-        let result = validate_proposal(Proposal::AddToken(icp.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddToken(icp.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddToken(token) result:{:?}", result);
-        let result = build_directive(Proposal::AddToken(icp)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddToken(icp)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let arb = TokenMeta {
@@ -999,10 +1085,16 @@ mod tests {
             decimals: 18,
             icon: None,
         };
-        let result = validate_proposal(Proposal::AddToken(arb.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddToken(arb.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddToken(token) result:{:?}", result);
-        let result = build_directive(Proposal::AddToken(arb)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddToken(arb)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let op = TokenMeta {
@@ -1012,10 +1104,16 @@ mod tests {
             decimals: 18,
             icon: None,
         };
-        let result = validate_proposal(Proposal::AddToken(op.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddToken(op.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddToken(token) result:{:?}", result);
-        let result = build_directive(Proposal::AddToken(op)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddToken(op)],
+        })
+        .await;
         assert!(result.is_ok());
 
         let starknet = TokenMeta {
@@ -1025,10 +1123,16 @@ mod tests {
             decimals: 18,
             icon: None,
         };
-        let result = validate_proposal(Proposal::AddToken(starknet.clone())).await;
+        let result = validate_proposal(Proposal {
+            directives: vec![Directive::AddToken(starknet.clone())],
+        })
+        .await;
         assert!(result.is_ok());
         println!("Proposal::AddToken(token) result:{:?}", result);
-        let result = build_directive(Proposal::AddToken(starknet)).await;
+        let result = build_directive(Proposal {
+            directives: vec![Directive::AddToken(starknet)],
+        })
+        .await;
         assert!(result.is_ok());
     }
 
@@ -1096,14 +1200,20 @@ mod tests {
             action: StateAction::Deactivate,
         };
 
-        let toggle_state = Proposal::ToggleChainState(chain_state);
-        let result = validate_proposal(toggle_state.clone()).await;
+        let toggle_state = Directive::ToggleChainState(chain_state);
+        let result = validate_proposal(Proposal {
+            directives: vec![toggle_state.clone()],
+        })
+        .await;
         assert!(result.is_ok());
         println!(
             "Proposal::ToggleChainState(chain_state) result:{:?}",
             result
         );
-        let result = build_directive(toggle_state).await;
+        let result = build_directive(Proposal {
+            directives: vec![toggle_state],
+        })
+        .await;
         assert!(result.is_ok());
 
         // query directives for chain id
@@ -1197,11 +1307,11 @@ mod tests {
 
         println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
         let result = send_ticket(ticket).await;
-        assert!(result.is_ok());
         println!(
             "{} -> {} transfer result:{:?}",
             src_chain, dst_chain, result
         );
+        assert!(result.is_ok());
         // query tickets for chain id
         let result = query_tickets(dst_chain.to_string(), 0, 5).await;
         println!("query tickets for {:} tickets: {:?}", dst_chain, result);
