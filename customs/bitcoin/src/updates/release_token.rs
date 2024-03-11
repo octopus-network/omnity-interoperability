@@ -1,5 +1,5 @@
 use crate::guard::{release_token_guard, GuardError};
-use crate::state::ReleaseTokenStatus;
+use crate::state::{ReleaseTokenStatus, RuneId};
 use crate::tasks::{schedule_now, TaskType};
 use crate::{
     address::{BitcoinAddress, ParseAddressError},
@@ -14,7 +14,7 @@ const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct ReleaseTokenArgs {
     pub ticket_id: TicketId,
-    pub rune_id: String,
+    pub rune_id: RuneId,
     // amount to retrieve
     pub amount: u128,
     // address where to send tokens

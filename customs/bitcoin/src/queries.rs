@@ -3,6 +3,8 @@ use ic_btc_interface::Txid;
 use omnity_types::TicketId;
 use serde::Deserialize;
 
+use crate::state::RuneId;
+
 #[derive(CandidType, Deserialize)]
 pub struct ReleaseTokenStatusArgs {
     pub ticket_id: TicketId,
@@ -15,7 +17,7 @@ pub struct GenTicketStatusArgs {
 
 #[derive(CandidType, Deserialize)]
 pub struct EstimateFeeArg {
-    pub rune_id: String,
+    pub rune_id: RuneId,
     pub amount: Option<u128>,
 }
 

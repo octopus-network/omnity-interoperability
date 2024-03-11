@@ -7,8 +7,8 @@ use omnity_types::TicketId;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    BtcChangeOutput, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest, RunesBalance,
-    RunesUtxo,
+    BtcChangeOutput, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest, RuneId,
+    RunesBalance, RunesUtxo,
 };
 
 #[derive(candid::CandidType, Deserialize)]
@@ -77,7 +77,7 @@ pub enum Event {
     #[serde(rename = "sent_transaction")]
     SentBtcTransaction {
         #[serde(rename = "rune_id")]
-        rune_id: String,
+        rune_id: RuneId,
         /// Release id list of release_token requests that caused the transaction.
         #[serde(rename = "requests")]
         request_release_ids: Vec<TicketId>,

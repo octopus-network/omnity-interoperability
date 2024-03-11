@@ -190,7 +190,7 @@ async fn get_canister_status() -> ic_cdk::api::management_canister::main::Canist
 fn estimate_redeem_fee(arg: EstimateFeeArg) -> RedeemFee {
     read_state(|s| {
         bitcoin_customs::estimate_fee(
-            &arg.rune_id,
+            arg.rune_id,
             &s.available_runes_utxos,
             arg.amount,
             s.last_fee_per_vbyte[50],
