@@ -289,7 +289,7 @@ fn should_have_same_input_and_output_count() {
     let fee_per_vbyte = 10000;
 
     let (tx, runes_change_output, btc_change_output, _, _) = build_unsigned_transaction(
-        &rune_id,
+        rune_id,
         &mut available_runes_utxos,
         &mut available_btc_utxos,
         runes_main_addr,
@@ -337,7 +337,7 @@ fn test_not_enough_gas() {
 
     assert_eq!(
         build_unsigned_transaction(
-            &rune_id,
+            rune_id,
             &mut available_runes_utxos,
             &mut available_btc_utxos,
             runes_main_addr,
@@ -672,7 +672,7 @@ proptest! {
     let rune_id = RuneId{height: 100, index: 1};
 
         let (unsigned_tx, _, _, _, _) = build_unsigned_transaction(
-            &rune_id,
+            rune_id,
             &mut runes_utxos,
             &mut btc_utxos,
             BitcoinAddress::P2wpkhV0(runes_pkhash),
@@ -704,7 +704,7 @@ proptest! {
 
         prop_assert_eq!(
             build_unsigned_transaction(
-                &rune_id,
+                rune_id,
                 &mut runes_utxos,
                 &mut btc_utxos,
                 BitcoinAddress::P2wpkhV0(runes_pkhash),
@@ -767,8 +767,8 @@ proptest! {
             prop_assert_eq!(state.release_token_status(&req.ticket_id), ReleaseTokenStatus::Pending);
         }
 
-    let rune_id = RuneId{height: 100, index: 1};
-        let batch = state.build_batch(&rune_id, limit);
+        let rune_id = RuneId{height: 100, index: 1};
+        let batch = state.build_batch(rune_id, limit);
 
         for req in batch.iter() {
             prop_assert_eq!(state.release_token_status(&req.ticket_id), ReleaseTokenStatus::Unknown);
@@ -811,7 +811,7 @@ proptest! {
         let fee_per_vbyte = 100_000u64;
 
         let (tx, runes_change_output, btc_change_output, runes_utxos, btc_utxos) = build_unsigned_transaction(
-            &rune_id,
+            rune_id,
             &mut state.available_runes_utxos,
             &mut state.available_fee_utxos,
             BitcoinAddress::P2wpkhV0(runes_pkhash),
@@ -825,7 +825,7 @@ proptest! {
         let submitted_at = 1_234_567_890;
 
         state.push_submitted_transaction(SubmittedBtcTransaction {
-            rune_id: rune_id.clone(),
+            rune_id,
             requests: requests.clone(),
             txid: txids[0],
             runes_utxos: runes_utxos.clone(),
@@ -843,7 +843,7 @@ proptest! {
             let prev_txid = txids.last().unwrap();
             // Build a replacement transaction
             let (tx, runes_change_output, btc_change_output, _, _) = build_unsigned_transaction(
-                &rune_id,
+                rune_id,
                 &mut runes_utxos.clone().into_iter().collect(),
                 &mut btc_utxos.clone().into_iter().collect(),
                 BitcoinAddress::P2wpkhV0(runes_pkhash),
@@ -857,7 +857,7 @@ proptest! {
             let new_txid = tx.txid();
 
             state.replace_transaction(prev_txid, SubmittedBtcTransaction {
-                rune_id: rune_id.clone(),
+                rune_id,
                 requests: requests.clone(),
                 txid: new_txid,
                 runes_utxos: runes_utxos.clone(),
@@ -1003,7 +1003,7 @@ proptest! {
         const SMALLEST_TX_SIZE_VBYTES: u64 = 140; // one input, two outputs
 
     let rune_id = RuneId{height: 100, index: 1};
-        let estimate = estimate_fee(&rune_id, &utxos, amount, fee_per_vbyte);
+        let estimate = estimate_fee(rune_id, &utxos, amount, fee_per_vbyte);
         let lower_bound =  SMALLEST_TX_SIZE_VBYTES * fee_per_vbyte / 1000;
         let estimate_amount = estimate.bitcoin_fee;
         prop_assert!(
