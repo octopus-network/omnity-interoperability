@@ -1,11 +1,11 @@
 use crate::{customs::Customs, indexer::Indexer};
 use bitcoin_customs::{
-    state::{self, GenTicketRequest},
+    state::{self, GenTicketRequest, RuneId},
     updates::update_runes_balance::UpdateRunesBalanceError,
 };
 use log;
+use std::{collections::VecDeque, str::FromStr, time::Duration};
 use ticker::Ticker;
-use std::{collections::VecDeque, time::Duration};
 
 pub struct Executor {
     customs: Customs,
@@ -43,7 +43,7 @@ impl Executor {
                     Ok(tx) => {
                         let mut balances = tx.get_runes_balance();
                         balances.retain(|b| {
-                            b.address == request.address && b.rune_id == request.rune_id
+                            b.address == request.address && b.rune_id == request.rune_id.to_string()
                         });
 
                         match self
@@ -52,10 +52,13 @@ impl Executor {
                                 request.txid,
                                 balances
                                     .iter()
-                                    .map(|b| state::RunesBalance {
-                                        rune_id: b.rune_id,
-                                        vout: b.vout,
-                                        amount: b.amount,
+                                    .map(|b| {
+                                        let rune_id = RuneId::from_str(&b.rune_id).unwrap();
+                                        state::RunesBalance {
+                                            rune_id,
+                                            vout: b.vout,
+                                            amount: b.amount,
+                                        }
                                     })
                                     .collect(),
                             )

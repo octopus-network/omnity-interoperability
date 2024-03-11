@@ -1,9 +1,9 @@
 use crate::guard::{release_token_guard, GuardError};
-use crate::state::ReleaseTokenStatus;
+use crate::state::{ReleaseTokenStatus, RuneId};
 use crate::tasks::{schedule_now, TaskType};
 use crate::{
     address::{BitcoinAddress, ParseAddressError},
-    state::{self, mutate_state, read_state, ReleaseTokenRequest, RuneId},
+    state::{self, mutate_state, read_state, ReleaseTokenRequest},
 };
 use candid::{CandidType, Deserialize};
 use omnity_types::TicketId;

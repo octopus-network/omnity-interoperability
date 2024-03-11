@@ -6,6 +6,9 @@
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, VecDeque},
+    error::Error,
+    fmt::{self, Display, Formatter},
+    str::FromStr,
 };
 
 pub mod audit;
@@ -32,6 +35,48 @@ thread_local! {
     static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseRuneIdError;
+
+impl fmt::Display for ParseRuneIdError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        "provided rune_id was not valid".fmt(f)
+    }
+}
+
+impl Error for ParseRuneIdError {
+    fn description(&self) -> &str {
+        "failed to parse rune_id"
+    }
+}
+
+#[derive(
+    candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Copy,
+)]
+pub struct RuneId {
+    pub height: u32,
+    pub index: u16,
+}
+
+impl Display for RuneId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.height, self.index,)
+    }
+}
+
+impl FromStr for RuneId {
+    type Err = ParseRuneIdError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (height, index) = s.split_once(':').ok_or_else(|| ParseRuneIdError)?;
+
+        Ok(Self {
+            height: height.parse().map_err(|_| ParseRuneIdError)?,
+            index: index.parse().map_err(|_| ParseRuneIdError)?,
+        })
+    }
+}
+
 // A pending release token request
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReleaseTokenRequest {
@@ -55,8 +100,6 @@ pub struct GenTicketRequest {
     pub txid: Txid,
     pub received_at: u64,
 }
-
-pub type RuneId = u128;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesBalance {
@@ -560,8 +603,8 @@ impl CustomsState {
 
     /// Returns true if the pending requests queue has enough requests to form a
     /// batch or there are old enough requests to form a batch.
-    pub fn can_form_a_batch(&self, rune_id: &RuneId, min_pending: usize, now: u64) -> bool {
-        match self.pending_release_token_requests.get(rune_id) {
+    pub fn can_form_a_batch(&self, rune_id: RuneId, min_pending: usize, now: u64) -> bool {
+        match self.pending_release_token_requests.get(&rune_id) {
             Some(requests) => {
                 if requests.len() >= min_pending {
                     return true;
@@ -576,20 +619,20 @@ impl CustomsState {
     }
 
     /// Forms a batch of retrieve_btc requests that the minter can fulfill.
-    pub fn build_batch(&mut self, rune_id: &RuneId, max_size: usize) -> Vec<ReleaseTokenRequest> {
-        assert!(self.pending_release_token_requests.contains_key(rune_id));
+    pub fn build_batch(&mut self, rune_id: RuneId, max_size: usize) -> Vec<ReleaseTokenRequest> {
+        assert!(self.pending_release_token_requests.contains_key(&rune_id));
 
         let available_utxos_value = self
             .available_runes_utxos
             .iter()
-            .filter(|u| u.runes.rune_id.eq(rune_id))
+            .filter(|u| u.runes.rune_id.eq(&rune_id))
             .map(|u| u.runes.amount)
             .sum::<u128>();
         let mut batch = vec![];
         let mut tx_amount = 0;
         let requests = self
             .pending_release_token_requests
-            .entry(*rune_id)
+            .entry(rune_id)
             .or_default();
         for req in std::mem::take(requests) {
             if available_utxos_value < req.amount + tx_amount || batch.len() >= max_size {
@@ -941,7 +984,7 @@ impl CustomsState {
         );
         for (rune_id, requests) in &self.pending_release_token_requests {
             let my_requests = as_sorted_vec(requests.iter().cloned(), |r| r.ticket_id.clone());
-            match other.pending_release_token_requests.get(&rune_id) {
+            match other.pending_release_token_requests.get(rune_id) {
                 Some(requests) => {
                     let other_requests =
                         as_sorted_vec(requests.iter().cloned(), |r| r.ticket_id.clone());

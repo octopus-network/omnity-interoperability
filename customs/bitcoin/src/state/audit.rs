@@ -85,7 +85,7 @@ pub fn remove_ticket_request(
 
 pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransaction) {
     record_event(&Event::SentBtcTransaction {
-        rune_id: tx.rune_id.clone(),
+        rune_id: tx.rune_id,
         request_release_ids: tx.requests.iter().map(|r| r.ticket_id.clone()).collect(),
         txid: tx.txid,
         runes_utxos: tx.runes_utxos.clone(),

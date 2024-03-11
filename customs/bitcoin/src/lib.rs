@@ -14,6 +14,7 @@ use serde::Serialize;
 use serde_bytes::ByteBuf;
 use state::{read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo};
 use std::collections::{BTreeMap, BTreeSet};
+use std::str::FromStr;
 use std::time::Duration;
 use updates::release_token::{release_token, ReleaseTokenArgs, ReleaseTokenError};
 
@@ -235,41 +236,41 @@ async fn submit_release_token_requests() {
                     next_index = index + 1;
                     continue;
                 };
-                let rune_id = if let Ok(rune_id) = u128::from_str_radix(ticket.token.as_str(), 10) {
-                    rune_id
+
+                if let Ok(rune_id) = RuneId::from_str(&ticket.token) {
+                    let args = ReleaseTokenArgs {
+                        ticket_id: ticket.ticket_id,
+                        rune_id,
+                        amount,
+                        address: ticket.receiver,
+                    };
+                    match release_token(args).await {
+                        Err(ReleaseTokenError::TemporarilyUnavailable(_)) => {
+                            log!(
+                                P0,
+                                "[submit_release_token_requests] temporarily unavailable"
+                            );
+                            break;
+                        }
+                        Err(ReleaseTokenError::AlreadyProcessing)
+                        | Err(ReleaseTokenError::AlreadyProcessed)
+                        | Ok(_) => next_index = index + 1,
+                        Err(ReleaseTokenError::MalformedAddress(err)) => {
+                            log!(
+                                P0,
+                                "[submit_release_token_requests] malformed address: {}",
+                                err
+                            );
+                            next_index = index + 1;
+                        }
+                    }
                 } else {
                     log!(
                         P0,
-                        "[submit_release_token_requests]: failed to parse runes id of ticket"
+                        "[submit_release_token_requests]: failed to parse rune_id of ticket"
                     );
                     next_index = index + 1;
                     continue;
-                };
-                let args = ReleaseTokenArgs {
-                    ticket_id: ticket.ticket_id,
-                    rune_id,
-                    amount,
-                    address: ticket.receiver,
-                };
-                match release_token(args).await {
-                    Err(ReleaseTokenError::TemporarilyUnavailable(_)) => {
-                        log!(
-                            P0,
-                            "[submit_release_token_requests] temporarily unavailable"
-                        );
-                        break;
-                    }
-                    Err(ReleaseTokenError::AlreadyProcessing)
-                    | Err(ReleaseTokenError::AlreadyProcessed)
-                    | Ok(_) => next_index = index + 1,
-                    Err(ReleaseTokenError::MalformedAddress(err)) => {
-                        log!(
-                            P0,
-                            "[submit_release_token_requests] malformed address: {}",
-                            err
-                        );
-                        next_index = index + 1;
-                    }
                 }
             }
             mutate_state(|s| s.next_release_ticket_index = next_index);
@@ -295,7 +296,7 @@ async fn submit_pending_requests() {
         // We make requests if we have old requests in the queue or if have enough
         // requests to fill a batch.
         if !state::read_state(|s| {
-            s.can_form_a_batch(&rune_id, MIN_PENDING_REQUESTS, ic_cdk::api::time())
+            s.can_form_a_batch(rune_id, MIN_PENDING_REQUESTS, ic_cdk::api::time())
         }) {
             continue;
         }
@@ -309,7 +310,7 @@ async fn submit_pending_requests() {
             address::main_bitcoin_address(&ecdsa_public_key, rune_id.to_string());
 
         let maybe_sign_request = state::mutate_state(|s| {
-            let batch = s.build_batch(&rune_id, MAX_REQUESTS_PER_BATCH);
+            let batch = s.build_batch(rune_id, MAX_REQUESTS_PER_BATCH);
 
             if batch.is_empty() {
                 return None;
@@ -321,7 +322,7 @@ async fn submit_pending_requests() {
                 .collect();
 
             match build_unsigned_transaction(
-                &rune_id,
+                rune_id,
                 &mut s.available_runes_utxos,
                 &mut s.available_fee_utxos,
                 runes_main_address,
@@ -428,7 +429,7 @@ async fn submit_pending_requests() {
                                 state::audit::sent_transaction(
                                     s,
                                     state::SubmittedBtcTransaction {
-                                        rune_id,
+                                        rune_id: rune_id.clone(),
                                         requests,
                                         txid,
                                         runes_utxos,
@@ -567,7 +568,7 @@ async fn finalize_requests() {
         for tx in &confirmed_transactions {
             state::audit::confirm_transaction(s, &tx.txid);
             let balance = RunesBalance {
-                rune_id: tx.runes_change_output.rune_id,
+                rune_id: tx.runes_change_output.rune_id.clone(),
                 vout: tx.runes_change_output.vout,
                 amount: tx.runes_change_output.value,
             };
@@ -672,7 +673,7 @@ async fn finalize_requests() {
 
         let (unsigned_tx, runes_change, btc_change, used_runes_utxos, used_btc_utxos) =
             match build_unsigned_transaction(
-                &submitted_tx.rune_id,
+                submitted_tx.rune_id,
                 &mut runes_utxos,
                 &mut btc_utxos,
                 main_bitcoin_address(&ecdsa_public_key, submitted_tx.rune_id.to_string()),
@@ -1005,7 +1006,7 @@ pub enum BuildTxError {
 /// ```
 ///
 pub fn build_unsigned_transaction(
-    rune_id: &RuneId,
+    rune_id: RuneId,
     available_runes_utxos: &mut BTreeSet<RunesUtxo>,
     available_btc_utxos: &mut BTreeSet<Utxo>,
     runes_main_address: BitcoinAddress,
@@ -1033,7 +1034,7 @@ pub fn build_unsigned_transaction(
 
     let amount = outputs.iter().map(|(_, amount)| amount).sum::<u128>();
     let runes_utxo = utxos_selection(amount, available_runes_utxos, outputs.len(), |u| {
-        if u.runes.rune_id.eq(rune_id) {
+        if u.runes.rune_id.eq(&rune_id) {
             u.runes.amount
         } else {
             0
@@ -1055,12 +1056,14 @@ pub fn build_unsigned_transaction(
     let inputs_value = utxos_guard.iter().map(|u| u.runes.amount).sum::<u128>();
     debug_assert!(inputs_value >= amount);
 
+    let id = u128::from(rune_id.height) << 16 | u128::from(rune_id.index);
+
     let stone = Runestone {
         edicts: outputs
             .iter()
             .enumerate()
             .map(|(idx, (_, amount))| Edict {
-                id: *rune_id,
+                id,
                 amount: *amount,
                 output: (idx + 2) as u128,
             })
@@ -1069,7 +1072,7 @@ pub fn build_unsigned_transaction(
 
     let runes_change = inputs_value - amount;
     let change_output = state::RunesChangeOutput {
-        rune_id: *rune_id,
+        rune_id,
         vout: 1,
         value: runes_change,
     };

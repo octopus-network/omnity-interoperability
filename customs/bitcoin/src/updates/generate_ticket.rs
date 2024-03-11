@@ -14,7 +14,7 @@ use std::str::FromStr;
 pub struct GenerateTicketArgs {
     pub target_chain_id: String,
     pub receiver: String,
-    pub rune_id: RuneId,
+    pub rune_id: String,
     pub amount: u128,
     pub txid: String,
 }
@@ -25,6 +25,7 @@ pub enum GenerateTicketError {
     AlreadySubmitted,
     AleardyProcessed,
     NoNewUtxos,
+    InvalidRundId(String),
 }
 
 impl From<GuardError> for GenerateTicketError {
@@ -38,6 +39,8 @@ impl From<GuardError> for GenerateTicketError {
 }
 
 pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
+    let rune_id = RuneId::from_str(&args.rune_id)
+        .map_err(|e| GenerateTicketError::InvalidRundId(e.to_string()))?;
     read_state(|s| s.mode.is_transport_available_for())
         .map_err(GenerateTicketError::TemporarilyUnavailable)?;
     let txid = Txid::from_str(&args.txid)
@@ -87,7 +90,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         address,
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
-        rune_id: args.rune_id,
+        rune_id,
         amount: args.amount,
         txid,
         received_at: ic_cdk::api::time(),

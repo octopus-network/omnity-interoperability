@@ -19,7 +19,7 @@ impl Indexer {
     }
 
     pub async fn get_transaction(&self, txid: Txid) -> Result<Transaction, IndexerError> {
-        let resp = reqwest::get(format!("{}/api/tx/{}", self.url, txid))
+        let resp = reqwest::get(format!("{}/api/rest/tx/{}", self.url, txid))
             .await
             .map_err(IndexerError::RequestErr)?;
         match resp.status() {
