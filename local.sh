@@ -72,7 +72,7 @@ $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user
 $ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 1 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
 http://192.168.1.105:23456/rune/FIRST%E2%80%A2RUNE%E2%80%A2TOKEN
 rune_id: 102:1
-$ dfx canister call bitcoin_customs generate_ticket '(record {target_chain_id = "cosmoshub"; receiver = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"; rune_id = "102:1"; amount = 7; txid = "4058fd4afb991a89d09dff3d79abe6abecfdb2f90ae81314e357ca2a5b052a4a"})'
+$ dfx canister call bitcoin_customs generate_ticket '(record {target_chain_id = "cosmoshub"; receiver = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"; rune_id = record {height = 102; index = 1;}; amount = 7; txid = "4058fd4afb991a89d09dff3d79abe6abecfdb2f90ae81314e357ca2a5b052a4a"})'
 $ dfx canister call bitcoin_customs get_pending_gen_ticket_requests
 (
   vec {
