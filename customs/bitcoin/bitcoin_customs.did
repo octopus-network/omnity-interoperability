@@ -101,7 +101,7 @@ type GenerateTicketArgs = record {
 };
 type GenerateTicketError = variant {
   TemporarilyUnavailable : text;
-  InvalidRundId : text;
+  InvalidRuneId : text;
   AlreadySubmitted;
   AleardyProcessed;
   NoNewUtxos;

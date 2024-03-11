@@ -119,4 +119,4 @@ $ dfx canister call bitcoin_customs update_btc_utxos
 
 $ dfx canister call hub_mock push_ticket '(record {ticket_id='xxx'...})'
 # wait 10 seconds, query the event to confirm that the transaction has been sent
-$ ablrun dfx canister call bitcoin_customs get_events '(record {start = 0; length = 100})'
+$ dfx canister call bitcoin_customs get_events '(record {start = 0; length = 100})'

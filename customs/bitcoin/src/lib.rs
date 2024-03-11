@@ -1056,14 +1056,12 @@ pub fn build_unsigned_transaction(
     let inputs_value = utxos_guard.iter().map(|u| u.runes.amount).sum::<u128>();
     debug_assert!(inputs_value >= amount);
 
-    let id = u128::from(rune_id.height) << 16 | u128::from(rune_id.index);
-
     let stone = Runestone {
         edicts: outputs
             .iter()
             .enumerate()
             .map(|(idx, (_, amount))| Edict {
-                id,
+                id: rune_id.into(),
                 amount: *amount,
                 output: (idx + 2) as u128,
             })

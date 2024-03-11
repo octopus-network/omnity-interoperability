@@ -25,7 +25,7 @@ pub enum GenerateTicketError {
     AlreadySubmitted,
     AleardyProcessed,
     NoNewUtxos,
-    InvalidRundId(String),
+    InvalidRuneId(String),
 }
 
 impl From<GuardError> for GenerateTicketError {
@@ -39,10 +39,15 @@ impl From<GuardError> for GenerateTicketError {
 }
 
 pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
-    let rune_id = RuneId::from_str(&args.rune_id)
-        .map_err(|e| GenerateTicketError::InvalidRundId(e.to_string()))?;
     read_state(|s| s.mode.is_transport_available_for())
         .map_err(GenerateTicketError::TemporarilyUnavailable)?;
+
+    init_ecdsa_public_key().await;
+    let _guard = generate_ticket_guard()?;
+
+    let rune_id = RuneId::from_str(&args.rune_id)
+        .map_err(|e| GenerateTicketError::InvalidRuneId(e.to_string()))?;
+
     let txid = Txid::from_str(&args.txid)
         .map_err(|_| GenerateTicketError::TemporarilyUnavailable("Invalid txid".to_string()))?;
 
@@ -57,9 +62,6 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     })?;
 
     let (btc_network, min_confirmations) = read_state(|s| (s.btc_network, s.min_confirmations));
-
-    init_ecdsa_public_key().await;
-    let _guard = generate_ticket_guard()?;
 
     let destination = Destination {
         target_chain_id: args.target_chain_id.clone(),
