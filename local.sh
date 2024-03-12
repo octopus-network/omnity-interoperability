@@ -6,7 +6,7 @@ $ dfx start --clean
 $ dfx deploy omnity_hub
 $ dfx identity --identity default get-principal
 o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe
-$ dfx deploy bitcoin_customs --argument '(variant { Init = record { mode = variant { GeneralAvailability }; btc_network = variant { Regtest }; hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; ecdsa_key_name = "dfx_test_key"; min_confirmations = opt 1; max_time_in_queue_nanos = 600_000_000_000; runes_oracle_principal = principal "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe" } })' # 20 mins for testnet
+$ dfx deploy bitcoin_customs --argument '(variant { Init = record { mode = variant { GeneralAvailability }; btc_network = variant { Regtest }; hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; ecdsa_key_name = "dfx_test_key"; min_confirmations = opt 1; max_time_in_queue_nanos = 1_000_000_000; runes_oracle_principal = principal "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe" } })' # 20 mins for testnet/prod
 
 # https://github.com/lesterli/ord/blob/docs/runes/docs/src/guides/runes.md
 $ git clone https://github.com/octopus-network/ord.git
@@ -61,8 +61,6 @@ $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user
 
 $ dfx canister call bitcoin_customs get_btc_address '(record {target_chain_id = "cosmoshub"; receiver = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"})'
 ("bcrt1q9jvz3tkk0nptsx8tw8chvjz03h77fvf8dy66z2")
-
-$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 101 bcrt1q9jvz3tkk0nptsx8tw8chvjz03h77fvf8dy66z2
 
 $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= --index-runes wallet --server-url http://127.0.0.1:23456 send --fee-rate 1 bcrt1q9jvz3tkk0nptsx8tw8chvjz03h77fvf8dy66z2 7FIRST•RUNE•TOKEN
 {
@@ -144,6 +142,37 @@ $ dfx canister call omnity_hub query_tickets '("cosmoshub", 0, 10)'
     }
   },
 )
+
+
+
+
+$ dfx canister call bitcoin_customs update_btc_utxos
+
+$ dfx canister call omnity_hub send_ticket '(record { ticket_id = "f8aee1cc-db7a-40ea-80c2-4cf5e6c84c21"; ticket_time = 1707291817947 : nat64; token = "102:1"; amount = "10"; src_chain = "cosmoshub"; dst_chain = "BTC"; action = variant { Redeem }; sender = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"; receiver = "bcrt1q72ycas7f7h0wfv8egqh6vfzhurlaeket33l4qa"; memo = null;})'
+$ dfx canister call omnity_hub query_tickets '("BTC", 0, 10)'
+(
+  variant {
+    Ok = vec {
+      record {
+        0 : nat64;
+        record {
+          token = "102:1";
+          action = variant { Redeem };
+          dst_chain = "BTC";
+          memo = null;
+          ticket_id = "f8aee1cc-db7a-40ea-80c2-4cf5e6c84c21";
+          sender = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur";
+          ticket_time = 1_707_291_817_947 : nat64;
+          src_chain = "cosmoshub";
+          amount = "10";
+          receiver = "bcrt1q72ycas7f7h0wfv8egqh6vfzhurlaeket33l4qa";
+        };
+      };
+    }
+  },
+)
+$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 1 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
+$ dfx canister call bitcoin_customs get_events '(record {start = 0; length = 100})'
 
 # -------------------redeem token script--------------------------------
 # deploy the hub_mock canister instead of omnity_hub
