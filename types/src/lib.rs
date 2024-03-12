@@ -1,7 +1,7 @@
 use candid::CandidType;
+
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+
 use thiserror::Error;
 
 pub type Signature = Vec<u8>;
@@ -14,24 +14,10 @@ pub type TokenId = String;
 pub type TicketId = String;
 pub type Account = String;
 
-/// Directive Queue
-/// K: DstChain, V:  BTreeMap<Seq, Directive>
-pub type DireQueue = HashMap<DstChain, BTreeMap<Seq, Directive>>;
-/// Ticket Queue
-/// K: DstChain, V: BTreeMap<Seq, Ticket>
-pub type TicketQueue = HashMap<DstChain, BTreeMap<Seq, Ticket>>;
-
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
-pub struct Proposal {
-    pub directives: Vec<Directive>,
-}
-
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub enum Directive {
-    //TODO: add counterparty chains
-    AddChain(ChainInfo),
-    //TODO: add dst chains
-    AddToken(TokenMeta),
+    AddChain(Chain),
+    AddToken(Token),
     ToggleChainState(ToggleState),
     UpdateFee(Fee),
 }
@@ -64,7 +50,7 @@ impl core::fmt::Display for Ticket {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "ticket id:{},\ncreated time:{},\nsrc chain:{},\ndst_chain:{},\naction:{:?},\ntoken:{},\namount:{},\nsender:{},\nrecevier:{},\nmemo:{:?}",
+            "\nticket id:{} \ncreated time:{} \nsrc chain:{} \ndst_chain:{} \naction:{:?} \ntoken:{} \namount:{} \nsender:{} \nrecevier:{} \nmemo:{:?}",
             self.ticket_id,
             self.ticket_time,
             self.src_chain,
@@ -94,7 +80,7 @@ pub enum ChainState {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
-pub enum StateAction {
+pub enum ToggleAction {
     // #[default]
     // Active,
     #[default]
@@ -124,38 +110,28 @@ impl core::fmt::Display for Fee {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "dst chain:{},\nfee token:{},\nfactor:{}",
+            "\ndst chain:{},\nfee token:{},\nfactor:{}",
             self.dst_chain_id, self.fee_token, self.factor,
         )
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ChainInfo {
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Chain {
+    // pub canister_id: String,
     pub chain_id: ChainId,
     pub chain_type: ChainType,
     // the chain default state is true
     pub chain_state: ChainState,
-    // Optional: settlement chain export contract address
-    // pub export_address: Option<String>,
-    // Optional: execution chain port contract address
-    // pub port_address: Option<String>,
-}
-
-impl core::fmt::Display for ChainInfo {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        write!(
-            f,
-            "chain name:{},\nchain type:{:?},\nchain state:{:?}",
-            self.chain_id, self.chain_type, self.chain_state,
-        )
-    }
+    // settlement chain: export contract address
+    // execution chain: port contract address
+    pub contract_address: Option<String>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
 pub struct ToggleState {
     pub chain_id: ChainId,
-    pub action: StateAction,
+    pub action: ToggleAction,
 }
 impl core::fmt::Display for ToggleState {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
@@ -164,31 +140,23 @@ impl core::fmt::Display for ToggleState {
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct TokenMeta {
+pub struct Token {
     pub token_id: TokenId,
     pub symbol: String,
     // the token`s issuse chain
     pub issue_chain: ChainId,
     pub decimals: u8,
     pub icon: Option<String>,
+    // pub dst_chains: Vec<ChainId>,
     // pub total_amount: Option<u128>,
     // pub token_constract_address: Option<String>,
-}
-impl core::fmt::Display for TokenMeta {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        write!(
-            f,
-            "token name:{},\nsymbol:{:?},\nissue chain:{},\ndecimals:{},\nicon:{:?}",
-            self.token_id, self.symbol, self.issue_chain, self.decimals, self.icon
-        )
-    }
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TokenOnChain {
-    pub token_id: TokenId,
     // the chain of the token be locked
     pub chain_id: ChainId,
+    pub token_id: TokenId,
     pub amount: u128,
     // pub chain_type: ChainType,
 }
@@ -219,10 +187,16 @@ pub struct TxCondition {
 
 #[derive(CandidType, Deserialize, Debug, Error)]
 pub enum Error {
-    #[error("proposal error: (`{0}`)")]
-    ProposalError(String),
+    #[error("The chain(`{0}`) already exists")]
+    ChainAlreadyExisting(String),
+    #[error("The token(`{0}`) already exists")]
+    TokenAlreadyExisting(String),
+
     #[error("not supported proposal")]
     NotSupportedProposal,
+    #[error("proposal error: (`{0}`)")]
+    ProposalError(String),
+
     #[error("the message is malformed and cannot be decoded error")]
     MalformedMessageBytes,
     #[error("unauthorized")]

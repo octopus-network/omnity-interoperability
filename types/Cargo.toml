@@ -5,21 +5,21 @@ edition = "2021"
 
 
 [dependencies]
-candid =  { workspace = true }
-thiserror =  { workspace = true }
-log =  { workspace = true }
-hex =  { workspace = true }
-sha2 =  { workspace = true }
-serde_json =  { workspace = true }
-serde =  { workspace = true }
-serde_with =  { workspace = true }
+candid = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
 derive_more = { workspace = true }
-
+# omnity_hub = { path = "../hub" }
 # log deps
 # ic-log =  { workspace = true }
-ciborium =  { workspace = true }
+ciborium = { workspace = true }
 #ic-stable-structures =  { workspace = true }
-lazy_static =  { workspace = true }
+lazy_static = { workspace = true }
 
 [dev-dependencies.tokio]
 version = "1.35.1"
