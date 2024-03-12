@@ -1,6 +1,6 @@
+use crate::management;
 use crate::state::{audit, FinalizedTicketStatus, GenTicketStatus, RunesBalance};
 use crate::state::{mutate_state, read_state};
-use crate::{management, BTC_TOKEN};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
 use omnity_types::{Ticket, TxAction};
@@ -45,13 +45,13 @@ pub async fn update_runes_balance(
 
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
     let result = if args.balances.iter().all(|b| b.rune_id == req.rune_id) && amount == req.amount {
-        let hub_principal = read_state(|s| s.hub_principal);
+        let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
         management::send_ticket(
             hub_principal,
             Ticket {
                 ticket_id: args.txid.to_string(),
                 ticket_time: ic_cdk::api::time(),
-                src_chain: String::from(BTC_TOKEN),
+                src_chain: chain_id,
                 dst_chain: req.target_chain_id.clone(),
                 action: TxAction::Transfer,
                 token: req.rune_id.to_string(),

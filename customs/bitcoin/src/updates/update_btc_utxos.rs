@@ -17,10 +17,10 @@ pub enum UpdateBtcUtxosErr {
 pub async fn update_btc_utxos() -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
     init_ecdsa_public_key().await;
 
-    let destination = main_destination(String::from(BTC_TOKEN));
+    let (btc_network, chain_id, min_confirmations) =
+        read_state(|s| (s.btc_network, s.chain_id.clone(), s.min_confirmations));
+    let destination = main_destination(chain_id, String::from(BTC_TOKEN));
     let address = read_state(|s| destination_to_p2wpkh_address_from_state(s, &destination));
-
-    let (btc_network, min_confirmations) = read_state(|s| (s.btc_network, s.min_confirmations));
 
     let resp = management::get_utxos(
         btc_network,

@@ -732,6 +732,7 @@ proptest! {
             mode: Mode::GeneralAvailability,
             hub_principal: CanisterId::from_u64(1).into(),
             runes_oracle_principal: CanisterId::from_u64(2).into(),
+            chain_id: "Bitcoin".into(),
         });
         for (utxo, dest_idx) in utxos_dest_idx {
             state.add_utxos(destinations[dest_idx].clone(), vec![utxo], false);
@@ -754,6 +755,7 @@ proptest! {
             mode: Mode::GeneralAvailability,
             hub_principal: CanisterId::from_u64(1).into(),
             runes_oracle_principal: CanisterId::from_u64(2).into(),
+            chain_id: "Bitcoin".into(),
         });
 
         let mut available_amount = 0;
@@ -800,6 +802,7 @@ proptest! {
             mode: Mode::GeneralAvailability,
             hub_principal: CanisterId::from_u64(1).into(),
             runes_oracle_principal: CanisterId::from_u64(2).into(),
+            chain_id: "Bitcoin".into(),
         });
 
         for (utxo, dest_idx) in runes_utxos_dest_idx {

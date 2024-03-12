@@ -363,6 +363,8 @@ pub struct CustomsState {
     pub mode: Mode,
 
     pub last_fee_per_vbyte: Vec<u64>,
+
+    pub chain_id: String,
 }
 
 impl CustomsState {
@@ -376,6 +378,7 @@ impl CustomsState {
             mode,
             hub_principal,
             runes_oracle_principal,
+            chain_id,
         }: InitArgs,
     ) {
         self.btc_network = btc_network.into();
@@ -384,6 +387,7 @@ impl CustomsState {
         self.mode = mode;
         self.hub_principal = hub_principal;
         self.runes_oracle_principal = runes_oracle_principal;
+        self.chain_id = chain_id;
         if let Some(min_confirmations) = min_confirmations {
             self.min_confirmations = min_confirmations;
         }
@@ -1059,6 +1063,7 @@ impl From<InitArgs> for CustomsState {
             hub_principal: args.hub_principal,
             runes_oracle_principal: args.runes_oracle_principal,
             last_fee_per_vbyte: vec![1; 100],
+            chain_id: args.chain_id,
         }
     }
 }

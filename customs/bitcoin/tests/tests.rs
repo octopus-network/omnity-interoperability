@@ -75,6 +75,7 @@ fn install_customs(env: &StateMachine) -> CanisterId {
         mode: Mode::GeneralAvailability,
         hub_principal: CanisterId::from_u64(1).into(),
         runes_oracle_principal: CanisterId::from_u64(2).into(),
+        chain_id: "Bitcoin".into(),
     };
     let customs_arg = CustomArg::Init(args);
     env.install_canister(customs_wasm(), Encode!(&customs_arg).unwrap(), None)
@@ -137,6 +138,7 @@ fn test_customs() {
         mode: Mode::GeneralAvailability,
         hub_principal: CanisterId::from_u64(1).into(),
         runes_oracle_principal: CanisterId::from_u64(2).into(),
+        chain_id: "Bitcoin".into(),
     });
     let args = Encode!(&args).unwrap();
     let customs_id = env.install_canister(customs_wasm(), args, None).unwrap();
@@ -215,6 +217,7 @@ impl CustomsSetup {
                 mode: Mode::GeneralAvailability,
                 hub_principal: hub_id.into(),
                 runes_oracle_principal: runes_oracle.into(),
+                chain_id: "Bitcoin".into(),
             }))
             .unwrap(),
         )

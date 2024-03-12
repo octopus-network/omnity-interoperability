@@ -114,6 +114,7 @@ type InitArgs = record {
   mode : Mode;
   runes_oracle_principal : principal;
   max_time_in_queue_nanos : nat64;
+  chain_id : text;
   btc_network : BtcNetwork;
   min_confirmations : opt nat32;
 };

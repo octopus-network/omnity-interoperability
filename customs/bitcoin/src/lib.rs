@@ -292,6 +292,7 @@ async fn submit_pending_requests() {
             .map(|(rune_id, _)| rune_id.clone())
             .collect::<Vec<RuneId>>()
     });
+
     for rune_id in runes_list {
         // We make requests if we have old requests in the queue or if have enough
         // requests to fill a batch.
@@ -301,13 +302,17 @@ async fn submit_pending_requests() {
             continue;
         }
 
+        let main_chain_id = read_state(|s| s.chain_id.clone());
         let ecdsa_public_key = updates::get_btc_address::init_ecdsa_public_key().await;
-        let btc_main_address =
-            address::main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN));
+        let btc_main_address = address::main_bitcoin_address(
+            &ecdsa_public_key,
+            main_chain_id.clone(),
+            String::from(BTC_TOKEN),
+        );
 
         // Each runes tokens use isolated main addresses
         let runes_main_address =
-            address::main_bitcoin_address(&ecdsa_public_key, rune_id.to_string());
+            address::main_bitcoin_address(&ecdsa_public_key, main_chain_id, rune_id.to_string());
 
         let maybe_sign_request = state::mutate_state(|s| {
             let batch = s.build_batch(rune_id, MAX_REQUESTS_PER_BATCH);
@@ -518,16 +523,21 @@ async fn finalize_requests() {
         return;
     }
 
+    let main_chain_id = read_state(|s| s.chain_id.clone());
     let main_btc_address = (
-        main_destination(BTC_TOKEN.into()),
-        address::main_bitcoin_address(&ecdsa_public_key, BTC_TOKEN.into()),
+        main_destination(main_chain_id.clone(), BTC_TOKEN.into()),
+        address::main_bitcoin_address(&ecdsa_public_key, main_chain_id.clone(), BTC_TOKEN.into()),
     );
     let main_runes_addresses: Vec<(Destination, BitcoinAddress)> = maybe_finalized_transactions
         .iter()
         .map(|(_, tx)| {
             (
-                main_destination(tx.rune_id.to_string()),
-                address::main_bitcoin_address(&ecdsa_public_key, tx.rune_id.to_string()),
+                main_destination(main_chain_id.clone(), tx.rune_id.to_string()),
+                address::main_bitcoin_address(
+                    &ecdsa_public_key,
+                    main_chain_id.clone(),
+                    tx.rune_id.to_string(),
+                ),
             )
         })
         .collect();
@@ -676,8 +686,16 @@ async fn finalize_requests() {
                 submitted_tx.rune_id,
                 &mut runes_utxos,
                 &mut btc_utxos,
-                main_bitcoin_address(&ecdsa_public_key, submitted_tx.rune_id.to_string()),
-                main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN)),
+                main_bitcoin_address(
+                    &ecdsa_public_key,
+                    main_chain_id.clone(),
+                    submitted_tx.rune_id.to_string(),
+                ),
+                main_bitcoin_address(
+                    &ecdsa_public_key,
+                    main_chain_id.clone(),
+                    String::from(BTC_TOKEN),
+                ),
                 outputs,
                 tx_fee_per_vbyte,
                 true,
@@ -1169,9 +1187,10 @@ pub fn build_unsigned_transaction(
 
     // We need to recaculate the fee when the number of inputs and outputs is finalized.
     let real_fee = fake_sign(&unsigned_tx).vsize() as u64 * fee_per_vbyte / 1000;
+    let btc_consumed = real_fee + MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
 
-    assert!(input_btc_amount > real_fee);
-    let btc_change_amount = input_btc_amount - real_fee - MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
+    assert!(input_btc_amount > btc_consumed);
+    let btc_change_amount = input_btc_amount - btc_consumed;
 
     unsigned_tx.outputs.iter_mut().last().unwrap().value = btc_change_amount;
     let btc_change_out = BtcChangeOutput {

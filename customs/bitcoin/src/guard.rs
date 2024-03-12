@@ -123,6 +123,7 @@ mod tests {
             mode: crate::state::Mode::GeneralAvailability,
             hub_principal: CanisterId::from(0).into(),
             runes_oracle_principal: CanisterId::from(0).into(),
+            chain_id: "Bitcoin".into(),
         }
     }
 

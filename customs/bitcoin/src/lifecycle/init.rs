@@ -70,6 +70,8 @@ pub struct InitArgs {
     pub hub_principal: Principal,
 
     pub runes_oracle_principal: Principal,
+
+    pub chain_id: String,
 }
 
 pub fn init(args: InitArgs) {

@@ -47,8 +47,9 @@ pub async fn get_btc_address(args: GetBtcAddressArgs) -> String {
 
 pub async fn get_main_btc_address(token: String) -> String {
     let pub_key = init_ecdsa_public_key().await;
-    let address = main_bitcoin_address(&pub_key, token);
-    read_state(|s| address.display(s.btc_network))
+    let (network, chain_id) = read_state(|s| (s.btc_network, s.chain_id.clone()));
+    let address = main_bitcoin_address(&pub_key, chain_id, token);
+    address.display(network)
 }
 
 /// Initializes the Minter ECDSA public key. This function must be called
