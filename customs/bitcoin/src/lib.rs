@@ -1065,13 +1065,16 @@ pub fn build_unsigned_transaction(
 
     // This guard returns the selected UTXOs back to the available_utxos set if
     // we fail to build the transaction.
-    let utxos_guard = guard(runes_utxo, |utxos| {
+    let runes_utxos_guard = guard(runes_utxo, |utxos| {
         for utxo in utxos {
             available_runes_utxos.insert(utxo);
         }
     });
 
-    let inputs_value = utxos_guard.iter().map(|u| u.runes.amount).sum::<u128>();
+    let inputs_value = runes_utxos_guard
+        .iter()
+        .map(|u| u.runes.amount)
+        .sum::<u128>();
     debug_assert!(inputs_value >= amount);
 
     let stone = Runestone {
@@ -1117,7 +1120,7 @@ pub fn build_unsigned_transaction(
             .collect(),
     );
 
-    let mut tx_inputs = utxos_guard
+    let mut tx_inputs = runes_utxos_guard
         .iter()
         .map(|utxo| tx::UnsignedInput {
             previous_output: utxo.raw.outpoint.clone(),
@@ -1129,7 +1132,7 @@ pub fn build_unsigned_transaction(
     // Initially assume two additional input utxos as source of transaction fees,
     // and one additional output as btc change output.
     let tx_vsize = tx_vsize_estimate(
-        (utxos_guard.len() + 2) as u64,
+        (runes_utxos_guard.len() + 2) as u64,
         (tx_outputs.len() + 1) as u64,
     );
     let fee: u64 = (tx_vsize as u64 * fee_per_vbyte) / 1000;
@@ -1138,7 +1141,10 @@ pub fn build_unsigned_transaction(
     let sz_min_btc_outputs = (outputs.len() + 1) as u64;
     let select_fee = fee * 2 + MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
 
-    let mut input_btc_amount = utxos_guard.iter().map(|input| input.raw.value).sum::<u64>();
+    let mut input_btc_amount = runes_utxos_guard
+        .iter()
+        .map(|input| input.raw.value)
+        .sum::<u64>();
 
     let mut btc_utxos: Vec<Utxo> = vec![];
 
@@ -1162,9 +1168,15 @@ pub fn build_unsigned_transaction(
         0
     };
 
+    let btc_utxos_guard = guard(btc_utxos, |utxos| {
+        for utxo in utxos {
+            available_btc_utxos.insert(utxo);
+        }
+    });
+
     input_btc_amount += selected_btc_amount;
     tx_inputs.append(
-        &mut btc_utxos
+        &mut btc_utxos_guard
             .iter()
             .map(|u| tx::UnsignedInput {
                 previous_output: u.outpoint.clone(),
@@ -1189,9 +1201,12 @@ pub fn build_unsigned_transaction(
     let real_fee = fake_sign(&unsigned_tx).vsize() as u64 * fee_per_vbyte / 1000;
     let btc_consumed = real_fee + MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
 
-    assert!(input_btc_amount > btc_consumed);
-    let btc_change_amount = input_btc_amount - btc_consumed;
+    // The value of btc change output must greater than 546sats
+    if input_btc_amount <= btc_consumed + MIN_OUTPUT_AMOUNT {
+        return Err(BuildTxError::NotEnoughGas);
+    }
 
+    let btc_change_amount = input_btc_amount - btc_consumed;
     unsigned_tx.outputs.iter_mut().last().unwrap().value = btc_change_amount;
     let btc_change_out = BtcChangeOutput {
         vout: unsigned_tx.outputs.len() as u32 - 1,
@@ -1202,8 +1217,8 @@ pub fn build_unsigned_transaction(
         unsigned_tx,
         change_output,
         btc_change_out,
-        ScopeGuard::into_inner(utxos_guard),
-        btc_utxos,
+        ScopeGuard::into_inner(runes_utxos_guard),
+        ScopeGuard::into_inner(btc_utxos_guard),
     ))
 }
 

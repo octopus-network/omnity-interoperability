@@ -350,6 +350,60 @@ fn test_not_enough_gas() {
     );
 }
 
+#[test]
+fn test_btc_change_less_than_546() {
+    let rune_id = RuneId {
+        height: 100,
+        index: 1,
+    };
+    let mut available_runes_utxos = BTreeSet::new();
+    let mut available_btc_utxos = BTreeSet::new();
+    available_runes_utxos.insert(RunesUtxo {
+        raw: Utxo {
+            outpoint: OutPoint {
+                txid: [0; 32].into(),
+                vout: 0,
+            },
+            value: 546,
+            height: 10,
+        },
+        runes: RunesBalance {
+            rune_id: rune_id.clone(),
+            vout: 0,
+            amount: 100_000,
+        },
+    });
+    available_btc_utxos.insert(Utxo {
+        outpoint: OutPoint {
+            txid: [9; 32].into(),
+            vout: 2,
+        },
+        value: 4200,
+        height: 100,
+    });
+
+    let runes_main_addr = BitcoinAddress::P2wpkhV0([0; 20]);
+    let btc_main_addr = BitcoinAddress::P2wpkhV0([1; 20]);
+    let out1_addr = BitcoinAddress::P2wpkhV0([2; 20]);
+    let out2_addr = BitcoinAddress::P2wpkhV0([3; 20]);
+    let fee_per_vbyte = 10000;
+
+    assert_eq!(
+        build_unsigned_transaction(
+            rune_id,
+            &mut available_runes_utxos,
+            &mut available_btc_utxos,
+            runes_main_addr,
+            btc_main_addr,
+            vec![(out1_addr.clone(), 99_900), (out2_addr.clone(), 100)],
+            fee_per_vbyte,
+            false,
+        ),
+        Err(BuildTxError::NotEnoughGas)
+    );
+    assert_eq!(available_btc_utxos.len(), 1);
+}
+
 fn arb_amount() -> impl Strategy<Value = Satoshi> {
     1..10_000_000_000u64
 }
