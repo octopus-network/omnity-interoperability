@@ -26,7 +26,7 @@ impl Executor {
         let ticker = Ticker::new(0.., Duration::from_secs(60));
         for _ in ticker {
             if self.pending_requests.is_empty() {
-                match self.customs.get_pending_gen_ticket_requests().await {
+                match self.customs.get_pending_gen_ticket_requests(None, 50).await {
                     Ok(requests) => requests
                         .iter()
                         .for_each(|r| self.pending_requests.push_back(r.clone())),

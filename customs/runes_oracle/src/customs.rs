@@ -1,4 +1,5 @@
 use bitcoin_customs::{
+    queries::GetGenTicketReqsArgs,
     state::{GenTicketRequest, RunesBalance},
     updates::update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
@@ -27,11 +28,20 @@ impl Customs {
         Self { agent, canister_id }
     }
 
-    pub async fn get_pending_gen_ticket_requests(&self) -> Result<Vec<GenTicketRequest>, String> {
+    pub async fn get_pending_gen_ticket_requests(
+        &self,
+        start_txid: Option<Txid>,
+        max_count: u64,
+    ) -> Result<Vec<GenTicketRequest>, String> {
+        let arg = Encode!(&GetGenTicketReqsArgs {
+            start_txid,
+            max_count,
+        })
+        .expect("failed to encode args");
         let response = self
             .agent
             .query(&self.canister_id, "get_pending_gen_ticket_requests")
-            .with_arg(Encode!(&Vec::<u8>::new()).unwrap())
+            .with_arg(arg)
             .call()
             .await
             .map_err(|err| err.to_string())?;
