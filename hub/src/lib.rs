@@ -15,9 +15,9 @@ use ic_stable_structures::Memory;
 
 use log::info;
 use omnity_types::{
-    Account, Chain, ChainId, ChainState, ChainType, Directive, Error, Fee, Seq,
+     Chain, ChainId, ChainState, ChainType, Directive, Error, Fee, Seq,
     Ticket, TicketId, ToggleAction, Token, TokenId, TokenOnChain, Topic, TxAction,
-    TxCondition,
+ 
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -37,7 +37,6 @@ struct HubState {
     pub tokens: HashMap<(ChainId, TokenId), TokenMeta>,
     pub fees: HashMap<(ChainId, TokenId), Fee>,
     pub cross_ledger: HashMap<TicketId, Ticket>,
-    pub accounts: HashMap<Account, HashMap<(ChainId, TokenId), Amount>>,
     pub token_position: HashMap<(ChainId, TokenId), Amount>,
     pub dire_queue: DireQueue,
     pub ticket_queue: TicketQueue,
@@ -330,7 +329,7 @@ pub async fn build_directive(proposals: Vec<Proposal>) -> Result<(), Error> {
                                                 dires
                                             });
 
-                                        // build directive for new chain
+                                        // build directive for the new chain
                                         hub_state
                                             .dire_queue
                                             .entry(new_chain.chain_id.to_string())
@@ -346,11 +345,9 @@ pub async fn build_directive(proposals: Vec<Proposal>) -> Result<(), Error> {
                                                 let mut dires = BTreeMap::new();
                                                 dires.insert(
                                                     0u64,
+                                  
                                                     Directive::AddChain(
-                                                        <ChainWithSeq as Clone>::clone(
-                                                            &(*dst_chain),
-                                                        )
-                                                        .into(),
+                                                        dst_chain.clone().into()
                                                     ),
                                                 );
                                                 dires
@@ -362,7 +359,6 @@ pub async fn build_directive(proposals: Vec<Proposal>) -> Result<(), Error> {
                     }
                 });
             }
-
             Proposal::AddToken(token_meata) => {
                 info!("build directive for `AddToken` proposal :{:?}", token_meata);
                 with_state_mut(|hub_state| {
@@ -481,7 +477,6 @@ pub async fn build_directive(proposals: Vec<Proposal>) -> Result<(), Error> {
             }
         }
     }
-
     Ok(())
 }
 
@@ -513,173 +508,98 @@ pub async fn query_directives(
         "query directive for chain: {:?}, with topic: {:?} ",
         chain_id, topic
     );
-    // get chain id
-    //  let chain_id =   if let Some(chain_id) = chain_id {
-    //     chain_id
-    // }else {
-    //     let chain_id = get_chain_id(ic_cdk::api::caller())?;
-    //     chain_id
-    // };
+
     let dst_chain_id = get_chain_id(chain_id)?;
-    
-    with_state(|hub_state| match hub_state.dire_queue.get(&dst_chain_id) {
-        Some(d) => {
-            let mut directives: Vec<(u64, Directive)> = Vec::new();
-            if let Some(topic) = topic {
-                match topic {
-                    Topic::AddChain(chain_type) => {
-                        // if let Some(dst_chain_type) = chain_type {
-                        //     for (&seq, &ref dire) in d.iter() {
-                        //         if let Directive::AddChain(chain_info) = dire {
-                        //             if dst_chain_type == chain_info.chain_type {
-                        //                 directives.push((seq, dire.clone()));
-                        //             }
-                        //         }
-                        //     }
-                        // } else {
-                        //     for (&seq, &ref dire) in d.iter() {
-                        //         if matches!(dire, Directive::AddChain(_)) {
-                        //             directives.push((seq, dire.clone()));
-                        //         }
-                        //     }
-                        // }
-                        let mut dires: Vec<(u64, Directive)> = d
+     with_state(|hub_state| {
+        if let Some(d) = hub_state.dire_queue.get(&dst_chain_id) {
+            match topic {
+                None => {
+                 
+                    Ok(d.iter().skip(from).take(offset).map(|(seq, dire)| (*seq, dire.clone())).collect::<Vec<_>>())
+                },
+                Some(topic) => {
+                    Ok(match topic {
+                        Topic::AddChain(chain_type) => {
+                            
+                            d
+                                .iter()
+                                .filter(|(_seq, dire)| {
+                                    if let Some(dst_chain_type) = &chain_type {
+                                        matches!(dire, Directive::AddChain(chain_info) if  chain_info.chain_type == *dst_chain_type )
+                                        
+                                    } else {
+                                        matches!(dire, Directive::AddChain(_))
+                                    }
+                                })
+                                .skip(from)
+                                .take(offset)
+                                .map(|(seq, dire)| (*seq, dire.clone()))
+                                .collect::<Vec<_>>()
+                        }
+                        Topic::AddToken(token_id) => {
+                           
+                          d
                             .iter()
                             .filter(|(_seq, dire)| {
-                                if let Some(dst_chain_type) = &chain_type {
-                                    matches!(dire, Directive::AddChain(chain_info) if  chain_info.chain_type == *dst_chain_type )
+                                if let Some(dst_token_id) = &token_id {
+                                    matches!(dire, Directive::AddToken(token_meta) if  token_meta.token_id.eq(dst_token_id) )
                                     
                                 } else {
-                                    matches!(dire, Directive::AddChain(_))
+                                    matches!(dire, Directive::AddToken(_))
                                 }
                             })
+                            .skip(from)
+                            .take(offset)
                             .map(|(seq, dire)| (*seq, dire.clone()))
-                            .collect();
-
-                        directives.append(&mut dires);
-                    }
-                    Topic::AddToken(token_id) => {
-                        // if let Some(token) = token_id {
-                        //     for (&seq, &ref dire) in d.iter() {
-                        //         if let Directive::AddToken(token_meta) = dire {
-                        //             if token_meta.token_id.eq(&token) {
-                        //                 directives.push((seq, dire.clone()));
-                        //             }
-                        //         }
-                        //     }
-                        // } else {
-                        //     for (&seq, &ref dire) in d.iter() {
-                        //         if matches!(dire, Directive::AddToken(_)) {
-                        //             directives.push((seq, dire.clone()));
-                        //         }
-                        //     }
-                        // }
-                        let mut dires: Vec<(u64, Directive)> = d
-                        .iter()
-                        .filter(|(_seq, dire)| {
-                            if let Some(dst_token_id) = &token_id {
-                                matches!(dire, Directive::AddToken(token_meta) if  token_meta.token_id.eq(dst_token_id) )
-                                
-                            } else {
-                                matches!(dire, Directive::AddToken(_))
-                            }
-                        })
-                        .map(|(seq, dire)| (*seq, dire.clone()))
-                        .collect();
-
-                      directives.append(&mut dires);
-                    }
-                    Topic::UpdateFee(token_id) => {
-                        // if let Some(token) = token_id {
-                        //     for (&seq, &ref dire) in d.iter() {
-                        //         if let Directive::UpdateFee(fee) = dire {
-                        //             if fee.fee_token.eq(&token) {
-                        //                 directives.push((seq, dire.clone()));
-                        //             }
-                        //         }
-                        //     }
-                        // } else {
-                        //     for (&seq, &ref dire) in d.iter() {
-                        //         if matches!(dire, Directive::UpdateFee(_)) {
-                        //             directives.push((seq, dire.clone()));
-                        //         }
-                        //     }
-                        // }
-                       
-                        let mut dires: Vec<(u64, Directive)> = d
-                        .iter()
-                        .filter(|(_seq, dire)| {
-                            if let Some(dst_token_id) = &token_id {
-                                matches!(dire, Directive::UpdateFee(fee) if  fee.fee_token.eq(dst_token_id) )
-                                
-                            } else {
-                                matches!(dire, Directive::UpdateFee(_))
-                            }
-                        })
-                        .map(|(seq, dire)| (*seq, dire.clone()))
-                        .collect();
-                        directives.append(&mut dires);
-                    }
-                    Topic::ActivateChain => {
-                        // for (&seq, &ref dire) in d.iter() {
-                        //     if let Directive::ToggleChainState(toggle_state) = dire {
-                        //         if toggle_state.action == ToggleAction::Activate {
-                        //             directives.push((seq, dire.clone()));
-                        //         }
-                        //     }
-                        // }
-
-
-                        let mut dires: Vec<(u64, Directive)> = d
-                        .iter()
-                        .filter(|(_seq, dire)| {
-                            matches!(dire, Directive::ToggleChainState(toggle_state) if toggle_state.action == ToggleAction::Activate )
-                        })
-                        .map(|(seq, dire)| (*seq, dire.clone()))
-                        .collect();
-                        directives.append(&mut dires);
-
-                    }
-                    Topic::DeactivateChain => {
-                    //     for (&seq, &ref dire) in d.iter() {
-                    //         if let Directive::ToggleChainState(toggle_state) = dire {
-                    //             if toggle_state.action == ToggleAction::Deactivate {
-                    //                 directives.push((seq, dire.clone()));
-                    //             }
-                    //         }
-                    //     }
-                    let mut dires: Vec<(u64, Directive)> = d
-                    .iter()
-                    .filter(|(_seq, dire)| {
-                        matches!(dire, Directive::ToggleChainState(toggle_state) if toggle_state.action == ToggleAction::Deactivate )
+                            .collect::<Vec<_>>()
+                        }
+                        Topic::UpdateFee(token_id) => {
+                           
+                            d
+                                .iter()
+                                .filter(|(_seq, dire)| {
+                                    if let Some(dst_token_id) = &token_id {
+                                        matches!(dire, Directive::UpdateFee(fee) if  fee.fee_token.eq(dst_token_id) )
+                                        
+                                    } else {
+                                        matches!(dire, Directive::UpdateFee(_))
+                                    }
+                                })
+                                .skip(from)
+                            .take(offset)
+                                .map(|(seq, dire)| (*seq, dire.clone()))
+                                .collect::<Vec<_>>()
+                        }
+                        Topic::ActivateChain => {
+                                   d.iter()
+                                .filter(|(_seq, dire)| {
+                                    matches!(dire, Directive::ToggleChainState(toggle_state) if toggle_state.action == ToggleAction::Activate )
+                                })
+                                .map(|(seq, dire)| (*seq, dire.clone()))
+                                .collect::<Vec<_>>()
+    
+                        }
+                        Topic::DeactivateChain => {
+                        d
+                            .iter()
+                            .filter(|(_seq, dire)| {
+                                matches!(dire, Directive::ToggleChainState(toggle_state) if toggle_state.action == ToggleAction::Deactivate )
+                            })
+                            .skip(from)
+                            .take(offset)
+                            .map(|(seq, dire)| (*seq, dire.clone()))
+                            .collect::<Vec<_>>()
+                        }
                     })
-                    .map(|(seq, dire)| (*seq, dire.clone()))
-                    .collect();
-                    directives.append(&mut dires);
-                    }
                 }
-                // take range here
-                let dires = directives.into_iter().skip(from).take(offset).collect();
-                 info!("query directive result: {:?}", dires);
-                 Ok(dires)
-            } else {
-                // for (&seq, &ref dire) in d.iter() {
-                //     directives.push((seq, dire.clone()));
-                // }
-                let mut dires: Vec<(u64, Directive)> = d
-                    .iter().skip(from).take(offset).map(|(seq, dire)| (*seq, dire.clone())).collect();
-                directives.append(&mut dires);
-                info!("query directive result: {:?}", dires);
-                Ok(directives)
             }
-
-           
-        }
-        None => {
+        }else{
             info!("no directives for chain: {}", dst_chain_id);
+            //  Err(Error::NotFoundChain(dst_chain_id))
             Ok(Vec::new())
         }
-    })
+     })    
+   
 }
 
 /// check the ticket availability
@@ -727,24 +647,7 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                         "ticket token({}) from issue chain({}).",
                         ticket.token, ticket.src_chain,
                     );
-                    // just add or increase receiver token amount
-                    hub_state
-                        .accounts
-                        .entry(ticket.receiver.to_string())
-                        .and_modify(|account_assets| {
-                            account_assets
-                                .entry((ticket.dst_chain.to_string(), ticket.token.to_string()))
-                                .and_modify(|balance| *balance += ticket_amount)
-                                .or_insert(ticket_amount);
-                        })
-                        .or_insert_with(|| {
-                            let mut account_assets = HashMap::new();
-                            account_assets.insert(
-                                (ticket.dst_chain.to_string(), ticket.token.to_string()),
-                                ticket_amount,
-                            );
-                            account_assets
-                        });
+                  
                     // update token count on dst chain
                     hub_state
                         .token_position
@@ -759,60 +662,30 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                         "ticket token({}) from a not issue chain({}).",
                         ticket.token, ticket.src_chain,
                     );
-                    if let Some(account_assets) = hub_state.accounts.get_mut(&ticket.sender) {
-                        if let Some(balance) = account_assets
-                            .get_mut(&(ticket.src_chain.to_string(), ticket.token.to_string()))
-                        {
-                            // check account balance
-                            if *balance < ticket_amount {
-                                return Err(Error::NotSufficientTokens(
-                                    ticket.sender.to_string(),
-                                    balance.to_string(),
-                                    ticket_amount.to_string(),
-                                ));
-                            }
-                            *balance -= ticket_amount;
-
-                            // update token count on src chain
-                            if let Some(total_amount) = hub_state
+                    
+                     // update token count on src chain
+                    if let Some(total_amount) = hub_state
                                 .token_position
                                 .get_mut(&(ticket.src_chain.to_string(), ticket.token.to_string()))
                             {
+                            // check src chain token balance
+                            if *total_amount < ticket_amount {
+                                return Err(Error::NotSufficientTokens(
+                                    ticket.sender.to_string(),
+                                    total_amount.to_string(),
+                                    ticket_amount.to_string(),
+                                ));
+                            }
                                 *total_amount -= ticket_amount
+
                             } else {
                                 return Err(Error::NotFoundTokenCountInfo(
                                     ticket.src_chain.to_string(),
                                     ticket.token.to_string(),
                                 ));
                             }
-                        } else {
-                            return Err(Error::NotFoundAccountToken(
-                                ticket.sender.to_string(),
-                                ticket.token.to_string(),
-                                ticket.src_chain.to_string(),
-                            ));
-                        }
-                    } else {
-                        return Err(Error::NotFoundAccount(ticket.sender.to_string()));
-                    }
-                    // add or increase the receiver token amount
-                    hub_state
-                        .accounts
-                        .entry(ticket.receiver.to_string())
-                        .and_modify(|account_assets| {
-                            account_assets
-                                .entry((ticket.dst_chain.to_string(), ticket.token.to_string()))
-                                .and_modify(|balance| *balance += ticket_amount)
-                                .or_insert(ticket_amount);
-                        })
-                        .or_insert_with(|| {
-                            let mut account_assets = HashMap::new();
-                            account_assets.insert(
-                                (ticket.dst_chain.to_string(), ticket.token.to_string()),
-                                ticket_amount,
-                            );
-                            account_assets
-                        });
+
+                    
                     // update token count on dst chain
                     hub_state
                         .token_position
@@ -823,79 +696,49 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
             }
 
             TxAction::Redeem => {
-                // The sender account must exist and have sufficient assets
-                if let Some(account_assets) = hub_state.accounts.get_mut(&ticket.sender) {
-                    if let Some(balance) = account_assets
-                        .get_mut(&(ticket.src_chain.to_string(), ticket.token.to_string()))
-                    {
-                        // check account balance
-                        if *balance < ticket_amount {
-                            return Err(Error::NotSufficientTokens(
-                                ticket.sender.to_string(),
-                                balance.to_string(),
-                                ticket_amount.to_string(),
-                            ));
-                        }
-                        *balance -= ticket_amount;
-
-                        // update token count on src chain
-                        if let Some(total_amount) = hub_state
-                            .token_position
-                            .get_mut(&(ticket.src_chain.to_string(), ticket.token.to_string()))
-                        {
-                            *total_amount -= ticket_amount
-                        } else {
-                            return Err(Error::NotFoundTokenCountInfo(
-                                ticket.src_chain.to_string(),
-                                ticket.token.to_string(),
-                            ));
-                        }
-                    } else {
-                        return Err(Error::NotFoundAccountToken(
+               
+                // update token count on src chain
+                if let Some(total_amount) = hub_state
+                .token_position
+                .get_mut(&(ticket.src_chain.to_string(), ticket.token.to_string()))
+                {
+                    // check src chain token balance
+                    if *total_amount < ticket_amount {
+                        return Err(Error::NotSufficientTokens(
                             ticket.sender.to_string(),
-                            ticket.token.to_string(),
-                            ticket.src_chain.to_string(),
+                            total_amount.to_string(),
+                            ticket_amount.to_string(),
                         ));
                     }
+
+                    *total_amount -= ticket_amount
                 } else {
-                    return Err(Error::NotFoundAccount(ticket.sender.to_string()));
+                    return Err(Error::NotFoundTokenCountInfo(
+                        ticket.src_chain.to_string(),
+                        ticket.token.to_string(),
+                    ));
                 }
 
-                // if the dst chain is not issue chain,then update receiver asset and token count
-                if !hub_state
+                //  if the dst chain is not issue chain,then update token count on dst chain
+                 if !hub_state
                     .tokens
                     .contains_key(&(ticket.dst_chain.to_string(), ticket.token.to_string()))
                 {
-                    // the receiver must be existing
-                    if let Some(account_assets) = hub_state.accounts.get_mut(&ticket.receiver) {
-                        if let Some(balance) = account_assets
-                            .get_mut(&(ticket.dst_chain.to_string(), ticket.token.to_string()))
-                        {
-                            *balance += ticket_amount;
-
-                            // update token count on dst chain
-                            if let Some(total_amount) = hub_state
-                                .token_position
-                                .get_mut(&(ticket.dst_chain.to_string(), ticket.token.to_string()))
-                            {
-                                *total_amount += ticket_amount
-                            } else {
-                                return Err(Error::NotFoundTokenCountInfo(
-                                    ticket.dst_chain.to_string(),
-                                    ticket.token.to_string(),
-                                ));
-                            }
-                        } else {
-                            return Err(Error::NotFoundAccountToken(
-                                ticket.receiver.to_string(),
-                                ticket.token.to_string(),
-                                ticket.dst_chain.to_string(),
-                            ));
-                        }
+                      
+                        if let Some(total_amount) = hub_state
+                        .token_position
+                        .get_mut(&(ticket.dst_chain.to_string(), ticket.token.to_string()))
+                    {
+                        *total_amount += ticket_amount
                     } else {
-                        return Err(Error::NotFoundAccount(ticket.receiver.to_string()));
+                        return Err(Error::NotFoundTokenCountInfo(
+                            ticket.dst_chain.to_string(),
+                            ticket.token.to_string(),
+                        ));
                     }
                 }
+              
+
             }
         }
 
@@ -948,10 +791,6 @@ pub async fn query_tickets(
     let dst_chain_id = get_chain_id(chain_id)?;
     with_state(|hub_state| match hub_state.ticket_queue.get(&dst_chain_id) {
         Some(t) => {
-            // let mut tickets: Vec<(u64, Ticket)> = Vec::new();
-            // for (&seq, &ref ticket) in t.iter().skip(from).take(offset) {
-            //     tickets.push((seq, ticket.clone()));
-            // }
             let tickets: Vec<(u64, Ticket)> = t
                 .iter()
                 .skip(from)
@@ -983,9 +822,7 @@ fn get_chain_id(chain_id: Option<ChainId>) -> Result<ChainId, Error> {
             
         })?;
         Ok(chain_id)
-    }
-
-    
+    }    
 }
 
 ic_cdk::export_candid!();
@@ -993,7 +830,7 @@ ic_cdk::export_candid!();
 #[cfg(test)]
 mod tests {
 
-    use crate::types::ChainMeta;
+    use crate::{metrics::{get_chain_tokens, get_chains, get_fees, get_tokens, get_txs}, types::ChainMeta};
 
     use super::*;
     use omnity_types::{ChainType, Fee, Ticket, ToggleAction, ToggleState, TxAction};
@@ -1021,7 +858,7 @@ mod tests {
         // validate proposal
         let result = validate_proposal(vec![Proposal::AddChain(btc.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddChain(chain_info) result:{:#?}", result);
         // build directive
         let result = build_directive(vec![Proposal::AddChain(btc)]).await;
         assert!(result.is_ok());
@@ -1031,12 +868,12 @@ mod tests {
             chain_type: ChainType::SettlementChain,
             chain_state: ChainState::Active,
             canister_id: "bkyz2-fmaaa-aaaaa-qaaab-cai".to_string(),
-            contract_address: Some("Arbitrum constract address".to_string()),
+            contract_address: Some("Ethereum constract address".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string()]),
         };
         let result = validate_proposal(vec![Proposal::AddChain(ethereum.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddChain(chain_info) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddChain(ethereum)]).await;
         assert!(result.is_ok());
 
@@ -1050,7 +887,7 @@ mod tests {
         };
         let result = validate_proposal(vec![Proposal::AddChain(icp.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddChain(chain_info) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddChain(icp)]).await;
         assert!(result.is_ok());
 
@@ -1068,7 +905,7 @@ mod tests {
         };
         let result = validate_proposal(vec![Proposal::AddChain(arbitrum.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddChain(chain_info) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddChain(arbitrum)]).await;
         assert!(result.is_ok());
 
@@ -1088,7 +925,7 @@ mod tests {
 
         let result = validate_proposal(vec![Proposal::AddChain(optimistic.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddChain(chain_info) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddChain(optimistic)]).await;
         assert!(result.is_ok());
 
@@ -1103,12 +940,12 @@ mod tests {
                 "Ethereum".to_string(),
                 "ICP".to_string(),
                 "Arbitrum".to_string(),
-                "Starknet".to_string(),
+                "Optimistic".to_string(),
             ]),
         };
         let result = validate_proposal(vec![Proposal::AddChain(starknet.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddChain(chain_info) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddChain(chain_info) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddChain(starknet)]).await;
         assert!(result.is_ok());
     }
@@ -1117,7 +954,7 @@ mod tests {
         let btc = TokenMeta {
             token_id: "BTC".to_string(),
             symbol: "BTC".to_owned(),
-            issue_chain: "Bitcion".to_string(),
+            issue_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
             dst_chains: vec![
@@ -1131,7 +968,7 @@ mod tests {
         // validate proposal
         let result = validate_proposal(vec![Proposal::AddToken(btc.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddToken(token) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddToken(token) result:{:#?}", result);
         // build directive
         let result = build_directive(vec![Proposal::AddToken(btc)]).await;
         assert!(result.is_ok());
@@ -1152,7 +989,7 @@ mod tests {
         };
         let result = validate_proposal(vec![Proposal::AddToken(eth.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddToken(token) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddToken(token) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddToken(eth)]).await;
         assert!(result.is_ok());
 
@@ -1172,7 +1009,7 @@ mod tests {
         };
         let result = validate_proposal(vec![Proposal::AddToken(icp.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddToken(token) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddToken(token) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddToken(icp)]).await;
         assert!(result.is_ok());
 
@@ -1192,7 +1029,7 @@ mod tests {
         };
         let result = validate_proposal(vec![Proposal::AddToken(arb.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddToken(token) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddToken(token) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddToken(arb)]).await;
         assert!(result.is_ok());
 
@@ -1212,7 +1049,7 @@ mod tests {
         };
         let result = validate_proposal(vec![Proposal::AddToken(op.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddToken(token) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddToken(token) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddToken(op)]).await;
         assert!(result.is_ok());
 
@@ -1232,13 +1069,13 @@ mod tests {
         };
         let result = validate_proposal(vec![Proposal::AddToken(starknet.clone())]).await;
         assert!(result.is_ok());
-        println!("Proposal::AddToken(token) result:{:?}", result);
+        println!("validate_proposal for Proposal::AddToken(token) result:{:#?}", result);
         let result = build_directive(vec![Proposal::AddToken(starknet)]).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_add_chain() {
+    async fn test_add_chain(){
         // add chain
         build_chains().await;
 
@@ -1253,9 +1090,19 @@ mod tests {
         for chain_id in chaid_ids {
             let result =
                 query_directives(Some(chain_id.to_string()), Some(Topic::AddChain(None)), 0, 5).await;
-            println!("query_directives for {:} dires: {:?}", chain_id, result);
+            println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
+
+
+        let result =   get_chains(None,None,0,10).await;
+        assert!(result.is_ok());
+        println!("get_chains result : {:#?}", result);
+
+        let result =   get_chains(Some(ChainType::ExecutionChain),None,0,10).await;
+        assert!(result.is_ok());
+        println!("get_chains result by chain type: {:#?}", result);
+        
     }
 
     #[tokio::test]
@@ -1264,13 +1111,6 @@ mod tests {
         build_chains().await;
         // add token
         build_tokens().await;
-
-        // print all tokens
-        with_state(|hs| {
-            for (token_key, token) in hs.tokens.iter() {
-                println!("token key: {:?}, : token meta data: {:?}", token_key, token);
-            }
-        });
 
         let chaid_ids = [
             "Bitcoin",
@@ -1283,9 +1123,20 @@ mod tests {
         for chain_id in chaid_ids {
             let result =
                 query_directives(Some(chain_id.to_string()), Some(Topic::AddToken(None)), 0, 5).await;
-            println!("query_directives for {:} dires: {:?}", chain_id, result);
+            println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
+        let result =   get_tokens(None,None,0,10).await;
+        assert!(result.is_ok());
+        println!("get_tokens result : {:#?}", result);
+
+        let result =   get_tokens(Some("Bitcoin".to_string()),None,0,10).await;
+        assert!(result.is_ok());
+        println!("get_tokens result by chain_id: {:#?}", result);
+        let result =   get_tokens(Some("ICP".to_string()),Some("ICP".to_string()),0,10).await;
+        assert!(result.is_ok());
+        println!("get_tokens result by chain_id and token id: {:#?}", result);
+
     }
 
     #[tokio::test]
@@ -1305,7 +1156,7 @@ mod tests {
         let result = validate_proposal(vec![toggle_state.clone()]).await;
         assert!(result.is_ok());
         println!(
-            "Proposal::ToggleChainState(chain_state) result:{:?}",
+            "validate_proposal for Proposal::ToggleChainState(chain_state) result:{:#?}",
             result
         );
         let result = build_directive(vec![toggle_state]).await;
@@ -1324,9 +1175,14 @@ mod tests {
         for chain_id in chaid_ids {
             let result =
                 query_directives(Some(chain_id.to_string()), Some(Topic::DeactivateChain), 0, 5).await;
-            println!("query_directives for {:} dires: {:?}", chain_id, result);
+            println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
+
+        let result =  get_chains(Some(ChainType::ExecutionChain),Some(ChainState::Deactive),0,10).await;
+        assert!(result.is_ok());
+        println!("get_chains result by chain type and chain state: {:#?}", result);
+
     }
 
     #[tokio::test]
@@ -1347,14 +1203,7 @@ mod tests {
         // let _ = build_directive(update_fee).await;
         let result = update_fee(vec![fee]).await;
         assert!(result.is_ok());
-        println!("Proposal::UpdateFee(fee) result:{:?}", result);
-
-        // print fee info
-        with_state(|hs| {
-            for (fee_key, fee) in hs.fees.iter() {
-                println!("fee key: {:?}, fee: {:?}", fee_key, fee);
-            }
-        });
+        println!("update_fee result:{:?}", result);
 
         // query directives for chain id
         let chaid_ids = [
@@ -1369,9 +1218,19 @@ mod tests {
         for chain_id in chaid_ids {
             let result =
                 query_directives(Some(chain_id.to_string()), Some(Topic::UpdateFee(None)), 0, 5).await;
-            println!("query_directives for {:} dires: {:?}", chain_id, result);
+            println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
+
+
+        let result =   get_fees(None,None,0,10).await;
+        assert!(result.is_ok());
+        println!("get_chains result : {:#?}", result);
+        
+        let result =   get_fees(None,Some("OP".to_string()),0,10).await;
+        assert!(result.is_ok());
+        println!("get_chains result filter by token id : {:#?}", result);
+
     }
 
     #[tokio::test]
@@ -1387,7 +1246,7 @@ mod tests {
         let sender = "address_on_Bitcoin";
         let receiver = "address_on_Arbitrum";
 
-        let ticket = Ticket {
+        let transfer_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
@@ -1400,8 +1259,8 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
-        let result = send_ticket(ticket).await;
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, transfer_ticket);
+        let result = send_ticket(transfer_ticket).await;
         println!(
             "{} -> {} transfer result:{:?}",
             src_chain, dst_chain, result
@@ -1409,7 +1268,11 @@ mod tests {
         assert!(result.is_ok());
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
-        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+        println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
+        assert!(result.is_ok());
+        // query token on chain
+        let result = get_chain_tokens(None,None, 0, 5).await;
+        println!("get_chain_tokens result: {:#?}", result);
         assert!(result.is_ok());
 
         // B->A: `redeem` ticket
@@ -1418,7 +1281,7 @@ mod tests {
         let sender = "address_on_Arbitrum";
         let receiver = "address_on_Bitcoin";
 
-        let ticket = Ticket {
+        let redeem_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
@@ -1431,15 +1294,19 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
-        let result = send_ticket(ticket).await;
-        assert!(result.is_ok());
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, redeem_ticket);
+        let result = send_ticket(redeem_ticket).await;
         println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
+        assert!(result.is_ok());
 
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
         assert!(result.is_ok());
-        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+        println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
+        // query token on chain
+        let result = get_chain_tokens(None,None, 0, 5).await;
+        println!("get_chain_tokens result: {:#?}", result);
+        assert!(result.is_ok());
     }
 
     #[tokio::test]
@@ -1469,17 +1336,22 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, ticket);
         let result = send_ticket(ticket).await;
-        assert!(result.is_ok());
         println!(
             "{} -> {} transfer result:{:?}",
             src_chain, dst_chain, result
         );
+        assert!(result.is_ok());
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
+        println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
         assert!(result.is_ok());
-        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+
+          // query token on chain
+          let result = get_chain_tokens(None,None, 0, 5).await;
+          println!("get_chain_tokens result: {:#?}", result);
+          assert!(result.is_ok());
 
         // B->C: `transfer` ticket
         let sender = "address_on_Optimistic";
@@ -1500,8 +1372,9 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, ticket);
         assert!(result.is_ok());
+
         let result = send_ticket(ticket).await;
         println!(
             "{} -> {} transfer result:{:?}",
@@ -1510,8 +1383,13 @@ mod tests {
 
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
+        println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
         assert!(result.is_ok());
-        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+
+          // query token on chain
+        let result = get_chain_tokens(None,None, 0, 5).await;
+        println!("get_chain_tokens result: {:#?}", result);
+        assert!(result.is_ok());
 
         // redeem
         // C->B: `redeem` ticket
@@ -1533,14 +1411,19 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, ticket);
+
         let result = send_ticket(ticket).await;
-        assert!(result.is_ok());
         println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
+        assert!(result.is_ok());
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
+        println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
         assert!(result.is_ok());
-        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+          // query token on chain
+          let result = get_chain_tokens(None,None, 0, 5).await;
+          println!("get_chain_tokens result: {:#?}", result);
+          assert!(result.is_ok());
 
         // B->A: `redeem` ticket
         let sender = "address_on_Optimistic";
@@ -1561,14 +1444,25 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:?}", src_chain, dst_chain, ticket);
-        assert!(result.is_ok());
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, ticket);
+
         let result = send_ticket(ticket).await;
         println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
+        assert!(result.is_ok());
 
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
+        println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
         assert!(result.is_ok());
-        println!("query tickets for {:} tickets: {:?}", dst_chain, result);
+
+          // query token on chain
+          let result = get_chain_tokens(None,None, 0, 5).await;
+          println!("get_chain_tokens result: {:#?}", result);
+          assert!(result.is_ok());
+
+                    // query txs
+                    let result = get_txs(None,None,None,None, 0, 10).await;
+                    println!("get_txs result: {:#?}", result);
+                    assert!(result.is_ok());
     }
 }
