@@ -310,7 +310,7 @@ pub struct CustomsState {
     pub finalized_gen_ticket_requests: VecDeque<FinalizedTicket>,
 
     // Start index of query tickets from hub
-    pub next_release_ticket_index: u64,
+    pub next_release_ticket_seq: u64,
 
     /// Release_token requests that are waiting to be served, sorted by
     /// received_at.
@@ -1061,7 +1061,7 @@ impl From<InitArgs> for CustomsState {
             generate_ticket_counter: 0,
             release_token_counter: 0,
             pending_gen_ticket_requests: Default::default(),
-            next_release_ticket_index: 0,
+            next_release_ticket_seq: 0,
             pending_release_token_requests: Default::default(),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),

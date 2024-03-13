@@ -211,9 +211,8 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
 }
 
 async fn submit_release_token_requests() {
-    let (hub_principal, start) = read_state(|s| (s.hub_principal, s.next_release_ticket_index));
-    let end = start + BATCH_QUERY_TICKETS_COUNT;
-    match management::query_tickets(hub_principal, String::from(BTC_TOKEN), start, end).await {
+    let (hub_principal, start) = read_state(|s| (s.hub_principal, s.next_release_ticket_seq));
+    match management::query_tickets(hub_principal, String::from(BTC_TOKEN), start, BATCH_QUERY_TICKETS_COUNT).await {
         Err(err) => {
             log!(
                 P0,
@@ -223,8 +222,8 @@ async fn submit_release_token_requests() {
             return;
         }
         Ok(tickets) => {
-            let mut next_index = start;
-            for (index, ticket) in tickets {
+            let mut next_seq = start;
+            for (seq, ticket) in tickets {
                 let amount = if let Ok(amount) = u128::from_str_radix(ticket.amount.as_str(), 10) {
                     amount
                 } else {
@@ -233,7 +232,7 @@ async fn submit_release_token_requests() {
                         P0,
                         "[submit_release_token_requests]: failed to parse amount of ticket"
                     );
-                    next_index = index + 1;
+                    next_seq = seq + 1;
                     continue;
                 };
 
@@ -254,14 +253,14 @@ async fn submit_release_token_requests() {
                         }
                         Err(ReleaseTokenError::AlreadyProcessing)
                         | Err(ReleaseTokenError::AlreadyProcessed)
-                        | Ok(_) => next_index = index + 1,
+                        | Ok(_) => next_seq = seq + 1,
                         Err(ReleaseTokenError::MalformedAddress(err)) => {
                             log!(
                                 P0,
                                 "[submit_release_token_requests] malformed address: {}",
                                 err
                             );
-                            next_index = index + 1;
+                            next_seq = seq + 1;
                         }
                     }
                 } else {
@@ -269,11 +268,11 @@ async fn submit_release_token_requests() {
                         P0,
                         "[submit_release_token_requests]: failed to parse rune_id of ticket"
                     );
-                    next_index = index + 1;
+                    next_seq = seq + 1;
                     continue;
                 }
             }
-            mutate_state(|s| s.next_release_ticket_index = next_index);
+            mutate_state(|s| s.next_release_ticket_seq = next_seq);
         }
     }
 }
