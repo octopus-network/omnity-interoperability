@@ -14,11 +14,14 @@ use std::{
 pub mod audit;
 pub mod eventlog;
 
-use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::logs::P0;
 use crate::{address::BitcoinAddress, ECDSAPublicKey};
+use crate::{
+    destination::Destination,
+    runestone::{Edict, Runestone},
+};
 use candid::{CandidType, Deserialize, Principal};
 pub use ic_btc_interface::Network;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
@@ -644,8 +647,23 @@ impl CustomsState {
             .pending_release_token_requests
             .entry(rune_id)
             .or_default();
+
+        let mut edicts = vec![];
         for req in std::mem::take(requests) {
-            if available_utxos_value < req.amount + tx_amount || batch.len() >= max_size {
+            edicts.push(Edict {
+                id: req.rune_id.into(),
+                amount: req.amount,
+                output: 0,
+            });
+            // Maybe there is a better optimized version.
+            let script = Runestone {
+                edicts: edicts.clone(),
+            }
+            .encipher();
+            if script.len() > 82
+                || available_utxos_value < req.amount + tx_amount
+                || batch.len() >= max_size
+            {
                 // Put this request back to the queue until we have enough liquid UTXOs.
                 requests.push(req);
             } else {
