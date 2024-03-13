@@ -62,6 +62,7 @@ type Event = variant {
   };
   accepted_release_token_request : ReleaseTokenRequest;
   init : InitArgs;
+  updated_runes_balance : record { balance : RunesBalance; txid : vec nat8 };
   upgrade : UpgradeArgs;
   confirmed_transaction : GenTicketStatusArgs;
   replaced_transaction : record {
@@ -70,10 +71,10 @@ type Event = variant {
     old_txid : vec nat8;
     new_txid : vec nat8;
     runes_change_output : RunesChangeOutput;
+    raw_tx : text;
     submitted_at : nat64;
   };
   accepted_generate_ticket_request : GenTicketRequest;
-  received_runes_utxos : record { balance : RunesBalance; txid : vec nat8 };
 };
 type FinalizedTicketStatus = variant { Invalid; Finalized };
 type GenTicketRequest = record {

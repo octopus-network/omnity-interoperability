@@ -39,7 +39,7 @@ pub fn add_utxos(
 }
 
 pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: RunesBalance) {
-    record_event(&Event::ReceivedRunesToken {
+    record_event(&Event::UpdatedRunesBalance {
         txid,
         balance: balance.clone(),
     });
@@ -119,6 +119,7 @@ pub fn replace_transaction(
         fee_per_vbyte: new_tx
             .fee_per_vbyte
             .expect("bug: all replacement transactions must have the fee"),
+        raw_tx: new_tx.raw_tx.clone(),
     });
     state.replace_transaction(&old_txid, new_tx);
 }
