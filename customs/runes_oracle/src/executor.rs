@@ -41,7 +41,7 @@ impl Executor {
 
                 match self.indexer.get_transaction(request.txid).await {
                     Ok(tx) => {
-                        let mut balances = tx.get_runes_balance();
+                        let mut balances = tx.get_runes_balances();
                         balances.retain(|b| {
                             b.address == request.address && b.rune_id == request.rune_id.to_string()
                         });

@@ -57,6 +57,7 @@ pub struct Mint {
     pub term: Option<u32>,
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub struct RunesBalance {
     pub rune_id: String,
     pub address: String,
@@ -69,19 +70,24 @@ impl Transaction {
         serde_json::from_str(json_str)
     }
 
-    pub fn get_runes_balance(&self) -> Vec<RunesBalance> {
-        let mut result = vec![];
-        for (vout, output) in self.outputs.iter().enumerate() {
-            for (rune_id, amount) in output.runes.iter() {
-                result.push(RunesBalance {
-                    rune_id: rune_id.clone(),
-                    address: output.address.clone().unwrap(),
-                    vout: vout as u32,
-                    amount: *amount,
-                })
-            }
-        }
-        result
+    pub fn get_runes_balances(&self) -> Vec<RunesBalance> {
+        self.outputs
+            .iter()
+            .enumerate()
+            .map(|(vout, output)| {
+                output
+                    .runes
+                    .iter()
+                    .map(|(rune_id, amount)| RunesBalance {
+                        rune_id: rune_id.clone(),
+                        address: output.address.clone().unwrap(),
+                        vout: vout as u32,
+                        amount: *amount,
+                    })
+                    .collect::<Vec<RunesBalance>>()
+            })
+            .flatten()
+            .collect()
     }
 }
 
@@ -141,7 +147,28 @@ mod tests {
 
         let transaction: Transaction = serde_json::from_value(json).unwrap();
 
-        assert_eq!(transaction.outputs[1].runes[0].0, "102:1");
-        assert_eq!(transaction.outputs[1].runes[0].1, 7);
+        assert_eq!(transaction.outputs[2].runes[0].0, "102:1");
+        assert_eq!(transaction.outputs[2].runes[0].1, 7);
+
+        let runes_balances = transaction.get_runes_balances();
+        assert_eq!(runes_balances.len(), 2);
+        assert_eq!(
+            runes_balances[0],
+            RunesBalance {
+                rune_id: "102:1".into(),
+                address: "bcrt1pfqmk3a2s2my84t7zfv6vc6t3dtm35zrhlajsk5xuauasdlx3ywsszr8w7c".into(),
+                vout: 1,
+                amount: 20999993,
+            }
+        );
+        assert_eq!(
+            runes_balances[1],
+            RunesBalance {
+                rune_id: "102:1".into(),
+                address: "bcrt1qnwc03kekz4zexmtd69fffy6ap6pl3x4xwagdqf".into(),
+                vout: 2,
+                amount: 7,
+            }
+        );
     }
 }
