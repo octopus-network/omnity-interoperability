@@ -9,11 +9,13 @@ use destination::Destination;
 use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
+use num_traits::SaturatingSub;
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
 use state::{read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo};
 use std::collections::{BTreeMap, BTreeSet};
+use std::iter::Sum;
 use std::str::FromStr;
 use std::time::Duration;
 use updates::release_token::{release_token, ReleaseTokenArgs, ReleaseTokenError};
@@ -836,15 +838,16 @@ fn filter_output_destinations(
 /// PROPERTY: sum(u.value for u in available_set) ≥ target ⇒ !solution.is_empty()
 /// POSTCONDITION: !solution.is_empty() ⇒ sum(u.value for u in solution) ≥ target
 /// POSTCONDITION:  solution.is_empty() ⇒ available_utxos did not change.
-fn utxos_selection<F, U>(
-    target: u128,
+fn utxos_selection<T, F, U>(
+    target: T,
     available_utxos: &mut BTreeSet<U>,
     output_count: usize,
     get_value: F,
 ) -> Vec<U>
 where
-    F: Fn(&U) -> u128 + Copy,
+    F: Fn(&U) -> T + Copy,
     U: Ord + Clone,
+    T: Copy + Default + Ord + PartialOrd + SaturatingSub + Sum,
 {
     let mut input_utxos = greedy(target, available_utxos, get_value);
 
@@ -874,14 +877,15 @@ where
 /// PROPERTY: sum(u.value for u in available_set) ≥ target ⇒ !solution.is_empty()
 /// POSTCONDITION: !solution.is_empty() ⇒ sum(u.value for u in solution) ≥ target
 /// POSTCONDITION:  solution.is_empty() ⇒ available_utxos did not change.
-fn greedy<F, U>(target: u128, available_utxos: &mut BTreeSet<U>, get_value: F) -> Vec<U>
+fn greedy<T, F, U>(target: T, available_utxos: &mut BTreeSet<U>, get_value: F) -> Vec<U>
 where
-    F: Fn(&U) -> u128,
+    F: Fn(&U) -> T,
     U: Ord + Clone,
+    T: Copy + Default + Ord + PartialOrd + SaturatingSub + Sum,
 {
     let mut solution = vec![];
     let mut goal = target;
-    while goal > 0 {
+    while goal > T::default() {
         let utxo = match available_utxos.iter().max_by_key(|u| get_value(u)) {
             Some(max_utxo) if get_value(max_utxo) < goal => max_utxo.clone(),
             Some(_) => available_utxos
@@ -898,13 +902,13 @@ where
                 return vec![];
             }
         };
-        goal = goal.saturating_sub(get_value(&utxo));
+        goal = goal.saturating_sub(&get_value(&utxo));
         assert!(available_utxos.remove(&utxo));
         solution.push(utxo);
     }
 
     debug_assert!(
-        solution.is_empty() || solution.iter().map(|u| get_value(u)).sum::<u128>() >= target
+        solution.is_empty() || solution.iter().map(|u| get_value(u)).sum::<T>() >= target
     );
 
     solution
@@ -1161,7 +1165,7 @@ pub fn build_unsigned_transaction(
     } else if input_btc_amount < select_fee {
         let target_fee = select_fee - input_btc_amount;
 
-        btc_utxos = greedy(target_fee as u128, available_btc_utxos, |u| u.value as u128);
+        btc_utxos = greedy(target_fee, available_btc_utxos, |u| u.value);
         if btc_utxos.is_empty() {
             return Err(BuildTxError::NotEnoughGas);
         }
