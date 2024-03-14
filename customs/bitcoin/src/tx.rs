@@ -227,6 +227,7 @@ pub fn encode_address_script_pubkey(btc_address: &BitcoinAddress, buf: &mut impl
         BitcoinAddress::P2pkh(pkhash) => encode_sighash_script_code(pkhash, buf),
         BitcoinAddress::P2sh(pkhash) => encode_p2sh_script_code(pkhash, buf),
         BitcoinAddress::P2trV1(pk) => encode_p2tr_script_pubkey(pk, buf),
+        BitcoinAddress::OpReturn(data) => encode_op_return_script(data, buf),
     }
 }
 
@@ -496,6 +497,14 @@ fn encode_p2tr_script_pubkey(pkhash: &[u8; 32], buf: &mut impl Buffer) {
 fn encode_p2wsh_script(pkhash: &[u8; 32], buf: &mut impl Buffer) {
     buf.write(&[34, 0, ops::PUSH_32]);
     buf.write(&pkhash[..]);
+}
+
+fn encode_op_return_script(data: &Vec<u8>, buf: &mut impl Buffer) {
+    let size = data.len();
+    // The consensus on the limit size of OP_RETURN script within the Bitcoin network is 82 bytes.
+    assert!(size <= 82);
+    buf.write(&[size as u8]);
+    buf.write(data.as_slice());
 }
 
 impl Encode for SignedInput {

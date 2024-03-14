@@ -14,6 +14,7 @@ use serde::Serialize;
 use serde_bytes::ByteBuf;
 use state::{read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo};
 use std::collections::{BTreeMap, BTreeSet};
+use std::str::FromStr;
 use std::time::Duration;
 use updates::release_token::{release_token, ReleaseTokenArgs, ReleaseTokenError};
 
@@ -41,8 +42,8 @@ const SEC_NANOS: u64 = 1_000_000_000;
 const MIN_NANOS: u64 = 60 * SEC_NANOS;
 /// The minimum number of pending request in the queue before we try to make
 /// a batch transaction.
-pub const MIN_PENDING_REQUESTS: usize = 20;
-pub const MAX_REQUESTS_PER_BATCH: usize = 100;
+pub const MIN_PENDING_REQUESTS: usize = 5;
+pub const MAX_REQUESTS_PER_BATCH: usize = 10;
 pub const BATCH_QUERY_TICKETS_COUNT: u64 = 20;
 
 const BTC_TOKEN: &str = "BTC";
@@ -210,9 +211,8 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
 }
 
 async fn submit_release_token_requests() {
-    let (hub_principal, start) = read_state(|s| (s.hub_principal, s.next_release_ticket_index));
-    let end = start + BATCH_QUERY_TICKETS_COUNT;
-    match management::query_tickets(hub_principal, String::from(BTC_TOKEN), start, end).await {
+    let (hub_principal, start) = read_state(|s| (s.hub_principal, s.next_release_ticket_seq));
+    match management::query_tickets(hub_principal, String::from(BTC_TOKEN), start, BATCH_QUERY_TICKETS_COUNT).await {
         Err(err) => {
             log!(
                 P0,
@@ -222,8 +222,8 @@ async fn submit_release_token_requests() {
             return;
         }
         Ok(tickets) => {
-            let mut next_index = start;
-            for (index, ticket) in tickets {
+            let mut next_seq = start;
+            for (seq, ticket) in tickets {
                 let amount = if let Ok(amount) = u128::from_str_radix(ticket.amount.as_str(), 10) {
                     amount
                 } else {
@@ -232,47 +232,47 @@ async fn submit_release_token_requests() {
                         P0,
                         "[submit_release_token_requests]: failed to parse amount of ticket"
                     );
-                    next_index = index + 1;
+                    next_seq = seq + 1;
                     continue;
                 };
-                let rune_id = if let Ok(rune_id) = u128::from_str_radix(ticket.token.as_str(), 10) {
-                    rune_id
+
+                if let Ok(rune_id) = RuneId::from_str(&ticket.token) {
+                    let args = ReleaseTokenArgs {
+                        ticket_id: ticket.ticket_id,
+                        rune_id,
+                        amount,
+                        address: ticket.receiver,
+                    };
+                    match release_token(args).await {
+                        Err(ReleaseTokenError::TemporarilyUnavailable(_)) => {
+                            log!(
+                                P0,
+                                "[submit_release_token_requests] temporarily unavailable"
+                            );
+                            break;
+                        }
+                        Err(ReleaseTokenError::AlreadyProcessing)
+                        | Err(ReleaseTokenError::AlreadyProcessed)
+                        | Ok(_) => next_seq = seq + 1,
+                        Err(ReleaseTokenError::MalformedAddress(err)) => {
+                            log!(
+                                P0,
+                                "[submit_release_token_requests] malformed address: {}",
+                                err
+                            );
+                            next_seq = seq + 1;
+                        }
+                    }
                 } else {
                     log!(
                         P0,
-                        "[submit_release_token_requests]: failed to parse runes id of ticket"
+                        "[submit_release_token_requests]: failed to parse rune_id of ticket"
                     );
-                    next_index = index + 1;
+                    next_seq = seq + 1;
                     continue;
-                };
-                let args = ReleaseTokenArgs {
-                    ticket_id: ticket.ticket_id,
-                    rune_id,
-                    amount,
-                    address: ticket.receiver,
-                };
-                match release_token(args).await {
-                    Err(ReleaseTokenError::TemporarilyUnavailable(_)) => {
-                        log!(
-                            P0,
-                            "[submit_release_token_requests] temporarily unavailable"
-                        );
-                        break;
-                    }
-                    Err(ReleaseTokenError::AlreadyProcessing)
-                    | Err(ReleaseTokenError::AlreadyProcessed)
-                    | Ok(_) => next_index = index + 1,
-                    Err(ReleaseTokenError::MalformedAddress(err)) => {
-                        log!(
-                            P0,
-                            "[submit_release_token_requests] malformed address: {}",
-                            err
-                        );
-                        next_index = index + 1;
-                    }
                 }
             }
-            mutate_state(|s| s.next_release_ticket_index = next_index);
+            mutate_state(|s| s.next_release_ticket_seq = next_seq);
         }
     }
 }
@@ -291,25 +291,30 @@ async fn submit_pending_requests() {
             .map(|(rune_id, _)| rune_id.clone())
             .collect::<Vec<RuneId>>()
     });
+
     for rune_id in runes_list {
         // We make requests if we have old requests in the queue or if have enough
         // requests to fill a batch.
         if !state::read_state(|s| {
-            s.can_form_a_batch(&rune_id, MIN_PENDING_REQUESTS, ic_cdk::api::time())
+            s.can_form_a_batch(rune_id, MIN_PENDING_REQUESTS, ic_cdk::api::time())
         }) {
             continue;
         }
 
+        let main_chain_id = read_state(|s| s.chain_id.clone());
         let ecdsa_public_key = updates::get_btc_address::init_ecdsa_public_key().await;
-        let btc_main_address =
-            address::main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN));
+        let btc_main_address = address::main_bitcoin_address(
+            &ecdsa_public_key,
+            main_chain_id.clone(),
+            String::from(BTC_TOKEN),
+        );
 
         // Each runes tokens use isolated main addresses
         let runes_main_address =
-            address::main_bitcoin_address(&ecdsa_public_key, rune_id.to_string());
+            address::main_bitcoin_address(&ecdsa_public_key, main_chain_id, rune_id.to_string());
 
         let maybe_sign_request = state::mutate_state(|s| {
-            let batch = s.build_batch(&rune_id, MAX_REQUESTS_PER_BATCH);
+            let batch = s.build_batch(rune_id, MAX_REQUESTS_PER_BATCH);
 
             if batch.is_empty() {
                 return None;
@@ -321,7 +326,7 @@ async fn submit_pending_requests() {
                 .collect();
 
             match build_unsigned_transaction(
-                &rune_id,
+                rune_id,
                 &mut s.available_runes_utxos,
                 &mut s.available_fee_utxos,
                 runes_main_address,
@@ -428,7 +433,7 @@ async fn submit_pending_requests() {
                                 state::audit::sent_transaction(
                                     s,
                                     state::SubmittedBtcTransaction {
-                                        rune_id,
+                                        rune_id: rune_id.clone(),
                                         requests,
                                         txid,
                                         runes_utxos,
@@ -437,6 +442,7 @@ async fn submit_pending_requests() {
                                         btc_change_output: req.btc_change_output,
                                         submitted_at: ic_cdk::api::time(),
                                         fee_per_vbyte: Some(fee_millisatoshi_per_vbyte),
+                                        raw_tx: hex::encode(signed_tx.serialize()),
                                     },
                                 );
                             });
@@ -516,16 +522,21 @@ async fn finalize_requests() {
         return;
     }
 
+    let main_chain_id = read_state(|s| s.chain_id.clone());
     let main_btc_address = (
-        main_destination(BTC_TOKEN.into()),
-        address::main_bitcoin_address(&ecdsa_public_key, BTC_TOKEN.into()),
+        main_destination(main_chain_id.clone(), BTC_TOKEN.into()),
+        address::main_bitcoin_address(&ecdsa_public_key, main_chain_id.clone(), BTC_TOKEN.into()),
     );
     let main_runes_addresses: Vec<(Destination, BitcoinAddress)> = maybe_finalized_transactions
         .iter()
         .map(|(_, tx)| {
             (
-                main_destination(tx.rune_id.to_string()),
-                address::main_bitcoin_address(&ecdsa_public_key, tx.rune_id.to_string()),
+                main_destination(main_chain_id.clone(), tx.rune_id.to_string()),
+                address::main_bitcoin_address(
+                    &ecdsa_public_key,
+                    main_chain_id.clone(),
+                    tx.rune_id.to_string(),
+                ),
             )
         })
         .collect();
@@ -566,7 +577,7 @@ async fn finalize_requests() {
         for tx in &confirmed_transactions {
             state::audit::confirm_transaction(s, &tx.txid);
             let balance = RunesBalance {
-                rune_id: tx.runes_change_output.rune_id,
+                rune_id: tx.runes_change_output.rune_id.clone(),
                 vout: tx.runes_change_output.vout,
                 amount: tx.runes_change_output.value,
             };
@@ -671,11 +682,19 @@ async fn finalize_requests() {
 
         let (unsigned_tx, runes_change, btc_change, used_runes_utxos, used_btc_utxos) =
             match build_unsigned_transaction(
-                &submitted_tx.rune_id,
+                submitted_tx.rune_id,
                 &mut runes_utxos,
                 &mut btc_utxos,
-                main_bitcoin_address(&ecdsa_public_key, submitted_tx.rune_id.to_string()),
-                main_bitcoin_address(&ecdsa_public_key, String::from(BTC_TOKEN)),
+                main_bitcoin_address(
+                    &ecdsa_public_key,
+                    main_chain_id.clone(),
+                    submitted_tx.rune_id.to_string(),
+                ),
+                main_bitcoin_address(
+                    &ecdsa_public_key,
+                    main_chain_id.clone(),
+                    String::from(BTC_TOKEN),
+                ),
                 outputs,
                 tx_fee_per_vbyte,
                 true,
@@ -755,6 +774,7 @@ async fn finalize_requests() {
                     runes_change_output: runes_change,
                     btc_change_output: btc_change,
                     fee_per_vbyte: Some(tx_fee_per_vbyte),
+                    raw_tx: hex::encode(signed_tx.serialize()),
                 };
 
                 state::mutate_state(|s| {
@@ -1003,7 +1023,7 @@ pub enum BuildTxError {
 /// ```
 ///
 pub fn build_unsigned_transaction(
-    rune_id: &RuneId,
+    rune_id: RuneId,
     available_runes_utxos: &mut BTreeSet<RunesUtxo>,
     available_btc_utxos: &mut BTreeSet<Utxo>,
     runes_main_address: BitcoinAddress,
@@ -1031,7 +1051,7 @@ pub fn build_unsigned_transaction(
 
     let amount = outputs.iter().map(|(_, amount)| amount).sum::<u128>();
     let runes_utxo = utxos_selection(amount, available_runes_utxos, outputs.len(), |u| {
-        if u.runes.rune_id.eq(rune_id) {
+        if u.runes.rune_id.eq(&rune_id) {
             u.runes.amount
         } else {
             0
@@ -1044,13 +1064,16 @@ pub fn build_unsigned_transaction(
 
     // This guard returns the selected UTXOs back to the available_utxos set if
     // we fail to build the transaction.
-    let utxos_guard = guard(runes_utxo, |utxos| {
+    let runes_utxos_guard = guard(runes_utxo, |utxos| {
         for utxo in utxos {
             available_runes_utxos.insert(utxo);
         }
     });
 
-    let inputs_value = utxos_guard.iter().map(|u| u.runes.amount).sum::<u128>();
+    let inputs_value = runes_utxos_guard
+        .iter()
+        .map(|u| u.runes.amount)
+        .sum::<u128>();
     debug_assert!(inputs_value >= amount);
 
     let stone = Runestone {
@@ -1058,7 +1081,7 @@ pub fn build_unsigned_transaction(
             .iter()
             .enumerate()
             .map(|(idx, (_, amount))| Edict {
-                id: *rune_id,
+                id: rune_id.into(),
                 amount: *amount,
                 output: (idx + 2) as u128,
             })
@@ -1067,7 +1090,7 @@ pub fn build_unsigned_transaction(
 
     let runes_change = inputs_value - amount;
     let change_output = state::RunesChangeOutput {
-        rune_id: *rune_id,
+        rune_id,
         vout: 1,
         value: runes_change,
     };
@@ -1077,7 +1100,7 @@ pub fn build_unsigned_transaction(
     let mut tx_outputs = vec![
         tx::TxOut {
             value: 0,
-            address: BitcoinAddress::P2sh(stone.encipher()),
+            address: BitcoinAddress::OpReturn(stone.encipher()),
         },
         // Runes token change
         tx::TxOut {
@@ -1096,7 +1119,7 @@ pub fn build_unsigned_transaction(
             .collect(),
     );
 
-    let mut tx_inputs = utxos_guard
+    let mut tx_inputs = runes_utxos_guard
         .iter()
         .map(|utxo| tx::UnsignedInput {
             previous_output: utxo.raw.outpoint.clone(),
@@ -1108,14 +1131,19 @@ pub fn build_unsigned_transaction(
     // Initially assume two additional input utxos as source of transaction fees,
     // and one additional output as btc change output.
     let tx_vsize = tx_vsize_estimate(
-        (utxos_guard.len() + 2) as u64,
+        (runes_utxos_guard.len() + 2) as u64,
         (tx_outputs.len() + 1) as u64,
     );
     let fee: u64 = (tx_vsize as u64 * fee_per_vbyte) / 1000;
     // Select enough gas to handle resubmissions.
-    let select_fee = fee * 2;
+    // Additional MIN_OUTPUT_AMOUNT are used as the value of the runes outputs(one runes chagne output + multiple dest runes outputs).
+    let sz_min_btc_outputs = (outputs.len() + 1) as u64;
+    let select_fee = fee * 2 + MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
 
-    let mut input_btc_amount = utxos_guard.iter().map(|input| input.raw.value).sum::<u64>();
+    let mut input_btc_amount = runes_utxos_guard
+        .iter()
+        .map(|input| input.raw.value)
+        .sum::<u64>();
 
     let mut btc_utxos: Vec<Utxo> = vec![];
 
@@ -1139,9 +1167,15 @@ pub fn build_unsigned_transaction(
         0
     };
 
+    let btc_utxos_guard = guard(btc_utxos, |utxos| {
+        for utxo in utxos {
+            available_btc_utxos.insert(utxo);
+        }
+    });
+
     input_btc_amount += selected_btc_amount;
     tx_inputs.append(
-        &mut btc_utxos
+        &mut btc_utxos_guard
             .iter()
             .map(|u| tx::UnsignedInput {
                 previous_output: u.outpoint.clone(),
@@ -1164,10 +1198,14 @@ pub fn build_unsigned_transaction(
 
     // We need to recaculate the fee when the number of inputs and outputs is finalized.
     let real_fee = fake_sign(&unsigned_tx).vsize() as u64 * fee_per_vbyte / 1000;
+    let btc_consumed = real_fee + MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
 
-    assert!(input_btc_amount > real_fee);
-    let btc_change_amount = input_btc_amount - real_fee;
+    // The value of btc change output must greater than 546sats
+    if input_btc_amount <= btc_consumed + MIN_OUTPUT_AMOUNT {
+        return Err(BuildTxError::NotEnoughGas);
+    }
 
+    let btc_change_amount = input_btc_amount - btc_consumed;
     unsigned_tx.outputs.iter_mut().last().unwrap().value = btc_change_amount;
     let btc_change_out = BtcChangeOutput {
         vout: unsigned_tx.outputs.len() as u32 - 1,
@@ -1178,8 +1216,8 @@ pub fn build_unsigned_transaction(
         unsigned_tx,
         change_output,
         btc_change_out,
-        ScopeGuard::into_inner(utxos_guard),
-        btc_utxos,
+        ScopeGuard::into_inner(runes_utxos_guard),
+        ScopeGuard::into_inner(btc_utxos_guard),
     ))
 }
 

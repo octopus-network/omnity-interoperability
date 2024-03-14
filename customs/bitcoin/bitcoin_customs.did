@@ -1,4 +1,5 @@
 type BitcoinAddress = variant {
+  OpReturn : vec nat8;
   p2wsh_v0 : vec nat8;
   p2tr_v1 : vec nat8;
   p2sh : vec nat8;
@@ -32,7 +33,7 @@ type Destination = record {
   target_chain_id : text;
   receiver : text;
 };
-type EstimateFeeArg = record { amount : opt nat; rune_id : nat };
+type EstimateFeeArg = record { amount : opt nat; rune_id : RuneId };
 type Event = variant {
   received_utxos : record {
     is_runes : bool;
@@ -50,8 +51,9 @@ type Event = variant {
     btc_utxos : vec Utxo;
     requests : vec text;
     runes_change_output : RunesChangeOutput;
+    raw_tx : text;
     runes_utxos : vec RunesUtxo;
-    rune_id : nat;
+    rune_id : RuneId;
     submitted_at : nat64;
   };
   finalized_ticket_request : record {
@@ -60,6 +62,7 @@ type Event = variant {
   };
   accepted_release_token_request : ReleaseTokenRequest;
   init : InitArgs;
+  updated_runes_balance : record { balance : RunesBalance; txid : vec nat8 };
   upgrade : UpgradeArgs;
   confirmed_transaction : GenTicketStatusArgs;
   replaced_transaction : record {
@@ -68,10 +71,10 @@ type Event = variant {
     old_txid : vec nat8;
     new_txid : vec nat8;
     runes_change_output : RunesChangeOutput;
+    raw_tx : text;
     submitted_at : nat64;
   };
   accepted_generate_ticket_request : GenTicketRequest;
-  received_runes_utxos : record { balance : RunesBalance; txid : vec nat8 };
 };
 type FinalizedTicketStatus = variant { Invalid; Finalized };
 type GenTicketRequest = record {
@@ -81,7 +84,7 @@ type GenTicketRequest = record {
   address : text;
   amount : nat;
   receiver : text;
-  rune_id : nat;
+  rune_id : RuneId;
 };
 type GenTicketStatus = variant {
   Invalid;
@@ -95,10 +98,11 @@ type GenerateTicketArgs = record {
   target_chain_id : text;
   amount : nat;
   receiver : text;
-  rune_id : nat;
+  rune_id : text;
 };
 type GenerateTicketError = variant {
   TemporarilyUnavailable : text;
+  InvalidRuneId : text;
   AlreadySubmitted;
   AleardyProcessed;
   NoNewUtxos;
@@ -109,7 +113,9 @@ type InitArgs = record {
   hub_principal : principal;
   ecdsa_key_name : text;
   mode : Mode;
+  runes_oracle_principal : principal;
   max_time_in_queue_nanos : nat64;
+  chain_id : text;
   btc_network : BtcNetwork;
   min_confirmations : opt nat32;
 };
@@ -132,7 +138,7 @@ type ReleaseTokenRequest = record {
   ticket_id : text;
   address : BitcoinAddress;
   amount : nat;
-  rune_id : nat;
+  rune_id : RuneId;
 };
 type ReleaseTokenStatus = variant {
   Signing;
@@ -146,10 +152,15 @@ type ReleaseTokenStatusArgs = record { ticket_id : text };
 type Result = variant { Ok; Err : GenerateTicketError };
 type Result_1 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
 type Result_2 = variant { Ok; Err : UpdateRunesBalanceError };
-type RunesBalance = record { vout : nat32; amount : nat; rune_id : nat };
-type RunesChangeOutput = record { value : nat; vout : nat32; rune_id : nat };
+type RuneId = record { height : nat32; index : nat16 };
+type RunesBalance = record { vout : nat32; amount : nat; rune_id : RuneId };
+type RunesChangeOutput = record { value : nat; vout : nat32; rune_id : RuneId };
 type RunesUtxo = record { raw : Utxo; runes : RunesBalance };
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
+type UpdateRunesBalanceArgs = record {
+  txid : vec nat8;
+  balances : vec RunesBalance;
+};
 type UpdateRunesBalanceError = variant {
   SendTicketErr : text;
   UtxoNotFound;
@@ -157,13 +168,10 @@ type UpdateRunesBalanceError = variant {
   AleardyProcessed;
   MismatchWithGenTicketReq;
 };
-type UpdateRunesBalanceArgs = record {
-  txid : vec nat8;
-  balances : vec RunesBalance;
-};
 type UpgradeArgs = record {
   hub_principal : opt principal;
   mode : opt Mode;
+  runes_oracle_principal : opt principal;
   max_time_in_queue_nanos : opt nat64;
   min_confirmations : opt nat32;
 };

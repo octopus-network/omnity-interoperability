@@ -1,9 +1,9 @@
-use crate::guard::release_token_guard;
-use crate::state::ReleaseTokenStatus;
+use crate::guard::{release_token_guard, GuardError};
+use crate::state::{ReleaseTokenStatus, RuneId};
 use crate::tasks::{schedule_now, TaskType};
 use crate::{
     address::{BitcoinAddress, ParseAddressError},
-    state::{self, mutate_state, read_state, ReleaseTokenRequest, RuneId},
+    state::{self, mutate_state, read_state, ReleaseTokenRequest},
 };
 use candid::{CandidType, Deserialize};
 use omnity_types::TicketId;
@@ -41,11 +41,21 @@ impl From<ParseAddressError> for ReleaseTokenError {
     }
 }
 
+impl From<GuardError> for ReleaseTokenError {
+    fn from(e: GuardError) -> Self {
+        match e {
+            GuardError::TooManyConcurrentRequests => {
+                Self::TemporarilyUnavailable("too many concurrent requests".to_string())
+            }
+        }
+    }
+}
+
 pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenError> {
     state::read_state(|s| s.mode.is_release_available_for())
         .map_err(ReleaseTokenError::TemporarilyUnavailable)?;
 
-    let _guard = release_token_guard();
+    let _guard = release_token_guard()?;
 
     let btc_network = read_state(|s| s.btc_network);
 

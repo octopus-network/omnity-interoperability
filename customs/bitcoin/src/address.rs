@@ -16,8 +16,6 @@ const BTC_MAINNET_P2SH_PREFIX: u8 = 5;
 const BTC_TESTNET_PREFIX: u8 = 111;
 const BTC_TESTNET_P2SH_PREFIX: u8 = 196;
 
-const MAIN_DESTINATION_CHAIN_ID: &str = "omnity";
-
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BitcoinAddress {
     /// Pay to witness public key hash address.
@@ -38,6 +36,8 @@ pub enum BitcoinAddress {
     /// Pay to script hash address.
     #[serde(rename = "p2sh")]
     P2sh([u8; 20]),
+    /// Pay to OP_RETURN
+    OpReturn(Vec<u8>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -67,6 +67,7 @@ impl BitcoinAddress {
                 script_hash,
             ),
             Self::P2trV1(pkhash) => encode_bech32(network, pkhash, WitnessVersion::V1),
+            Self::OpReturn(_) => String::new(),
         }
     }
 
@@ -89,13 +90,17 @@ impl BitcoinAddress {
     }
 }
 
-pub fn main_bitcoin_address(ecdsa_public_key: &ECDSAPublicKey, token: String) -> BitcoinAddress {
-    destination_to_bitcoin_address(ecdsa_public_key, &main_destination(token))
+pub fn main_bitcoin_address(
+    ecdsa_public_key: &ECDSAPublicKey,
+    main_chain_id: String,
+    token: String,
+) -> BitcoinAddress {
+    destination_to_bitcoin_address(ecdsa_public_key, &main_destination(main_chain_id, token))
 }
 
-pub fn main_destination(token: String) -> Destination {
+pub fn main_destination(main_chain_id: String, token: String) -> Destination {
     Destination {
-        target_chain_id: MAIN_DESTINATION_CHAIN_ID.into(),
+        target_chain_id: main_chain_id,
         receiver: ic_cdk::id().to_string(),
         token: Some(token),
     }

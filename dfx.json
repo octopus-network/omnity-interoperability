@@ -11,6 +11,25 @@
       "candid": "hub/omnity_hub.did",
       "package": "omnity_hub",
       "type": "rust"
+    },
+    "hub_mock": {
+      "gzip": true,
+      "candid": "mock/hub/hub_mock.did",
+      "package": "hub_mock",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "bitcoin": {
+      "enabled": true,
+      "nodes": [
+        "127.0.0.1:18444"
+      ],
+      "log_level": "info"
+    },
+    "build": {
+      "packtool": "",
+      "args": ""
     }
   },
   "networks": {

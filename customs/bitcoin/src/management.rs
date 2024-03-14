@@ -313,10 +313,10 @@ pub async fn query_tickets(
     hub_principal: Principal,
     chain_id: ChainId,
     start: u64,
-    end: u64,
+    num: u64,
 ) -> Result<Vec<(Seq, Ticket)>, CallError> {
     let resp: (Result<Vec<(Seq, Ticket)>, omnity_types::Error>,) =
-        ic_cdk::api::call::call(hub_principal, "query_tickets", (chain_id, start, end))
+        ic_cdk::api::call::call(hub_principal, "query_tickets", (chain_id, start, num))
             .await
             .map_err(|(code, message)| CallError {
                 method: "query_tickets".to_string(),

@@ -2,7 +2,7 @@ use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::lifecycle::{self, init::CustomArg};
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{
-    EstimateFeeArg, GenTicketStatusArgs, RedeemFee, ReleaseTokenStatusArgs,
+    EstimateFeeArgs, GenTicketStatusArgs, GetGenTicketReqsArgs, RedeemFee, ReleaseTokenStatusArgs,
 };
 use bitcoin_customs::state::{read_state, GenTicketRequest, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_customs::tasks::{schedule_now, TaskType};
@@ -22,6 +22,8 @@ use ic_btc_interface::Utxo;
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk_macros::{init, post_upgrade, query, update};
+use std::cmp::max;
+use std::ops::Bound::{Excluded, Unbounded};
 
 #[init]
 fn init(args: CustomArg) {
@@ -128,28 +130,40 @@ async fn get_main_btc_address(token: String) -> String {
 }
 
 #[query]
-fn release_token_status(req: ReleaseTokenStatusArgs) -> ReleaseTokenStatus {
-    read_state(|s| s.release_token_status(&req.ticket_id))
+fn release_token_status(args: ReleaseTokenStatusArgs) -> ReleaseTokenStatus {
+    read_state(|s| s.release_token_status(&args.ticket_id))
 }
 
 #[query]
-fn generate_ticket_status(req: GenTicketStatusArgs) -> GenTicketStatus {
-    read_state(|s| s.generate_ticket_status(req.txid))
+fn generate_ticket_status(args: GenTicketStatusArgs) -> GenTicketStatus {
+    read_state(|s| s.generate_ticket_status(args.txid))
 }
 
 #[query]
-fn get_pending_gen_ticket_requests() -> Vec<GenTicketRequest> {
-    // TODO support pagination
+fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequest> {
+    let start = args.start_txid.map_or(Unbounded, |txid| Excluded(txid));
+    let count = max(50, args.max_count) as usize;
     read_state(|s| {
         s.pending_gen_ticket_requests
-            .iter()
+            .range((start, Unbounded))
+            .take(count)
             .map(|(_, req)| req.clone())
             .collect()
     })
 }
 
-// TODO add auth of runes oracle
-#[update]
+pub fn is_runes_oracle() -> Result<(), String> {
+    let caller = ic_cdk::api::caller();
+    read_state(|s| {
+        if s.runes_oracle_principal != caller {
+            Err("Not runes principal!".into())
+        } else {
+            Ok(())
+        }
+    })
+}
+
+#[update(guard = "is_runes_oracle")]
 async fn update_runes_balance(args: UpdateRunesBalanceArgs) -> Result<(), UpdateRunesBalanceError> {
     check_postcondition(updates::update_runes_balance(args).await)
 }
@@ -177,7 +191,7 @@ async fn get_canister_status() -> ic_cdk::api::management_canister::main::Canist
 }
 
 #[query]
-fn estimate_redeem_fee(arg: EstimateFeeArg) -> RedeemFee {
+fn estimate_redeem_fee(arg: EstimateFeeArgs) -> RedeemFee {
     read_state(|s| {
         bitcoin_customs::estimate_fee(
             arg.rune_id,

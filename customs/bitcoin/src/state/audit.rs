@@ -26,6 +26,9 @@ pub fn add_utxos(
     utxos: Vec<Utxo>,
     is_runes: bool,
 ) {
+    if utxos.is_empty() {
+        return;
+    }
     record_event(&Event::ReceivedUtxos {
         destination: destination.clone(),
         utxos: utxos.clone(),
@@ -36,7 +39,7 @@ pub fn add_utxos(
 }
 
 pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: RunesBalance) {
-    record_event(&Event::ReceivedRunesToken {
+    record_event(&Event::UpdatedRunesBalance {
         txid,
         balance: balance.clone(),
     });
@@ -82,7 +85,7 @@ pub fn remove_ticket_request(
 
 pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransaction) {
     record_event(&Event::SentBtcTransaction {
-        rune_id: tx.rune_id.clone(),
+        rune_id: tx.rune_id,
         request_release_ids: tx.requests.iter().map(|r| r.ticket_id.clone()).collect(),
         txid: tx.txid,
         runes_utxos: tx.runes_utxos.clone(),
@@ -91,6 +94,7 @@ pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransaction) {
         btc_change_output: tx.btc_change_output.clone(),
         submitted_at: tx.submitted_at,
         fee_per_vbyte: tx.fee_per_vbyte,
+        raw_tx: tx.raw_tx.clone(),
     });
 
     state.push_submitted_transaction(tx);
@@ -115,6 +119,7 @@ pub fn replace_transaction(
         fee_per_vbyte: new_tx
             .fee_per_vbyte
             .expect("bug: all replacement transactions must have the fee"),
+        raw_tx: new_tx.raw_tx.clone(),
     });
     state.replace_transaction(&old_txid, new_tx);
 }

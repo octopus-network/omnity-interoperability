@@ -40,8 +40,8 @@ pub enum Event {
         is_runes: bool,
     },
 
-    #[serde(rename = "received_runes_utxos")]
-    ReceivedRunesToken {
+    #[serde(rename = "updated_runes_balance")]
+    UpdatedRunesBalance {
         #[serde(rename = "txid")]
         txid: Txid,
         #[serde(rename = "balance")]
@@ -102,6 +102,8 @@ pub enum Event {
         #[serde(rename = "fee")]
         #[serde(skip_serializing_if = "Option::is_none")]
         fee_per_vbyte: Option<u64>,
+        #[serde(rename = "raw_tx")]
+        raw_tx: String,
     },
 
     /// Indicates that the customs sent out a new transaction to replace an older transaction
@@ -125,6 +127,8 @@ pub enum Event {
         /// The fee per vbyte (in millisatoshi) that we used for the transaction.
         #[serde(rename = "fee")]
         fee_per_vbyte: u64,
+        #[serde(rename = "raw_tx")]
+        raw_tx: String,
     },
 
     /// Indicates that the minter received enough confirmations for a bitcoin
@@ -168,7 +172,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 utxos,
                 is_runes,
             } => state.add_utxos(destination, utxos, is_runes),
-            Event::ReceivedRunesToken { txid, balance } => {
+            Event::UpdatedRunesBalance { txid, balance } => {
                 state.update_runes_balance(txid, balance);
             }
             Event::AcceptedGenTicketRequest(req) => {
@@ -217,6 +221,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 runes_change_output,
                 btc_change_output,
                 submitted_at,
+                raw_tx,
             } => {
                 let mut release_token_requests = Vec::with_capacity(request_release_ids.len());
                 for release_id in request_release_ids {
@@ -246,6 +251,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                     runes_change_output,
                     btc_change_output,
                     submitted_at,
+                    raw_tx,
                 });
             }
             Event::ReplacedBtcTransaction {
@@ -255,6 +261,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 btc_change_output,
                 submitted_at,
                 fee_per_vbyte,
+                raw_tx,
             } => {
                 let (requests, runes_utxos, btc_utxos) = match state
                     .submitted_transactions
@@ -277,7 +284,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.replace_transaction(
                     &old_txid,
                     SubmittedBtcTransaction {
-                        rune_id: runes_change_output.rune_id,
+                        rune_id: runes_change_output.rune_id.clone(),
                         txid: new_txid,
                         requests,
                         runes_utxos,
@@ -286,6 +293,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                         btc_change_output,
                         submitted_at,
                         fee_per_vbyte: Some(fee_per_vbyte),
+                        raw_tx: raw_tx,
                     },
                 );
             }

@@ -6,16 +6,22 @@
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, VecDeque},
+    error::Error,
+    fmt::{self, Display, Formatter},
+    str::FromStr,
 };
 
 pub mod audit;
 pub mod eventlog;
 
-use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::logs::P0;
 use crate::{address::BitcoinAddress, ECDSAPublicKey};
+use crate::{
+    destination::Destination,
+    runestone::{Edict, Runestone},
+};
 use candid::{CandidType, Deserialize, Principal};
 pub use ic_btc_interface::Network;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
@@ -30,6 +36,54 @@ const MAX_FINALIZED_REQUESTS: usize = 100;
 
 thread_local! {
     static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseRuneIdError;
+
+impl fmt::Display for ParseRuneIdError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        "provided rune_id was not valid".fmt(f)
+    }
+}
+
+impl Error for ParseRuneIdError {
+    fn description(&self) -> &str {
+        "failed to parse rune_id"
+    }
+}
+
+#[derive(
+    candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Copy,
+)]
+pub struct RuneId {
+    pub height: u32,
+    pub index: u16,
+}
+
+impl Display for RuneId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.height, self.index,)
+    }
+}
+
+impl From<RuneId> for u128 {
+    fn from(id: RuneId) -> Self {
+        u128::from(id.height) << 16 | u128::from(id.index)
+    }
+}
+
+impl FromStr for RuneId {
+    type Err = ParseRuneIdError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (height, index) = s.split_once(':').ok_or_else(|| ParseRuneIdError)?;
+
+        Ok(Self {
+            height: height.parse().map_err(|_| ParseRuneIdError)?,
+            index: index.parse().map_err(|_| ParseRuneIdError)?,
+        })
+    }
 }
 
 // A pending release token request
@@ -55,8 +109,6 @@ pub struct GenTicketRequest {
     pub txid: Txid,
     pub received_at: u64,
 }
-
-pub type RuneId = u128;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesBalance {
@@ -112,6 +164,7 @@ pub struct SubmittedBtcTransaction {
     /// Fee per vbyte in millisatoshi.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fee_per_vbyte: Option<u64>,
+    pub raw_tx: String,
 }
 
 /// Pairs a retrieve_btc request with its outcome.
@@ -257,7 +310,7 @@ pub struct CustomsState {
     pub finalized_gen_ticket_requests: VecDeque<FinalizedTicket>,
 
     // Start index of query tickets from hub
-    pub next_release_ticket_index: u64,
+    pub next_release_ticket_seq: u64,
 
     /// Release_token requests that are waiting to be served, sorted by
     /// received_at.
@@ -303,6 +356,8 @@ pub struct CustomsState {
 
     pub hub_principal: Principal,
 
+    pub runes_oracle_principal: Principal,
+
     /// Process one timer event at a time.
     #[serde(skip)]
     pub is_timer_running: bool,
@@ -311,6 +366,8 @@ pub struct CustomsState {
     pub mode: Mode,
 
     pub last_fee_per_vbyte: Vec<u64>,
+
+    pub chain_id: String,
 }
 
 impl CustomsState {
@@ -323,6 +380,8 @@ impl CustomsState {
             min_confirmations,
             mode,
             hub_principal,
+            runes_oracle_principal,
+            chain_id,
         }: InitArgs,
     ) {
         self.btc_network = btc_network.into();
@@ -330,6 +389,8 @@ impl CustomsState {
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         self.mode = mode;
         self.hub_principal = hub_principal;
+        self.runes_oracle_principal = runes_oracle_principal;
+        self.chain_id = chain_id;
         if let Some(min_confirmations) = min_confirmations {
             self.min_confirmations = min_confirmations;
         }
@@ -342,6 +403,7 @@ impl CustomsState {
             min_confirmations,
             mode,
             hub_principal,
+            runes_oracle_principal,
         }: UpgradeArgs,
     ) {
         if let Some(max_time_in_queue_nanos) = max_time_in_queue_nanos {
@@ -364,6 +426,9 @@ impl CustomsState {
         }
         if let Some(hub_principal) = hub_principal {
             self.hub_principal = hub_principal;
+        }
+        if let Some(runes_oracle_principal) = runes_oracle_principal {
+            self.runes_oracle_principal = runes_oracle_principal;
         }
     }
 
@@ -551,8 +616,8 @@ impl CustomsState {
 
     /// Returns true if the pending requests queue has enough requests to form a
     /// batch or there are old enough requests to form a batch.
-    pub fn can_form_a_batch(&self, rune_id: &RuneId, min_pending: usize, now: u64) -> bool {
-        match self.pending_release_token_requests.get(rune_id) {
+    pub fn can_form_a_batch(&self, rune_id: RuneId, min_pending: usize, now: u64) -> bool {
+        match self.pending_release_token_requests.get(&rune_id) {
             Some(requests) => {
                 if requests.len() >= min_pending {
                     return true;
@@ -567,23 +632,38 @@ impl CustomsState {
     }
 
     /// Forms a batch of retrieve_btc requests that the minter can fulfill.
-    pub fn build_batch(&mut self, rune_id: &RuneId, max_size: usize) -> Vec<ReleaseTokenRequest> {
-        assert!(self.pending_release_token_requests.contains_key(rune_id));
+    pub fn build_batch(&mut self, rune_id: RuneId, max_size: usize) -> Vec<ReleaseTokenRequest> {
+        assert!(self.pending_release_token_requests.contains_key(&rune_id));
 
         let available_utxos_value = self
             .available_runes_utxos
             .iter()
-            .filter(|u| u.runes.rune_id.eq(rune_id))
+            .filter(|u| u.runes.rune_id.eq(&rune_id))
             .map(|u| u.runes.amount)
             .sum::<u128>();
         let mut batch = vec![];
         let mut tx_amount = 0;
         let requests = self
             .pending_release_token_requests
-            .entry(*rune_id)
+            .entry(rune_id)
             .or_default();
+
+        let mut edicts = vec![];
         for req in std::mem::take(requests) {
-            if available_utxos_value < req.amount + tx_amount || batch.len() >= max_size {
+            edicts.push(Edict {
+                id: req.rune_id.into(),
+                amount: req.amount,
+                output: 0,
+            });
+            // Maybe there is a better optimized version.
+            let script = Runestone {
+                edicts: edicts.clone(),
+            }
+            .encipher();
+            if script.len() > 82
+                || available_utxos_value < req.amount + tx_amount
+                || batch.len() >= max_size
+            {
                 // Put this request back to the queue until we have enough liquid UTXOs.
                 requests.push(req);
             } else {
@@ -932,7 +1012,7 @@ impl CustomsState {
         );
         for (rune_id, requests) in &self.pending_release_token_requests {
             let my_requests = as_sorted_vec(requests.iter().cloned(), |r| r.ticket_id.clone());
-            match other.pending_release_token_requests.get(&rune_id) {
+            match other.pending_release_token_requests.get(rune_id) {
                 Some(requests) => {
                     let other_requests =
                         as_sorted_vec(requests.iter().cloned(), |r| r.ticket_id.clone());
@@ -981,7 +1061,7 @@ impl From<InitArgs> for CustomsState {
             generate_ticket_counter: 0,
             release_token_counter: 0,
             pending_gen_ticket_requests: Default::default(),
-            next_release_ticket_index: 0,
+            next_release_ticket_seq: 0,
             pending_release_token_requests: Default::default(),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
@@ -999,7 +1079,9 @@ impl From<InitArgs> for CustomsState {
             is_timer_running: false,
             mode: args.mode,
             hub_principal: args.hub_principal,
+            runes_oracle_principal: args.runes_oracle_principal,
             last_fee_per_vbyte: vec![1; 100],
+            chain_id: args.chain_id,
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::destination::Destination;
-use crate::guard::generate_ticket_guard;
+use crate::guard::{generate_ticket_guard, GuardError};
 use crate::management::{get_utxos, CallSource};
 use crate::state::{audit, mutate_state, read_state, GenTicketRequest, GenTicketStatus, RuneId};
 use crate::updates::get_btc_address::{
@@ -14,7 +14,7 @@ use std::str::FromStr;
 pub struct GenerateTicketArgs {
     pub target_chain_id: String,
     pub receiver: String,
-    pub rune_id: RuneId,
+    pub rune_id: String,
     pub amount: u128,
     pub txid: String,
 }
@@ -25,11 +25,29 @@ pub enum GenerateTicketError {
     AlreadySubmitted,
     AleardyProcessed,
     NoNewUtxos,
+    InvalidRuneId(String),
+}
+
+impl From<GuardError> for GenerateTicketError {
+    fn from(e: GuardError) -> Self {
+        match e {
+            GuardError::TooManyConcurrentRequests => {
+                Self::TemporarilyUnavailable("too many concurrent requests".to_string())
+            }
+        }
+    }
 }
 
 pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     read_state(|s| s.mode.is_transport_available_for())
         .map_err(GenerateTicketError::TemporarilyUnavailable)?;
+
+    init_ecdsa_public_key().await;
+    let _guard = generate_ticket_guard()?;
+
+    let rune_id = RuneId::from_str(&args.rune_id)
+        .map_err(|e| GenerateTicketError::InvalidRuneId(e.to_string()))?;
+
     let txid = Txid::from_str(&args.txid)
         .map_err(|_| GenerateTicketError::TemporarilyUnavailable("Invalid txid".to_string()))?;
 
@@ -44,9 +62,6 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     })?;
 
     let (btc_network, min_confirmations) = read_state(|s| (s.btc_network, s.min_confirmations));
-
-    init_ecdsa_public_key().await;
-    let _guard = generate_ticket_guard();
 
     let destination = Destination {
         target_chain_id: args.target_chain_id.clone(),
@@ -77,7 +92,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         address,
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
-        rune_id: args.rune_id,
+        rune_id,
         amount: args.amount,
         txid,
         received_at: ic_cdk::api::time(),

@@ -112,7 +112,6 @@ mod tests {
         lifecycle::init::{init, BtcNetwork, InitArgs},
         state::read_state,
     };
-    use candid::Principal;
     use ic_base_types::CanisterId;
 
     fn test_state_args() -> InitArgs {
@@ -122,7 +121,9 @@ mod tests {
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             mode: crate::state::Mode::GeneralAvailability,
-            hub_principal: Principal::from(CanisterId::from(0)),
+            hub_principal: CanisterId::from(0).into(),
+            runes_oracle_principal: CanisterId::from(0).into(),
+            chain_id: "Bitcoin".into(),
         }
     }
 
