@@ -213,14 +213,14 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
 }
 
 async fn submit_release_token_requests() {
-    let (hub_principal, start) = read_state(|s| (s.hub_principal, s.next_release_ticket_seq));
-    match management::query_tickets(
-        hub_principal,
-        String::from(BTC_TOKEN),
-        start,
-        BATCH_QUERY_TICKETS_COUNT,
-    )
-    .await
+    let (hub_principal, start, chain_id) = read_state(|s| {
+        (
+            s.hub_principal,
+            s.next_release_ticket_seq,
+            s.chain_id.clone(),
+        )
+    });
+    match management::query_tickets(hub_principal, chain_id, start, BATCH_QUERY_TICKETS_COUNT).await
     {
         Err(err) => {
             log!(
