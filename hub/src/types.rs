@@ -126,7 +126,7 @@ impl core::fmt::Display for TokenMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\ntoken name:{} \nsymbol:{:?} \nissue chain:{} \ndecimals:{} \nicon:{:?} \n dst chains:{:?}",
+            "\ntoken name:{} \nsymbol:{:?} \nissue chain:{} \ndecimals:{} \nicon:{:?} \ndst chains:{:?}",
             self.token_id, self.symbol, self.issue_chain, self.decimals, self.icon,self.dst_chains
         )
     }

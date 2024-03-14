@@ -88,16 +88,17 @@ $ dfx canister call bitcoin_customs get_pending_gen_ticket_requests
     };
   },
 )
+# Note: replace the canister id to BTC customs canister id
+$ dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Bitcoin"; chain_type=variant { SettlementChain };canister_id="be2us-64aaa-aaaaa-qaabq-cai"; contract_address=null;counterparties=null}}})'
+$ dfx canister call omnity_hub build_directive '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Bitcoin"; chain_type=variant { SettlementChain };canister_id="be2us-64aaa-aaaaa-qaabq-cai"; contract_address=null;counterparties=null}}})'
 
-$ dfx canister call omnity_hub validate_proposal '(variant { AddChain = record { chain_state=variant { Active };chain_id = "BTC"; chain_type=variant { SettlementChain };}})'
-$ dfx canister call omnity_hub build_directive '(variant { AddChain = record { chain_state=variant { Active };chain_id = "BTC"; chain_type=variant { SettlementChain };}})'
+# Note: replace the canister id to cosmoshub route canister id and constract address
+$ dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "cosmoshub"; chain_type=variant { ExecutionChain };canister_id="be2us-64aaa-aaaaa-qaabq-cai";  contract_address=opt "cosmoshub constract address"; counterparties= opt vec {"Bitcoin"}}}})'
+$ dfx canister call omnity_hub build_directive '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "cosmoshub"; chain_type=variant { ExecutionChain };canister_id="be2us-64aaa-aaaaa-qaabq-cai";  contract_address=opt "cosmoshub constract address"; counterparties= opt vec {"Bitcoin"}}}})'
 
-$ dfx canister call omnity_hub validate_proposal '(variant { AddChain = record { chain_state=variant { Active };chain_id = "cosmoshub"; chain_type=variant { ExecutionChain };}})'
-$ dfx canister call omnity_hub build_directive '(variant { AddChain = record { chain_state=variant { Active };chain_id = "cosmoshub"; chain_type=variant { ExecutionChain };}})'
-
-$ dfx canister call omnity_hub validate_proposal '(variant { AddToken = record { decimals = 1 : nat8; icon = opt "rune"; token_id = "102:1"; issue_chain = "BTC"; symbol = "FIRST•RUNE•TOKEN";}})'
-$ dfx canister call omnity_hub build_directive '(variant { AddToken = record { decimals = 1 : nat8; icon = opt "rune"; token_id = "102:1"; issue_chain = "BTC"; symbol = "FIRST•RUNE•TOKEN";}})'
-$ dfx canister call omnity_hub query_directives '("BTC",opt variant {AddToken=null},0:nat64,5:nat64)' 
+$ dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "rune.logo.url"; token_id = "102:1"; issue_chain = "Bitcoin"; symbol = "FIRST•RUNE•TOKEN"; dst_chains = vec {"cosmoshub";}}}})'
+$ dfx canister call omnity_hub build_directive '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "rune.logo.url"; token_id = "102:1"; issue_chain = "Bitcoin"; symbol = "FIRST•RUNE•TOKEN"; dst_chains = vec {"cosmoshub";}}}})'
+$ dfx canister call omnity_hub query_directives '(opt "Bitcoin",opt variant {AddToken=null},0:nat64,5:nat64)' 
 (
   variant {
     Ok = vec {
@@ -118,9 +119,9 @@ $ dfx canister call omnity_hub query_directives '("BTC",opt variant {AddToken=nu
 )
 
 
-$ dfx canister call omnity_hub set_whitelist '(principal "be2us-64aaa-aaaaa-qaabq-cai", true)'
+#$ dfx canister call omnity_hub set_whitelist '(principal "be2us-64aaa-aaaaa-qaabq-cai", true)'
 $ RUST_LOG=info ./target/debug/runes_oracle
-$ dfx canister call omnity_hub query_tickets '("cosmoshub", 0, 10)'
+$ dfx canister call omnity_hub query_tickets '(opt "cosmoshub", 0, 10)'
 (
   variant {
     Ok = vec {
@@ -148,8 +149,8 @@ $ dfx canister call omnity_hub query_tickets '("cosmoshub", 0, 10)'
 
 $ dfx canister call bitcoin_customs update_btc_utxos
 
-$ dfx canister call omnity_hub send_ticket '(record { ticket_id = "f8aee1cc-db7a-40ea-80c2-4cf5e6c84c21"; ticket_time = 1707291817947 : nat64; token = "102:1"; amount = "10"; src_chain = "cosmoshub"; dst_chain = "BTC"; action = variant { Redeem }; sender = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"; receiver = "bcrt1q72ycas7f7h0wfv8egqh6vfzhurlaeket33l4qa"; memo = null;})'
-$ dfx canister call omnity_hub query_tickets '("BTC", 0, 10)'
+$ dfx canister call omnity_hub send_ticket '(record { ticket_id = "f8aee1cc-db7a-40ea-80c2-4cf5e6c84c21"; ticket_time = 1707291817947 : nat64; token = "102:1"; amount = "10"; src_chain = "cosmoshub"; dst_chain = "Bitcoin"; action = variant { Redeem }; sender = "cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"; receiver = "bcrt1q72ycas7f7h0wfv8egqh6vfzhurlaeket33l4qa"; memo = null;})'
+$ dfx canister call omnity_hub query_tickets '(opt "Bitcoin", 0, 10)'
 (
   variant {
     Ok = vec {
