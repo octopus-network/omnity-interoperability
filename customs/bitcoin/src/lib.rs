@@ -212,7 +212,14 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
 
 async fn submit_release_token_requests() {
     let (hub_principal, start) = read_state(|s| (s.hub_principal, s.next_release_ticket_seq));
-    match management::query_tickets(hub_principal, String::from(BTC_TOKEN), start, BATCH_QUERY_TICKETS_COUNT).await {
+    match management::query_tickets(
+        hub_principal,
+        String::from(BTC_TOKEN),
+        start,
+        BATCH_QUERY_TICKETS_COUNT,
+    )
+    .await
+    {
         Err(err) => {
             log!(
                 P0,
@@ -1135,10 +1142,10 @@ pub fn build_unsigned_transaction(
         (tx_outputs.len() + 1) as u64,
     );
     let fee: u64 = (tx_vsize as u64 * fee_per_vbyte) / 1000;
-    // Select enough gas to handle resubmissions.
-    // Additional MIN_OUTPUT_AMOUNT are used as the value of the runes outputs(one runes chagne output + multiple dest runes outputs).
-    let sz_min_btc_outputs = (outputs.len() + 1) as u64;
-    let select_fee = fee * 2 + MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
+    // Additional MIN_OUTPUT_AMOUNT are used as the value of the outputs(two chagne output + multiple dest runes outputs).
+    let outputs_size = (outputs.len() + 2) as u64;
+    // Select twise the fee to handle resubmissions.
+    let select_fee = fee * 2 + MIN_OUTPUT_AMOUNT * outputs_size;
 
     let mut input_btc_amount = runes_utxos_guard
         .iter()
@@ -1198,10 +1205,9 @@ pub fn build_unsigned_transaction(
 
     // We need to recaculate the fee when the number of inputs and outputs is finalized.
     let real_fee = fake_sign(&unsigned_tx).vsize() as u64 * fee_per_vbyte / 1000;
-    let btc_consumed = real_fee + MIN_OUTPUT_AMOUNT * sz_min_btc_outputs;
+    let btc_consumed = real_fee + MIN_OUTPUT_AMOUNT * outputs_size;
 
-    // The value of btc change output must greater than 546sats
-    if input_btc_amount <= btc_consumed + MIN_OUTPUT_AMOUNT {
+    if input_btc_amount < btc_consumed {
         return Err(BuildTxError::NotEnoughGas);
     }
 
