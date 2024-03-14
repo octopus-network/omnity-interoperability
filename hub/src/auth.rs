@@ -1,7 +1,10 @@
+use log::info;
+
 use crate::with_state;
 
 pub fn auth() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
+    info!("auth for caller: {:?}", caller.to_string());
     with_state(|s| {
         if !s.owner.eq(&Some(caller.to_string()))
             && !s.authorized_caller.contains_key(&caller.to_string())

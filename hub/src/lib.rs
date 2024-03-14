@@ -657,13 +657,13 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
 
                     // not issue chain
                 } else {
-                    // reduce sender token amount
+                   
                     info!(
                         "ticket token({}) from a not issue chain({}).",
                         ticket.token, ticket.src_chain,
                     );
                     
-                     // update token count on src chain
+                     // update token amount on src chain
                     if let Some(total_amount) = hub_state
                                 .token_position
                                 .get_mut(&(ticket.src_chain.to_string(), ticket.token.to_string()))
@@ -671,22 +671,21 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                             // check src chain token balance
                             if *total_amount < ticket_amount {
                                 return Err(Error::NotSufficientTokens(
-                                    ticket.sender.to_string(),
-                                    total_amount.to_string(),
-                                    ticket_amount.to_string(),
+                                    ticket.token.to_string(),
+                                    ticket.src_chain.to_string(),
                                 ));
                             }
                                 *total_amount -= ticket_amount
 
                             } else {
-                                return Err(Error::NotFoundTokenCountInfo(
-                                    ticket.src_chain.to_string(),
+                                return Err(Error::NotFoundChainToken(
                                     ticket.token.to_string(),
+                                    ticket.src_chain.to_string(),
                                 ));
                             }
 
                     
-                    // update token count on dst chain
+                    // update token amount on dst chain
                     hub_state
                         .token_position
                         .entry((ticket.dst_chain.to_string(), ticket.token.to_string()))
@@ -697,7 +696,7 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
 
             TxAction::Redeem => {
                
-                // update token count on src chain
+                // update token amount on src chain
                 if let Some(total_amount) = hub_state
                 .token_position
                 .get_mut(&(ticket.src_chain.to_string(), ticket.token.to_string()))
@@ -705,21 +704,20 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                     // check src chain token balance
                     if *total_amount < ticket_amount {
                         return Err(Error::NotSufficientTokens(
-                            ticket.sender.to_string(),
-                            total_amount.to_string(),
-                            ticket_amount.to_string(),
+                            ticket.token.to_string(),
+                            ticket.src_chain.to_string(),
                         ));
                     }
 
                     *total_amount -= ticket_amount
                 } else {
-                    return Err(Error::NotFoundTokenCountInfo(
-                        ticket.src_chain.to_string(),
+                    return Err(Error::NotFoundChainToken(
                         ticket.token.to_string(),
+                        ticket.src_chain.to_string(),
                     ));
                 }
 
-                //  if the dst chain is not issue chain,then update token count on dst chain
+                //  if the dst chain is not issue chain,then update token amount on dst chain
                  if !hub_state
                     .tokens
                     .contains_key(&(ticket.dst_chain.to_string(), ticket.token.to_string()))
@@ -731,14 +729,13 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
                     {
                         *total_amount += ticket_amount
                     } else {
-                        return Err(Error::NotFoundTokenCountInfo(
-                            ticket.dst_chain.to_string(),
+                        return Err(Error::NotFoundChainToken(
                             ticket.token.to_string(),
+                            ticket.dst_chain.to_string(),
                         ));
                     }
                 }
               
-
             }
         }
 
@@ -1234,7 +1231,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_a_b_send_ticket() {
+    async fn test_a_b_tx_ticket() {
         // add chain
         build_chains().await;
         // add token
@@ -1310,7 +1307,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_a_b_c_send_ticket() {
+    async fn test_a_b_c_tx_ticket() {
         // add chain
         build_chains().await;
         // add token
@@ -1323,7 +1320,7 @@ mod tests {
         let sender = "address_on_Ethereum";
         let receiver = "address_on_Optimistic";
 
-        let ticket = Ticket {
+        let a_2_b_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
@@ -1336,8 +1333,8 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, ticket);
-        let result = send_ticket(ticket).await;
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, a_2_b_ticket);
+        let result = send_ticket(a_2_b_ticket).await;
         println!(
             "{} -> {} transfer result:{:?}",
             src_chain, dst_chain, result
@@ -1359,7 +1356,7 @@ mod tests {
         let src_chain = "Optimistic";
         let dst_chain = "Starknet";
 
-        let ticket = Ticket {
+        let b_2_c_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
@@ -1372,10 +1369,10 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, ticket);
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_c_ticket);
         assert!(result.is_ok());
 
-        let result = send_ticket(ticket).await;
+        let result = send_ticket(b_2_c_ticket).await;
         println!(
             "{} -> {} transfer result:{:?}",
             src_chain, dst_chain, result
@@ -1398,7 +1395,7 @@ mod tests {
         let sender = "address_on_Starknet";
         let receiver = "address_on_Optimistic";
 
-        let ticket = Ticket {
+        let c_2_b_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
@@ -1411,9 +1408,9 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, ticket);
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, c_2_b_ticket);
 
-        let result = send_ticket(ticket).await;
+        let result = send_ticket(c_2_b_ticket).await;
         println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
         assert!(result.is_ok());
         // query tickets for chain id
@@ -1431,7 +1428,7 @@ mod tests {
         let src_chain = "Optimistic";
         let dst_chain = "Ethereum";
 
-        let ticket = Ticket {
+        let b_2_a_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
@@ -1444,9 +1441,9 @@ mod tests {
             memo: None,
         };
 
-        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, ticket);
+        println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_a_ticket);
 
-        let result = send_ticket(ticket).await;
+        let result = send_ticket(b_2_a_ticket).await;
         println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
         assert!(result.is_ok());
 

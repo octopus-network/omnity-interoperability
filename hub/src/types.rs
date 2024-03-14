@@ -56,8 +56,8 @@ impl core::fmt::Display for ChainMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\nchain name:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?}",
-            self.chain_id, self.chain_type, self.chain_state, self.contract_address,
+            "\nchain name:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?} \ncounterparties:{:#?}",
+            self.chain_id, self.chain_type, self.chain_state, self.contract_address,self.counterparties
         )
     }
 }

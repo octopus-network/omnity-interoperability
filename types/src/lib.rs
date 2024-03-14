@@ -135,7 +135,11 @@ pub struct ToggleState {
 }
 impl core::fmt::Display for ToggleState {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        write!(f, "chain:{},\nchain state:{:?}", self.chain_id, self.action,)
+        write!(
+            f,
+            "\nchain:{},\nchain state:{:?}",
+            self.chain_id, self.action,
+        )
     }
 }
 
@@ -211,10 +215,10 @@ pub enum Error {
     NotFoundAccount(String),
     #[error("not found account(`{0}`) token(`{1}`) on the chain(`{2}`")]
     NotFoundAccountToken(String, String, String),
-    #[error("Not found this token count info: chain(`{0}`) and token(`{1}`)")]
-    NotFoundTokenCountInfo(String, String),
-    #[error("Insufficient account(`{0}`) balance: sender token amount(`{1}`) <  ticket token amount(`{2}`) !)")]
-    NotSufficientTokens(String, String, String),
+    #[error("Not found this token(`{0}`) on chain(`{1}`) ")]
+    NotFoundChainToken(String, String),
+    #[error("Insufficient token (`{0}`) on chain (`{1}`) !)")]
+    NotSufficientTokens(String, String),
     #[error("The ticket amount(`{0}`) parse error: `{1}`")]
     TicketAmountParseError(String, String),
     #[error("custom error: (`{0}`)")]
