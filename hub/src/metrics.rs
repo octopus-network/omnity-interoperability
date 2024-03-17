@@ -1,14 +1,12 @@
-use ic_cdk::query;
-
+use crate::state::with_state;
+use crate::state::HubState;
 use log::info;
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Error, Fee, Ticket, TicketId, Token, TokenId,
     TokenOnChain,
 };
 
-use crate::with_state;
-
-#[query]
+// #[query]
 pub async fn get_chains(
     chain_type: Option<ChainType>,
     chain_state: Option<ChainState>,
@@ -68,7 +66,7 @@ pub async fn get_chains(
     }
 }
 
-#[query]
+// #[query]
 pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     info!("get_chain chain_id: {:?} ", chain_id);
     with_state(|hub_state| {
@@ -80,7 +78,7 @@ pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     })
 }
 
-#[query]
+// #[query]
 pub async fn get_tokens(
     chain_id: Option<ChainId>,
     token_id: Option<TokenId>,
@@ -138,7 +136,7 @@ pub async fn get_tokens(
 }
 
 /// get fees
-#[query]
+// #[query]
 pub async fn get_fees(
     chain_id: Option<ChainId>,
     token_id: Option<TokenId>,
@@ -196,7 +194,7 @@ pub async fn get_fees(
 }
 
 /// get tokens on dst chain
-#[query]
+// #[query]
 pub async fn get_chain_tokens(
     chain_id: Option<ChainId>,
     token_id: Option<TokenId>,
@@ -269,27 +267,13 @@ pub async fn get_chain_tokens(
     }
 }
 
-#[query]
-pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
-    info!("get_tx ticket_id: {:?} ", ticket_id);
-    with_state(|hub_state| {
-        if let Some(ticket) = hub_state.cross_ledger.get(&ticket_id) {
-            Ok(ticket.clone())
-        } else {
-            Err(Error::CustomError(format!(
-                "Not found this ticket: {}",
-                ticket_id
-            )))
-        }
-    })
-}
 
-#[query]
+// #[query]
 pub async fn get_txs(
     src_chain: Option<ChainId>,
     dst_chain: Option<ChainId>,
     token_id: Option<TokenId>,
-    // time range: from .. end
+
     time_range: Option<(u64, u64)>,
     from: usize,
     offset: usize,
@@ -447,22 +431,20 @@ pub async fn get_txs(
                 .map(|(_, ticket)| ticket.clone())
                 .collect()
         })),
-        (Some(src_chain), Some(dst_chain), None, None) => {
-            Ok(with_state(|hub_state: &crate::HubState| {
-                hub_state
-                    .cross_ledger
-                    .iter()
-                    .filter(|(_ticket_id, ticket)| {
-                        ticket.src_chain.eq(&src_chain) && ticket.dst_chain.eq(&dst_chain)
-                    })
-                    .skip(from)
-                    .take(offset)
-                    .map(|(_, ticket)| ticket.clone())
-                    .collect()
-            }))
-        }
+        (Some(src_chain), Some(dst_chain), None, None) => Ok(with_state(|hub_state: &HubState| {
+            hub_state
+                .cross_ledger
+                .iter()
+                .filter(|(_ticket_id, ticket)| {
+                    ticket.src_chain.eq(&src_chain) && ticket.dst_chain.eq(&dst_chain)
+                })
+                .skip(from)
+                .take(offset)
+                .map(|(_, ticket)| ticket.clone())
+                .collect()
+        })),
         (Some(src_chain), Some(dst_chain), None, Some(time_range)) => {
-            Ok(with_state(|hub_state: &crate::HubState| {
+            Ok(with_state(|hub_state: &HubState| {
                 hub_state
                     .cross_ledger
                     .iter()
@@ -513,7 +495,22 @@ pub async fn get_txs(
     }
 }
 
-#[query]
+// #[query]
+pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
+    info!("get_tx ticket_id: {:?} ", ticket_id);
+    with_state(|hub_state| {
+        if let Some(ticket) = hub_state.cross_ledger.get(&ticket_id) {
+            Ok(ticket.clone())
+        } else {
+            Err(Error::CustomError(format!(
+                "Not found this ticket: {}",
+                ticket_id
+            )))
+        }
+    })
+}
+
+// #[query]
 pub async fn get_total_tx() -> Result<u64, Error> {
     with_state(|hub_state| {
         let total_num = hub_state.cross_ledger.len() as u64;
@@ -521,7 +518,7 @@ pub async fn get_total_tx() -> Result<u64, Error> {
     })
 }
 
-#[query]
+// #[query]
 pub async fn get_chain_type(chain_id: ChainId) -> Result<ChainType, Error> {
     with_state(|hub_state| {
         if let Some(chain) = hub_state.chains.get(&chain_id) {
@@ -530,4 +527,24 @@ pub async fn get_chain_type(chain_id: ChainId) -> Result<ChainType, Error> {
             Err(Error::NotFoundChain(chain_id))
         }
     })
+}
+
+// get chain id from canister
+pub fn get_chain_id(chain_id: Option<ChainId>) -> Result<ChainId, Error> {
+    if let Some(chain_id) = chain_id {
+        Ok(chain_id)
+    } else {
+        let chain_id = with_state(|hs| {
+            let caller = ic_cdk::api::caller().to_string();
+            if let Some(chain_id) = hs.authorized_caller.get(&caller) {
+                Ok(chain_id.to_string())
+            } else {
+                Err(Error::CustomError(format!(
+                    "not found chain id for caller:{:?}",
+                    caller
+                )))
+            }
+        })?;
+        Ok(chain_id)
+    }
 }

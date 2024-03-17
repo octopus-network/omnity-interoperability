@@ -1,6 +1,6 @@
+use crate::state::with_state;
 use log::info;
 
-use crate::with_state;
 
 pub fn auth() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
@@ -26,21 +26,3 @@ pub fn is_owner() -> Result<(), String> {
         }
     })
 }
-
-// #[update(guard = "is_owner")]
-// pub async fn set_whitelist(principal: Principal, authorized: bool) -> Result<(), Error> {
-//     info!("principal: {principal:?}, authorized {authorized:?}");
-//     if authorized {
-//         with_state_mut(|s| s.authorized_caller.insert(principal.to_string()));
-//     } else {
-//         with_state_mut(|s| s.authorized_caller.remove(&principal.to_string()));
-//     }
-//     Ok(())
-// }
-
-// #[update(guard = "is_owner")]
-// pub async fn set_owner(principal: Principal) -> Result<(), Error> {
-//     with_state_mut(|s| s.owner = Some(principal.to_string()));
-//     info!("new owner: {principal:?}");
-//     Ok(())
-// }

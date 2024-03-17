@@ -1,9 +1,8 @@
-use candid::CandidType;
-
 use omnity_types::Chain;
 use omnity_types::ChainState;
 use omnity_types::ChainType;
 
+use candid::CandidType;
 use omnity_types::Directive;
 use omnity_types::Fee;
 use omnity_types::Ticket;
@@ -14,11 +13,11 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 pub type Seq = u64;
-
-// pub type Directive = Proposal;
+pub type Amount = u128;
 pub type ChainId = String;
 pub type DstChain = ChainId;
 pub type TokenId = String;
+// pub type Directive = Proposal;
 
 /// Directive Queue
 /// K: DstChain, V:  BTreeMap<Seq, Directive>

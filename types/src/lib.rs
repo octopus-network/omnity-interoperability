@@ -7,7 +7,7 @@ use thiserror::Error;
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
 pub type Timestamp = u64;
-// pub type Directive = Proposal;
+// pub type Proposal = Directive;
 pub type ChainId = String;
 pub type DstChain = ChainId;
 pub type TokenId = String;

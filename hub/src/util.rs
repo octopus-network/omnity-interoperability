@@ -1,15 +1,9 @@
-use log::{debug, info};
-
 use std::cell::RefCell;
-
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use ic_log::writer::Logs;
 use ic_log::{LogSettings, LoggerConfig};
-
-use crate::auth;
-use auth::is_owner;
+use log::info;
 
 thread_local! {
     static LOGGER_CONFIG: RefCell<Option<LoggerConfig>> = RefCell::new(None);
@@ -53,18 +47,6 @@ pub fn init_log() {
         }
     }
     info!("Logger initialized");
-}
-
-#[ic_cdk::query]
-pub fn get_log_records(count: usize, offset: usize) -> Logs {
-    debug!("collecting {count} log records");
-    ic_log::take_memory_records(count, offset)
-}
-
-#[ic_cdk::update(guard = "is_owner")]
-pub async fn set_logger_filter(filter: String) {
-    LoggerConfigService::default().set_logger_filter(&filter);
-    debug!("log filter set to {filter}");
 }
 
 #[cfg(test)]

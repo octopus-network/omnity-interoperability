@@ -1,9 +1,11 @@
 [package]
 name = "omnity_hub"
 version = "0.1.0"
-edition = "2021"
-[lib]
-crate-type = ["cdylib"]
+edition.workspace = true
+
+[[bin]]
+name = "omnity_hub"
+path = "src/service.rs"
 
 [dependencies]
 candid = { workspace = true }
@@ -36,3 +38,9 @@ omnity_types = { path = "../types" }
 tokio = { version = "1.35.1", features = ["full"] }
 rust-crypto = "0.2"
 uuid = { version = "1.7.0", features = ["v4"] }
+escargot = { version = "0.5.7", features = ["print"] }
+assert_fs = "1.1.1"
+cargo_metadata = "0.14.2"
+ic-state-machine-tests = { git = "https://github.com/dfinity/ic", package = "ic-state-machine-tests", tag = "release-2024-03-06_23-01+p2p" }
+ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", package = "ic-test-utilities-load-wasm", tag = "release-2024-03-06_23-01+p2p" }
+ic-base-types = { git = "https://github.com/dfinity/ic", package = "ic-base-types", tag = "release-2024-03-06_23-01+p2p" }
