@@ -118,8 +118,12 @@ $ dfx canister call omnity_hub query_directives '(opt "Bitcoin",opt variant {Add
   },
 )
 
-
 #$ dfx canister call omnity_hub set_whitelist '(principal "be2us-64aaa-aaaaa-qaabq-cai", true)'
+
+export INDEXER_URL=http://localhost:23456
+export PEM_PATH=/home/julian/.config/dfx/identity/default/identity.pem
+export IC_GATEWAY=http://localhost:4943
+export CUSTOMS_CANISTER_ID=be2us-64aaa-aaaaa-qaabq-cai
 $ RUST_LOG=info ./target/debug/runes_oracle
 $ dfx canister call omnity_hub query_tickets '(opt "cosmoshub", 0, 10)'
 (

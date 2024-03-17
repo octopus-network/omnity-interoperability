@@ -18,3 +18,4 @@ env_logger = "0.11.2"
 tokio = { version = "1", features = ["full"] }
 ticker = "0.1.1"
 bitcoin = { version = "0.30.1", features = ["rand", "serde"] }
+clap = { version = "4.5.3", features = ["derive", "env"] }

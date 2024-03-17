@@ -1,23 +1,39 @@
+use clap::Parser;
 use ic_agent::{export::Principal, identity::Secp256k1Identity};
 use runes_oracle::{customs::Customs, executor::Executor, indexer::Indexer};
 use std::fs;
 
-const NODE_URL: &str = "http://localhost:4943";
-const INDEXER_URL: &str = "http://localhost:23456";
-const CUSTOMS_CANISTER_ID: &str = "be2us-64aaa-aaaaa-qaabq-cai";
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(env, long, default_value = "http://localhost:23456")]
+    indexer_url: String,
+
+    #[arg(env, short, long, default_value = "identity.pem")]
+    pem_path: String,
+
+    #[arg(env, short, long, default_value = "http://localhost:4943")]
+    ic_gateway: String,
+
+    #[arg(env, short, long, default_value = "be2us-64aaa-aaaaa-qaabq-cai")]
+    customs_canister_id: String,
+}
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
 
-    let customs_canister = Principal::from_text(String::from(CUSTOMS_CANISTER_ID))
+    let args = Args::parse();
+    println!("args {:?}", args);
+
+    let customs_canister = Principal::from_text(args.customs_canister_id)
         .expect("failed to parse customs canister id");
 
-    let pem = fs::File::open("identity.pem").expect("failed to open pem file");
+    let pem = fs::File::open(args.pem_path).expect("failed to open pem file");
     let identity = Secp256k1Identity::from_pem(pem).expect("failed to parse pem");
 
-    let customs = Customs::new(NODE_URL.into(), customs_canister, identity).await;
-    let indexer = Indexer::new(INDEXER_URL.into());
+    let customs = Customs::new(args.ic_gateway, customs_canister, identity).await;
+    let indexer = Indexer::new(args.indexer_url);
 
     Executor::new(customs, indexer).start().await;
 }
