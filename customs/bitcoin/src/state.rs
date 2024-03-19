@@ -27,7 +27,7 @@ pub use ic_btc_interface::Network;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_utils_ensure::{ensure, ensure_eq};
-use omnity_types::TicketId;
+use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::Serialize;
 
 /// The maximum number of finalized BTC retrieval requests that we keep in the
@@ -309,8 +309,11 @@ pub struct CustomsState {
 
     pub finalized_gen_ticket_requests: VecDeque<FinalizedTicket>,
 
-    // Start index of query tickets from hub
-    pub next_release_ticket_seq: u64,
+    // Next index of query tickets from hub
+    pub next_ticket_seq: u64,
+
+    // Next index of query directives from hub
+    pub next_directive_seq: u64,
 
     /// Release_token requests that are waiting to be served, sorted by
     /// received_at.
@@ -353,6 +356,10 @@ pub struct CustomsState {
 
     /// The map of known destinations to their utxos.
     pub utxos_state_destinations: BTreeMap<Destination, BTreeSet<Utxo>>,
+
+    pub counterparties: BTreeMap<ChainId, Chain>,
+
+    pub tokens: BTreeMap<TokenId, Token>,
 
     pub hub_principal: Principal,
 
@@ -1061,7 +1068,8 @@ impl From<InitArgs> for CustomsState {
             generate_ticket_counter: 0,
             release_token_counter: 0,
             pending_gen_ticket_requests: Default::default(),
-            next_release_ticket_seq: 0,
+            next_ticket_seq: 0,
+            next_directive_seq: 0,
             pending_release_token_requests: Default::default(),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
@@ -1076,6 +1084,8 @@ impl From<InitArgs> for CustomsState {
             outpoint_utxos: Default::default(),
             outpoint_destination: Default::default(),
             utxos_state_destinations: Default::default(),
+            counterparties: Default::default(),
+            tokens: Default::default(),
             is_timer_running: false,
             mode: args.mode,
             hub_principal: args.hub_principal,
