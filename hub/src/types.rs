@@ -41,7 +41,7 @@ pub struct ChainMeta {
     pub canister_id: String,
     pub chain_id: ChainId,
     pub chain_type: ChainType,
-    // the chain default state is true
+    // the chain default state is active
     pub chain_state: ChainState,
     // settlement chain: export contract address
     // execution chain: port contract address
@@ -55,8 +55,8 @@ impl core::fmt::Display for ChainMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\nchain name:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?} \ncounterparties:{:#?}",
-            self.chain_id, self.chain_type, self.chain_state, self.contract_address,self.counterparties
+            "\ncanister id:{} \nchain name:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?} \ncounterparties:{:?}",
+            self.canister_id,self.chain_id, self.chain_type, self.chain_state, self.contract_address,self.counterparties
         )
     }
 }

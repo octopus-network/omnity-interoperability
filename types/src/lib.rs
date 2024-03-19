@@ -41,7 +41,7 @@ pub struct Ticket {
     pub action: TxAction,
     pub token: TokenId,
     pub amount: String,
-    pub sender: Account,
+    pub sender: Option<Account>,
     pub receiver: Account,
     pub memo: Option<Vec<u8>>,
 }
@@ -50,7 +50,7 @@ impl core::fmt::Display for Ticket {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\nticket id:{} \ncreated time:{} \nsrc chain:{} \ndst_chain:{} \naction:{:?} \ntoken:{} \namount:{} \nsender:{} \nrecevier:{} \nmemo:{:?}",
+            "\nticket id:{} \ncreated time:{} \nsrc chain:{} \ndst_chain:{} \naction:{:?} \ntoken:{} \namount:{} \nsender:{:?} \nrecevier:{} \nmemo:{:?}",
             self.ticket_id,
             self.ticket_time,
             self.src_chain,
@@ -128,6 +128,7 @@ pub struct Chain {
     pub contract_address: Option<String>,
 }
 
+//TODO: update chain and token info
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
 pub struct ToggleState {
     pub chain_id: ChainId,

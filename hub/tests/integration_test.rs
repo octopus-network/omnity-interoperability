@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use ic_base_types::PrincipalId;
 use omnity_hub::types::{ChainMeta, Proposal, TokenMeta};
 use omnity_types::{ChainState, ChainType, Fee, Ticket, TxAction};
 use omnity_types::{ToggleAction, ToggleState, Topic};
@@ -8,14 +9,33 @@ mod common;
 use common::OmnityHub;
 
 use uuid::Uuid;
-
+fn canister_ids() -> Vec<PrincipalId> {
+    vec![
+        PrincipalId::new_user_test_id(0),
+        PrincipalId::new_user_test_id(1),
+        PrincipalId::new_user_test_id(2),
+        PrincipalId::new_user_test_id(3),
+        PrincipalId::new_user_test_id(4),
+        PrincipalId::new_user_test_id(5),
+    ]
+}
+fn chain_ids() -> Vec<String> {
+    vec![
+        "Bitcoin".to_string(),
+        "Ethereum".to_string(),
+        "ICP".to_string(),
+        "Arbitrum".to_string(),
+        "Optimistic".to_string(),
+        "Starknet".to_string(),
+    ]
+}
 fn chains() -> Vec<Proposal> {
     let chains = vec![
         Proposal::AddChain(ChainMeta {
             chain_id: "Bitcoin".to_string(),
             chain_type: ChainType::SettlementChain,
             chain_state: ChainState::Active,
-            canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
+            canister_id: PrincipalId::new_user_test_id(0).to_string(),
             contract_address: None,
             counterparties: None,
         }),
@@ -23,7 +43,7 @@ fn chains() -> Vec<Proposal> {
             chain_id: "Ethereum".to_string(),
             chain_type: ChainType::SettlementChain,
             chain_state: ChainState::Active,
-            canister_id: "bkyz2-fmaaa-aaaaa-qaaab-cai".to_string(),
+            canister_id: PrincipalId::new_user_test_id(1).to_string(),
             contract_address: Some("Ethereum constract address".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string()]),
         }),
@@ -31,7 +51,7 @@ fn chains() -> Vec<Proposal> {
             chain_id: "ICP".to_string(),
             chain_type: ChainType::SettlementChain,
             chain_state: ChainState::Active,
-            canister_id: "bkyz2-fmaaa-aaaaa-qadaab-cai".to_string(),
+            canister_id: PrincipalId::new_user_test_id(2).to_string(),
             contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
         }),
@@ -39,7 +59,7 @@ fn chains() -> Vec<Proposal> {
             chain_id: "Arbitrum".to_string(),
             chain_type: ChainType::ExecutionChain,
             chain_state: ChainState::Active,
-            canister_id: "bkyz2-fmaaa-aaasaa-qadaab-cai".to_string(),
+            canister_id: PrincipalId::new_user_test_id(3).to_string(),
             contract_address: Some("Arbitrum constract address".to_string()),
             counterparties: Some(vec![
                 "Bitcoin".to_string(),
@@ -51,7 +71,7 @@ fn chains() -> Vec<Proposal> {
             chain_id: "Optimistic".to_string(),
             chain_type: ChainType::ExecutionChain,
             chain_state: ChainState::Active,
-            canister_id: "bkyz2-fdmaaa-aaasaa-qadaab-cai".to_string(),
+            canister_id: PrincipalId::new_user_test_id(4).to_string(),
             contract_address: Some("Optimistic constract address".to_string()),
             counterparties: Some(vec![
                 "Bitcoin".to_string(),
@@ -64,7 +84,7 @@ fn chains() -> Vec<Proposal> {
             chain_id: "Starknet".to_string(),
             chain_type: ChainType::ExecutionChain,
             chain_state: ChainState::Active,
-            canister_id: "bkyz2-fddmaaa-aaasaa-qadaab-cai".to_string(),
+            canister_id: PrincipalId::new_user_test_id(5).to_string(),
             contract_address: Some("Starknet constract address".to_string()),
             counterparties: Some(vec![
                 "Bitcoin".to_string(),
@@ -196,21 +216,15 @@ fn test_validate_proposal() {
 #[test]
 fn test_add_chain() {
     let hub = OmnityHub::new();
-    let ret = hub.validate_proposal(&chains());
+    let chains = chains();
+    let ret = hub.validate_proposal(&chains);
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&chains());
+    let ret = hub.execute_proposal(&chains);
     assert!(ret.is_ok());
 
-    let chain_ids = [
-        "Bitcoin",
-        "Ethereum",
-        "ICP",
-        "Arbitrum",
-        "Optimistic",
-        "Starknet",
-    ];
-    for chain_id in chain_ids {
+    chain_ids().iter().for_each(|chain_id| {
         let result = hub.query_directives(
+            &None,
             &Some(chain_id.to_string()),
             &Some(Topic::AddChain(None)),
             &0,
@@ -218,7 +232,7 @@ fn test_add_chain() {
         );
         println!("query_directives for {:} dires: {:#?}", chain_id, result);
         assert!(result.is_ok());
-    }
+    });
 
     let result = hub.get_chains(&None, &None, &0, &10);
     println!("get_chains result : {:#?}", result);
@@ -235,24 +249,17 @@ fn test_add_token() {
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&chains());
+    let ret = hub.execute_proposal(&chains());
     assert!(ret.is_ok());
     // add token
     let ret = hub.validate_proposal(&tokens());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&tokens());
+    let ret = hub.execute_proposal(&tokens());
     assert!(ret.is_ok());
 
-    let chaid_ids = [
-        "Bitcoin",
-        "Ethereum",
-        "ICP",
-        "Arbitrum",
-        "Optimistic",
-        "Starknet",
-    ];
-    for chain_id in chaid_ids {
+    for chain_id in chain_ids() {
         let result = hub.query_directives(
+            &None,
             &Some(chain_id.to_string()),
             &Some(Topic::AddToken(None)),
             &0,
@@ -261,6 +268,19 @@ fn test_add_token() {
         println!("query_directives for {:} dires: {:#?}", chain_id, result);
         assert!(result.is_ok());
     }
+
+    for canister_id in canister_ids() {
+        let result = hub.query_directives(
+            &Some(canister_id),
+            &None,
+            &Some(Topic::AddToken(None)),
+            &0,
+            &5,
+        );
+        println!("query_directives for {:} dires: {:#?}", canister_id, result);
+        assert!(result.is_ok());
+    }
+
     let result = hub.get_tokens(&None, &None, &0, &10);
     assert!(result.is_ok());
     println!("get_tokens result : {:#?}", result);
@@ -279,12 +299,12 @@ fn test_toggle_chain_state() {
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&chains());
+    let ret = hub.execute_proposal(&chains());
     assert!(ret.is_ok());
     // add token
     let ret = hub.validate_proposal(&tokens());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&tokens());
+    let ret = hub.execute_proposal(&tokens());
     assert!(ret.is_ok());
 
     // change chain state
@@ -300,7 +320,7 @@ fn test_toggle_chain_state() {
         "validate_proposal for Proposal::ToggleChainState(chain_state) result:{:#?}",
         result
     );
-    let result = hub.build_directive(&vec![Proposal::ToggleChainState(chain_state)]);
+    let result = hub.execute_proposal(&vec![Proposal::ToggleChainState(chain_state)]);
     assert!(result.is_ok());
 
     // query directives for chain id
@@ -315,6 +335,7 @@ fn test_toggle_chain_state() {
 
     for chain_id in chaid_ids {
         let result = hub.query_directives(
+            &None,
             &Some(chain_id.to_string()),
             &Some(Topic::DeactivateChain),
             &0,
@@ -343,12 +364,12 @@ fn test_update_fee() {
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&chains());
+    let ret = hub.execute_proposal(&chains());
     assert!(ret.is_ok());
     // add token
     let ret = hub.validate_proposal(&tokens());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&tokens());
+    let ret = hub.execute_proposal(&tokens());
     assert!(ret.is_ok());
 
     // change chain state
@@ -374,6 +395,7 @@ fn test_update_fee() {
 
     for chain_id in chaid_ids {
         let result = hub.query_directives(
+            &None,
             &Some(chain_id.to_string()),
             &Some(Topic::UpdateFee(None)),
             &0,
@@ -398,12 +420,12 @@ fn test_a_b_tx() {
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&chains());
+    let ret = hub.execute_proposal(&chains());
     assert!(ret.is_ok());
     // add token
     let ret = hub.validate_proposal(&tokens());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&tokens());
+    let ret = hub.execute_proposal(&tokens());
     assert!(ret.is_ok());
     //
     // A->B: `transfer` ticket
@@ -420,7 +442,7 @@ fn test_a_b_tx() {
         action: TxAction::Transfer,
         token: "BTC".to_string(),
         amount: 88888.to_string(),
-        sender: sender.to_string(),
+        sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
     };
@@ -429,7 +451,8 @@ fn test_a_b_tx() {
         " {} -> {} ticket:{:#?}",
         src_chain, dst_chain, transfer_ticket
     );
-    let result = hub.send_ticket(&transfer_ticket);
+    let caller = Some(PrincipalId::new_user_test_id(1));
+    let result = hub.send_ticket(&caller, &transfer_ticket);
     println!(
         "{} -> {} transfer result:{:?}",
         src_chain, dst_chain, result
@@ -437,7 +460,7 @@ fn test_a_b_tx() {
     assert!(result.is_ok());
 
     // query tickets for chain id
-    let result = hub.query_tickets(&Some(dst_chain.to_string()), &0, &5);
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
     println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
     assert!(result.is_ok());
 
@@ -460,7 +483,7 @@ fn test_a_b_tx() {
         action: TxAction::Redeem,
         token: "BTC".to_string(),
         amount: 88888.to_string(),
-        sender: sender.to_string(),
+        sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
     };
@@ -469,13 +492,14 @@ fn test_a_b_tx() {
         " {} -> {} ticket:{:#?}",
         src_chain, dst_chain, redeem_ticket
     );
-    let result = hub.send_ticket(&redeem_ticket);
+    let caller = Some(PrincipalId::new_user_test_id(2));
+    let result = hub.send_ticket(&caller, &redeem_ticket);
     println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
     assert!(result.is_ok());
 
     // query tickets for chain id
 
-    let result = hub.query_tickets(&Some(dst_chain.to_string()), &0, &5);
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
     println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
     assert!(result.is_ok());
 
@@ -491,12 +515,12 @@ fn test_a_b_c_tx() {
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&chains());
+    let ret = hub.execute_proposal(&chains());
     assert!(ret.is_ok());
     // add token
     let ret = hub.validate_proposal(&tokens());
     println!("test_validate_proposal result: {:#?}", ret);
-    let ret = hub.build_directive(&tokens());
+    let ret = hub.execute_proposal(&tokens());
     assert!(ret.is_ok());
 
     // transfer
@@ -514,20 +538,21 @@ fn test_a_b_c_tx() {
         action: TxAction::Transfer,
         token: "ETH".to_string(),
         amount: 6666.to_string(),
-        sender: sender.to_string(),
+        sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, a_2_b_ticket);
-    let result = hub.send_ticket(&a_2_b_ticket);
+    let caller = Some(PrincipalId::new_user_test_id(3));
+    let result = hub.send_ticket(&caller, &a_2_b_ticket);
     println!(
         "{} -> {} transfer result:{:?}",
         src_chain, dst_chain, result
     );
     assert!(result.is_ok());
     // query tickets for chain id
-    let result = hub.query_tickets(&Some(dst_chain.to_string()), &0, &5);
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
     println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
     assert!(result.is_ok());
 
@@ -550,22 +575,22 @@ fn test_a_b_c_tx() {
         action: TxAction::Transfer,
         token: "ETH".to_string(),
         amount: 6666.to_string(),
-        sender: sender.to_string(),
+        sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_c_ticket);
     assert!(result.is_ok());
-
-    let result = hub.send_ticket(&b_2_c_ticket);
+    let caller = Some(PrincipalId::new_user_test_id(4));
+    let result = hub.send_ticket(&caller, &b_2_c_ticket);
     println!(
         "{} -> {} transfer result:{:?}",
         src_chain, dst_chain, result
     );
 
     // query tickets for chain id
-    let result = hub.query_tickets(&Some(dst_chain.to_string()), &0, &5);
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
     println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
     assert!(result.is_ok());
 
@@ -589,18 +614,18 @@ fn test_a_b_c_tx() {
         action: TxAction::Redeem,
         token: "ETH".to_string(),
         amount: 6666.to_string(),
-        sender: sender.to_string(),
+        sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, c_2_b_ticket);
-
-    let result = hub.send_ticket(&c_2_b_ticket);
+    let caller = Some(PrincipalId::new_user_test_id(5));
+    let result = hub.send_ticket(&caller, &c_2_b_ticket);
     println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
     assert!(result.is_ok());
     // query tickets for chain id
-    let result = hub.query_tickets(&Some(dst_chain.to_string()), &0, &5);
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
     println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
     assert!(result.is_ok());
     // query token on chain
@@ -622,19 +647,19 @@ fn test_a_b_c_tx() {
         action: TxAction::Redeem,
         token: "ETH".to_string(),
         amount: 6666.to_string(),
-        sender: sender.to_string(),
+        sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_a_ticket);
 
-    let result = hub.send_ticket(&b_2_a_ticket);
+    let result = hub.send_ticket(&caller, &b_2_a_ticket);
     println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
     assert!(result.is_ok());
 
     // query tickets for chain id
-    let result = hub.query_tickets(&Some(dst_chain.to_string()), &0, &5);
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
     println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
     assert!(result.is_ok());
 

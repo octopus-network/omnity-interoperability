@@ -1024,7 +1024,7 @@ fn test_finalize_release_token_tx() {
         action: TxAction::Redeem,
         token: "150:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
     };
@@ -1072,7 +1072,7 @@ fn test_finalize_batch_release_token_tx() {
             action: TxAction::Redeem,
             token: "150:1".into(),
             amount: "1000000".into(),
-            sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+            sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
             receiver: recivers[i].into(),
             memo: None,
         };
@@ -1123,7 +1123,7 @@ fn test_exist_two_submitted_tx() {
         action: TxAction::Redeem,
         token: "150:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
     };
@@ -1151,7 +1151,7 @@ fn test_exist_two_submitted_tx() {
         action: TxAction::Redeem,
         token: "150:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
         memo: None,
     };
@@ -1200,7 +1200,7 @@ fn test_transaction_use_prev_change_output() {
         action: TxAction::Redeem,
         token: "150:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
     };
@@ -1233,7 +1233,7 @@ fn test_transaction_use_prev_change_output() {
         action: TxAction::Redeem,
         token: "150:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
         memo: None,
     };
@@ -1283,7 +1283,7 @@ fn test_transaction_multi_runes_id() {
         action: TxAction::Redeem,
         token: "150:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
     };
@@ -1297,7 +1297,7 @@ fn test_transaction_multi_runes_id() {
         action: TxAction::Redeem,
         token: "151:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
         memo: None,
     };
@@ -1353,7 +1353,7 @@ fn test_transaction_resubmission_finalize_new() {
         action: TxAction::Redeem,
         token: "150:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
     };
@@ -1423,7 +1423,7 @@ fn test_transaction_resubmission_finalize_old() {
         action: TxAction::Redeem,
         token: "150:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
     };
@@ -1486,7 +1486,7 @@ fn test_transaction_resubmission_finalize_middle() {
         action: TxAction::Redeem,
         token: "150:1".into(),
         amount: "1000000".into(),
-        sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
     };

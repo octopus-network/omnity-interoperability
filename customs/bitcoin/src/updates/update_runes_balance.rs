@@ -56,7 +56,7 @@ pub async fn update_runes_balance(
                 action: TxAction::Transfer,
                 token: req.rune_id.to_string(),
                 amount: req.amount.to_string(),
-                sender: String::default(),
+                sender: None,
                 receiver: req.receiver.clone(),
                 memo: None,
             },

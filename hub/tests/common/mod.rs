@@ -12,7 +12,7 @@ use omnity_types::{ChainState, ChainType, Error, Fee};
 const BINARY_NAME: &str = "omnity_hub";
 const FEATURES: &[&str] = &[];
 const DEFAULT_CARGO_TOML: &str = "./Cargo.toml";
-// const DEFAULT_HUB_WASM_LOCATION: &str = "../.dfx/local/canisters/omnity_hub/omnity_hub.wasm";
+// const DEFAULT_HUB_WASM_LOCATION: &str = "../.dfx/local/canisters/omnity_hub/omnity_hub.wasm.gz";
 const DEFAULT_HUB_WASM_LOCATION: &str = "../target/wasm32-unknown-unknown/release/omnity_hub.wasm";
 
 // build hub wasm
@@ -115,13 +115,13 @@ impl OmnityHub {
         Decode!(&assert_reply(ret), Result<Vec<String>, Error>).unwrap()
     }
 
-    pub fn build_directive(&self, proposals: &Vec<Proposal>) -> Result<(), Error> {
+    pub fn execute_proposal(&self, proposals: &Vec<Proposal>) -> Result<(), Error> {
         let ret = self
             .sm
             .execute_ingress_as(
                 self.controller,
                 self.hub_id,
-                "build_directive",
+                "execute_proposal",
                 Encode!(proposals).unwrap(),
             )
             .expect("failed to build directive");
@@ -143,15 +143,17 @@ impl OmnityHub {
 
     pub fn query_directives(
         &self,
+        sender: &Option<PrincipalId>,
         chain_id: &Option<ChainId>,
         topic: &Option<Topic>,
         from: &usize,
         offset: &usize,
     ) -> Result<Vec<(Seq, Directive)>, Error> {
+        let sender = sender.unwrap_or(self.controller);
         let ret = self
             .sm
             .query_as(
-                self.controller,
+                sender,
                 self.hub_id,
                 "query_directives",
                 Encode!(chain_id, topic, from, offset).unwrap(),
@@ -211,27 +213,26 @@ impl OmnityHub {
             .expect("failed to get fees");
         Decode!(&assert_reply(ret), Result<Vec<Fee>, Error>).unwrap()
     }
-    pub fn send_ticket(&self, ticket: &Ticket) -> Result<(), Error> {
+    pub fn send_ticket(&self, sender: &Option<PrincipalId>, ticket: &Ticket) -> Result<(), Error> {
+        let sender = sender.unwrap_or(self.controller);
         let ret = self
             .sm
-            .execute_ingress_as(
-                self.controller,
-                self.hub_id,
-                "send_ticket",
-                Encode!(ticket).unwrap(),
-            )
+            .execute_ingress_as(sender, self.hub_id, "send_ticket", Encode!(ticket).unwrap())
             .expect("failed to send ticket");
         Decode!(&assert_reply(ret), Result<(), Error>).unwrap()
     }
     pub fn query_tickets(
         &self,
+        sender: &Option<PrincipalId>,
         chain_id: &Option<ChainId>,
         from: &usize,
         offset: &usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
+        let sender = sender.unwrap_or(self.controller);
         let ret = self
             .sm
-            .query(
+            .query_as(
+                sender,
                 self.hub_id,
                 "query_tickets",
                 Encode!(chain_id, from, offset).unwrap(),
