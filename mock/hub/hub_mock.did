@@ -1,13 +1,38 @@
+type Chain = record {
+  chain_id : text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type Directive = variant {
+  UpdateFee : Fee;
+  AddToken : Token;
+  AddChain : Chain;
+  ToggleChainState : ToggleState;
+};
 type Error = variant {
+  AlreadyExistingTicketId : text;
   MalformedMessageBytes;
   NotFoundChain : text;
+  DeactiveChain : text;
+  ChainAlreadyExisting : text;
   ProposalError : text;
+  NotFoundAccountToken : record { text; text; text };
   NotSupportedProposal;
+  NotFoundAccount : text;
   Unauthorized;
+  TicketAmountParseError : record { text; text };
+  NotFoundChainToken : record { text; text };
+  TokenAlreadyExisting : text;
   CustomError : text;
+  NotSufficientTokens : record { text; text };
 };
+type Fee = record { fee_token : text; dst_chain_id : text; factor : int64 };
 type Result = variant { Ok; Err : Error };
-type Result_1 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type Result_1 = variant { Ok : vec record { nat64; Directive }; Err : Error };
+type Result_2 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -20,9 +45,27 @@ type Ticket = record {
   amount : text;
   receiver : text;
 };
+type ToggleAction = variant { Deactivate; Activate };
+type ToggleState = record { action : ToggleAction; chain_id : text };
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  issue_chain : text;
+  symbol : text;
+};
+type Topic = variant {
+  UpdateFee : opt text;
+  ActivateChain;
+  AddToken : opt text;
+  DeactivateChain;
+  AddChain : opt ChainType;
+};
 type TxAction = variant { Redeem; Transfer };
 service : () -> {
+  push_directive : (Directive) -> (Result);
   push_ticket : (Ticket) -> (Result);
-  query_tickets : (text, nat64, nat64) -> (Result_1) query;
+  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_1) query;
+  query_tickets : (opt text, nat64, nat64) -> (Result_2) query;
   send_ticket : (Ticket) -> (Result);
 }

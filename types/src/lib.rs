@@ -88,6 +88,15 @@ pub enum ToggleAction {
     Deactivate,
 }
 
+impl From<ToggleAction> for ChainState {
+    fn from(value: ToggleAction) -> Self {
+        match value {
+            ToggleAction::Activate => ChainState::Active,
+            ToggleAction::Deactivate => ChainState::Deactive,
+        }
+    }
+}
+
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TxAction {
     #[default]
@@ -128,7 +137,7 @@ pub struct Chain {
     pub contract_address: Option<String>,
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct ToggleState {
     pub chain_id: ChainId,
     pub action: ToggleAction,

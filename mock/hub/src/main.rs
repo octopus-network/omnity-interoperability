@@ -1,8 +1,7 @@
 use candid::candid_method;
 use ic_cdk::query;
 use ic_cdk_macros::{init, update};
-use omnity_types::{self, ChainId, Seq, Ticket};
-use std::ops::Bound::Included;
+use omnity_types::{self, ChainId, Directive, Seq, Ticket, Topic};
 use std::{cell::RefCell, collections::BTreeMap};
 
 fn main() {}
@@ -10,14 +9,18 @@ fn main() {}
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct State {
     tickets: BTreeMap<Seq, Ticket>,
-    next_seq: Seq,
+    directives: BTreeMap<Seq, Directive>,
+    next_ticket_seq: Seq,
+    next_directive_seq: Seq,
 }
 
 impl Default for State {
     fn default() -> Self {
         State {
             tickets: BTreeMap::default(),
-            next_seq: 1,
+            directives: BTreeMap::default(),
+            next_ticket_seq: 0,
+            next_directive_seq: 0,
         }
     }
 }
@@ -45,7 +48,9 @@ fn init() {
     STATE.with(|s| {
         let state = State {
             tickets: BTreeMap::default(),
-            next_seq: 1,
+            directives: BTreeMap::default(),
+            next_ticket_seq: 0,
+            next_directive_seq: 0,
         };
         *s.borrow_mut() = state;
     });
@@ -59,16 +64,34 @@ pub async fn send_ticket(_: Ticket) -> Result<(), omnity_types::Error> {
 
 #[query]
 pub async fn query_tickets(
-    _: ChainId,
-    start: u64,
-    end: u64,
+    _: Option<ChainId>,
+    offset: usize,
+    limit: usize,
 ) -> Result<Vec<(Seq, Ticket)>, omnity_types::Error> {
     read_state(|s| {
-        let mut result = Vec::new();
-        for (&seq, ticket) in s.tickets.range((Included(start), Included(end))) {
-            result.push((seq, ticket.clone()));
-        }
-        Ok(result)
+        Ok(s.tickets
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(seq, ticket)| (*seq, ticket.clone()))
+            .collect())
+    })
+}
+
+#[query]
+pub async fn query_directives(
+    _: Option<ChainId>,
+    _: Option<Topic>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<(Seq, Directive)>, omnity_types::Error> {
+    read_state(|s| {
+        Ok(s.directives
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(seq, dire)| (*seq, dire.clone()))
+            .collect())
     })
 }
 
@@ -76,8 +99,20 @@ pub async fn query_tickets(
 #[update]
 pub async fn push_ticket(ticket: Ticket) -> Result<(), omnity_types::Error> {
     mutate_state(|s| {
-        s.tickets.insert(s.next_seq, ticket);
-        s.next_seq += 1;
+        s.tickets.insert(s.next_ticket_seq, ticket);
+        s.next_ticket_seq += 1;
+        Ok(())
+    })
+}
+
+#[candid_method(update)]
+#[update]
+pub async fn push_directives(directives: Vec<Directive>) -> Result<(), omnity_types::Error> {
+    mutate_state(|s| {
+        for dire in directives {
+            s.directives.insert(s.next_directive_seq, dire);
+            s.next_directive_seq += 1;
+        }
         Ok(())
     })
 }

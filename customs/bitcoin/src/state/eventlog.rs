@@ -3,7 +3,7 @@ use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::{CustomsState, ReleaseTokenRequest, RunesChangeOutput, SubmittedBtcTransaction};
 use ic_btc_interface::{Txid, Utxo};
-use omnity_types::TicketId;
+use omnity_types::{Chain, TicketId, ToggleState, Token};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -27,6 +27,15 @@ pub enum Event {
     /// Indicates the minter upgrade with specified arguments.
     #[serde(rename = "upgrade")]
     Upgrade(UpgradeArgs),
+
+    #[serde(rename = "add_chain")]
+    AddChain(Chain),
+
+    #[serde(rename = "add_token")]
+    AddToken(Token),
+
+    #[serde(rename = "toggle_chain_state")]
+    ToggleChainState(ToggleState),
 
     /// Indicates that the customs received new UTXOs to the specified destination.
     #[serde(rename = "received_utxos")]
@@ -167,6 +176,17 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.reinit(args);
             }
             Event::Upgrade(args) => state.upgrade(args),
+            Event::AddChain(chain) => {
+                state.counterparties.insert(chain.chain_id.clone(), chain);
+            }
+            Event::AddToken(token) => {
+                state.tokens.insert(token.token_id.clone(), token);
+            }
+            Event::ToggleChainState(toggle) => {
+                if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
+                    chain.chain_state = toggle.action.into();
+                }
+            }
             Event::ReceivedUtxos {
                 destination,
                 utxos,
@@ -293,7 +313,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                         btc_change_output,
                         submitted_at,
                         fee_per_vbyte: Some(fee_per_vbyte),
-                        raw_tx: raw_tx,
+                        raw_tx,
                     },
                 );
             }

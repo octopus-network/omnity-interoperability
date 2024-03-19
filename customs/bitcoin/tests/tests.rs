@@ -19,7 +19,9 @@ use ic_btc_interface::{Network, Txid};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
-use omnity_types::{Ticket, TxAction};
+use omnity_types::{
+    Chain, ChainState, ChainType, Directive, Ticket, ToggleAction, ToggleState, Token, TxAction,
+};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -27,6 +29,9 @@ use std::time::Duration;
 
 const MIN_CONFIRMATIONS: u32 = 12;
 const MAX_TIME_IN_QUEUE: Duration = Duration::from_secs(10);
+const COSMOS_HUB: &str = "cosmoshub";
+const TOKEN_1: &str = "150:1";
+const TOKEN_2: &str = "151:1";
 
 fn customs_wasm() -> Vec<u8> {
     load_wasm(
@@ -147,7 +152,7 @@ fn test_customs() {
         &env,
         customs_id,
         &GetBtcAddressArgs {
-            target_chain_id: String::from("cosmoshub"),
+            target_chain_id: String::from(COSMOS_HUB),
             receiver: String::from("cosmos1kwf682z5rxj38jsemljvdh67ykswns77j3euur"),
         },
     );
@@ -156,7 +161,7 @@ fn test_customs() {
         &env,
         customs_id,
         &GetBtcAddressArgs {
-            target_chain_id: String::from("cosmoshub"),
+            target_chain_id: String::from(COSMOS_HUB),
             receiver: String::from("cosmos12thfgc5swxymm549p7u0qtzvqdepq2m3j4srn6"),
         },
     );
@@ -233,14 +238,47 @@ impl CustomsSetup {
         )
         .expect("failed to set fee percentiles");
 
-        Self {
+        let customs = Self {
             env,
             caller,
             runes_oracle,
             bitcoin_id,
             customs_id,
             hub_id,
+        };
+        let directives = vec![
+            Directive::AddChain(Chain {
+                chain_id: COSMOS_HUB.into(),
+                chain_type: ChainType::ExecutionChain,
+                chain_state: ChainState::Active,
+                contract_address: None,
+            }),
+            Directive::AddToken(Token {
+                token_id: TOKEN_1.into(),
+                symbol: "FIRST_RUNE".into(),
+                issue_chain: COSMOS_HUB.into(),
+                decimals: 0,
+                icon: None,
+            }),
+            Directive::AddToken(Token {
+                token_id: TOKEN_2.into(),
+                symbol: "SECOND_RUNE".into(),
+                issue_chain: COSMOS_HUB.into(),
+                decimals: 0,
+                icon: None,
+            }),
+        ];
+        customs.push_directives(directives);
+        customs.env.advance_time(Duration::from_secs(5));
+        for _ in 0..10 {
+            let chains = customs.get_chain_list();
+            let tokens = customs.get_token_list();
+            if !chains.is_empty() && tokens.len() == 2 {
+                break;
+            }
+            customs.env.tick();
         }
+        customs
     }
 
     pub fn set_tip_height(&self, tip_height: u32) {
@@ -276,6 +314,52 @@ impl CustomsSetup {
                 .execute_ingress(self.hub_id, "push_ticket", Encode!(&ticket).unwrap())
                 .expect("failed to push a ticket"),
         );
+    }
+
+    pub fn push_directives(&self, directives: Vec<Directive>) {
+        assert_reply(
+            self.env
+                .execute_ingress(
+                    self.hub_id,
+                    "push_directives",
+                    Encode!(&directives).unwrap(),
+                )
+                .expect("failed to push a directive"),
+        );
+    }
+
+    pub fn get_chain_list(&self) -> Vec<Chain> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.customs_id,
+                        "get_chain_list",
+                        Encode!().unwrap(),
+                    )
+                    .expect("failed to get chain list")
+            ),
+            Vec<Chain>
+        )
+        .unwrap()
+    }
+
+    pub fn get_token_list(&self) -> Vec<Token> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.customs_id,
+                        "get_token_list",
+                        Encode!().unwrap(),
+                    )
+                    .expect("failed to get token list")
+            ),
+            Vec<Token>
+        )
+        .unwrap()
     }
 
     pub fn get_btc_address(&self, destination: impl Into<Destination>) -> String {
@@ -646,9 +730,9 @@ impl CustomsSetup {
 fn test_gen_ticket_no_new_utxos() {
     let customs = CustomsSetup::new();
     let result = customs.generate_ticket(&GenerateTicketArgs {
-        target_chain_id: String::from("cosmoshub"),
+        target_chain_id: String::from(COSMOS_HUB),
         receiver: String::from("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv"),
-        rune_id: "150:1".into(),
+        rune_id: TOKEN_1.into(),
         amount: 1000,
         txid: random_txid().to_string(),
     });
@@ -668,7 +752,7 @@ fn test_gen_ticket_with_insufficient_confirmations() {
         value: 546,
     };
 
-    let target_chain_id = "cosmoshub".to_string();
+    let target_chain_id = COSMOS_HUB.to_string();
     let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
     let deposit_address = customs.get_btc_address(Destination {
         target_chain_id: target_chain_id.clone(),
@@ -680,11 +764,32 @@ fn test_gen_ticket_with_insufficient_confirmations() {
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id,
         receiver,
-        rune_id: "150:1".into(),
+        rune_id: TOKEN_1.into(),
         amount: 100_000_000,
         txid: txid.to_string(),
     });
     assert_eq!(result, Err(GenerateTicketError::NoNewUtxos));
+}
+
+#[test]
+fn test_deactive_chain() {
+    let customs = CustomsSetup::new();
+
+    customs.set_tip_height(100);
+
+    customs.push_directives(vec![Directive::ToggleChainState(ToggleState {
+        chain_id: COSMOS_HUB.into(),
+        action: ToggleAction::Deactivate,
+    })]);
+
+    customs.env.advance_time(Duration::from_secs(5));
+    for _ in 0..10 {
+        if customs.get_chain_list().last().map_or(false, |c| c.chain_state == ChainState::Deactive) {
+            return;
+        }
+        customs.env.tick();
+    }
+    panic!("failed to toggle chain state to deactive!");
 }
 
 #[test]
@@ -700,7 +805,7 @@ fn test_gen_ticket_success() {
         value: 546,
     };
 
-    let target_chain_id = "cosmoshub".to_string();
+    let target_chain_id = COSMOS_HUB.to_string();
     let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
     let deposit_address = customs.get_btc_address(Destination {
         target_chain_id: target_chain_id.clone(),
@@ -712,7 +817,7 @@ fn test_gen_ticket_success() {
     let result = customs.generate_ticket(&GenerateTicketArgs {
         target_chain_id,
         receiver,
-        rune_id: "150:1".into(),
+        rune_id: TOKEN_1.into(),
         amount: 100_000_000,
         txid: txid.to_string(),
     });
@@ -737,7 +842,7 @@ fn test_duplicate_submit_gen_ticket() {
         value: 546,
     };
 
-    let target_chain_id = "cosmoshub".to_string();
+    let target_chain_id = COSMOS_HUB.to_string();
     let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
     let deposit_address = customs.get_btc_address(Destination {
         target_chain_id: target_chain_id.clone(),
@@ -748,7 +853,7 @@ fn test_duplicate_submit_gen_ticket() {
     let args = GenerateTicketArgs {
         target_chain_id,
         receiver,
-        rune_id: "150:1".into(),
+        rune_id: TOKEN_1.into(),
         amount: 100_000_000,
         txid: txid.to_string(),
     };
@@ -790,7 +895,7 @@ fn test_update_runes_balance_invalid() {
         value: 546,
     };
 
-    let target_chain_id = "cosmoshub".to_string();
+    let target_chain_id = COSMOS_HUB.to_string();
     let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
     let deposit_address = customs.get_btc_address(Destination {
         target_chain_id: target_chain_id.clone(),
@@ -801,7 +906,7 @@ fn test_update_runes_balance_invalid() {
     let args = GenerateTicketArgs {
         target_chain_id,
         receiver,
-        rune_id: "150:1".into(),
+        rune_id: TOKEN_1.into(),
         amount: 100_000_000,
         txid: txid.to_string(),
     };
@@ -849,7 +954,7 @@ fn test_update_runes_balance_multi_utxos() {
         value: 546,
     };
 
-    let target_chain_id = "cosmoshub".to_string();
+    let target_chain_id = COSMOS_HUB.to_string();
     let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
     let deposit_address = customs.get_btc_address(Destination {
         target_chain_id: target_chain_id.clone(),
@@ -860,7 +965,7 @@ fn test_update_runes_balance_multi_utxos() {
     let args = GenerateTicketArgs {
         target_chain_id,
         receiver,
-        rune_id: "150:1".into(),
+        rune_id: TOKEN_1.into(),
         amount: 300_000_000,
         txid: txid.to_string(),
     };
@@ -903,7 +1008,7 @@ fn test_update_runes_balance_multi_utxos() {
 fn test_update_runes_balance_success() {
     let customs = CustomsSetup::new();
 
-    let args = deposit_runes_to_main_address(&customs, "150:1".into());
+    let args = deposit_runes_to_main_address(&customs, TOKEN_1.into());
 
     let status = customs.generate_ticket_status(args.txid);
     assert_eq!(status, GenTicketStatus::Finalized);
@@ -913,7 +1018,7 @@ fn test_update_runes_balance_success() {
 fn test_duplicate_update_runes_balance() {
     let customs = CustomsSetup::new();
 
-    let args = deposit_runes_to_main_address(&customs, "150:1".into());
+    let args = deposit_runes_to_main_address(&customs, TOKEN_1.into());
 
     let status = customs.generate_ticket_status(args.txid);
     assert_eq!(status, GenTicketStatus::Finalized);
@@ -936,7 +1041,7 @@ fn deposit_runes_to_main_address(
         value: 546,
     };
 
-    let target_chain_id = "cosmoshub".to_string();
+    let target_chain_id = COSMOS_HUB.to_string();
     let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
     let deposit_address = customs.get_btc_address(Destination {
         target_chain_id: target_chain_id.clone(),
@@ -1012,17 +1117,17 @@ fn test_finalize_release_token_tx() {
     let customs = CustomsSetup::new();
 
     // deposit sufficient btc and runes
-    deposit_runes_to_main_address(&customs, "150:1".into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
     deposit_btc_to_main_address(&customs);
 
     let ticket_id: String = "ticket_id1".into();
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
         ticket_time: 1708911143,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "150:1".into(),
+        token: TOKEN_1.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
@@ -1041,7 +1146,7 @@ fn test_finalize_release_token_tx() {
         .get(&txid)
         .expect("the mempool does not contain the release transaction");
 
-    customs.finalize_transaction(tx, "150:1".into());
+    customs.finalize_transaction(tx, TOKEN_1.into());
     assert_eq!(customs.await_finalization(ticket_id, 10), txid);
     // customs.customs_self_check();
 }
@@ -1051,7 +1156,7 @@ fn test_finalize_batch_release_token_tx() {
     let customs = CustomsSetup::new();
 
     // deposit sufficient btc and runes
-    deposit_runes_to_main_address(&customs, "150:1".into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
     deposit_btc_to_main_address(&customs);
 
     let recivers = vec![
@@ -1067,10 +1172,10 @@ fn test_finalize_batch_release_token_tx() {
         let ticket = Ticket {
             ticket_id: ticket_id.clone(),
             ticket_time: 1708911143,
-            src_chain: "cosmoshub".into(),
+            src_chain: COSMOS_HUB.into(),
             dst_chain: "BTC".into(),
             action: TxAction::Redeem,
-            token: "150:1".into(),
+            token: TOKEN_1.into(),
             amount: "1000000".into(),
             sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
             receiver: recivers[i].into(),
@@ -1090,7 +1195,7 @@ fn test_finalize_batch_release_token_tx() {
         .get(&txid)
         .expect("the mempool does not contain the release transaction");
 
-    customs.finalize_transaction(tx, "150:1".into());
+    customs.finalize_transaction(tx, TOKEN_1.into());
     assert_eq!(customs.await_finalization("ticket_id1".into(), 10), txid);
 
     for i in 1..5 {
@@ -1107,8 +1212,8 @@ fn test_exist_two_submitted_tx() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs, "150:1".into());
-    deposit_runes_to_main_address(&customs, "150:1".into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
     deposit_btc_to_main_address(&customs);
     deposit_btc_to_main_address(&customs);
 
@@ -1118,10 +1223,10 @@ fn test_exist_two_submitted_tx() {
     let first_ticket = Ticket {
         ticket_id: first_ticket_id.clone(),
         ticket_time: 1708911143,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "150:1".into(),
+        token: TOKEN_1.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
@@ -1146,10 +1251,10 @@ fn test_exist_two_submitted_tx() {
     let second_ticket = Ticket {
         ticket_id: second_ticket_id.clone(),
         ticket_time: 1708911146,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "150:1".into(),
+        token: TOKEN_1.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
@@ -1170,8 +1275,8 @@ fn test_exist_two_submitted_tx() {
 
     // Step 6: finalize these two transactions
 
-    customs.finalize_transaction(first_tx, "150:1".into());
-    customs.finalize_transaction(second_tx, "150:1".into());
+    customs.finalize_transaction(first_tx, TOKEN_1.into());
+    customs.finalize_transaction(second_tx, TOKEN_1.into());
 
     assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
     assert_eq!(
@@ -1186,7 +1291,7 @@ fn test_transaction_use_prev_change_output() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs, "150:1".into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
     deposit_btc_to_main_address(&customs);
 
     // Step 2: push the first ticket
@@ -1195,10 +1300,10 @@ fn test_transaction_use_prev_change_output() {
     let first_ticket = Ticket {
         ticket_id: first_ticket_id.clone(),
         ticket_time: 1708911143,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "150:1".into(),
+        token: TOKEN_1.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
@@ -1219,7 +1324,7 @@ fn test_transaction_use_prev_change_output() {
 
     // Step 4: finalize the first transaction
 
-    customs.finalize_transaction(first_tx, "150:1".into());
+    customs.finalize_transaction(first_tx, TOKEN_1.into());
     assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
 
     // Step 5: push the second ticket
@@ -1228,10 +1333,10 @@ fn test_transaction_use_prev_change_output() {
     let second_ticket = Ticket {
         ticket_id: second_ticket_id.clone(),
         ticket_time: 1708911146,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "150:1".into(),
+        token: TOKEN_1.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
@@ -1254,7 +1359,7 @@ fn test_transaction_use_prev_change_output() {
 
     // Step 7: finalize the second transaction
 
-    customs.finalize_transaction(second_tx, "150:1".into());
+    customs.finalize_transaction(second_tx, TOKEN_1.into());
     assert_eq!(
         customs.await_finalization(second_ticket_id, 10),
         second_txid
@@ -1267,8 +1372,8 @@ fn test_transaction_multi_runes_id() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs, "150:1".into());
-    deposit_runes_to_main_address(&customs, "151:1".into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
+    deposit_runes_to_main_address(&customs, TOKEN_2.into());
     deposit_btc_to_main_address(&customs);
     deposit_btc_to_main_address(&customs);
 
@@ -1278,10 +1383,10 @@ fn test_transaction_multi_runes_id() {
     let first_ticket = Ticket {
         ticket_id: first_ticket_id.clone(),
         ticket_time: 1708911143,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "150:1".into(),
+        token: TOKEN_1.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
@@ -1292,10 +1397,10 @@ fn test_transaction_multi_runes_id() {
     let second_ticket = Ticket {
         ticket_id: second_ticket_id.clone(),
         ticket_time: 1708911146,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "151:1".into(),
+        token: TOKEN_2.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
@@ -1324,9 +1429,9 @@ fn test_transaction_multi_runes_id() {
 
     // Step 4: finalize transactions
 
-    customs.finalize_transaction(first_tx, "150:1".into());
+    customs.finalize_transaction(first_tx, TOKEN_1.into());
     assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
-    customs.finalize_transaction(second_tx, "151:1".into());
+    customs.finalize_transaction(second_tx, TOKEN_2.into());
     assert_eq!(
         customs.await_finalization(second_ticket_id, 10),
         second_txid
@@ -1339,7 +1444,7 @@ fn test_transaction_resubmission_finalize_new() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs, "150:1".into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
     deposit_btc_to_main_address(&customs);
 
     // Step 2: push a ticket
@@ -1348,10 +1453,10 @@ fn test_transaction_resubmission_finalize_new() {
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
         ticket_time: 1708911143,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "150:1".into(),
+        token: TOKEN_1.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
@@ -1398,7 +1503,7 @@ fn test_transaction_resubmission_finalize_new() {
 
     // Step 5: finalize the new transaction
 
-    customs.finalize_transaction(new_tx, "150:1".into());
+    customs.finalize_transaction(new_tx, TOKEN_1.into());
     assert_eq!(customs.await_finalization(ticket_id, 10), new_txid);
     // customs.customs_self_check();
 }
@@ -1409,7 +1514,7 @@ fn test_transaction_resubmission_finalize_old() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs, "150:1".into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
     deposit_btc_to_main_address(&customs);
 
     // Step 2: push a ticket
@@ -1418,10 +1523,10 @@ fn test_transaction_resubmission_finalize_old() {
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
         ticket_time: 1708911143,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "150:1".into(),
+        token: TOKEN_1.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
@@ -1461,7 +1566,7 @@ fn test_transaction_resubmission_finalize_old() {
 
     // Step 5: finalize the old transaction
 
-    customs.finalize_transaction(tx, "150:1".into());
+    customs.finalize_transaction(tx, TOKEN_1.into());
     assert_eq!(customs.await_finalization(ticket_id, 10), txid);
     // customs.minter_self_check();
 }
@@ -1472,7 +1577,7 @@ fn test_transaction_resubmission_finalize_middle() {
 
     // Step 1: deposit sufficient btc and runes
 
-    deposit_runes_to_main_address(&customs, "150:1".into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
     deposit_btc_to_main_address(&customs);
 
     // Step 2: push a ticket
@@ -1481,10 +1586,10 @@ fn test_transaction_resubmission_finalize_middle() {
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
         ticket_time: 1708911143,
-        src_chain: "cosmoshub".into(),
+        src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
         action: TxAction::Redeem,
-        token: "150:1".into(),
+        token: TOKEN_1.into(),
         amount: "1000000".into(),
         sender: "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into(),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
@@ -1544,7 +1649,7 @@ fn test_transaction_resubmission_finalize_middle() {
 
     // Step 6: finalize the middle transaction
 
-    customs.finalize_transaction(second_tx, "150:1".into());
+    customs.finalize_transaction(second_tx, TOKEN_1.into());
     assert_eq!(customs.await_finalization(ticket_id, 10), second_txid);
     // customs.minter_self_check();
 }
@@ -1563,7 +1668,7 @@ fn test_filter_logs() {
 
     // Trigger an even to add some logs.
 
-    deposit_runes_to_main_address(&customs, "150:1".into());
+    deposit_runes_to_main_address(&customs, TOKEN_1.into());
 
     let system_time = customs.env.time();
 

@@ -7,6 +7,24 @@ use super::{
 use crate::destination::Destination;
 use crate::storage::record_event;
 use ic_btc_interface::{Txid, Utxo};
+use omnity_types::{Chain, ToggleState, Token};
+
+pub fn add_chain(state: &mut CustomsState, chain: Chain) {
+    record_event(&Event::AddChain(chain.clone()));
+    state.counterparties.insert(chain.chain_id.clone(), chain);
+}
+
+pub fn add_token(state: &mut CustomsState, token: Token) {
+    record_event(&Event::AddToken(token.clone()));
+    state.tokens.insert(token.token_id.clone(), token);
+}
+
+pub fn toggle_chain_state(state: &mut CustomsState, toggle: ToggleState) {
+    record_event(&Event::ToggleChainState(toggle.clone()));
+    if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
+        chain.chain_state = toggle.action.into();
+    }
+}
 
 pub fn accept_release_token_request(state: &mut CustomsState, request: ReleaseTokenRequest) {
     record_event(&Event::AcceptedReleaseTokenRequest(request.clone()));

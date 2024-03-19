@@ -22,6 +22,7 @@ use ic_btc_interface::Utxo;
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk_macros::{init, post_upgrade, query, update};
+use omnity_types::{Chain, Token};
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
 
@@ -33,7 +34,7 @@ fn init(args: CustomArg) {
             lifecycle::init::init(args);
             schedule_now(TaskType::ProcessLogic);
             schedule_now(TaskType::RefreshFeePercentiles);
-            schedule_now(TaskType::ProcessNewTickets);
+            schedule_now(TaskType::ProcessHubMessages);
 
             #[cfg(feature = "self_check")]
             ok_or_die(check_invariants())
@@ -207,6 +208,21 @@ fn get_customs_info() -> CustomsInfo {
     read_state(|s| CustomsInfo {
         min_confirmations: s.min_confirmations,
     })
+}
+
+#[query]
+fn get_chain_list() -> Vec<Chain> {
+    read_state(|s| {
+        s.counterparties
+            .iter()
+            .map(|(_, chain)| chain.clone())
+            .collect()
+    })
+}
+
+#[query]
+fn get_token_list() -> Vec<Token> {
+    read_state(|s| s.tokens.iter().map(|(_, token)| token.clone()).collect())
 }
 
 #[query(hidden = true)]
