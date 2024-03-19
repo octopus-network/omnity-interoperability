@@ -3,7 +3,7 @@ use ic_log::writer::Logs;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 use log::{debug, info};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::num::ParseIntError;
 
 use omnity_hub::auth::{auth, is_owner};
@@ -478,6 +478,21 @@ where
         .collect::<Vec<_>>())
 }
 
+fn validate_chain(
+    chains: &HashMap<ChainId, ChainWithSeq>,
+    chain_id: &ChainId,
+) -> Result<(), Error> {
+    match chains.get(chain_id) {
+        Some(chain) => {
+            if matches!(chain.chain_state, ChainState::Deactive) {
+                Err(Error::DeactiveChain(chain_id.to_string()))
+            } else {
+                Ok(())
+            }
+        }
+        None => Err(Error::NotFoundChain(chain_id.to_string())),
+    }
+}
 /// check the ticket availability
 async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
     with_state_mut(|hub_state| {
@@ -486,25 +501,8 @@ async fn check_and_update(ticket: &Ticket) -> Result<(), Error> {
             return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
         }
         // check chain and state
-        let _src_chain_type = match hub_state.chains.get(&ticket.src_chain) {
-            Some(chain) => {
-                if matches!(chain.chain_state, ChainState::Deactive) {
-                    return Err(Error::DeactiveChain(ticket.src_chain.to_string()));
-                }
-                &chain.chain_type
-            }
-            None => return Err(Error::NotFoundChain(ticket.src_chain.to_string())),
-        };
-
-        let _dst_chain_type = match hub_state.chains.get(&ticket.dst_chain) {
-            Some(chain) => {
-                if matches!(chain.chain_state, ChainState::Deactive) {
-                    return Err(Error::DeactiveChain(ticket.dst_chain.to_string()));
-                }
-                &chain.chain_type
-            }
-            None => return Err(Error::NotFoundChain(ticket.dst_chain.to_string())),
-        };
+        validate_chain(&hub_state.chains, &ticket.src_chain)?;
+        validate_chain(&hub_state.chains, &ticket.dst_chain)?;
 
         //parse ticket token amount to unsigned bigint
         let ticket_amount: u128 = ticket.amount.parse().map_err(|e: ParseIntError| {
