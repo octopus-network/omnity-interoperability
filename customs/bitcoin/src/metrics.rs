@@ -31,6 +31,20 @@ pub fn encode_metrics(
 
     metrics
         .gauge_vec(
+            "bitcioin_customs_generate_ticket_request_count",
+            "Total count of generate ticket requests, by status.",
+        )?
+        .value(
+            &[("status", "pending")],
+            state::read_state(|s| s.pending_gen_ticket_requests.len()) as f64,
+        )?
+        .value(
+            &[("status", "finalized")],
+            state::read_state(|s| s.finalized_gen_ticket_requests.len()) as f64,
+        )?;
+
+    metrics
+        .gauge_vec(
             "bitcoin_customs_release_token_request_count",
             "Total count of incomplete release token requests, by status.",
         )?
@@ -89,13 +103,13 @@ pub fn encode_metrics(
     metrics.encode_gauge(
         "bitcoin_customs_stored_finalized_requests",
         state::read_state(|s| s.finalized_release_token_requests.len()) as f64,
-        "Total number of finalized retrieve_btc requests the customs keeps in memory.",
+        "Total number of finalized release_token requests the customs keeps in memory.",
     )?;
 
     metrics.encode_counter(
         "bitcoin_customs_finalized_requests",
         state::read_state(|s| s.finalized_requests_count) as f64,
-        "Total number of finalized retrieve_btc requests.",
+        "Total number of finalized release_token requests.",
     )?;
 
     metrics.encode_gauge(
