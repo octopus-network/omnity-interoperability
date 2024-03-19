@@ -6,15 +6,19 @@ mod types;
 use crate::types::{Chain, Ticket};
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::{RpcApi, RpcService};
-use ic_cdk::api::management_canister::ecdsa::{
+use ic_cdk::api::{call::RejectionCode, management_canister::ecdsa::{
     ecdsa_public_key, sign_with_ecdsa, EcdsaCurve, EcdsaKeyId, EcdsaPublicKeyArgument,
     SignWithEcdsaArgument,
-};
+}};
+use itertools::Itertools;
+use thiserror::Error;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap},
     rc::Rc,
 };
+use anyhow::anyhow;
+
 
 thread_local! {
     // TODO implement directives
@@ -35,12 +39,27 @@ thread_local! {
     static PUBKEY: RefCell<Option<Vec<u8>>> = RefCell::new(None);
 }
 
-#[derive(Clone, Debug)]
+type Result<T = ()> = std::result::Result<T, Error>;
+
+#[derive(Error, Debug)]
 pub enum Error {
+    #[error("Hub error: {0}")]
     HubError(String),
-    EthRpcError(String),
+    #[error("Evm rpc canister error: {0}")]
+    EvmRpcCanisterError(String),
+    #[error ("Evm rpc error: {0}")]
+    EvmRpcError(String),
+    #[error("Chain key error: {0}")]
     ChainKeyError(String),
+    #[error("Parse event error: {0}")]
+    ParseEventError(String),
+    #[error("Route not initialized")]
     RouteNotInitialized,
+    #[error("IC call error: {0:?}, {1}")]
+    IcCallError(RejectionCode, String),
+
+    #[error(transparent)]
+    Custom(#[from] anyhow::Error),
 }
 
 pub fn init(target_chain: Chain, target_chain_id: u64) {
@@ -61,7 +80,7 @@ pub fn init(target_chain: Chain, target_chain_id: u64) {
 }
 
 // don't call this in canister init function because ICP forbids IO during initialization
-pub async fn init_key() -> Result<(), Error> {
+pub async fn init_key() -> Result {
     let arg = EcdsaPublicKeyArgument {
         canister_id: None,
         derivation_path: KEY_DERIVATION_PATH.with_borrow(|p| p.clone()),
@@ -106,7 +125,7 @@ pub fn max_ticket_id() -> u64 {
     TICKETS.with_borrow(|tickets| *tickets.keys().last().unwrap_or(&0))
 }
 
-pub fn try_public_key() -> Result<Vec<u8>, Error> {
+pub fn try_public_key() -> Result<Vec<u8>> {
     PUBKEY
         .with_borrow(|p| p.clone())
         .ok_or(Error::RouteNotInitialized)
