@@ -10,6 +10,7 @@ use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
+use omnity_types::Directive;
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
@@ -46,7 +47,7 @@ const MIN_NANOS: u64 = 60 * SEC_NANOS;
 /// a batch transaction.
 pub const MIN_PENDING_REQUESTS: usize = 5;
 pub const MAX_REQUESTS_PER_BATCH: usize = 10;
-pub const BATCH_QUERY_TICKETS_COUNT: u64 = 20;
+pub const BATCH_QUERY_LIMIT: u64 = 20;
 
 const BTC_TOKEN: &str = "BTC";
 
@@ -213,25 +214,17 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
 }
 
 async fn submit_release_token_requests() {
-    let (hub_principal, start, chain_id) = read_state(|s| {
-        (
-            s.hub_principal,
-            s.next_release_ticket_seq,
-            s.chain_id.clone(),
-        )
-    });
-    match management::query_tickets(hub_principal, chain_id, start, BATCH_QUERY_TICKETS_COUNT).await
-    {
+    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
+    match management::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {
             log!(
                 P0,
                 "[submit_release_token_requests] temporarily unavailable: {}",
                 err
             );
-            return;
         }
         Ok(tickets) => {
-            let mut next_seq = start;
+            let mut next_seq = offset;
             for (seq, ticket) in tickets {
                 let amount = if let Ok(amount) = u128::from_str_radix(ticket.amount.as_str(), 10) {
                     amount
@@ -260,29 +253,50 @@ async fn submit_release_token_requests() {
                             );
                             break;
                         }
-                        Err(ReleaseTokenError::AlreadyProcessing)
-                        | Err(ReleaseTokenError::AlreadyProcessed)
-                        | Ok(_) => next_seq = seq + 1,
                         Err(ReleaseTokenError::MalformedAddress(err)) => {
                             log!(
                                 P0,
                                 "[submit_release_token_requests] malformed address: {}",
                                 err
                             );
-                            next_seq = seq + 1;
                         }
+                        Err(ReleaseTokenError::AlreadyProcessing)
+                        | Err(ReleaseTokenError::AlreadyProcessed)
+                        | Ok(_) => {}
                     }
                 } else {
                     log!(
                         P0,
                         "[submit_release_token_requests]: failed to parse rune_id of ticket"
                     );
-                    next_seq = seq + 1;
-                    continue;
+                }
+                next_seq = seq + 1;
+            }
+            mutate_state(|s| s.next_ticket_seq = next_seq);
+        }
+    }
+}
+
+async fn process_directive() {
+    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
+    match management::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+        Err(err) => {
+            log!(P0, "[process_directive] temporarily unavailable: {}", err);
+        }
+        Ok(directives) => mutate_state(|s| {
+            for (_, directive) in &directives {
+                match directive {
+                    Directive::AddChain(chain) => audit::add_chain(s, chain.clone()),
+                    Directive::AddToken(token) => audit::add_token(s, token.clone()),
+                    Directive::ToggleChainState(toggle) => {
+                        audit::toggle_chain_state(s, toggle.clone())
+                    }
+                    Directive::UpdateFee(_) => {}
                 }
             }
-            mutate_state(|s| s.next_release_ticket_seq = next_seq);
-        }
+            let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
+            s.next_directive_seq = next_seq;
+        }),
     }
 }
 
@@ -1264,10 +1278,11 @@ pub fn timer() {
                 schedule_after(FEE_ESTIMATE_DELAY, TaskType::RefreshFeePercentiles);
             });
         }
-        TaskType::ProcessNewTickets => {
+        TaskType::ProcessHubMessages => {
             ic_cdk::spawn(async {
                 submit_release_token_requests().await;
-                schedule_after(INTERVAL_PROCESSING, TaskType::ProcessNewTickets);
+                process_directive().await;
+                schedule_after(INTERVAL_PROCESSING, TaskType::ProcessHubMessages);
             });
         }
     }

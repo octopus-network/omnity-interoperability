@@ -19,6 +19,14 @@ type CanisterStatusResponse = record {
   reserved_cycles : nat;
 };
 type CanisterStatusType = variant { stopped; stopping; running };
+type Chain = record {
+  chain_id : text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
 type CustomArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type CustomsInfo = record { min_confirmations : nat32 };
 type DefiniteCanisterSettings = record {
@@ -64,6 +72,7 @@ type Event = variant {
   init : InitArgs;
   updated_runes_balance : record { balance : RunesBalance; txid : vec nat8 };
   upgrade : UpgradeArgs;
+  add_token : Token;
   confirmed_transaction : GenTicketStatusArgs;
   replaced_transaction : record {
     fee : nat64;
@@ -75,6 +84,8 @@ type Event = variant {
     submitted_at : nat64;
   };
   accepted_generate_ticket_request : GenTicketRequest;
+  add_chain : Chain;
+  toggle_chain_state : ToggleState;
 };
 type FinalizedTicketStatus = variant { Invalid; Finalized };
 type GenTicketRequest = record {
@@ -106,6 +117,8 @@ type GenerateTicketError = variant {
   AlreadySubmitted;
   AleardyProcessed;
   NoNewUtxos;
+  UnsupportedChainId : text;
+  UnsupportedToken : text;
 };
 type GetBtcAddressArgs = record { target_chain_id : text; receiver : text };
 type GetEventsArg = record { start : nat64; length : nat64 };
@@ -160,6 +173,15 @@ type RuneId = record { height : nat32; index : nat16 };
 type RunesBalance = record { vout : nat32; amount : nat; rune_id : RuneId };
 type RunesChangeOutput = record { value : nat; vout : nat32; rune_id : RuneId };
 type RunesUtxo = record { raw : Utxo; runes : RunesBalance };
+type ToggleAction = variant { Deactivate; Activate };
+type ToggleState = record { action : ToggleAction; chain_id : text };
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  issue_chain : text;
+  symbol : text;
+};
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
 type UpdateRunesBalanceArgs = record {
   txid : vec nat8;
@@ -186,12 +208,14 @@ service : (CustomArg) -> {
   generate_ticket_status : (GenTicketStatusArgs) -> (GenTicketStatus) query;
   get_btc_address : (GetBtcAddressArgs) -> (text);
   get_canister_status : () -> (CanisterStatusResponse);
+  get_chain_list : () -> (vec Chain) query;
   get_customs_info : () -> (CustomsInfo) query;
   get_events : (GetEventsArg) -> (vec Event) query;
   get_main_btc_address : (text) -> (text);
   get_pending_gen_ticket_requests : (GetGenTicketReqsArgs) -> (
       vec GenTicketRequest,
     ) query;
+  get_token_list : () -> (vec Token) query;
   release_token_status : (ReleaseTokenStatusArgs) -> (ReleaseTokenStatus) query;
   update_btc_utxos : () -> (Result_1);
   update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_2);

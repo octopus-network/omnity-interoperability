@@ -7,6 +7,7 @@ use crate::updates::get_btc_address::{
 };
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
+use omnity_types::ChainState;
 use serde::Serialize;
 use std::str::FromStr;
 
@@ -26,6 +27,8 @@ pub enum GenerateTicketError {
     AleardyProcessed,
     NoNewUtxos,
     InvalidRuneId(String),
+    UnsupportedChainId(String),
+    UnsupportedToken(String),
 }
 
 impl From<GuardError> for GenerateTicketError {
@@ -51,7 +54,20 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     let txid = Txid::from_str(&args.txid)
         .map_err(|_| GenerateTicketError::TemporarilyUnavailable("Invalid txid".to_string()))?;
 
-    // TODO check if the token and target_chain_id is in the whitelist
+    read_state(|s| {
+        if !s.counterparties
+            .get(&args.target_chain_id)
+            .is_some_and(|c| c.chain_state == ChainState::Active)
+        {
+            Err(GenerateTicketError::UnsupportedChainId(
+                args.target_chain_id.clone(),
+            ))
+        } else if !s.tokens.contains_key(&args.rune_id) {
+            Err(GenerateTicketError::UnsupportedToken(args.rune_id))
+        } else {
+            Ok(())
+        }
+    })?;
 
     read_state(|s| match s.generate_ticket_status(txid) {
         GenTicketStatus::Pending(_) => Err(GenerateTicketError::AlreadySubmitted),
