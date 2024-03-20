@@ -64,7 +64,7 @@ type Ticket = record {
   dst_chain : text;
   memo : opt vec nat8;
   ticket_id : text;
-  sender : text;
+  sender : opt text;
   ticket_time : nat64;
   src_chain : text;
   amount : text;
@@ -97,7 +97,7 @@ type Topic = variant {
 };
 type TxAction = variant { Redeem; Transfer };
 service : () -> {
-  build_directive : (vec Proposal) -> (Result);
+  execute_proposal : (vec Proposal) -> (Result);
   get_chain : (text) -> (Result_1) query;
   get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_2) query;
   get_chains : (opt ChainType, opt ChainState, nat64, nat64) -> (

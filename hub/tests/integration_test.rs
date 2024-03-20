@@ -1,7 +1,5 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use ic_base_types::PrincipalId;
-use omnity_hub::types::{ChainMeta, Proposal, TokenMeta};
+use omnity_hub::types::Proposal;
 use omnity_types::{ChainState, ChainType, Fee, Ticket, TxAction};
 use omnity_types::{ToggleAction, ToggleState, Topic};
 mod common;
@@ -9,202 +7,27 @@ mod common;
 use common::OmnityHub;
 
 use uuid::Uuid;
-fn canister_ids() -> Vec<PrincipalId> {
-    vec![
-        PrincipalId::new_user_test_id(0),
-        PrincipalId::new_user_test_id(1),
-        PrincipalId::new_user_test_id(2),
-        PrincipalId::new_user_test_id(3),
-        PrincipalId::new_user_test_id(4),
-        PrincipalId::new_user_test_id(5),
-    ]
-}
-fn chain_ids() -> Vec<String> {
-    vec![
-        "Bitcoin".to_string(),
-        "Ethereum".to_string(),
-        "ICP".to_string(),
-        "Arbitrum".to_string(),
-        "Optimistic".to_string(),
-        "Starknet".to_string(),
-    ]
-}
-fn chains() -> Vec<Proposal> {
-    let chains = vec![
-        Proposal::AddChain(ChainMeta {
-            chain_id: "Bitcoin".to_string(),
-            chain_type: ChainType::SettlementChain,
-            chain_state: ChainState::Active,
-            canister_id: PrincipalId::new_user_test_id(0).to_string(),
-            contract_address: None,
-            counterparties: None,
-        }),
-        Proposal::AddChain(ChainMeta {
-            chain_id: "Ethereum".to_string(),
-            chain_type: ChainType::SettlementChain,
-            chain_state: ChainState::Active,
-            canister_id: PrincipalId::new_user_test_id(1).to_string(),
-            contract_address: Some("Ethereum constract address".to_string()),
-            counterparties: Some(vec!["Bitcoin".to_string()]),
-        }),
-        Proposal::AddChain(ChainMeta {
-            chain_id: "ICP".to_string(),
-            chain_type: ChainType::SettlementChain,
-            chain_state: ChainState::Active,
-            canister_id: PrincipalId::new_user_test_id(2).to_string(),
-            contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
-            counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
-        }),
-        Proposal::AddChain(ChainMeta {
-            chain_id: "Arbitrum".to_string(),
-            chain_type: ChainType::ExecutionChain,
-            chain_state: ChainState::Active,
-            canister_id: PrincipalId::new_user_test_id(3).to_string(),
-            contract_address: Some("Arbitrum constract address".to_string()),
-            counterparties: Some(vec![
-                "Bitcoin".to_string(),
-                "Ethereum".to_string(),
-                "ICP".to_string(),
-            ]),
-        }),
-        Proposal::AddChain(ChainMeta {
-            chain_id: "Optimistic".to_string(),
-            chain_type: ChainType::ExecutionChain,
-            chain_state: ChainState::Active,
-            canister_id: PrincipalId::new_user_test_id(4).to_string(),
-            contract_address: Some("Optimistic constract address".to_string()),
-            counterparties: Some(vec![
-                "Bitcoin".to_string(),
-                "Ethereum".to_string(),
-                "ICP".to_string(),
-                "Arbitrum".to_string(),
-            ]),
-        }),
-        Proposal::AddChain(ChainMeta {
-            chain_id: "Starknet".to_string(),
-            chain_type: ChainType::ExecutionChain,
-            chain_state: ChainState::Active,
-            canister_id: PrincipalId::new_user_test_id(5).to_string(),
-            contract_address: Some("Starknet constract address".to_string()),
-            counterparties: Some(vec![
-                "Bitcoin".to_string(),
-                "Ethereum".to_string(),
-                "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
-            ]),
-        }),
-    ];
 
-    chains
-}
-
-fn tokens() -> Vec<Proposal> {
-    let tokens = vec![
-        Proposal::AddToken(TokenMeta {
-            token_id: "BTC".to_string(),
-            symbol: "BTC".to_owned(),
-            issue_chain: "Bitcoin".to_string(),
-            decimals: 18,
-            icon: None,
-            dst_chains: vec![
-                "Ethereum".to_string(),
-                "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
-                "Starknet".to_string(),
-            ],
-        }),
-        Proposal::AddToken(TokenMeta {
-            token_id: "ETH".to_string(),
-            symbol: "ETH".to_owned(),
-            issue_chain: "Ethereum".to_string(),
-            decimals: 18,
-            icon: None,
-            dst_chains: vec![
-                "Bitcoin".to_string(),
-                "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
-                "Starknet".to_string(),
-            ],
-        }),
-        Proposal::AddToken(TokenMeta {
-            token_id: "ICP".to_string(),
-            symbol: "ICP".to_owned(),
-            issue_chain: "ICP".to_string(),
-            decimals: 18,
-            icon: None,
-            dst_chains: vec![
-                "Bitcoin".to_string(),
-                "Ethereum".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
-                "Starknet".to_string(),
-            ],
-        }),
-        Proposal::AddToken(TokenMeta {
-            token_id: "ARB".to_string(),
-            symbol: "ARB".to_owned(),
-            issue_chain: "Arbitrum".to_string(),
-            decimals: 18,
-            icon: None,
-            dst_chains: vec![
-                "Bitcoin".to_string(),
-                "Ethereum".to_string(),
-                "ICP".to_string(),
-                "Optimistic".to_string(),
-                "Starknet".to_string(),
-            ],
-        }),
-        Proposal::AddToken(TokenMeta {
-            token_id: "OP".to_string(),
-            symbol: "OP".to_owned(),
-            issue_chain: "Optimistic".to_string(),
-            decimals: 18,
-            icon: None,
-            dst_chains: vec![
-                "Bitcoin".to_string(),
-                "Ethereum".to_string(),
-                "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Starknet".to_string(),
-            ],
-        }),
-        Proposal::AddToken(TokenMeta {
-            token_id: "StarkNet".to_string(),
-            symbol: "StarkNet".to_owned(),
-            issue_chain: "Starknet".to_string(),
-            decimals: 18,
-            icon: None,
-            dst_chains: vec![
-                "Bitcoin".to_string(),
-                "Ethereum".to_string(),
-                "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
-            ],
-        }),
-    ];
-    tokens
-}
-
-fn get_timestamp() -> u64 {
-    let start = SystemTime::now();
-    let since_the_epoch = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
-    since_the_epoch.as_millis() as u64
-}
+use crate::common::{canister_ids, chain_ids, chains, get_timestamp, tokens};
 
 #[test]
 fn test_init_hub() {
     let hub = OmnityHub::new();
-    println!("hub id:{}", hub.hub_id.to_string())
+
+    println!(
+        "hub canister id: {}, hub controller:{}",
+        hub.hub_id.to_string(),
+        hub.controller.to_string()
+    );
 }
 
 #[test]
-fn test_upgrade() {}
+fn test_upgrade() {
+    let hub = OmnityHub::new();
+    //TODO: do something
+    hub.upgrade();
+    //TODO: query hub state and watch state changed!
+}
 
 #[test]
 fn test_validate_proposal() {

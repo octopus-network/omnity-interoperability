@@ -20,6 +20,7 @@ pub async fn get_chains(
         "get_chains condition: {:?}, from: {}, offset: {}",
         condition, offset, offset
     );
+    
     fn filter_chains(
         chain: &ChainWithSeq,
         condition: &(Option<ChainType>, Option<ChainState>),
@@ -72,6 +73,7 @@ pub async fn get_tokens(
         "get_tokens condition: {:?}, from: {}, offset: {}",
         condition, offset, limit
     );
+
     fn filter_tokens(
         token_meta: &TokenMeta,
         condition: &(Option<ChainId>, Option<TokenId>),

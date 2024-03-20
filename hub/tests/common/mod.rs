@@ -1,11 +1,12 @@
 use std::fs;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use candid::{Decode, Encode};
 use cargo_metadata::MetadataCommand;
 use escargot::CargoBuild;
 use ic_base_types::{CanisterId, PrincipalId};
 use ic_state_machine_tests::{StateMachine, WasmResult};
-use omnity_hub::types::Proposal;
+use omnity_hub::types::{ChainMeta, Proposal, TokenMeta};
 use omnity_types::{Chain, ChainId, Directive, Seq, Ticket, Token, TokenId, TokenOnChain, Topic};
 use omnity_types::{ChainState, ChainType, Error, Fee};
 
@@ -15,68 +16,6 @@ const DEFAULT_CARGO_TOML: &str = "./Cargo.toml";
 // const DEFAULT_HUB_WASM_LOCATION: &str = "../.dfx/local/canisters/omnity_hub/omnity_hub.wasm.gz";
 const DEFAULT_HUB_WASM_LOCATION: &str = "../target/wasm32-unknown-unknown/release/omnity_hub.wasm";
 
-// build hub wasm
-fn build_hub() -> Vec<u8> {
-    let target_dir = MetadataCommand::new()
-        .manifest_path(&DEFAULT_CARGO_TOML)
-        .no_deps()
-        .exec()
-        .unwrap_or_else(|e| {
-            panic!(
-                "Failed to run cargo metadata on {}: {}",
-                DEFAULT_CARGO_TOML, e
-            )
-        })
-        .target_directory;
-    println!("build target dir:{}", target_dir);
-
-    let mut cargo_build = CargoBuild::new()
-        .target("wasm32-unknown-unknown")
-        .release()
-        .bin(BINARY_NAME)
-        .manifest_path(&DEFAULT_CARGO_TOML)
-        .target_dir(target_dir);
-
-    if !FEATURES.is_empty() {
-        cargo_build = cargo_build.features(FEATURES.join(" "));
-    }
-
-    let binary = cargo_build
-        .run()
-        .expect("Cargo failed to compile a Wasm binary");
-    println!("wasm file path:{:?}", binary.path());
-    fs::read(binary.path()).unwrap_or_else(|e| {
-        panic!(
-            "failed to load Wasm from {}: {}",
-            binary.path().display(),
-            e
-        )
-    })
-}
-
-fn hub_wasm() -> Vec<u8> {
-    std::fs::read(DEFAULT_HUB_WASM_LOCATION.to_string()).unwrap_or_else(|e| {
-        println!(
-            "not found wasm file from {}: {}, need to build hub",
-            DEFAULT_HUB_WASM_LOCATION, e
-        );
-        // build hub
-        build_hub()
-    })
-}
-fn install_hub(sm: &StateMachine) -> CanisterId {
-    sm.install_canister(hub_wasm(), vec![], None)
-        .expect("install hub error !")
-}
-
-fn assert_reply(result: WasmResult) -> Vec<u8> {
-    match result {
-        WasmResult::Reply(bytes) => bytes,
-        WasmResult::Reject(reject) => {
-            panic!("Expected a successful reply, got a reject: {}", reject)
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct OmnityHub {
@@ -90,11 +29,7 @@ impl OmnityHub {
         let sm = StateMachine::new();
         let hub_id = install_hub(&sm);
         let controller = sm.canister_status(hub_id).unwrap().unwrap().controller();
-        println!(
-            "hub canister id: {}, controller:{}",
-            hub_id.to_string(),
-            controller.to_string()
-        );
+       
         Self {
             sm,
             hub_id,
@@ -278,4 +213,261 @@ impl OmnityHub {
             .expect("failed to get tx");
         Decode!(&assert_reply(ret), Result<Vec<Ticket>, Error>).unwrap()
     }
+
+    pub fn upgrade(&self) {
+        let ret = self.sm.upgrade_canister(self.hub_id, hub_wasm(), vec![]);
+        println!("upgrade result:{:?}", ret)
+    }
+}
+
+
+// build hub wasm
+fn build_hub() -> Vec<u8> {
+    let target_dir = MetadataCommand::new()
+        .manifest_path(&DEFAULT_CARGO_TOML)
+        .no_deps()
+        .exec()
+        .unwrap_or_else(|e| {
+            panic!(
+                "Failed to run cargo metadata on {}: {}",
+                DEFAULT_CARGO_TOML, e
+            )
+        })
+        .target_directory;
+    println!("build target dir:{}", target_dir);
+
+    let mut cargo_build = CargoBuild::new()
+        .target("wasm32-unknown-unknown")
+        .release()
+        .bin(BINARY_NAME)
+        .manifest_path(&DEFAULT_CARGO_TOML)
+        .target_dir(target_dir);
+
+    if !FEATURES.is_empty() {
+        cargo_build = cargo_build.features(FEATURES.join(" "));
+    }
+
+    let binary = cargo_build
+        .run()
+        .expect("Cargo failed to compile a Wasm binary");
+    println!("wasm file path:{:?}", binary.path());
+    fs::read(binary.path()).unwrap_or_else(|e| {
+        panic!(
+            "failed to load Wasm from {}: {}",
+            binary.path().display(),
+            e
+        )
+    })
+}
+
+fn hub_wasm() -> Vec<u8> {
+    std::fs::read(DEFAULT_HUB_WASM_LOCATION.to_string()).unwrap_or_else(|e| {
+        println!(
+            "not found wasm file from {}: {}, need to build hub",
+            DEFAULT_HUB_WASM_LOCATION, e
+        );
+        // build hub
+        build_hub()
+    })
+}
+fn install_hub(sm: &StateMachine) -> CanisterId {
+    sm.install_canister(hub_wasm(), vec![], None)
+        .expect("install hub error !")
+}
+
+fn assert_reply(result: WasmResult) -> Vec<u8> {
+    match result {
+        WasmResult::Reply(bytes) => bytes,
+        WasmResult::Reject(reject) => {
+            panic!("Expected a successful reply, got a reject: {}", reject)
+        }
+    }
+}
+
+pub fn canister_ids() -> Vec<PrincipalId> {
+    vec![
+        PrincipalId::new_user_test_id(0),
+        PrincipalId::new_user_test_id(1),
+        PrincipalId::new_user_test_id(2),
+        PrincipalId::new_user_test_id(3),
+        PrincipalId::new_user_test_id(4),
+        PrincipalId::new_user_test_id(5),
+    ]
+}
+pub fn chain_ids() -> Vec<String> {
+    vec![
+        "Bitcoin".to_string(),
+        "Ethereum".to_string(),
+        "ICP".to_string(),
+        "Arbitrum".to_string(),
+        "Optimistic".to_string(),
+        "Starknet".to_string(),
+    ]
+}
+pub fn chains() -> Vec<Proposal> {
+    let chains = vec![
+        Proposal::AddChain(ChainMeta {
+            chain_id: "Bitcoin".to_string(),
+            chain_type: ChainType::SettlementChain,
+            chain_state: ChainState::Active,
+            canister_id: PrincipalId::new_user_test_id(0).to_string(),
+            contract_address: None,
+            counterparties: None,
+        }),
+        Proposal::AddChain(ChainMeta {
+            chain_id: "Ethereum".to_string(),
+            chain_type: ChainType::SettlementChain,
+            chain_state: ChainState::Active,
+            canister_id: PrincipalId::new_user_test_id(1).to_string(),
+            contract_address: Some("Ethereum constract address".to_string()),
+            counterparties: Some(vec!["Bitcoin".to_string()]),
+        }),
+        Proposal::AddChain(ChainMeta {
+            chain_id: "ICP".to_string(),
+            chain_type: ChainType::SettlementChain,
+            chain_state: ChainState::Active,
+            canister_id: PrincipalId::new_user_test_id(2).to_string(),
+            contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
+            counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
+        }),
+        Proposal::AddChain(ChainMeta {
+            chain_id: "Arbitrum".to_string(),
+            chain_type: ChainType::ExecutionChain,
+            chain_state: ChainState::Active,
+            canister_id: PrincipalId::new_user_test_id(3).to_string(),
+            contract_address: Some("Arbitrum constract address".to_string()),
+            counterparties: Some(vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "ICP".to_string(),
+            ]),
+        }),
+        Proposal::AddChain(ChainMeta {
+            chain_id: "Optimistic".to_string(),
+            chain_type: ChainType::ExecutionChain,
+            chain_state: ChainState::Active,
+            canister_id: PrincipalId::new_user_test_id(4).to_string(),
+            contract_address: Some("Optimistic constract address".to_string()),
+            counterparties: Some(vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "ICP".to_string(),
+                "Arbitrum".to_string(),
+            ]),
+        }),
+        Proposal::AddChain(ChainMeta {
+            chain_id: "Starknet".to_string(),
+            chain_type: ChainType::ExecutionChain,
+            chain_state: ChainState::Active,
+            canister_id: PrincipalId::new_user_test_id(5).to_string(),
+            contract_address: Some("Starknet constract address".to_string()),
+            counterparties: Some(vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "ICP".to_string(),
+                "Arbitrum".to_string(),
+                "Optimistic".to_string(),
+            ]),
+        }),
+    ];
+
+    chains
+}
+
+pub fn tokens() -> Vec<Proposal> {
+    let tokens = vec![
+        Proposal::AddToken(TokenMeta {
+            token_id: "BTC".to_string(),
+            symbol: "BTC".to_owned(),
+            issue_chain: "Bitcoin".to_string(),
+            decimals: 18,
+            icon: None,
+            dst_chains: vec![
+                "Ethereum".to_string(),
+                "ICP".to_string(),
+                "Arbitrum".to_string(),
+                "Optimistic".to_string(),
+                "Starknet".to_string(),
+            ],
+        }),
+        Proposal::AddToken(TokenMeta {
+            token_id: "ETH".to_string(),
+            symbol: "ETH".to_owned(),
+            issue_chain: "Ethereum".to_string(),
+            decimals: 18,
+            icon: None,
+            dst_chains: vec![
+                "Bitcoin".to_string(),
+                "ICP".to_string(),
+                "Arbitrum".to_string(),
+                "Optimistic".to_string(),
+                "Starknet".to_string(),
+            ],
+        }),
+        Proposal::AddToken(TokenMeta {
+            token_id: "ICP".to_string(),
+            symbol: "ICP".to_owned(),
+            issue_chain: "ICP".to_string(),
+            decimals: 18,
+            icon: None,
+            dst_chains: vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "Arbitrum".to_string(),
+                "Optimistic".to_string(),
+                "Starknet".to_string(),
+            ],
+        }),
+        Proposal::AddToken(TokenMeta {
+            token_id: "ARB".to_string(),
+            symbol: "ARB".to_owned(),
+            issue_chain: "Arbitrum".to_string(),
+            decimals: 18,
+            icon: None,
+            dst_chains: vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "ICP".to_string(),
+                "Optimistic".to_string(),
+                "Starknet".to_string(),
+            ],
+        }),
+        Proposal::AddToken(TokenMeta {
+            token_id: "OP".to_string(),
+            symbol: "OP".to_owned(),
+            issue_chain: "Optimistic".to_string(),
+            decimals: 18,
+            icon: None,
+            dst_chains: vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "ICP".to_string(),
+                "Arbitrum".to_string(),
+                "Starknet".to_string(),
+            ],
+        }),
+        Proposal::AddToken(TokenMeta {
+            token_id: "StarkNet".to_string(),
+            symbol: "StarkNet".to_owned(),
+            issue_chain: "Starknet".to_string(),
+            decimals: 18,
+            icon: None,
+            dst_chains: vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "ICP".to_string(),
+                "Arbitrum".to_string(),
+                "Optimistic".to_string(),
+            ],
+        }),
+    ];
+    tokens
+}
+
+pub fn get_timestamp() -> u64 {
+    let start = SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+    since_the_epoch.as_millis() as u64
 }
