@@ -47,7 +47,7 @@ impl core::fmt::Display for Ticket {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "ticket id:{},\ncreated time:{},\nsrc chain:{},\ndst_chain:{},\naction:{:?},\ntoken:{},\namount:{},\nsender:{},\nrecevier:{},\nmemo:{:?}",
+            "ticket id:{},\ncreated time:{},nsrc chain:{},\ndst_chain:{},\naction:{:?},\ntoken:{},\namount:{},\nsender:{},\nrecevier:{},\nmemo:{:?}",
             self.ticket_id,
             self.created_time,
             self.src_chain,
