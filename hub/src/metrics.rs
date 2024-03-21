@@ -1,7 +1,5 @@
 use crate::state::with_state;
-
 use crate::types::ChainWithSeq;
-use crate::types::TokenMeta;
 use log::info;
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Error, Fee, Ticket, TicketId, Token, TokenId,
@@ -20,26 +18,19 @@ pub async fn get_chains(
         "get_chains condition: {:?}, from: {}, offset: {}",
         condition, offset, offset
     );
-    
-    fn filter_chains(
-        chain: &ChainWithSeq,
-        condition: &(Option<ChainType>, Option<ChainState>),
-    ) -> bool {
-        match condition {
-            (None, None) => true,
-            (None, Some(dst_chain_state)) => chain.chain_state == *dst_chain_state,
-            (Some(dst_chain_type), None) => chain.chain_type == *dst_chain_type,
-            (Some(dst_chain_type), Some(dst_chain_state)) => {
-                chain.chain_type == *dst_chain_type && chain.chain_state == *dst_chain_state
-            }
-        }
-    }
 
     let chains = with_state(|hub_state| {
         hub_state
             .chains
             .iter()
-            .filter(|(_, chain)| filter_chains(chain, &condition))
+            .filter(|(_, chain)| match &condition {
+                (None, None) => true,
+                (None, Some(dst_chain_state)) => chain.chain_state == *dst_chain_state,
+                (Some(dst_chain_type), None) => chain.chain_type == *dst_chain_type,
+                (Some(dst_chain_type), Some(dst_chain_state)) => {
+                    chain.chain_type == *dst_chain_type && chain.chain_state == *dst_chain_state
+                }
+            })
             .skip(offset)
             .take(limit)
             .map(|(_, chain)| <ChainWithSeq as Into<Chain>>::into(chain.clone()))
@@ -74,25 +65,18 @@ pub async fn get_tokens(
         condition, offset, limit
     );
 
-    fn filter_tokens(
-        token_meta: &TokenMeta,
-        condition: &(Option<ChainId>, Option<TokenId>),
-    ) -> bool {
-        match condition {
-            (None, None) => true,
-            (None, Some(dst_token_id)) => token_meta.token_id.eq(dst_token_id),
-            (Some(dst_chain_id), None) => token_meta.issue_chain.eq(dst_chain_id),
-            (Some(dst_chain_id), Some(dst_token_id)) => {
-                token_meta.issue_chain.eq(dst_chain_id) && token_meta.token_id.eq(dst_token_id)
-            }
-        }
-    }
-
     let tokens = with_state(|hub_state| {
         hub_state
             .tokens
             .iter()
-            .filter(|(_, token_meta)| filter_tokens(token_meta, &condition))
+            .filter(|(_, token_meta)| match &condition {
+                (None, None) => true,
+                (None, Some(dst_token_id)) => token_meta.token_id.eq(dst_token_id),
+                (Some(dst_chain_id), None) => token_meta.issue_chain.eq(dst_chain_id),
+                (Some(dst_chain_id), Some(dst_token_id)) => {
+                    token_meta.issue_chain.eq(dst_chain_id) && token_meta.token_id.eq(dst_token_id)
+                }
+            })
             .skip(offset)
             .take(limit)
             .map(|(_, token_meta)| token_meta.clone().into())
@@ -185,46 +169,34 @@ pub async fn get_txs(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<Ticket>, Error> {
-    let condition = (src_chain, dst_chain, token_id, time_range);
+    // let condition = (src_chain, dst_chain, token_id, time_range);
     info!(
-        "get_txs condition: {:?}, from: {}, offset: {}",
-        condition, offset, limit
+        "get_txs condition: src chain:{:?},  dst chain:{:?},  token id:{:?}, time range:{:?}, offset: {}, limit: {}",
+        src_chain, dst_chain, token_id, time_range, offset, limit
     );
-
-    fn filter_ticket(
-        ticket: &Ticket,
-        condition: &(
-            Option<ChainId>,
-            Option<ChainId>,
-            Option<TokenId>,
-            Option<(u64, u64)>,
-        ),
-    ) -> bool {
-        let (src_chain, dst_chain, token_id, time_range) = condition;
-
-        let src_chain_match = src_chain
-            .as_ref()
-            .map_or(true, |chain| ticket.src_chain.eq(chain));
-        let dst_chain_match = dst_chain
-            .as_ref()
-            .map_or(true, |chain| ticket.dst_chain.eq(chain));
-        let token_id_match = token_id
-            .as_ref()
-            .map_or(true, |token_id| ticket.token.eq(token_id));
-
-        let time_range_match = match time_range {
-            Some((start, end)) => ticket.ticket_time >= *start && ticket.ticket_time <= *end,
-            None => true,
-        };
-
-        src_chain_match && dst_chain_match && token_id_match && time_range_match
-    }
 
     let filtered_tickets = with_state(|hub_state| {
         hub_state
             .cross_ledger
             .iter()
-            .filter(|(_, ticket)| filter_ticket(ticket, &condition))
+            .filter(|(_, ticket)| {
+                let src_chain_match = src_chain
+                    .as_ref()
+                    .map_or(true, |chain| ticket.src_chain.eq(chain));
+                let dst_chain_match = dst_chain
+                    .as_ref()
+                    .map_or(true, |chain| ticket.dst_chain.eq(chain));
+                let token_id_match = token_id
+                    .as_ref()
+                    .map_or(true, |token_id| ticket.token.eq(token_id));
+
+                let time_range_match = match time_range {
+                    Some((start, end)) => ticket.ticket_time >= start && ticket.ticket_time <= end,
+                    None => true,
+                };
+
+                src_chain_match && dst_chain_match && token_id_match && time_range_match
+            })
             .skip(offset)
             .take(limit)
             .map(|(_, ticket)| ticket.clone())

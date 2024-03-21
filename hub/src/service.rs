@@ -27,8 +27,8 @@ fn init() {
     info!("canister init caller:{}", caller.to_string());
     with_state_mut(|hs| {
         hs.owner = Some(caller.to_string());
-        hs.authorized_caller
-            .insert(caller.to_string(), caller.to_string());
+        // hs.authorized_caller
+        //     .insert(caller.to_string(), caller.to_string());
     })
 }
 
