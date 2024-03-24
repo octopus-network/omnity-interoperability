@@ -108,12 +108,12 @@ async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
         ),
     )
     .await
-    .map_err(|(_, e)| super::Error::EthRpcError(e))?;
+    .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
     match r {
         SendRawTransactionStatus::Ok(hash) => hash.map(|h| h.to_string()).ok_or(
-            super::Error::EthRpcError("A transaction hash is expected".to_string()),
+            super::Error::EvmRpcError("A transaction hash is expected".to_string()),
         ),
-        _ => Err(super::Error::EthRpcError(format!("{:?}", r))),
+        _ => Err(super::Error::EvmRpcError(format!("{:?}", r))),
     }
 }
 

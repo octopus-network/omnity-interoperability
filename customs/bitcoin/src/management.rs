@@ -1,5 +1,6 @@
 //! This module contains async functions for interacting with the management canister.
 
+use crate::call_error::{CallError, Reason};
 use crate::logs::P0;
 use crate::tx;
 use crate::ECDSAPublicKey;
@@ -9,83 +10,11 @@ use ic_btc_interface::{
     MillisatoshiPerByte, Network, UtxosFilterInRequest,
 };
 use ic_canister_log::log;
-use ic_cdk::api::call::RejectionCode;
 use ic_ic00_types::{
     DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
     SignWithECDSAArgs, SignWithECDSAReply,
 };
-use omnity_types::Directive;
-use omnity_types::Topic;
-use omnity_types::{self, ChainId, Seq, Ticket};
 use serde::de::DeserializeOwned;
-use std::fmt;
-
-/// Represents an error from a management canister call, such as
-/// `sign_with_ecdsa` or `bitcoin_send_transaction`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CallError {
-    method: String,
-    reason: Reason,
-}
-
-impl CallError {
-    /// Returns the name of the method that resulted in this error.
-    pub fn method(&self) -> &str {
-        &self.method
-    }
-
-    /// Returns the failure reason.
-    pub fn reason(&self) -> &Reason {
-        &self.reason
-    }
-}
-
-impl fmt::Display for CallError {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            fmt,
-            "management call '{}' failed: {}",
-            self.method, self.reason
-        )
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// The reason for the management call failure.
-pub enum Reason {
-    /// Failed to send a signature request because the local output queue is
-    /// full.
-    QueueIsFull,
-    /// The canister does not have enough cycles to submit the request.
-    OutOfCycles,
-    /// The call failed with an error.
-    CanisterError(String),
-    /// The management canister rejected the signature request (not enough
-    /// cycles, the ECDSA subnet is overloaded, etc.).
-    Rejected(String),
-}
-
-impl fmt::Display for Reason {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::QueueIsFull => write!(fmt, "the canister queue is full"),
-            Self::OutOfCycles => write!(fmt, "the canister is out of cycles"),
-            Self::CanisterError(msg) => write!(fmt, "canister error: {}", msg),
-            Self::Rejected(msg) => {
-                write!(fmt, "the management canister rejected the call: {}", msg)
-            }
-        }
-    }
-}
-
-impl Reason {
-    fn from_reject(reject_code: RejectionCode, reject_message: String) -> Self {
-        match reject_code {
-            RejectionCode::CanisterReject => Self::Rejected(reject_message),
-            _ => Self::CanisterError(reject_message),
-        }
-    }
-}
 
 async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallError>
 where
@@ -291,71 +220,4 @@ pub async fn sign_with_ecdsa(
     )
     .await?;
     Ok(reply.signature)
-}
-
-pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
-    // TODO determine how many cycle it will cost.
-    let cost_cycles = 4_000_000_000_u64;
-
-    let resp: (Result<(), omnity_types::Error>,) =
-        ic_cdk::api::call::call_with_payment(hub_principal, "send_ticket", (ticket,), cost_cycles)
-            .await
-            .map_err(|(code, message)| CallError {
-                method: "send_ticket".to_string(),
-                reason: Reason::from_reject(code, message),
-            })?;
-    let data = resp.0.map_err(|err| CallError {
-        method: "send_ticket".to_string(),
-        reason: Reason::CanisterError(err.to_string()),
-    })?;
-    Ok(data)
-}
-
-pub async fn query_tickets(
-    hub_principal: Principal,
-    offset: u64,
-    limit: u64,
-) -> Result<Vec<(Seq, Ticket)>, CallError> {
-    let resp: (Result<Vec<(Seq, Ticket)>, omnity_types::Error>,) = ic_cdk::api::call::call(
-        hub_principal,
-        "query_tickets",
-        (None::<Option<ChainId>>, offset, limit),
-    )
-    .await
-    .map_err(|(code, message)| CallError {
-        method: "query_tickets".to_string(),
-        reason: Reason::from_reject(code, message),
-    })?;
-    let data = resp.0.map_err(|err| CallError {
-        method: "query_tickets".to_string(),
-        reason: Reason::CanisterError(err.to_string()),
-    })?;
-    Ok(data)
-}
-
-pub async fn query_directives(
-    hub_principal: Principal,
-    offset: u64,
-    limit: u64,
-) -> Result<Vec<(Seq, Directive)>, CallError> {
-    let resp: (Result<Vec<(Seq, Directive)>, omnity_types::Error>,) = ic_cdk::api::call::call(
-        hub_principal,
-        "query_directives",
-        (
-            None::<Option<ChainId>>,
-            None::<Option<Topic>>,
-            offset,
-            limit,
-        ),
-    )
-    .await
-    .map_err(|(code, message)| CallError {
-        method: "query_directives".to_string(),
-        reason: Reason::from_reject(code, message),
-    })?;
-    let data = resp.0.map_err(|err| CallError {
-        method: "query_directives".to_string(),
-        reason: Reason::CanisterError(err.to_string()),
-    })?;
-    Ok(data)
 }
