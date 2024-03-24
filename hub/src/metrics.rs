@@ -1,5 +1,5 @@
-use crate::state::with_state;
 use crate::types::ChainWithSeq;
+use crate::{state::with_state, types::TokenKey};
 use log::info;
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Error, Fee, Ticket, TicketId, Token, TokenId,
@@ -72,9 +72,10 @@ pub async fn get_tokens(
             .filter(|(_, token_meta)| match &condition {
                 (None, None) => true,
                 (None, Some(dst_token_id)) => token_meta.token_id.eq(dst_token_id),
-                (Some(dst_chain_id), None) => token_meta.issue_chain.eq(dst_chain_id),
+                (Some(dst_chain_id), None) => token_meta.settlement_chain.eq(dst_chain_id),
                 (Some(dst_chain_id), Some(dst_token_id)) => {
-                    token_meta.issue_chain.eq(dst_chain_id) && token_meta.token_id.eq(dst_token_id)
+                    token_meta.settlement_chain.eq(dst_chain_id)
+                        && token_meta.token_id.eq(dst_token_id)
                 }
             })
             .skip(offset)
@@ -104,7 +105,7 @@ pub async fn get_fees(
         hub_state
             .fees
             .iter()
-            .filter(|((chain, token), _)| filter_chain_token(chain, token, &condition))
+            .filter(|(token_key, _)| filter_chain_token(token_key, &condition))
             .skip(offset)
             .take(limit)
             .map(|(_, fee)| fee.clone())
@@ -115,16 +116,15 @@ pub async fn get_fees(
 }
 
 fn filter_chain_token(
-    chain_id: &ChainId,
-    token_id: &TokenId,
+    token_key: &TokenKey,
     condition: &(Option<ChainId>, Option<TokenId>),
 ) -> bool {
     match condition {
         (None, None) => true,
-        (None, Some(dst_token_id)) => token_id.eq(dst_token_id),
-        (Some(dst_chain_id), None) => chain_id.eq(dst_chain_id),
+        (None, Some(dst_token_id)) => token_key.token_id.eq(dst_token_id),
+        (Some(dst_chain_id), None) => token_key.chain_id.eq(dst_chain_id),
         (Some(dst_chain_id), Some(dst_token_id)) => {
-            chain_id.eq(dst_chain_id) && token_id.eq(dst_token_id)
+            token_key.chain_id.eq(dst_chain_id) && token_key.token_id.eq(dst_token_id)
         }
     }
 }
@@ -146,12 +146,12 @@ pub async fn get_chain_tokens(
         hub_state
             .token_position
             .iter()
-            .filter(|((chain, token), _)| filter_chain_token(chain, token, &condition))
+            .filter(|(token_key, _)| filter_chain_token(token_key, &condition))
             .skip(offset)
             .take(limit)
-            .map(|((chain_id, token_id), total_amount)| TokenOnChain {
-                chain_id: chain_id.to_string(),
-                token_id: token_id.to_string(),
+            .map(|(token_key, total_amount)| TokenOnChain {
+                chain_id: token_key.chain_id.to_string(),
+                token_id: token_key.token_id.to_string(),
                 amount: *total_amount,
             })
             .collect::<Vec<_>>()
@@ -194,7 +194,6 @@ pub async fn get_txs(
                     Some((start, end)) => ticket.ticket_time >= start && ticket.ticket_time <= end,
                     None => true,
                 };
-
                 src_chain_match && dst_chain_match && token_id_match && time_range_match
             })
             .skip(offset)
