@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use candid::CandidType;
 
 use serde::{Deserialize, Serialize};
@@ -125,6 +127,9 @@ impl core::fmt::Display for Fee {
     }
 }
 
+/// chain id spec:
+/// for settlement chain, the chain id is: Bitcoin, Ethereum,or ICP
+/// for execution chain, the chain id spec is: type-chain_name,eg: EVM-Base,Cosmos-Gaia, Substrate-Xxx
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Chain {
     // pub canister_id: String,
@@ -135,6 +140,14 @@ pub struct Chain {
     // settlement chain: export contract address
     // execution chain: port contract address
     pub contract_address: Option<String>,
+}
+impl Chain {
+    pub fn chain_name(&self) -> Option<&str> {
+        match self.chain_type {
+            ChainType::SettlementChain => Some(&self.chain_id),
+            ChainType::ExecutionChain => self.chain_id.split('-').last(),
+        }
+    }
 }
 
 //TODO: update chain and token info
@@ -153,7 +166,9 @@ impl core::fmt::Display for ToggleState {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
+// token id spec is setllmentchain_name-potocol-symbol, eg: Ethereurm-ERC20-OCT , Bitcoin-RUNES-WHAT•ABOUT•THIS•RUNE
+/// metadata stores extended information，for runes protocol token, it stores the runes id
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct Token {
     pub token_id: TokenId,
     pub symbol: String,
@@ -161,9 +176,15 @@ pub struct Token {
     pub issue_chain: ChainId,
     pub decimals: u8,
     pub icon: Option<String>,
-    // pub dst_chains: Vec<ChainId>,
-    // pub total_amount: Option<u128>,
+    pub metadata: Option<HashMap<String, String>>,
     // pub token_constract_address: Option<String>,
+}
+
+impl Token {
+    /// return (settlmentchain,token protocol, token symbol)
+    pub fn token_id_info(&self) -> Vec<&str> {
+        self.token_id.split('-').collect()
+    }
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -221,8 +242,8 @@ pub enum Error {
     AlreadyExistingTicketId(String),
     #[error("not found chain: (`{0}`)")]
     NotFoundChain(String),
-    #[error("not found account: (`{0}`)")]
-    NotFoundAccount(String),
+    #[error("not found token: (`{0}`)")]
+    NotFoundToken(String),
     #[error("not found account(`{0}`) token(`{1}`) on the chain(`{2}`")]
     NotFoundAccountToken(String, String, String),
     #[error("Not found this token(`{0}`) on chain(`{1}`) ")]

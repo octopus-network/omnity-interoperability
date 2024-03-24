@@ -16,7 +16,6 @@ const DEFAULT_CARGO_TOML: &str = "./Cargo.toml";
 // const DEFAULT_HUB_WASM_LOCATION: &str = "../.dfx/local/canisters/omnity_hub/omnity_hub.wasm.gz";
 const DEFAULT_HUB_WASM_LOCATION: &str = "../target/wasm32-unknown-unknown/release/omnity_hub.wasm";
 
-
 #[derive(Debug)]
 pub struct OmnityHub {
     pub sm: StateMachine,
@@ -29,7 +28,7 @@ impl OmnityHub {
         let sm = StateMachine::new();
         let hub_id = install_hub(&sm);
         let controller = sm.canister_status(hub_id).unwrap().unwrap().controller();
-       
+
         Self {
             sm,
             hub_id,
@@ -220,7 +219,6 @@ impl OmnityHub {
     }
 }
 
-
 // build hub wasm
 fn build_hub() -> Vec<u8> {
     let target_dir = MetadataCommand::new()
@@ -299,9 +297,10 @@ pub fn chain_ids() -> Vec<String> {
         "Bitcoin".to_string(),
         "Ethereum".to_string(),
         "ICP".to_string(),
-        "Arbitrum".to_string(),
-        "Optimistic".to_string(),
-        "Starknet".to_string(),
+        "ICP-Exection".to_string(),
+        "EVM-Arbitrum".to_string(),
+        "EVM-Optimistic".to_string(),
+        "EVM-Starknet".to_string(),
     ]
 }
 pub fn chains() -> Vec<Proposal> {
@@ -331,7 +330,7 @@ pub fn chains() -> Vec<Proposal> {
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
         }),
         Proposal::AddChain(ChainMeta {
-            chain_id: "Arbitrum".to_string(),
+            chain_id: "EVM-Arbitrum".to_string(),
             chain_type: ChainType::ExecutionChain,
             chain_state: ChainState::Active,
             canister_id: PrincipalId::new_user_test_id(3).to_string(),
@@ -343,7 +342,7 @@ pub fn chains() -> Vec<Proposal> {
             ]),
         }),
         Proposal::AddChain(ChainMeta {
-            chain_id: "Optimistic".to_string(),
+            chain_id: "EVM-Optimistic".to_string(),
             chain_type: ChainType::ExecutionChain,
             chain_state: ChainState::Active,
             canister_id: PrincipalId::new_user_test_id(4).to_string(),
@@ -352,11 +351,11 @@ pub fn chains() -> Vec<Proposal> {
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
                 "ICP".to_string(),
-                "Arbitrum".to_string(),
+                "EVM-Arbitrum".to_string(),
             ]),
         }),
         Proposal::AddChain(ChainMeta {
-            chain_id: "Starknet".to_string(),
+            chain_id: "EVM-Starknet".to_string(),
             chain_type: ChainType::ExecutionChain,
             chain_state: ChainState::Active,
             canister_id: PrincipalId::new_user_test_id(5).to_string(),
@@ -365,8 +364,8 @@ pub fn chains() -> Vec<Proposal> {
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
                 "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Optimistic".to_string(),
             ]),
         }),
     ];
@@ -377,87 +376,93 @@ pub fn chains() -> Vec<Proposal> {
 pub fn tokens() -> Vec<Proposal> {
     let tokens = vec![
         Proposal::AddToken(TokenMeta {
-            token_id: "BTC".to_string(),
+            token_id: "Bitcoin-Native-BTC".to_string(),
             symbol: "BTC".to_owned(),
-            issue_chain: "Bitcoin".to_string(),
+            settlement_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
+            metadata: None,
             dst_chains: vec![
                 "Ethereum".to_string(),
                 "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
-                "Starknet".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Optimistic".to_string(),
+                "EVM-Starknet".to_string(),
             ],
         }),
         Proposal::AddToken(TokenMeta {
-            token_id: "ETH".to_string(),
+            token_id: "Ethereum-Native-ETH".to_string(),
             symbol: "ETH".to_owned(),
-            issue_chain: "Ethereum".to_string(),
+            settlement_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
+            metadata: None,
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
-                "Starknet".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Optimistic".to_string(),
+                "EVM-Starknet".to_string(),
             ],
         }),
         Proposal::AddToken(TokenMeta {
-            token_id: "ICP".to_string(),
+            token_id: "ICP-Native-ICP".to_string(),
             symbol: "ICP".to_owned(),
-            issue_chain: "ICP".to_string(),
+            settlement_chain: "ICP".to_string(),
             decimals: 18,
             icon: None,
+            metadata: None,
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
-                "Starknet".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Optimistic".to_string(),
+                "EVM-Starknet".to_string(),
             ],
         }),
         Proposal::AddToken(TokenMeta {
-            token_id: "ARB".to_string(),
+            token_id: "Ethereum-ERC20-ARB".to_string(),
             symbol: "ARB".to_owned(),
-            issue_chain: "Arbitrum".to_string(),
+            settlement_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
+            metadata: None,
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
                 "ICP".to_string(),
-                "Optimistic".to_string(),
-                "Starknet".to_string(),
+                "EVM-Optimistic".to_string(),
+                "EVM-Starknet".to_string(),
             ],
         }),
         Proposal::AddToken(TokenMeta {
-            token_id: "OP".to_string(),
+            token_id: "Ethereum-ERC20-OP".to_string(),
             symbol: "OP".to_owned(),
-            issue_chain: "Optimistic".to_string(),
+            settlement_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
+            metadata: None,
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
                 "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Starknet".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Starknet".to_string(),
             ],
         }),
         Proposal::AddToken(TokenMeta {
-            token_id: "StarkNet".to_string(),
+            token_id: "Ethereum-ERC20-StarkNet".to_string(),
             symbol: "StarkNet".to_owned(),
-            issue_chain: "Starknet".to_string(),
+            settlement_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
+            metadata: None,
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
                 "ICP".to_string(),
-                "Arbitrum".to_string(),
-                "Optimistic".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Optimistic".to_string(),
             ],
         }),
     ];

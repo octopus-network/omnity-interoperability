@@ -1,3 +1,5 @@
+use ic_stable_structures::storable::Bound;
+use ic_stable_structures::Storable;
 use omnity_types::Chain;
 use omnity_types::ChainState;
 use omnity_types::ChainType;
@@ -9,6 +11,7 @@ use omnity_types::Ticket;
 use omnity_types::ToggleState;
 use omnity_types::Token;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 
@@ -35,11 +38,13 @@ pub enum Proposal {
     ToggleChainState(ToggleState),
     UpdateFee(Fee),
 }
-
+/// chain id spec:
+/// for settlement chain, the chain id is: Bitcoin, Ethereum,or ICP
+/// for execution chain, the chain id spec is: type-chain_name,eg: EVM-Base,Cosmos-Gaia, Substrate-Xxx
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ChainMeta {
-    pub canister_id: String,
     pub chain_id: ChainId,
+    pub canister_id: String,
     pub chain_type: ChainType,
     // the chain default state is active
     pub chain_state: ChainState,
@@ -109,24 +114,27 @@ impl Into<Chain> for ChainWithSeq {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
+/// token id spec is setllmentchain_name-potocol-symbol, eg:  Bitcoin-RUNES-WHAT•ABOUT•THIS•RUNE,Ethereurm-ERC20-OCT,ICP-ICRC2-XO
+/// metadata stores extended information，for runes protocol token, it stores the runes id
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct TokenMeta {
     pub token_id: TokenId,
     pub symbol: String,
-    // the token`s issuse chain
-    pub issue_chain: ChainId,
+    // the token`s setllment chain
+    pub settlement_chain: ChainId,
     pub decimals: u8,
     pub icon: Option<String>,
+    pub metadata: Option<HashMap<String, String>>,
     pub dst_chains: Vec<ChainId>,
-    // pub total_amount: Option<u128>,
     // pub token_constract_address: Option<String>,
 }
+
 impl core::fmt::Display for TokenMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\ntoken name:{} \nsymbol:{:?} \nissue chain:{} \ndecimals:{} \nicon:{:?} \ndst chains:{:?}",
-            self.token_id, self.symbol, self.issue_chain, self.decimals, self.icon,self.dst_chains
+            "\ntoken name:{} \nsymbol:{:?} \nissue chain:{} \ndecimals:{} \nicon:{:?} \nmetadata:{:?} \ndst chains:{:?}",
+            self.token_id, self.symbol, self.settlement_chain, self.decimals, self.icon,self.metadata,self.dst_chains
         )
     }
 }
@@ -136,9 +144,38 @@ impl Into<Token> for TokenMeta {
         Token {
             token_id: self.token_id,
             symbol: self.symbol,
-            issue_chain: self.issue_chain,
+            issue_chain: self.settlement_chain,
             decimals: self.decimals,
             icon: self.icon,
+            metadata: self.metadata,
         }
     }
+}
+
+/// This struct as HashMap key to find the token or else info
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct TokenKey {
+    pub chain_id: ChainId,
+    pub token_id: TokenId,
+}
+
+impl TokenKey {
+    pub fn from(chain_id: ChainId, token_id: TokenId) -> Self {
+        Self { chain_id, token_id }
+    }
+}
+
+impl Storable for TokenKey {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let cs = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        cs
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
 }

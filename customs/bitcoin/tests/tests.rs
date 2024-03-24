@@ -22,7 +22,7 @@ use ic_test_utilities_load_wasm::load_wasm;
 use omnity_types::{
     Chain, ChainState, ChainType, Directive, Ticket, ToggleAction, ToggleState, Token, TxAction,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -254,18 +254,26 @@ impl CustomsSetup {
                 contract_address: None,
             }),
             Directive::AddToken(Token {
-                token_id: TOKEN_1.into(),
+                token_id: "Bitcoin-RUNES-".to_string() + TOKEN_1.into(),
                 symbol: "FIRST_RUNE".into(),
                 issue_chain: COSMOS_HUB.into(),
                 decimals: 0,
                 icon: None,
+                metadata: Some(HashMap::from([(
+                    "rune_id".to_string(),
+                    TOKEN_1.to_string(),
+                )])),
             }),
             Directive::AddToken(Token {
-                token_id: TOKEN_2.into(),
+                token_id: "Bitcoin-RUNES-".to_string() + TOKEN_2.into(),
                 symbol: "SECOND_RUNE".into(),
                 issue_chain: COSMOS_HUB.into(),
                 decimals: 0,
                 icon: None,
+                metadata: Some(HashMap::from([(
+                    "rune_id".to_string(),
+                    TOKEN_2.to_string(),
+                )])),
             }),
         ];
         customs.push_directives(directives);
@@ -784,7 +792,11 @@ fn test_deactive_chain() {
 
     customs.env.advance_time(Duration::from_secs(5));
     for _ in 0..10 {
-        if customs.get_chain_list().last().map_or(false, |c| c.chain_state == ChainState::Deactive) {
+        if customs
+            .get_chain_list()
+            .last()
+            .map_or(false, |c| c.chain_state == ChainState::Deactive)
+        {
             return;
         }
         customs.env.tick();

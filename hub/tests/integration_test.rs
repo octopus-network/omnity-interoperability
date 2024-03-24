@@ -111,7 +111,12 @@ fn test_add_token() {
     let result = hub.get_tokens(&Some("Bitcoin".to_string()), &None, &0, &10);
     assert!(result.is_ok());
     println!("get_tokens result by chain_id: {:#?}", result);
-    let result = hub.get_tokens(&Some("ICP".to_string()), &Some("ICP".to_string()), &0, &10);
+    let result = hub.get_tokens(
+        &Some("ICP".to_string()),
+        &Some("ICP-Native-ICP".to_string()),
+        &0,
+        &10,
+    );
     assert!(result.is_ok());
     println!("get_tokens result by chain_id and token id: {:#?}", result);
 }
@@ -132,7 +137,7 @@ fn test_toggle_chain_state() {
 
     // change chain state
     let chain_state = ToggleState {
-        chain_id: "Optimistic".to_string(),
+        chain_id: "EVM-Optimistic".to_string(),
         action: ToggleAction::Deactivate,
     };
 
@@ -147,16 +152,8 @@ fn test_toggle_chain_state() {
     assert!(result.is_ok());
 
     // query directives for chain id
-    let chaid_ids = [
-        "Bitcoin",
-        "Ethereum",
-        "ICP",
-        "Arbitrum",
-        "Optimistic",
-        "Starknet",
-    ];
 
-    for chain_id in chaid_ids {
+    for chain_id in chain_ids() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
@@ -207,16 +204,7 @@ fn test_update_fee() {
     println!("update_fee result:{:?}", result);
 
     // query directives for chain id
-    let chaid_ids = [
-        "Bitcoin",
-        "Ethereum",
-        "ICP",
-        "Arbitrum",
-        "Optimistic",
-        "Starknet",
-    ];
-
-    for chain_id in chaid_ids {
+    for chain_id in chain_ids() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
@@ -232,7 +220,7 @@ fn test_update_fee() {
     assert!(result.is_ok());
     println!("get_chains result : {:#?}", result);
 
-    let result = hub.get_fees(&None, &Some("OP".to_string()), &0, &10);
+    let result = hub.get_fees(&None, &Some("Ethereum-ERC20-OP".to_string()), &0, &10);
     assert!(result.is_ok());
     println!("get_chains result filter by token id : {:#?}", result);
 }
@@ -253,9 +241,10 @@ fn test_a_b_tx() {
     //
     // A->B: `transfer` ticket
     let src_chain = "Bitcoin";
-    let dst_chain = "Arbitrum";
+    let dst_chain = "EVM-Arbitrum";
     let sender = "address_on_Bitcoin";
     let receiver = "address_on_Arbitrum";
+    let token = "Bitcoin-Native-BTC".to_string();
 
     let transfer_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
@@ -263,7 +252,7 @@ fn test_a_b_tx() {
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
         action: TxAction::Transfer,
-        token: "BTC".to_string(),
+        token: token.clone(),
         amount: 88888.to_string(),
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
@@ -293,7 +282,7 @@ fn test_a_b_tx() {
     assert!(result.is_ok());
 
     // B->A: `redeem` ticket
-    let src_chain = "Arbitrum";
+    let src_chain = "EVM-Arbitrum";
     let dst_chain = "Bitcoin";
     let sender = "address_on_Arbitrum";
     let receiver = "address_on_Bitcoin";
@@ -304,7 +293,7 @@ fn test_a_b_tx() {
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
         action: TxAction::Redeem,
-        token: "BTC".to_string(),
+        token: token.clone(),
         amount: 88888.to_string(),
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
@@ -349,9 +338,10 @@ fn test_a_b_c_tx() {
     // transfer
     // A->B: `transfer` ticket
     let src_chain = "Ethereum";
-    let dst_chain = "Optimistic";
+    let dst_chain = "EVM-Optimistic";
     let sender = "address_on_Ethereum";
     let receiver = "address_on_Optimistic";
+    let token = "Ethereum-Native-ETH".to_string();
 
     let a_2_b_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
@@ -359,7 +349,7 @@ fn test_a_b_c_tx() {
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
         action: TxAction::Transfer,
-        token: "ETH".to_string(),
+        token: token.clone(),
         amount: 6666.to_string(),
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
@@ -387,8 +377,8 @@ fn test_a_b_c_tx() {
     // B->C: `transfer` ticket
     let sender = "address_on_Optimistic";
     let receiver = "address_on_Starknet";
-    let src_chain = "Optimistic";
-    let dst_chain = "Starknet";
+    let src_chain = "EVM-Optimistic";
+    let dst_chain = "EVM-Starknet";
 
     let b_2_c_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
@@ -396,7 +386,7 @@ fn test_a_b_c_tx() {
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
         action: TxAction::Transfer,
-        token: "ETH".to_string(),
+        token: token.clone(),
         amount: 6666.to_string(),
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
@@ -424,8 +414,8 @@ fn test_a_b_c_tx() {
 
     // redeem
     // C->B: `redeem` ticket
-    let src_chain = "Starknet";
-    let dst_chain = "Optimistic";
+    let src_chain = "EVM-Starknet";
+    let dst_chain = "EVM-Optimistic";
     let sender = "address_on_Starknet";
     let receiver = "address_on_Optimistic";
 
@@ -435,7 +425,7 @@ fn test_a_b_c_tx() {
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
         action: TxAction::Redeem,
-        token: "ETH".to_string(),
+        token: token.clone(),
         amount: 6666.to_string(),
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
@@ -459,7 +449,7 @@ fn test_a_b_c_tx() {
     // B->A: `redeem` ticket
     let sender = "address_on_Optimistic";
     let receiver = "address_on_Ethereum";
-    let src_chain = "Optimistic";
+    let src_chain = "EVM-Optimistic";
     let dst_chain = "Ethereum";
 
     let b_2_a_ticket = Ticket {
@@ -468,7 +458,7 @@ fn test_a_b_c_tx() {
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
         action: TxAction::Redeem,
-        token: "ETH".to_string(),
+        token: token.clone(),
         amount: 6666.to_string(),
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
