@@ -25,7 +25,6 @@ fn init() {
     info!("canister init caller:{}", caller.to_string());
     with_state_mut(|hs| {
         hs.owner = Some(caller.to_string());
-
     })
 }
 
@@ -395,111 +394,17 @@ where
         .collect::<Vec<_>>())
 }
 
-/// check the ticket availability
-async fn check_and_count(ticket: &Ticket) -> Result<(), Error> {
-    with_state_mut(|hub_state| {
-        // check ticket id repetitive
-        if hub_state.ticket_queue.contains_key(&ticket.ticket_id) {
-            return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
-        }
-        // check chain and state
-        hub_state.available_chain(&ticket.src_chain)?;
-        hub_state.available_chain(&ticket.dst_chain)?;
-
-        //parse ticket token amount to unsigned bigint
-        let ticket_amount: u128 = ticket.amount.parse().map_err(|e: ParseIntError| {
-            Error::TicketAmountParseError(ticket.amount.to_string(), e.to_string())
-        })?;
-
-        // check token on chain availability
-        match ticket.action {
-            TxAction::Transfer => {
-                // ticket from issue chain
-                if hub_state.is_origin(&ticket.src_chain, &ticket.token)? {
-                    info!(
-                        "ticket token({}) from issue chain({}).",
-                        ticket.token, ticket.src_chain,
-                    );
-
-                    // just update token amount on dst chain
-                    hub_state.add_token_position(
-                        TokenKey::from(ticket.dst_chain.to_string(), ticket.token.to_string()),
-                        ticket_amount,
-                    )?;
-
-                // not from issue chain
-                } else {
-                    info!(
-                        "ticket token({}) from a not issue chain({}).",
-                        ticket.token, ticket.src_chain,
-                    );
-
-                    // update token amount on src chain
-                    hub_state.update_token_position(
-                        TokenKey::from(ticket.src_chain.to_string(), ticket.token.to_string()),
-                        |total_amount| {
-                            // check src chain token balance
-                            if *total_amount < ticket_amount {
-                                return Err::<(), omnity_types::Error>(Error::NotSufficientTokens(
-                                    ticket.token.to_string(),
-                                    ticket.src_chain.to_string(),
-                                ));
-                            }
-                            *total_amount -= ticket_amount;
-                            Ok(())
-                        },
-                    )?;
-                    // update token amount on dst chain
-                    hub_state.add_token_position(
-                        TokenKey::from(ticket.dst_chain.to_string(), ticket.token.to_string()),
-                        ticket_amount,
-                    )?;
-                }
-            }
-
-            TxAction::Redeem => {
-                // update token amount on src chain
-                hub_state.update_token_position(
-                    TokenKey::from(ticket.src_chain.to_string(), ticket.token.to_string()),
-                    |total_amount| {
-                        // check src chain token balance
-                        if *total_amount < ticket_amount {
-                            return Err::<(), omnity_types::Error>(Error::NotSufficientTokens(
-                                ticket.token.to_string(),
-                                ticket.src_chain.to_string(),
-                            ));
-                        }
-                        *total_amount -= ticket_amount;
-                        Ok(())
-                    },
-                )?;
-
-                //  if the dst chain is not issue chain,then update token amount on dst chain
-                if !hub_state.is_origin(&ticket.dst_chain, &ticket.token)? {
-                    hub_state.update_token_position(
-                        TokenKey::from(ticket.dst_chain.to_string(), ticket.token.to_string()),
-                        |total_amount| {
-                            *total_amount += ticket_amount;
-                            Ok(())
-                        },
-                    )?;
-                }
-            }
-        }
-
-        Ok(())
-    })
-}
-
 /// check and push ticket into queue
 #[update(guard = "auth")]
 pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
     info!("received ticket: {:?}", ticket);
-    // checke ticket and update token on chain
-    check_and_count(&ticket).await?;
 
-    // push ticket into queue
-    with_state_mut(|hub_state| hub_state.push_ticket(ticket))?;
+    with_state_mut(|hub_state| {
+        // checke ticket and update token on chain
+        hub_state.check_and_count(&ticket)?;
+        // push ticket into queue
+        hub_state.push_ticket(ticket)
+    })?;
     Ok(())
 }
 
