@@ -41,10 +41,52 @@ $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user
   "runic": 0,
   "total": 5000000000
 }
-$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 etch --rune FIRST•RUNE•TOKEN --divisibility 1 --fee-rate 1 --supply 1000 --symbol ¢
+
+$ cat /tmp/batch.yaml
+inscriptions:
+- delegate: null
+  destination: null
+  file: /tmp/inscription.txt
+  metadata: null
+  metaprotocol: null
+  satpoint: null
+mode: separate-outputs
+parent: null
+postage: null
+reinscribe: false
+etch:
+  divisibility: 1
+  mint: null
+  premine: '1000'
+  rune: FIRST•RUNE•TOKEN
+  symbol: '¢'
+sat: null
+satpoint: null
+
+$ cat /tmp/inscription.txt
+FOO
+
+$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= --index-runes wallet --server-url http://127.0.0.1:23456 inscribe --fee-rate 1 --batch /tmp/batch.yaml
+Waiting for rune commitment to mature…
 {
-  "rune": "FIRST•RUNE•TOKEN",
-  "transaction": "e57fc5f5e45e266da5cc80462dc07c5d1b41518b7b1eeeb1e20d2cf1c90ec12e"
+  "commit": "8c0ee982e6a4e38cd36dcf6804bc2e203270a3aa89367ccd48731b81486ca209",
+  "commit_psbt": null,
+  "inscriptions": [
+    {
+      "destination": "bcrt1p2g35h6lwcttg645pf0462dd0uwgvkqjcq4qjvymmme8czjc80erqnjfu4r",
+      "id": "d299781e6f1e9ff2c9d80672aad36b2c813f57fa0fa7d4bbf5a35fad3269e018i0",
+      "location": "d299781e6f1e9ff2c9d80672aad36b2c813f57fa0fa7d4bbf5a35fad3269e018:0:0"
+    }
+  ],
+  "parent": null,
+  "reveal": "d299781e6f1e9ff2c9d80672aad36b2c813f57fa0fa7d4bbf5a35fad3269e018",
+  "reveal_psbt": null,
+  "rune": {
+    "destination": "bcrt1p7q7leplexke4xvrn9nfsrf8tgvtla5ayyxxjn3znwc7qyx0vzukqvq39a9",
+    "location": "d299781e6f1e9ff2c9d80672aad36b2c813f57fa0fa7d4bbf5a35fad3269e018:1",
+    "rune": "FIRST•RUNE•TOKEN"
+  },
+  "total_fees": 374
 }
 
 $ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 1 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww

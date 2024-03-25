@@ -1,4 +1,4 @@
-use crate::management;
+use crate::hub;
 use crate::state::{audit, FinalizedTicketStatus, GenTicketStatus, RunesBalance};
 use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize};
@@ -46,7 +46,7 @@ pub async fn update_runes_balance(
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
     let result = if args.balances.iter().all(|b| b.rune_id == req.rune_id) && amount == req.amount {
         let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
-        management::send_ticket(
+        hub::send_ticket(
             hub_principal,
             Ticket {
                 ticket_id: args.txid.to_string(),

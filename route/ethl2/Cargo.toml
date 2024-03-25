@@ -30,5 +30,10 @@ serde_derive = "^1.0"
 # essential dependencies of evm-rpc-canister
 evm_rpc = { git = "https://github.com/internet-computer-protocol/evm-rpc-canister.git" }
 cketh-common = { git = "https://github.com/dfinity/ic", rev = "8511846fb6352a0a4f9abae1a8fc8569aeba5f10", package = "ic-cketh-minter" }
+ethers-core = "2.0.13"
+itertools = "0.12.1"
+alloy-sol-types = "0.6.4"
+alloy-primitives = "0.6.4"
+anyhow = "1.0.80"
 
 [workspace]

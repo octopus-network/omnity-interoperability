@@ -22,6 +22,7 @@ use std::time::Duration;
 use updates::release_token::{release_token, ReleaseTokenArgs, ReleaseTokenError};
 
 pub mod address;
+pub mod call_error;
 pub mod destination;
 pub mod guard;
 pub mod lifecycle;
@@ -34,6 +35,7 @@ pub mod signature;
 pub mod state;
 pub mod storage;
 pub mod tasks;
+pub mod hub;
 pub mod tx;
 pub mod updates;
 
@@ -215,7 +217,7 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
 
 async fn submit_release_token_requests() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
-    match management::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+    match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {
             log!(
                 P0,
@@ -279,7 +281,7 @@ async fn submit_release_token_requests() {
 
 async fn process_directive() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
-    match management::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+    match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {
             log!(P0, "[process_directive] temporarily unavailable: {}", err);
         }
@@ -957,7 +959,7 @@ pub async fn sign_transaction(
     ecdsa_public_key: &ECDSAPublicKey,
     output_destinations: &BTreeMap<tx::OutPoint, Destination>,
     unsigned_tx: tx::UnsignedTransaction,
-) -> Result<tx::SignedTransaction, management::CallError> {
+) -> Result<tx::SignedTransaction, call_error::CallError> {
     use crate::address::{derivation_path, derive_public_key};
 
     let mut signed_inputs = Vec::with_capacity(unsigned_tx.inputs.len());

@@ -1,0 +1,18 @@
+type GenerateTicketArgs = record {
+  token_id : text;
+  from_subaccount : opt vec nat8;
+  target_chain_id : text;
+  amount : nat;
+  receiver : text;
+};
+type GenerateTicketError = variant {
+  TemporarilyUnavailable : text;
+  InsufficientAllowance : record { allowance : nat64 };
+  UnsupportedToken : text;
+  InsufficientFunds : record { balance : nat64 };
+};
+type GenerateTicketOk = record { block_index : nat64 };
+type InitArgs = record { hub_principal : principal };
+type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
+type RouteArg = variant { Upgrade : record {}; Init : InitArgs };
+service : (RouteArg) -> { generate_ticket : (GenerateTicketArgs) -> (Result) }
