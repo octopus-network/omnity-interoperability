@@ -21,14 +21,14 @@ dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = recor
 
 dfx canister call omnity_hub execute_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Bitcoin"; chain_type=variant { SettlementChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=null;counterparties=null}}})'
 
-#dfx canister call omnity_hub query_directives '(opt "Bitcoin",null,0:nat64,5:nat64)' 
+#dfx canister call omnity_hub query_dires '(opt "Bitcoin",null,0:nat64,5:nat64)' 
 
 # Ethereum
 dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Ethereum"; chain_type=variant { SettlementChain }; canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=opt "Ethereum constract address"; counterparties= opt vec {"Bitcoin"}}}})'
 
 dfx canister call omnity_hub execute_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Ethereum"; chain_type=variant { SettlementChain }; canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=opt "Ethereum constract address"; counterparties= opt vec {"Bitcoin"}}}})'
 
-#dfx canister call omnity_hub query_directives '(opt "Ethereum",null,0:nat64,5:nat64)' 
+#dfx canister call omnity_hub query_dires '(opt "Ethereum",null,0:nat64,5:nat64)' 
 
 
 
@@ -37,82 +37,82 @@ dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = recor
 
 dfx canister call omnity_hub execute_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "ICP"; chain_type=variant { ExecutionChain }; canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=opt "bkyz2-fmaaa-aaafa-qadaab-cai"; counterparties= opt vec {"Bitcoin";"Ethereum"}}}})'
 
-#dfx canister call omnity_hub query_directives '(opt "ICP",null,0:nat64,5:nat64)' 
+#dfx canister call omnity_hub query_dires '(opt "ICP",null,0:nat64,5:nat64)' 
 
 # Arbitrum
 dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Arbitrum"; chain_type=variant { ExecutionChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=opt "Arbitrum constract address"; counterparties= opt vec {"Bitcoin";"Ethereum";"ICP"}}}} )'
 
 dfx canister call omnity_hub execute_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Arbitrum"; chain_type=variant { ExecutionChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=opt "Arbitrum constract address"; counterparties= opt vec {"Bitcoin";"Ethereum";"ICP"}}}} )'
 
-dfx canister call omnity_hub query_directives '(opt "Arbitrum",opt variant {AddChain=null},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "Arbitrum",opt variant {AddChain=null},0:nat64,5:nat64)' 
 
 # Optimistic
 dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Optimistic"; chain_type=variant { ExecutionChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=opt "Optimistic constract address"; counterparties= opt vec {"Bitcoin";"Ethereum";"ICP";"Arbitrum"}}}} )'
 
 dfx canister call omnity_hub execute_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Optimistic"; chain_type=variant { ExecutionChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=opt "Optimistic constract address"; counterparties= opt vec {"Bitcoin";"Ethereum";"ICP";"Arbitrum"}}}} )'
 
-dfx canister call omnity_hub query_directives '(opt "Optimistic",opt variant {AddChain=opt variant {ExecutionChain}},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "Optimistic",opt variant {AddChain=opt variant {ExecutionChain}},0:nat64,5:nat64)' 
 
 # Starknet
 dfx canister call omnity_hub validate_proposal '( vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Starknet"; chain_type=variant { ExecutionChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=opt "Starknet constract address"; counterparties= opt vec {"Bitcoin";"Ethereum";"ICP";"Arbitrum";"Optimistic"}}}} )'
 
 dfx canister call omnity_hub execute_proposal  '( vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Starknet"; chain_type=variant { ExecutionChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=opt "Starknet constract address"; counterparties= opt vec {"Bitcoin";"Ethereum";"ICP";"Arbitrum";"Optimistic"}}}} )'
 
-dfx canister call omnity_hub query_directives '(opt "Starknet",opt variant {AddChain=opt variant {SettlementChain}},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "Starknet",opt variant {AddChain=opt variant {SettlementChain}},0:nat64,5:nat64)' 
 
 # add token
 
 # BTC
-dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "btc.logo.url"; token_id = "BTC"; issue_chain = "Bitcoin"; symbol = "BTC"; dst_chains = vec {"Ethereum"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"}}}} )'
+dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "btc.logo.url"; token_id = "BTC"; settlement_chain = "Bitcoin"; symbol = "BTC"; metadata = null; dst_chains = vec {"Ethereum"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"}}}} )'
 
-dfx canister call omnity_hub execute_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "btc.logo.url"; token_id = "BTC"; issue_chain = "Bitcoin"; symbol = "BTC"; dst_chains = vec {"Ethereum"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"}}}} )'
+dfx canister call omnity_hub execute_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "btc.logo.url"; token_id = "BTC"; settlement_chain = "Bitcoin"; symbol = "BTC"; metadata = null; dst_chains = vec {"Ethereum"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"}}}} )'
 
-dfx canister call omnity_hub query_directives '(opt "Ethereum",opt variant {AddToken=null},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "Ethereum",opt variant {AddToken=null},0:nat64,5:nat64)' 
 
 # ETH
-dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "eth.logo.url"; token_id = "ETH"; symbol = "ETH"; issue_chain = "Ethereum";dst_chains = vec {"Bitcoin"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"} }}})'
+dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "eth.logo.url"; token_id = "ETH"; symbol = "ETH"; settlement_chain = "Ethereum"; metadata = null; dst_chains = vec {"Bitcoin"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"} }}})'
 
-dfx canister call omnity_hub execute_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "eth.logo.url"; token_id = "ETH"; symbol = "ETH"; issue_chain = "Ethereum";dst_chains = vec {"Bitcoin"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"} }}})'
+dfx canister call omnity_hub execute_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "eth.logo.url"; token_id = "ETH"; symbol = "ETH"; settlement_chain = "Ethereum"; metadata = null; dst_chains = vec {"Bitcoin"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"} }}})'
 
-dfx canister call omnity_hub query_directives '(opt "Ethereum",opt variant {AddToken=null},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "Ethereum",opt variant {AddToken=null},0:nat64,5:nat64)' 
 
 # ICP
-dfx canister call omnity_hub validate_proposal '( vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "icp.logo.url"; token_id = "ICP"; symbol = "ICP"; issue_chain = "ICP"; dst_chains = vec {"Bitcoin"; "Ethereum"; "Arbitrum"; "Optimistic"; "Starknet"}}}})'
+dfx canister call omnity_hub validate_proposal '( vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "icp.logo.url"; token_id = "ICP"; symbol = "ICP"; settlement_chain = "ICP"; metadata = null; dst_chains = vec {"Bitcoin"; "Ethereum"; "Arbitrum"; "Optimistic"; "Starknet"}}}})'
 
-dfx canister call omnity_hub execute_proposal '( vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "icp.logo.url"; token_id = "ICP"; symbol = "ICP"; issue_chain = "ICP"; dst_chains = vec {"Bitcoin"; "Ethereum"; "Arbitrum"; "Optimistic"; "Starknet"}}}})'
+dfx canister call omnity_hub execute_proposal '( vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "icp.logo.url"; token_id = "ICP"; symbol = "ICP"; settlement_chain = "ICP"; metadata = null; dst_chains = vec {"Bitcoin"; "Ethereum"; "Arbitrum"; "Optimistic"; "Starknet"}}}})'
 
-dfx canister call omnity_hub query_directives '(opt "ICP",opt variant {AddToken=opt "ETH"},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "ICP",opt variant {AddToken=opt "ETH"},0:nat64,5:nat64)' 
 
 # ARB
-dfx canister call omnity_hub validate_proposal '( vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "arb.logo.url"; token_id = "ARB"; symbol = "ARB"; issue_chain = "Arbitrum"; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Optimistic"; "Starknet"}}}})'
+dfx canister call omnity_hub validate_proposal '( vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "arb.logo.url"; token_id = "ARB"; symbol = "ARB"; settlement_chain = "Arbitrum"; metadata = null; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Optimistic"; "Starknet"}}}})'
 
-dfx canister call omnity_hub execute_proposal '( vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "arb.logo.url"; token_id = "ARB"; symbol = "ARB"; issue_chain = "Arbitrum"; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Optimistic"; "Starknet"}}}})'
+dfx canister call omnity_hub execute_proposal '( vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "arb.logo.url"; token_id = "ARB"; symbol = "ARB"; settlement_chain = "Arbitrum"; metadata = null; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Optimistic"; "Starknet"}}}})'
 
-dfx canister call omnity_hub query_directives '(opt "Arbitrum",opt variant {AddToken=opt "ICP"},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "Arbitrum",opt variant {AddToken=opt "ICP"},0:nat64,5:nat64)' 
 
 # OP 
-dfx canister call omnity_hub validate_proposal '(vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "op.logo.url"; token_id = "OP"; symbol = "OP"; issue_chain = "Optimistic";dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Arbitrum"; "Starknet"} }}})'
+dfx canister call omnity_hub validate_proposal '(vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "op.logo.url"; token_id = "OP"; symbol = "OP"; settlement_chain = "Optimistic"; metadata = null; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Arbitrum"; "Starknet"} }}})'
 
-dfx canister call omnity_hub execute_proposal '(vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "op.logo.url"; token_id = "OP"; symbol = "OP"; issue_chain = "Optimistic";dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Arbitrum"; "Starknet"} }}})'
+dfx canister call omnity_hub execute_proposal '(vec { variant { AddToken = record { decimals = 18 : nat8; icon = opt "op.logo.url"; token_id = "OP"; symbol = "OP"; settlement_chain = "Optimistic"; metadata = null; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Arbitrum"; "Starknet"} }}})'
 
-dfx canister call omnity_hub query_directives '(opt "Optimistic",opt variant {AddToken=opt "ARB"},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "Optimistic",opt variant {AddToken=opt "ARB"},0:nat64,5:nat64)' 
 
 # StarkNet
-dfx canister call omnity_hub validate_proposal '(vec{ variant { AddToken = record { decimals = 18 : nat8; icon = null; token_id = "StarkNet"; symbol = "StarkNet"; issue_chain = "Starknet"; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Arbitrum"; "Optimistic"}}}})'
+dfx canister call omnity_hub validate_proposal '(vec{ variant { AddToken = record { decimals = 18 : nat8; icon = null; token_id = "StarkNet"; symbol = "StarkNet"; settlement_chain = "Starknet"; metadata = null; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Arbitrum"; "Optimistic"}}}})'
 
-dfx canister call omnity_hub execute_proposal '(vec{ variant { AddToken = record { decimals = 18 : nat8; icon = null; token_id = "StarkNet"; symbol = "StarkNet"; issue_chain = "Starknet"; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Arbitrum"; "Optimistic"}}}})'
+dfx canister call omnity_hub execute_proposal '(vec{ variant { AddToken = record { decimals = 18 : nat8; icon = null; token_id = "StarkNet"; symbol = "StarkNet"; settlement_chain = "Starknet"; metadata = null; dst_chains = vec {"Bitcoin"; "Ethereum"; "ICP"; "Arbitrum"; "Optimistic"}}}})'
 
-dfx canister call omnity_hub query_directives '(opt "Starknet",opt variant {AddToken=opt "OP"},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "Starknet",opt variant {AddToken=opt "OP"},0:nat64,5:nat64)' 
 
 # change chain state
 # dfx canister call omnity_hub validate_proposal '( vec { variant { ToggleChainState = record { chain_id = "Optimistic"; action = variant { Deactivate };}}})'
 # dfx canister call omnity_hub execute_proposal '( vec { variant { ToggleChainState = record { chain_id = "Optimistic"; action = variant { Deactivate };}}})'
-# dfx canister call omnity_hub query_directives '(opt "Starknet",opt variant {DeactivateChain},0:nat64,5:nat64)' 
+# dfx canister call omnity_hub query_dires '(opt "Starknet",opt variant {DeactivateChain},0:nat64,5:nat64)' 
 
 
 # update fee
 dfx canister call omnity_hub update_fee 'vec {record {fee_token = "OP"; dst_chain_id = "Arbitrum"; factor = 12 : int64;}}'
-dfx canister call omnity_hub query_directives '(opt "Arbitrum",opt variant {UpdateFee=opt "OP"},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_dires '(opt "Arbitrum",opt variant {UpdateFee=opt "OP"},0:nat64,5:nat64)' 
 
 # A-B tansfer/redeem
 # transfer from Bitcoin to Arbitrum

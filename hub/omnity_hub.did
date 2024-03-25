@@ -29,11 +29,11 @@ type Error = variant {
   ProposalError : text;
   NotFoundAccountToken : record { text; text; text };
   NotSupportedProposal;
-  NotFoundAccount : text;
   Unauthorized;
   TicketAmountParseError : record { text; text };
   NotFoundChainToken : record { text; text };
   TokenAlreadyExisting : text;
+  NotFoundToken : text;
   CustomError : text;
   NotSufficientTokens : record { text; text };
 };
@@ -75,6 +75,7 @@ type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
+  metadata : opt vec record { text; text };
   icon : opt text;
   issue_chain : text;
   symbol : text;
@@ -82,8 +83,9 @@ type Token = record {
 type TokenMeta = record {
   decimals : nat8;
   token_id : text;
+  metadata : opt vec record { text; text };
   icon : opt text;
-  issue_chain : text;
+  settlement_chain : text;
   symbol : text;
   dst_chains : vec text;
 };
@@ -116,7 +118,7 @@ service : () -> {
       nat64,
       nat64,
     ) -> (Result_8) query;
-  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_9) query;
+  query_dires : (opt text, opt Topic, nat64, nat64) -> (Result_9) query;
   query_tickets : (opt text, nat64, nat64) -> (Result_10) query;
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
