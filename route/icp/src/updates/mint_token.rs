@@ -48,6 +48,7 @@ pub async fn mint_token(args: MintTokenArgs) -> Result<(), MintTokenError> {
         None => Err(MintTokenError::UnsupportedToken(args.token_id)),
     })?;
 
+    // todo receiver able to convert Account
     let account = Account {
         owner: args.receiver,
         subaccount: None,
