@@ -54,7 +54,7 @@ pub async fn update_runes_balance(
                 src_chain: chain_id,
                 dst_chain: req.target_chain_id.clone(),
                 action: TxAction::Transfer,
-                token: req.rune_id.to_string(),
+                token: req.token_id.clone(),
                 amount: req.amount.to_string(),
                 sender: None,
                 receiver: req.receiver.clone(),

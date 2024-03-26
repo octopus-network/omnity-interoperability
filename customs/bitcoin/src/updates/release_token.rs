@@ -1,12 +1,12 @@
 use crate::guard::{release_token_guard, GuardError};
-use crate::state::{ReleaseTokenStatus, RuneId};
+use crate::state::{audit, ReleaseTokenStatus};
 use crate::tasks::{schedule_now, TaskType};
 use crate::{
     address::{BitcoinAddress, ParseAddressError},
-    state::{self, mutate_state, read_state, ReleaseTokenRequest},
+    state::{mutate_state, read_state, ReleaseTokenRequest},
 };
 use candid::{CandidType, Deserialize};
-use omnity_types::TicketId;
+use omnity_types::{TicketId, TokenId};
 
 const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 
@@ -14,7 +14,7 @@ const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct ReleaseTokenArgs {
     pub ticket_id: TicketId,
-    pub rune_id: RuneId,
+    pub token_id: TokenId,
     // amount to retrieve
     pub amount: u128,
     // address where to send tokens
@@ -27,6 +27,8 @@ pub enum ReleaseTokenError {
     AlreadyProcessing,
 
     AlreadyProcessed,
+
+    UnsupportedToken(String),
 
     /// The bitcoin address is not valid.
     MalformedAddress(String),
@@ -52,8 +54,16 @@ impl From<GuardError> for ReleaseTokenError {
 }
 
 pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenError> {
-    state::read_state(|s| s.mode.is_release_available_for())
+    read_state(|s| s.mode.is_release_available_for())
         .map_err(ReleaseTokenError::TemporarilyUnavailable)?;
+
+    let rune_id = read_state(|s| {
+        if let Some((rune_id, _)) = s.tokens.get(&args.token_id) {
+            Ok(*rune_id)
+        } else {
+            Err(ReleaseTokenError::UnsupportedToken(args.token_id.clone()))
+        }
+    })?;
 
     let _guard = release_token_guard()?;
 
@@ -79,13 +89,13 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
 
     let request = ReleaseTokenRequest {
         ticket_id: args.ticket_id.clone(),
-        rune_id: args.rune_id,
+        rune_id,
         amount: args.amount,
         address: parsed_address,
         received_at: ic_cdk::api::time(),
     };
 
-    mutate_state(|s| state::audit::accept_release_token_request(s, request));
+    mutate_state(|s| audit::accept_release_token_request(s, request));
 
     assert_eq!(
         crate::state::ReleaseTokenStatus::Pending,
