@@ -2,7 +2,7 @@
 
 use super::{
     eventlog::Event, CustomsState, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest,
-    ReleaseTokenRequest, RunesBalance, SubmittedBtcTransaction,
+    ReleaseTokenRequest, RuneId, RunesBalance, SubmittedBtcTransaction,
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
@@ -14,9 +14,14 @@ pub fn add_chain(state: &mut CustomsState, chain: Chain) {
     state.counterparties.insert(chain.chain_id.clone(), chain);
 }
 
-pub fn add_token(state: &mut CustomsState, token: Token) {
-    record_event(&Event::AddToken(token.clone()));
-    state.tokens.insert(token.token_id.clone(), token);
+pub fn add_token(state: &mut CustomsState, rune_id: RuneId, token: Token) {
+    record_event(&Event::AddToken {
+        rune_id,
+        token: token.clone(),
+    });
+    state
+        .tokens
+        .insert(token.token_id.clone(), (rune_id, token));
 }
 
 pub fn toggle_chain_state(state: &mut CustomsState, toggle: ToggleState) {

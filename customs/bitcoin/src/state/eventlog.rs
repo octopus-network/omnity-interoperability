@@ -32,7 +32,7 @@ pub enum Event {
     AddChain(Chain),
 
     #[serde(rename = "add_token")]
-    AddToken(Token),
+    AddToken { rune_id: RuneId, token: Token },
 
     #[serde(rename = "toggle_chain_state")]
     ToggleChainState(ToggleState),
@@ -179,8 +179,10 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             Event::AddChain(chain) => {
                 state.counterparties.insert(chain.chain_id.clone(), chain);
             }
-            Event::AddToken(token) => {
-                state.tokens.insert(token.token_id.clone(), token);
+            Event::AddToken { rune_id, token } => {
+                state
+                    .tokens
+                    .insert(token.token_id.clone(), (rune_id, token));
             }
             Event::ToggleChainState(toggle) => {
                 if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {

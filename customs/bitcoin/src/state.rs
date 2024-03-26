@@ -104,6 +104,7 @@ pub struct GenTicketRequest {
     pub address: String,
     pub target_chain_id: String,
     pub receiver: String,
+    pub token_id: TokenId,
     pub rune_id: RuneId,
     pub amount: u128,
     pub txid: Txid,
@@ -359,7 +360,7 @@ pub struct CustomsState {
 
     pub counterparties: BTreeMap<ChainId, Chain>,
 
-    pub tokens: BTreeMap<TokenId, Token>,
+    pub tokens: BTreeMap<TokenId, (RuneId, Token)>,
 
     pub hub_principal: Principal,
 

@@ -222,7 +222,12 @@ fn get_chain_list() -> Vec<Chain> {
 
 #[query]
 fn get_token_list() -> Vec<Token> {
-    read_state(|s| s.tokens.iter().map(|(_, token)| token.clone()).collect())
+    read_state(|s| {
+        s.tokens
+            .iter()
+            .map(|(_, (_, token))| token.clone())
+            .collect()
+    })
 }
 
 #[query(hidden = true)]

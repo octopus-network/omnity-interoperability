@@ -15,7 +15,7 @@ use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
 use state::{read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::iter::Sum;
 use std::str::FromStr;
 use std::time::Duration;
@@ -25,6 +25,7 @@ pub mod address;
 pub mod call_error;
 pub mod destination;
 pub mod guard;
+pub mod hub;
 pub mod lifecycle;
 pub mod logs;
 pub mod management;
@@ -35,7 +36,6 @@ pub mod signature;
 pub mod state;
 pub mod storage;
 pub mod tasks;
-pub mod hub;
 pub mod tx;
 pub mod updates;
 
@@ -240,37 +240,37 @@ async fn submit_release_token_requests() {
                     continue;
                 };
 
-                if let Ok(rune_id) = RuneId::from_str(&ticket.token) {
-                    let args = ReleaseTokenArgs {
-                        ticket_id: ticket.ticket_id,
-                        rune_id,
-                        amount,
-                        address: ticket.receiver,
-                    };
-                    match release_token(args).await {
-                        Err(ReleaseTokenError::TemporarilyUnavailable(_)) => {
-                            log!(
-                                P0,
-                                "[submit_release_token_requests] temporarily unavailable"
-                            );
-                            break;
-                        }
-                        Err(ReleaseTokenError::MalformedAddress(err)) => {
-                            log!(
-                                P0,
-                                "[submit_release_token_requests] malformed address: {}",
-                                err
-                            );
-                        }
-                        Err(ReleaseTokenError::AlreadyProcessing)
-                        | Err(ReleaseTokenError::AlreadyProcessed)
-                        | Ok(_) => {}
+                let args = ReleaseTokenArgs {
+                    ticket_id: ticket.ticket_id,
+                    token_id: ticket.token,
+                    amount,
+                    address: ticket.receiver,
+                };
+                match release_token(args).await {
+                    Err(ReleaseTokenError::AlreadyProcessing)
+                    | Err(ReleaseTokenError::AlreadyProcessed)
+                    | Ok(_) => {}
+                    Err(ReleaseTokenError::UnsupportedToken(err)) => {
+                        log!(
+                            P0,
+                            "[submit_release_token_requests] unsupported token: {}",
+                            err
+                        );
                     }
-                } else {
-                    log!(
-                        P0,
-                        "[submit_release_token_requests]: failed to parse rune_id of ticket"
-                    );
+                    Err(ReleaseTokenError::MalformedAddress(err)) => {
+                        log!(
+                            P0,
+                            "[submit_release_token_requests] malformed address: {}",
+                            err
+                        );
+                    }
+                    Err(ReleaseTokenError::TemporarilyUnavailable(_)) => {
+                        log!(
+                            P0,
+                            "[submit_release_token_requests] temporarily unavailable"
+                        );
+                        break;
+                    }
                 }
                 next_seq = seq + 1;
             }
@@ -281,7 +281,7 @@ async fn submit_release_token_requests() {
 
 async fn process_directive() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
-    match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+    match hub::query_dires(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {
             log!(P0, "[process_directive] temporarily unavailable: {}", err);
         }
@@ -289,7 +289,25 @@ async fn process_directive() {
             for (_, directive) in &directives {
                 match directive {
                     Directive::AddChain(chain) => audit::add_chain(s, chain.clone()),
-                    Directive::AddToken(token) => audit::add_token(s, token.clone()),
+                    Directive::AddToken(token) => {
+                        if let Some(rune_id) = token
+                            .metadata
+                            .clone()
+                            .map_or(HashMap::default(), |m| m)
+                            .get("rune_id")
+                        {
+                            match RuneId::from_str(rune_id) {
+                                Err(err) => {
+                                    log!(
+                                        P0,
+                                        "[process_directive] failed to parse rune id: {}",
+                                        err
+                                    );
+                                }
+                                Ok(rune_id) => audit::add_token(s, rune_id, token.clone()),
+                            }
+                        }
+                    }
                     Directive::ToggleChainState(toggle) => {
                         audit::toggle_chain_state(s, toggle.clone())
                     }
