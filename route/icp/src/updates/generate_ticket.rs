@@ -46,6 +46,7 @@ pub enum GenerateTicketError {
 pub async fn generate_ticket(
     args: GenerateTicketArgs,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
+    // TODO charge Fee
     // TODO check whether the target chain in whitelist
 
     let ledger_id = read_state(|s| match s.token_ledgers.get(&args.token_id) {
