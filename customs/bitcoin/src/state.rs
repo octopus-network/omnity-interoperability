@@ -54,22 +54,40 @@ impl Error for ParseRuneIdError {
 }
 
 #[derive(
-    candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Copy,
+    candid::CandidType,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    PartialOrd,
+    Ord,
+    Copy,
+    Default,
 )]
 pub struct RuneId {
-    pub height: u32,
-    pub index: u16,
+    pub block: u32,
+    pub tx: u32,
+}
+
+impl RuneId {
+    pub(crate) fn delta(self, next: RuneId) -> Option<(u128, u128)> {
+        let block = next.block.checked_sub(self.block)?;
+
+        let tx = if block == 0 {
+            next.tx.checked_sub(self.tx)?
+        } else {
+            next.tx
+        };
+
+        Some((block.into(), tx.into()))
+    }
 }
 
 impl Display for RuneId {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.height, self.index,)
-    }
-}
-
-impl From<RuneId> for u128 {
-    fn from(id: RuneId) -> Self {
-        u128::from(id.height) << 16 | u128::from(id.index)
+        write!(f, "{}:{}", self.block, self.tx,)
     }
 }
 
@@ -80,8 +98,8 @@ impl FromStr for RuneId {
         let (height, index) = s.split_once(':').ok_or_else(|| ParseRuneIdError)?;
 
         Ok(Self {
-            height: height.parse().map_err(|_| ParseRuneIdError)?,
-            index: index.parse().map_err(|_| ParseRuneIdError)?,
+            block: height.parse().map_err(|_| ParseRuneIdError)?,
+            tx: index.parse().map_err(|_| ParseRuneIdError)?,
         })
     }
 }
