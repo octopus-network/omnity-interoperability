@@ -1,7 +1,6 @@
 use crate::state::with_state;
 use log::info;
 
-
 pub fn auth() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
     info!("auth for caller: {:?}", caller.to_string());

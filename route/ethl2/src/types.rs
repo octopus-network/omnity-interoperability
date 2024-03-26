@@ -1,4 +1,4 @@
-use candid::{ CandidType, Deserialize};
+use candid::{CandidType, Deserialize};
 use cketh_common::eth_rpc::LogEntry;
 use serde::Serialize;
 
@@ -26,7 +26,8 @@ pub struct Ticket {
 impl Ticket {
     pub fn from_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
         let ticket = Ticket {
-            ticket_id: log_entry.transaction_hash.clone().unwrap().to_string() + log_entry.log_index.clone().unwrap().to_string().as_str(),
+            ticket_id: log_entry.transaction_hash.clone().unwrap().to_string()
+                + log_entry.log_index.clone().unwrap().to_string().as_str(),
             created_time: log_entry.block_number.clone().unwrap().as_f64() as u64,
             src_chain: "eth".to_string(),
             dst_chain: "ic".to_string(),

@@ -483,7 +483,7 @@ mod tests {
 
     fn token_ids() -> Vec<String> {
         vec![
-            "Bitcoin-Native-BTC".to_string(),
+            "Bitcoin-RUNES-150:1".to_string(),
             "Bitcoin-RUNES-XXX".to_string(),
             "Bitcoin-RUNES-XXY".to_string(),
             "Ethereum-Native-ETH".to_string(),
@@ -641,12 +641,15 @@ mod tests {
 
     async fn build_tokens() {
         let btc = TokenMeta {
-            token_id: "Bitcoin-Native-BTC".to_string(),
+            token_id: "Bitcoin-RUNES-150:1".to_string(),
             symbol: "BTC".to_owned(),
             settlement_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: Some(HashMap::from([(
+                "rune_id".to_string(),
+                "150:1".to_string(),
+            )])),
             dst_chains: vec![
                 "Ethereum".to_string(),
                 "ICP".to_string(),
@@ -668,7 +671,7 @@ mod tests {
         assert!(result.is_ok());
 
         let btc = TokenMeta {
-            token_id: "Bitcoin-Native-BTC".to_string(),
+            token_id: "Bitcoin-RUNES-150:1".to_string(),
             symbol: "BTC".to_owned(),
             settlement_chain: "Bitcoin".to_string(),
             decimals: 18,
@@ -998,7 +1001,7 @@ mod tests {
         let dst_chain = "EVM-Arbitrum";
         let sender = "address_on_Bitcoin";
         let receiver = "address_on_Arbitrum";
-        let token = "Bitcoin-Native-BTC".to_string();
+        let token = "Bitcoin-RUNES-150:1".to_string();
 
         let transfer_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
@@ -1090,7 +1093,7 @@ mod tests {
         let result = get_txs(
             None,
             None,
-            Some("Bitcoin-Native-BTC".to_string()),
+            Some("Bitcoin-RUNES-150:1".to_string()),
             None,
             0,
             10,

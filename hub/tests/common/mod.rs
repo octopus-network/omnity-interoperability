@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -75,7 +76,7 @@ impl OmnityHub {
         Decode!(&assert_reply(ret), Result<(), Error>).unwrap()
     }
 
-    pub fn query_directives(
+    pub fn query_dires(
         &self,
         sender: &Option<PrincipalId>,
         chain_id: &Option<ChainId>,
@@ -89,10 +90,10 @@ impl OmnityHub {
             .query_as(
                 sender,
                 self.hub_id,
-                "query_directives",
+                "query_dires",
                 Encode!(chain_id, topic, from, offset).unwrap(),
             )
-            .expect("failed to query_directives");
+            .expect("failed to query_dires");
         Decode!(&assert_reply(ret), Result<Vec<(Seq, Directive)>, Error>).unwrap()
     }
 
@@ -376,12 +377,15 @@ pub fn chains() -> Vec<Proposal> {
 pub fn tokens() -> Vec<Proposal> {
     let tokens = vec![
         Proposal::AddToken(TokenMeta {
-            token_id: "Bitcoin-Native-BTC".to_string(),
+            token_id: "Bitcoin-RUNES-150:1".to_string(),
             symbol: "BTC".to_owned(),
             settlement_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: Some(HashMap::from([(
+                "rune_id".to_string(),
+                "150:1".to_string(),
+            )])),
             dst_chains: vec![
                 "Ethereum".to_string(),
                 "ICP".to_string(),

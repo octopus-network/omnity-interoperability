@@ -1,8 +1,8 @@
+use crate::call_error::{CallError, Reason};
 use candid::Principal;
 use omnity_types::Directive;
 use omnity_types::Topic;
 use omnity_types::{self, ChainId, Seq, Ticket};
-use crate::call_error::{CallError, Reason};
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     // TODO determine how many cycle it will cost.
