@@ -44,3 +44,5 @@ cargo_metadata = "0.14.2"
 ic-state-machine-tests = { git = "https://github.com/dfinity/ic", package = "ic-state-machine-tests", tag = "release-2024-03-06_23-01+p2p" }
 ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", package = "ic-test-utilities-load-wasm", tag = "release-2024-03-06_23-01+p2p" }
 ic-base-types = { git = "https://github.com/dfinity/ic", package = "ic-base-types", tag = "release-2024-03-06_23-01+p2p" }
+env_logger = "0.9"
+# log = "0.4"

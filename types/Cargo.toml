@@ -20,6 +20,7 @@ derive_more = { workspace = true }
 ciborium = { workspace = true }
 #ic-stable-structures =  { workspace = true }
 lazy_static = { workspace = true }
+ic-stable-structures = { workspace = true }
 
 [dev-dependencies.tokio]
 version = "1.35.1"

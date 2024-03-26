@@ -152,7 +152,7 @@ pub async fn get_chain_tokens(
             .map(|(token_key, total_amount)| TokenOnChain {
                 chain_id: token_key.chain_id.to_string(),
                 token_id: token_key.token_id.to_string(),
-                amount: *total_amount,
+                amount: total_amount,
             })
             .collect::<Vec<_>>()
     });
