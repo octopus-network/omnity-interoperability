@@ -63,9 +63,9 @@ dfx canister call omnity_hub query_dires '(opt "Starknet",opt variant {AddChain=
 # add token
 
 # BTC
-dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "btc.logo.url"; token_id = "BTC"; settlement_chain = "Bitcoin"; symbol = "BTC"; metadata = null; dst_chains = vec {"Ethereum"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"}}}} )'
+dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "btc.logo.url"; token_id = "Bitcoin-RUNES-150:1"; settlement_chain = "Bitcoin"; symbol = "BTC"; metadata = opt vec{ record {"rune_id:150:1";"150:1"}}; dst_chains = vec {"Ethereum"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"}}}} )'
 
-dfx canister call omnity_hub execute_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "btc.logo.url"; token_id = "BTC"; settlement_chain = "Bitcoin"; symbol = "BTC"; metadata = null; dst_chains = vec {"Ethereum"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"}}}} )'
+dfx canister call omnity_hub execute_proposal '( vec {variant { AddToken = record { decimals = 18 : nat8; icon = opt "btc.logo.url"; token_id = "Bitcoin-RUNES-150:1"; settlement_chain = "Bitcoin"; symbol = "BTC"; metadata = null; dst_chains = vec {"Ethereum"; "ICP"; "Arbitrum"; "Optimistic"; "Starknet"}}}} )'
 
 dfx canister call omnity_hub query_dires '(opt "Ethereum",opt variant {AddToken=null},0:nat64,5:nat64)' 
 
@@ -116,12 +116,12 @@ dfx canister call omnity_hub query_dires '(opt "Arbitrum",opt variant {UpdateFee
 
 # A-B tansfer/redeem
 # transfer from Bitcoin to Arbitrum
-dfx canister call omnity_hub send_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc0247828f"; ticket_time = 1707291817947 : nat64; token = "BTC"; amount = "88888"; src_chain = "Bitcoin"; dst_chain = "Arbitrum"; action = variant { Transfer }; sender = opt "address_on_Bitcoin"; receiver = "address_on_Arbitrum"; memo = null;})'
+dfx canister call omnity_hub send_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc0247828f"; ticket_time = 1707291817947 : nat64; token = "Bitcoin-RUNES-150:1"; amount = "88888"; src_chain = "Bitcoin"; dst_chain = "Arbitrum"; action = variant { Transfer }; sender = opt "address_on_Bitcoin"; receiver = "address_on_Arbitrum"; memo = null;})'
 dfx canister call omnity_hub query_tickets '(opt "Arbitrum",0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(null,null,0:nat64,5:nat64)'
 
 # redeem from  Arbitrum to Bitcoin
-dfx canister call omnity_hub send_ticket '(record { ticket_id = "f8aee1cc-db7a-40ea-80c2-4cf5e6c84c21"; ticket_time = 1707291817947 : nat64; token = "BTC"; amount = "88888"; src_chain = "Arbitrum"; dst_chain = "Bitcoin"; action = variant { Redeem }; sender = opt "address_on_Arbitrum"; receiver = "address_on_Bitcoin"; memo = null;})'
+dfx canister call omnity_hub send_ticket '(record { ticket_id = "f8aee1cc-db7a-40ea-80c2-4cf5e6c84c21"; ticket_time = 1707291817947 : nat64; token = "Bitcoin-RUNES-150:1"; amount = "88888"; src_chain = "Arbitrum"; dst_chain = "Bitcoin"; action = variant { Redeem }; sender = opt "address_on_Arbitrum"; receiver = "address_on_Bitcoin"; memo = null;})'
 dfx canister call omnity_hub query_tickets '(opt "Bitcoin",0:nat64,5:nat64)'
 dfx canister call omnity_hub query_tickets '(opt "Arbitrum",0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(opt "Arbitrum",null,0:nat64,5:nat64)'

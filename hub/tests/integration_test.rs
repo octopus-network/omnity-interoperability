@@ -46,7 +46,7 @@ fn test_add_chain() {
     assert!(ret.is_ok());
 
     chain_ids().iter().for_each(|chain_id| {
-        let result = hub.query_directives(
+        let result = hub.query_dires(
             &None,
             &Some(chain_id.to_string()),
             &Some(Topic::AddChain(None)),
@@ -81,7 +81,7 @@ fn test_add_token() {
     assert!(ret.is_ok());
 
     for chain_id in chain_ids() {
-        let result = hub.query_directives(
+        let result = hub.query_dires(
             &None,
             &Some(chain_id.to_string()),
             &Some(Topic::AddToken(None)),
@@ -93,7 +93,7 @@ fn test_add_token() {
     }
 
     for canister_id in canister_ids() {
-        let result = hub.query_directives(
+        let result = hub.query_dires(
             &Some(canister_id),
             &None,
             &Some(Topic::AddToken(None)),
@@ -154,7 +154,7 @@ fn test_toggle_chain_state() {
     // query directives for chain id
 
     for chain_id in chain_ids() {
-        let result = hub.query_directives(
+        let result = hub.query_dires(
             &None,
             &Some(chain_id.to_string()),
             &Some(Topic::DeactivateChain),
@@ -194,18 +194,18 @@ fn test_update_fee() {
 
     // change chain state
     let fee = Fee {
-        dst_chain_id: "Arbitrum".to_string(),
-        fee_token: "OP".to_string(),
+        dst_chain_id: "EVM-Arbitrum".to_string(),
+        fee_token: "Ethereum-ERC20-OP".to_string(),
         factor: 12,
     };
 
     let result = hub.update_fee(&vec![fee]);
-    assert!(result.is_ok());
     println!("update_fee result:{:?}", result);
+    assert!(result.is_ok());
 
     // query directives for chain id
     for chain_id in chain_ids() {
-        let result = hub.query_directives(
+        let result = hub.query_dires(
             &None,
             &Some(chain_id.to_string()),
             &Some(Topic::UpdateFee(None)),
@@ -244,7 +244,7 @@ fn test_a_b_tx() {
     let dst_chain = "EVM-Arbitrum";
     let sender = "address_on_Bitcoin";
     let receiver = "address_on_Arbitrum";
-    let token = "Bitcoin-Native-BTC".to_string();
+    let token =  "Bitcoin-RUNES-150:1".to_string();
 
     let transfer_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
