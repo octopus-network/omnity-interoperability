@@ -244,7 +244,7 @@ fn test_a_b_tx() {
     let dst_chain = "EVM-Arbitrum";
     let sender = "address_on_Bitcoin";
     let receiver = "address_on_Arbitrum";
-    let token =  "Bitcoin-RUNES-150:1".to_string();
+    let token = "Bitcoin-RUNES-150:1".to_string();
 
     let transfer_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),

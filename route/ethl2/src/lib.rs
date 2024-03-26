@@ -4,21 +4,23 @@ mod tx;
 mod types;
 
 use crate::types::{Chain, Ticket};
+use anyhow::anyhow;
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::{RpcApi, RpcService};
-use ic_cdk::api::{call::RejectionCode, management_canister::ecdsa::{
-    ecdsa_public_key, sign_with_ecdsa, EcdsaCurve, EcdsaKeyId, EcdsaPublicKeyArgument,
-    SignWithEcdsaArgument,
-}};
+use ic_cdk::api::{
+    call::RejectionCode,
+    management_canister::ecdsa::{
+        ecdsa_public_key, sign_with_ecdsa, EcdsaCurve, EcdsaKeyId, EcdsaPublicKeyArgument,
+        SignWithEcdsaArgument,
+    },
+};
 use itertools::Itertools;
-use thiserror::Error;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap},
     rc::Rc,
 };
-use anyhow::anyhow;
-
+use thiserror::Error;
 
 thread_local! {
     // TODO implement directives
@@ -47,7 +49,7 @@ pub enum Error {
     HubError(String),
     #[error("Evm rpc canister error: {0}")]
     EvmRpcCanisterError(String),
-    #[error ("Evm rpc error: {0}")]
+    #[error("Evm rpc error: {0}")]
     EvmRpcError(String),
     #[error("Chain key error: {0}")]
     ChainKeyError(String),

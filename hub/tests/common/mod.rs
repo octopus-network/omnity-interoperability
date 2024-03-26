@@ -377,7 +377,7 @@ pub fn chains() -> Vec<Proposal> {
 pub fn tokens() -> Vec<Proposal> {
     let tokens = vec![
         Proposal::AddToken(TokenMeta {
-            token_id:  "Bitcoin-RUNES-150:1".to_string(),
+            token_id: "Bitcoin-RUNES-150:1".to_string(),
             symbol: "BTC".to_owned(),
             settlement_chain: "Bitcoin".to_string(),
             decimals: 18,
