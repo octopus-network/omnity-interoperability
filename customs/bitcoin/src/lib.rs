@@ -1134,7 +1134,7 @@ pub fn build_unsigned_transaction(
             .map(|(idx, (_, amount))| Edict {
                 id: rune_id.into(),
                 amount: *amount,
-                output: (idx + 2) as u128,
+                output: (idx + 2) as u32,
             })
             .collect::<Vec<Edict>>(),
     };
