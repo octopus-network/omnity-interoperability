@@ -27,8 +27,8 @@ pub struct RsTxOut {
 
 #[derive(Deserialize, Debug)]
 pub struct Runestone {
-    pub burn: bool,
-    pub claim: Option<u128>,
+    pub cenotaph: bool,
+    pub claim: Option<RuneId>,
     pub default_output: Option<u32>,
     pub edicts: Vec<Edict>,
     pub etching: Option<Etching>,
@@ -36,9 +36,9 @@ pub struct Runestone {
 
 #[derive(Deserialize, Debug)]
 pub struct Edict {
-    pub id: String,
+    pub id: RuneId,
     pub amount: u128,
-    pub output: u128,
+    pub output: u32,
 }
 
 #[derive(Deserialize, Debug)]

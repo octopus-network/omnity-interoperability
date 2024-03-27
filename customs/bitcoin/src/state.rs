@@ -59,12 +59,12 @@ impl Error for ParseRuneIdError {
     Debug,
     PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
     PartialOrd,
     Ord,
     Copy,
     Default,
+    Serialize,
+    Deserialize,
 )]
 pub struct RuneId {
     pub block: u32,
