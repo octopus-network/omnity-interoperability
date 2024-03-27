@@ -54,19 +54,15 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     let txid = Txid::from_str(&args.txid)
         .map_err(|_| GenerateTicketError::TemporarilyUnavailable("Invalid txid".to_string()))?;
 
-    read_state(|s| {
-        if !s
-            .counterparties
+    if !read_state(|s| {
+        s.counterparties
             .get(&args.target_chain_id)
             .is_some_and(|c| c.chain_state == ChainState::Active)
-        {
-            Err(GenerateTicketError::UnsupportedChainId(
-                args.target_chain_id.clone(),
-            ))
-        } else {
-            Ok(())
-        }
-    })?;
+    }) {
+        return Err(GenerateTicketError::UnsupportedChainId(
+            args.target_chain_id.clone(),
+        ));
+    }
 
     let token_id = read_state(|s| {
         if let Some((token_id, _)) = s.tokens.iter().find(|(_, (r, _))| rune_id.eq(r)) {

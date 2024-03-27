@@ -5,12 +5,14 @@ use ic_cdk_timers::set_timer_interval;
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg};
 use icp_route::log_util::init_log;
+use icp_route::state::read_state;
 use icp_route::updates::generate_ticket::{
     GenerateTicketArgs, GenerateTicketError, GenerateTicketOk,
 };
 use icp_route::updates::{self};
 use icp_route::{periodic_task, PERIODIC_TASK_INTERVAL};
 use log::{self};
+use omnity_types::{Chain, Token};
 
 #[init]
 fn init(args: RouteArg) {
@@ -31,6 +33,21 @@ async fn generate_ticket(
     args: GenerateTicketArgs,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     updates::generate_ticket(args).await
+}
+
+#[query]
+fn get_chain_list() -> Vec<Chain> {
+    read_state(|s| {
+        s.counterparties
+            .iter()
+            .map(|(_, chain)| chain.clone())
+            .collect()
+    })
+}
+
+#[query]
+fn get_token_list() -> Vec<Token> {
+    read_state(|s| s.tokens.iter().map(|(_, token)| token.clone()).collect())
 }
 
 #[query]

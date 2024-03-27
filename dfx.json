@@ -12,6 +12,12 @@
       "package": "omnity_hub",
       "type": "rust"
     },
+    "icp_route": {
+      "gzip": true,
+      "candid": "route/icp/icp_route.did",
+      "package": "icp_route",
+      "type": "rust"
+    },
     "hub_mock": {
       "gzip": true,
       "candid": "mock/hub/hub_mock.did",

@@ -22,7 +22,7 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
     }
 
     let record =
-        create_new_icrc2_canister(token.token_id.clone(), token.symbol.clone(), token.decimals)
+        install_icrc2_ledger(token.token_id.clone(), token.symbol.clone(), token.decimals)
             .await
             .map_err(AddNewTokenError::CreateLedgerErr)?;
 
@@ -32,7 +32,7 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
     Ok(())
 }
 
-async fn create_new_icrc2_canister(
+async fn install_icrc2_ledger(
     token_name: String,
     token_symbol: String,
     token_decimal: u8,
@@ -41,7 +41,7 @@ async fn create_new_icrc2_canister(
         settings: Some(CanisterSettings {
             controllers: Some(vec![ic_cdk::id()]),
             compute_allocation: Some(0_u32.into()),
-            memory_allocation: Some(10000_u128.into()),
+            memory_allocation: Some(4096000_u128.into()),
             freezing_threshold: Some(10000_u128.into()),
             reserved_cycles_limit: None,
         }),

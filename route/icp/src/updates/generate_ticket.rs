@@ -5,7 +5,7 @@ use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use num_traits::cast::ToPrimitive;
-use omnity_types::{Ticket, TxAction};
+use omnity_types::{ChainState, Ticket, TxAction};
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -28,6 +28,8 @@ pub struct GenerateTicketOk {
 pub enum GenerateTicketError {
     UnsupportedToken(String),
 
+    UnsupportedChainId(String),
+
     /// The withdrawal account does not hold the requested ckBTC amount.
     InsufficientFunds {
         balance: u64,
@@ -47,7 +49,16 @@ pub async fn generate_ticket(
     args: GenerateTicketArgs,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     // TODO charge Fee
-    // TODO check whether the target chain in whitelist
+
+    if !read_state(|s| {
+        s.counterparties
+            .get(&args.target_chain_id)
+            .is_some_and(|c| c.chain_state == ChainState::Active)
+    }) {
+        return Err(GenerateTicketError::UnsupportedChainId(
+            args.target_chain_id.clone(),
+        ));
+    }
 
     let ledger_id = read_state(|s| match s.token_ledgers.get(&args.token_id) {
         Some(ledger_id) => Ok(ledger_id.clone()),
