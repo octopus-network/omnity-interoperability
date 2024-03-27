@@ -187,8 +187,8 @@ fn greedy_smoke_test() {
 #[test]
 fn should_have_same_input_and_output_count() {
     let rune_id = RuneId {
-        height: 100,
-        index: 1,
+        block: 100,
+        tx: 1,
     };
     let mut available_runes_utxos = BTreeSet::new();
     let mut available_btc_utxos = BTreeSet::new();
@@ -308,8 +308,8 @@ fn should_have_same_input_and_output_count() {
 #[test]
 fn test_not_enough_gas() {
     let rune_id = RuneId {
-        height: 100,
-        index: 1,
+        block: 100,
+        tx: 1,
     };
     let mut available_runes_utxos = BTreeSet::new();
     let mut available_btc_utxos = BTreeSet::new();
@@ -353,8 +353,8 @@ fn test_not_enough_gas() {
 #[test]
 fn test_btc_change_less_than_546() {
     let rune_id = RuneId {
-        height: 100,
-        index: 1,
+        block: 100,
+        tx: 1,
     };
     let mut available_runes_utxos = BTreeSet::new();
     let mut available_btc_utxos = BTreeSet::new();
@@ -475,8 +475,8 @@ fn arb_runes_utxo(amount: impl Strategy<Value = u128>) -> impl Strategy<Value = 
         },
         runes: RunesBalance {
             rune_id: RuneId {
-                height: 100,
-                index: 1,
+                block: 100,
+                tx: 1,
             },
             vout,
             amount: value,
@@ -522,8 +522,8 @@ fn arb_release_token_requests(
             |(amount, address, ticket_id, received_at)| ReleaseTokenRequest {
                 ticket_id,
                 rune_id: RuneId {
-                    height: 100,
-                    index: 1,
+                    block: 100,
+                    tx: 1,
                 },
                 amount,
                 address,
@@ -723,7 +723,7 @@ proptest! {
         fee_per_vbyte in 1000..2000u64,
     ) {
         prop_assume!(dst_pkhash != runes_pkhash);
-    let rune_id = RuneId{height: 100, index: 1};
+    let rune_id = RuneId{block: 100, tx: 1};
 
         let (unsigned_tx, _, _, _, _) = build_unsigned_transaction(
             rune_id,
@@ -752,7 +752,7 @@ proptest! {
     ) {
         let runes_utxos_copy = runes_utxos.clone();
         let btc_utxos_copy = btc_utxos.clone();
-    let rune_id = RuneId{height: 100, index: 1};
+    let rune_id = RuneId{block: 100, tx: 1};
 
         let total_value = runes_utxos.iter().map(|u| u.runes.amount).sum::<u128>();
 
@@ -823,7 +823,7 @@ proptest! {
             prop_assert_eq!(state.release_token_status(&req.ticket_id), ReleaseTokenStatus::Pending);
         }
 
-        let rune_id = RuneId{height: 100, index: 1};
+        let rune_id = RuneId{block: 100, tx: 1};
         let batch = state.build_batch(rune_id, limit);
 
         for req in batch.iter() {
@@ -847,7 +847,7 @@ proptest! {
         btc_pkhash in uniform20(any::<u8>()),
         resubmission_chain_length in 1..=5,
     ) {
-    let rune_id = RuneId{height: 100, index: 1};
+    let rune_id = RuneId{block: 100, tx: 1};
         let mut state = CustomsState::from(InitArgs {
             btc_network: Network::Regtest.into(),
             ecdsa_key_name: "".to_string(),
@@ -1059,7 +1059,7 @@ proptest! {
     ) {
         const SMALLEST_TX_SIZE_VBYTES: u64 = 140; // one input, two outputs
 
-    let rune_id = RuneId{height: 100, index: 1};
+    let rune_id = RuneId{block: 100, tx: 1};
         let estimate = estimate_fee(rune_id, &utxos, amount, fee_per_vbyte);
         let lower_bound =  SMALLEST_TX_SIZE_VBYTES * fee_per_vbyte / 1000;
         let estimate_amount = estimate.bitcoin_fee;
