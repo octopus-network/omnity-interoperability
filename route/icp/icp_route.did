@@ -6,13 +6,19 @@ type GenerateTicketArgs = record {
   receiver : text;
 };
 type GenerateTicketError = variant {
+  SendTicketErr : text;
   TemporarilyUnavailable : text;
   InsufficientAllowance : record { allowance : nat64 };
   UnsupportedToken : text;
   InsufficientFunds : record { balance : nat64 };
 };
 type GenerateTicketOk = record { block_index : nat64 };
-type InitArgs = record { hub_principal : principal };
+type InitArgs = record { hub_principal : principal; chain_id : text };
+type Log = record { log : text; offset : nat64 };
+type Logs = record { logs : vec Log; all_logs_count : nat64 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : record {}; Init : InitArgs };
-service : (RouteArg) -> { generate_ticket : (GenerateTicketArgs) -> (Result) }
+service : (RouteArg) -> {
+  generate_ticket : (GenerateTicketArgs) -> (Result);
+  get_log_records : (nat64, nat64) -> (Logs) query;
+}

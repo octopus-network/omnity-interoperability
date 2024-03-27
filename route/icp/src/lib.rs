@@ -1,9 +1,8 @@
-use crate::tasks::schedule_after;
 use candid::Principal;
 use log::{self};
 use omnity_types::Directive;
 use state::{audit, mutate_state, read_state};
-use std::{str::FromStr, time::Duration};
+use std::str::FromStr;
 use updates::mint_token::MintTokenArgs;
 
 pub mod call_error;
@@ -11,11 +10,9 @@ pub mod hub;
 pub mod lifecycle;
 pub mod log_util;
 pub mod state;
-pub mod tasks;
 pub mod updates;
 
-/// Time constants
-const SEC_NANOS: u64 = 1_000_000_000;
+pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
 
@@ -78,8 +75,7 @@ async fn process_tickets() {
 
 async fn process_directives() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
-    match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
-        Err(err) => {}
+    match hub::query_dires(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(directives) => {
             for (_, directive) in &directives {
                 match directive {
@@ -96,8 +92,9 @@ async fn process_directives() {
                             }
                             Err(err) => {
                                 log::error!(
-                                    "[process directives] failed to add token: token id: {}",
-                                    token.token_id
+                                    "[process directives] failed to add token: token id: {}, err: {:?}",
+                                    token.token_id,
+                                    err
                                 );
                             }
                         }
@@ -115,26 +112,18 @@ async fn process_directives() {
                 s.next_directive_seq = next_seq;
             });
         }
+        Err(err) => {
+            log::error!(
+                "[process directives] failed to query directives, err: {:?}",
+                err
+            );
+        }
     };
 }
 
-pub fn timer() {
-    use tasks::{pop_if_ready, TaskType};
-
-    const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
-
-    let task = match pop_if_ready() {
-        Some(task) => task,
-        None => return,
-    };
-
-    match task.task_type {
-        TaskType::ProcessHubMessages => {
-            ic_cdk::spawn(async {
-                process_tickets().await;
-                process_directives().await;
-                schedule_after(INTERVAL_PROCESSING, TaskType::ProcessHubMessages);
-            });
-        }
-    }
+pub fn periodic_task() {
+    ic_cdk::spawn(async {
+        process_tickets().await;
+        process_directives().await;
+    });
 }
