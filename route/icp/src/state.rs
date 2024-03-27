@@ -1,6 +1,6 @@
 pub mod audit;
 use candid::Principal;
-use omnity_types::{Chain, ChainId, Fee, Token, TokenId};
+use omnity_types::{Chain, ChainId, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -84,4 +84,3 @@ pub fn replace_state(state: RouteState) {
         *s.borrow_mut() = Some(state);
     });
 }
-

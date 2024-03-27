@@ -69,11 +69,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     })?;
 
     let token_id = read_state(|s| {
-        if let Some((token_id, _)) = s
-            .tokens
-            .iter()
-            .find(|(_, (rune_id, _))| args.rune_id == rune_id.to_string())
-        {
+        if let Some((token_id, _)) = s.tokens.iter().find(|(_, (r, _))| rune_id.eq(r)) {
             Ok(token_id.clone())
         } else {
             Err(GenerateTicketError::UnsupportedToken(args.rune_id))

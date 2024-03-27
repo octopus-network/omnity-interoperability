@@ -1,14 +1,15 @@
-use candid::Principal;
-use state::{audit, mutate_state, read_state, take_state};
-use updates::mint_token::MintTokenArgs;
-
 use crate::tasks::schedule_after;
-use std::{str::FromStr, time::Duration};
+use candid::Principal;
+use log::{self};
 use omnity_types::Directive;
+use state::{audit, mutate_state, read_state};
+use std::{str::FromStr, time::Duration};
+use updates::mint_token::MintTokenArgs;
 
 pub mod call_error;
 pub mod hub;
 pub mod lifecycle;
+pub mod log_util;
 pub mod state;
 pub mod tasks;
 pub mod updates;
@@ -28,13 +29,20 @@ async fn process_tickets() {
                     receiver
                 } else {
                     next_seq = seq + 1;
-                    // TODO record err logs
+                    log::error!(
+                        "[process tickets] failed to parse ticket receiver: {}",
+                        ticket.receiver
+                    );
                     continue;
                 };
                 let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
                     amount
                 } else {
                     next_seq = seq + 1;
+                    log::error!(
+                        "[process tickets] failed to parse ticket amount: {}",
+                        ticket.amount
+                    );
                     continue;
                 };
                 match updates::mint_token(MintTokenArgs {
@@ -44,17 +52,70 @@ async fn process_tickets() {
                 })
                 .await
                 {
-                    Ok(_) => {}
-                    Err(_) => {}
+                    Ok(_) => {
+                        log::info!(
+                            "[process tickets] process successful for ticket id: {}",
+                            ticket.ticket_id
+                        );
+                    }
+                    Err(err) => {
+                        log::error!(
+                            "[process tickets] process failure for ticket id: {}, err: {:?}",
+                            ticket.ticket_id,
+                            err
+                        );
+                    }
                 }
                 next_seq = seq + 1;
             }
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
-        Err(_) => {
-            // TODO record logs
+        Err(err) => {
+            log::error!("[process tickets] failed to query tickets, err: {}", err);
         }
     }
+}
+
+async fn process_directives() {
+    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
+    match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+        Err(err) => {}
+        Ok(directives) => {
+            for (_, directive) in &directives {
+                match directive {
+                    Directive::AddChain(chain) => {
+                        mutate_state(|s| audit::add_chain(s, chain.clone()));
+                    }
+                    Directive::AddToken(token) => {
+                        match updates::add_new_token(token.clone()).await {
+                            Ok(_) => {
+                                log::info!(
+                                    "[process directives] add token successful, token id: {}",
+                                    token.token_id
+                                );
+                            }
+                            Err(err) => {
+                                log::error!(
+                                    "[process directives] failed to add token: token id: {}",
+                                    token.token_id
+                                );
+                            }
+                        }
+                    }
+                    Directive::ToggleChainState(toggle) => {
+                        mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
+                    }
+                    Directive::UpdateFee(fee) => {
+                        // todo update fee
+                    }
+                }
+            }
+            let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
+            mutate_state(|s| {
+                s.next_directive_seq = next_seq;
+            });
+        }
+    };
 }
 
 pub fn timer() {
@@ -76,31 +137,4 @@ pub fn timer() {
             });
         }
     }
-}
-
-async fn process_directives() {
-    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
-    match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
-        Err(err) => {
-        }
-        Ok(directives) => 
-            {
-            for (_, directive) in &directives {
-                match directive {
-                    Directive::AddChain(chain) => audit::add_chain(chain.clone()),
-                    Directive::AddToken(token) => audit::add_token(token.clone()).await,
-                    Directive::ToggleChainState(toggle) => {
-                        audit::toggle_chain_state(toggle.clone())
-                    }
-                    Directive::UpdateFee(fee) => {
-                        // todo update fee
-                    }
-                }
-            }
-            let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
-            mutate_state(|s| {
-                s.next_directive_seq = next_seq;
-            });
-        }
-    };
 }

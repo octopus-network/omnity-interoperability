@@ -293,7 +293,7 @@ async fn process_directive() {
                         if let Some(rune_id) = token
                             .metadata
                             .clone()
-                            .map_or(HashMap::default(), |m| m)
+                            .unwrap_or(HashMap::default())
                             .get("rune_id")
                         {
                             match RuneId::from_str(rune_id) {
@@ -306,6 +306,12 @@ async fn process_directive() {
                                 }
                                 Ok(rune_id) => audit::add_token(s, rune_id, token.clone()),
                             }
+                        } else {
+                            log!(
+                                P0,
+                                "[process_directive] token {} not found rune_id in metadata",
+                                token.token_id
+                            );
                         }
                     }
                     Directive::ToggleChainState(toggle) => {

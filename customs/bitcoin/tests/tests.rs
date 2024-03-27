@@ -883,7 +883,7 @@ fn test_update_runes_balance_no_utxo() {
     let customs = CustomsSetup::new();
     let result = customs.update_runes_balance(&UpdateRunesBalanceArgs {
         txid: random_txid(),
-        balances: vec![RunesBalance {
+        balances: vec![RunesBalance {_
             rune_id: RuneId {
                 height: 150,
                 index: 1,
