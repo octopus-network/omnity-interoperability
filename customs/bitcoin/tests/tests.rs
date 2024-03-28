@@ -885,8 +885,8 @@ fn test_update_runes_balance_no_utxo() {
         txid: random_txid(),
         balances: vec![RunesBalance {
             rune_id: RuneId {
-                height: 150,
-                index: 1,
+                block: 150,
+                tx: 1,
             },
             vout: 1,
             amount: 100_000_000,
@@ -933,8 +933,8 @@ fn test_update_runes_balance_invalid() {
         txid,
         balances: vec![RunesBalance {
             rune_id: RuneId {
-                height: 150,
-                index: 1,
+                block: 150,
+                tx: 1,
             },
             vout,
             // inconsistent with the value of generate ticket
@@ -996,16 +996,16 @@ fn test_update_runes_balance_multi_utxos() {
         balances: vec![
             RunesBalance {
                 rune_id: RuneId {
-                    height: 150,
-                    index: 1,
+                    block: 150,
+                    tx: 1,
                 },
                 vout: 1,
                 amount: 100_000_000,
             },
             RunesBalance {
                 rune_id: RuneId {
-                    height: 150,
-                    index: 1,
+                    block: 150,
+                    tx: 1,
                 },
                 vout: 2,
                 amount: 200_000_000,

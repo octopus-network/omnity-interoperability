@@ -1,18 +1,26 @@
-use ic_cdk_macros::{init, update};
+use std::time::Duration;
+
+use ic_cdk_macros::{init, query, update};
+use ic_cdk_timers::set_timer_interval;
+use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg};
-use icp_route::tasks::{schedule_now, TaskType};
+use icp_route::log_util::init_log;
+use icp_route::state::read_state;
 use icp_route::updates::generate_ticket::{
     GenerateTicketArgs, GenerateTicketError, GenerateTicketOk,
 };
 use icp_route::updates::{self};
+use icp_route::{periodic_task, PERIODIC_TASK_INTERVAL};
+use log::{self};
+use omnity_types::{Chain, Token};
 
 #[init]
 fn init(args: RouteArg) {
     match args {
         RouteArg::Init(args) => {
-            // storage::record_event(&Event::Init(args.clone()));
+            init_log();
             lifecycle::init::init(args);
-            schedule_now(TaskType::ProcessHubMessages);
+            set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
         }
         RouteArg::Upgrade() => {
             panic!("expected InitArgs got UpgradeArgs");
@@ -20,16 +28,32 @@ fn init(args: RouteArg) {
     }
 }
 
-#[export_name = "canister_global_timer"]
-fn timer() {
-    icp_route::timer();
-}
-
 #[update]
 async fn generate_ticket(
     args: GenerateTicketArgs,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     updates::generate_ticket(args).await
+}
+
+#[query]
+fn get_chain_list() -> Vec<Chain> {
+    read_state(|s| {
+        s.counterparties
+            .iter()
+            .map(|(_, chain)| chain.clone())
+            .collect()
+    })
+}
+
+#[query]
+fn get_token_list() -> Vec<Token> {
+    read_state(|s| s.tokens.iter().map(|(_, token)| token.clone()).collect())
+}
+
+#[query]
+pub fn get_log_records(limit: usize, offset: usize) -> Logs {
+    log::debug!("collecting {limit} log records");
+    ic_log::take_memory_records(limit, offset)
 }
 
 fn main() {}

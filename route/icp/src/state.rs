@@ -1,5 +1,6 @@
+pub mod audit;
 use candid::Principal;
-use omnity_types::TokenId;
+use omnity_types::{Chain, ChainId, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -15,10 +16,17 @@ pub struct RouteState {
 
     pub hub_principal: Principal,
 
-    pub token_ledgers: BTreeMap<TokenId, Principal>,
-
     // Next index of query tickets from hub
     pub next_ticket_seq: u64,
+
+    // Next index of query directives from hub
+    pub next_directive_seq: u64,
+
+    pub counterparties: BTreeMap<ChainId, Chain>,
+
+    pub tokens: BTreeMap<TokenId, Token>,
+
+    pub token_ledgers: BTreeMap<TokenId, Principal>,
 }
 
 impl RouteState {
@@ -32,6 +40,9 @@ impl From<InitArgs> for RouteState {
             hub_principal: args.hub_principal,
             token_ledgers: Default::default(),
             next_ticket_seq: 0,
+            next_directive_seq: 0,
+            counterparties: Default::default(),
+            tokens: Default::default(),
         }
     }
 }

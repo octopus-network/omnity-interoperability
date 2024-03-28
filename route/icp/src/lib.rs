@@ -1,20 +1,20 @@
 use candid::Principal;
-use state::{mutate_state, read_state};
+use log::{self};
+use omnity_types::Directive;
+use state::{audit, mutate_state, read_state};
+use std::str::FromStr;
 use updates::mint_token::MintTokenArgs;
-
-use crate::tasks::schedule_after;
-use std::{str::FromStr, time::Duration};
 
 pub mod call_error;
 pub mod hub;
 pub mod lifecycle;
+pub mod log_util;
 pub mod state;
-pub mod tasks;
 pub mod updates;
 
-/// Time constants
-const SEC_NANOS: u64 = 1_000_000_000;
+pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
+pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
 
 async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
@@ -26,13 +26,20 @@ async fn process_tickets() {
                     receiver
                 } else {
                     next_seq = seq + 1;
-                    // TODO record err logs
+                    log::error!(
+                        "[process tickets] failed to parse ticket receiver: {}",
+                        ticket.receiver
+                    );
                     continue;
                 };
                 let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
                     amount
                 } else {
                     next_seq = seq + 1;
+                    log::error!(
+                        "[process tickets] failed to parse ticket amount: {}",
+                        ticket.amount
+                    );
                     continue;
                 };
                 match updates::mint_token(MintTokenArgs {
@@ -42,36 +49,81 @@ async fn process_tickets() {
                 })
                 .await
                 {
-                    Ok(_) => {}
-                    Err(_) => {}
+                    Ok(_) => {
+                        log::info!(
+                            "[process tickets] process successful for ticket id: {}",
+                            ticket.ticket_id
+                        );
+                    }
+                    Err(err) => {
+                        log::error!(
+                            "[process tickets] process failure for ticket id: {}, err: {:?}",
+                            ticket.ticket_id,
+                            err
+                        );
+                    }
                 }
                 next_seq = seq + 1;
             }
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
-        Err(_) => {
-            // TODO record logs
+        Err(err) => {
+            log::error!("[process tickets] failed to query tickets, err: {}", err);
         }
     }
 }
 
-pub fn timer() {
-    use tasks::{pop_if_ready, TaskType};
-
-    const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
-
-    let task = match pop_if_ready() {
-        Some(task) => task,
-        None => return,
-    };
-
-    match task.task_type {
-        TaskType::ProcessHubMessages => {
-            ic_cdk::spawn(async {
-                process_tickets().await;
-                // TODO process directive
-                schedule_after(INTERVAL_PROCESSING, TaskType::ProcessHubMessages);
+async fn process_directives() {
+    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
+    match hub::query_dires(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+        Ok(directives) => {
+            for (_, directive) in &directives {
+                match directive {
+                    Directive::AddChain(chain) => {
+                        mutate_state(|s| audit::add_chain(s, chain.clone()));
+                    }
+                    Directive::AddToken(token) => {
+                        match updates::add_new_token(token.clone()).await {
+                            Ok(_) => {
+                                log::info!(
+                                    "[process directives] add token successful, token id: {}",
+                                    token.token_id
+                                );
+                            }
+                            Err(err) => {
+                                log::error!(
+                                    "[process directives] failed to add token: token id: {}, err: {:?}",
+                                    token.token_id,
+                                    err
+                                );
+                            }
+                        }
+                    }
+                    Directive::ToggleChainState(toggle) => {
+                        mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
+                    }
+                    Directive::UpdateFee(fee) => {
+                        // todo update fee
+                    }
+                }
+            }
+            let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
+            mutate_state(|s| {
+                s.next_directive_seq = next_seq;
             });
         }
-    }
+        Err(err) => {
+            log::error!(
+                "[process directives] failed to query directives, err: {:?}",
+                err
+            );
+        }
+    };
+}
+
+pub fn periodic_task() {
+    ic_cdk::spawn(async {
+        process_tickets().await;
+        process_directives().await;
+    });
 }
