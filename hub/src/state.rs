@@ -173,11 +173,20 @@ impl HubState {
     pub fn update_chain_state(&mut self, toggle_state: &ToggleState) -> Result<(), Error> {
         self.chains
             .get(&toggle_state.chain_id)
-            .map(|mut dst_chain| match toggle_state.action {
-                ToggleAction::Activate => dst_chain.chain_state = ChainState::Active,
-                ToggleAction::Deactivate => dst_chain.chain_state = ChainState::Deactive,
-            });
-        Ok(())
+            .ok_or(Error::NotFoundChain(toggle_state.chain_id.to_string()))
+            .map_or_else(
+                |e| Err(e),
+                |mut chain| {
+                    match toggle_state.action {
+                        ToggleAction::Activate => {
+                            chain.chain_state = ChainState::Active;
+                        }
+                        ToggleAction::Deactivate => chain.chain_state = ChainState::Deactive,
+                    }
+                    self.chains.insert(toggle_state.chain_id.to_string(), chain);
+                    Ok(())
+                },
+            )
     }
 
     pub fn save_token(&mut self, token_meata: TokenMeta) -> Result<(), Error> {
@@ -195,7 +204,6 @@ impl HubState {
     pub fn update_fee(&mut self, fee: Fee) -> Result<(), Error> {
         self.chains
             .get(&fee.dst_chain_id)
-            .as_mut()
             .ok_or(Error::NotFoundChain(fee.dst_chain_id.to_string()))
             .map_or_else(
                 |e| Err(e),
@@ -205,11 +213,7 @@ impl HubState {
                     } else {
                         let token_key =
                             TokenKey::from(chain.chain_id.to_string(), fee.fee_token.to_string());
-                        if let Some(f) = self.fees.get(&token_key).as_mut() {
-                            *f = fee.clone();
-                        } else {
-                            self.fees.insert(token_key, fee);
-                        }
+                        self.fees.insert(token_key, fee);
 
                         Ok(())
                     }
@@ -220,17 +224,15 @@ impl HubState {
     pub fn push_dire(&mut self, chain_id: &ChainId, dire: Directive) -> Result<(), Error> {
         self.chains
             .get(chain_id)
-            .as_mut()
             .ok_or(Error::NotFoundChain(chain_id.to_string()))
             .map_or_else(
                 |e| Err(e),
-                |chain| {
+                |mut chain| {
                     if matches!(chain.chain_state, ChainState::Deactive) {
                         Err(Error::DeactiveChain(chain_id.to_string()))
                     } else {
-                        if let Some(dire_map) =
-                            self.dire_queue.get(&chain.chain_id.to_string()).as_mut()
-                        {
+                        let chain_id = chain.chain_id.to_string();
+                        if let Some(mut dire_map) = self.dire_queue.get(&chain_id) {
                             chain.latest_dire_seq += 1;
                             dire_map.dires.insert(chain.latest_dire_seq, dire.clone());
                             info!(
@@ -238,9 +240,15 @@ impl HubState {
                                 chain.chain_id.to_string(),
                                 dire_map
                             );
+
+                            //update chain info
+                            self.chains.insert(chain_id.to_string(), chain);
+                            // update dire map for dst chain
+                            self.dire_queue.insert(chain_id, dire_map);
                         } else {
+                            // insert new dire map for dst main
                             self.dire_queue
-                                .insert(chain.chain_id.to_string(), DireMap::from(0, dire.clone()));
+                                .insert(chain_id.to_string(), DireMap::from(0, dire.clone()));
                             info!(
                                 " dir map for chain:{:?} {:?}!",
                                 chain.chain_id.to_string(),
@@ -340,6 +348,7 @@ impl HubState {
     pub fn add_token_position(&mut self, position: TokenKey, amount: u128) -> Result<(), Error> {
         if let Some(total_amount) = self.token_position.get(&position).as_mut() {
             *total_amount += amount;
+            self.token_position.insert(position, *total_amount);
         } else {
             self.token_position.insert(position, amount);
         }
@@ -350,7 +359,7 @@ impl HubState {
     pub fn update_token_position(
         &mut self,
         position: TokenKey,
-        f: impl FnOnce(&mut u128) -> Result<(), Error>,
+        f: impl FnOnce(&mut u128) -> Result<u128, Error>,
     ) -> Result<(), Error> {
         self.token_position
             .get(&position)
@@ -359,12 +368,19 @@ impl HubState {
                 position.token_id.to_string(),
                 position.chain_id.to_string(),
             ))
-            .map_or_else(|e| Err(e), |total_amount| f(total_amount))
+            .map_or_else(
+                |e| Err(e),
+                |total_amount| {
+                    let total_amount = f(total_amount)?;
+                    self.token_position.insert(position, total_amount);
+                    Ok(())
+                },
+            )
         // Ok(())
     }
 
     // check the ticket availability
-    pub fn check_and_count(&mut self, ticket: &Ticket) -> Result<(), Error> {
+    pub fn check_and_update(&mut self, ticket: &Ticket) -> Result<(), Error> {
         // check ticket id repetitive
         if self.cross_ledger.contains_key(&ticket.ticket_id) {
             return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
@@ -407,13 +423,15 @@ impl HubState {
                         |total_amount| {
                             // check src chain token balance
                             if *total_amount < ticket_amount {
-                                return Err::<(), omnity_types::Error>(Error::NotSufficientTokens(
-                                    ticket.token.to_string(),
-                                    ticket.src_chain.to_string(),
-                                ));
+                                return Err::<u128, omnity_types::Error>(
+                                    Error::NotSufficientTokens(
+                                        ticket.token.to_string(),
+                                        ticket.src_chain.to_string(),
+                                    ),
+                                );
                             }
                             *total_amount -= ticket_amount;
-                            Ok(())
+                            Ok(*total_amount)
                         },
                     )?;
                     // update token amount on dst chain
@@ -431,13 +449,13 @@ impl HubState {
                     |total_amount| {
                         // check src chain token balance
                         if *total_amount < ticket_amount {
-                            return Err::<(), omnity_types::Error>(Error::NotSufficientTokens(
+                            return Err::<u128, omnity_types::Error>(Error::NotSufficientTokens(
                                 ticket.token.to_string(),
                                 ticket.src_chain.to_string(),
                             ));
                         }
                         *total_amount -= ticket_amount;
-                        Ok(())
+                        Ok(*total_amount)
                     },
                 )?;
 
@@ -447,7 +465,7 @@ impl HubState {
                         TokenKey::from(ticket.dst_chain.to_string(), ticket.token.to_string()),
                         |total_amount| {
                             *total_amount += ticket_amount;
-                            Ok(())
+                            Ok(*total_amount)
                         },
                     )?;
                 }
@@ -473,8 +491,12 @@ impl HubState {
                     {
                         //increase seq
                         chain.latest_ticket_seq += 1;
+                        //update chain info
+                        self.chains
+                            .insert(ticket.dst_chain.to_string(), chain.clone());
                     }
 
+                    // add new ticket
                     self.ticket_queue.insert(
                         TicketKey::from(ticket.dst_chain.to_string(), chain.latest_ticket_seq),
                         ticket.clone(),

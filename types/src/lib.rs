@@ -394,6 +394,9 @@ pub enum Error {
     #[error("proposal error: (`{0}`)")]
     ProposalError(String),
 
+    #[error("generate directive error for : (`{0}`)")]
+    GenerateDirectiveError(String),
+
     #[error("the message is malformed and cannot be decoded error")]
     MalformedMessageBytes,
     #[error("unauthorized")]

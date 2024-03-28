@@ -126,12 +126,13 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                         return Err(Error::NotFoundChain(id.to_string()));
                     }
 
-                    hub_state.available_chain(&token_meta.settlement_chain)?;
-                    let result = format!("The AddToken proposal: {}", token_meta);
-                    info!("validate_proposal result:{} ", result);
-                    proposal_msgs.push(result);
-                    Ok(())
+                    hub_state.available_chain(&token_meta.settlement_chain)
+
+                    // Ok(())
                 })?;
+                let result = format!("The AddToken proposal: {}", token_meta);
+                info!("validate_proposal result:{} ", result);
+                proposal_msgs.push(result);
             }
             Proposal::ToggleChainState(toggle_state) => {
                 if toggle_state.chain_id.is_empty() {
@@ -140,14 +141,10 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                     ));
                 }
 
-                with_state(|hub_state| {
-                    hub_state.available_state(&toggle_state)?;
-
-                    let result = format!("The ToggleChainStatus proposal: {}", toggle_state);
-                    info!("validate_proposal result:{} ", result);
-                    proposal_msgs.push(result);
-                    Ok(())
-                })?;
+                with_state(|hub_state| hub_state.available_state(&toggle_state))?;
+                let result = format!("The ToggleChainStatus proposal: {}", toggle_state);
+                info!("validate_proposal result:{} ", result);
+                proposal_msgs.push(result);
             }
             Proposal::UpdateFee(fee) => {
                 if fee.fee_token.is_empty() {
@@ -159,13 +156,11 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                 with_state(|hub_state| {
                     //check the issue chain must exsiting and not deactive!
                     hub_state.available_chain(&fee.dst_chain_id)?;
-                    hub_state.token(&fee.fee_token)?;
-                    let result = format!("The UpdateFee proposal: {}", fee);
-                    info!("validate_proposal result:{} ", result);
-                    proposal_msgs.push(result);
-
-                    Ok(())
+                    hub_state.token(&fee.fee_token)
                 })?;
+                let result = format!("The UpdateFee proposal: {}", fee);
+                info!("validate_proposal result:{} ", result);
+                proposal_msgs.push(result);
             }
         }
     }
@@ -197,54 +192,62 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     }
 
                     ChainType::ExecutionChain => {
-                        chain_meta.counterparties.map(|counterparties| {
-                            counterparties.into_iter().for_each(|counterparty| {
-                                info!(
-                                    " build directive for counterparty chain:{:?} !",
-                                    counterparty.to_string()
-                                );
-
-                                let _ = with_state(|hub_state| {
-                                    hub_state.available_chain(&counterparty)
-                                })
-                                .map(|dst_chain| {
+                        if let Some(counterparties) = chain_meta.counterparties {
+                            let result: Result<(), Error> = counterparties
+                                .into_iter()
+                                .map(|counterparty| {
+                                    info!(
+                                        " build directive for counterparty chain:{:?} !",
+                                        counterparty.to_string()
+                                    );
+                                    let dst_chain = with_state(|hub_state| {
+                                        hub_state.available_chain(&counterparty)
+                                    })?;
                                     // build directive for counterparty chain
                                     with_state_mut(|hub_state| {
                                         //TODO: Consider whether this is necessary？
-                                        let _ = hub_state.push_dire(
+                                        hub_state.push_dire(
                                             &counterparty,
                                             Directive::AddChain(new_chain.clone().into()),
-                                        );
-                                        // build directive for the new chain
+                                        )?;
+                                        // generate directive for the new chain
                                         hub_state.push_dire(
                                             &new_chain.chain_id,
-                                            Directive::AddChain(dst_chain.clone().into()),
+                                            Directive::AddChain(dst_chain.into()),
                                         )
                                     })
-                                });
-                            })
-                        });
+                                })
+                                .collect();
+                            result?;
+                        }
                     }
                 }
             }
+
             Proposal::AddToken(token_meata) => {
                 info!("build directive for `AddToken` proposal :{:?}", token_meata);
                 // save token info
                 with_state_mut(|hub_state| hub_state.save_token(token_meata.clone()))?;
                 // generate dirctive
-                token_meata.dst_chains.iter().for_each(|chain_id| {
-                    let _ = with_state(|hub_state| hub_state.available_chain(&chain_id)).map(
-                        |dst_chain| {
-                            // generate directive for dst chain
-                            with_state_mut(|hub_state| {
-                                hub_state.push_dire(
-                                    &dst_chain.chain_id,
-                                    Directive::AddToken(token_meata.clone().into()),
-                                )
-                            })
-                        },
-                    );
-                })
+                let result: Result<(), Error> = token_meata
+                    .dst_chains
+                    .iter()
+                    .map(|dst_chain| {
+                        info!(
+                            " build directive for counterparty chain:{:?} !",
+                            dst_chain.to_string()
+                        );
+
+                        with_state_mut(|hub_state| {
+                            hub_state.push_dire(
+                                &dst_chain,
+                                Directive::AddToken(token_meata.clone().into()),
+                            )
+                        })
+                    })
+                    .collect();
+
+                result?;
             }
             Proposal::ToggleChainState(toggle_status) => {
                 info!(
@@ -252,34 +255,31 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     toggle_status
                 );
 
-                // build directive for counterparty chain
-                let ret =
-                    with_state_mut(|hub_state| hub_state.available_chain(&toggle_status.chain_id))
-                        .map(|dst_chain| {
-                            dst_chain.counterparties.map(|counterparties| {
-                                counterparties.iter().for_each(|counterparty| {
-                                    info!(
-                                        " build directive for counterparty chain:{:?} !",
-                                        counterparty.to_string()
-                                    );
-
-                                    // generate directives for counterparty chain
-                                    let ret = with_state_mut(|hub_state| {
-                                        hub_state.push_dire(
-                                            &counterparty,
-                                            Directive::ToggleChainState(toggle_status.clone()),
-                                        )
-                                    });
-                                    info!(
-                                " generate directives for counterparty chain:{:?} result:{:?}!",
-                                counterparty.to_string(),
-                                ret
+                // generate directive for counterparty chain
+                if let Some(counterparties) =
+                    with_state(|hs| hs.available_chain(&toggle_status.chain_id))?.counterparties
+                {
+                    let result: Result<(), Error> = counterparties
+                        .into_iter()
+                        .map(|counterparty| {
+                            info!(
+                                " build directive for counterparty chain:{:?} !",
+                                counterparty.to_string()
                             );
-                                })
+
+                            // build directive for counterparty chain
+                            with_state_mut(|hub_state| {
+                                hub_state.push_dire(
+                                    &counterparty,
+                                    Directive::ToggleChainState(toggle_status.clone()),
+                                )
                             })
-                        });
-                info!(" build directive for counterparty chains result:{:?}!", ret);
-                // finally,update chain state
+                        })
+                        .collect();
+
+                    result?;
+                }
+                // update dst chain state
                 with_state_mut(|hub_state| hub_state.update_chain_state(&toggle_status))?;
             }
             Proposal::UpdateFee(fee) => {
@@ -287,13 +287,14 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
                 with_state_mut(|hub_state| {
                     // save fee info
-                    let _ = hub_state.update_fee(fee.clone());
+                    hub_state.update_fee(fee.clone())?;
                     // generate directive
                     hub_state.push_dire(&fee.dst_chain_id, Directive::UpdateFee(fee.clone()))
                 })?;
             }
         }
     }
+
     Ok(())
 }
 
@@ -337,7 +338,7 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
 
     with_state_mut(|hub_state| {
         // checke ticket and update token on chain
-        hub_state.check_and_count(&ticket)?;
+        hub_state.check_and_update(&ticket)?;
         // push ticket into queue
         hub_state.push_ticket(ticket)
     })?;
@@ -449,7 +450,10 @@ mod tests {
 
     use env_logger;
     use log::LevelFilter;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::{
+        collections::HashMap,
+        time::{SystemTime, UNIX_EPOCH},
+    };
     use uuid::Uuid;
 
     // init logger
@@ -837,32 +841,60 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_chain() {
+        // init_logger();
         // add chain
         build_chains().await;
 
+        with_state(|hs| {
+            for (chain_id, dires) in hs.dire_queue.iter() {
+                println!("{},{:#?}\n", chain_id, dires)
+            }
+        });
+
+        with_state(|hs| {
+            for (chain_id, chain) in hs.chains.iter() {
+                println!("{},{:#?}\n", chain_id, chain)
+            }
+        });
+
         for chain_id in chain_ids() {
-            let result = query_dires(Some(chain_id.to_string()), None, 0, 5).await;
+            let result = query_dires(Some(chain_id.to_string()), None, 0, 10).await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
             let chain = get_chain(chain_id.to_string()).await;
             println!("get chain for {:} chain: {:#?}", chain_id, chain);
         }
+        // let result = query_dires(None, None, 0, 10).await;
+        // println!("query_dires dires: {:#?}", result);
 
         let result = get_chains(None, None, 0, 10).await;
-        assert!(result.is_ok());
         println!("get_chains result : {:#?}", result);
+        assert!(result.is_ok());
 
         let result = get_chains(Some(ChainType::ExecutionChain), None, 0, 10).await;
-        assert!(result.is_ok());
         println!("get_chains result by chain type: {:#?}", result);
+        assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_add_token() {
+        init_logger();
         // add chain
         build_chains().await;
         // add token
         build_tokens().await;
+
+        with_state(|hs| {
+            for (chain_id, dires) in hs.dire_queue.iter() {
+                println!("{},{:#?}", chain_id, dires)
+            }
+        });
+
+        with_state(|hs| {
+            for (chain_id, chain) in hs.chains.iter() {
+                println!("{},{:#?}\n", chain_id, chain)
+            }
+        });
 
         for chain_id in chain_ids() {
             let result = query_dires(
@@ -901,8 +933,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_toggle_chain_state() {
-        // init log
-        env_logger::builder().filter_level(LevelFilter::Info).init();
+        init_logger();
         // add chain
         build_chains().await;
         // add token
@@ -916,20 +947,37 @@ mod tests {
 
         let toggle_state = Proposal::ToggleChainState(chain_state);
         let result = validate_proposal(vec![toggle_state.clone()]).await;
-        assert!(result.is_ok());
         println!(
             "validate_proposal for Proposal::ToggleChainState(chain_state) result:{:#?}",
             result
         );
-        let result = execute_proposal(vec![toggle_state]).await;
         assert!(result.is_ok());
+        let result = execute_proposal(vec![toggle_state]).await;
+        println!(
+            "execute_proposal for Proposal::ToggleChainState(chain_state) result:{:#?}",
+            result
+        );
+        assert!(result.is_ok());
+
+        with_state(|hs| {
+            for (chain_id, dires) in hs.dire_queue.iter() {
+                println!("{},{:#?}", chain_id, dires)
+            }
+        });
+
+        with_state(|hs| {
+            for (chain_id, chain) in hs.chains.iter() {
+                println!("{},{:#?}\n", chain_id, chain)
+            }
+        });
 
         // query directives for chain id
 
         for chain_id in chain_ids() {
             let result = query_dires(
-                Some(chain_id.to_string()),None,
-                // Some(Topic::DeactivateChain),
+                Some(chain_id.to_string()),
+                // None,
+                Some(Topic::DeactivateChain),
                 0,
                 5,
             )
@@ -939,7 +987,7 @@ mod tests {
         }
 
         // let result = get_chains(None, Some(ChainState::Deactive), 0, 10).await;
-        let result = get_chains(None, None, 0, 10).await;
+        // let result = get_chains(None, None, 0, 10).await;
         assert!(result.is_ok());
         println!(
             "get_chains result by chain type and chain state: {:#?}",
@@ -949,10 +997,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_fee() {
+        init_logger();
         // add chain
         build_chains().await;
         // add token
         build_tokens().await;
+
+        // with_state(|hs| {
+        //     for (chain_id, dires) in hs.dire_queue.iter() {
+        //         println!("{},{:#?}", chain_id, dires)
+        //     }
+        // });
+
+        // with_state(|hs| {
+        //     for (chain_id, chain) in hs.chains.iter() {
+        //         println!("{},{:#?}\n", chain_id, chain)
+        //     }
+        // });
 
         // change chain state
         let fee = Fee {
@@ -966,6 +1027,18 @@ mod tests {
         let result = update_fee(vec![fee]).await;
         assert!(result.is_ok());
         println!("update_fee result:{:?}", result);
+
+        with_state(|hs| {
+            for (chain_id, dires) in hs.dire_queue.iter() {
+                println!("{},{:#?}", chain_id, dires)
+            }
+        });
+
+        with_state(|hs| {
+            for (chain_id, chain) in hs.chains.iter() {
+                println!("{},{:#?}\n", chain_id, chain)
+            }
+        });
 
         // query directives for chain id
         for chain_id in chain_ids() {
@@ -1242,7 +1315,6 @@ mod tests {
             receiver: receiver.to_string(),
             memo: None,
         };
-
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_a_ticket);
 
         let result = send_ticket(b_2_a_ticket).await;
@@ -1263,5 +1335,50 @@ mod tests {
         let result = get_txs(None, None, None, None, 0, 10).await;
         println!("get_txs result: {:#?}", result);
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_storage() {
+        // // add chain
+        // build_chains().await;
+        // // add token
+        // build_tokens().await;
+        //
+        // A->B: `transfer` ticket
+        let src_chain = "Bitcoin";
+        let dst_chain = "EVM-Arbitrum";
+        let sender = "address_on_Bitcoinxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+        let receiver = "address_on_Arbitrumxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+        let token = "Bitcoin-RUNES-150:1".to_string();
+
+        let transfer_ticket = Ticket {
+            ticket_id: Uuid::new_v4().to_string(),
+            ticket_time: get_timestamp(),
+            src_chain: src_chain.to_string(),
+            dst_chain: dst_chain.to_string(),
+            action: TxAction::Transfer,
+            token: token.clone(),
+            amount: 88888.to_string(),
+            sender: Some(sender.to_string()),
+            receiver: receiver.to_string(),
+            memo: None,
+        };
+
+        // Serialize the ticket.
+        let mut state_bytes = vec![];
+        let _ = ciborium::ser::into_writer(&transfer_ticket, &mut state_bytes);
+        // let ticket_len = state_bytes.len() as u128;
+        let ticket_len = 1024 as u128;
+        let total_storage = 500 * 1024 * 1024 * 1024 as u128;
+        let daily_ticket_storage = 100000 as u128 * ticket_len;
+        let days = total_storage / daily_ticket_storage;
+
+        println!(
+            "Ticket_len:{} \ndaily_ticket_storage:{} MB \nStorable Time: {} days,about {} years ",
+            ticket_len,
+            daily_ticket_storage / 1024 / 1024,
+            days,
+            days / 365,
+        );
     }
 }
