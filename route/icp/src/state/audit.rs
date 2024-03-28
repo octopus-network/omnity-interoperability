@@ -1,3 +1,5 @@
+use crate::updates::mint_token::MintTokenRequest;
+
 use super::RouteState;
 use candid::Principal;
 use omnity_types::{Chain, ToggleState, Token};
@@ -16,4 +18,10 @@ pub fn toggle_chain_state(state: &mut RouteState, toggle: ToggleState) {
     if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
         chain.chain_state = toggle.action.into();
     }
+}
+
+pub fn finalize_mint_token_req(state: &mut RouteState, req: MintTokenRequest) {
+    state
+        .finalized_mint_token_requests
+        .insert(req.ticket_id.clone(), req);
 }

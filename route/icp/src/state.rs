@@ -1,13 +1,23 @@
 pub mod audit;
 use candid::Principal;
-use omnity_types::{Chain, ChainId, Token, TokenId};
+use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
-use crate::lifecycle::init::InitArgs;
+use crate::{
+    lifecycle::init::InitArgs,
+    updates::mint_token::{MintTokenError, MintTokenRequest},
+};
 
 thread_local! {
     static __STATE: RefCell<Option<RouteState>> = RefCell::default();
+}
+
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MintTokenStatus {
+    Finalized,
+    Failure(MintTokenError),
+    Unknown,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -27,6 +37,8 @@ pub struct RouteState {
     pub tokens: BTreeMap<TokenId, Token>,
 
     pub token_ledgers: BTreeMap<TokenId, Principal>,
+
+    pub finalized_mint_token_requests: BTreeMap<TicketId, MintTokenRequest>,
 }
 
 impl RouteState {
@@ -43,6 +55,7 @@ impl From<InitArgs> for RouteState {
             next_directive_seq: 0,
             counterparties: Default::default(),
             tokens: Default::default(),
+            finalized_mint_token_requests: Default::default(),
         }
     }
 }

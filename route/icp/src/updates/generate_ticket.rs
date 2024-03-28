@@ -30,7 +30,7 @@ pub enum GenerateTicketError {
 
     UnsupportedChainId(String),
 
-    /// The withdrawal account does not hold the requested ckBTC amount.
+    /// The withdrawal account does not hold the requested token amount.
     InsufficientFunds {
         balance: u64,
     },
@@ -136,12 +136,12 @@ async fn burn_token_icrc2(
         }),
         Err(TransferFromError::TemporarilyUnavailable) => {
             Err(GenerateTicketError::TemporarilyUnavailable(
-                "cannot burn ckBTC: the ledger is busy".to_string(),
+                "cannot burn token: the ledger is busy".to_string(),
             ))
         }
         Err(TransferFromError::GenericError { error_code, message }) => {
             Err(GenerateTicketError::TemporarilyUnavailable(format!(
-                "cannot burn ckBTC: the ledger fails with: {} (error code {})", message, error_code
+                "cannot burn token: the ledger fails with: {} (error code {})", message, error_code
             )))
         }
         Err(TransferFromError::BadFee { expected_fee }) => ic_cdk::trap(&format!(
