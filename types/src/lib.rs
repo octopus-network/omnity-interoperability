@@ -156,18 +156,18 @@ impl core::fmt::Display for Ticket {
 #[derive(
     CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
 )]
-pub struct TicketKey {
+pub struct SeqKey {
     pub chain_id: ChainId,
     pub seq: Seq,
 }
 
-impl TicketKey {
+impl SeqKey {
     pub fn from(chain_id: ChainId, seq: Seq) -> Self {
         Self { chain_id, seq }
     }
 }
 
-impl Storable for TicketKey {
+impl Storable for SeqKey {
     fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);

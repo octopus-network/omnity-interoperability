@@ -841,24 +841,30 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_chain() {
-        // init_logger();
+        init_logger();
         // add chain
         build_chains().await;
 
-        with_state(|hs| {
-            for (chain_id, dires) in hs.dire_queue.iter() {
-                println!("{},{:#?}\n", chain_id, dires)
-            }
-        });
+        // with_state(|hs| {
+        //     for (seq_key, dires) in hs.dire_queue.iter() {
+        //         println!("{:?},{:#?}\n", seq_key, dires)
+        //     }
+        // });
 
-        with_state(|hs| {
-            for (chain_id, chain) in hs.chains.iter() {
-                println!("{},{:#?}\n", chain_id, chain)
-            }
-        });
+        // with_state(|hs| {
+        //     for (chain_id, chain) in hs.chains.iter() {
+        //         println!("{},{:#?}\n", chain_id, chain)
+        //     }
+        // });
 
         for chain_id in chain_ids() {
-            let result = query_dires(Some(chain_id.to_string()), None, 0, 10).await;
+            let result = query_dires(
+                Some(chain_id.to_string()),
+                Some(Topic::AddChain(None)),
+                0,
+                10,
+            )
+            .await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
             let chain = get_chain(chain_id.to_string()).await;
@@ -884,17 +890,17 @@ mod tests {
         // add token
         build_tokens().await;
 
-        with_state(|hs| {
-            for (chain_id, dires) in hs.dire_queue.iter() {
-                println!("{},{:#?}", chain_id, dires)
-            }
-        });
+        // with_state(|hs| {
+        //     for (seq_key, dires) in hs.dire_queue.iter() {
+        //         println!("{:?},{:#?}", seq_key, dires)
+        //     }
+        // });
 
-        with_state(|hs| {
-            for (chain_id, chain) in hs.chains.iter() {
-                println!("{},{:#?}\n", chain_id, chain)
-            }
-        });
+        // with_state(|hs| {
+        //     for (chain_id, chain) in hs.chains.iter() {
+        //         println!("{},{:#?}\n", chain_id, chain)
+        //     }
+        // });
 
         for chain_id in chain_ids() {
             let result = query_dires(
@@ -960,8 +966,8 @@ mod tests {
         assert!(result.is_ok());
 
         with_state(|hs| {
-            for (chain_id, dires) in hs.dire_queue.iter() {
-                println!("{},{:#?}", chain_id, dires)
+            for (seq_key, dires) in hs.dire_queue.iter() {
+                println!("{:?},{:#?}", seq_key, dires)
             }
         });
 
@@ -1029,8 +1035,8 @@ mod tests {
         println!("update_fee result:{:?}", result);
 
         with_state(|hs| {
-            for (chain_id, dires) in hs.dire_queue.iter() {
-                println!("{},{:#?}", chain_id, dires)
+            for (seq_key, dires) in hs.dire_queue.iter() {
+                println!("{:?},{:#?}", seq_key, dires)
             }
         });
 

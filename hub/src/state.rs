@@ -1,15 +1,17 @@
 use crate::memory::{self, Memory};
 use crate::types::{Amount, ChainWithSeq, TokenKey, TokenMeta};
 
+
 use ic_stable_structures::StableBTreeMap;
 use log::info;
 use omnity_types::{
-    ChainId, ChainState, DireMap, Directive, Error, Fee, Seq, Ticket, TicketId, TicketKey,
+    ChainId, ChainState, Directive, Error, Fee, Seq, SeqKey, Ticket, TicketId,
     ToggleAction, ToggleState, TokenId, Topic, TxAction,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{HashMap};
+
 use std::num::ParseIntError;
 
 thread_local! {
@@ -26,9 +28,9 @@ pub struct HubState {
     pub fees: StableBTreeMap<TokenKey, Fee, Memory>,
 
     #[serde(skip, default = "init_dire_queue")]
-    pub dire_queue: StableBTreeMap<ChainId, DireMap, Memory>,
+    pub dire_queue: StableBTreeMap<SeqKey, Directive, Memory>,
     #[serde(skip, default = "init_ticket_queue")]
-    pub ticket_queue: StableBTreeMap<TicketKey, Ticket, Memory>,
+    pub ticket_queue: StableBTreeMap<SeqKey, Ticket, Memory>,
     #[serde(skip, default = "init_token_position")]
     pub token_position: StableBTreeMap<TokenKey, Amount, Memory>,
 
@@ -68,10 +70,10 @@ fn init_token_position() -> StableBTreeMap<TokenKey, Amount, Memory> {
 fn init_ledger() -> StableBTreeMap<TicketId, Ticket, Memory> {
     StableBTreeMap::init(memory::get_ledger_memory())
 }
-fn init_dire_queue() -> StableBTreeMap<ChainId, DireMap, Memory> {
+fn init_dire_queue() -> StableBTreeMap<SeqKey, Directive, Memory> {
     StableBTreeMap::init(memory::get_dire_queue_memory())
 }
-fn init_ticket_queue() -> StableBTreeMap<TicketKey, Ticket, Memory> {
+fn init_ticket_queue() -> StableBTreeMap<SeqKey, Ticket, Memory> {
     StableBTreeMap::init(memory::get_ticket_queue_memory())
 }
 
@@ -231,30 +233,23 @@ impl HubState {
                     if matches!(chain.chain_state, ChainState::Deactive) {
                         Err(Error::DeactiveChain(chain_id.to_string()))
                     } else {
-                        let chain_id = chain.chain_id.to_string();
-                        if let Some(mut dire_map) = self.dire_queue.get(&chain_id) {
-                            chain.latest_dire_seq += 1;
-                            dire_map.dires.insert(chain.latest_dire_seq, dire.clone());
-                            info!(
-                                " dir map for chain:{:?} {:?}!",
-                                chain.chain_id.to_string(),
-                                dire_map
-                            );
-
+                        
+                        if self
+                            .dire_queue
+                            .iter()
+                            .find(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
+                            .is_some()
+                        {
+                            //increase seq
+                            chain.latest_ticket_seq += 1;
                             //update chain info
-                            self.chains.insert(chain_id.to_string(), chain);
-                            // update dire map for dst chain
-                            self.dire_queue.insert(chain_id, dire_map);
-                        } else {
-                            // insert new dire map for dst main
-                            self.dire_queue
-                                .insert(chain_id.to_string(), DireMap::from(0, dire.clone()));
-                            info!(
-                                " dir map for chain:{:?} {:?}!",
-                                chain.chain_id.to_string(),
-                                DireMap::from(0, dire)
-                            );
+                            self.chains
+                                .insert(chain.chain_id.to_string(), chain.clone());
                         }
+                        self.dire_queue.insert(
+                            SeqKey::from(chain.chain_id.to_string(), chain.latest_ticket_seq),
+                            dire.clone(),
+                        );
 
                         Ok(())
                     }
@@ -270,7 +265,8 @@ impl HubState {
         limit: usize,
     ) -> Result<Vec<(Seq, Directive)>, Error> {
         fn filter_dires<F>(
-            directives: &BTreeMap<u64, Directive>,
+            dire_queue: &StableBTreeMap<SeqKey, Directive, Memory>,
+            chain_id: &ChainId,
             offset: usize,
             limit: usize,
             predicate: F,
@@ -278,72 +274,78 @@ impl HubState {
         where
             F: Fn(&Directive) -> bool,
         {
-            Ok(directives
+            Ok(dire_queue
                 .iter()
+                .filter(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
                 .filter(|(_, dire)| predicate(dire))
                 .skip(offset)
                 .take(limit)
-                .map(|(seq, dire)| (*seq, dire.clone()))
+                .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
                 .collect::<Vec<_>>())
         }
 
-        if let Some(d) = self.dire_queue.get(&chain_id).as_ref() {
-            match topic {
-                None => Ok(d
-                    .dires
-                    .iter()
-                    .skip(offset)
-                    .take(limit)
-                    .map(|(seq, dire)| (*seq, dire.clone()))
-                    .collect::<Vec<_>>()),
-                Some(topic) => match topic {
-                    Topic::AddChain(chain_type) => filter_dires(&d.dires, offset, limit, |dire| {
+        match topic {
+            None => Ok(self
+                .dire_queue
+                .iter()
+                .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
+                .skip(offset)
+                .take(limit)
+                .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
+                .collect::<Vec<_>>()),
+            Some(topic) => match topic {
+                Topic::AddChain(chain_type) => {
+                    filter_dires(&self.dire_queue, &chain_id, offset, limit, |dire| {
                         if let Some(dst_chain_type) = &chain_type {
                             matches!(dire, Directive::AddChain(chain_info) if chain_info.chain_type == *dst_chain_type)
                         } else {
                             matches!(dire, Directive::AddChain(_))
                         }
-                    }),
-                    Topic::AddToken(token_id) => filter_dires(&d.dires, offset, limit, |dire| {
+                    })
+                }
+                Topic::AddToken(token_id) => {
+                    filter_dires(&self.dire_queue, &chain_id, offset, limit, |dire| {
                         if let Some(dst_token_id) = &token_id {
                             matches!(dire, Directive::AddToken(token_meta) if token_meta.token_id.eq(dst_token_id))
                         } else {
                             matches!(dire, Directive::AddToken(_))
                         }
-                    }),
-                    Topic::UpdateFee(token_id) => filter_dires(&d.dires, offset, limit, |dire| {
+                    })
+                }
+                Topic::UpdateFee(token_id) => {
+                    filter_dires(&self.dire_queue, &chain_id, offset, limit, |dire| {
                         if let Some(dst_token_id) = &token_id {
                             matches!(dire, Directive::UpdateFee(fee) if fee.fee_token.eq(dst_token_id))
                         } else {
                             matches!(dire, Directive::UpdateFee(_))
                         }
-                    }),
-                    Topic::ActivateChain => filter_dires(
-                        &d.dires,
+                    })
+                }
+                Topic::ActivateChain => filter_dires(
+                    &self.dire_queue,
+                    &chain_id,
+                    offset,
+                    limit,
+                    |dire| matches!(dire, Directive::ToggleChainState(toggle_state) if toggle_state.action == ToggleAction::Activate),
+                ),
+                Topic::DeactivateChain => {
+                    info!(
+                        "query  'Topic::DeactivateChain' directives for chain: {}",
+                        chain_id
+                    );
+                    filter_dires(
+                        &self.dire_queue,
+                        &chain_id,
                         offset,
                         limit,
-                        |dire| matches!(dire, Directive::ToggleChainState(toggle_state) if toggle_state.action == ToggleAction::Activate),
-                    ),
-                    Topic::DeactivateChain => {
-                        info!(
-                            "query  'Topic::DeactivateChain' directives for chain: {}",
-                            chain_id
-                        );
-                        filter_dires(
-                            &d.dires,
-                            offset,
-                            limit,
-                            |dire| matches!(dire, Directive::ToggleChainState(toggle_state) if toggle_state.action == ToggleAction::Deactivate),
-                        )
-                    }
-                },
-            }
-        } else {
-            info!("no directives for chain: {}", chain_id);
-            //  Err(Error::NotFoundChain(dst_chain_id))
-            Ok(Vec::new())
+                        |dire| matches!(dire, Directive::ToggleChainState(toggle_state) if toggle_state.action == ToggleAction::Deactivate),
+                    )
+                }
+            },
         }
     }
+
+
 
     pub fn add_token_position(&mut self, position: TokenKey, amount: u128) -> Result<(), Error> {
         if let Some(total_amount) = self.token_position.get(&position).as_mut() {
@@ -483,10 +485,14 @@ impl HubState {
             .map_or_else(
                 |e| Err(e),
                 |chain| {
+                    if matches!(chain.chain_state, ChainState::Deactive) {
+                        return Err(Error::DeactiveChain(chain.chain_id.to_string()));
+                    }
+
                     if self
                         .ticket_queue
                         .iter()
-                        .find(|(ticket_key, ticket)| ticket_key.chain_id.eq(&ticket.dst_chain))
+                        .find(|(seq_key, ticket)| seq_key.chain_id.eq(&ticket.dst_chain))
                         .is_some()
                     {
                         //increase seq
@@ -498,7 +504,7 @@ impl HubState {
 
                     // add new ticket
                     self.ticket_queue.insert(
-                        TicketKey::from(ticket.dst_chain.to_string(), chain.latest_ticket_seq),
+                        SeqKey::from(ticket.dst_chain.to_string(), chain.latest_ticket_seq),
                         ticket.clone(),
                     );
                     //save ticket
@@ -519,7 +525,7 @@ impl HubState {
         let tickets = self
             .ticket_queue
             .iter()
-            .filter(|(tk, _)| tk.chain_id.eq(chain_id))
+            .filter(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
             .skip(offset)
             .take(limit)
             .map(|(tk, ticket)| (tk.seq, ticket.clone()))

@@ -9,8 +9,8 @@ use ic_stable_structures::StableBTreeMap;
 use omnity_types::DireKey;
 use omnity_types::Directive;
 use omnity_types::Fee;
+use omnity_types::SeqKey;
 use omnity_types::Ticket;
-use omnity_types::TicketKey;
 use omnity_types::ToggleState;
 use omnity_types::Token;
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,7 @@ pub type DireQueue = StableBTreeMap<DireKey, Directive, Memory>;
 /// Ticket Queue
 /// K: DstChain, V: BTreeMap<Seq, Ticket>
 // pub type TicketQueue = StableBTreeMap<DstChain, BTreeMap<Seq, Ticket>, Memory>;
-pub type TicketQueue = StableBTreeMap<TicketKey, Ticket, Memory>;
+pub type TicketQueue = StableBTreeMap<SeqKey, Ticket, Memory>;
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub enum Proposal {
