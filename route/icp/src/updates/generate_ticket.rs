@@ -1,6 +1,8 @@
 use crate::hub;
-use crate::state::{audit, read_state};
+use crate::state::{audit, ledger_principal, read_state, redeem_fee_of_icp};
 use candid::{CandidType, Deserialize, Nat, Principal};
+use ic_cdk::caller;
+use ic_ledger_types::{AccountIdentifier, Tokens, DEFAULT_SUBACCOUNT};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
@@ -43,12 +45,16 @@ pub enum GenerateTicketError {
     SendTicketErr(String),
 
     TemporarilyUnavailable(String),
+
+    TransferFailure,
 }
 
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     // TODO charge Fee
+    charge_icp(caller(), redeem_fee_of_icp(args.target_chain_id.clone()))
+        .await?;
 
     if !read_state(|s| {
         s.counterparties
@@ -165,4 +171,62 @@ async fn burn_token_icrc2(
             min_burn_amount
         )),
     }
+}
+
+async fn charge_icp(charge_from: Principal, fee_amount: u64) -> Result<(), GenerateTicketError> {
+    let subaccount = principal_to_subaccount(&charge_from);
+
+    let transfer_args = ic_ledger_types::TransferArgs {
+        memo: ic_ledger_types::Memo(0),
+        amount: Tokens::from_e8s(fee_amount),
+        fee: Tokens::ZERO,
+        from_subaccount: Some(subaccount.clone()),
+        to: AccountIdentifier::new(&ic_cdk::api::id(), &DEFAULT_SUBACCOUNT),
+        created_at_time: None,
+    };
+
+    match ic_ledger_types::transfer(ledger_principal(), transfer_args).await {
+        Ok(_) => {}
+        Err(_) => {
+            refund_icp(charge_from).await?;
+
+            return Err(GenerateTicketError::TransferFailure);
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn refund_icp(charge_from: Principal) -> Result<u64, GenerateTicketError> {
+    let subaccount = principal_to_subaccount(&charge_from);
+
+    let account = AccountIdentifier::new(&ic_cdk::api::id(), &subaccount);
+    let balance_args = ic_ledger_types::AccountBalanceArgs { account };
+    let balance = ic_ledger_types::account_balance(ledger_principal(), balance_args)
+        .await
+        .map_err(|_| GenerateTicketError::TransferFailure)?;
+
+    let refund_transfer_args = ic_ledger_types::TransferArgs {
+        memo: ic_ledger_types::Memo(0),
+        amount: balance,
+        fee: Tokens::ZERO,
+        from_subaccount: Some(subaccount),
+        to: AccountIdentifier::new(&charge_from, &DEFAULT_SUBACCOUNT),
+        created_at_time: None,
+    };
+
+    ic_ledger_types::transfer(ledger_principal(), refund_transfer_args)
+        .await
+        .map_err(|_| GenerateTicketError::TransferFailure)?
+        .map_err(|_| GenerateTicketError::TransferFailure)
+    
+}
+
+pub fn principal_to_subaccount(principal_id: &Principal) -> ic_ledger_types::Subaccount {
+    let mut subaccount = [0; std::mem::size_of::<Subaccount>()];
+    let principal_id = principal_id.as_slice();
+    subaccount[0] = principal_id.len().try_into().unwrap();
+    subaccount[1..1 + principal_id.len()].copy_from_slice(principal_id);
+
+    ic_ledger_types::Subaccount(subaccount)
 }

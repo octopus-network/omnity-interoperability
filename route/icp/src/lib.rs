@@ -106,7 +106,7 @@ async fn process_directives() {
                         mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
                     }
                     Directive::UpdateFee(fee) => {
-                        // todo update fee
+                        mutate_state(|s| audit::update_fee(s, fee.clone()));
                     }
                 }
             }
