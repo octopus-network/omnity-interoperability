@@ -5,21 +5,26 @@ use icrc_ledger_types::icrc1::{
     transfer::{TransferArg, TransferError},
 };
 use num_traits::cast::ToPrimitive;
+use omnity_types::TicketId;
 use serde::Serialize;
 
-use crate::state::read_state;
+use crate::state::{audit, mutate_state, read_state, MintTokenStatus};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct MintTokenArgs {
+pub struct MintTokenRequest {
+    pub ticket_id: TicketId,
     pub token_id: String,
     /// The owner of the account on the ledger.
     pub receiver: Principal,
     pub amount: u128,
+    pub status: MintTokenStatus,
 }
 
-#[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MintTokenError {
     UnsupportedToken(String),
+
+    AlreadyProcessed(TicketId),
 
     TemporarilyUnavailable(String),
 
@@ -42,23 +47,26 @@ impl From<TransferError> for MintTokenError {
     }
 }
 
-pub async fn mint_token(args: MintTokenArgs) -> Result<(), MintTokenError> {
-    let ledger_id = read_state(|s| match s.token_ledgers.get(&args.token_id) {
+pub async fn mint_token(req: &mut MintTokenRequest) -> Result<(), MintTokenError> {
+    if read_state(|s| s.finalized_mint_token_requests.contains_key(&req.token_id)) {
+        return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
+    }
+
+    let ledger_id = read_state(|s| match s.token_ledgers.get(&req.token_id) {
         Some(ledger_id) => Ok(ledger_id.clone()),
-        None => Err(MintTokenError::UnsupportedToken(args.token_id)),
+        None => Err(MintTokenError::UnsupportedToken(req.token_id.clone())),
     })?;
 
-    // todo receiver able to convert Account
     let account = Account {
-        owner: args.receiver,
+        owner: req.receiver.clone(),
         subaccount: None,
     };
 
-    // TODO record logs
-    match mint(ledger_id, args.amount, account).await {
-        Ok(_) => Ok(()),
-        Err(err) => Err(err),
-    }
+    if let Err(err) = mint(ledger_id, req.amount, account).await {
+        req.status = MintTokenStatus::Failure(err);
+    };
+    mutate_state(|s| audit::finalize_mint_token_req(s, req.clone()));
+    Ok(())
 }
 
 async fn mint(ledger_id: Principal, amount: u128, to: Account) -> Result<u64, MintTokenError> {

@@ -1,9 +1,9 @@
 use candid::Principal;
 use log::{self};
 use omnity_types::Directive;
-use state::{audit, mutate_state, read_state};
+use state::{audit, mutate_state, read_state, MintTokenStatus};
 use std::str::FromStr;
-use updates::mint_token::MintTokenArgs;
+use updates::mint_token::MintTokenRequest;
 
 pub mod call_error;
 pub mod hub;
@@ -42,10 +42,12 @@ async fn process_tickets() {
                     );
                     continue;
                 };
-                match updates::mint_token(MintTokenArgs {
+                match updates::mint_token(&mut MintTokenRequest {
+                    ticket_id: ticket.ticket_id.clone(),
                     token_id: ticket.token,
                     receiver,
                     amount,
+                    status: MintTokenStatus::Finalized,
                 })
                 .await
                 {
