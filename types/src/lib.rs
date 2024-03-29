@@ -1,8 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use candid::CandidType;
-
+use ic_stable_structures::storable::Bound;
+use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 use thiserror::Error;
 
@@ -24,6 +26,73 @@ pub enum Directive {
     UpdateFee(Fee),
 }
 
+impl Storable for Directive {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        dire
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(
+    CandidType, Deserialize, Serialize, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
+)]
+pub struct DireKey {
+    pub chain_id: ChainId,
+    pub seq: Seq,
+}
+
+impl Storable for DireKey {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let dk = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        dk
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, Default)]
+pub struct DireMap {
+    // pub seq: Seq,
+    // pub dire: Directive,
+    pub dires: BTreeMap<Seq, Directive>,
+}
+
+impl DireMap {
+    pub fn from(seq: Seq, dire: Directive) -> Self {
+        Self {
+            dires: BTreeMap::from([(seq, dire)]),
+        }
+    }
+}
+impl Storable for DireMap {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        dire
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub enum Topic {
     // AddChain(Option<ChainType>)
@@ -34,7 +103,9 @@ pub enum Topic {
     DeactivateChain,
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 pub struct Ticket {
     pub ticket_id: TicketId,
     pub ticket_time: Timestamp,
@@ -46,6 +117,21 @@ pub struct Ticket {
     pub sender: Option<Account>,
     pub receiver: Account,
     pub memo: Option<Vec<u8>>,
+}
+
+impl Storable for Ticket {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let ticket = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        ticket
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
 }
 
 impl core::fmt::Display for Ticket {
@@ -65,6 +151,65 @@ impl core::fmt::Display for Ticket {
             self.memo,
         )
     }
+}
+
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
+)]
+pub struct SeqKey {
+    pub chain_id: ChainId,
+    pub seq: Seq,
+}
+
+impl SeqKey {
+    pub fn from(chain_id: ChainId, seq: Seq) -> Self {
+        Self { chain_id, seq }
+    }
+}
+
+impl Storable for SeqKey {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let tk = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        tk
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+pub struct TicketMap {
+    // pub seq: Seq,
+    // pub ticket: Ticket,
+    pub tickets: BTreeMap<Seq, Ticket>,
+}
+
+impl TicketMap {
+    pub fn from(seq: Seq, ticket: Ticket) -> Self {
+        Self {
+            tickets: BTreeMap::from([(seq, ticket)]),
+        }
+    }
+}
+
+impl Storable for TicketMap {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let ticket = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        ticket
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
@@ -99,14 +244,16 @@ impl From<ToggleAction> for ChainState {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 pub enum TxAction {
     #[default]
     Transfer,
     Redeem,
 }
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, Default)]
 pub struct Fee {
     pub dst_chain_id: ChainId,
     // quote currency or token
@@ -115,6 +262,21 @@ pub struct Fee {
     pub factor: i64,
     // quote token amoute
     // pub fee_amount: u64,
+}
+
+impl Storable for Fee {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        fee
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
 }
 
 impl core::fmt::Display for Fee {
@@ -231,6 +393,9 @@ pub enum Error {
     NotSupportedProposal,
     #[error("proposal error: (`{0}`)")]
     ProposalError(String),
+
+    #[error("generate directive error for : (`{0}`)")]
+    GenerateDirectiveError(String),
 
     #[error("the message is malformed and cannot be decoded error")]
     MalformedMessageBytes,
