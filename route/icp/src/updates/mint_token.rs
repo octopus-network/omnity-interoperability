@@ -1,3 +1,4 @@
+use crate::state::{audit, mutate_state, read_state, MintTokenStatus};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::{
@@ -7,8 +8,6 @@ use icrc_ledger_types::icrc1::{
 use num_traits::cast::ToPrimitive;
 use omnity_types::TicketId;
 use serde::Serialize;
-
-use crate::state::{audit, mutate_state, read_state, MintTokenStatus};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MintTokenRequest {

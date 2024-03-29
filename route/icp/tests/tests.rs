@@ -288,6 +288,7 @@ fn add_chain(route: &RouteSetup) {
         contract_address: None,
     })]);
     route.env.advance_time(Duration::from_secs(10));
+    route.await_chain(SETTLEMENT_CHAIN.into(), 10);
 }
 
 fn add_token(route: &RouteSetup) {
@@ -307,7 +308,6 @@ fn add_token(route: &RouteSetup) {
 fn test_add_chain() {
     let route = RouteSetup::new();
     add_chain(&route);
-    route.await_chain(SETTLEMENT_CHAIN.into(), 10);
 }
 
 #[test]
