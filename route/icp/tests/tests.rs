@@ -387,6 +387,5 @@ fn test_generate_ticket() {
         .expect("should generate ticket success");
 
     let balance = route.icrc1_balance_of(ledger_id, route.caller.into());
-    // minus the transfer fee of 10,000
-    assert_eq!(balance, Nat::from_str("590000").unwrap());
+    assert_eq!(balance, Nat::from_str("600000").unwrap());
 }

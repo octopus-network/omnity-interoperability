@@ -1,6 +1,8 @@
+use std::str::FromStr;
+
 use crate::state::{audit, mutate_state, read_state};
 use crate::ICRC2_WASM;
-use candid::{CandidType, Deserialize};
+use candid::{CandidType, Deserialize, Nat};
 use candid::{Encode, Principal};
 use ic_cdk::api::management_canister::main::{
     create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CanisterSettings,
@@ -57,6 +59,7 @@ async fn install_icrc2_ledger(
             LedgerInitArgsBuilder::with_symbol_and_name(token_symbol, token_name)
                 .with_decimals(token_decimal)
                 .with_minting_account(Into::<Account>::into(owner))
+                .with_transfer_fee(Nat::from_str("0").unwrap())
                 .with_archive_options(ArchiveOptions {
                     trigger_threshold: 1000,
                     num_blocks_to_archive: 1000,
