@@ -39,7 +39,7 @@ fn customs_wasm() -> Vec<u8> {
     load_wasm(
         std::env::var("CARGO_MANIFEST_DIR").unwrap(),
         "bitcoin_customs",
-        &[],
+        &["self_check"],
     )
 }
 
@@ -884,10 +884,7 @@ fn test_update_runes_balance_no_utxo() {
     let result = customs.update_runes_balance(&UpdateRunesBalanceArgs {
         txid: random_txid(),
         balances: vec![RunesBalance {
-            rune_id: RuneId {
-                block: 150,
-                tx: 1,
-            },
+            rune_id: RuneId { block: 150, tx: 1 },
             vout: 1,
             amount: 100_000_000,
         }],
@@ -932,10 +929,7 @@ fn test_update_runes_balance_invalid() {
     let result = customs.update_runes_balance(&UpdateRunesBalanceArgs {
         txid,
         balances: vec![RunesBalance {
-            rune_id: RuneId {
-                block: 150,
-                tx: 1,
-            },
+            rune_id: RuneId { block: 150, tx: 1 },
             vout,
             // inconsistent with the value of generate ticket
             amount: 100_000,
@@ -995,18 +989,12 @@ fn test_update_runes_balance_multi_utxos() {
         txid,
         balances: vec![
             RunesBalance {
-                rune_id: RuneId {
-                    block: 150,
-                    tx: 1,
-                },
+                rune_id: RuneId { block: 150, tx: 1 },
                 vout: 1,
                 amount: 100_000_000,
             },
             RunesBalance {
-                rune_id: RuneId {
-                    block: 150,
-                    tx: 1,
-                },
+                rune_id: RuneId { block: 150, tx: 1 },
                 vout: 2,
                 amount: 200_000_000,
             },
@@ -1162,7 +1150,7 @@ fn test_finalize_release_token_tx() {
 
     customs.finalize_transaction(tx, RUNE_ID_1.into());
     assert_eq!(customs.await_finalization(ticket_id, 10), txid);
-    // customs.customs_self_check();
+    customs.customs_self_check();
 }
 
 #[test]
@@ -1218,6 +1206,7 @@ fn test_finalize_batch_release_token_tx() {
             ReleaseTokenStatus::Confirmed(txid)
         );
     }
+    customs.customs_self_check();
 }
 
 #[test]
@@ -1297,6 +1286,7 @@ fn test_exist_two_submitted_tx() {
         customs.await_finalization(second_ticket_id, 10),
         second_txid
     );
+    customs.customs_self_check();
 }
 
 #[test]
@@ -1378,6 +1368,7 @@ fn test_transaction_use_prev_change_output() {
         customs.await_finalization(second_ticket_id, 10),
         second_txid
     );
+    customs.customs_self_check();
 }
 
 #[test]
@@ -1450,6 +1441,7 @@ fn test_transaction_multi_runes_id() {
         customs.await_finalization(second_ticket_id, 10),
         second_txid
     );
+    customs.customs_self_check();
 }
 
 #[test]
@@ -1519,7 +1511,7 @@ fn test_transaction_resubmission_finalize_new() {
 
     customs.finalize_transaction(new_tx, RUNE_ID_1.into());
     assert_eq!(customs.await_finalization(ticket_id, 10), new_txid);
-    // customs.customs_self_check();
+    customs.customs_self_check();
 }
 
 #[test]
@@ -1582,7 +1574,7 @@ fn test_transaction_resubmission_finalize_old() {
 
     customs.finalize_transaction(tx, RUNE_ID_1.into());
     assert_eq!(customs.await_finalization(ticket_id, 10), txid);
-    // customs.minter_self_check();
+    customs.customs_self_check();
 }
 
 #[test]
@@ -1665,7 +1657,7 @@ fn test_transaction_resubmission_finalize_middle() {
 
     customs.finalize_transaction(second_tx, RUNE_ID_1.into());
     assert_eq!(customs.await_finalization(ticket_id, 10), second_txid);
-    // customs.minter_self_check();
+    customs.customs_self_check();
 }
 
 #[test]

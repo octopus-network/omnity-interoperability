@@ -10,12 +10,12 @@ use ic_btc_interface::{Txid, Utxo};
 use omnity_types::{Chain, ToggleState, Token};
 
 pub fn add_chain(state: &mut CustomsState, chain: Chain) {
-    record_event(&Event::AddChain(chain.clone()));
+    record_event(&Event::AddedChain(chain.clone()));
     state.counterparties.insert(chain.chain_id.clone(), chain);
 }
 
 pub fn add_token(state: &mut CustomsState, rune_id: RuneId, token: Token) {
-    record_event(&Event::AddToken {
+    record_event(&Event::AddedToken {
         rune_id,
         token: token.clone(),
     });

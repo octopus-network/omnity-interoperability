@@ -53,10 +53,10 @@ fn ok_or_die(result: Result<(), String>) {
     }
 }
 
-/// Checks that ckBTC minter state internally consistent.
+/// Checks that customs minter state internally consistent.
 #[cfg(feature = "self_check")]
 fn check_invariants() -> Result<(), String> {
-    use ic_ckbtc_minter::state::eventlog::replay;
+    use bitcoin_customs::state::eventlog::replay;
 
     read_state(|s| {
         s.check_invariants()?;
@@ -78,18 +78,8 @@ fn check_invariants() -> Result<(), String> {
 
 #[cfg(feature = "self_check")]
 #[update]
-async fn distribute_kyt_fee() {
-    let _guard = match ic_ckbtc_minter::guard::DistributeKytFeeGuard::new() {
-        Some(guard) => guard,
-        None => return,
-    };
-    ic_ckbtc_minter::distribute_kyt_fees().await;
-}
-
-#[cfg(feature = "self_check")]
-#[update]
 async fn refresh_fee_percentiles() {
-    let _ = ic_ckbtc_minter::estimate_fee_per_vbyte().await;
+    let _ = bitcoin_customs::estimate_fee_per_vbyte().await;
 }
 
 fn check_postcondition<T>(t: T) -> T {

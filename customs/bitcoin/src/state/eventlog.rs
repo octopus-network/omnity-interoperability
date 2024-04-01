@@ -28,11 +28,11 @@ pub enum Event {
     #[serde(rename = "upgrade")]
     Upgrade(UpgradeArgs),
 
-    #[serde(rename = "add_chain")]
-    AddChain(Chain),
+    #[serde(rename = "added_chain")]
+    AddedChain(Chain),
 
-    #[serde(rename = "add_token")]
-    AddToken { rune_id: RuneId, token: Token },
+    #[serde(rename = "added_token")]
+    AddedToken { rune_id: RuneId, token: Token },
 
     #[serde(rename = "toggle_chain_state")]
     ToggleChainState(ToggleState),
@@ -176,10 +176,10 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.reinit(args);
             }
             Event::Upgrade(args) => state.upgrade(args),
-            Event::AddChain(chain) => {
+            Event::AddedChain(chain) => {
                 state.counterparties.insert(chain.chain_id.clone(), chain);
             }
-            Event::AddToken { rune_id, token } => {
+            Event::AddedToken { rune_id, token } => {
                 state
                     .tokens
                     .insert(token.token_id.clone(), (rune_id, token));

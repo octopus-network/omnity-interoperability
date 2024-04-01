@@ -64,6 +64,7 @@ type Event = variant {
     rune_id : RuneId;
     submitted_at : nat64;
   };
+  added_token : record { token : Token; rune_id : RuneId };
   finalized_ticket_request : record {
     txid : vec nat8;
     balances : vec RunesBalance;
@@ -72,7 +73,7 @@ type Event = variant {
   init : InitArgs;
   updated_runes_balance : record { balance : RunesBalance; txid : vec nat8 };
   upgrade : UpgradeArgs;
-  add_token : record { token : Token; rune_id : RuneId };
+  added_chain : Chain;
   confirmed_transaction : GenTicketStatusArgs;
   replaced_transaction : record {
     fee : nat64;
@@ -84,7 +85,6 @@ type Event = variant {
     submitted_at : nat64;
   };
   accepted_generate_ticket_request : GenTicketRequest;
-  add_chain : Chain;
   toggle_chain_state : ToggleState;
 };
 type FinalizedTicketStatus = variant { Invalid; Finalized };
