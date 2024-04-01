@@ -29,10 +29,13 @@ type Error = variant {
   ProposalError : text;
   NotFoundAccountToken : record { text; text; text };
   NotSupportedProposal;
+  SighWithEcdsaError : text;
   Unauthorized;
   TicketAmountParseError : record { text; text };
   NotFoundChainToken : record { text; text };
   TokenAlreadyExisting : text;
+  GenerateDirectiveError : text;
+  EcdsaPublicKeyError : text;
   NotFoundToken : text;
   CustomError : text;
   NotSufficientTokens : record { text; text };

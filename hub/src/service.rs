@@ -10,11 +10,11 @@ use omnity_hub::metrics;
 use omnity_hub::state::HubState;
 use omnity_hub::state::{set_state, with_state, with_state_mut};
 use omnity_hub::types::{ChainWithSeq, Proposal};
-use omnity_hub::util::{init_log, LoggerConfigService};
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Fee, Seq, Ticket, TicketId, Token,
     TokenId, TokenOnChain, Topic,
 };
+use omnity_types::log::{init_log, LoggerConfigService};
 
 #[init]
 fn init() {
@@ -1070,6 +1070,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_tx_ticket() {
+        init_logger();
         // add chain
         build_chains().await;
         // add token
@@ -1188,6 +1189,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_c_tx_ticket() {
+        init_logger();
         // add chain
         build_chains().await;
         // add token

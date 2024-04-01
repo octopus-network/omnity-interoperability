@@ -1,12 +1,17 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+};
 
 use candid::CandidType;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-
 use thiserror::Error;
+
+pub mod log;
+pub mod signer;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
@@ -382,6 +387,145 @@ pub struct TxCondition {
     pub time_range: Option<(u64, u64)>,
 }
 
+use candid::Principal;
+pub type CanisterId = Principal;
+
+#[derive(CandidType, Serialize, Debug)]
+struct ECDSAPublicKey {
+    pub canister_id: Option<CanisterId>,
+    pub derivation_path: Vec<Vec<u8>>,
+    pub key_id: EcdsaKeyId,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+pub struct ECDSAPublicKeyReply {
+    pub public_key: Vec<u8>,
+    pub chain_code: Vec<u8>,
+}
+
+#[derive(CandidType, Serialize, Debug)]
+pub struct SignWithECDSA {
+    pub message_hash: Vec<u8>,
+    pub derivation_path: Vec<Vec<u8>>,
+    pub key_id: EcdsaKeyId,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+pub struct SignWithECDSAReply {
+    pub signature: Vec<u8>,
+}
+
+#[derive(CandidType, Serialize, Debug)]
+pub struct PublicKeyReply {
+    pub public_key: Vec<u8>,
+}
+
+impl From<Vec<u8>> for PublicKeyReply {
+    fn from(public_key: Vec<u8>) -> Self {
+        Self { public_key }
+    }
+}
+
+#[derive(CandidType, Serialize, Debug)]
+pub struct SignatureReply {
+    pub signature: Vec<u8>,
+}
+
+impl From<Vec<u8>> for SignatureReply {
+    fn from(signature: Vec<u8>) -> Self {
+        Self { signature }
+    }
+}
+
+#[derive(CandidType, Serialize, Debug)]
+pub struct SignatureVerificationReply {
+    pub is_signature_valid: bool,
+}
+
+impl From<bool> for SignatureVerificationReply {
+    fn from(is_signature_valid: bool) -> Self {
+        Self { is_signature_valid }
+    }
+}
+
+#[derive(CandidType, Serialize, Debug, Clone)]
+pub struct EcdsaKeyId {
+    pub curve: EcdsaCurve,
+    pub name: String,
+}
+
+#[derive(CandidType, Serialize, Debug, Clone)]
+pub enum EcdsaCurve {
+    #[serde(rename = "secp256k1")]
+    Secp256k1,
+}
+
+pub enum EcdsaKeyIds {
+    #[allow(unused)]
+    TestKeyLocalDevelopment,
+    #[allow(unused)]
+    TestKey1,
+    #[allow(unused)]
+    ProductionKey1,
+}
+
+impl EcdsaKeyIds {
+    pub fn to_key_id(&self) -> EcdsaKeyId {
+        EcdsaKeyId {
+            curve: EcdsaCurve::Secp256k1,
+            name: match self {
+                Self::TestKeyLocalDevelopment => "dfx_test_key",
+                Self::TestKey1 => "test_key_1",
+                Self::ProductionKey1 => "key_1",
+            }
+            .to_string(),
+        }
+    }
+}
+
+#[derive(CandidType, Clone, Copy, Deserialize, Debug, Eq, PartialEq, Serialize, Hash)]
+pub enum Network {
+    #[serde(rename = "local")]
+    Local,
+    #[serde(rename = "testnet")]
+    Testnet,
+    #[serde(rename = "mainnet")]
+    Mainnet,
+}
+
+impl Network {
+    pub fn key_id(&self) -> EcdsaKeyId {
+        match self {
+            Network::Local => EcdsaKeyIds::TestKeyLocalDevelopment.to_key_id(),
+            Network::Testnet => EcdsaKeyIds::TestKey1.to_key_id(),
+            Network::Mainnet => EcdsaKeyIds::ProductionKey1.to_key_id(),
+        }
+    }
+}
+
+impl core::fmt::Display for Network {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match self {
+            Self::Local => write!(f, "local"),
+            Self::Testnet => write!(f, "testnet"),
+            Self::Mainnet => write!(f, "mainnet"),
+        }
+    }
+}
+
+impl FromStr for Network {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "regtest" => Ok(Network::Local),
+            "testnet" => Ok(Network::Testnet),
+            "mainnet" => Ok(Network::Mainnet),
+            _ => Err(Error::CustomError("Bad network".to_string())),
+        }
+    }
+}
+
 #[derive(CandidType, Deserialize, Debug, Error)]
 pub enum Error {
     #[error("The chain(`{0}`) already exists")]
@@ -417,6 +561,11 @@ pub enum Error {
     NotSufficientTokens(String, String),
     #[error("The ticket amount(`{0}`) parse error: `{1}`")]
     TicketAmountParseError(String, String),
+    #[error("ecdsa_public_key failed : (`{0}`)")]
+    EcdsaPublicKeyError(String),
+
+    #[error("sign_with_ecdsa failed: (`{0}`)")]
+    SighWithEcdsaError(String),
     #[error("custom error: (`{0}`)")]
     CustomError(String),
 }
