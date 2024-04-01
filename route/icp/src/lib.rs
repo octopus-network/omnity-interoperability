@@ -10,6 +10,7 @@ pub mod hub;
 pub mod lifecycle;
 pub mod log_util;
 pub mod state;
+pub mod storage;
 pub mod updates;
 
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
@@ -47,7 +48,7 @@ async fn process_tickets() {
                     token_id: ticket.token,
                     receiver,
                     amount,
-                    status: MintTokenStatus::Finalized,
+                    status: MintTokenStatus::Unknown,
                 })
                 .await
                 {

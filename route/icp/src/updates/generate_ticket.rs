@@ -1,5 +1,5 @@
 use crate::hub;
-use crate::state::read_state;
+use crate::state::{audit, read_state};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::{Account, Subaccount};
@@ -9,7 +9,7 @@ use omnity_types::{ChainState, Ticket, TxAction};
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct GenerateTicketArgs {
+pub struct GenerateTicketReq {
     pub target_chain_id: String,
     pub receiver: String,
     pub token_id: String,
@@ -46,32 +46,32 @@ pub enum GenerateTicketError {
 }
 
 pub async fn generate_ticket(
-    args: GenerateTicketArgs,
+    req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     // TODO charge Fee
 
     if !read_state(|s| {
         s.counterparties
-            .get(&args.target_chain_id)
+            .get(&req.target_chain_id)
             .is_some_and(|c| c.chain_state == ChainState::Active)
     }) {
         return Err(GenerateTicketError::UnsupportedChainId(
-            args.target_chain_id.clone(),
+            req.target_chain_id.clone(),
         ));
     }
 
-    let ledger_id = read_state(|s| match s.token_ledgers.get(&args.token_id) {
+    let ledger_id = read_state(|s| match s.token_ledgers.get(&req.token_id) {
         Some(ledger_id) => Ok(ledger_id.clone()),
-        None => Err(GenerateTicketError::UnsupportedToken(args.token_id.clone())),
+        None => Err(GenerateTicketError::UnsupportedToken(req.token_id.clone())),
     })?;
 
     let caller = ic_cdk::caller();
     let user = Account {
         owner: caller,
-        subaccount: args.from_subaccount,
+        subaccount: req.from_subaccount,
     };
 
-    let block_index = burn_token_icrc2(ledger_id, user, args.amount).await?;
+    let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     hub::send_ticket(
@@ -80,18 +80,19 @@ pub async fn generate_ticket(
             ticket_id: block_index.to_string(),
             ticket_time: ic_cdk::api::time(),
             src_chain: chain_id,
-            dst_chain: args.target_chain_id,
+            dst_chain: req.target_chain_id.clone(),
             action: TxAction::Redeem,
-            token: args.token_id.clone(),
-            amount: args.amount.to_string(),
+            token: req.token_id.clone(),
+            amount: req.amount.to_string(),
             sender: None,
-            receiver: args.receiver,
+            receiver: req.receiver.clone(),
             memo: None,
         },
     )
     .await
     .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
 
+    audit::finalize_gen_ticket(block_index, req);
     Ok(GenerateTicketOk { block_index })
 }
 

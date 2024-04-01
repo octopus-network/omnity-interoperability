@@ -5,7 +5,7 @@ use ic_test_utilities_load_wasm::load_wasm;
 use icp_route::{
     lifecycle::init::{InitArgs, RouteArg},
     state::MintTokenStatus,
-    updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError, GenerateTicketOk},
+    updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq},
 };
 use icrc_ledger_types::{
     icrc1::account::Account,
@@ -94,7 +94,7 @@ impl RouteSetup {
 
     pub fn generate_ticket(
         &self,
-        args: &GenerateTicketArgs,
+        args: &GenerateTicketReq,
     ) -> Result<GenerateTicketOk, GenerateTicketError> {
         Decode!(
             &assert_reply(
@@ -251,8 +251,7 @@ impl RouteSetup {
 
     pub fn await_await_finalization(&self, ticket_id: String, max_ticks: usize) {
         for _ in 0..max_ticks {
-            let status = self.mint_token_status(ticket_id.clone());
-            if status == MintTokenStatus::Finalized {
+            if let MintTokenStatus::Finalized { .. } = self.mint_token_status(ticket_id.clone()) {
                 return;
             }
         }
@@ -377,7 +376,7 @@ fn test_generate_ticket() {
     route.icrc2_approve(ledger_id, Nat::from(redeem_amount));
 
     route
-        .generate_ticket(&GenerateTicketArgs {
+        .generate_ticket(&GenerateTicketReq {
             target_chain_id: SETTLEMENT_CHAIN.into(),
             receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
             token_id: TOKEN_ID.into(),

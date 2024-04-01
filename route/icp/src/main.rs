@@ -4,12 +4,13 @@ use ic_cdk_timers::set_timer_interval;
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg};
 use icp_route::log_util::init_log;
+use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{read_state, MintTokenStatus};
 use icp_route::updates::generate_ticket::{
-    GenerateTicketArgs, GenerateTicketError, GenerateTicketOk,
+    GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{periodic_task, PERIODIC_TASK_INTERVAL};
+use icp_route::{periodic_task, storage, PERIODIC_TASK_INTERVAL};
 use log::{self};
 use omnity_types::{Chain, Token};
 use std::time::Duration;
@@ -35,9 +36,7 @@ fn check_anonymous_caller() {
 }
 
 #[update]
-async fn generate_ticket(
-    args: GenerateTicketArgs,
-) -> Result<GenerateTicketOk, GenerateTicketError> {
+async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
     updates::generate_ticket(args).await
 }
@@ -75,6 +74,16 @@ fn get_token_ledger(token_id: String) -> Option<Principal> {
 pub fn get_log_records(limit: usize, offset: usize) -> Logs {
     log::debug!("collecting {limit} log records");
     ic_log::take_memory_records(limit, offset)
+}
+
+#[query]
+fn get_events(args: GetEventsArg) -> Vec<Event> {
+    const MAX_EVENTS_PER_QUERY: usize = 2000;
+
+    storage::events()
+        .skip(args.start as usize)
+        .take(MAX_EVENTS_PER_QUERY.min(args.length as usize))
+        .collect()
 }
 
 fn main() {}

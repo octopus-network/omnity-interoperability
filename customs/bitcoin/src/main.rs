@@ -53,7 +53,7 @@ fn ok_or_die(result: Result<(), String>) {
     }
 }
 
-/// Checks that customs minter state internally consistent.
+/// Checks that customs state internally consistent.
 #[cfg(feature = "self_check")]
 fn check_invariants() -> Result<(), String> {
     use bitcoin_customs::state::eventlog::replay;

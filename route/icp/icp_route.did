@@ -6,12 +6,15 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
-type GenerateTicketArgs = record {
-  token_id : text;
-  from_subaccount : opt vec nat8;
-  target_chain_id : text;
-  amount : nat;
-  receiver : text;
+type Event = variant {
+  finalized_gen_ticket : record {
+    block_index : nat64;
+    request : GenerateTicketReq;
+  };
+  finalized_mint_token : MintTokenRequest;
+  added_token : record { token : Token; ledger_id : principal };
+  added_chain : Chain;
+  toggle_chain_state : ToggleState;
 };
 type GenerateTicketError = variant {
   SendTicketErr : text;
@@ -22,6 +25,14 @@ type GenerateTicketError = variant {
   InsufficientFunds : record { balance : nat64 };
 };
 type GenerateTicketOk = record { block_index : nat64 };
+type GenerateTicketReq = record {
+  token_id : text;
+  from_subaccount : opt vec nat8;
+  target_chain_id : text;
+  amount : nat;
+  receiver : text;
+};
+type GetEventsArg = record { start : nat64; length : nat64 };
 type InitArgs = record { hub_principal : principal; chain_id : text };
 type Log = record { log : text; offset : nat64 };
 type Logs = record { logs : vec Log; all_logs_count : nat64 };
@@ -31,9 +42,22 @@ type MintTokenError = variant {
   AlreadyProcessed : text;
   UnsupportedToken : text;
 };
-type MintTokenStatus = variant { Finalized; Unknown; Failure : MintTokenError };
+type MintTokenRequest = record {
+  status : MintTokenStatus;
+  token_id : text;
+  ticket_id : text;
+  amount : nat;
+  receiver : principal;
+};
+type MintTokenStatus = variant {
+  Finalized : GenerateTicketOk;
+  Unknown;
+  Failure : MintTokenError;
+};
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : record {}; Init : InitArgs };
+type ToggleAction = variant { Deactivate; Activate };
+type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -43,8 +67,9 @@ type Token = record {
   symbol : text;
 };
 service : (RouteArg) -> {
-  generate_ticket : (GenerateTicketArgs) -> (Result);
+  generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
+  get_events : (GetEventsArg) -> (vec Event) query;
   get_log_records : (nat64, nat64) -> (Logs) query;
   get_token_ledger : (text) -> (opt principal) query;
   get_token_list : () -> (vec Token) query;

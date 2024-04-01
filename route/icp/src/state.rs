@@ -1,4 +1,6 @@
 pub mod audit;
+pub mod eventlog;
+
 use candid::Principal;
 use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
@@ -15,7 +17,7 @@ thread_local! {
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {
-    Finalized,
+    Finalized{block_index: u64},
     Failure(MintTokenError),
     Unknown,
 }

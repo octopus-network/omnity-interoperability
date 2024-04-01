@@ -61,8 +61,13 @@ pub async fn mint_token(req: &mut MintTokenRequest) -> Result<(), MintTokenError
         subaccount: None,
     };
 
-    if let Err(err) = mint(ledger_id, req.amount, account).await {
-        req.status = MintTokenStatus::Failure(err);
+    match mint(ledger_id, req.amount, account).await {
+        Ok(block_index) => {
+            req.status = MintTokenStatus::Finalized { block_index };
+        }
+        Err(err) => {
+            req.status = MintTokenStatus::Failure(err);
+        }
     };
     mutate_state(|s| audit::finalize_mint_token_req(s, req.clone()));
     Ok(())

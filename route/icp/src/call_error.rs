@@ -9,18 +9,6 @@ pub struct CallError {
     pub reason: Reason,
 }
 
-impl CallError {
-    /// Returns the name of the method that resulted in this error.
-    pub fn method(&self) -> &str {
-        &self.method
-    }
-
-    /// Returns the failure reason.
-    pub fn reason(&self) -> &Reason {
-        &self.reason
-    }
-}
-
 impl fmt::Display for CallError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
