@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 // We use 12 as the default tip height to mint all
-// the utxos with height 1 in the minter.
+// the utxos with height 1 in the customs.
 const DEFAULT_TIP_HEIGHT: u32 = 12;
 
 fn main() {}

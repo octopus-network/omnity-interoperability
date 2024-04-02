@@ -17,7 +17,7 @@ thread_local! {
         MemoryManager::init(DefaultMemoryImpl::default())
     );
 
-    /// The log of the ckBTC state modifications.
+    /// The log of the route state modifications.
     static EVENTS: RefCell<EventLog> = MEMORY_MANAGER
         .with(|m|
               RefCell::new(
@@ -60,7 +60,7 @@ impl Iterator for EventIterator {
 /// Encodes an event into a byte array.
 fn encode_event(event: &Event) -> Vec<u8> {
     let mut buf = Vec::new();
-    ciborium::ser::into_writer(event, &mut buf).expect("failed to encode a minter event");
+    ciborium::ser::into_writer(event, &mut buf).expect("failed to encode a customs event");
     buf
 }
 
@@ -68,10 +68,10 @@ fn encode_event(event: &Event) -> Vec<u8> {
 ///
 /// This function panics if the event decoding fails.
 fn decode_event(buf: &[u8]) -> Event {
-    ciborium::de::from_reader(buf).expect("failed to decode a minter event")
+    ciborium::de::from_reader(buf).expect("failed to decode a customs event")
 }
 
-/// Returns an iterator over all minter events.
+/// Returns an iterator over all customs events.
 pub fn events() -> impl Iterator<Item = Event> {
     EventIterator {
         buf: vec![],
@@ -84,7 +84,7 @@ pub fn count_events() -> u64 {
     EVENTS.with(|events| events.borrow().len())
 }
 
-/// Records a new minter event.
+/// Records a new customs event.
 pub fn record_event(event: &Event) {
     let bytes = encode_event(event);
     EVENTS.with(|events| {

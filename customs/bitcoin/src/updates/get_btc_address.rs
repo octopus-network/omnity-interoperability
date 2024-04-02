@@ -52,7 +52,7 @@ pub async fn get_main_btc_address(token: String) -> String {
     address.display(network)
 }
 
-/// Initializes the Minter ECDSA public key. This function must be called
+/// Initializes the Customs ECDSA public key. This function must be called
 /// before any endpoint runs its logic.
 pub async fn init_ecdsa_public_key() -> ECDSAPublicKey {
     if let Some(key) = read_state(|s| s.ecdsa_public_key.clone()) {

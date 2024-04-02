@@ -57,7 +57,7 @@ const BTC_TOKEN: &str = "BTC";
 /// See https://en.bitcoin.it/wiki/Miner_fees#Relaying for more detail.
 pub const MIN_RELAY_FEE_PER_VBYTE: MillisatoshiPerByte = 1_000;
 
-/// The minimum time the minter should wait before replacing a stuck transaction.
+/// The minimum time the customs should wait before replacing a stuck transaction.
 pub const MIN_RESUBMISSION_DELAY: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// The threshold for the number of UTXOs under management before
@@ -114,7 +114,7 @@ struct SignTxRequest {
     btc_utxos: Vec<Utxo>,
 }
 
-/// Undoes changes we make to the ckBTC state when we construct a pending transaction.
+/// Undoes changes we make to the customs state when we construct a pending transaction.
 /// We call this function if we fail to sign or send a Bitcoin transaction.
 fn undo_sign_request(
     requests: Vec<state::ReleaseTokenRequest>,
@@ -529,7 +529,7 @@ fn finalization_time_estimate(min_confirmations: u32, network: Network) -> Durat
 }
 
 /// Returns finalized transactions from the list of `candidates` according to the
-/// list of newly received UTXOs for the main minter account.
+/// list of newly received UTXOs for the main customs account.
 fn finalized_txs(
     candidates: &[state::SubmittedBtcTransaction],
     new_utxos: &[Utxo],
@@ -606,8 +606,8 @@ async fn finalize_requests() {
         .collect::<Vec<Utxo>>();
 
     // Transactions whose change outpoint is present in the newly fetched UTXOs
-    // can be finalized. Note that all new minter transactions must have a
-    // change output because minter always charges a fee for converting tokens.
+    // can be finalized. Note that all new customs transactions must have a
+    // change output because customs always charges a fee for converting tokens.
     let confirmed_transactions: Vec<_> =
         state::read_state(|s| finalized_txs(&s.submitted_transactions, &new_runes_utxos));
 
@@ -870,7 +870,7 @@ fn filter_output_destinations(
 
 /// The algorithm greedily selects the smallest UTXO(s) with a value that is at least the given `target` in a first step.
 ///
-/// If the minter manages more than [UTXOS_COUNT_THRESHOLD], it will then try to match the number of inputs with the
+/// If the customs manages more than [UTXOS_COUNT_THRESHOLD], it will then try to match the number of inputs with the
 /// number of outputs + 2 (where the two additional outputs corresponds to the change output).
 ///
 /// If there are no UTXOs matching the criteria, returns an empty vector.
@@ -1027,52 +1027,25 @@ pub enum BuildTxError {
     NotEnoughGas,
 }
 
-/// Builds a transaction that moves BTC to the specified destination accounts
-/// using the UTXOs that the customs owns. The receivers pay the fee.
+/// Builds a transaction that transfer runes token to the specified destination accounts
+/// using the Runes and BTC UTXOs that the customs owns. The customs pay the fee.
 ///
 /// Sends the change back to the specified customs main address.
 ///
 /// # Arguments
 ///
-/// * `minter_utxos` - The set of all UTXOs minter owns
+/// * `available_runes_utxos` - The set of all Runes UTXOs customs owns
+/// * `available_btc_utxos` - The set of all BTC UTXOs customs owns
 /// * `outputs` - The destination BTC addresses and respective amounts.
-/// * `main_address` - The BTC address of the minter's main account do absorb the change.
+/// * `runes_main_address` - The BTC address of the customs's main account do absorb the Runes change.
+/// * `btc_main_address` - The BTC address of the customs's main account do absorb the BTC change.
 /// * `fee_per_vbyte` - The current 50th percentile of BTC fees, in millisatoshi/byte
+/// * `is_resubmission` - A flag indicating whether to resubmit
 ///
 /// # Panics
 ///
 /// This function panics if the `outputs` vector is empty as it indicates a bug
 /// in the caller's code.
-///
-/// # Success case properties
-///
-/// * The total value of minter UTXOs decreases at least by the amount.
-/// ```text
-/// sum([u.value | u ∈ minter_utxos']) ≤ sum([u.value | u ∈ minter_utxos]) - amount
-/// ```
-///
-/// * If the transaction inputs exceed the amount, the minter gets the change.
-/// ```text
-/// inputs_value(tx) > amount ⇒ out_value(tx, main_pubkey) >= inputs_value(tx) - amount
-/// ```
-///
-/// * If the transaction inputs are equal to the amount, all tokens go to the receiver.
-/// ```text
-/// sum([value(in) | in ∈ tx.inputs]) = amount ⇒ tx.outputs == { value = amount - fee(tx); pubkey = dst_pubkey }
-/// ```
-///
-///  * The last output of the transaction is the minter's fee + the minter's change.
-/// ```text
-/// value(last_out) == minter_fee + minter_change
-/// ```
-///
-/// # Error case properties
-///
-/// * In case of errors, the function does not modify the inputs.
-/// ```text
-/// result.is_err() => minter_utxos' == minter_utxos
-/// ```
-///
 pub fn build_unsigned_transaction(
     rune_id: RuneId,
     available_runes_utxos: &mut BTreeSet<RunesUtxo>,
@@ -1096,7 +1069,7 @@ pub fn build_unsigned_transaction(
 
     /// Having a sequence number lower than (0xffffffff - 1) signals the use of replacement by fee.
     /// It allows us to increase the fee of a transaction already sent to the mempool.
-    /// The rbf option is used in `resubmit_retrieve_btc`.
+    /// The rbf option is used in `resubmit release token`.
     /// https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki
     const SEQUENCE_RBF_ENABLED: u32 = 0xfffffffd;
 
@@ -1331,7 +1304,7 @@ pub fn tx_vsize_estimate(input_count: u64, output_count: u64) -> u64 {
 /// Computes an estimate for the release_token fee.
 ///
 /// Arguments:
-///   * `available_utxos` - the list of UTXOs available to the minter.
+///   * `available_utxos` - the list of UTXOs available to the customs.
 ///   * `maybe_amount` - the withdrawal amount.
 ///   * `median_fee_millisatoshi_per_vbyte` - the median network fee, in millisatoshi per vbyte.
 pub fn estimate_fee(
@@ -1341,23 +1314,22 @@ pub fn estimate_fee(
     median_fee_millisatoshi_per_vbyte: u64,
 ) -> RedeemFee {
     const DEFAULT_INPUT_COUNT: u64 = 2;
-    // One output for the caller and one for the change.
-    const DEFAULT_OUTPUT_COUNT: u64 = 2;
+    // One output for the caller and two for the btc change & runes change.
+    const DEFAULT_OUTPUT_COUNT: u64 = 3;
     let input_count = match maybe_amount {
         Some(amount) => {
             // We simulate the algorithm that selects UTXOs for the
             // specified amount. If the withdrawal rate is low, we
-            // should get the exact number of inputs that the minter
+            // should get the exact number of inputs that the customs
             // will use.
             let mut utxos = available_utxos.clone();
-            let selected_utxos =
-                utxos_selection(amount, &mut utxos, DEFAULT_OUTPUT_COUNT as usize - 1, |u| {
-                    if u.runes.rune_id.eq(&rune_id) {
-                        u.runes.amount
-                    } else {
-                        0
-                    }
-                });
+            let selected_utxos = utxos_selection(amount, &mut utxos, 1, |u| {
+                if u.runes.rune_id.eq(&rune_id) {
+                    u.runes.amount
+                } else {
+                    0
+                }
+            });
 
             if !selected_utxos.is_empty() {
                 selected_utxos.len() as u64
@@ -1369,9 +1341,6 @@ pub fn estimate_fee(
     };
 
     let vsize = tx_vsize_estimate(input_count, DEFAULT_OUTPUT_COUNT);
-    // We subtract one from the outputs because the minter's output
-    // does not participate in fees distribution.
-    let bitcoin_fee =
-        vsize * median_fee_millisatoshi_per_vbyte / 1000 / (DEFAULT_OUTPUT_COUNT - 1).max(1);
+    let bitcoin_fee = vsize * median_fee_millisatoshi_per_vbyte / 1000;
     RedeemFee { bitcoin_fee }
 }

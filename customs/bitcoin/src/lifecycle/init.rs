@@ -17,7 +17,7 @@ pub enum CustomArg {
 // The Bitcoin canister's network enum no longer has snake-case versions
 // (refer to [PR171](https://github.com/dfinity/bitcoin-canister/pull/171)),
 // instead it uses lower-case candid variants.
-// A temporary fix for ckbtc minter is to create a new enum with capital letter variants.
+// A temporary fix for bitcoin customs is to create a new enum with capital letter variants.
 #[derive(CandidType, Clone, Copy, Deserialize, Debug, Eq, PartialEq, Serialize, Hash)]
 pub enum BtcNetwork {
     Mainnet,
@@ -47,7 +47,7 @@ impl From<Network> for BtcNetwork {
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct InitArgs {
-    /// The bitcoin network that the minter will connect to
+    /// The bitcoin network that the customs will connect to
     pub btc_network: BtcNetwork,
 
     /// The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
@@ -59,11 +59,11 @@ pub struct InitArgs {
     pub max_time_in_queue_nanos: u64,
 
     /// Specifies the minimum number of confirmations on the Bitcoin network
-    /// required for the minter to accept a transaction.
+    /// required for the customs to accept a transaction.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_confirmations: Option<u32>,
 
-    /// The mode controlling access to the minter.
+    /// The mode controlling access to the customs.
     #[serde(default)]
     pub mode: Mode,
 

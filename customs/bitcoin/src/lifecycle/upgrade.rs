@@ -9,7 +9,7 @@ use serde::Serialize;
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
 pub struct UpgradeArgs {
     /// Specifies the minimum number of confirmations on the Bitcoin network
-    /// required for the minter to accept a transaction.
+    /// required for the customs to accept a transaction.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_confirmations: Option<u32>,
 
@@ -18,7 +18,7 @@ pub struct UpgradeArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_time_in_queue_nanos: Option<u64>,
 
-    /// The mode in which the minter is running.
+    /// The mode in which the customs is running.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mode: Option<Mode>,
 
