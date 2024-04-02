@@ -3,7 +3,6 @@ pub mod eventlog;
 
 use candid::Principal;
 use omnity_types::{Chain, ChainId, Fee, TicketId, Token, TokenId};
-use ic_ledger_types::Tokens;
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -18,7 +17,7 @@ thread_local! {
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {
-    Finalized{block_index: u64},
+    Finalized { block_index: u64 },
     Failure(MintTokenError),
     Unknown,
 }
@@ -44,8 +43,6 @@ pub struct RouteState {
     pub finalized_mint_token_requests: BTreeMap<TicketId, MintTokenRequest>,
 
     pub redeem_fees: BTreeMap<ChainId, Fee>,
-
-    pub ledger_principal: Principal,
 }
 
 impl RouteState {
@@ -64,7 +61,6 @@ impl From<InitArgs> for RouteState {
             tokens: Default::default(),
             finalized_mint_token_requests: Default::default(),
             redeem_fees: Default::default(),
-            ledger_principal: args.ledger_principal,
         }
     }
 }
@@ -105,16 +101,4 @@ pub fn replace_state(state: RouteState) {
     __STATE.with(|s| {
         *s.borrow_mut() = Some(state);
     });
-}
-
-pub fn redeem_fee_of_icp(chain_id: ChainId) -> u64 {
-    __STATE.with(|s| {
-        (s.borrow().as_ref().expect("State not initialized!").redeem_fees.get(&chain_id).expect("Redeem fee not found!").factor * (Tokens::SUBDIVIDABLE_BY as i64)) as u64
-    })
-}
-
-pub fn ledger_principal() -> Principal {
-    __STATE.with(|s| {
-        s.borrow().as_ref().expect("State not initialized!").ledger_principal.clone()
-    })
 }

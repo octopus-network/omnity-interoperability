@@ -1620,10 +1620,14 @@ fn test_transaction_resubmission_finalize_middle() {
         .env
         .advance_time(MIN_RESUBMISSION_DELAY + Duration::from_secs(1));
 
-    let mempool_2 = customs.tick_until("mempool contains a replacement transaction", 10, |customs| {
-        let mempool = customs.mempool();
-        (mempool.len() > 1).then_some(mempool)
-    });
+    let mempool_2 = customs.tick_until(
+        "mempool contains a replacement transaction",
+        10,
+        |customs| {
+            let mempool = customs.mempool();
+            (mempool.len() > 1).then_some(mempool)
+        },
+    );
 
     let second_txid = customs.await_btc_transaction(ticket_id.clone(), 10);
 

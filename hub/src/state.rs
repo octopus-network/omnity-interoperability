@@ -1,16 +1,15 @@
 use crate::memory::{self, Memory};
 use crate::types::{Amount, ChainWithSeq, TokenKey, TokenMeta};
 
-
 use ic_stable_structures::StableBTreeMap;
 use log::info;
 use omnity_types::{
-    ChainId, ChainState, Directive, Error, Fee, Seq, SeqKey, Ticket, TicketId,
-    ToggleAction, ToggleState, TokenId, Topic, TxAction,
+    ChainId, ChainState, Directive, Error, Fee, Seq, SeqKey, Ticket, TicketId, ToggleAction,
+    ToggleState, TokenId, Topic, TxAction,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 use std::num::ParseIntError;
 
@@ -233,7 +232,6 @@ impl HubState {
                     if matches!(chain.chain_state, ChainState::Deactive) {
                         Err(Error::DeactiveChain(chain_id.to_string()))
                     } else {
-                        
                         if self
                             .dire_queue
                             .iter()
@@ -344,8 +342,6 @@ impl HubState {
             },
         }
     }
-
-
 
     pub fn add_token_position(&mut self, position: TokenKey, amount: u128) -> Result<(), Error> {
         if let Some(total_amount) = self.token_position.get(&position).as_mut() {

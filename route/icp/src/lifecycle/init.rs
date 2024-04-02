@@ -12,7 +12,6 @@ pub enum RouteArg {
 pub struct InitArgs {
     pub chain_id: String,
     pub hub_principal: Principal,
-    pub ledger_principal: Principal,
 }
 
 pub fn init(args: InitArgs) {
