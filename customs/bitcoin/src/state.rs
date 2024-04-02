@@ -113,7 +113,7 @@ pub struct ReleaseTokenRequest {
     pub amount: u128,
     /// The destination BTC address.
     pub address: BitcoinAddress,
-    /// The time at which the minter accepted the request.
+    /// The time at which the customs accepted the request.
     pub received_at: u64,
 }
 
@@ -166,7 +166,7 @@ pub struct BtcChangeOutput {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubmittedBtcTransaction {
     pub rune_id: RuneId,
-    /// The original retrieve_btc requests that initiated the transaction.
+    /// The original release token requests that initiated the transaction.
     pub requests: Vec<ReleaseTokenRequest>,
     /// The identifier of the unconfirmed transaction.
     pub txid: Txid,
@@ -186,16 +186,16 @@ pub struct SubmittedBtcTransaction {
     pub raw_tx: String,
 }
 
-/// Pairs a retrieve_btc request with its outcome.
+/// Pairs a release token request with its outcome.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FinalizedTokenRetrieval {
-    /// The original retrieve_btc request that initiated the transaction.
+pub struct FinalizedTokenRelease {
+    /// The original release token request that initiated the transaction.
     pub request: ReleaseTokenRequest,
     /// The status of the finalized request.
     pub status: FinalizedStatus,
 }
 
-/// The outcome of a retrieve_btc request.
+/// The outcome of a release token request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedStatus {
     /// The transaction that retrieves BTC got enough confirmations.
@@ -215,7 +215,7 @@ pub enum FinalizedTicketStatus {
     Finalized,
 }
 
-/// The status of a Bitcoin transaction that the minter hasn't yet sent to the Bitcoin network.
+/// The status of a Bitcoin transaction that the customs hasn't yet sent to the Bitcoin network.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InFlightStatus {
     /// Awaiting signatures for transaction inputs.
@@ -253,7 +253,7 @@ pub enum GenTicketStatus {
     Finalized,
 }
 
-/// Controls which operations the minter can perform.
+/// Controls which operations the customs can perform.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
 pub enum Mode {
     /// Custom's state is read-only.
@@ -303,14 +303,14 @@ pub struct Overdraft(pub u64);
 /// Every piece of state of the Customs should be stored as field of this struct.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
 pub struct CustomsState {
-    /// The bitcoin network that the minter will connect to
+    /// The bitcoin network that the customs will connect to
     pub btc_network: Network,
 
     /// The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
     /// a testing key for testnet and mainnet
     pub ecdsa_key_name: String,
 
-    /// The Minter ECDSA public key
+    /// The Customs ECDSA public key
     pub ecdsa_public_key: Option<ECDSAPublicKey>,
 
     /// The minimum number of confirmations on the Bitcoin chain.
@@ -338,7 +338,7 @@ pub struct CustomsState {
     /// received_at.
     pub pending_release_token_requests: BTreeMap<RuneId, Vec<ReleaseTokenRequest>>,
 
-    /// The identifiers of retrieve_btc requests which we're currently signing a
+    /// The identifiers of release_token requests which we're currently signing a
     /// transaction or sending to the Bitcoin network.
     pub requests_in_flight: BTreeMap<TicketId, InFlightStatus>,
 
@@ -355,7 +355,7 @@ pub struct CustomsState {
     pub rev_replacement_txid: BTreeMap<Txid, Txid>,
 
     /// Finalized release_token requests for which we received enough confirmations.
-    pub finalized_release_token_requests: VecDeque<FinalizedTokenRetrieval>,
+    pub finalized_release_token_requests: VecDeque<FinalizedTokenRelease>,
 
     /// The total number of finalized requests.
     pub finalized_requests_count: u64,
@@ -388,7 +388,7 @@ pub struct CustomsState {
     #[serde(skip)]
     pub is_timer_running: bool,
 
-    /// The mode in which the minter runs.
+    /// The mode in which the customs runs.
     pub mode: Mode,
 
     pub last_fee_per_vbyte: Vec<u64>,
@@ -496,7 +496,7 @@ impl CustomsState {
             for (l, r) in requests.iter().zip(requests.iter().skip(1)) {
                 ensure!(
                     l.received_at <= r.received_at,
-                    "pending retrieve_btc requests are not sorted by receive time"
+                    "pending release_token requests are not sorted by receive time"
                 );
             }
         }
@@ -657,7 +657,7 @@ impl CustomsState {
         }
     }
 
-    /// Forms a batch of retrieve_btc requests that the minter can fulfill.
+    /// Forms a batch of release_token requests that the customs can fulfill.
     pub fn build_batch(&mut self, rune_id: RuneId, max_size: usize) -> Vec<ReleaseTokenRequest> {
         assert!(self.pending_release_token_requests.contains_key(&rune_id));
 
@@ -713,7 +713,7 @@ impl CustomsState {
                 .sum::<usize>()
     }
 
-    /// Returns true if there is a pending retrieve_btc request with the given
+    /// Returns true if there is a pending release_token request with the given
     /// identifier.
     fn has_pending_request(&self, ticket_id: &TicketId) -> bool {
         self.pending_release_token_requests
@@ -765,7 +765,7 @@ impl CustomsState {
         }
         self.finalized_requests_count += finalized_tx.requests.len() as u64;
         for request in finalized_tx.requests {
-            self.push_finalized_release_token(FinalizedTokenRetrieval {
+            self.push_finalized_release_token(FinalizedTokenRelease {
                 request,
                 status: FinalizedStatus::Confirmed(*txid),
             });
@@ -863,7 +863,7 @@ impl CustomsState {
         Some(last)
     }
 
-    /// Removes a pending retrieve_btc request with the specified block index.
+    /// Removes a pending release_token request with the specified block index.
     fn remove_pending_request(&mut self, ticket_id: TicketId) -> Option<ReleaseTokenRequest> {
         for (_, requests) in &mut self.pending_release_token_requests {
             match requests.iter().position(|req| req.ticket_id == ticket_id) {
@@ -874,11 +874,11 @@ impl CustomsState {
         None
     }
 
-    /// Marks the specified retrieve_btc request as in-flight.
+    /// Marks the specified release_token request as in-flight.
     ///
     /// # Panics
     ///
-    /// This function panics if there is a pending retrieve_btc request with the
+    /// This function panics if there is a pending release_token request with the
     /// same identifier.
     pub fn push_in_flight_request(&mut self, ticket_id: TicketId, status: InFlightStatus) {
         assert!(!self.has_pending_request(&ticket_id));
@@ -886,11 +886,11 @@ impl CustomsState {
         self.requests_in_flight.insert(ticket_id, status);
     }
 
-    /// Returns a retrieve_btc requests back to the pending queue.
+    /// Returns a release_token requests back to the pending queue.
     ///
     /// # Panics
     ///
-    /// This function panics if there is a pending retrieve_btc request with the
+    /// This function panics if there is a pending release_token request with the
     /// same identifier.
     pub fn push_from_in_flight_to_pending_requests(&mut self, requests: Vec<ReleaseTokenRequest>) {
         for req in requests.iter() {
@@ -906,7 +906,7 @@ impl CustomsState {
         }
     }
 
-    /// Push back a retrieve_btc request to the ordered queue.
+    /// Push back a release token request to the ordered queue.
     ///
     /// # Panics
     ///
@@ -928,7 +928,7 @@ impl CustomsState {
     ///
     /// # Panics
     ///
-    /// This function panics if there is a pending retrieve_btc request with the
+    /// This function panics if there is a pending release_token request with the
     /// same identifier as one of the request used for the transaction.
     pub fn push_submitted_transaction(&mut self, tx: SubmittedBtcTransaction) {
         for req in tx.requests.iter() {
@@ -938,13 +938,13 @@ impl CustomsState {
         self.submitted_transactions.push(tx);
     }
 
-    /// Marks the specified retrieve_btc request as finalized.
+    /// Marks the specified release_token request as finalized.
     ///
     /// # Panics
     ///
-    /// This function panics if there is a pending retrieve_btc request with the
+    /// This function panics if there is a pending release_token request with the
     /// same identifier.
-    fn push_finalized_release_token(&mut self, req: FinalizedTokenRetrieval) {
+    fn push_finalized_release_token(&mut self, req: FinalizedTokenRelease) {
         assert!(!self.has_pending_request(&req.request.ticket_id));
 
         if self.finalized_release_token_requests.len() >= MAX_FINALIZED_REQUESTS {
@@ -981,7 +981,7 @@ impl CustomsState {
         utxos
     }
 
-    /// Checks whether the internal state of the minter matches the other state
+    /// Checks whether the internal state of the customs matches the other state
     /// semantically (the state holds the same data, but maybe in a slightly
     /// different form).
     pub fn check_semantically_eq(&self, other: &Self) -> Result<(), String> {

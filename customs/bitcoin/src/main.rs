@@ -307,7 +307,7 @@ fn self_check() -> Result<(), String> {
 
 #[query(hidden = true)]
 fn __get_candid_interface_tmp_hack() -> &'static str {
-    include_str!(env!("CKBTC_MINTER_DID_PATH"))
+    include_str!(env!("BITCOIN_CUSTOMS_DID_PATH"))
 }
 
 fn main() {}
@@ -354,7 +354,7 @@ fn check_candid_interface_compatibility() {
     check_service_equal(
         "actual ledger candid interface",
         candid_parser::utils::CandidSource::Text(&new_interface),
-        "declared candid interface in ckbtc_minter.did file",
+        "declared candid interface in bitcoin_customs.did file",
         candid_parser::utils::CandidSource::File(old_interface.as_path()),
     );
 }

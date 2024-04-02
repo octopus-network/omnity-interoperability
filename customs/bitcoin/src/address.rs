@@ -241,7 +241,7 @@ impl fmt::Display for ParseAddressError {
                 expected, actual
             ),
             Self::UnsupportedAddressType => {
-                write!(fmt, "ckBTC supports only P2WPKH and P2PKH addresses")
+                write!(fmt, "Customs supports only P2WPKH and P2PKH addresses")
             }
             Self::WrongNetwork { expected, actual } => {
                 write!(

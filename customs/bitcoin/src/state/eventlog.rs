@@ -19,12 +19,12 @@ pub struct GetEventsArg {
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Event {
-    /// Indicates the minter initialization with the specified arguments.  Must be
+    /// Indicates the customs initialization with the specified arguments.  Must be
     /// the first event in the event log.
     #[serde(rename = "init")]
     Init(InitArgs),
 
-    /// Indicates the minter upgrade with specified arguments.
+    /// Indicates the customs upgrade with specified arguments.
     #[serde(rename = "upgrade")]
     Upgrade(UpgradeArgs),
 
@@ -60,8 +60,8 @@ pub enum Event {
     #[serde(rename = "accepted_generate_ticket_request")]
     AcceptedGenTicketRequest(GenTicketRequest),
 
-    /// Indicates that the minter accepted a new retrieve_btc request.
-    /// The minter emits this event _after_ it burnt ckBTC.
+    /// Indicates that the customs accepted a new release_token request.
+    /// The customs emits this event _after_ it send to hub.
     #[serde(rename = "accepted_release_token_request")]
     AcceptedReleaseTokenRequest(ReleaseTokenRequest),
 
@@ -81,7 +81,7 @@ pub enum Event {
         status: FinalizedTicketStatus,
     },
 
-    /// Indicates that the minter sent out a new transaction to the Bitcoin
+    /// Indicates that the  sent out a new transaction to the Bitcoin
     /// network.
     #[serde(rename = "sent_transaction")]
     SentBtcTransaction {
@@ -125,12 +125,12 @@ pub enum Event {
         /// The Txid of the new Bitcoin transaction.
         #[serde(rename = "new_txid")]
         new_txid: Txid,
-        /// The output with the minter's change.
+        /// The output with the customs's change.
         #[serde(rename = "runes_change_output")]
         runes_change_output: RunesChangeOutput,
         #[serde(rename = "btc_change_output")]
         btc_change_output: BtcChangeOutput,
-        /// The IC time at which the minter submitted the transaction.
+        /// The IC time at which the customs submitted the transaction.
         #[serde(rename = "submitted_at")]
         submitted_at: u64,
         /// The fee per vbyte (in millisatoshi) that we used for the transaction.
@@ -140,7 +140,7 @@ pub enum Event {
         raw_tx: String,
     },
 
-    /// Indicates that the minter received enough confirmations for a bitcoin
+    /// Indicates that the customs received enough confirmations for a bitcoin
     /// transaction.
     #[serde(rename = "confirmed_transaction")]
     ConfirmedBtcTransaction {
@@ -157,7 +157,7 @@ pub enum ReplayLogError {
     InconsistentLog(String),
 }
 
-/// Reconstructs the minter state from an event log.
+/// Reconstructs the customs state from an event log.
 pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, ReplayLogError> {
     let mut state = match events.next() {
         Some(Event::Init(args)) => CustomsState::from(args),
@@ -251,7 +251,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                         .remove_pending_request(release_id.clone())
                         .ok_or_else(|| {
                             ReplayLogError::InconsistentLog(format!(
-                                "Attempted to send a non-pending retrieve_btc request {:?}",
+                                "Attempted to send a non-pending release_token request {:?}",
                                 release_id
                             ))
                         })?;

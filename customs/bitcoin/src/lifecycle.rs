@@ -1,4 +1,4 @@
-//! Module dealing with the lifecycle methods of the ckBTC Minter.
+//! Module dealing with the lifecycle methods of the Bitcoin Customs.
 pub mod init;
 pub use init::init;
 

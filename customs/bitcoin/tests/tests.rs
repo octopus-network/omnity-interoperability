@@ -1487,16 +1487,16 @@ fn test_transaction_resubmission_finalize_new() {
         .env
         .advance_time(MIN_RESUBMISSION_DELAY - Duration::from_secs(1));
 
-    customs.assert_for_n_ticks("no resubmission before the delay", 5, |ckbtc| {
-        ckbtc.mempool().len() == 1
+    customs.assert_for_n_ticks("no resubmission before the delay", 5, |customs| {
+        customs.mempool().len() == 1
     });
 
     // We need to wait at least 5 seconds before the next resubmission because it's the internal
     // timer interval.
     customs.env.advance_time(Duration::from_secs(5));
 
-    let mempool = customs.tick_until("mempool has a replacement transaction", 10, |ckbtc| {
-        let mempool = ckbtc.mempool();
+    let mempool = customs.tick_until("mempool has a replacement transaction", 10, |customs| {
+        let mempool = customs.mempool();
         (mempool.len() > 1).then_some(mempool)
     });
 
@@ -1557,8 +1557,8 @@ fn test_transaction_resubmission_finalize_old() {
         .env
         .advance_time(MIN_RESUBMISSION_DELAY + Duration::from_secs(1));
 
-    let mempool = customs.tick_until("mempool has a replacement transaction", 10, |ckbtc| {
-        let mempool = ckbtc.mempool();
+    let mempool = customs.tick_until("mempool has a replacement transaction", 10, |customs| {
+        let mempool = customs.mempool();
         (mempool.len() > 1).then_some(mempool)
     });
 
@@ -1620,8 +1620,8 @@ fn test_transaction_resubmission_finalize_middle() {
         .env
         .advance_time(MIN_RESUBMISSION_DELAY + Duration::from_secs(1));
 
-    let mempool_2 = customs.tick_until("mempool contains a replacement transaction", 10, |ckbtc| {
-        let mempool = ckbtc.mempool();
+    let mempool_2 = customs.tick_until("mempool contains a replacement transaction", 10, |customs| {
+        let mempool = customs.mempool();
         (mempool.len() > 1).then_some(mempool)
     });
 
@@ -1638,8 +1638,8 @@ fn test_transaction_resubmission_finalize_middle() {
         .env
         .advance_time(MIN_RESUBMISSION_DELAY + Duration::from_secs(1));
 
-    let mempool_3 = customs.tick_until("mempool contains the third transaction", 10, |ckbtc| {
-        let mempool = ckbtc.mempool();
+    let mempool_3 = customs.tick_until("mempool contains the third transaction", 10, |customs| {
+        let mempool = customs.mempool();
         (mempool.len() > 2).then_some(mempool)
     });
 
@@ -1698,13 +1698,13 @@ fn test_filter_logs() {
                     "http_request",
                     Encode!(&request).unwrap(),
                 )
-                .expect("failed to get minter info")
+                .expect("failed to get customs info")
         ),
         HttpResponse
     )
     .unwrap();
     let logs: Log =
-        serde_json::from_slice(&response.body).expect("failed to parse ckbtc minter log");
+        serde_json::from_slice(&response.body).expect("failed to parse bitcoin customs log");
 
     let request = HttpRequest {
         method: "".to_string(),
@@ -1721,13 +1721,13 @@ fn test_filter_logs() {
                     "http_request",
                     Encode!(&request).unwrap(),
                 )
-                .expect("failed to get minter info")
+                .expect("failed to get customs info")
         ),
         HttpResponse
     )
     .unwrap();
     let logs_filtered: Log =
-        serde_json::from_slice(&response.body).expect("failed to parse ckbtc minter log");
+        serde_json::from_slice(&response.body).expect("failed to parse bitcoin customs log");
 
     assert_ne!(logs.entries.len(), logs_filtered.entries.len());
 }

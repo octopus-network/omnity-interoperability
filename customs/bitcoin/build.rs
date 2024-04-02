@@ -4,7 +4,7 @@ fn main() {
         .unwrap();
 
     println!(
-        "cargo:rustc-env=CKBTC_MINTER_DID_PATH={}",
+        "cargo:rustc-env=BITCOIN_CUSTOMS_DID_PATH={}",
         did_path.display()
     );
 }

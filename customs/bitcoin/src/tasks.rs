@@ -114,7 +114,7 @@ pub fn schedule_now(work: TaskType) {
     schedule_after(Duration::from_secs(0), work)
 }
 
-/// Dequeues the next task ready for execution from the minter task queue.
+/// Dequeues the next task ready for execution from the customs task queue.
 pub fn pop_if_ready() -> Option<Task> {
     let now = ic_cdk::api::time();
     let task = TASKS.with(|t| t.borrow_mut().pop_if_ready(now));
