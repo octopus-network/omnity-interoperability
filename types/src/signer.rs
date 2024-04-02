@@ -33,7 +33,7 @@ lazy_static::lazy_static! {
 
 }
 
-pub async fn get_pub_key(network: Network) -> Result<PublicKeyReply, Error> {
+pub async fn ecdsa_public_key(network: Network) -> Result<PublicKeyReply, Error> {
     match network {
         Network::Testnet => {
             // let verifying_key: Vec<u8> = hex::decode(VERIFYING_KEY).unwrap();
@@ -70,7 +70,7 @@ pub async fn get_pub_key(network: Network) -> Result<PublicKeyReply, Error> {
     }
 }
 
-pub async fn sign(network: Network, message: Vec<u8>) -> Result<SignatureReply, Error> {
+pub async fn sign_with_ecdsa(network: Network, message: Vec<u8>) -> Result<SignatureReply, Error> {
     match network {
         Network::Testnet => {
             // let signature: Signature = SIGING_KEY.sign(&message);
@@ -171,7 +171,7 @@ mod tests {
         let message = b"Hi,Omnity";
         println!("message: {:?}", message);
 
-        let sig_reply = sign(network, message.to_vec()).await.unwrap();
+        let sig_reply = sign_with_ecdsa(network, message.to_vec()).await.unwrap();
         println!(
             "sig_reply: {:?}, len: {:?}",
             sig_reply,
@@ -181,7 +181,7 @@ mod tests {
         println!("signature: {:?}", signature);
 
         // Verification
-        let pub_key = get_pub_key(network).await.unwrap();
+        let pub_key = ecdsa_public_key(network).await.unwrap();
         let verifying_key = VerifyingKey::from_sec1_bytes(&pub_key.public_key).unwrap();
         println!("verifying_key: {:?}", verifying_key);
 
