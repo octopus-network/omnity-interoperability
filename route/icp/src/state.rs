@@ -17,7 +17,7 @@ thread_local! {
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {
-    Finalized{block_index: u64},
+    Finalized { block_index: u64 },
     Failure(MintTokenError),
     Unknown,
 }

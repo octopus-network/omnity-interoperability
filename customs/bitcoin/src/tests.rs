@@ -186,10 +186,7 @@ fn greedy_smoke_test() {
 
 #[test]
 fn should_have_same_input_and_output_count() {
-    let rune_id = RuneId {
-        block: 100,
-        tx: 1,
-    };
+    let rune_id = RuneId { block: 100, tx: 1 };
     let mut available_runes_utxos = BTreeSet::new();
     let mut available_btc_utxos = BTreeSet::new();
     for i in 0..crate::UTXOS_COUNT_THRESHOLD {
@@ -307,10 +304,7 @@ fn should_have_same_input_and_output_count() {
 
 #[test]
 fn test_not_enough_gas() {
-    let rune_id = RuneId {
-        block: 100,
-        tx: 1,
-    };
+    let rune_id = RuneId { block: 100, tx: 1 };
     let mut available_runes_utxos = BTreeSet::new();
     let mut available_btc_utxos = BTreeSet::new();
     available_runes_utxos.insert(RunesUtxo {
@@ -352,10 +346,7 @@ fn test_not_enough_gas() {
 
 #[test]
 fn test_btc_change_less_than_546() {
-    let rune_id = RuneId {
-        block: 100,
-        tx: 1,
-    };
+    let rune_id = RuneId { block: 100, tx: 1 };
     let mut available_runes_utxos = BTreeSet::new();
     let mut available_btc_utxos = BTreeSet::new();
     available_runes_utxos.insert(RunesUtxo {
@@ -474,10 +465,7 @@ fn arb_runes_utxo(amount: impl Strategy<Value = u128>) -> impl Strategy<Value = 
             height: 0,
         },
         runes: RunesBalance {
-            rune_id: RuneId {
-                block: 100,
-                tx: 1,
-            },
+            rune_id: RuneId { block: 100, tx: 1 },
             vout,
             amount: value,
         },
@@ -521,10 +509,7 @@ fn arb_release_token_requests(
         .prop_map(
             |(amount, address, ticket_id, received_at)| ReleaseTokenRequest {
                 ticket_id,
-                rune_id: RuneId {
-                    block: 100,
-                    tx: 1,
-                },
+                rune_id: RuneId { block: 100, tx: 1 },
                 amount,
                 address,
                 received_at,
