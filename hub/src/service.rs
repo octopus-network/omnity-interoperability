@@ -10,7 +10,7 @@ use omnity_hub::metrics;
 use omnity_hub::state::HubState;
 use omnity_hub::state::{set_state, with_state, with_state_mut};
 use omnity_hub::types::{ChainWithSeq, Proposal};
-use omnity_hub::util::{init_log, LoggerConfigService};
+use omnity_types::log::{init_log, LoggerConfigService};
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Fee, Seq, Ticket, TicketId, Token,
     TokenId, TokenOnChain, Topic,
@@ -193,7 +193,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
                     ChainType::ExecutionChain => {
                         if let Some(counterparties) = chain_meta.counterparties {
-                            let result: Result<(), Error> = counterparties
+                            counterparties
                                 .into_iter()
                                 .map(|counterparty| {
                                     info!(
@@ -217,8 +217,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                                         )
                                     })
                                 })
-                                .collect();
-                            result?;
+                                .collect::<Result<(), Error>>()?;
                         }
                     }
                 }
@@ -229,7 +228,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 // save token info
                 with_state_mut(|hub_state| hub_state.save_token(token_meata.clone()))?;
                 // generate dirctive
-                let result: Result<(), Error> = token_meata
+                token_meata
                     .dst_chains
                     .iter()
                     .map(|dst_chain| {
@@ -245,9 +244,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                             )
                         })
                     })
-                    .collect();
-
-                result?;
+                    .collect::<Result<(), Error>>()?;
             }
             Proposal::ToggleChainState(toggle_status) => {
                 info!(
@@ -259,7 +256,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 if let Some(counterparties) =
                     with_state(|hs| hs.available_chain(&toggle_status.chain_id))?.counterparties
                 {
-                    let result: Result<(), Error> = counterparties
+                   counterparties
                         .into_iter()
                         .map(|counterparty| {
                             info!(
@@ -275,9 +272,8 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                                 )
                             })
                         })
-                        .collect();
+                        .collect::<Result<(), Error>>()?;
 
-                    result?;
                 }
                 // update dst chain state
                 with_state_mut(|hub_state| hub_state.update_chain_state(&toggle_status))?;
@@ -1070,6 +1066,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_tx_ticket() {
+        init_logger();
         // add chain
         build_chains().await;
         // add token
@@ -1188,6 +1185,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_c_tx_ticket() {
+        init_logger();
         // add chain
         build_chains().await;
         // add token
