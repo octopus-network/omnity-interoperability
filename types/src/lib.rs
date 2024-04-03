@@ -253,7 +253,7 @@ pub enum TxAction {
     Redeem,
 }
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Fee {
     pub dst_chain_id: ChainId,
     // quote currency or token

@@ -44,5 +44,6 @@ pub fn finalize_gen_ticket(block_index: u64, request: GenerateTicketReq) {
 }
 
 pub fn update_fee(state: &mut RouteState, fee: Fee) {
+    record_event(&Event::UpdatedFee { fee: fee.clone() });
     state.redeem_fees.insert(fee.dst_chain_id.clone(), fee);
 }

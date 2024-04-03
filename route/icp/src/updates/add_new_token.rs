@@ -23,11 +23,9 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
         return Err(AddNewTokenError::AleardyAdded(token.token_id));
     }
 
-    log::info!("add_new_token: {:?}", token);
     let record = install_icrc2_ledger(token.token_id.clone(), token.symbol.clone(), token.decimals)
         .await
         .map_err(AddNewTokenError::CreateLedgerErr)?;
-    log::info!("finish add_new_token: {:?}", record);
 
     mutate_state(|s| {
         audit::add_token(s, token, record.canister_id);

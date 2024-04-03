@@ -64,12 +64,12 @@ pub async fn generate_ticket(
         ));
     }
 
-    charge_redeem_fee(caller(), &req.target_chain_id).await?;
-
     let ledger_id = read_state(|s| match s.token_ledgers.get(&req.token_id) {
         Some(ledger_id) => Ok(ledger_id.clone()),
         None => Err(GenerateTicketError::UnsupportedToken(req.token_id.clone())),
     })?;
+
+    charge_redeem_fee(caller(), &req.target_chain_id).await?;
 
     let caller = ic_cdk::caller();
     let user = Account {
