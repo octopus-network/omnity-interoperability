@@ -281,7 +281,7 @@ async fn submit_release_token_requests() {
 
 async fn process_directive() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
-    match hub::query_dires(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+    match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {
             log!(P0, "[process_directive] temporarily unavailable: {}", err);
         }

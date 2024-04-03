@@ -76,7 +76,7 @@ impl OmnityHub {
         Decode!(&assert_reply(ret), Result<(), Error>).unwrap()
     }
 
-    pub fn query_dires(
+    pub fn query_directives(
         &self,
         sender: &Option<PrincipalId>,
         chain_id: &Option<ChainId>,
@@ -90,10 +90,10 @@ impl OmnityHub {
             .query_as(
                 sender,
                 self.hub_id,
-                "query_dires",
+                "query_directives",
                 Encode!(chain_id, topic, from, offset).unwrap(),
             )
-            .expect("failed to query_dires");
+            .expect("failed to query directives");
         Decode!(&assert_reply(ret), Result<Vec<(Seq, Directive)>, Error>).unwrap()
     }
 

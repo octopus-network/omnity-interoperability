@@ -80,7 +80,7 @@ async fn process_tickets() {
 
 async fn process_directives() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
-    match hub::query_dires(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+    match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(directives) => {
             for (_, directive) in &directives {
                 match directive {

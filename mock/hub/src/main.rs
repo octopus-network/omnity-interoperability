@@ -79,7 +79,7 @@ pub async fn query_tickets(
 }
 
 #[query]
-pub async fn query_dires(
+pub async fn query_directives(
     _: Option<ChainId>,
     _: Option<Topic>,
     offset: usize,

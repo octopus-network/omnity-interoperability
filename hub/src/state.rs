@@ -19,21 +19,21 @@ thread_local! {
 
 #[derive(Deserialize, Serialize)]
 pub struct HubState {
-    #[serde(skip, default = "init_chain")]
+    #[serde(skip, default = "memory::init_chain")]
     pub chains: StableBTreeMap<ChainId, ChainWithSeq, Memory>,
-    #[serde(skip, default = "init_token")]
+    #[serde(skip, default = "memory::init_token")]
     pub tokens: StableBTreeMap<TokenId, TokenMeta, Memory>,
-    #[serde(skip, default = "init_fee")]
+    #[serde(skip, default = "memory::init_fee")]
     pub fees: StableBTreeMap<TokenKey, Fee, Memory>,
 
-    #[serde(skip, default = "init_dire_queue")]
+    #[serde(skip, default = "memory::init_dire_queue")]
     pub dire_queue: StableBTreeMap<SeqKey, Directive, Memory>,
-    #[serde(skip, default = "init_ticket_queue")]
+    #[serde(skip, default = "memory::init_ticket_queue")]
     pub ticket_queue: StableBTreeMap<SeqKey, Ticket, Memory>,
-    #[serde(skip, default = "init_token_position")]
+    #[serde(skip, default = "memory::init_token_position")]
     pub token_position: StableBTreeMap<TokenKey, Amount, Memory>,
 
-    #[serde(skip, default = "init_ledger")]
+    #[serde(skip, default = "memory::init_ledger")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
     pub owner: Option<String>,
     pub authorized_caller: HashMap<String, ChainId>,
@@ -53,27 +53,6 @@ impl Default for HubState {
             authorized_caller: HashMap::default(),
         }
     }
-}
-fn init_chain() -> StableBTreeMap<ChainId, ChainWithSeq, Memory> {
-    StableBTreeMap::init(memory::get_chain_memory())
-}
-fn init_token() -> StableBTreeMap<TokenId, TokenMeta, Memory> {
-    StableBTreeMap::init(memory::get_token_memory())
-}
-fn init_fee() -> StableBTreeMap<TokenKey, Fee, Memory> {
-    StableBTreeMap::init(memory::get_fee_memory())
-}
-fn init_token_position() -> StableBTreeMap<TokenKey, Amount, Memory> {
-    StableBTreeMap::init(memory::get_token_position_memory())
-}
-fn init_ledger() -> StableBTreeMap<TicketId, Ticket, Memory> {
-    StableBTreeMap::init(memory::get_ledger_memory())
-}
-fn init_dire_queue() -> StableBTreeMap<SeqKey, Directive, Memory> {
-    StableBTreeMap::init(memory::get_dire_queue_memory())
-}
-fn init_ticket_queue() -> StableBTreeMap<SeqKey, Ticket, Memory> {
-    StableBTreeMap::init(memory::get_ticket_queue_memory())
 }
 
 /// A helper method to read the state.
@@ -222,15 +201,19 @@ impl HubState {
             )
     }
 
-    pub fn push_dire(&mut self, chain_id: &ChainId, dire: Directive) -> Result<(), Error> {
+    pub fn push_directive(&mut self, chain_id: &ChainId, dire: Directive) -> Result<(), Error> {
         self.chains
             .get(chain_id)
             .ok_or(Error::NotFoundChain(chain_id.to_string()))
             .map_or_else(
                 |e| Err(e),
                 |mut chain| {
+                    // excluds the deactive state
                     if matches!(chain.chain_state, ChainState::Deactive) {
-                        Err(Error::DeactiveChain(chain_id.to_string()))
+                        info!(
+                            "dst chain {} is deactive, don`t push directive for it! ",
+                            chain.chain_id.to_string()
+                        );
                     } else {
                         if self
                             .dire_queue
@@ -248,14 +231,13 @@ impl HubState {
                             SeqKey::from(chain.chain_id.to_string(), chain.latest_ticket_seq),
                             dire.clone(),
                         );
-
-                        Ok(())
                     }
+                    Ok(())
                 },
             )
     }
 
-    pub fn pull_dires(
+    pub fn pull_directives(
         &self,
         chain_id: ChainId,
         topic: Option<Topic>,
