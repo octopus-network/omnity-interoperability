@@ -96,6 +96,7 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
     read_state(|s| {
         s.redeem_fees
             .get(&chain_id)
+            // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
             .map(|fee| fee.factor * ic_ledger_types::Tokens::SUBDIVIDABLE_BY + ICP_TRANSFER_FEE)
     })
 }
