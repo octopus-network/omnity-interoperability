@@ -48,7 +48,6 @@ pub enum GenerateTicketError {
         provided: u64,
     },
     RedeemFeeNotSet,
-    QueryBalanceError,
     TransferFailure(String),
 }
 
@@ -214,7 +213,7 @@ async fn ic_balance_of(subaccount: &IcSubaccount) -> Result<Tokens, GenerateTick
     };
     ic_ledger_types::account_balance(MAINNET_LEDGER_CANISTER_ID, balance_args)
         .await
-        .map_err(|_| GenerateTicketError::QueryBalanceError)
+        .map_err(|(_, reason)| GenerateTicketError::TemporarilyUnavailable(reason))
 }
 
 pub fn principal_to_subaccount(principal_id: &Principal) -> ic_ledger_types::Subaccount {
