@@ -258,10 +258,8 @@ pub struct Fee {
     pub dst_chain_id: ChainId,
     // quote currency or token
     pub fee_token: TokenId,
-    // base fee = 1 wei
-    pub factor: u64,
-    // quote token amoute
-    // pub fee_amount: u64,
+    pub target_chain_factor: u64,
+    pub fee_token_factor: u64,
 }
 
 impl Storable for Fee {
@@ -284,7 +282,7 @@ impl core::fmt::Display for Fee {
         write!(
             f,
             "\ndst chain:{},\nfee token:{},\nfactor:{}",
-            self.dst_chain_id, self.fee_token, self.factor,
+            self.dst_chain_id, self.fee_token, self.target_chain_factor,
         )
     }
 }

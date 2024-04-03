@@ -89,18 +89,10 @@ fn install_ledger(env: &StateMachine) {
     });
 
     // MAINNET_LEDGER_CANISTER_ID canister_id_to_u64 = 2, so the ledger canister must deploy thirdly
-    let ledger_id = env.create_canister_with_cycles(
-        None,
-        Cycles::new(100_000_000_000_0000),
-        None,
-    );
+    let ledger_id = env.create_canister_with_cycles(None, Cycles::new(100_000_000_000_0000), None);
 
-    env.install_existing_canister(
-        ledger_id,
-        LEDGER_WASM.to_vec(),
-        Encode!(&payload).unwrap(),
-    )
-    .expect("install ledger error !");
+    env.install_existing_canister(ledger_id, LEDGER_WASM.to_vec(), Encode!(&payload).unwrap())
+        .expect("install ledger error !");
 }
 
 fn install_router(env: &StateMachine, hub_id: CanisterId) -> CanisterId {
@@ -145,7 +137,7 @@ impl RouteSetup {
         let hub_id = install_hub(&env);
         let route_id = install_router(&env, hub_id.clone());
         install_ledger(&env);
-        
+
         let caller = caller_account();
 
         dbg!(&hub_id);
@@ -432,7 +424,8 @@ fn set_fee(route: &RouteSetup) {
     route.push_directives(vec![Directive::UpdateFee(Fee {
         dst_chain_id: SETTLEMENT_CHAIN.into(),
         fee_token: "ICP".into(),
-        factor: 2,
+        target_chain_factor: 10_000,
+        fee_token_factor: 1000,
     })]);
 
     route.env.advance_time(Duration::from_secs(10));

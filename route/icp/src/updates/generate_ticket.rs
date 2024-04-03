@@ -175,7 +175,7 @@ async fn burn_token_icrc2(
 
 async fn charge_redeem_fee(from: Principal, chain_id: &ChainId) -> Result<(), GenerateTicketError> {
     let redeem_fee = read_state(|s| match s.redeem_fees.get(chain_id) {
-        Some(fee) => Ok(fee.factor * Tokens::SUBDIVIDABLE_BY),
+        Some(fee) => Ok(fee.target_chain_factor * fee.fee_token_factor),
         None => Err(GenerateTicketError::RedeemFeeNotSet),
     })?;
 

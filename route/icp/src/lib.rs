@@ -107,8 +107,18 @@ async fn process_directives() {
                         mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
                     }
                     Directive::UpdateFee(fee) => {
-                        mutate_state(|s| audit::update_fee(s, fee.clone()));
-                        log::info!("[process_directives] success to update fee, fee: {}", fee);
+                        if fee
+                            .target_chain_factor
+                            .checked_mul(fee.fee_token_factor)
+                            .is_none()
+                        {
+                            log::error!(
+                                "[process_directives] fee amount should not exceed max of u64"
+                            );
+                        } else {
+                            mutate_state(|s| audit::update_fee(s, fee.clone()));
+                            log::info!("[process_directives] success to update fee, fee: {}", fee);
+                        }
                     }
                 }
             }
