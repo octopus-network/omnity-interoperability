@@ -2,7 +2,10 @@ use crate::state::{audit, read_state};
 use crate::{hub, ICP_TRANSFER_FEE};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use ic_cdk::caller;
-use ic_ledger_types::{AccountIdentifier, Tokens, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID};
+use ic_ledger_types::{
+    AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT,
+    MAINNET_LEDGER_CANISTER_ID,
+};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
@@ -28,38 +31,30 @@ pub struct GenerateTicketOk {
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum GenerateTicketError {
+    TemporarilyUnavailable(String),
     UnsupportedToken(String),
-
     UnsupportedChainId(String),
-
-    /// The withdrawal account does not hold the requested token amount.
+    /// The redeem account does not hold the requested token amount.
     InsufficientFunds {
         balance: u64,
     },
-
     /// The caller didn't approve enough funds for spending.
     InsufficientAllowance {
         allowance: u64,
     },
-
     SendTicketErr(String),
-
-    TemporarilyUnavailable(String),
-
     InsufficientRedeemFee {
-        lack_balance: u64,
+        required: u64,
+        provided: u64,
     },
-
+    RedeemFeeNotSet,
     QueryBalanceError,
-
-    TransferFailure,
+    TransferFailure(String),
 }
 
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
-    charge_redeem_fee(caller(), &req.target_chain_id).await?;
-
     if !read_state(|s| {
         s.counterparties
             .get(&req.target_chain_id)
@@ -69,6 +64,8 @@ pub async fn generate_ticket(
             req.target_chain_id.clone(),
         ));
     }
+
+    charge_redeem_fee(caller(), &req.target_chain_id).await?;
 
     let ledger_id = read_state(|s| match s.token_ledgers.get(&req.token_id) {
         Some(ledger_id) => Ok(ledger_id.clone()),
@@ -177,31 +174,20 @@ async fn burn_token_icrc2(
     }
 }
 
-async fn charge_redeem_fee(
-    charge_from: Principal,
-    chain_id: &ChainId,
-) -> Result<(), GenerateTicketError> {
-    let redeem_fee = read_state(|s| {
-        s.redeem_fees
-            .get(chain_id)
-            .expect("unreachable: redeem fee not found")
-            .clone()
-            .factor
-            * (Tokens::SUBDIVIDABLE_BY as i64)
-    }) as u64;
+async fn charge_redeem_fee(from: Principal, chain_id: &ChainId) -> Result<(), GenerateTicketError> {
+    let redeem_fee = read_state(|s| match s.redeem_fees.get(chain_id) {
+        Some(fee) => Ok(fee.factor * Tokens::SUBDIVIDABLE_BY),
+        None => Err(GenerateTicketError::RedeemFeeNotSet),
+    })?;
 
-    let subaccount = principal_to_subaccount(&charge_from);
+    let subaccount = principal_to_subaccount(&from);
+    let ic_balance = ic_balance_of(&subaccount).await?;
 
-    let account_identifier = AccountIdentifier::new(&ic_cdk::api::id(), &subaccount);
-
-    let balance_args = ic_ledger_types::AccountBalanceArgs { account: account_identifier };
-
-    let balance = ic_ledger_types::account_balance(MAINNET_LEDGER_CANISTER_ID, balance_args)
-        .await
-        .map_err(|_| GenerateTicketError::QueryBalanceError)?;
-
-    if balance.e8s() < redeem_fee + ICP_TRANSFER_FEE {
-        return Err(GenerateTicketError::InsufficientRedeemFee { lack_balance: redeem_fee + ICP_TRANSFER_FEE - balance.e8s() });
+    if ic_balance.e8s() < redeem_fee + ICP_TRANSFER_FEE {
+        return Err(GenerateTicketError::InsufficientRedeemFee {
+            required: redeem_fee,
+            provided: ic_balance.e8s(),
+        });
     }
 
     let transfer_args = ic_ledger_types::TransferArgs {
@@ -214,12 +200,21 @@ async fn charge_redeem_fee(
     };
 
     ic_ledger_types::transfer(MAINNET_LEDGER_CANISTER_ID, transfer_args)
-    .await
-    .map_err(|_| GenerateTicketError::TransferFailure)?
-    .map_err(|_| GenerateTicketError::TransferFailure)?;
+        .await
+        .map_err(|(_, reason)| GenerateTicketError::TemporarilyUnavailable(reason))?
+        .map_err(|err| GenerateTicketError::TransferFailure(err.to_string()))?;
 
     Ok(())
+}
 
+async fn ic_balance_of(subaccount: &IcSubaccount) -> Result<Tokens, GenerateTicketError> {
+    let account_identifier = AccountIdentifier::new(&ic_cdk::api::id(), &subaccount);
+    let balance_args = ic_ledger_types::AccountBalanceArgs {
+        account: account_identifier,
+    };
+    ic_ledger_types::account_balance(MAINNET_LEDGER_CANISTER_ID, balance_args)
+        .await
+        .map_err(|_| GenerateTicketError::QueryBalanceError)
 }
 
 pub fn principal_to_subaccount(principal_id: &Principal) -> ic_ledger_types::Subaccount {

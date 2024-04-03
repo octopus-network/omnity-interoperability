@@ -10,7 +10,7 @@ use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{periodic_task, storage, PERIODIC_TASK_INTERVAL};
+use icp_route::{periodic_task, storage, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
 use log::{self};
 use omnity_types::{Chain, ChainId, Token};
 use std::time::Duration;
@@ -92,15 +92,12 @@ pub fn get_deposit_subaccount(principal: Principal) -> ic_ledger_types::Subaccou
 }
 
 #[query]
-pub fn get_redeem_fee(chain_id: ChainId) -> u64 {
+pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
     read_state(|s| {
         s.redeem_fees
             .get(&chain_id)
-            .expect("unreachable: redeem fee not found")
-            .clone()
-            .factor
-            * (ic_ledger_types::Tokens::SUBDIVIDABLE_BY as i64)
-    }) as u64 + icp_route::ICP_TRANSFER_FEE
+            .map(|fee| fee.factor * ic_ledger_types::Tokens::SUBDIVIDABLE_BY + ICP_TRANSFER_FEE)
+    })
 }
 
 fn main() {}

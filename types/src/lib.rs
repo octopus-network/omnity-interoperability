@@ -259,7 +259,7 @@ pub struct Fee {
     // quote currency or token
     pub fee_token: TokenId,
     // base fee = 1 wei
-    pub factor: i64,
+    pub factor: u64,
     // quote token amoute
     // pub fee_amount: u64,
 }

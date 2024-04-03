@@ -3,14 +3,13 @@ use ic_base_types::{CanisterId, PrincipalId};
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
-use icp_ledger::{
-    AccountIdentifier, InitArgs as LedgerInitArgs, LedgerCanisterPayload, Tokens,
-    TOKEN_SUBDIVIDABLE_BY,
-};
+use icp_ledger::{AccountIdentifier, InitArgs as LedgerInitArgs, LedgerCanisterPayload, Tokens};
 use icp_route::{
-    hub, lifecycle::init::{InitArgs, RouteArg}, state::MintTokenStatus, updates::generate_ticket::{
+    lifecycle::init::{InitArgs, RouteArg},
+    state::MintTokenStatus,
+    updates::generate_ticket::{
         principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
-    }, ICP_TRANSFER_FEE
+    },
 };
 use icrc_ledger_types::{
     icrc1::account::Account,
@@ -37,10 +36,6 @@ fn minting_account() -> PrincipalId {
 
 fn caller_account() -> PrincipalId {
     PrincipalId::new_user_test_id(2)
-}
-
-fn redeem_fee_of_icp() -> u64 {
-    TOKEN_SUBDIVIDABLE_BY
 }
 
 fn route_wasm() -> Vec<u8> {
@@ -74,7 +69,7 @@ fn install_ledger(env: &StateMachine) {
     let mut initial_values = HashMap::<AccountIdentifier, Tokens>::new();
     initial_values.insert(
         AccountIdentifier::new(caller_account(), None),
-        Tokens::from_e8s(redeem_fee_of_icp() + icp_route::ICP_TRANSFER_FEE + ICP_TRANSFER_FEE),
+        Tokens::from_e8s(1000_000_000),
     );
 
     let payload = LedgerCanisterPayload::Init(LedgerInitArgs {
@@ -94,15 +89,14 @@ fn install_ledger(env: &StateMachine) {
     });
 
     // MAINNET_LEDGER_CANISTER_ID canister_id_to_u64 = 2, so the ledger canister must deploy thirdly
-    env.create_canister_with_cycles(
-        // Some(MAINNET_LEDGER_CANISTER_ID.into()),
+    let ledger_id = env.create_canister_with_cycles(
         None,
         Cycles::new(100_000_000_000_0000),
         None,
     );
 
     env.install_existing_canister(
-        mainnet_ledger_canister_id(),
+        ledger_id,
         LEDGER_WASM.to_vec(),
         Encode!(&payload).unwrap(),
     )
@@ -145,12 +139,13 @@ impl RouteSetup {
         let ledger_canister_id = mainnet_ledger_canister_id();
         let env = StateMachineBuilder::new()
             .with_default_canister_range()
-            // .with_extra_canister_range(CanisterId::from_u64(0)..=ledger_canister_id)
+            .with_extra_canister_range(ledger_canister_id..=ledger_canister_id)
             .build();
 
         let hub_id = install_hub(&env);
         let route_id = install_router(&env, hub_id.clone());
         install_ledger(&env);
+        
         let caller = caller_account();
 
         dbg!(&hub_id);
@@ -165,10 +160,13 @@ impl RouteSetup {
         }
     }
 
-    pub fn transfer_redeem_icp_to_route_subaccount(&self) {
+    pub fn transfer_redeem_fee_to_route_subaccount(&self) {
+        let redeem_fee = self
+            .get_redeem_fee()
+            .expect("redeem fee should not be none");
         let transfer_args = ic_ledger_types::TransferArgs {
             memo: ic_ledger_types::Memo(0),
-            amount: ic_ledger_types::Tokens::from_e8s(redeem_fee_of_icp() + ICP_TRANSFER_FEE),
+            amount: ic_ledger_types::Tokens::from_e8s(redeem_fee),
             fee: ic_ledger_types::Tokens::from_e8s(icp_route::ICP_TRANSFER_FEE),
             from_subaccount: None,
             to: ic_ledger_types::AccountIdentifier::new(
@@ -308,6 +306,23 @@ impl RouteSetup {
         .unwrap()
     }
 
+    pub fn get_redeem_fee(&self) -> Option<u64> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.route_id,
+                        "get_redeem_fee",
+                        Encode!(&SETTLEMENT_CHAIN).unwrap(),
+                    )
+                    .expect("failed to get redeem fee")
+            ),
+            Option<u64>
+        )
+        .unwrap()
+    }
+
     pub fn icrc1_balance_of(&self, ledger_id: CanisterId, owner: Principal) -> Nat {
         Decode!(
             &assert_reply(
@@ -349,7 +364,17 @@ impl RouteSetup {
         panic!("the routes did not add the token in {}", max_ticks)
     }
 
-    pub fn await_await_finalization(&self, ticket_id: String, max_ticks: usize) {
+    pub fn await_fee(&self, max_ticks: usize) {
+        for _ in 0..max_ticks {
+            let fee = self.get_redeem_fee();
+            if fee.is_some() {
+                return;
+            }
+        }
+        panic!("the routes did not add the redeem fee in {}", max_ticks)
+    }
+
+    pub fn await_finalization(&self, ticket_id: String, max_ticks: usize) {
         for _ in 0..max_ticks {
             if let MintTokenStatus::Finalized { .. } = self.mint_token_status(ticket_id.clone()) {
                 return;
@@ -407,10 +432,11 @@ fn set_fee(route: &RouteSetup) {
     route.push_directives(vec![Directive::UpdateFee(Fee {
         dst_chain_id: SETTLEMENT_CHAIN.into(),
         fee_token: "ICP".into(),
-        factor: 1,
+        factor: 2,
     })]);
 
     route.env.advance_time(Duration::from_secs(10));
+    route.await_fee(10);
 }
 
 #[test]
@@ -441,7 +467,7 @@ fn mint_token(route: &RouteSetup, receiver: String, amount: String) {
         memo: None,
     });
     route.env.advance_time(Duration::from_secs(5));
-    route.await_await_finalization(ticket_id.clone(), 10);
+    route.await_finalization(ticket_id.clone(), 10);
 }
 
 #[test]
@@ -470,7 +496,6 @@ fn test_mint_token() {
 
 #[test]
 fn test_generate_ticket() {
-
     let route = RouteSetup::new();
     add_chain(&route);
     add_token(&route);
@@ -487,7 +512,7 @@ fn test_generate_ticket() {
     let redeem_amount = 400000_u128;
     route.icrc2_approve(ledger_id, Nat::from(redeem_amount));
 
-    route.transfer_redeem_icp_to_route_subaccount();
+    route.transfer_redeem_fee_to_route_subaccount();
 
     route
         .generate_ticket(&GenerateTicketReq {
