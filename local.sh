@@ -131,7 +131,7 @@ $ dfx canister call omnity_hub execute_proposal  '(vec {variant { AddChain = rec
 $ dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 2 : nat8; icon = opt "rune.logo.url"; token_id = "Bitcoin-runes-UNCOMMON•GOODS"; settlement_chain = "Bitcoin"; symbol = "UNCOMMON•GOODS"; metadata = opt vec{ record {"rune_id"; "108:1"}}; dst_chains = vec {"Bitcoin";"eICP";}}}})'
 $ dfx canister call omnity_hub execute_proposal '( vec {variant { AddToken = record { decimals = 2 : nat8; icon = opt "rune.logo.url"; token_id = "Bitcoin-runes-UNCOMMON•GOODS"; settlement_chain = "Bitcoin"; symbol = "UNCOMMON•GOODS"; metadata = opt vec{ record {"rune_id"; "108:1"}}; dst_chains = vec {"Bitcoin";"eICP";}}}})'
 
-$ dfx canister call omnity_hub query_dires '(opt "Bitcoin",null,0:nat64,5:nat64)'
+$ dfx canister call omnity_hub query_directives '(opt "Bitcoin",null,0:nat64,5:nat64)'
 (
   variant {
     Ok = vec {

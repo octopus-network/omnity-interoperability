@@ -46,7 +46,7 @@ fn test_add_chain() {
     assert!(ret.is_ok());
 
     chain_ids().iter().for_each(|chain_id| {
-        let result = hub.query_dires(
+        let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
             &Some(Topic::AddChain(None)),
@@ -81,7 +81,7 @@ fn test_add_token() {
     assert!(ret.is_ok());
 
     for chain_id in chain_ids() {
-        let result = hub.query_dires(
+        let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
             &Some(Topic::AddToken(None)),
@@ -93,7 +93,7 @@ fn test_add_token() {
     }
 
     for canister_id in canister_ids() {
-        let result = hub.query_dires(
+        let result = hub.query_directives(
             &Some(canister_id),
             &None,
             &Some(Topic::AddToken(None)),
@@ -154,7 +154,7 @@ fn test_toggle_chain_state() {
     // query directives for chain id
 
     for chain_id in chain_ids() {
-        let result = hub.query_dires(
+        let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
             &Some(Topic::DeactivateChain),
@@ -205,7 +205,7 @@ fn test_update_fee() {
 
     // query directives for chain id
     for chain_id in chain_ids() {
-        let result = hub.query_dires(
+        let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
             &Some(Topic::UpdateFee(None)),

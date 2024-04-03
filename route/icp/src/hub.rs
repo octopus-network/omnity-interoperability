@@ -44,14 +44,14 @@ pub async fn query_tickets(
     Ok(data)
 }
 
-pub async fn query_dires(
+pub async fn query_directives(
     hub_principal: Principal,
     offset: u64,
     limit: u64,
 ) -> Result<Vec<(Seq, Directive)>, CallError> {
     let resp: (Result<Vec<(Seq, Directive)>, omnity_types::Error>,) = ic_cdk::api::call::call(
         hub_principal,
-        "query_dires",
+        "query_directives",
         (
             None::<Option<ChainId>>,
             None::<Option<Topic>>,
@@ -61,11 +61,11 @@ pub async fn query_dires(
     )
     .await
     .map_err(|(code, message)| CallError {
-        method: "query_dires".to_string(),
+        method: "query_directives".to_string(),
         reason: Reason::from_reject(code, message),
     })?;
     let data = resp.0.map_err(|err| CallError {
-        method: "query_dires".to_string(),
+        method: "query_directives".to_string(),
         reason: Reason::CanisterError(err.to_string()),
     })?;
     Ok(data)
