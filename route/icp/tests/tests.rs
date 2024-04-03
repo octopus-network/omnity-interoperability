@@ -22,6 +22,7 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr, time::Duration};
 
 const SETTLEMENT_CHAIN: &str = "Bitcoin";
 const EXECUTION_CHAIN: &str = "eICP";
+
 const SYMBOL: &str = "FIRST•RUNE•TOKEN";
 const TOKEN_ID: &str = "Bitcoin-RUNES-FIRST•RUNE•TOKEN";
 const LEDGER_WASM: &[u8] = include_bytes!("../../../ledger-canister.wasm");
@@ -37,6 +38,7 @@ fn minting_account() -> PrincipalId {
 fn caller_account() -> PrincipalId {
     PrincipalId::new_user_test_id(2)
 }
+
 
 fn route_wasm() -> Vec<u8> {
     load_wasm(
