@@ -940,7 +940,8 @@ mod tests {
         // add token
         build_tokens().await;
 
-        // change chain state
+        println!("------------ state switch: from active to deactive -----------------");
+        // change chain state to deactivate
         let chain_state = ToggleState {
             chain_id: "EVM-Optimistic".to_string(),
             action: ToggleAction::Deactivate,
@@ -960,20 +961,19 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        with_state(|hs| {
-            for (seq_key, dires) in hs.dire_queue.iter() {
-                println!("{:?},{:#?}", seq_key, dires)
-            }
-        });
+        // with_state(|hs| {
+        //     for (seq_key, dires) in hs.dire_queue.iter() {
+        //         println!("{:?},{:#?}", seq_key, dires)
+        //     }
+        // });
 
-        with_state(|hs| {
-            for (chain_id, chain) in hs.chains.iter() {
-                println!("{},{:#?}\n", chain_id, chain)
-            }
-        });
+        // with_state(|hs| {
+        //     for (chain_id, chain) in hs.chains.iter() {
+        //         println!("{},{:#?}\n", chain_id, chain)
+        //     }
+        // });
 
         // query directives for chain id
-
         for chain_id in chain_ids() {
             let result = query_directives(
                 Some(chain_id.to_string()),
@@ -987,7 +987,50 @@ mod tests {
             assert!(result.is_ok());
         }
 
-        // let result = get_chains(None, Some(ChainState::Deactive), 0, 10).await;
+        let result = get_chains(None, Some(ChainState::Deactive), 0, 10).await;
+        // let result = get_chains(None, None, 0, 10).await;
+        assert!(result.is_ok());
+        println!(
+            "get_chains result by chain type and chain state: {:#?}",
+            result
+        );
+
+        println!("------------ state switch: from deactive to active -----------------");
+        // change chain state to active
+        let chain_state = ToggleState {
+            chain_id: "EVM-Optimistic".to_string(),
+            action: ToggleAction::Activate,
+        };
+
+        let toggle_state = Proposal::ToggleChainState(chain_state);
+        let result = validate_proposal(vec![toggle_state.clone()]).await;
+        println!(
+            "validate_proposal for Proposal::ToggleChainState(chain_state) result:{:#?}",
+            result
+        );
+        assert!(result.is_ok());
+        let result = execute_proposal(vec![toggle_state]).await;
+        println!(
+            "execute_proposal for Proposal::ToggleChainState(chain_state) result:{:#?}",
+            result
+        );
+        assert!(result.is_ok());
+
+        // query directives for chain id
+        for chain_id in chain_ids() {
+            let result = query_directives(
+                Some(chain_id.to_string()),
+                // None,
+                Some(Topic::ActivateChain),
+                0,
+                5,
+            )
+            .await;
+            println!("query_directives for {:} dires: {:#?}", chain_id, result);
+            assert!(result.is_ok());
+        }
+
+        let result = get_chains(None, Some(ChainState::Deactive), 0, 10).await;
         // let result = get_chains(None, None, 0, 10).await;
         assert!(result.is_ok());
         println!(
