@@ -1063,7 +1063,8 @@ mod tests {
         let fee = Fee {
             dst_chain_id: "EVM-Arbitrum".to_string(),
             fee_token: "Ethereum-ERC20-OP".to_string(),
-            factor: 12,
+            target_chain_factor: 10_000,
+            fee_token_factor: 60_000_000_000,
         };
 
         // let update_fee = Proposal::UpdateFee(fee);

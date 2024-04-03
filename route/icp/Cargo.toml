@@ -28,7 +28,10 @@ ic-ledger-canister-core = { git = "https://github.com/dfinity/ic", rev = "7f6e7d
 ic-base-types = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-icrc1-ledger = {git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 omnity_types = { path = "../../types" }
+ic-ledger-types = "0.9.0"
 
 [dev-dependencies]
 ic-state-machine-tests = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
 ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+icp-ledger = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+dfn_candid = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
