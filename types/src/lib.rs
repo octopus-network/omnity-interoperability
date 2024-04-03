@@ -281,8 +281,8 @@ impl core::fmt::Display for Fee {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\ndst chain:{},\nfee token:{},\nfactor:{}",
-            self.dst_chain_id, self.fee_token, self.target_chain_factor,
+            "\ndst chain:{},\nfee token:{},\ntarget_chain_factor:{},\nfee_token_factor:{}",
+            self.dst_chain_id, self.fee_token, self.target_chain_factor, self.fee_token_factor,
         )
     }
 }
