@@ -127,8 +127,6 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                     }
 
                     hub_state.available_chain(&token_meta.settlement_chain)
-
-                    // Ok(())
                 })?;
                 let result = format!("The AddToken proposal: {}", token_meta);
                 info!("validate_proposal result:{} ", result);
@@ -206,12 +204,12 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                                     // build directive for counterparty chain
                                     with_state_mut(|hub_state| {
                                         //TODO: Consider whether this is necessary？
-                                        hub_state.push_dire(
+                                        hub_state.push_directive(
                                             &counterparty,
                                             Directive::AddChain(new_chain.clone().into()),
                                         )?;
                                         // generate directive for the new chain
-                                        hub_state.push_dire(
+                                        hub_state.push_directive(
                                             &new_chain.chain_id,
                                             Directive::AddChain(dst_chain.into()),
                                         )
@@ -238,7 +236,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                         );
 
                         with_state_mut(|hub_state| {
-                            hub_state.push_dire(
+                            hub_state.push_directive(
                                 &dst_chain,
                                 Directive::AddToken(token_meata.clone().into()),
                             )
@@ -246,6 +244,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     })
                     .collect::<Result<(), Error>>()?;
             }
+
             Proposal::ToggleChainState(toggle_status) => {
                 info!(
                     "build directive for `ToggleChainState` proposal :{:?}",
@@ -254,9 +253,9 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
                 // generate directive for counterparty chain
                 if let Some(counterparties) =
-                    with_state(|hs| hs.available_chain(&toggle_status.chain_id))?.counterparties
+                    with_state(|hs| hs.chain(&toggle_status.chain_id))?.counterparties
                 {
-                   counterparties
+                    counterparties
                         .into_iter()
                         .map(|counterparty| {
                             info!(
@@ -266,18 +265,18 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
                             // build directive for counterparty chain
                             with_state_mut(|hub_state| {
-                                hub_state.push_dire(
+                                hub_state.push_directive(
                                     &counterparty,
                                     Directive::ToggleChainState(toggle_status.clone()),
                                 )
                             })
                         })
                         .collect::<Result<(), Error>>()?;
-
                 }
                 // update dst chain state
                 with_state_mut(|hub_state| hub_state.update_chain_state(&toggle_status))?;
             }
+
             Proposal::UpdateFee(fee) => {
                 info!("build directive for `UpdateFee` proposal :{:?}", fee);
 
@@ -285,7 +284,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     // save fee info
                     hub_state.update_fee(fee.clone())?;
                     // generate directive
-                    hub_state.push_dire(&fee.dst_chain_id, Directive::UpdateFee(fee.clone()))
+                    hub_state.push_directive(&fee.dst_chain_id, Directive::UpdateFee(fee.clone()))
                 })?;
             }
         }
@@ -312,7 +311,7 @@ pub async fn update_fee(fees: Vec<Fee>) -> Result<(), Error> {
 
 /// query directives for chain id filter by topic,this method will be called by route and custom
 #[query(guard = "auth")]
-pub async fn query_dires(
+pub async fn query_directives(
     chain_id: Option<ChainId>,
     topic: Option<Topic>,
     offset: usize,
@@ -324,7 +323,7 @@ pub async fn query_dires(
     );
 
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
-    with_state(|hub_state| hub_state.pull_dires(dst_chain_id, topic, offset, limit))
+    with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit))
 }
 
 /// check and push ticket into queue
@@ -854,7 +853,7 @@ mod tests {
         // });
 
         for chain_id in chain_ids() {
-            let result = query_dires(
+            let result = query_directives(
                 Some(chain_id.to_string()),
                 Some(Topic::AddChain(None)),
                 0,
@@ -866,8 +865,8 @@ mod tests {
             let chain = get_chain(chain_id.to_string()).await;
             println!("get chain for {:} chain: {:#?}", chain_id, chain);
         }
-        // let result = query_dires(None, None, 0, 10).await;
-        // println!("query_dires dires: {:#?}", result);
+        // let result = query_directives(None, None, 0, 10).await;
+        // println!("query_directives dires: {:#?}", result);
 
         let result = get_chains(None, None, 0, 10).await;
         println!("get_chains result : {:#?}", result);
@@ -899,7 +898,7 @@ mod tests {
         // });
 
         for chain_id in chain_ids() {
-            let result = query_dires(
+            let result = query_directives(
                 Some(chain_id.to_string()),
                 Some(Topic::AddToken(None)),
                 0,
@@ -976,7 +975,7 @@ mod tests {
         // query directives for chain id
 
         for chain_id in chain_ids() {
-            let result = query_dires(
+            let result = query_directives(
                 Some(chain_id.to_string()),
                 // None,
                 Some(Topic::DeactivateChain),
@@ -1044,7 +1043,7 @@ mod tests {
 
         // query directives for chain id
         for chain_id in chain_ids() {
-            let result = query_dires(
+            let result = query_directives(
                 Some(chain_id.to_string()),
                 Some(Topic::UpdateFee(None)),
                 0,

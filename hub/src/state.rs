@@ -201,15 +201,19 @@ impl HubState {
             )
     }
 
-    pub fn push_dire(&mut self, chain_id: &ChainId, dire: Directive) -> Result<(), Error> {
+    pub fn push_directive(&mut self, chain_id: &ChainId, dire: Directive) -> Result<(), Error> {
         self.chains
             .get(chain_id)
             .ok_or(Error::NotFoundChain(chain_id.to_string()))
             .map_or_else(
                 |e| Err(e),
                 |mut chain| {
+                    // excluds the deactive state
                     if matches!(chain.chain_state, ChainState::Deactive) {
-                        Err(Error::DeactiveChain(chain_id.to_string()))
+                        info!(
+                            "dst chain {} is deactive, don`t push directive for it! ",
+                            chain.chain_id.to_string()
+                        );
                     } else {
                         if self
                             .dire_queue
@@ -227,14 +231,13 @@ impl HubState {
                             SeqKey::from(chain.chain_id.to_string(), chain.latest_ticket_seq),
                             dire.clone(),
                         );
-
-                        Ok(())
                     }
+                    Ok(())
                 },
             )
     }
 
-    pub fn pull_dires(
+    pub fn pull_directives(
         &self,
         chain_id: ChainId,
         topic: Option<Topic>,

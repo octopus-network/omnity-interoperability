@@ -121,7 +121,7 @@ service : () -> {
       nat64,
       nat64,
     ) -> (Result_8) query;
-  query_dires : (opt text, opt Topic, nat64, nat64) -> (Result_9) query;
+  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_9) query;
   query_tickets : (opt text, nat64, nat64) -> (Result_10) query;
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
