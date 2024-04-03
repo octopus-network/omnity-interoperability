@@ -23,10 +23,9 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
         return Err(AddNewTokenError::AleardyAdded(token.token_id));
     }
 
-    let record =
-        install_icrc2_ledger(token.token_id.clone(), token.symbol.clone(), token.decimals)
-            .await
-            .map_err(AddNewTokenError::CreateLedgerErr)?;
+    let record = install_icrc2_ledger(token.token_id.clone(), token.symbol.clone(), token.decimals)
+        .await
+        .map_err(AddNewTokenError::CreateLedgerErr)?;
 
     mutate_state(|s| {
         audit::add_token(s, token, record.canister_id);
@@ -48,7 +47,9 @@ async fn install_icrc2_ledger(
             reserved_cycles_limit: None,
         }),
     };
-    let (canister_id_record,) = create_canister(create_canister_arg, 100_000_000_000).await.unwrap();
+    let (canister_id_record,) = create_canister(create_canister_arg, 100_000_000_000)
+        .await
+        .unwrap();
 
     let owner: Principal = ic_cdk::id();
     let install_code_arg = InstallCodeArgument {

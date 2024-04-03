@@ -21,17 +21,29 @@ pub struct RsTxOut {
     #[serde(with = "bitcoin::amount::serde::as_btc")]
     pub value: Amount,
     pub address: Option<String>,
-    pub op_return: Option<Runestone>,
+    pub op_return: Option<Artifact>,
     pub runes: Vec<(RuneId, u128)>,
 }
 
 #[derive(Deserialize, Debug)]
+pub enum Artifact {
+    Cenotaph(Cenotaph),
+    Runestone(Runestone),
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Cenotaph {
+    pub etching: Option<String>,
+    pub flaws: u32,
+    pub mint: Option<RuneId>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct Runestone {
-    pub cenotaph: bool,
-    pub claim: Option<RuneId>,
-    pub default_output: Option<u32>,
     pub edicts: Vec<Edict>,
     pub etching: Option<Etching>,
+    pub mint: Option<RuneId>,
+    pub pointer: Option<u32>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -43,18 +55,20 @@ pub struct Edict {
 
 #[derive(Deserialize, Debug)]
 pub struct Etching {
-    pub divisibility: u8,
-    pub mint: Option<Mint>,
+    pub divisibility: Option<u8>,
+    pub premine: Option<u128>,
     pub rune: Option<String>,
-    pub spacers: u32,
+    pub spacers: Option<u32>,
     pub symbol: Option<char>,
+    pub terms: Option<Terms>,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Mint {
-    pub deadline: Option<u32>,
-    pub limit: Option<u128>,
-    pub term: Option<u32>,
+pub struct Terms {
+    pub amount: Option<u128>,
+    pub cap: Option<u128>,
+    pub height: (Option<u64>, Option<u64>),
+    pub offset: (Option<u64>, Option<u64>),
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -99,75 +113,97 @@ mod tests {
     #[test]
     fn test_deserialize_transaction() {
         let json = json!({
-            "inputs": [
-                {
-                    "runes": [["102:1", 21000000]],
-                    "value": 0.0001,
-                    "address": "bcrt1prrjgtxv4felauzampzhf7kvw3pwel75dsqcmuvptwugcr2knazps2342kq"
-                },
-                {
-                    "runes": [],
-                    "value": 49.999898,
-                    "address": "bcrt1p3cpnh26x2xqfm7d0up7c6qxs9u2786hz2ddxvepm7j024v58ytys26fwar"
-                }
-            ],
-            "outputs": [
-                {
-                    "runes": [],
-                    "value": 0.0,
-                    "address": null,
-                    "op_return": {
-                        "burn": false,
-                        "claim": null,
-                        "edicts": [{"id": "102:1", "amount": 7, "output": 2}],
-                        "etching": null,
-                        "default_output": null
+          "inputs": [
+            {
+              "runes": [
+                [
+                  "108:1",
+                  100000
+                ]
+              ],
+              "value": 0.0001,
+              "address": "bcrt1pgyplwd4sea9kee9vdz9gc95evswxxmuwfpv67g64h53g5jvyt39supadnx"
+            },
+            {
+              "runes": [],
+              "value": 49.99979605,
+              "address": "bcrt1pmthgfs90kez2wxmerpt5q6w4r60qpu59jun76rdzy8fw7n40tpxqrgwrp8"
+            }
+          ],
+          "outputs": [
+            {
+              "runes": [],
+              "value": 0,
+              "address": null,
+              "op_return": {
+                "Runestone": {
+                  "mint": null,
+                  "edicts": [
+                    {
+                      "id": "108:1",
+                      "amount": 700,
+                      "output": 2
                     }
-                },
-                {
-                    "runes": [["102:1", 20999993]],
-                    "value": 0.0001,
-                    "address": "bcrt1pfqmk3a2s2my84t7zfv6vc6t3dtm35zrhlajsk5xuauasdlx3ywsszr8w7c",
-                    "op_return": null
-                },
-                {
-                    "runes": [["102:1", 7]],
-                    "value": 0.0001,
-                    "address": "bcrt1qnwc03kekz4zexmtd69fffy6ap6pl3x4xwagdqf",
-                    "op_return": null
-                },
-                {
-                    "runes": [],
-                    "value": 49.99979529,
-                    "address": "bcrt1pw673t0ktvdns86xgghef25jz4xeaewh24mgvc6yk2f26heuat5yqzmqw75",
-                    "op_return": null
+                  ],
+                  "etching": null,
+                  "pointer": null
                 }
-            ]
+              }
+            },
+            {
+              "runes": [
+                [
+                  "108:1",
+                  99300
+                ]
+              ],
+              "value": 0.0001,
+              "address": "bcrt1pkhtp5hh6rxvnr7qjus30zm5l5vszxqm8vrdyk0xg09j3xd8ugq9q9p4yhj",
+              "op_return": null
+            },
+            {
+              "runes": [
+                [
+                  "108:1",
+                  700
+                ]
+              ],
+              "value": 0.0001,
+              "address": "bcrt1qp5ezzetuwc4jtzjfc9w2t47n7yvhgl4xz842pf",
+              "op_return": null
+            },
+            {
+              "runes": [],
+              "value": 49.99969344,
+              "address": "bcrt1p75mc0x7zec4xnc8vezgx9e6ekukujzfztnes456rhhylwqwhd7zs5l2ekt",
+              "op_return": null
+            }
+          ]
         });
 
         let transaction: Transaction = serde_json::from_value(json).unwrap();
 
-        assert_eq!(transaction.outputs[2].runes[0].0, "102:1");
-        assert_eq!(transaction.outputs[2].runes[0].1, 7);
+        assert_eq!(transaction.outputs[2].runes[0].0, "108:1");
+        assert_eq!(transaction.outputs[2].runes[0].1, 700);
 
         let runes_balances = transaction.get_runes_balances();
         assert_eq!(runes_balances.len(), 2);
         assert_eq!(
             runes_balances[0],
             RunesBalance {
-                rune_id: "102:1".into(),
-                address: "bcrt1pfqmk3a2s2my84t7zfv6vc6t3dtm35zrhlajsk5xuauasdlx3ywsszr8w7c".into(),
+                rune_id: "108:1".into(),
+                address: "bcrt1pkhtp5hh6rxvnr7qjus30zm5l5vszxqm8vrdyk0xg09j3xd8ugq9q9p4yhj".into(),
                 vout: 1,
-                amount: 20999993,
+                amount: 99300,
             }
         );
         assert_eq!(
             runes_balances[1],
             RunesBalance {
-                rune_id: "102:1".into(),
-                address: "bcrt1qnwc03kekz4zexmtd69fffy6ap6pl3x4xwagdqf".into(),
+                rune_id: "108:1".into(),
+                address: "bcrt1qp5ezzetuwc4jtzjfc9w2t47n7yvhgl4xz842pf".into(),
                 vout: 2,
-                amount: 7,
+                amount: 700,
             }
         );
     }

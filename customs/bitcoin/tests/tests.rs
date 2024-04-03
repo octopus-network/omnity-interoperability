@@ -32,7 +32,7 @@ const MAX_TIME_IN_QUEUE: Duration = Duration::from_secs(10);
 const COSMOS_HUB: &str = "cosmoshub";
 const RUNE_ID_1: &str = "150:1";
 const RUNE_ID_2: &str = "151:1";
-const TOKEN_ID_1: &str = "Bitcoin-RUNES-FIRST•RUNE•TOKEN";
+const TOKEN_ID_1: &str = "Bitcoin-RUNES-UNCOMMON•GOODS";
 const TOKEN_ID_2: &str = "Bitcoin-RUNES-SECOND•RUNE•TOKEN";
 
 fn customs_wasm() -> Vec<u8> {
@@ -257,7 +257,7 @@ impl CustomsSetup {
             }),
             Directive::AddToken(Token {
                 token_id: TOKEN_ID_1.into(),
-                symbol: "FIRST•RUNE•TOKEN".into(),
+                symbol: "UNCOMMON•GOODS".into(),
                 issue_chain: COSMOS_HUB.into(),
                 decimals: 0,
                 icon: None,
@@ -1620,10 +1620,14 @@ fn test_transaction_resubmission_finalize_middle() {
         .env
         .advance_time(MIN_RESUBMISSION_DELAY + Duration::from_secs(1));
 
-    let mempool_2 = customs.tick_until("mempool contains a replacement transaction", 10, |customs| {
-        let mempool = customs.mempool();
-        (mempool.len() > 1).then_some(mempool)
-    });
+    let mempool_2 = customs.tick_until(
+        "mempool contains a replacement transaction",
+        10,
+        |customs| {
+            let mempool = customs.mempool();
+            (mempool.len() > 1).then_some(mempool)
+        },
+    );
 
     let second_txid = customs.await_btc_transaction(ticket_id.clone(), 10);
 

@@ -16,8 +16,8 @@ use std::{path::PathBuf, str::FromStr, time::Duration};
 
 const SETTLEMENT_CHAIN: &str = "Bitcoin";
 const EXECUTION_CHAIN: &str = "eICP";
-const SYMBOL: &str = "FIRST•RUNE•TOKEN";
-const TOKEN_ID: &str = "Bitcoin-RUNES-FIRST•RUNE•TOKEN";
+const SYMBOL: &str = "UNCOMMON•GOODS";
+const TOKEN_ID: &str = "Bitcoin-RUNES-UNCOMMON•GOODS";
 
 fn route_wasm() -> Vec<u8> {
     load_wasm(
