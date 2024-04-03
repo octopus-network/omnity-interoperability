@@ -1,5 +1,6 @@
 use candid::Principal;
 use log::{self};
+use num_traits::ToPrimitive;
 use omnity_types::Directive;
 use state::{audit, mutate_state, read_state, MintTokenStatus};
 use std::str::FromStr;
@@ -110,6 +111,7 @@ async fn process_directives() {
                         if fee
                             .target_chain_factor
                             .checked_mul(fee.fee_token_factor)
+                            .map_or(None, |amount| amount.to_u64())
                             .is_none()
                         {
                             log::error!(

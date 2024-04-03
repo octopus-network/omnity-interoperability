@@ -258,8 +258,8 @@ pub struct Fee {
     pub dst_chain_id: ChainId,
     // quote currency or token
     pub fee_token: TokenId,
-    pub target_chain_factor: u64,
-    pub fee_token_factor: u64,
+    pub target_chain_factor: u128,
+    pub fee_token_factor: u128,
 }
 
 impl Storable for Fee {
