@@ -7,12 +7,12 @@ use icp_route::log_util::init_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{read_state, MintTokenStatus};
 use icp_route::updates::generate_ticket::{
-    GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
+    principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{periodic_task, storage, PERIODIC_TASK_INTERVAL};
+use icp_route::{periodic_task, storage, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
 use log::{self};
-use omnity_types::{Chain, Token};
+use omnity_types::{Chain, ChainId, Token};
 use std::time::Duration;
 
 #[init]
@@ -84,6 +84,21 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
         .skip(args.start as usize)
         .take(MAX_EVENTS_PER_QUERY.min(args.length as usize))
         .collect()
+}
+
+#[query]
+pub fn get_deposit_subaccount(principal: Principal) -> ic_ledger_types::Subaccount {
+    principal_to_subaccount(&principal)
+}
+
+#[query]
+pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
+    read_state(|s| {
+        s.redeem_fees
+            .get(&chain_id)
+            // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
+            .map(|fee| (fee.target_chain_factor * fee.fee_token_factor) as u64 + ICP_TRANSFER_FEE)
+    })
 }
 
 fn main() {}

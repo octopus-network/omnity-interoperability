@@ -1,5 +1,6 @@
 use candid::Principal;
 use log::{self};
+use num_traits::ToPrimitive;
 use omnity_types::Directive;
 use state::{audit, mutate_state, read_state, MintTokenStatus};
 use std::str::FromStr;
@@ -16,6 +17,7 @@ pub mod updates;
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
+pub const ICP_TRANSFER_FEE: u64 = 10_000;
 
 async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
@@ -106,7 +108,19 @@ async fn process_directives() {
                         mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
                     }
                     Directive::UpdateFee(fee) => {
-                        // todo update fee
+                        if fee
+                            .target_chain_factor
+                            .checked_mul(fee.fee_token_factor)
+                            .map_or(None, |amount| amount.to_u64())
+                            .is_none()
+                        {
+                            log::error!(
+                                "[process_directives] fee amount should not exceed max of u64"
+                            );
+                        } else {
+                            mutate_state(|s| audit::update_fee(s, fee.clone()));
+                            log::info!("[process_directives] success to update fee, fee: {}", fee);
+                        }
                     }
                 }
             }

@@ -1,3 +1,4 @@
+#![allow(unused)]
 mod lightclient;
 mod rpc;
 

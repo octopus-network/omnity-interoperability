@@ -2,7 +2,7 @@ pub mod audit;
 pub mod eventlog;
 
 use candid::Principal;
-use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
+use omnity_types::{Chain, ChainId, Fee, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -22,7 +22,7 @@ pub enum MintTokenStatus {
     Unknown,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RouteState {
     pub chain_id: String,
 
@@ -41,6 +41,8 @@ pub struct RouteState {
     pub token_ledgers: BTreeMap<TokenId, Principal>,
 
     pub finalized_mint_token_requests: BTreeMap<TicketId, MintTokenRequest>,
+
+    pub redeem_fees: BTreeMap<ChainId, Fee>,
 }
 
 impl RouteState {
@@ -58,6 +60,7 @@ impl From<InitArgs> for RouteState {
             counterparties: Default::default(),
             tokens: Default::default(),
             finalized_mint_token_requests: Default::default(),
+            redeem_fees: Default::default(),
         }
     }
 }
