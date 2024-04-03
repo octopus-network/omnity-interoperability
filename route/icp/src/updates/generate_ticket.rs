@@ -185,7 +185,7 @@ async fn charge_redeem_fee(from: Principal, chain_id: &ChainId) -> Result<(), Ge
 
     if ic_balance.e8s() < redeem_fee + ICP_TRANSFER_FEE {
         return Err(GenerateTicketError::InsufficientRedeemFee {
-            required: redeem_fee,
+            required: redeem_fee + ICP_TRANSFER_FEE,
             provided: ic_balance.e8s(),
         });
     }
