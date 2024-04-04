@@ -5,7 +5,6 @@ use bitcoin_customs::queries::{
     EstimateFeeArgs, GenTicketStatusArgs, GetGenTicketReqsArgs, RedeemFee, ReleaseTokenStatusArgs,
 };
 use bitcoin_customs::state::{read_state, GenTicketRequest, GenTicketStatus, ReleaseTokenStatus};
-use bitcoin_customs::tasks::{schedule_now, TaskType};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
 use bitcoin_customs::updates::{
@@ -13,7 +12,10 @@ use bitcoin_customs::updates::{
     get_btc_address::GetBtcAddressArgs,
     update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
-use bitcoin_customs::CustomsInfo;
+use bitcoin_customs::{
+    process_hub_msg_task, process_tx_task, refresh_fee_task, CustomsInfo, FEE_ESTIMATE_DELAY,
+    INTERVAL_PROCESSING,
+};
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
@@ -22,6 +24,7 @@ use ic_btc_interface::Utxo;
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk_macros::{init, post_upgrade, query, update};
+use ic_cdk_timers::set_timer_interval;
 use omnity_types::{Chain, Token};
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
@@ -32,9 +35,10 @@ fn init(args: CustomArg) {
         CustomArg::Init(args) => {
             storage::record_event(&Event::Init(args.clone()));
             lifecycle::init::init(args);
-            schedule_now(TaskType::ProcessLogic);
-            schedule_now(TaskType::RefreshFeePercentiles);
-            schedule_now(TaskType::ProcessHubMessages);
+
+            set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
+            set_timer_interval(INTERVAL_PROCESSING, process_hub_msg_task);
+            set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
 
             #[cfg(feature = "self_check")]
             ok_or_die(check_invariants())
@@ -88,14 +92,6 @@ fn check_postcondition<T>(t: T) -> T {
     t
 }
 
-#[export_name = "canister_global_timer"]
-fn timer() {
-    #[cfg(feature = "self_check")]
-    ok_or_die(check_invariants());
-
-    bitcoin_customs::timer();
-}
-
 #[post_upgrade]
 fn post_upgrade(custom_arg: Option<CustomArg>) {
     let mut upgrade_arg: Option<UpgradeArgs> = None;
@@ -106,8 +102,10 @@ fn post_upgrade(custom_arg: Option<CustomArg>) {
         };
     }
     lifecycle::upgrade::post_upgrade(upgrade_arg);
-    schedule_now(TaskType::ProcessLogic);
-    schedule_now(TaskType::RefreshFeePercentiles);
+
+    set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
+    set_timer_interval(INTERVAL_PROCESSING, process_hub_msg_task);
+    set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
 }
 
 #[update]

@@ -3,7 +3,6 @@ use crate::logs::{P0, P1};
 use crate::queries::RedeemFee;
 use crate::runestone::{Edict, Runestone};
 use crate::state::{audit, mutate_state, BtcChangeOutput};
-use crate::tasks::schedule_after;
 use candid::{CandidType, Deserialize};
 use destination::Destination;
 use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
@@ -35,7 +34,6 @@ pub mod runestone;
 pub mod signature;
 pub mod state;
 pub mod storage;
-pub mod tasks;
 pub mod tx;
 pub mod updates;
 
@@ -50,6 +48,9 @@ const MIN_NANOS: u64 = 60 * SEC_NANOS;
 pub const MIN_PENDING_REQUESTS: usize = 5;
 pub const MAX_REQUESTS_PER_BATCH: usize = 10;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
+
+pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
+pub const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
 
 const BTC_TOKEN: &str = "BTC";
 
@@ -215,7 +216,7 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
     }
 }
 
-async fn submit_release_token_requests() {
+async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {
@@ -1244,47 +1245,28 @@ pub fn build_unsigned_transaction(
     ))
 }
 
-pub fn timer() {
-    use tasks::{pop_if_ready, TaskType};
+pub fn process_tx_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new() {
+            Some(guard) => guard,
+            None => return,
+        };
+        submit_pending_requests().await;
+        finalize_requests().await;
+    });
+}
 
-    const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
+pub fn process_hub_msg_task() {
+    ic_cdk::spawn(async {
+        process_tickets().await;
+        process_directive().await;
+    });
+}
 
-    let task = match pop_if_ready() {
-        Some(task) => task,
-        None => return,
-    };
-
-    match task.task_type {
-        TaskType::ProcessLogic => {
-            ic_cdk::spawn(async {
-                let _guard = match crate::guard::TimerLogicGuard::new() {
-                    Some(guard) => guard,
-                    None => return,
-                };
-
-                let _enqueue_followup_guard = guard((), |_| {
-                    schedule_after(INTERVAL_PROCESSING, TaskType::ProcessLogic)
-                });
-
-                submit_pending_requests().await;
-                finalize_requests().await;
-            });
-        }
-        TaskType::RefreshFeePercentiles => {
-            ic_cdk::spawn(async {
-                const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
-                let _ = estimate_fee_per_vbyte().await;
-                schedule_after(FEE_ESTIMATE_DELAY, TaskType::RefreshFeePercentiles);
-            });
-        }
-        TaskType::ProcessHubMessages => {
-            ic_cdk::spawn(async {
-                submit_release_token_requests().await;
-                process_directive().await;
-                schedule_after(INTERVAL_PROCESSING, TaskType::ProcessHubMessages);
-            });
-        }
-    }
+pub fn refresh_fee_task() {
+    ic_cdk::spawn(async {
+        let _ = estimate_fee_per_vbyte().await;
+    });
 }
 
 /// Computes an estimate for the size of transaction (in vbytes) with the given number of inputs and outputs.

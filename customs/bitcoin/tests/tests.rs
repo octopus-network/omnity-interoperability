@@ -1187,10 +1187,7 @@ fn test_finalize_batch_release_token_tx() {
     }
 
     customs.env.advance_time(Duration::from_secs(5));
-    customs.await_pending("ticket_id1".into(), 10);
-
-    customs.env.advance_time(Duration::from_secs(5));
-    let txid = customs.await_btc_transaction("ticket_id1".into(), 10);
+    let txid = customs.await_btc_transaction("ticket_id0".into(), 10);
 
     let mempool = customs.mempool();
     let tx = mempool
@@ -1198,7 +1195,7 @@ fn test_finalize_batch_release_token_tx() {
         .expect("the mempool does not contain the release transaction");
 
     customs.finalize_transaction(tx, RUNE_ID_1.into());
-    assert_eq!(customs.await_finalization("ticket_id1".into(), 10), txid);
+    assert_eq!(customs.await_finalization("ticket_id0".into(), 10), txid);
 
     for i in 1..5 {
         assert_eq!(

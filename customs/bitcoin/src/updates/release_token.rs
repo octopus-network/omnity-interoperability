@@ -1,6 +1,5 @@
 use crate::guard::{release_token_guard, GuardError};
 use crate::state::{audit, ReleaseTokenStatus};
-use crate::tasks::{schedule_now, TaskType};
 use crate::{
     address::{BitcoinAddress, ParseAddressError},
     state::{mutate_state, read_state, ReleaseTokenRequest},
@@ -101,8 +100,6 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
         crate::state::ReleaseTokenStatus::Pending,
         read_state(|s| s.release_token_status(&args.ticket_id))
     );
-
-    schedule_now(TaskType::ProcessLogic);
 
     Ok(())
 }

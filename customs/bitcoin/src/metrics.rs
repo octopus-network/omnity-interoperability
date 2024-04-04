@@ -157,12 +157,6 @@ pub fn encode_metrics(
     )?;
 
     metrics.encode_gauge(
-        "bitcoin_customs_global_timer_timestamp",
-        crate::tasks::global_timer() as f64,
-        "The deadline for the next global timer event.",
-    )?;
-
-    metrics.encode_gauge(
         "bitcoin_customs_median_fee_per_vbyte",
         state::read_state(|s| s.last_fee_per_vbyte[50]) as f64,
         "Median Bitcoin transaction fee per vbyte in Satoshi.",
