@@ -1,6 +1,8 @@
 use candid::Principal;
+use ic_cdk::caller;
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
+use ic_ledger_types::AccountIdentifier;
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg};
 use icp_route::log_util::init_log;
@@ -87,8 +89,9 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
 }
 
 #[query]
-pub fn get_deposit_subaccount(principal: Principal) -> ic_ledger_types::Subaccount {
-    principal_to_subaccount(&principal)
+pub fn get_fee_account(principal: Option<Principal>) -> ic_ledger_types::AccountIdentifier {
+    let principal = principal.unwrap_or(caller());
+    AccountIdentifier::new(&ic_cdk::api::id(), &principal_to_subaccount(&principal))
 }
 
 #[query]

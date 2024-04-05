@@ -11,15 +11,25 @@ type Event = variant {
     block_index : nat64;
     request : GenerateTicketReq;
   };
+  updated_fee : record { fee : Fee };
   finalized_mint_token : MintTokenRequest;
   added_token : record { token : Token; ledger_id : principal };
   added_chain : Chain;
   toggle_chain_state : ToggleState;
 };
+type Fee = record {
+  fee_token : text;
+  dst_chain_id : text;
+  target_chain_factor : nat;
+  fee_token_factor : nat;
+};
 type GenerateTicketError = variant {
+  InsufficientRedeemFee : record { provided : nat64; required : nat64 };
   SendTicketErr : text;
   TemporarilyUnavailable : text;
   InsufficientAllowance : record { allowance : nat64 };
+  TransferFailure : text;
+  RedeemFeeNotSet;
   UnsupportedChainId : text;
   UnsupportedToken : text;
   InsufficientFunds : record { balance : nat64 };
@@ -70,7 +80,9 @@ service : (RouteArg) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_events : (GetEventsArg) -> (vec Event) query;
+  get_fee_account : (opt principal) -> (vec nat8) query;
   get_log_records : (nat64, nat64) -> (Logs) query;
+  get_redeem_fee : (text) -> (opt nat64) query;
   get_token_ledger : (text) -> (opt principal) query;
   get_token_list : () -> (vec Token) query;
   mint_token_status : (text) -> (MintTokenStatus) query;

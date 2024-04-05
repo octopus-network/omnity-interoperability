@@ -7,9 +7,7 @@ use icp_ledger::{AccountIdentifier, InitArgs as LedgerInitArgs, LedgerCanisterPa
 use icp_route::{
     lifecycle::init::{InitArgs, RouteArg},
     state::MintTokenStatus,
-    updates::generate_ticket::{
-        principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
-    },
+    updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq},
 };
 use icrc_ledger_types::{
     icrc1::account::Account,
@@ -38,7 +36,6 @@ fn minting_account() -> PrincipalId {
 fn caller_account() -> PrincipalId {
     PrincipalId::new_user_test_id(2)
 }
-
 
 fn route_wasm() -> Vec<u8> {
     load_wasm(
@@ -158,15 +155,13 @@ impl RouteSetup {
         let redeem_fee = self
             .get_redeem_fee()
             .expect("redeem fee should not be none");
+
         let transfer_args = ic_ledger_types::TransferArgs {
             memo: ic_ledger_types::Memo(0),
             amount: ic_ledger_types::Tokens::from_e8s(redeem_fee),
             fee: ic_ledger_types::Tokens::from_e8s(icp_route::ICP_TRANSFER_FEE),
             from_subaccount: None,
-            to: ic_ledger_types::AccountIdentifier::new(
-                &self.route_id.into(),
-                &principal_to_subaccount(&caller_account().into()),
-            ),
+            to: self.get_fee_account(),
             created_at_time: None,
         };
         let _ = Decode!(
@@ -296,6 +291,23 @@ impl RouteSetup {
                     .expect("failed to get token ledger")
             ),
             Option<Principal>
+        )
+        .unwrap()
+    }
+
+    pub fn get_fee_account(&self) -> ic_ledger_types::AccountIdentifier {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.route_id,
+                        "get_fee_account",
+                        Encode!(&None::<Principal>).unwrap(),
+                    )
+                    .expect("failed to get fee account")
+            ),
+            ic_ledger_types::AccountIdentifier
         )
         .unwrap()
     }
