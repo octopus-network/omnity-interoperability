@@ -40,7 +40,12 @@ type Error = variant {
   CustomError : text;
   NotSufficientTokens : record { text; text };
 };
-type Fee = record { fee_token : text; dst_chain_id : text; factor : int64 };
+type Fee = record {
+  fee_token : text;
+  dst_chain_id : text;
+  target_chain_factor : nat;
+  fee_token_factor : nat;
+};
 type Log = record { log : text; offset : nat64 };
 type Logs = record { logs : vec Log; all_logs_count : nat64 };
 type Proposal = variant {
