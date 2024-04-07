@@ -305,6 +305,9 @@ pub struct Chain {
     // settlement chain: export contract address
     // execution chain: port contract address
     pub contract_address: Option<String>,
+     // fee token
+     pub fee_token: Option<TokenId>,
+
 }
 impl Chain {
     pub fn chain_name(&self) -> Option<&str> {

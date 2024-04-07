@@ -298,7 +298,6 @@ pub fn chain_ids() -> Vec<String> {
         "Bitcoin".to_string(),
         "Ethereum".to_string(),
         "ICP".to_string(),
-        "ICP-Exection".to_string(),
         "EVM-Arbitrum".to_string(),
         "EVM-Optimistic".to_string(),
         "EVM-Starknet".to_string(),
@@ -313,6 +312,7 @@ pub fn chains() -> Vec<Proposal> {
             canister_id: PrincipalId::new_user_test_id(0).to_string(),
             contract_address: None,
             counterparties: None,
+            fee_token: Some("BTC".to_owned()),
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "Ethereum".to_string(),
@@ -321,6 +321,7 @@ pub fn chains() -> Vec<Proposal> {
             canister_id: PrincipalId::new_user_test_id(1).to_string(),
             contract_address: Some("Ethereum constract address".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string()]),
+            fee_token: Some("ETH".to_owned()),
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "ICP".to_string(),
@@ -329,6 +330,7 @@ pub fn chains() -> Vec<Proposal> {
             canister_id: PrincipalId::new_user_test_id(2).to_string(),
             contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
+            fee_token: Some("ICP".to_owned()),
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "EVM-Arbitrum".to_string(),
@@ -341,6 +343,7 @@ pub fn chains() -> Vec<Proposal> {
                 "Ethereum".to_string(),
                 "ICP".to_string(),
             ]),
+            fee_token: Some("Ethereum-ERC20-ARB".to_owned()),
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "EVM-Optimistic".to_string(),
@@ -354,6 +357,7 @@ pub fn chains() -> Vec<Proposal> {
                 "ICP".to_string(),
                 "EVM-Arbitrum".to_string(),
             ]),
+            fee_token: Some("Ethereum-ERC20-OP".to_owned()),
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "EVM-Starknet".to_string(),
@@ -368,6 +372,7 @@ pub fn chains() -> Vec<Proposal> {
                 "EVM-Arbitrum".to_string(),
                 "EVM-Optimistic".to_string(),
             ]),
+            fee_token: Some("Ethereum-ERC20-StarkNet".to_owned()),
         }),
     ];
 
@@ -395,7 +400,7 @@ pub fn tokens() -> Vec<Proposal> {
             ],
         }),
         Proposal::AddToken(TokenMeta {
-            token_id: "Ethereum-Native-ETH".to_string(),
+            token_id: "ETH".to_string(),
             symbol: "ETH".to_owned(),
             settlement_chain: "Ethereum".to_string(),
             decimals: 18,
@@ -410,7 +415,7 @@ pub fn tokens() -> Vec<Proposal> {
             ],
         }),
         Proposal::AddToken(TokenMeta {
-            token_id: "ICP-Native-ICP".to_string(),
+            token_id: "ICP".to_string(),
             symbol: "ICP".to_owned(),
             settlement_chain: "ICP".to_string(),
             decimals: 18,

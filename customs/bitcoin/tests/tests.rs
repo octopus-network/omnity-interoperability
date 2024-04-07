@@ -254,6 +254,7 @@ impl CustomsSetup {
                 chain_type: ChainType::ExecutionChain,
                 chain_state: ChainState::Active,
                 contract_address: None,
+                fee_token: Some("Cosmos-ATOM".to_owned()),
             }),
             Directive::AddToken(Token {
                 token_id: TOKEN_ID_1.into(),

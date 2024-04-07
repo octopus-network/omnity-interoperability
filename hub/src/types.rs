@@ -77,6 +77,8 @@ pub struct ChainMeta {
 
     // optional counterparty chains
     pub counterparties: Option<Vec<ChainId>>,
+    // fee token
+    pub fee_token: Option<TokenId>,
 }
 
 impl Storable for ChainMeta {
@@ -98,8 +100,8 @@ impl core::fmt::Display for ChainMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\ncanister id:{} \nchain name:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?} \ncounterparties:{:?}",
-            self.canister_id,self.chain_id, self.chain_type, self.chain_state, self.contract_address,self.counterparties
+            "\ncanister id:{} \nchain name:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?} \ncounterparties:{:?} \nfee_token:{:?}",
+            self.canister_id,self.chain_id, self.chain_type, self.chain_state, self.contract_address,self.counterparties,self.fee_token,
         )
     }
 }
@@ -111,6 +113,7 @@ impl Into<Chain> for ChainMeta {
             chain_type: self.chain_type,
             chain_state: self.chain_state,
             contract_address: self.contract_address,
+            fee_token: self.fee_token,
         }
     }
 }
@@ -123,6 +126,7 @@ pub struct ChainWithSeq {
     pub chain_state: ChainState,
     pub contract_address: Option<String>,
     pub counterparties: Option<Vec<ChainId>>,
+    pub fee_token: Option<TokenId>,
     pub latest_dire_seq: Seq,
     pub latest_ticket_seq: Seq,
 }
@@ -136,6 +140,7 @@ impl From<ChainMeta> for ChainWithSeq {
             chain_state: value.chain_state,
             contract_address: value.contract_address,
             counterparties: value.counterparties,
+            fee_token: value.fee_token,
             latest_dire_seq: 0,
             latest_ticket_seq: 0,
         }
@@ -148,6 +153,7 @@ impl Into<Chain> for ChainWithSeq {
             chain_type: self.chain_type.clone(),
             chain_state: self.chain_state.clone(),
             contract_address: self.contract_address.clone(),
+            fee_token: self.fee_token,
         }
     }
 }

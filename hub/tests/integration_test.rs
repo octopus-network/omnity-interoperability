@@ -195,7 +195,7 @@ fn test_update_fee() {
     // change chain state
     let fee = Fee {
         dst_chain_id: "EVM-Arbitrum".to_string(),
-        fee_token: "Ethereum-ERC20-OP".to_string(),
+        fee_token: "ETH".to_string(),
         target_chain_factor: 10_000,
         fee_token_factor: 60_000_000_000,
     };
@@ -221,7 +221,7 @@ fn test_update_fee() {
     assert!(result.is_ok());
     println!("get_chains result : {:#?}", result);
 
-    let result = hub.get_fees(&None, &Some("Ethereum-ERC20-OP".to_string()), &0, &10);
+    let result = hub.get_fees(&None, &Some("ETH".to_string()), &0, &10);
     assert!(result.is_ok());
     println!("get_chains result filter by token id : {:#?}", result);
 }
@@ -342,7 +342,7 @@ fn test_a_b_c_tx() {
     let dst_chain = "EVM-Optimistic";
     let sender = "address_on_Ethereum";
     let receiver = "address_on_Optimistic";
-    let token = "Ethereum-Native-ETH".to_string();
+    let token = "ETH".to_string();
 
     let a_2_b_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),

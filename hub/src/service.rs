@@ -153,8 +153,8 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
 
                 with_state(|hub_state| {
                     //check the issue chain must exsiting and not deactive!
-                    hub_state.available_chain(&fee.dst_chain_id)?;
-                    hub_state.token(&fee.fee_token)
+                    hub_state.available_chain(&fee.dst_chain_id)
+                    // hub_state.token(&fee.fee_token)
                 })?;
                 let result = format!("The UpdateFee proposal: {}", fee);
                 info!("validate_proposal result:{} ", result);
@@ -473,7 +473,6 @@ mod tests {
             "Bitcoin".to_string(),
             "Ethereum".to_string(),
             "ICP".to_string(),
-            "ICP-Exection".to_string(),
             "EVM-Arbitrum".to_string(),
             "EVM-Optimistic".to_string(),
             "EVM-Starknet".to_string(),
@@ -482,20 +481,20 @@ mod tests {
 
     fn token_ids() -> Vec<String> {
         vec![
+            "BTC".to_string(),
             "Bitcoin-RUNES-150:1".to_string(),
-            "Bitcoin-RUNES-XXX".to_string(),
-            "Bitcoin-RUNES-XXY".to_string(),
-            "Ethereum-Native-ETH".to_string(),
-            "Ethereum-ERC20-OCT".to_string(),
-            "Ethereum-ERC20-XXX".to_string(),
-            "Ethereum-ERC20-XXY".to_string(),
-            "ICP-Native-ICP".to_string(),
+            "Bitcoin-RUNES-WTF".to_string(),
+            "ETH".to_string(),
+            "Ethereum-ERC20-ARB".to_string(),
+            "Ethereum-ERC20-OP".to_string(),
+            "Ethereum-ERC20-Starknet".to_string(),
+            "ICP".to_string(),
             "ICP-ICRC2-XXX".to_string(),
             "ICP-ICRC2-XXY".to_string(),
         ]
     }
 
-    async fn build_chains() {
+    async fn add_chains() {
         let btc = ChainMeta {
             chain_id: "Bitcoin".to_string(),
             chain_type: ChainType::SettlementChain,
@@ -503,6 +502,7 @@ mod tests {
             canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
             contract_address: None,
             counterparties: None,
+            fee_token: Some("BTC".to_owned()),
         };
 
         // validate proposal
@@ -523,6 +523,7 @@ mod tests {
             canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
             contract_address: None,
             counterparties: None,
+            fee_token: Some("BTC".to_owned()),
         };
 
         // validate proposal
@@ -543,6 +544,7 @@ mod tests {
             canister_id: "bkyz2-fmaaa-aaaaa-qaaab-cai".to_string(),
             contract_address: Some("Ethereum constract address".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string()]),
+            fee_token: Some("ETH".to_owned()),
         };
         let result = validate_proposal(vec![Proposal::AddChain(ethereum.clone())]).await;
         assert!(result.is_ok());
@@ -560,6 +562,7 @@ mod tests {
             canister_id: "bkyz2-fmaaa-aaaaa-qadaab-cai".to_string(),
             contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
+            fee_token: Some("ICP".to_owned()),
         };
         let result = validate_proposal(vec![Proposal::AddChain(icp.clone())]).await;
         assert!(result.is_ok());
@@ -581,6 +584,7 @@ mod tests {
                 "Ethereum".to_string(),
                 "ICP".to_string(),
             ]),
+            fee_token: Some("Ethereum-ERC20-ARB".to_owned()),
         };
         let result = validate_proposal(vec![Proposal::AddChain(arbitrum.clone())]).await;
         assert!(result.is_ok());
@@ -603,6 +607,7 @@ mod tests {
                 "ICP".to_string(),
                 "EVM-Arbitrum".to_string(),
             ]),
+            fee_token: Some("Ethereum-ERC20-OP".to_owned()),
         };
 
         let result = validate_proposal(vec![Proposal::AddChain(optimistic.clone())]).await;
@@ -627,6 +632,7 @@ mod tests {
                 "EVM-Arbitrum".to_string(),
                 "EVM-Optimistic".to_string(),
             ]),
+            fee_token: Some("Ethereum-ERC20-StarkNet".to_owned()),
         };
         let result = validate_proposal(vec![Proposal::AddChain(starknet.clone())]).await;
         assert!(result.is_ok());
@@ -638,17 +644,14 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    async fn build_tokens() {
+    async fn add_tokens() {
         let btc = TokenMeta {
-            token_id: "Bitcoin-RUNES-150:1".to_string(),
+            token_id: "BTC".to_string(),
             symbol: "BTC".to_owned(),
             settlement_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
-            metadata: Some(HashMap::from([(
-                "rune_id".to_string(),
-                "150:1".to_string(),
-            )])),
+            metadata: None,
             dst_chains: vec![
                 "Ethereum".to_string(),
                 "ICP".to_string(),
@@ -669,13 +672,16 @@ mod tests {
         let result = execute_proposal(vec![Proposal::AddToken(btc)]).await;
         assert!(result.is_ok());
 
-        let btc = TokenMeta {
+        let runse_150 = TokenMeta {
             token_id: "Bitcoin-RUNES-150:1".to_string(),
-            symbol: "BTC".to_owned(),
+            symbol: "150:1".to_owned(),
             settlement_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: Some(HashMap::from([(
+                "rune_id".to_string(),
+                "150:1".to_string(),
+            )])),
             dst_chains: vec![
                 "Ethereum".to_string(),
                 "ICP".to_string(),
@@ -684,37 +690,43 @@ mod tests {
                 "EVM-Starknet".to_string(),
             ],
         };
-        let result = validate_proposal(vec![Proposal::AddToken(btc.clone())]).await;
+        let result = validate_proposal(vec![Proposal::AddToken(runse_150.clone())]).await;
         println!(
             "validate_proposal for Proposal::AddToken(token) result:{:#?}",
             result
         );
-        assert!(result.is_err());
+        assert!(result.is_ok());
 
-        let btc = TokenMeta {
+        let result = execute_proposal(vec![Proposal::AddToken(runse_150)]).await;
+        assert!(result.is_ok());
+
+        let runes_wtf = TokenMeta {
             token_id: "Bitcoin-RUNES-WTF".to_string(),
             symbol: "BTC".to_owned(),
             settlement_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: Some(HashMap::from([("rune_id".to_string(), "WTF".to_string())])),
             dst_chains: vec![
                 "Ethereum".to_string(),
-                "ICP_S".to_string(),
+                "ICP".to_string(),
                 "EVM-Arbitrum".to_string(),
                 "EVM-Optimistic".to_string(),
                 "EVM-Starknet".to_string(),
             ],
         };
-        let result = validate_proposal(vec![Proposal::AddToken(btc.clone())]).await;
+        let result = validate_proposal(vec![Proposal::AddToken(runes_wtf.clone())]).await;
         println!(
             "validate_proposal for Proposal::AddToken(token) result:{:#?}",
             result
         );
-        assert!(result.is_err());
+        assert!(result.is_ok());
+
+        let result = execute_proposal(vec![Proposal::AddToken(runes_wtf)]).await;
+        assert!(result.is_ok());
 
         let eth = TokenMeta {
-            token_id: "Ethereum-Native-ETH".to_string(),
+            token_id: "ETH".to_string(),
             symbol: "ETH".to_owned(),
             settlement_chain: "Ethereum".to_string(),
             decimals: 18,
@@ -738,7 +750,7 @@ mod tests {
         assert!(result.is_ok());
 
         let icp = TokenMeta {
-            token_id: "ICP-Native-ICP".to_string(),
+            token_id: "ICP".to_string(),
             symbol: "ICP".to_owned(),
             settlement_chain: "ICP".to_string(),
             decimals: 18,
@@ -838,19 +850,7 @@ mod tests {
     async fn test_add_chain() {
         init_logger();
         // add chain
-        build_chains().await;
-
-        // with_state(|hs| {
-        //     for (seq_key, dires) in hs.dire_queue.iter() {
-        //         println!("{:?},{:#?}\n", seq_key, dires)
-        //     }
-        // });
-
-        // with_state(|hs| {
-        //     for (chain_id, chain) in hs.chains.iter() {
-        //         println!("{},{:#?}\n", chain_id, chain)
-        //     }
-        // });
+        add_chains().await;
 
         for chain_id in chain_ids() {
             let result = query_directives(
@@ -881,21 +881,9 @@ mod tests {
     async fn test_add_token() {
         init_logger();
         // add chain
-        build_chains().await;
+        add_chains().await;
         // add token
-        build_tokens().await;
-
-        // with_state(|hs| {
-        //     for (seq_key, dires) in hs.dire_queue.iter() {
-        //         println!("{:?},{:#?}", seq_key, dires)
-        //     }
-        // });
-
-        // with_state(|hs| {
-        //     for (chain_id, chain) in hs.chains.iter() {
-        //         println!("{},{:#?}\n", chain_id, chain)
-        //     }
-        // });
+        add_tokens().await;
 
         for chain_id in chain_ids() {
             let result = query_directives(
@@ -936,9 +924,9 @@ mod tests {
     async fn test_toggle_chain_state() {
         init_logger();
         // add chain
-        build_chains().await;
+        add_chains().await;
         // add token
-        build_tokens().await;
+        add_tokens().await;
 
         println!("------------ state switch: from active to deactive -----------------");
         // change chain state to deactivate
@@ -960,18 +948,6 @@ mod tests {
             result
         );
         assert!(result.is_ok());
-
-        // with_state(|hs| {
-        //     for (seq_key, dires) in hs.dire_queue.iter() {
-        //         println!("{:?},{:#?}", seq_key, dires)
-        //     }
-        // });
-
-        // with_state(|hs| {
-        //     for (chain_id, chain) in hs.chains.iter() {
-        //         println!("{},{:#?}\n", chain_id, chain)
-        //     }
-        // });
 
         // query directives for chain id
         for chain_id in chain_ids() {
@@ -1043,26 +1019,14 @@ mod tests {
     async fn test_update_fee() {
         init_logger();
         // add chain
-        build_chains().await;
+        add_chains().await;
         // add token
-        build_tokens().await;
-
-        // with_state(|hs| {
-        //     for (chain_id, dires) in hs.dire_queue.iter() {
-        //         println!("{},{:#?}", chain_id, dires)
-        //     }
-        // });
-
-        // with_state(|hs| {
-        //     for (chain_id, chain) in hs.chains.iter() {
-        //         println!("{},{:#?}\n", chain_id, chain)
-        //     }
-        // });
+        add_tokens().await;
 
         // change chain state
         let fee = Fee {
             dst_chain_id: "EVM-Arbitrum".to_string(),
-            fee_token: "Ethereum-ERC20-OP".to_string(),
+            fee_token: "Ethereum-ERC20-ARB".to_string(),
             target_chain_factor: 10_000,
             fee_token_factor: 60_000_000_000,
         };
@@ -1111,9 +1075,9 @@ mod tests {
     async fn test_a_b_tx_ticket() {
         init_logger();
         // add chain
-        build_chains().await;
+        add_chains().await;
         // add token
-        build_tokens().await;
+        add_tokens().await;
         //
         // A->B: `transfer` ticket
         let src_chain = "Bitcoin";
@@ -1230,9 +1194,9 @@ mod tests {
     async fn test_a_b_c_tx_ticket() {
         init_logger();
         // add chain
-        build_chains().await;
+        add_chains().await;
         // add token
-        build_tokens().await;
+        add_tokens().await;
 
         // transfer
         // A->B: `transfer` ticket
@@ -1240,7 +1204,7 @@ mod tests {
         let dst_chain = "EVM-Optimistic";
         let sender = "address_on_Ethereum";
         let receiver = "address_on_Optimistic";
-        let token = "Ethereum-Native-ETH".to_string();
+        let token = "ETH".to_string();
 
         let a_2_b_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
