@@ -1,10 +1,12 @@
 type Chain = record {
+  fee_token : opt text;
   chain_id : text;
   chain_state : ChainState;
   chain_type : ChainType;
   contract_address : opt text;
 };
 type ChainMeta = record {
+  fee_token : opt text;
   canister_id : text;
   chain_id : text;
   counterparties : opt vec text;
