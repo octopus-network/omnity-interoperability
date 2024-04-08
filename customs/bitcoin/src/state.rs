@@ -388,6 +388,9 @@ pub struct CustomsState {
     #[serde(skip)]
     pub is_timer_running: bool,
 
+    #[serde(skip)]
+    pub is_process_hub_msg: bool,
+
     /// The mode in which the customs runs.
     pub mode: Mode,
 
@@ -1106,6 +1109,7 @@ impl From<InitArgs> for CustomsState {
             counterparties: Default::default(),
             tokens: Default::default(),
             is_timer_running: false,
+            is_process_hub_msg: false,
             mode: args.mode,
             hub_principal: args.hub_principal,
             runes_oracle_principal: args.runes_oracle_principal,

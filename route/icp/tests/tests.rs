@@ -21,8 +21,10 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr, time::Duration};
 const SETTLEMENT_CHAIN: &str = "Bitcoin";
 const EXECUTION_CHAIN: &str = "eICP";
 
-const SYMBOL: &str = "FIRST•RUNE•TOKEN";
-const TOKEN_ID: &str = "Bitcoin-RUNES-FIRST•RUNE•TOKEN";
+const SYMBOL1: &str = "FIRST•RUNE•TOKEN";
+const TOKEN_ID1: &str = "Bitcoin-RUNES-FIRST•RUNE•TOKEN";
+const SYMBOL2: &str = "SECOND•RUNE•TOKEN";
+const TOKEN_ID2: &str = "Bitcoin-RUNES-SECOND•RUNE•TOKEN";
 const LEDGER_WASM: &[u8] = include_bytes!("../../../ledger-canister.wasm");
 
 fn mainnet_ledger_canister_id() -> CanisterId {
@@ -278,8 +280,8 @@ impl RouteSetup {
         .unwrap();
     }
 
-    pub fn get_token_ledger(&self, token_id: String) -> Option<Principal> {
-        Decode!(
+    pub fn get_token_ledger(&self, token_id: String) -> CanisterId {
+        let ledger_id = Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
@@ -292,7 +294,9 @@ impl RouteSetup {
             ),
             Option<Principal>
         )
-        .unwrap()
+        .unwrap();
+        let ledger_id = ledger_id.expect("ledger id should not be none");
+        CanisterId::unchecked_from_principal(PrincipalId(ledger_id))
     }
 
     pub fn get_fee_account(&self) -> ic_ledger_types::AccountIdentifier {
@@ -422,17 +426,17 @@ fn add_chain(route: &RouteSetup) {
     route.await_chain(SETTLEMENT_CHAIN.into(), 10);
 }
 
-fn add_token(route: &RouteSetup) {
+fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
     route.push_directives(vec![Directive::AddToken(Token {
-        token_id: TOKEN_ID.into(),
-        symbol: SYMBOL.into(),
+        token_id: token_id.clone(),
+        symbol,
         issue_chain: SETTLEMENT_CHAIN.into(),
         decimals: 0,
         icon: None,
         metadata: None,
     })]);
     route.env.advance_time(Duration::from_secs(10));
-    route.await_token(TOKEN_ID.into(), 10);
+    route.await_token(token_id, 10);
 }
 
 fn set_fee(route: &RouteSetup) {
@@ -456,11 +460,11 @@ fn test_add_chain() {
 #[test]
 fn test_add_token() {
     let route = RouteSetup::new();
-    add_token(&route);
-    assert!(route.get_token_ledger(TOKEN_ID.into()).is_some());
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    let _ = route.get_token_ledger(TOKEN_ID1.into());
 }
 
-fn mint_token(route: &RouteSetup, receiver: String, amount: String) {
+fn mint_token(route: &RouteSetup, token_id: String, receiver: String, amount: String) {
     let ticket_id: TicketId = "test_ticket".into();
     route.push_ticket(Ticket {
         ticket_id: ticket_id.clone(),
@@ -468,7 +472,7 @@ fn mint_token(route: &RouteSetup, receiver: String, amount: String) {
         src_chain: SETTLEMENT_CHAIN.into(),
         dst_chain: EXECUTION_CHAIN.into(),
         action: TxAction::Transfer,
-        token: TOKEN_ID.into(),
+        token: token_id,
         amount: amount.into(),
         sender: None,
         receiver: receiver.to_string(),
@@ -482,23 +486,23 @@ fn mint_token(route: &RouteSetup, receiver: String, amount: String) {
 fn test_mint_token() {
     let route = RouteSetup::new();
     add_chain(&route);
-    add_token(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
 
     let amount = "1000000";
     let receiver =
         Principal::from_str("hsefg-sb4rm-qb5o2-vzqqa-ugrfq-tpdli-tazi3-3lmja-ur77u-tfncz-jqe")
             .unwrap();
 
-    mint_token(&route, receiver.to_string(), amount.into());
-
-    let ledger_id = route
-        .get_token_ledger(TOKEN_ID.into())
-        .expect("token ledger should exist");
-
-    let balance = route.icrc1_balance_of(
-        CanisterId::unchecked_from_principal(PrincipalId(ledger_id)),
-        receiver,
+    mint_token(
+        &route,
+        TOKEN_ID1.into(),
+        receiver.to_string(),
+        amount.into(),
     );
+
+    let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    let balance = route.icrc1_balance_of(ledger_id, receiver);
     assert_eq!(balance, Nat::from_str(amount).unwrap());
 }
 
@@ -506,17 +510,19 @@ fn test_mint_token() {
 fn test_generate_ticket() {
     let route = RouteSetup::new();
     add_chain(&route);
-    add_token(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
     set_fee(&route);
 
     let amount = "1000000";
-    mint_token(&route, route.caller.to_string(), amount.into());
+    mint_token(
+        &route,
+        TOKEN_ID1.into(),
+        route.caller.to_string(),
+        amount.into(),
+    );
 
-    let ledger_id = route
-        .get_token_ledger(TOKEN_ID.into())
-        .expect("token ledger should exist");
+    let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
 
-    let ledger_id = CanisterId::unchecked_from_principal(PrincipalId(ledger_id));
     let redeem_amount = 400000_u128;
     route.icrc2_approve(ledger_id, Nat::from(redeem_amount));
 
@@ -526,7 +532,7 @@ fn test_generate_ticket() {
         .generate_ticket(&GenerateTicketReq {
             target_chain_id: SETTLEMENT_CHAIN.into(),
             receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
-            token_id: TOKEN_ID.into(),
+            token_id: TOKEN_ID1.into(),
             amount: redeem_amount,
             from_subaccount: None,
         })
@@ -534,4 +540,35 @@ fn test_generate_ticket() {
 
     let balance = route.icrc1_balance_of(ledger_id, route.caller.into());
     assert_eq!(balance, Nat::from_str("600000").unwrap());
+}
+
+#[test]
+fn test_mint_multi_tokens() {
+    let route = RouteSetup::new();
+    add_chain(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+
+    let amount = "1000000";
+    mint_token(
+        &route,
+        TOKEN_ID1.into(),
+        route.caller.to_string(),
+        amount.into(),
+    );
+
+    let ledger_id1 = route.get_token_ledger(TOKEN_ID1.into());
+    let balance = route.icrc1_balance_of(ledger_id1, route.caller.into());
+    assert_eq!(balance, Nat::from_str("1000000").unwrap());
+
+    add_token(&route, SYMBOL2.into(), TOKEN_ID2.into());
+    mint_token(
+        &route,
+        TOKEN_ID2.into(),
+        route.caller.to_string(),
+        amount.into(),
+    );
+
+    let ledger_id2 = route.get_token_ledger(TOKEN_ID2.into());
+    let balance = route.icrc1_balance_of(ledger_id2, route.caller.into());
+    assert_eq!(balance, Nat::from_str("1000000").unwrap());
 }

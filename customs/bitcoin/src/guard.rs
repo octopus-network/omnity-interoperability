@@ -97,6 +97,29 @@ impl Drop for TimerLogicGuard {
     }
 }
 
+#[must_use]
+pub struct ProcessHubMsgGuard(());
+
+impl ProcessHubMsgGuard {
+    pub fn new() -> Option<Self> {
+        mutate_state(|s| {
+            if s.is_process_hub_msg {
+                return None;
+            }
+            s.is_process_hub_msg = true;
+            Some(ProcessHubMsgGuard(()))
+        })
+    }
+}
+
+impl Drop for ProcessHubMsgGuard {
+    fn drop(&mut self) {
+        mutate_state(|s| {
+            s.is_process_hub_msg = false;
+        });
+    }
+}
+
 pub fn generate_ticket_guard() -> Result<Guard<GenerateTicketUpdates>, GuardError> {
     Guard::new()
 }

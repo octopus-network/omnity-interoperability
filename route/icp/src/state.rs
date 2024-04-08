@@ -43,6 +43,9 @@ pub struct RouteState {
     pub finalized_mint_token_requests: BTreeMap<TicketId, MintTokenRequest>,
 
     pub redeem_fees: BTreeMap<ChainId, Fee>,
+
+    #[serde(skip)]
+    pub is_timer_running: bool,
 }
 
 impl RouteState {
@@ -61,6 +64,7 @@ impl From<InitArgs> for RouteState {
             tokens: Default::default(),
             finalized_mint_token_requests: Default::default(),
             redeem_fees: Default::default(),
+            is_timer_running: false,
         }
     }
 }
