@@ -33,9 +33,9 @@ pub struct HubState {
     pub ticket_queue: StableBTreeMap<SeqKey, Ticket, Memory>,
     #[serde(skip, default = "memory::init_token_position")]
     pub token_position: StableBTreeMap<TokenKey, Amount, Memory>,
-
     #[serde(skip, default = "memory::init_ledger")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
+
     pub owner: Option<String>,
     pub authorized_caller: HashMap<String, ChainId>,
 }
@@ -245,13 +245,13 @@ impl HubState {
                             .is_some()
                         {
                             //increase seq
-                            chain.latest_ticket_seq += 1;
+                            chain.latest_dire_seq += 1;
                             //update chain info
                             self.chains
                                 .insert(chain.chain_id.to_string(), chain.clone());
                         }
                         self.dire_queue.insert(
-                            SeqKey::from(chain.chain_id.to_string(), chain.latest_ticket_seq),
+                            SeqKey::from(chain.chain_id.to_string(), chain.latest_dire_seq),
                             dire.clone(),
                         );
                     }
@@ -379,7 +379,7 @@ impl HubState {
                     Ok(())
                 },
             )
-        // Ok(())
+      
     }
 
     // check the ticket availability

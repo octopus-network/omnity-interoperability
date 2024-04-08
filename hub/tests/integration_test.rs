@@ -22,14 +22,6 @@ fn test_init_hub() {
 }
 
 #[test]
-fn test_upgrade() {
-    let hub = OmnityHub::new();
-    //TODO: do something
-    hub.upgrade();
-    //TODO: query hub state and watch state changed!
-}
-
-#[test]
 fn test_validate_proposal() {
     let hub = OmnityHub::new();
     let ret = hub.validate_proposal(&chains());
@@ -491,4 +483,201 @@ fn test_a_b_c_tx() {
     let result = hub.get_txs(&None, &None, &None, &None, &0, &10);
     println!("get_txs result: {:#?}", result);
     assert!(result.is_ok());
+}
+
+#[test]
+fn test_upgrade() {
+    let hub = OmnityHub::new();
+    // add chain
+    let ret = hub.validate_proposal(&chains());
+    println!("test_validate_proposal result: {:#?}", ret);
+    let ret = hub.execute_proposal(&chains());
+    assert!(ret.is_ok());
+    // add token
+    let ret = hub.validate_proposal(&tokens());
+    println!("test_validate_proposal result: {:#?}", ret);
+    let ret = hub.execute_proposal(&tokens());
+    assert!(ret.is_ok());
+
+    // transfer
+    // A->B: `transfer` ticket
+    let src_chain = "Ethereum";
+    let dst_chain = "EVM-Optimistic";
+    let sender = "address_on_Ethereum";
+    let receiver = "address_on_Optimistic";
+    let token = "ETH".to_string();
+
+    let a_2_b_ticket = Ticket {
+        ticket_id: Uuid::new_v4().to_string(),
+        ticket_time: get_timestamp(),
+        src_chain: src_chain.to_string(),
+        dst_chain: dst_chain.to_string(),
+        action: TxAction::Transfer,
+        token: token.clone(),
+        amount: 6666.to_string(),
+        sender: Some(sender.to_string()),
+        receiver: receiver.to_string(),
+        memo: None,
+    };
+
+    let caller = Some(PrincipalId::new_user_test_id(3));
+    let result = hub.send_ticket(&caller, &a_2_b_ticket);
+
+    assert!(result.is_ok());
+    // query tickets for chain id
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
+    println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
+    assert!(result.is_ok());
+
+    // query token on chain
+    let result = hub.get_chain_tokens(&None, &None, &0, &5);
+    println!("get_chain_tokens result: {:#?}", result);
+    assert!(result.is_ok());
+
+    // B->C: `transfer` ticket
+    let sender = "address_on_Optimistic";
+    let receiver = "address_on_Starknet";
+    let src_chain = "EVM-Optimistic";
+    let dst_chain = "EVM-Starknet";
+
+    let b_2_c_ticket = Ticket {
+        ticket_id: Uuid::new_v4().to_string(),
+        ticket_time: get_timestamp(),
+        src_chain: src_chain.to_string(),
+        dst_chain: dst_chain.to_string(),
+        action: TxAction::Transfer,
+        token: token.clone(),
+        amount: 6666.to_string(),
+        sender: Some(sender.to_string()),
+        receiver: receiver.to_string(),
+        memo: None,
+    };
+
+    assert!(result.is_ok());
+    let caller = Some(PrincipalId::new_user_test_id(4));
+    let result = hub.send_ticket(&caller, &b_2_c_ticket);
+    assert!(result.is_ok());
+
+    // query tickets for chain id
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
+    println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
+    assert!(result.is_ok());
+
+    // query token on chain
+    let result = hub.get_chain_tokens(&None, &None, &0, &5);
+    println!("get_chain_tokens result: {:#?}", result);
+    assert!(result.is_ok());
+
+    // redeem
+    // C->B: `redeem` ticket
+    let src_chain = "EVM-Starknet";
+    let dst_chain = "EVM-Optimistic";
+    let sender = "address_on_Starknet";
+    let receiver = "address_on_Optimistic";
+
+    let c_2_b_ticket = Ticket {
+        ticket_id: Uuid::new_v4().to_string(),
+        ticket_time: get_timestamp(),
+        src_chain: src_chain.to_string(),
+        dst_chain: dst_chain.to_string(),
+        action: TxAction::Redeem,
+        token: token.clone(),
+        amount: 6666.to_string(),
+        sender: Some(sender.to_string()),
+        receiver: receiver.to_string(),
+        memo: None,
+    };
+
+    let caller = Some(PrincipalId::new_user_test_id(5));
+    let result = hub.send_ticket(&caller, &c_2_b_ticket);
+    assert!(result.is_ok());
+    // query tickets for chain id
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
+    println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
+    assert!(result.is_ok());
+    // query token on chain
+    let result = hub.get_chain_tokens(&None, &None, &0, &5);
+    println!("get_chain_tokens result: {:#?}", result);
+    assert!(result.is_ok());
+
+    // B->A: `redeem` ticket
+    let sender = "address_on_Optimistic";
+    let receiver = "address_on_Ethereum";
+    let src_chain = "EVM-Optimistic";
+    let dst_chain = "Ethereum";
+
+    let b_2_a_ticket = Ticket {
+        ticket_id: Uuid::new_v4().to_string(),
+        ticket_time: get_timestamp(),
+        src_chain: src_chain.to_string(),
+        dst_chain: dst_chain.to_string(),
+        action: TxAction::Redeem,
+        token: token.clone(),
+        amount: 6666.to_string(),
+        sender: Some(sender.to_string()),
+        receiver: receiver.to_string(),
+        memo: None,
+    };
+
+    let result = hub.send_ticket(&caller, &b_2_a_ticket);
+    assert!(result.is_ok());
+
+    // query tickets for chain id
+    let result = hub.query_tickets(&caller, &Some(dst_chain.to_string()), &0, &5);
+    println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
+    assert!(result.is_ok());
+
+    // query token on chain
+    let result = hub.get_chain_tokens(&None, &None, &0, &5);
+    println!("get_chain_tokens result: {:#?}", result);
+    assert!(result.is_ok());
+
+    // upgrade
+    println!("--------- begint to upgrade ---------");
+    hub.upgrade();
+    println!("--------- upgrade end ---------");
+    // query txs
+    let result = hub.get_txs(&None, &None, &None, &None, &0, &10);
+    println!("get_txs result: {:#?}", result);
+    assert!(result.is_ok());
+
+    // update fee
+
+    //  chain factor
+    let chain_factor = Fee::ChainFactor(omnity_types::ChainFactor {
+        chain_id: "Bitcoin".to_string(),
+        chain_factor: 10000,
+    });
+
+    //  token factor
+    let token_factor = Fee::TokenFactor(TokenFactor {
+        dst_chain_id: "Bitcoin".to_string(),
+        fee_token: "ICP".to_string(),
+        fee_token_factor: 60_000_000_000,
+    });
+
+    let result = hub.update_fee(&vec![chain_factor, token_factor]);
+    println!("update_fee result:{:?}", result);
+    assert!(result.is_ok());
+
+    // query directives for chain id
+    for chain_id in chain_ids() {
+        let result = hub.query_directives(
+            &None,
+            &Some(chain_id.to_string()),
+            &Some(Topic::UpdateFee(None)),
+            &0,
+            &5,
+        );
+        println!("query_directives for {:} dires: {:#?}", chain_id, result);
+        assert!(result.is_ok());
+    }
+
+    let result = hub.get_fees(&None, &None, &0, &10);
+    assert!(result.is_ok());
+    println!("get_chains result : {:#?}", result);
+
+    let result = hub.get_fees(&None, &Some("ICP".to_string()), &0, &10);
+    assert!(result.is_ok());
+    println!("get_chains result filter by token id : {:#?}", result);
 }
