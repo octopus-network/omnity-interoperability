@@ -1,5 +1,15 @@
 {
   "canisters": {
+    "icp_ledger_canister": {
+      "type": "custom",
+      "candid": "https://raw.githubusercontent.com/dfinity/ic/ac971e7b4c851b89b312bee812f6de542ed907c5/rs/rosetta-api/icp_ledger/ledger.did",
+      "wasm": "https://download.dfinity.systems/ic/ac971e7b4c851b89b312bee812f6de542ed907c5/canisters/ledger-canister.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
+        }
+      }
+    },
     "bitcoin_customs": {
       "gzip": true,
       "candid": "customs/bitcoin/bitcoin_customs.did",
@@ -28,9 +38,7 @@
   "defaults": {
     "bitcoin": {
       "enabled": true,
-      "nodes": [
-        "127.0.0.1:18444"
-      ],
+      "nodes": ["127.0.0.1:18444"],
       "log_level": "info"
     },
     "build": {
