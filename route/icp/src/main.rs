@@ -100,7 +100,13 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
         s.redeem_fees
             .get(&chain_id)
             // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
-            .map(|fee| (fee.target_chain_factor * fee.fee_token_factor) as u64 + ICP_TRANSFER_FEE)
+            .map_or(None, |fee| {
+                if fee.target_chain_factor == 0 || fee.fee_token_factor == 0 {
+                    None
+                } else {
+                    Some((fee.target_chain_factor * fee.fee_token_factor) as u64 + ICP_TRANSFER_FEE)
+                }
+            })
     })
 }
 

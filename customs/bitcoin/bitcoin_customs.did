@@ -20,6 +20,7 @@ type CanisterStatusResponse = record {
 };
 type CanisterStatusType = variant { stopped; stopping; running };
 type Chain = record {
+  fee_token : text;
   chain_id : text;
   chain_state : ChainState;
   chain_type : ChainType;

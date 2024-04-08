@@ -2,7 +2,7 @@ pub mod audit;
 pub mod eventlog;
 
 use candid::Principal;
-use omnity_types::{Chain, ChainId, Fee, TicketId, Token, TokenId};
+use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -20,6 +20,12 @@ pub enum MintTokenStatus {
     Finalized { block_index: u64 },
     Failure(MintTokenError),
     Unknown,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Fee {
+    pub target_chain_factor: u128,
+    pub fee_token_factor: u128,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

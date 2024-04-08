@@ -1,9 +1,11 @@
 type Chain = record {
+  fee_token : text;
   chain_id : text;
   chain_state : ChainState;
   chain_type : ChainType;
   contract_address : opt text;
 };
+type ChainFactor = record { chain_factor : nat; chain_id : text };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type Event = variant {
@@ -17,12 +19,7 @@ type Event = variant {
   added_chain : Chain;
   toggle_chain_state : ToggleState;
 };
-type Fee = record {
-  fee_token : text;
-  dst_chain_id : text;
-  target_chain_factor : nat;
-  fee_token_factor : nat;
-};
+type Fee = variant { ChainFactor : ChainFactor; TokenFactor : TokenFactor };
 type GenerateTicketError = variant {
   InsufficientRedeemFee : record { provided : nat64; required : nat64 };
   SendTicketErr : text;
@@ -75,6 +72,11 @@ type Token = record {
   icon : opt text;
   issue_chain : text;
   symbol : text;
+};
+type TokenFactor = record {
+  fee_token : text;
+  dst_chain_id : text;
+  fee_token_factor : nat;
 };
 service : (RouteArg) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
