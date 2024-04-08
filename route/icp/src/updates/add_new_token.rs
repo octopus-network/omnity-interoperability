@@ -49,7 +49,7 @@ async fn install_icrc2_ledger(
     };
     let (canister_id_record,) = create_canister(create_canister_arg, 100_000_000_000)
         .await
-        .unwrap();
+        .map_err(|(_, reason)| reason)?;
 
     let owner: Principal = ic_cdk::id();
     let install_code_arg = InstallCodeArgument {
