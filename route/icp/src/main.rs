@@ -89,7 +89,7 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
 }
 
 #[query]
-pub fn get_fee_account(principal: Option<Principal>) -> ic_ledger_types::AccountIdentifier {
+pub fn get_fee_account(principal: Option<Principal>) -> AccountIdentifier {
     let principal = principal.unwrap_or(caller());
     AccountIdentifier::new(&ic_cdk::api::id(), &principal_to_subaccount(&principal))
 }

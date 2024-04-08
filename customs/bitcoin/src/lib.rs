@@ -1258,8 +1258,12 @@ pub fn process_tx_task() {
 
 pub fn process_hub_msg_task() {
     ic_cdk::spawn(async {
-        process_tickets().await;
+        let _guard = match crate::guard::ProcessHubMsgGuard::new() {
+            Some(guard) => guard,
+            None => return,
+        };
         process_directive().await;
+        process_tickets().await;
     });
 }
 

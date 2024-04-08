@@ -7,6 +7,7 @@ use std::str::FromStr;
 use updates::mint_token::MintTokenRequest;
 
 pub mod call_error;
+pub mod guard;
 pub mod hub;
 pub mod lifecycle;
 pub mod log_util;
@@ -140,7 +141,12 @@ async fn process_directives() {
 
 pub fn periodic_task() {
     ic_cdk::spawn(async {
-        process_tickets().await;
+        let _guard = match crate::guard::TimerLogicGuard::new() {
+            Some(guard) => guard,
+            None => return,
+        };
+
         process_directives().await;
+        process_tickets().await;
     });
 }
