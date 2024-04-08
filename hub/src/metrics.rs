@@ -2,8 +2,7 @@ use crate::types::ChainWithSeq;
 use crate::{state::with_state, types::TokenKey};
 use log::info;
 use omnity_types::{
-    Chain, ChainId, ChainState, ChainType, Error, Fee, Ticket, TicketId, Token, TokenId,
-    TokenOnChain,
+    Chain, ChainId, ChainState, ChainType, Error, Ticket, TicketId, Token, TokenId, TokenOnChain,
 };
 
 // #[query]
@@ -94,7 +93,7 @@ pub async fn get_fees(
     token_id: Option<TokenId>,
     offset: usize,
     limit: usize,
-) -> Result<Vec<Fee>, Error> {
+) -> Result<Vec<(ChainId, TokenId, u128)>, Error> {
     let condition = (chain_id, token_id);
     info!(
         "get_fees condition: {:?}, from: {}, offset: {}",
@@ -103,12 +102,23 @@ pub async fn get_fees(
 
     let fees = with_state(|hub_state| {
         hub_state
-            .fees
+            .token_factors
             .iter()
             .filter(|(token_key, _)| filter_chain_token(token_key, &condition))
             .skip(offset)
             .take(limit)
-            .map(|(_, fee)| fee.clone())
+            .filter_map(|(_, tf)| {
+                hub_state
+                    .chain_factors
+                    .get(&tf.dst_chain_id)
+                    .map(|chain_factor| {
+                        (
+                            tf.dst_chain_id.to_string(),
+                            tf.fee_token.to_string(),
+                            chain_factor * tf.fee_token_factor as u128,
+                        )
+                    })
+            })
             .collect::<Vec<_>>()
     });
 

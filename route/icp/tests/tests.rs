@@ -416,7 +416,7 @@ fn add_chain(route: &RouteSetup) {
         chain_type: ChainType::SettlementChain,
         chain_state: ChainState::Active,
         contract_address: None,
-        fee_token: Some("BTC".to_owned()),
+        fee_token: "BTC".to_owned(),
     })]);
     route.env.advance_time(Duration::from_secs(10));
     route.await_chain(SETTLEMENT_CHAIN.into(), 10);

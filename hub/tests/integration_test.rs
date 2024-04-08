@@ -1,6 +1,6 @@
 use ic_base_types::PrincipalId;
 use omnity_hub::types::Proposal;
-use omnity_types::{ChainState, ChainType, Fee, Ticket, TxAction};
+use omnity_types::{ChainState, ChainType, Fee, Ticket, TokenFactor, TxAction};
 use omnity_types::{ToggleAction, ToggleState, Topic};
 mod common;
 
@@ -192,15 +192,20 @@ fn test_update_fee() {
     let ret = hub.execute_proposal(&tokens());
     assert!(ret.is_ok());
 
-    // change chain state
-    let fee = Fee {
-        dst_chain_id: "EVM-Arbitrum".to_string(),
-        fee_token: "ETH".to_string(),
-        target_chain_factor: 10_000,
-        fee_token_factor: 60_000_000_000,
-    };
+    //  chain factor
+    let chain_factor = Fee::ChainFactor(omnity_types::ChainFactor {
+        chain_id: "Bitcoin".to_string(),
+        chain_factor: 10000,
+    });
 
-    let result = hub.update_fee(&vec![fee]);
+    //  token factor
+    let token_factor = Fee::TokenFactor(TokenFactor {
+        dst_chain_id: "Bitcoin".to_string(),
+        fee_token: "ICP".to_string(),
+        fee_token_factor: 60_000_000_000,
+    });
+
+    let result = hub.update_fee(&vec![chain_factor, token_factor]);
     println!("update_fee result:{:?}", result);
     assert!(result.is_ok());
 

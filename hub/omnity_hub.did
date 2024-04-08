@@ -1,12 +1,13 @@
 type Chain = record {
-  fee_token : opt text;
+  fee_token : text;
   chain_id : text;
   chain_state : ChainState;
   chain_type : ChainType;
   contract_address : opt text;
 };
+type ChainFactor = record { chain_factor : nat; chain_id : text };
 type ChainMeta = record {
-  fee_token : opt text;
+  fee_token : text;
   canister_id : text;
   chain_id : text;
   counterparties : opt vec text;
@@ -42,12 +43,7 @@ type Error = variant {
   CustomError : text;
   NotSufficientTokens : record { text; text };
 };
-type Fee = record {
-  fee_token : text;
-  dst_chain_id : text;
-  target_chain_factor : nat;
-  fee_token_factor : nat;
-};
+type Fee = variant { ChainFactor : ChainFactor; TokenFactor : TokenFactor };
 type Log = record { log : text; offset : nat64 };
 type Logs = record { logs : vec Log; all_logs_count : nat64 };
 type Proposal = variant {
@@ -62,7 +58,7 @@ type Result_10 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
 type Result_11 = variant { Ok : vec text; Err : Error };
 type Result_2 = variant { Ok : vec TokenOnChain; Err : Error };
 type Result_3 = variant { Ok : vec Chain; Err : Error };
-type Result_4 = variant { Ok : vec Fee; Err : Error };
+type Result_4 = variant { Ok : vec record { text; text; nat }; Err : Error };
 type Result_5 = variant { Ok : vec Token; Err : Error };
 type Result_6 = variant { Ok : nat64; Err : Error };
 type Result_7 = variant { Ok : Ticket; Err : Error };
@@ -89,6 +85,11 @@ type Token = record {
   icon : opt text;
   issue_chain : text;
   symbol : text;
+};
+type TokenFactor = record {
+  fee_token : text;
+  dst_chain_id : text;
+  fee_token_factor : nat;
 };
 type TokenMeta = record {
   decimals : nat8;

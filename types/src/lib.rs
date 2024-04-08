@@ -258,13 +258,10 @@ pub enum TxAction {
     Redeem,
 }
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Default)]
-pub struct Fee {
-    pub dst_chain_id: ChainId,
-    // quote currency or token
-    pub fee_token: TokenId,
-    pub target_chain_factor: u128,
-    pub fee_token_factor: u128,
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+pub enum Fee {
+    ChainFactor(ChainFactor),
+    TokenFactor(TokenFactor),
 }
 
 impl Storable for Fee {
@@ -281,13 +278,73 @@ impl Storable for Fee {
 
     const BOUND: Bound = Bound::Unbounded;
 }
-
 impl core::fmt::Display for Fee {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        match self {
+            Fee::ChainFactor(chain_factor) => write!(f, "{}", chain_factor),
+            Fee::TokenFactor(token_factor) => write!(f, "{}", token_factor),
+        }
+    }
+}
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Default)]
+pub struct ChainFactor {
+    pub chain_id: ChainId,
+    pub chain_factor: u128,
+}
+
+impl Storable for ChainFactor {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        fee
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl core::fmt::Display for ChainFactor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\ndst chain:{},\nfee token:{},\ntarget_chain_factor:{},\nfee_token_factor:{}",
-            self.dst_chain_id, self.fee_token, self.target_chain_factor, self.fee_token_factor,
+            "\nchain id:{},\nchain factor:{}",
+            self.chain_id, self.chain_factor,
+        )
+    }
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Default)]
+pub struct TokenFactor {
+    pub dst_chain_id: ChainId,
+    pub fee_token: TokenId,
+    pub fee_token_factor: u128,
+}
+
+impl Storable for TokenFactor {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        fee
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl core::fmt::Display for TokenFactor {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(
+            f,
+            "\ndst chain:{},\nfee token:{},\nfee_token_factor:{}",
+            self.dst_chain_id, self.fee_token, self.fee_token_factor,
         )
     }
 }
@@ -305,9 +362,8 @@ pub struct Chain {
     // settlement chain: export contract address
     // execution chain: port contract address
     pub contract_address: Option<String>,
-     // fee token
-     pub fee_token: Option<TokenId>,
-
+    // fee token
+    pub fee_token:TokenId,
 }
 impl Chain {
     pub fn chain_name(&self) -> Option<&str> {

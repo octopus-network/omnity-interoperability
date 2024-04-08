@@ -78,7 +78,7 @@ pub struct ChainMeta {
     // optional counterparty chains
     pub counterparties: Option<Vec<ChainId>>,
     // fee token
-    pub fee_token: Option<TokenId>,
+    pub fee_token: TokenId,
 }
 
 impl Storable for ChainMeta {
@@ -126,7 +126,7 @@ pub struct ChainWithSeq {
     pub chain_state: ChainState,
     pub contract_address: Option<String>,
     pub counterparties: Option<Vec<ChainId>>,
-    pub fee_token: Option<TokenId>,
+    pub fee_token: TokenId,
     pub latest_dire_seq: Seq,
     pub latest_ticket_seq: Seq,
 }

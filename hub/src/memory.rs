@@ -6,18 +6,19 @@ use ic_stable_structures::FileMemory;
 use ic_stable_structures::StableBTreeMap;
 use std::cell::RefCell;
 
-use omnity_types::{ChainId, Directive, Fee,  SeqKey, Ticket, TicketId,  TokenId};
+use omnity_types::{ChainId, Directive, SeqKey, Ticket, TicketId, TokenFactor, TokenId};
 
 use crate::types::{Amount, ChainWithSeq, TokenKey, TokenMeta};
 
 const UPGRADES: MemoryId = MemoryId::new(0);
 const CHAIN: MemoryId = MemoryId::new(1);
 const TOKEN: MemoryId = MemoryId::new(2);
-const FEE: MemoryId = MemoryId::new(3);
-const TOKEN_POSITION: MemoryId = MemoryId::new(4);
-const LEDGER: MemoryId = MemoryId::new(5);
-const DIRE_QUEUE: MemoryId = MemoryId::new(6);
-const TICKET_QUEUE: MemoryId = MemoryId::new(7);
+const CHAIN_FACTOR: MemoryId = MemoryId::new(3);
+const TOKEN_FACTOR: MemoryId = MemoryId::new(4);
+const TOKEN_POSITION: MemoryId = MemoryId::new(5);
+const LEDGER: MemoryId = MemoryId::new(6);
+const DIRE_QUEUE: MemoryId = MemoryId::new(7);
+const TICKET_QUEUE: MemoryId = MemoryId::new(8);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
@@ -66,9 +67,14 @@ pub fn get_token_memory() -> Memory {
     with_memory_manager(|m| m.get(TOKEN))
 }
 
-// fee stable memory
-pub fn get_fee_memory() -> Memory {
-    with_memory_manager(|m| m.get(FEE))
+// chain factor stable memory
+pub fn get_chain_factor_memory() -> Memory {
+    with_memory_manager(|m| m.get(CHAIN_FACTOR))
+}
+
+// token factor stable memory
+pub fn get_token_factor_memory() -> Memory {
+    with_memory_manager(|m| m.get(TOKEN_FACTOR))
 }
 
 // token postion stable memory
@@ -97,9 +103,14 @@ pub fn init_chain() -> StableBTreeMap<ChainId, ChainWithSeq, Memory> {
 pub fn init_token() -> StableBTreeMap<TokenId, TokenMeta, Memory> {
     StableBTreeMap::init(get_token_memory())
 }
-pub fn init_fee() -> StableBTreeMap<TokenKey, Fee, Memory> {
-    StableBTreeMap::init(get_fee_memory())
+pub fn init_chain_factor() -> StableBTreeMap<ChainId, u128, Memory> {
+    StableBTreeMap::init(get_chain_factor_memory())
 }
+
+pub fn init_token_factor() -> StableBTreeMap<TokenKey, TokenFactor, Memory> {
+    StableBTreeMap::init(get_token_factor_memory())
+}
+
 pub fn init_token_position() -> StableBTreeMap<TokenKey, Amount, Memory> {
     StableBTreeMap::init(get_token_position_memory())
 }

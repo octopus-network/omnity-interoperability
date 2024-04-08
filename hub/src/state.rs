@@ -5,7 +5,7 @@ use ic_stable_structures::StableBTreeMap;
 use log::info;
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Fee, Seq, SeqKey, Ticket, TicketId, ToggleAction,
-    ToggleState, TokenId, Topic, TxAction,
+    ToggleState, TokenFactor, TokenId, Topic, TxAction,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -23,9 +23,10 @@ pub struct HubState {
     pub chains: StableBTreeMap<ChainId, ChainWithSeq, Memory>,
     #[serde(skip, default = "memory::init_token")]
     pub tokens: StableBTreeMap<TokenId, TokenMeta, Memory>,
-    #[serde(skip, default = "memory::init_fee")]
-    pub fees: StableBTreeMap<TokenKey, Fee, Memory>,
-
+    #[serde(skip, default = "memory::init_chain_factor")]
+    pub chain_factors: StableBTreeMap<ChainId, u128, Memory>,
+    #[serde(skip, default = "memory::init_token_factor")]
+    pub token_factors: StableBTreeMap<TokenKey, TokenFactor, Memory>,
     #[serde(skip, default = "memory::init_dire_queue")]
     pub dire_queue: StableBTreeMap<SeqKey, Directive, Memory>,
     #[serde(skip, default = "memory::init_ticket_queue")]
@@ -44,7 +45,8 @@ impl Default for HubState {
         Self {
             chains: StableBTreeMap::init(memory::get_chain_memory()),
             tokens: StableBTreeMap::init(memory::get_token_memory()),
-            fees: StableBTreeMap::init(memory::get_fee_memory()),
+            chain_factors: StableBTreeMap::init(memory::get_chain_factor_memory()),
+            token_factors: StableBTreeMap::init(memory::get_token_factor_memory()),
             token_position: StableBTreeMap::init(memory::get_token_position_memory()),
             cross_ledger: StableBTreeMap::init(memory::get_ledger_memory()),
             dire_queue: StableBTreeMap::init(memory::get_dire_queue_memory()),
@@ -182,23 +184,44 @@ impl HubState {
     }
 
     pub fn update_fee(&mut self, fee: Fee) -> Result<(), Error> {
-        self.chains
-            .get(&fee.dst_chain_id)
-            .ok_or(Error::NotFoundChain(fee.dst_chain_id.to_string()))
-            .map_or_else(
-                |e| Err(e),
-                |chain| {
-                    if matches!(chain.chain_state, ChainState::Deactive) {
-                        Err(Error::DeactiveChain(fee.dst_chain_id.to_string()))
-                    } else {
-                        let token_key =
-                            TokenKey::from(chain.chain_id.to_string(), fee.fee_token.to_string());
-                        self.fees.insert(token_key, fee);
+        match fee {
+            Fee::ChainFactor(cf) => self
+                .chains
+                .get(&cf.chain_id)
+                .ok_or(Error::NotFoundChain(cf.chain_id.to_string()))
+                .map_or_else(
+                    |e| Err(e),
+                    |chain| {
+                        if matches!(chain.chain_state, ChainState::Deactive) {
+                            Err(Error::DeactiveChain(cf.chain_id.to_string()))
+                        } else {
+                            self.chain_factors.insert(cf.chain_id, cf.chain_factor);
 
-                        Ok(())
-                    }
-                },
-            )
+                            Ok(())
+                        }
+                    },
+                ),
+            Fee::TokenFactor(tf) => self
+                .chains
+                .get(&tf.dst_chain_id)
+                .ok_or(Error::NotFoundChain(tf.dst_chain_id.to_string()))
+                .map_or_else(
+                    |e| Err(e),
+                    |chain| {
+                        if matches!(chain.chain_state, ChainState::Deactive) {
+                            Err(Error::DeactiveChain(tf.to_string()))
+                        } else {
+                            let token_key = TokenKey::from(
+                                chain.chain_id.to_string(),
+                                tf.fee_token.to_string(),
+                            );
+                            self.token_factors.insert(token_key, tf);
+
+                            Ok(())
+                        }
+                    },
+                ),
+        }
     }
 
     pub fn push_directive(&mut self, chain_id: &ChainId, dire: Directive) -> Result<(), Error> {
@@ -295,7 +318,7 @@ impl HubState {
                 Topic::UpdateFee(token_id) => {
                     filter_dires(&self.dire_queue, &chain_id, offset, limit, |dire| {
                         if let Some(dst_token_id) = &token_id {
-                            matches!(dire, Directive::UpdateFee(fee) if fee.fee_token.eq(dst_token_id))
+                            matches!(dire, Directive::UpdateFee(fee) if  matches!(fee,Fee::TokenFactor(tf) if tf.fee_token.eq(dst_token_id)))
                         } else {
                             matches!(dire, Directive::UpdateFee(_))
                         }
