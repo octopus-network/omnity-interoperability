@@ -198,21 +198,8 @@ pub struct FinalizedTokenRelease {
 /// The outcome of a release token request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedStatus {
-    /// The transaction that retrieves BTC got enough confirmations.
+    /// The transaction that release token got enough confirmations.
     Confirmed(Txid),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FinalizedTicket {
-    pub request: GenTicketRequest,
-    pub status: FinalizedTicketStatus,
-}
-
-/// The outcome of a generate_ticket request.
-#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum FinalizedTicketStatus {
-    Invalid,
-    Finalized,
 }
 
 /// The status of a Bitcoin transaction that the customs hasn't yet sent to the Bitcoin network.
@@ -326,7 +313,7 @@ pub struct CustomsState {
 
     pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
 
-    pub finalized_gen_ticket_requests: VecDeque<FinalizedTicket>,
+    pub finalized_gen_ticket_requests: VecDeque<GenTicketRequest>,
 
     // Next index of query tickets from hub
     pub next_ticket_seq: u64,
@@ -597,11 +584,9 @@ impl CustomsState {
         match self
             .finalized_gen_ticket_requests
             .iter()
-            .find(|req| req.request.txid == tx_id)
-            .map(|r| r.status.clone())
+            .find(|req| req.txid == tx_id)
         {
-            Some(FinalizedTicketStatus::Finalized) => GenTicketStatus::Finalized,
-            Some(FinalizedTicketStatus::Invalid) => GenTicketStatus::Invalid,
+            Some(_) => GenTicketStatus::Finalized,
             None => GenTicketStatus::Unknown,
         }
     }
@@ -956,10 +941,8 @@ impl CustomsState {
         self.finalized_release_token_requests.push_back(req)
     }
 
-    fn push_finalized_ticket(&mut self, req: FinalizedTicket) {
-        assert!(!self
-            .pending_gen_ticket_requests
-            .contains_key(&req.request.txid));
+    fn push_finalized_ticket(&mut self, req: GenTicketRequest) {
+        assert!(!self.pending_gen_ticket_requests.contains_key(&req.txid));
 
         if self.finalized_gen_ticket_requests.len() >= MAX_FINALIZED_REQUESTS {
             self.finalized_gen_ticket_requests.pop_front();

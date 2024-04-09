@@ -341,7 +341,6 @@ async fn submit_pending_requests() {
             .map(|(rune_id, _)| rune_id.clone())
             .collect::<Vec<RuneId>>()
     });
-
     for rune_id in runes_list {
         // We make requests if we have old requests in the queue or if have enough
         // requests to fill a batch.
@@ -1262,8 +1261,8 @@ pub fn process_hub_msg_task() {
             Some(guard) => guard,
             None => return,
         };
-        process_directive().await;
         process_tickets().await;
+        process_directive().await;
     });
 }
 

@@ -1,8 +1,8 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomsState, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest,
-    ReleaseTokenRequest, RuneId, RunesBalance, SubmittedBtcTransaction,
+    eventlog::Event, CustomsState, GenTicketRequest, ReleaseTokenRequest, RuneId, RunesBalance,
+    SubmittedBtcTransaction,
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
@@ -84,26 +84,7 @@ pub fn finalize_ticket_request(
     for balance in balances {
         state.update_runes_balance(request.txid, balance);
     }
-    state.push_finalized_ticket(FinalizedTicket {
-        request: request.clone(),
-        status: FinalizedTicketStatus::Finalized,
-    });
-}
-
-pub fn remove_ticket_request(
-    state: &mut CustomsState,
-    request: &GenTicketRequest,
-    status: FinalizedTicketStatus,
-) {
-    record_event(&Event::RemovedTicketRequest {
-        txid: request.txid,
-        status: status.clone(),
-    });
-    state.pending_gen_ticket_requests.remove(&request.txid);
-    state.push_finalized_ticket(FinalizedTicket {
-        request: request.clone(),
-        status,
-    });
+    state.push_finalized_ticket(request.clone());
 }
 
 pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransaction) {

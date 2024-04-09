@@ -49,10 +49,6 @@ type Event = variant {
     destination : Destination;
     utxos : vec Utxo;
   };
-  removed_ticket_request : record {
-    status : FinalizedTicketStatus;
-    txid : vec nat8;
-  };
   sent_transaction : record {
     fee : opt nat64;
     txid : vec nat8;
@@ -88,7 +84,6 @@ type Event = variant {
   accepted_generate_ticket_request : GenTicketRequest;
   toggle_chain_state : ToggleState;
 };
-type FinalizedTicketStatus = variant { Invalid; Finalized };
 type GenTicketRequest = record {
   received_at : nat64;
   token_id : text;
@@ -117,6 +112,7 @@ type GenerateTicketError = variant {
   TemporarilyUnavailable : text;
   InvalidRuneId : text;
   AlreadySubmitted;
+  InvalidTxId;
   AleardyProcessed;
   NoNewUtxos;
   UnsupportedChainId : text;
