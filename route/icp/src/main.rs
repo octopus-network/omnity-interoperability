@@ -5,7 +5,6 @@ use ic_cdk_timers::set_timer_interval;
 use ic_ledger_types::AccountIdentifier;
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg};
-use omnity_types::log::init_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{read_state, MintTokenStatus};
 use icp_route::updates::generate_ticket::{
@@ -14,6 +13,7 @@ use icp_route::updates::generate_ticket::{
 use icp_route::updates::{self};
 use icp_route::{periodic_task, storage, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
 use log::{self};
+use omnity_types::log::init_log;
 use omnity_types::{Chain, ChainId, Token};
 use std::time::Duration;
 
@@ -97,15 +97,13 @@ pub fn get_fee_account(principal: Option<Principal>) -> AccountIdentifier {
 #[query]
 pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
     read_state(|s| {
-        s.redeem_fees
+        s.target_chain_factor
             .get(&chain_id)
             // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
-            .map_or(None, |fee| {
-                if fee.target_chain_factor == 0 || fee.fee_token_factor == 0 {
-                    None
-                } else {
-                    Some((fee.target_chain_factor * fee.fee_token_factor) as u64 + ICP_TRANSFER_FEE)
-                }
+            .map_or(None, |target_chain_factor| {
+                s.fee_token_factor.map(|fee_token_factor| {
+                    (target_chain_factor * fee_token_factor) as u64 + ICP_TRANSFER_FEE
+                })
             })
     })
 }
