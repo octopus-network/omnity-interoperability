@@ -9,7 +9,7 @@ use ic_base_types::{CanisterId, PrincipalId};
 use ic_state_machine_tests::{StateMachine, WasmResult};
 use omnity_hub::types::{ChainMeta, Proposal, TokenMeta};
 use omnity_types::{Chain, ChainId, Directive, Seq, Ticket, Token, TokenId, TokenOnChain, Topic};
-use omnity_types::{ChainState, ChainType, Error, Fee};
+use omnity_types::{ChainState, ChainType, Error, Factor};
 
 const BINARY_NAME: &str = "omnity_hub";
 const FEATURES: &[&str] = &[];
@@ -63,7 +63,7 @@ impl OmnityHub {
         Decode!(&assert_reply(ret), Result<(), Error>).unwrap()
     }
 
-    pub fn update_fee(&self, fees: &Vec<Fee>) -> Result<(), Error> {
+    pub fn update_fee(&self, fees: &Vec<Factor>) -> Result<(), Error> {
         let ret = self
             .sm
             .execute_ingress_as(
@@ -316,7 +316,7 @@ pub fn chains() -> Vec<Proposal> {
             canister_id: PrincipalId::new_user_test_id(0).to_string(),
             contract_address: None,
             counterparties: None,
-            fee_token: "BTC".to_owned(),
+            fee_token: None,
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "Ethereum".to_string(),
@@ -325,7 +325,7 @@ pub fn chains() -> Vec<Proposal> {
             canister_id: PrincipalId::new_user_test_id(1).to_string(),
             contract_address: Some("Ethereum constract address".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string()]),
-            fee_token: "ETH".to_owned(),
+            fee_token: None,
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "ICP".to_string(),
@@ -334,7 +334,7 @@ pub fn chains() -> Vec<Proposal> {
             canister_id: PrincipalId::new_user_test_id(2).to_string(),
             contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
-            fee_token: "ICP".to_owned(),
+            fee_token: None,
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "EVM-Arbitrum".to_string(),
@@ -347,7 +347,7 @@ pub fn chains() -> Vec<Proposal> {
                 "Ethereum".to_string(),
                 "ICP".to_string(),
             ]),
-            fee_token: "Ethereum-ERC20-ARB".to_owned(),
+            fee_token: Some("Ethereum-ERC20-ARB".to_owned()),
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "EVM-Optimistic".to_string(),
@@ -361,7 +361,7 @@ pub fn chains() -> Vec<Proposal> {
                 "ICP".to_string(),
                 "EVM-Arbitrum".to_string(),
             ]),
-            fee_token: "Ethereum-ERC20-OP".to_owned(),
+            fee_token: Some("Ethereum-ERC20-OP".to_owned()),
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "EVM-Starknet".to_string(),
@@ -376,7 +376,7 @@ pub fn chains() -> Vec<Proposal> {
                 "EVM-Arbitrum".to_string(),
                 "EVM-Optimistic".to_string(),
             ]),
-            fee_token: "Ethereum-ERC20-StarkNet".to_owned(),
+            fee_token: Some("Ethereum-ERC20-StarkNet".to_owned()),
         }),
     ];
 

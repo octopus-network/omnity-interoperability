@@ -1,6 +1,6 @@
 use crate::updates::{generate_ticket::GenerateTicketReq, mint_token::MintTokenRequest};
 use candid::Principal;
-use omnity_types::{Chain, Fee, ToggleState, Token};
+use omnity_types::{Chain, Factor, ToggleState, Token};
 use serde::{Deserialize, Serialize};
 
 #[derive(candid::CandidType, Deserialize)]
@@ -18,7 +18,7 @@ pub enum Event {
     AddedToken { ledger_id: Principal, token: Token },
 
     #[serde(rename = "updated_fee")]
-    UpdatedFee { fee: Fee },
+    UpdatedFee { fee: Factor },
 
     #[serde(rename = "toggle_chain_state")]
     ToggleChainState(ToggleState),

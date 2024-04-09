@@ -14,7 +14,7 @@ use icrc_ledger_types::{
     icrc2::approve::{ApproveArgs, ApproveError},
 };
 use omnity_types::{
-    Chain, ChainState, ChainType, Directive, Fee, Ticket, TicketId, Token, TxAction,
+    Chain, ChainState, ChainType, Directive, Factor, Ticket, TicketId, Token, TxAction,
 };
 use std::{collections::HashMap, path::PathBuf, str::FromStr, time::Duration};
 
@@ -440,7 +440,7 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
 }
 
 fn set_fee(route: &RouteSetup) {
-    route.push_directives(vec![Directive::UpdateFee(Fee {
+    route.push_directives(vec![Directive::UpdateFee(Factor {
         dst_chain_id: SETTLEMENT_CHAIN.into(),
         fee_token: "ICP".into(),
         target_chain_factor: 10_000,

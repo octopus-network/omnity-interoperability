@@ -6,9 +6,9 @@ use ic_stable_structures::FileMemory;
 use ic_stable_structures::StableBTreeMap;
 use std::cell::RefCell;
 
-use omnity_types::{ChainId, Directive, SeqKey, Ticket, TicketId, TokenFactor, TokenId};
+use omnity_types::{ChainId, Directive, SeqKey, Ticket, TicketId, TokenId};
 
-use crate::types::{Amount, ChainWithSeq, TokenKey, TokenMeta};
+use crate::types::{Amount, ChainTokenFactor, ChainWithSeq, TokenKey, TokenMeta};
 
 const UPGRADES: MemoryId = MemoryId::new(0);
 const CHAIN: MemoryId = MemoryId::new(1);
@@ -107,7 +107,7 @@ pub fn init_chain_factor() -> StableBTreeMap<ChainId, u128, Memory> {
     StableBTreeMap::init(get_chain_factor_memory())
 }
 
-pub fn init_token_factor() -> StableBTreeMap<TokenKey, TokenFactor, Memory> {
+pub fn init_token_factor() -> StableBTreeMap<TokenKey, ChainTokenFactor, Memory> {
     StableBTreeMap::init(get_token_factor_memory())
 }
 

@@ -1,6 +1,6 @@
 use ic_base_types::PrincipalId;
 use omnity_hub::types::Proposal;
-use omnity_types::{ChainState, ChainType, Fee, Ticket, TokenFactor, TxAction};
+use omnity_types::{ChainState, ChainType, Factor, FeeTokenFactor, Ticket, TxAction};
 use omnity_types::{ToggleAction, ToggleState, Topic};
 mod common;
 
@@ -185,14 +185,13 @@ fn test_update_fee() {
     assert!(ret.is_ok());
 
     //  chain factor
-    let chain_factor = Fee::ChainFactor(omnity_types::ChainFactor {
-        chain_id: "Bitcoin".to_string(),
-        chain_factor: 10000,
+    let chain_factor = Factor::UpdateTargetChainFactor(omnity_types::TargetChainFactor {
+        target_chain_id: "Bitcoin".to_string(),
+        target_chain_factor: 10000,
     });
 
     //  token factor
-    let token_factor = Fee::TokenFactor(TokenFactor {
-        dst_chain_id: "Bitcoin".to_string(),
+    let token_factor = Factor::UpdateFeeTokenFactor(FeeTokenFactor {
         fee_token: "ICP".to_string(),
         fee_token_factor: 60_000_000_000,
     });
@@ -644,14 +643,13 @@ fn test_upgrade() {
     // update fee
 
     //  chain factor
-    let chain_factor = Fee::ChainFactor(omnity_types::ChainFactor {
-        chain_id: "Bitcoin".to_string(),
-        chain_factor: 10000,
+    let chain_factor = Factor::UpdateTargetChainFactor(omnity_types::TargetChainFactor {
+        target_chain_id: "Bitcoin".to_string(),
+        target_chain_factor: 10000,
     });
 
     //  token factor
-    let token_factor = Fee::TokenFactor(TokenFactor {
-        dst_chain_id: "Bitcoin".to_string(),
+    let token_factor = Factor::UpdateFeeTokenFactor(FeeTokenFactor {
         fee_token: "ICP".to_string(),
         fee_token_factor: 60_000_000_000,
     });

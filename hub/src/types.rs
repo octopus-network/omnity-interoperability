@@ -8,7 +8,7 @@ use candid::CandidType;
 use ic_stable_structures::StableBTreeMap;
 use omnity_types::DireKey;
 use omnity_types::Directive;
-use omnity_types::Fee;
+use omnity_types::Factor;
 use omnity_types::SeqKey;
 use omnity_types::Ticket;
 use omnity_types::ToggleState;
@@ -42,7 +42,7 @@ pub enum Proposal {
     //TODO: UpdateChain(ChainMeta)
     //TOOD: UpdateToken(TokenMeta)
     ToggleChainState(ToggleState),
-    UpdateFee(Fee),
+    UpdateFee(Factor),
 }
 
 impl Storable for Proposal {
@@ -78,7 +78,7 @@ pub struct ChainMeta {
     // optional counterparty chains
     pub counterparties: Option<Vec<ChainId>>,
     // fee token
-    pub fee_token: TokenId,
+    pub fee_token: Option<TokenId>,
 }
 
 impl Storable for ChainMeta {
@@ -126,7 +126,7 @@ pub struct ChainWithSeq {
     pub chain_state: ChainState,
     pub contract_address: Option<String>,
     pub counterparties: Option<Vec<ChainId>>,
-    pub fee_token: TokenId,
+    pub fee_token: Option<TokenId>,
     pub latest_dire_seq: Seq,
     pub latest_ticket_seq: Seq,
 }
@@ -250,6 +250,28 @@ impl Storable for TokenKey {
         let token_key =
             ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         token_key
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Default)]
+pub struct ChainTokenFactor {
+    pub dst_chain_id: ChainId,
+    pub fee_token: TokenId,
+    pub fee_token_factor: u128,
+}
+
+impl Storable for ChainTokenFactor {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        fee
     }
 
     const BOUND: Bound = Bound::Unbounded;

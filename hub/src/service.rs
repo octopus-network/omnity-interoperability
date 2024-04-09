@@ -12,7 +12,7 @@ use omnity_hub::state::{set_state, with_state, with_state_mut};
 use omnity_hub::types::{ChainWithSeq, Proposal};
 use omnity_types::log::{init_log, LoggerConfigService};
 use omnity_types::{
-    Chain, ChainId, ChainState, ChainType, Directive, Error, Fee, Seq, Ticket, TicketId, Token,
+    Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId, Token,
     TokenId, TokenOnChain, Topic,
 };
 
@@ -144,29 +144,25 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                 info!("validate_proposal result:{} ", result);
                 proposal_msgs.push(result);
             }
-            Proposal::UpdateFee(fee) => {
-                match fee {
-                    Fee::ChainFactor(ref cf) => {
+            Proposal::UpdateFee(factor) => {
+                match factor {
+                    Factor::UpdateTargetChainFactor(ref cf) => {
                         with_state(|hub_state| {
                             //check the issue chain must exsiting and not deactive!
-                            hub_state.available_chain(&cf.chain_id)
+                            hub_state.available_chain(&cf.target_chain_id)
                         })?;
-                        let result = format!("The UpdateFee proposal: {}", fee);
+                        let result = format!("The UpdateFee proposal: {}", factor);
                         info!("validate_proposal result:{} ", result);
                         proposal_msgs.push(result);
                     }
-                    Fee::TokenFactor(ref tf) => {
+                    Factor::UpdateFeeTokenFactor(ref tf) => {
                         if tf.fee_token.is_empty() {
                             return Err(Error::ProposalError(
                                 "The fee token can not be empty".to_string(),
                             ));
                         };
 
-                        with_state(|hub_state| {
-                            //check the issue chain must exsiting and not deactive!
-                            hub_state.available_chain(&tf.dst_chain_id)
-                        })?;
-                        let result = format!("The UpdateFee proposal: {}", fee);
+                        let result = format!("The UpdateFee proposal: {}", factor);
                         info!("validate_proposal result:{} ", result);
                         proposal_msgs.push(result);
                     }
@@ -295,12 +291,12 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 with_state_mut(|hub_state| hub_state.update_fee(fee.clone()))?;
 
                 match fee {
-                    Fee::ChainFactor(ref cf) => {
+                    Factor::UpdateTargetChainFactor(ref cf) => {
                         with_state(|hub_state| {
                             hub_state
                                 .chains
                                 .iter()
-                                .filter(|(_,chain)|matches!(&chain.counterparties,Some(counterparties) if counterparties.contains(&cf.chain_id)))
+                                .filter(|(_,chain)|matches!(&chain.counterparties,Some(counterparties) if counterparties.contains(&cf.target_chain_id)))
                                 .map(|(_,chain)| chain.clone())
                                 .collect::<Vec<_>>()
                         })
@@ -316,20 +312,22 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                         .collect::<Result<(), Error>>()?;
                     }
 
-                    Fee::TokenFactor(ref tf) => {
+                    Factor::UpdateFeeTokenFactor(ref tf) => {
                         with_state(|hub_state| {
                             hub_state
                                 .chains
                                 .iter()
-                                .filter(|(_, chain)| chain.fee_token.eq(&tf.fee_token))
-                                .map(|(_, chain)| chain.clone())
+                                .filter(|(_, chain)| {matches!( &chain.fee_token,Some(fee_token) if fee_token.eq(&tf.fee_token))})
+                                .map(|(_, chain)| {
+                                    chain.chain_id.to_string()
+                                    })
                                 .collect::<Vec<_>>()
                         })
                         .into_iter()
-                        .map(|chain| {
+                        .map(|chain_id| {
                             with_state_mut(|hub_state| {
                                 hub_state.push_directive(
-                                    &chain.chain_id,
+                                    &chain_id,
                                     Directive::UpdateFee(fee.clone()),
                                 )
                             })
@@ -346,10 +344,10 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
 /// check and build update fee directive and push it to the directive queue
 #[update(guard = "auth")]
-pub async fn update_fee(fees: Vec<Fee>) -> Result<(), Error> {
-    let proposals: Vec<Proposal> = fees
+pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
+    let proposals: Vec<Proposal> = factors
         .into_iter()
-        .map(|fee| Proposal::UpdateFee(fee))
+        .map(|factor| Proposal::UpdateFee(factor))
         .collect();
 
     // validate proposal
@@ -492,7 +490,10 @@ mod tests {
     use omnity_hub::types::{ChainMeta, TokenMeta};
 
     use super::*;
-    use omnity_types::{ChainType, Fee, Ticket, ToggleAction, ToggleState, TokenFactor, TxAction};
+    use omnity_types::{
+        ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, ToggleAction, ToggleState,
+        TxAction,
+    };
 
     use env_logger;
     use log::LevelFilter;
@@ -553,7 +554,7 @@ mod tests {
             canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
             contract_address: None,
             counterparties: None,
-            fee_token: "BTC".to_owned(),
+            fee_token: None,
         };
 
         // validate proposal
@@ -574,7 +575,7 @@ mod tests {
             canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
             contract_address: None,
             counterparties: None,
-            fee_token: "BTC".to_owned(),
+            fee_token: None,
         };
 
         // validate proposal
@@ -595,7 +596,7 @@ mod tests {
             canister_id: "bkyz2-fmaaa-aaaaa-qaaab-cai".to_string(),
             contract_address: Some("Ethereum constract address".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string()]),
-            fee_token: "ETH".to_owned(),
+            fee_token: None,
         };
         let result = validate_proposal(vec![Proposal::AddChain(ethereum.clone())]).await;
         assert!(result.is_ok());
@@ -613,7 +614,7 @@ mod tests {
             canister_id: "bkyz2-fmaaa-aaaaa-qadaab-cai".to_string(),
             contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
-            fee_token: "ICP".to_owned(),
+            fee_token: None,
         };
         let result = validate_proposal(vec![Proposal::AddChain(icp.clone())]).await;
         assert!(result.is_ok());
@@ -635,7 +636,7 @@ mod tests {
                 "Ethereum".to_string(),
                 "ICP".to_string(),
             ]),
-            fee_token: "Ethereum-ERC20-ARB".to_owned(),
+            fee_token: Some("Ethereum-ERC20-ARB".to_owned()),
         };
         let result = validate_proposal(vec![Proposal::AddChain(arbitrum.clone())]).await;
         assert!(result.is_ok());
@@ -658,7 +659,7 @@ mod tests {
                 "ICP".to_string(),
                 "EVM-Arbitrum".to_string(),
             ]),
-            fee_token: "Ethereum-ERC20-OP".to_owned(),
+            fee_token: Some("Ethereum-ERC20-OP".to_owned()),
         };
 
         let result = validate_proposal(vec![Proposal::AddChain(optimistic.clone())]).await;
@@ -683,7 +684,7 @@ mod tests {
                 "EVM-Arbitrum".to_string(),
                 "EVM-Optimistic".to_string(),
             ]),
-            fee_token: "Ethereum-ERC20-StarkNet".to_owned(),
+            fee_token: Some("Ethereum-ERC20-StarkNet".to_owned()),
         };
         let result = validate_proposal(vec![Proposal::AddChain(starknet.clone())]).await;
         assert!(result.is_ok());
@@ -1075,19 +1076,17 @@ mod tests {
         add_tokens().await;
 
         //  chain factor
-        let chain_factor = Fee::ChainFactor(omnity_types::ChainFactor {
-            chain_id: "Bitcoin".to_string(),
-            chain_factor: 10000,
+        let chain_factor = Factor::UpdateTargetChainFactor(TargetChainFactor {
+            target_chain_id: "Bitcoin".to_string(),
+            target_chain_factor: 10000,
         });
 
         //  token factor
-        let token_factor = Fee::TokenFactor(TokenFactor {
-            dst_chain_id: "Bitcoin".to_string(),
+        let token_factor = Factor::UpdateFeeTokenFactor(FeeTokenFactor {
             fee_token: "ICP".to_string(),
             fee_token_factor: 60_000_000_000,
         });
 
-        
         let result = update_fee(vec![chain_factor, token_factor]).await;
         assert!(result.is_ok());
         println!("update_fee result:{:?}", result);

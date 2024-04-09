@@ -2,7 +2,7 @@ pub mod audit;
 pub mod eventlog;
 
 use candid::Principal;
-use omnity_types::{Chain, ChainId, Fee, TicketId, Token, TokenId};
+use omnity_types::{Chain, ChainId, Factor, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -42,7 +42,7 @@ pub struct RouteState {
 
     pub finalized_mint_token_requests: BTreeMap<TicketId, MintTokenRequest>,
 
-    pub redeem_fees: BTreeMap<ChainId, Fee>,
+    pub redeem_fees: BTreeMap<ChainId, Factor>,
 
     #[serde(skip)]
     pub is_timer_running: bool,

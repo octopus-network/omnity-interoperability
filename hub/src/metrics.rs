@@ -102,14 +102,14 @@ pub async fn get_fees(
 
     let fees = with_state(|hub_state| {
         hub_state
-            .token_factors
+            .fee_token_factors
             .iter()
             .filter(|(token_key, _)| filter_chain_token(token_key, &condition))
             .skip(offset)
             .take(limit)
             .filter_map(|(_, tf)| {
                 hub_state
-                    .chain_factors
+                    .target_chain_factors
                     .get(&tf.dst_chain_id)
                     .map(|chain_factor| {
                         (

@@ -5,7 +5,7 @@ use crate::{
     updates::{generate_ticket::GenerateTicketReq, mint_token::MintTokenRequest},
 };
 use candid::Principal;
-use omnity_types::{Chain, Fee, ToggleState, Token};
+use omnity_types::{Chain, Factor, ToggleState, Token};
 
 pub fn add_chain(state: &mut RouteState, chain: Chain) {
     record_event(&Event::AddedChain(chain.clone()));
@@ -43,7 +43,7 @@ pub fn finalize_gen_ticket(block_index: u64, request: GenerateTicketReq) {
     })
 }
 
-pub fn update_fee(state: &mut RouteState, fee: Fee) {
+pub fn update_fee(state: &mut RouteState, fee: Factor) {
     record_event(&Event::UpdatedFee { fee: fee.clone() });
     state.redeem_fees.insert(fee.dst_chain_id.clone(), fee);
 }
