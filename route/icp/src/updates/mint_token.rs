@@ -61,16 +61,18 @@ pub async fn mint_token(req: &mut MintTokenRequest) -> Result<(), MintTokenError
         subaccount: None,
     };
 
-    match mint(ledger_id, req.amount, account).await {
+    let result = match mint(ledger_id, req.amount, account).await {
         Ok(block_index) => {
             req.status = MintTokenStatus::Finalized { block_index };
+            Ok(())
         }
         Err(err) => {
-            req.status = MintTokenStatus::Failure(err);
+            req.status = MintTokenStatus::Failure(err.clone());
+            Err(err)
         }
     };
     mutate_state(|s| audit::finalize_mint_token_req(s, req.clone()));
-    Ok(())
+    result
 }
 
 async fn mint(ledger_id: Principal, amount: u128, to: Account) -> Result<u64, MintTokenError> {

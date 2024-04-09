@@ -14,7 +14,8 @@ use icrc_ledger_types::{
     icrc2::approve::{ApproveArgs, ApproveError},
 };
 use omnity_types::{
-    Chain, ChainState, ChainType, Directive, Factor, Ticket, TicketId, Token, TxAction,
+    Chain, TargetChainFactor,FeeTokenFactor, ChainState, ChainType, Directive, Fee, Ticket, TicketId, Token,
+    TxAction,
 };
 use std::{collections::HashMap, path::PathBuf, str::FromStr, time::Duration};
 
@@ -420,7 +421,7 @@ fn add_chain(route: &RouteSetup) {
         chain_type: ChainType::SettlementChain,
         chain_state: ChainState::Active,
         contract_address: None,
-        fee_token: "BTC".to_owned(),
+        fee_token: None,
     })]);
     route.env.advance_time(Duration::from_secs(10));
     route.await_chain(SETTLEMENT_CHAIN.into(), 10);
@@ -440,12 +441,17 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
 }
 
 fn set_fee(route: &RouteSetup) {
-    route.push_directives(vec![Directive::UpdateFee(Factor {
-        dst_chain_id: SETTLEMENT_CHAIN.into(),
-        fee_token: "ICP".into(),
-        target_chain_factor: 10_000,
-        fee_token_factor: 1000,
-    })]);
+    route.push_directives(vec![
+        Directive::UpdateFee(Fee::ChainFactor(ChainFactor {
+            chain_id: "Bitcoin".into(),
+            chain_factor: 10_000,
+        })),
+        Directive::UpdateFee(Fee::TokenFactor(TokenFactor {
+            dst_chain_id: "Bitcoin".into(),
+            fee_token: "ICP".into(),
+            fee_token_factor: 1000,
+        })),
+    ]);
 
     route.env.advance_time(Duration::from_secs(10));
     route.await_fee(10);

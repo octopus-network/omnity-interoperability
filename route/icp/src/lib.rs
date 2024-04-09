@@ -1,6 +1,5 @@
 use candid::Principal;
 use log::{self};
-use num_traits::ToPrimitive;
 use omnity_types::Directive;
 use state::{audit, mutate_state, read_state, MintTokenStatus};
 use std::str::FromStr;
@@ -24,12 +23,10 @@ async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
-            let mut next_seq = offset;
-            for (seq, ticket) in tickets {
+            for (_, ticket) in &tickets {
                 let receiver = if let Ok(receiver) = Principal::from_str(&ticket.receiver) {
                     receiver
                 } else {
-                    next_seq = seq + 1;
                     log::error!(
                         "[process tickets] failed to parse ticket receiver: {}",
                         ticket.receiver
@@ -39,7 +36,6 @@ async fn process_tickets() {
                 let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
                     amount
                 } else {
-                    next_seq = seq + 1;
                     log::error!(
                         "[process tickets] failed to parse ticket amount: {}",
                         ticket.amount
@@ -48,7 +44,7 @@ async fn process_tickets() {
                 };
                 match updates::mint_token(&mut MintTokenRequest {
                     ticket_id: ticket.ticket_id.clone(),
-                    token_id: ticket.token,
+                    token_id: ticket.token.clone(),
                     receiver,
                     amount,
                     status: MintTokenStatus::Unknown,
@@ -69,8 +65,8 @@ async fn process_tickets() {
                         );
                     }
                 }
-                next_seq = seq + 1;
             }
+            let next_seq = tickets.last().map_or(offset, |(seq, _)| seq + 1);
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
         Err(err) => {
@@ -109,19 +105,8 @@ async fn process_directives() {
                         mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
                     }
                     Directive::UpdateFee(fee) => {
-                        if fee
-                            .target_chain_factor
-                            .checked_mul(fee.fee_token_factor)
-                            .map_or(None, |amount| amount.to_u64())
-                            .is_none()
-                        {
-                            log::error!(
-                                "[process_directives] fee amount should not exceed max of u64"
-                            );
-                        } else {
-                            mutate_state(|s| audit::update_fee(s, fee.clone()));
-                            log::info!("[process_directives] success to update fee, fee: {}", fee);
-                        }
+                        mutate_state(|s| audit::update_fee(s, fee.clone()));
+                        log::info!("[process_directives] success to update fee, fee: {}", fee);
                     }
                 }
             }

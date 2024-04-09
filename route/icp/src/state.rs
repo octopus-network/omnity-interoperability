@@ -22,6 +22,12 @@ pub enum MintTokenStatus {
     Unknown,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Fee {
+    pub target_chain_factor: u128,
+    pub fee_token_factor: u128,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RouteState {
     pub chain_id: String,
