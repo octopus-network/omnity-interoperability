@@ -27,6 +27,7 @@ pub enum GenerateTicketError {
     AleardyProcessed,
     NoNewUtxos,
     InvalidRuneId(String),
+    InvalidTxId,
     UnsupportedChainId(String),
     UnsupportedToken(String),
 }
@@ -51,8 +52,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     let rune_id = RuneId::from_str(&args.rune_id)
         .map_err(|e| GenerateTicketError::InvalidRuneId(e.to_string()))?;
 
-    let txid = Txid::from_str(&args.txid)
-        .map_err(|_| GenerateTicketError::TemporarilyUnavailable("Invalid txid".to_string()))?;
+    let txid = Txid::from_str(&args.txid).map_err(|_| GenerateTicketError::InvalidTxId)?;
 
     if !read_state(|s| {
         s.counterparties

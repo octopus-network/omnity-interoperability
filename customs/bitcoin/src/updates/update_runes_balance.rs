@@ -1,5 +1,5 @@
 use crate::hub;
-use crate::state::{audit, FinalizedTicketStatus, GenTicketStatus, RunesBalance};
+use crate::state::{audit, GenTicketStatus, RunesBalance};
 use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
@@ -44,34 +44,30 @@ pub async fn update_runes_balance(
     })?;
 
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
-    let result = if args.balances.iter().all(|b| b.rune_id == req.rune_id) && amount == req.amount {
-        let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
-        hub::send_ticket(
-            hub_principal,
-            Ticket {
-                ticket_id: args.txid.to_string(),
-                ticket_time: ic_cdk::api::time(),
-                src_chain: chain_id,
-                dst_chain: req.target_chain_id.clone(),
-                action: TxAction::Transfer,
-                token: req.token_id.clone(),
-                amount: req.amount.to_string(),
-                sender: None,
-                receiver: req.receiver.clone(),
-                memo: None,
-            },
-        )
-        .await
-        .map_err(|err| UpdateRunesBalanceError::SendTicketErr(format!("{}", err)))?;
-        Ok(())
-    } else {
-        Err(UpdateRunesBalanceError::MismatchWithGenTicketReq)
-    };
+    if amount != req.amount || args.balances.iter().any(|b| b.rune_id != req.rune_id) {
+        return Err(UpdateRunesBalanceError::MismatchWithGenTicketReq);
+    }
 
-    mutate_state(|s| match result {
-        Ok(_) => audit::finalize_ticket_request(s, &req, args.balances),
-        Err(_) => audit::remove_ticket_request(s, &req, FinalizedTicketStatus::Invalid),
-    });
+    let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
+    hub::send_ticket(
+        hub_principal,
+        Ticket {
+            ticket_id: args.txid.to_string(),
+            ticket_time: ic_cdk::api::time(),
+            src_chain: chain_id,
+            dst_chain: req.target_chain_id.clone(),
+            action: TxAction::Transfer,
+            token: req.token_id.clone(),
+            amount: req.amount.to_string(),
+            sender: None,
+            receiver: req.receiver.clone(),
+            memo: None,
+        },
+    )
+    .await
+    .map_err(|err| UpdateRunesBalanceError::SendTicketErr(format!("{}", err)))?;
 
-    result
+    mutate_state(|s| audit::finalize_ticket_request(s, &req, args.balances));
+
+    Ok(())
 }

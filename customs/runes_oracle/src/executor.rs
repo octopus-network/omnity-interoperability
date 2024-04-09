@@ -3,13 +3,19 @@ use bitcoin_customs::{
     state::{self, GenTicketRequest, RuneId},
     updates::update_runes_balance::UpdateRunesBalanceError,
 };
+use ic_btc_interface::Txid;
 use log;
-use std::{collections::VecDeque, str::FromStr, time::Duration};
+use std::{
+    collections::{BTreeSet, VecDeque},
+    str::FromStr,
+    time::Duration,
+};
 use ticker::Ticker;
 
 pub struct Executor {
     customs: Customs,
     indexer: Indexer,
+    invalid_requests: BTreeSet<Txid>,
     pending_requests: VecDeque<GenTicketRequest>,
 }
 
@@ -18,6 +24,7 @@ impl Executor {
         Self {
             customs,
             indexer,
+            invalid_requests: Default::default(),
             pending_requests: Default::default(),
         }
     }
@@ -38,6 +45,9 @@ impl Executor {
             }
             while !self.pending_requests.is_empty() {
                 let request = self.pending_requests.front().unwrap();
+                if self.invalid_requests.contains(&request.txid) {
+                    continue;
+                }
 
                 match self.indexer.get_transaction(request.txid).await {
                     Ok(tx) => {
@@ -77,7 +87,7 @@ impl Executor {
                                     log::error!("request not found for txid:{}", request.txid);
                                 }
                                 Err(UpdateRunesBalanceError::MismatchWithGenTicketReq) => {
-                                    // Customs will remove the pending request.
+                                    self.invalid_requests.insert(request.txid);
                                     log::error!(
                                         "mismatch with ticket request for txid:{}",
                                         request.txid

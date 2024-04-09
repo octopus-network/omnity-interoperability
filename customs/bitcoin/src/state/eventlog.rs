@@ -1,3 +1,4 @@
+use super::{BtcChangeOutput, GenTicketRequest, RuneId, RunesBalance, RunesUtxo};
 use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
@@ -5,11 +6,6 @@ use crate::state::{CustomsState, ReleaseTokenRequest, RunesChangeOutput, Submitt
 use ic_btc_interface::{Txid, Utxo};
 use omnity_types::{Chain, TicketId, ToggleState, Token};
 use serde::{Deserialize, Serialize};
-
-use super::{
-    BtcChangeOutput, FinalizedTicket, FinalizedTicketStatus, GenTicketRequest, RuneId,
-    RunesBalance, RunesUtxo,
-};
 
 #[derive(candid::CandidType, Deserialize)]
 pub struct GetEventsArg {
@@ -71,14 +67,6 @@ pub enum Event {
         txid: Txid,
         #[serde(rename = "balances")]
         balances: Vec<RunesBalance>,
-    },
-
-    #[serde(rename = "removed_ticket_request")]
-    RemovedTicketRequest {
-        #[serde(rename = "txid")]
-        txid: Txid,
-        #[serde(rename = "status")]
-        status: FinalizedTicketStatus,
     },
 
     /// Indicates that the  sent out a new transaction to the Bitcoin
@@ -213,22 +201,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 for balance in balances {
                     state.update_runes_balance(txid, balance);
                 }
-                state.push_finalized_ticket(FinalizedTicket {
-                    request,
-                    status: FinalizedTicketStatus::Finalized,
-                });
-            }
-            Event::RemovedTicketRequest { txid, status } => {
-                let request = state
-                    .pending_gen_ticket_requests
-                    .remove(&txid)
-                    .ok_or_else(|| {
-                        ReplayLogError::InconsistentLog(format!(
-                            "Attempted to remove a non-pending generate ticket request {}",
-                            txid
-                        ))
-                    })?;
-                state.push_finalized_ticket(FinalizedTicket { request, status });
+                state.push_finalized_ticket(request);
             }
             Event::AcceptedReleaseTokenRequest(req) => {
                 state.push_back_pending_request(req);

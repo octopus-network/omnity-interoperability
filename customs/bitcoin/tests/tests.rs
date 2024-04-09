@@ -837,11 +837,7 @@ fn test_gen_ticket_success() {
         txid: txid.to_string(),
     });
     assert_eq!(result, Ok(()));
-
-    match customs.generate_ticket_status(txid) {
-        GenTicketStatus::Pending(_) => {}
-        _ => panic!("expect generate ticket pending status"),
-    };
+    assert!(matches!(customs.generate_ticket_status(txid), GenTicketStatus::Pending(_)));
 }
 
 #[test]
@@ -942,7 +938,7 @@ fn test_update_runes_balance_invalid() {
     );
 
     let status = customs.generate_ticket_status(txid);
-    assert_eq!(status, GenTicketStatus::Invalid);
+    assert!(matches!(status, GenTicketStatus::Pending(_)));
 }
 
 #[test]

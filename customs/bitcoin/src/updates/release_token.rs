@@ -100,6 +100,5 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
         crate::state::ReleaseTokenStatus::Pending,
         read_state(|s| s.release_token_status(&args.ticket_id))
     );
-
     Ok(())
 }

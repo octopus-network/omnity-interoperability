@@ -9,7 +9,6 @@ pub mod call_error;
 pub mod guard;
 pub mod hub;
 pub mod lifecycle;
-pub mod log_util;
 pub mod state;
 pub mod storage;
 pub mod updates;

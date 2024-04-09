@@ -5,7 +5,7 @@ use ic_cdk_timers::set_timer_interval;
 use ic_ledger_types::AccountIdentifier;
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg};
-use icp_route::log_util::init_log;
+use omnity_types::log::init_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{read_state, MintTokenStatus};
 use icp_route::updates::generate_ticket::{

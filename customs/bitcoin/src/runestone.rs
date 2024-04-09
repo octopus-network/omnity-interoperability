@@ -1,4 +1,4 @@
 pub mod runestone;
-pub mod varint;
+mod varint;
 
 pub use runestone::{Edict, Runestone};
