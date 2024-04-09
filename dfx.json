@@ -1,4 +1,5 @@
 {
+  "dfx": "0.17.0",
   "canisters": {
     "icp_ledger_canister": {
       "type": "custom",

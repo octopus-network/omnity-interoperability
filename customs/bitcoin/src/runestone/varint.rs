@@ -123,21 +123,21 @@ mod tests {
     fn decode(buffer: &[u8]) -> (u128, usize) {
         let mut n = 0;
         let mut i = 0;
-    
+
         loop {
             let b = match buffer.get(i) {
                 Some(b) => u128::from(*b),
                 None => return (n, i),
             };
-    
+
             n = n.saturating_mul(128);
-    
+
             if b < 128 {
                 return (n.saturating_add(b), i + 1);
             }
-    
+
             n = n.saturating_add(b - 127);
-    
+
             i += 1;
         }
     }

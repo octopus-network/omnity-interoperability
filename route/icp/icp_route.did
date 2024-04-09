@@ -1,11 +1,10 @@
 type Chain = record {
-  fee_token : text;
+  fee_token : opt text;
   chain_id : text;
   chain_state : ChainState;
   chain_type : ChainType;
   contract_address : opt text;
 };
-type ChainFactor = record { chain_factor : nat; chain_id : text };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type Event = variant {
@@ -13,13 +12,17 @@ type Event = variant {
     block_index : nat64;
     request : GenerateTicketReq;
   };
-  updated_fee : record { fee : Fee };
+  updated_fee : record { fee : Factor };
   finalized_mint_token : MintTokenRequest;
   added_token : record { token : Token; ledger_id : principal };
   added_chain : Chain;
   toggle_chain_state : ToggleState;
 };
-type Fee = variant { ChainFactor : ChainFactor; TokenFactor : TokenFactor };
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type GenerateTicketError = variant {
   InsufficientRedeemFee : record { provided : nat64; required : nat64 };
   SendTicketErr : text;
@@ -34,7 +37,7 @@ type GenerateTicketError = variant {
 type GenerateTicketOk = record { block_index : nat64 };
 type GenerateTicketReq = record {
   token_id : text;
-  from_subaccount : opt vec nat8;
+  from_subaccount : opt blob;
   target_chain_id : text;
   amount : nat;
   receiver : text;
@@ -63,6 +66,10 @@ type MintTokenStatus = variant {
 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : record {}; Init : InitArgs };
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
 type ToggleAction = variant { Deactivate; Activate };
 type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
@@ -73,16 +80,11 @@ type Token = record {
   issue_chain : text;
   symbol : text;
 };
-type TokenFactor = record {
-  fee_token : text;
-  dst_chain_id : text;
-  fee_token_factor : nat;
-};
 service : (RouteArg) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_fee_account : (opt principal) -> (vec nat8) query;
+  get_fee_account : (opt principal) -> (blob) query;
   get_log_records : (nat64, nat64) -> (Logs) query;
   get_redeem_fee : (text) -> (opt nat64) query;
   get_token_ledger : (text) -> (opt principal) query;
