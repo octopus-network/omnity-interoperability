@@ -1,13 +1,12 @@
 type Chain = record {
-  fee_token : text;
+  fee_token : opt text;
   chain_id : text;
   chain_state : ChainState;
   chain_type : ChainType;
   contract_address : opt text;
 };
-type ChainFactor = record { chain_factor : nat; chain_id : text };
 type ChainMeta = record {
-  fee_token : text;
+  fee_token : opt text;
   canister_id : text;
   chain_id : text;
   counterparties : opt vec text;
@@ -18,7 +17,7 @@ type ChainMeta = record {
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type Directive = variant {
-  UpdateFee : Fee;
+  UpdateFee : Factor;
   AddToken : Token;
   AddChain : Chain;
   ToggleChainState : ToggleState;
@@ -43,11 +42,15 @@ type Error = variant {
   CustomError : text;
   NotSufficientTokens : record { text; text };
 };
-type Fee = variant { ChainFactor : ChainFactor; TokenFactor : TokenFactor };
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type Log = record { log : text; offset : nat64 };
 type Logs = record { logs : vec Log; all_logs_count : nat64 };
 type Proposal = variant {
-  UpdateFee : Fee;
+  UpdateFee : Factor;
   AddToken : TokenMeta;
   AddChain : ChainMeta;
   ToggleChainState : ToggleState;
@@ -64,6 +67,10 @@ type Result_6 = variant { Ok : nat64; Err : Error };
 type Result_7 = variant { Ok : Ticket; Err : Error };
 type Result_8 = variant { Ok : vec Ticket; Err : Error };
 type Result_9 = variant { Ok : vec record { nat64; Directive }; Err : Error };
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -85,11 +92,6 @@ type Token = record {
   icon : opt text;
   issue_chain : text;
   symbol : text;
-};
-type TokenFactor = record {
-  fee_token : text;
-  dst_chain_id : text;
-  fee_token_factor : nat;
 };
 type TokenMeta = record {
   decimals : nat8;
@@ -133,6 +135,6 @@ service : () -> {
   query_tickets : (opt text, nat64, nat64) -> (Result_10) query;
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
-  update_fee : (vec Fee) -> (Result);
+  update_fee : (vec Factor) -> (Result);
   validate_proposal : (vec Proposal) -> (Result_11) query;
 }

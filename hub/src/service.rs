@@ -317,7 +317,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                             hub_state
                                 .chains
                                 .iter()
-                                .filter(|(_, chain)| {matches!( &chain.fee_token,Some(fee_token) if fee_token.eq(&tf.fee_token))})
+                                .filter(|(_, chain)| {matches!(&chain.fee_token,Some(fee_token) if fee_token.eq(&tf.fee_token))})
                                 .map(|(_, chain)| {
                                     chain.chain_id.to_string()
                                     })
@@ -614,7 +614,7 @@ mod tests {
             canister_id: "bkyz2-fmaaa-aaaaa-qadaab-cai".to_string(),
             contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
-            fee_token: None,
+            fee_token: Some("ICP".to_owned()),
         };
         let result = validate_proposal(vec![Proposal::AddChain(icp.clone())]).await;
         assert!(result.is_ok());
@@ -1103,7 +1103,13 @@ mod tests {
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
-
+        let result = query_directives(Some("ICP".to_string()), None, 0, 12).await;
+        println!(
+            "query_directives for {:} dires: {:#?}",
+            "ICP".to_string(),
+            result
+        );
+        assert!(result.is_ok());
         let result = get_fees(None, None, 0, 10).await;
         assert!(result.is_ok());
         println!("get_fees result : {:#?}", result);
