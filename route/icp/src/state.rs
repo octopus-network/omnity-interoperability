@@ -2,7 +2,7 @@ pub mod audit;
 pub mod eventlog;
 
 use candid::Principal;
-use omnity_types::{Chain, ChainId, Factor, TicketId, Token, TokenId};
+use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -20,12 +20,6 @@ pub enum MintTokenStatus {
     Finalized { block_index: u64 },
     Failure(MintTokenError),
     Unknown,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Fee {
-    pub target_chain_factor: u128,
-    pub fee_token_factor: u128,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -48,7 +42,9 @@ pub struct RouteState {
 
     pub finalized_mint_token_requests: BTreeMap<TicketId, MintTokenRequest>,
 
-    pub redeem_fees: BTreeMap<ChainId, Factor>,
+    pub fee_token_factor: Option<u128>,
+
+    pub target_chain_factor: BTreeMap<ChainId, u128>,
 
     #[serde(skip)]
     pub is_timer_running: bool,
@@ -69,7 +65,8 @@ impl From<InitArgs> for RouteState {
             counterparties: Default::default(),
             tokens: Default::default(),
             finalized_mint_token_requests: Default::default(),
-            redeem_fees: Default::default(),
+            fee_token_factor: None,
+            target_chain_factor: Default::default(),
             is_timer_running: false,
         }
     }

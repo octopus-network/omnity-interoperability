@@ -174,14 +174,11 @@ async fn burn_token_icrc2(
 }
 
 async fn charge_redeem_fee(from: Principal, chain_id: &ChainId) -> Result<(), GenerateTicketError> {
-    let redeem_fee = read_state(|s| match s.redeem_fees.get(chain_id) {
-        Some(fee) => {
-            if fee.target_chain_factor == 0 || fee.fee_token_factor == 0 {
-                Err(GenerateTicketError::RedeemFeeNotSet)
-            } else {
-                Ok((fee.target_chain_factor * fee.fee_token_factor) as u64)
-            }
-        }
+    let redeem_fee = read_state(|s| match s.target_chain_factor.get(chain_id) {
+        Some(target_chain_factor) => s.fee_token_factor.map_or(
+            Err(GenerateTicketError::RedeemFeeNotSet),
+            |fee_token_factor| Ok((target_chain_factor * fee_token_factor) as u64),
+        ),
         None => Err(GenerateTicketError::RedeemFeeNotSet),
     })?;
 

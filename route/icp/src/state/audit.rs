@@ -46,20 +46,14 @@ pub fn finalize_gen_ticket(block_index: u64, request: GenerateTicketReq) {
 pub fn update_fee(state: &mut RouteState, fee: Factor) {
     record_event(&Event::UpdatedFee { fee: fee.clone() });
     match fee {
-        Factor::UpdateTargetChainFactor(chain_factor) => {
+        Factor::UpdateTargetChainFactor(factor) => {
             state
-                .redeem_fees
-                .entry(chain_factor.target_chain_id.clone())
-                .or_default()
-                .target_chain_factor = chain_factor.target_chain_id;
+                .target_chain_factor
+                .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
         }
 
         Factor::UpdateFeeTokenFactor(token_factor) => {
-            state
-                .redeem_fees
-                .entry(token_factor.dst_chain_id.clone())
-                .or_default()
-                .fee_token_factor = token_factor.fee_token_factor;
+            state.fee_token_factor = Some(token_factor.fee_token_factor);
         }
     }
 }
