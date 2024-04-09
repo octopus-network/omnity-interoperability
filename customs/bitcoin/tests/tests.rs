@@ -254,7 +254,7 @@ impl CustomsSetup {
                 chain_type: ChainType::ExecutionChain,
                 chain_state: ChainState::Active,
                 contract_address: None,
-                fee_token: "Cosmos-ATOM".to_owned(),
+                fee_token: Some("Cosmos-ATOM".to_owned()),
             }),
             Directive::AddToken(Token {
                 token_id: TOKEN_ID_1.into(),
@@ -837,7 +837,10 @@ fn test_gen_ticket_success() {
         txid: txid.to_string(),
     });
     assert_eq!(result, Ok(()));
-    assert!(matches!(customs.generate_ticket_status(txid), GenTicketStatus::Pending(_)));
+    assert!(matches!(
+        customs.generate_ticket_status(txid),
+        GenTicketStatus::Pending(_)
+    ));
 }
 
 #[test]
