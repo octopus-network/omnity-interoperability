@@ -26,7 +26,8 @@ k256 = { version = "0.12.0", features = ["ecdsa"] }
 # Enable `custom` feature of k256's getrandom dependency. See lib.rs for more details.
 getrandom = { version = "0.2", features = ["custom"] }
 # log deps
-ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
+# ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
+ic-log = { path = "/home/boern/workspace/bitfinity/canister-sdk/ic-log" }
 
 [dev-dependencies.tokio]
 version = "1.35.1"

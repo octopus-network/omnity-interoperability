@@ -18,7 +18,7 @@ use omnity_types::{
 
 #[init]
 fn init() {
-    init_log();
+    init_log(None);
     let caller = ic_cdk::api::caller();
     info!("canister init caller:{}", caller.to_string());
     with_state_mut(|hs| {
@@ -51,7 +51,7 @@ fn pre_upgrade() {
 #[post_upgrade]
 fn post_upgrade() {
     // init log
-    init_log();
+    init_log(None);
     let memory = memory::get_upgrades_memory();
 
     // Read the length of the state bytes.
