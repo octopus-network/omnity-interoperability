@@ -26,7 +26,8 @@ k256 = { version = "0.12.0", features = ["ecdsa"] }
 getrandom = { version = "0.2", features = ["custom"] }
 
 # log deps
-ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
+# ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
+ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.12.x-stablelog" }
 
 ciborium = { workspace = true }
 ic-stable-structures = { workspace = true }

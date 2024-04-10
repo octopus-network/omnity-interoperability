@@ -4,13 +4,14 @@ use ic_stable_structures::writer::Writer;
 use ic_stable_structures::Memory;
 use log::{debug, info};
 
+use crate::memory::init_stable_log;
 use omnity_hub::auth::{auth, is_owner};
 use omnity_hub::memory;
 use omnity_hub::metrics;
 use omnity_hub::state::HubState;
 use omnity_hub::state::{set_state, with_state, with_state_mut};
 use omnity_hub::types::{ChainWithSeq, Proposal};
-use omnity_types::log::{init_log, LoggerConfigService};
+use omnity_types::log::{init_log, LoggerConfigService, StableLog, StableLogWriter};
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId, Token,
     TokenId, TokenOnChain, Topic,
@@ -18,7 +19,9 @@ use omnity_types::{
 
 #[init]
 fn init() {
-    init_log(None);
+    init_log(StableLog {
+        log_storage: Some(init_stable_log()),
+    });
     let caller = ic_cdk::api::caller();
     info!("canister init caller:{}", caller.to_string());
     with_state_mut(|hs| {
@@ -51,7 +54,9 @@ fn pre_upgrade() {
 #[post_upgrade]
 fn post_upgrade() {
     // init log
-    init_log(None);
+    init_log(StableLog {
+        log_storage: Some(init_stable_log()),
+    });
     let memory = memory::get_upgrades_memory();
 
     // Read the length of the state bytes.
@@ -66,6 +71,7 @@ fn post_upgrade() {
     // Deserialize and set the state.
     let state: HubState = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
     set_state(state);
+    info!("update successfully!");
 }
 
 /// validate directive ,this method will be called by sns
@@ -469,9 +475,15 @@ pub async fn get_total_tx() -> Result<u64, Error> {
 }
 
 #[query]
-pub fn get_log_records(limit: usize, offset: usize) -> Logs {
+pub fn take_memory_records(limit: usize, offset: usize) -> Logs {
     debug!("collecting {limit} log records");
     ic_log::take_memory_records(limit, offset)
+}
+
+#[query]
+pub fn get_logs(offset: usize, limit: usize) -> Vec<String> {
+    debug!("collecting {limit} log records");
+    StableLogWriter::get_logs(offset, limit)
 }
 
 #[update(guard = "is_owner")]
@@ -495,8 +507,8 @@ mod tests {
         TxAction,
     };
 
-    use env_logger;
-    use log::LevelFilter;
+    // use env_logger;
+    // use log::LevelFilter;
     use std::{
         collections::HashMap,
         time::{SystemTime, UNIX_EPOCH},
@@ -505,12 +517,11 @@ mod tests {
 
     // init logger
     pub fn init_logger() {
-        env_logger::builder().filter_level(LevelFilter::Info).init();
+        init_log(StableLog {
+            log_storage: Some(init_stable_log()),
+        });
+        // env_logger::builder().filter_level(LevelFilter::Info).init();
     }
-    // #[before]
-    // fn setup() {
-    //     init_logger();
-    // }
 
     fn get_timestamp() -> u64 {
         let start = SystemTime::now();
@@ -1394,6 +1405,12 @@ mod tests {
         let result = get_txs(None, None, None, None, 0, 10).await;
         println!("get_txs result: {:#?}", result);
         assert!(result.is_ok());
+
+        // print log
+        let logs = get_logs(0, 50);
+        for r in logs.iter() {
+            print!("stable log: {}", r)
+        }
     }
 
     #[tokio::test]

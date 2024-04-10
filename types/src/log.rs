@@ -7,46 +7,41 @@ use ic_log::{
     writer::{self, ConsoleWriter, InMemoryWriter, Writer},
     Builder, LogSettings, LoggerConfig,
 };
-use ic_stable_structures::{
-    memory_manager::{MemoryId, MemoryManager, VirtualMemory},
-    DefaultMemoryImpl, StableLog as IcStableLog,
-};
+use ic_stable_structures::{memory_manager::VirtualMemory, DefaultMemoryImpl, StableLog as IcLog};
 
 use log::info;
+use serde::{Deserialize, Serialize};
 
 type VMem = VirtualMemory<DefaultMemoryImpl>;
-pub type StableLog = IcStableLog<Vec<u8>, VMem, VMem>;
-const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(0);
-const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(1);
+pub type IcStableLog = IcLog<Vec<u8>, VMem, VMem>;
 
 thread_local! {
-    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> = RefCell::new(
-        MemoryManager::init(DefaultMemoryImpl::default())
-    );
 
-    // The log of the customs state modifications.
-    static STABLE_LOGS: RefCell<Option<StableLog>> = MEMORY_MANAGER
-        .with(|m|
-              RefCell::new(
-                  Some(StableLog::init(
-                      m.borrow().get(LOG_INDEX_MEMORY_ID),
-                      m.borrow().get(LOG_DATA_MEMORY_ID)
-                  ).expect("failed to initialize stable log"))
-              )
-        );
-    // static STABLE_LOGS: RefCell<Option<StableLog>> =RefCell::new(None);
+    static STABLE_LOGS: RefCell<StableLog> =RefCell::new(StableLog::default());
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct StableLog {
+    #[serde(skip)]
+    pub log_storage: Option<IcStableLog>,
+}
+
+impl Default for StableLog {
+    fn default() -> Self {
+        Self { log_storage: None }
+    }
 }
 
 pub struct StableLogWriter {}
 impl StableLogWriter {
-    // pub fn init_stable_log(stable_log: Option<StableLog>) {
-    //     STABLE_LOGS.with(|logs| {
-    //         *logs.borrow_mut() = stable_log;
-    //     });
-    // }
+    pub fn init_stable_log(stable_log: StableLog) {
+        STABLE_LOGS.with(|logs| {
+            *logs.borrow_mut() = stable_log;
+        });
+    }
     pub fn get_logs(offset: usize, limit: usize) -> Vec<String> {
         STABLE_LOGS.with(|cell| {
-            if let Some(logs) = cell.borrow().as_ref() {
+            if let Some(logs) = cell.borrow().log_storage.as_ref() {
                 logs.iter()
                     .skip(offset)
                     .take(limit)
@@ -62,7 +57,8 @@ impl StableLogWriter {
 impl Writer for StableLogWriter {
     fn print(&self, buf: &Buffer) -> std::io::Result<()> {
         STABLE_LOGS.with(|cell| {
-            if let Some(logs) = cell.borrow().as_ref() {
+            if let Some(logs) = cell.borrow().log_storage.as_ref() {
+                //TODO: define a log entry to suppport retrieval by time
                 let _ = logs.append(&buf.bytes().to_vec());
             }
         });
@@ -97,7 +93,7 @@ impl LoggerConfigService {
     }
 }
 
-pub fn init_log(_stable_log: Option<StableLog>) {
+pub fn init_log(stable_log: StableLog) {
     let settings = LogSettings {
         in_memory_records: Some(256),
         log_filter: Some("info".to_string()),
@@ -115,7 +111,7 @@ pub fn init_log(_stable_log: Option<StableLog>) {
         builder = builder.add_writer(Box::new(InMemoryWriter {}));
     }
     // add StableLogWriter
-    // StableLogWriter::init_stable_log(stable_log);
+    StableLogWriter::init_stable_log(stable_log);
     builder = builder.add_writer(Box::new(StableLogWriter {}));
 
     match builder.try_init() {
@@ -133,6 +129,7 @@ pub fn init_log(_stable_log: Option<StableLog>) {
 #[cfg(test)]
 mod tests {
     use ic_log::take_memory_records;
+    use ic_stable_structures::memory_manager::{MemoryId, MemoryManager};
     use log::*;
 
     use super::*;
@@ -142,7 +139,7 @@ mod tests {
         // log level: debug < info < error
 
         //default log level: info
-        init_log(None);
+        init_log(StableLog::default());
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
@@ -172,10 +169,35 @@ mod tests {
 
     #[test]
     fn test_stable_log() {
-        // log level: debug < info < error
+        const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(0);
+        const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(1);
+        type InnerMemory = DefaultMemoryImpl;
+        //type Memory = VirtualMemory<InnerMemory>;
+        thread_local! {
+            static MEMORY: RefCell<Option<InnerMemory>> = RefCell::new(Some(InnerMemory::default()));
 
+            static MEMORY_MANAGER: RefCell<Option<MemoryManager<InnerMemory>>> =
+                RefCell::new(Some(MemoryManager::init(MEMORY.with(|m| m.borrow().clone().unwrap()))));
+        }
+        let log_index_memory = MEMORY_MANAGER.with(|m| {
+            m.borrow()
+                .as_ref()
+                .expect("memory manager not initialized")
+                .get(LOG_INDEX_MEMORY_ID)
+        });
+        let log_data_memory = MEMORY_MANAGER.with(|m| {
+            m.borrow()
+                .as_ref()
+                .expect("memory manager not initialized")
+                .get(LOG_DATA_MEMORY_ID)
+        });
+        let logs = Some(
+            IcStableLog::init(log_index_memory, log_data_memory)
+                .expect("failed to initialize stable log"),
+        );
+        let stable_log = StableLog { log_storage: logs };
         //default log level: info
-        init_log(None);
+        init_log(stable_log);
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
@@ -199,7 +221,7 @@ mod tests {
 
         let logs = StableLogWriter::get_logs(0, 12);
         for r in logs.iter() {
-            print!("log_record: {}", r)
+            print!("stable log: {}", r)
         }
     }
 }
