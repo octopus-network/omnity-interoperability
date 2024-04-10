@@ -73,7 +73,7 @@ fn get_token_ledger(token_id: String) -> Option<Principal> {
 }
 
 #[query]
-pub fn get_log_records(limit: usize, offset: usize) -> Logs {
+pub fn get_log_records(offset: usize, limit: usize) -> Logs {
     log::debug!("collecting {limit} log records");
     ic_log::take_memory_records(limit, offset)
 }

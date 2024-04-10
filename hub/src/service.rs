@@ -469,7 +469,7 @@ pub async fn get_total_tx() -> Result<u64, Error> {
 }
 
 #[query]
-pub fn get_log_records(limit: usize, offset: usize) -> Logs {
+pub fn get_log_records(offset: usize, limit: usize) -> Logs {
     debug!("collecting {limit} log records");
     ic_log::take_memory_records(limit, offset)
 }
