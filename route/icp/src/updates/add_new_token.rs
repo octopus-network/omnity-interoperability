@@ -39,7 +39,7 @@ async fn install_icrc2_ledger(
     token_decimal: u8,
 ) -> Result<CanisterIdRecord, String> {
     let create_canister_arg = CreateCanisterArgument { settings: None };
-    let (canister_id_record,) = create_canister(create_canister_arg, 1000_000_000_000)
+    let (canister_id_record,) = create_canister(create_canister_arg, 500_000_000_000)
         .await
         .map_err(|(_, reason)| reason)?;
 
