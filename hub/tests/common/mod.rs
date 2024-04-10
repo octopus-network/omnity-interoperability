@@ -218,7 +218,7 @@ impl OmnityHub {
         Decode!(&assert_reply(ret), Result<Vec<Ticket>, Error>).unwrap()
     }
 
-    pub fn get_logs(&self, offset: &usize, limit: &usize) -> Vec<String>  {
+    pub fn get_logs(&self, offset: &usize, limit: &usize) -> Vec<String> {
         let ret = self
             .sm
             .query(self.hub_id, "get_logs", Encode!(offset, limit).unwrap())
