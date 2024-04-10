@@ -5,8 +5,8 @@ use crate::ICRC2_WASM;
 use candid::{CandidType, Deserialize, Nat};
 use candid::{Encode, Principal};
 use ic_cdk::api::management_canister::main::{
-    create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CanisterSettings,
-    CreateCanisterArgument, InstallCodeArgument,
+    create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CreateCanisterArgument,
+    InstallCodeArgument,
 };
 use ic_icrc1_ledger::{ArchiveOptions, InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument};
 use icrc_ledger_types::icrc1::account::Account;
