@@ -1,4 +1,6 @@
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
+use ic_stable_structures::StableLog as IcLog;
+
 #[cfg(not(feature = "file_memory"))]
 use ic_stable_structures::DefaultMemoryImpl;
 #[cfg(feature = "file_memory")]
@@ -19,6 +21,8 @@ const TOKEN_POSITION: MemoryId = MemoryId::new(5);
 const LEDGER: MemoryId = MemoryId::new(6);
 const DIRE_QUEUE: MemoryId = MemoryId::new(7);
 const TICKET_QUEUE: MemoryId = MemoryId::new(8);
+const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(9);
+const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(10);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
@@ -122,4 +126,12 @@ pub fn init_dire_queue() -> StableBTreeMap<SeqKey, Directive, Memory> {
 }
 pub fn init_ticket_queue() -> StableBTreeMap<SeqKey, Ticket, Memory> {
     StableBTreeMap::init(get_ticket_queue_memory())
+}
+
+pub fn init_stable_log() -> IcLog<Vec<u8>, Memory, Memory> {
+    IcLog::init(
+        with_memory_manager(|m| m.get(LOG_INDEX_MEMORY_ID)),
+        with_memory_manager(|m| m.get(LOG_DATA_MEMORY_ID)),
+    )
+    .expect("failed to initialize stable log")
 }

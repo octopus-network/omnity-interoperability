@@ -13,7 +13,7 @@ use icp_route::updates::generate_ticket::{
 use icp_route::updates::{self};
 use icp_route::{periodic_task, storage, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
 use log::{self};
-use omnity_types::log::init_log;
+use omnity_types::log::{init_log, StableLog};
 use omnity_types::{Chain, ChainId, Token};
 use std::time::Duration;
 
@@ -21,7 +21,7 @@ use std::time::Duration;
 fn init(args: RouteArg) {
     match args {
         RouteArg::Init(args) => {
-            init_log();
+            init_log(StableLog::default());
             lifecycle::init::init(args);
             set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
         }

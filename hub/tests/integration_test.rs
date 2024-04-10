@@ -631,6 +631,11 @@ fn test_upgrade() {
     println!("get_chain_tokens result: {:#?}", result);
     assert!(result.is_ok());
 
+    let logs = hub.get_logs(&0, &100);
+
+    for r in logs.iter() {
+        print!("stable log: {}", r)
+    }
     // upgrade
     println!("--------- begint to upgrade ---------");
     hub.upgrade();
@@ -678,4 +683,10 @@ fn test_upgrade() {
     let result = hub.get_fees(&None, &Some("ICP".to_string()), &0, &10);
     assert!(result.is_ok());
     println!("get_chains result filter by token id : {:#?}", result);
+
+    let logs = hub.get_logs(&0, &100);
+
+    for r in logs.iter() {
+        print!("stable log: {}", r)
+    }
 }

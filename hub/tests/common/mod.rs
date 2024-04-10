@@ -81,8 +81,8 @@ impl OmnityHub {
         sender: &Option<PrincipalId>,
         chain_id: &Option<ChainId>,
         topic: &Option<Topic>,
-        from: &usize,
         offset: &usize,
+        limit: &usize,
     ) -> Result<Vec<(Seq, Directive)>, Error> {
         let sender = sender.unwrap_or(self.controller);
         let ret = self
@@ -91,7 +91,7 @@ impl OmnityHub {
                 sender,
                 self.hub_id,
                 "query_directives",
-                Encode!(chain_id, topic, from, offset).unwrap(),
+                Encode!(chain_id, topic, offset, limit).unwrap(),
             )
             .expect("failed to query directives");
         Decode!(&assert_reply(ret), Result<Vec<(Seq, Directive)>, Error>).unwrap()
@@ -101,15 +101,15 @@ impl OmnityHub {
         &self,
         chain_type: &Option<ChainType>,
         chain_state: &Option<ChainState>,
-        from: &usize,
         offset: &usize,
+        limit: &usize,
     ) -> Result<Vec<Chain>, Error> {
         let ret = self
             .sm
             .query(
                 self.hub_id,
                 "get_chains",
-                Encode!(chain_type, chain_state, from, offset).unwrap(),
+                Encode!(chain_type, chain_state, offset, limit).unwrap(),
             )
             .expect("failed to get chains");
         Decode!(&assert_reply(ret), Result<Vec<Chain>, Error>).unwrap()
@@ -118,15 +118,15 @@ impl OmnityHub {
         &self,
         chain_id: &Option<ChainId>,
         token_id: &Option<TokenId>,
-        from: &usize,
         offset: &usize,
+        limit: &usize,
     ) -> Result<Vec<Token>, Error> {
         let ret = self
             .sm
             .query(
                 self.hub_id,
                 "get_tokens",
-                Encode!(chain_id, token_id, from, offset).unwrap(),
+                Encode!(chain_id, token_id, offset, limit).unwrap(),
             )
             .expect("failed to get tokens");
         Decode!(&assert_reply(ret), Result<Vec<Token>, Error>).unwrap()
@@ -135,15 +135,15 @@ impl OmnityHub {
         &self,
         chain_id: &Option<ChainId>,
         token_id: &Option<TokenId>,
-        from: &usize,
         offset: &usize,
+        limit: &usize,
     ) -> Result<Vec<(ChainId, TokenId, u128)>, Error> {
         let ret = self
             .sm
             .query(
                 self.hub_id,
                 "get_fees",
-                Encode!(chain_id, token_id, from, offset).unwrap(),
+                Encode!(chain_id, token_id, offset, limit).unwrap(),
             )
             .expect("failed to get fees");
         Decode!(
@@ -164,8 +164,8 @@ impl OmnityHub {
         &self,
         sender: &Option<PrincipalId>,
         chain_id: &Option<ChainId>,
-        from: &usize,
         offset: &usize,
+        limit: &usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
         let sender = sender.unwrap_or(self.controller);
         let ret = self
@@ -174,7 +174,7 @@ impl OmnityHub {
                 sender,
                 self.hub_id,
                 "query_tickets",
-                Encode!(chain_id, from, offset).unwrap(),
+                Encode!(chain_id, offset, limit).unwrap(),
             )
             .expect("failed to query tickets");
         Decode!(&assert_reply(ret), Result<Vec<(Seq, Ticket)>, Error>).unwrap()
@@ -184,15 +184,15 @@ impl OmnityHub {
         &self,
         chain_id: &Option<ChainId>,
         token_id: &Option<TokenId>,
-        from: &usize,
         offset: &usize,
+        limit: &usize,
     ) -> Result<Vec<TokenOnChain>, Error> {
         let ret = self
             .sm
             .query(
                 self.hub_id,
                 "get_chain_tokens",
-                Encode!(chain_id, token_id, from, offset).unwrap(),
+                Encode!(chain_id, token_id, offset, limit).unwrap(),
             )
             .expect("failed to get chain tokens");
         Decode!(&assert_reply(ret), Result<Vec<TokenOnChain>, Error>).unwrap()
@@ -204,20 +204,27 @@ impl OmnityHub {
         token_id: &Option<TokenId>,
         // time range: from .. end
         time_range: &Option<(u64, u64)>,
-        from: &usize,
         offset: &usize,
+        limit: &usize,
     ) -> Result<Vec<Ticket>, Error> {
         let ret = self
             .sm
             .query(
                 self.hub_id,
                 "get_txs",
-                Encode!(src_chain, dst_chain, token_id, time_range, from, offset).unwrap(),
+                Encode!(src_chain, dst_chain, token_id, time_range, offset, limit).unwrap(),
             )
             .expect("failed to get tx");
         Decode!(&assert_reply(ret), Result<Vec<Ticket>, Error>).unwrap()
     }
 
+    pub fn get_logs(&self, offset: &usize, limit: &usize) -> Vec<String>  {
+        let ret = self
+            .sm
+            .query(self.hub_id, "get_logs", Encode!(offset, limit).unwrap())
+            .expect("failed to get tx");
+        Decode!(&assert_reply(ret), Vec<String>).unwrap()
+    }
     pub fn upgrade(&self) {
         let ret = self.sm.upgrade_canister(self.hub_id, hub_wasm(), vec![]);
         println!("upgrade result:{:?}", ret)

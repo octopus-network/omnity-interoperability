@@ -119,7 +119,7 @@ service : () -> {
       Result_3,
     ) query;
   get_fees : (opt text, opt text, nat64, nat64) -> (Result_4) query;
-  get_log_records : (nat64, nat64) -> (Logs) query;
+  get_logs : (nat64, nat64) -> (vec text) query;
   get_tokens : (opt text, opt text, nat64, nat64) -> (Result_5) query;
   get_total_tx : () -> (Result_6) query;
   get_tx : (text) -> (Result_7) query;
@@ -135,6 +135,7 @@ service : () -> {
   query_tickets : (opt text, nat64, nat64) -> (Result_10) query;
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
+  take_memory_records : (nat64, nat64) -> (Logs) query;
   update_fee : (vec Factor) -> (Result);
   validate_proposal : (vec Proposal) -> (Result_11) query;
 }
