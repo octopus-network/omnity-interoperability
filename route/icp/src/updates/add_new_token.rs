@@ -38,16 +38,8 @@ async fn install_icrc2_ledger(
     token_symbol: String,
     token_decimal: u8,
 ) -> Result<CanisterIdRecord, String> {
-    let create_canister_arg = CreateCanisterArgument {
-        settings: Some(CanisterSettings {
-            controllers: Some(vec![ic_cdk::id()]),
-            compute_allocation: Some(0_u32.into()),
-            memory_allocation: Some(4096000_u128.into()),
-            freezing_threshold: Some(10000_u128.into()),
-            reserved_cycles_limit: None,
-        }),
-    };
-    let (canister_id_record,) = create_canister(create_canister_arg, 100_000_000_000)
+    let create_canister_arg = CreateCanisterArgument { settings: None };
+    let (canister_id_record,) = create_canister(create_canister_arg, 1000_000_000_000)
         .await
         .map_err(|(_, reason)| reason)?;
 
