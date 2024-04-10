@@ -1,15 +1,11 @@
 pub mod audit;
 pub mod eventlog;
 
+use crate::{lifecycle::init::InitArgs, updates::mint_token::MintTokenRequest};
 use candid::Principal;
 use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
-
-use crate::{
-    lifecycle::init::InitArgs,
-    updates::mint_token::{MintTokenError, MintTokenRequest},
-};
 
 thread_local! {
     static __STATE: RefCell<Option<RouteState>> = RefCell::default();
@@ -18,7 +14,6 @@ thread_local! {
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {
     Finalized { block_index: u64 },
-    Failure(MintTokenError),
     Unknown,
 }
 

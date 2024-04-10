@@ -1,9 +1,9 @@
 use candid::Principal;
 use log::{self};
 use omnity_types::Directive;
-use state::{audit, mutate_state, read_state, MintTokenStatus};
+use state::{audit, mutate_state, read_state};
 use std::str::FromStr;
-use updates::mint_token::MintTokenRequest;
+use updates::mint_token::{MintTokenError, MintTokenRequest};
 
 pub mod call_error;
 pub mod guard;
@@ -22,7 +22,8 @@ async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
-            for (_, ticket) in &tickets {
+            let mut next_seq = offset;
+            for (seq, ticket) in &tickets {
                 let receiver = if let Ok(receiver) = Principal::from_str(&ticket.receiver) {
                     receiver
                 } else {
@@ -30,6 +31,7 @@ async fn process_tickets() {
                         "[process tickets] failed to parse ticket receiver: {}",
                         ticket.receiver
                     );
+                    next_seq = seq + 1;
                     continue;
                 };
                 let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
@@ -39,6 +41,7 @@ async fn process_tickets() {
                         "[process tickets] failed to parse ticket amount: {}",
                         ticket.amount
                     );
+                    next_seq = seq + 1;
                     continue;
                 };
                 match updates::mint_token(&mut MintTokenRequest {
@@ -46,7 +49,7 @@ async fn process_tickets() {
                     token_id: ticket.token.clone(),
                     receiver,
                     amount,
-                    status: MintTokenStatus::Unknown,
+                    finalized_block_index: None,
                 })
                 .await
                 {
@@ -56,6 +59,14 @@ async fn process_tickets() {
                             ticket.ticket_id
                         );
                     }
+                    Err(MintTokenError::TemporarilyUnavailable(desc)) => {
+                        log::error!(
+                            "[process tickets] failed to mint token for ticket id: {}, err: {}",
+                            ticket.ticket_id,
+                            desc
+                        );
+                        break;
+                    }
                     Err(err) => {
                         log::error!(
                             "[process tickets] process failure for ticket id: {}, err: {:?}",
@@ -64,8 +75,8 @@ async fn process_tickets() {
                         );
                     }
                 }
+                next_seq = seq + 1;
             }
-            let next_seq = tickets.last().map_or(offset, |(seq, _)| seq + 1);
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
         Err(err) => {

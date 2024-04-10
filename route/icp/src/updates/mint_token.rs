@@ -1,4 +1,4 @@
-use crate::state::{audit, mutate_state, read_state, MintTokenStatus};
+use crate::state::{audit, mutate_state, read_state};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::{
@@ -16,7 +16,7 @@ pub struct MintTokenRequest {
     /// The owner of the account on the ledger.
     pub receiver: Principal,
     pub amount: u128,
-    pub status: MintTokenStatus,
+    pub finalized_block_index: Option<u64>,
 }
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -26,11 +26,6 @@ pub enum MintTokenError {
     AlreadyProcessed(TicketId),
 
     TemporarilyUnavailable(String),
-
-    GenericError {
-        error_code: u64,
-        error_message: String,
-    },
 }
 
 pub enum ErrorCode {
@@ -39,10 +34,7 @@ pub enum ErrorCode {
 
 impl From<TransferError> for MintTokenError {
     fn from(e: TransferError) -> Self {
-        Self::GenericError {
-            error_code: ErrorCode::ConfigurationError as u64,
-            error_message: format!("failed to mint tokens on the ledger: {:?}", e),
-        }
+        Self::TemporarilyUnavailable(format!("failed to mint tokens on the ledger: {:?}", e))
     }
 }
 
@@ -61,18 +53,11 @@ pub async fn mint_token(req: &mut MintTokenRequest) -> Result<(), MintTokenError
         subaccount: None,
     };
 
-    let result = match mint(ledger_id, req.amount, account).await {
-        Ok(block_index) => {
-            req.status = MintTokenStatus::Finalized { block_index };
-            Ok(())
-        }
-        Err(err) => {
-            req.status = MintTokenStatus::Failure(err.clone());
-            Err(err)
-        }
-    };
+    let block_index = mint(ledger_id, req.amount, account).await?;
+    req.finalized_block_index = Some(block_index);
+
     mutate_state(|s| audit::finalize_mint_token_req(s, req.clone()));
-    result
+    Ok(())
 }
 
 async fn mint(ledger_id: Principal, amount: u128, to: Account) -> Result<u64, MintTokenError> {
