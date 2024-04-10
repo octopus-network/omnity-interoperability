@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::state::{audit, mutate_state, read_state};
-use crate::ICRC2_WASM;
+use crate::{DEFAULT_MEMORY_LIMIT, ICRC2_WASM};
 use candid::{CandidType, Deserialize, Nat};
 use candid::{Encode, Principal};
 use ic_cdk::api::management_canister::main::{
@@ -54,12 +54,20 @@ async fn install_icrc2_ledger(
                 .with_minting_account(Into::<Account>::into(owner))
                 .with_transfer_fee(Nat::from_str("0").unwrap())
                 .with_archive_options(ArchiveOptions {
+                    // The number of blocks which, when exceeded, will trigger an archiving operation.
+                    // If the speed of block production is 1 block per second, 
+                    // it means 1000 seconds ≈ 16 minutes will trigger an archiving operation.
                     trigger_threshold: 1000,
+                    // The number of blocks to archive when trigger threshold is exceeded.
                     num_blocks_to_archive: 1000,
-                    node_max_memory_size_bytes: None,
+                    // Allocate 3GB for raw blocks.
+                    node_max_memory_size_bytes: Some(DEFAULT_MEMORY_LIMIT),
+                    // The maximum number of blocks to return in a single get_transactions request.
                     max_message_size_bytes: None,
                     controller_id: owner.into(),
+                    // default value: 0
                     cycles_for_archive_creation: None,
+                    // default value: 2000
                     max_transactions_per_response: None,
                 })
                 .build()
