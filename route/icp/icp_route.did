@@ -37,7 +37,7 @@ type GenerateTicketError = variant {
 type GenerateTicketOk = record { block_index : nat64 };
 type GenerateTicketReq = record {
   token_id : text;
-  from_subaccount : opt blob;
+  from_subaccount : opt vec nat8;
   target_chain_id : text;
   amount : nat;
   receiver : text;
@@ -74,7 +74,7 @@ service : (RouteArg) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_fee_account : (opt principal) -> (blob) query;
+  get_fee_account : (opt principal) -> (vec nat8) query;
   get_log_records : (nat64, nat64) -> (Logs) query;
   get_redeem_fee : (text) -> (opt nat64) query;
   get_token_ledger : (text) -> (opt principal) query;
