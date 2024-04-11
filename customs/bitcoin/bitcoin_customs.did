@@ -71,6 +71,8 @@ type Event = variant {
   updated_runes_balance : record { balance : RunesBalance; txid : vec nat8 };
   upgrade : UpgradeArgs;
   added_chain : Chain;
+  update_next_ticket_seq : nat64;
+  update_next_directive_seq : nat64;
   confirmed_transaction : GenTicketStatusArgs;
   replaced_transaction : record {
     fee : nat64;

@@ -33,6 +33,12 @@ pub enum Event {
     #[serde(rename = "toggle_chain_state")]
     ToggleChainState(ToggleState),
 
+    #[serde(rename = "update_next_directive_seq")]
+    UpdateNextDirectiveSeq(u64),
+
+    #[serde(rename = "update_next_ticket_seq")]
+    UpdateNextTicketSeq(u64),
+
     /// Indicates that the customs received new UTXOs to the specified destination.
     #[serde(rename = "received_utxos")]
     ReceivedUtxos {
@@ -176,6 +182,14 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
                     chain.chain_state = toggle.action.into();
                 }
+            }
+            Event::UpdateNextDirectiveSeq(next_seq) => {
+                assert!(next_seq > state.next_directive_seq);
+                state.next_directive_seq = next_seq;
+            }
+            Event::UpdateNextTicketSeq(next_seq) => {
+                assert!(next_seq > state.next_ticket_seq);
+                state.next_ticket_seq = next_seq;
             }
             Event::ReceivedUtxos {
                 destination,

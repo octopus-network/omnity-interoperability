@@ -275,7 +275,7 @@ async fn process_tickets() {
                 }
                 next_seq = seq + 1;
             }
-            mutate_state(|s| s.next_ticket_seq = next_seq);
+            mutate_state(|s| audit::update_next_ticket_seq(s, next_seq));
         }
     }
 }
@@ -322,7 +322,7 @@ async fn process_directive() {
                 }
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
-            s.next_directive_seq = next_seq;
+            audit::update_next_directive_seq(s, next_seq);
         }),
     }
 }

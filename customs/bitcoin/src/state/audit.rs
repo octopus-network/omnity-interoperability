@@ -31,6 +31,20 @@ pub fn toggle_chain_state(state: &mut CustomsState, toggle: ToggleState) {
     }
 }
 
+pub fn update_next_directive_seq(state: &mut CustomsState, next_seq: u64) {
+    if next_seq > state.next_directive_seq {
+        record_event(&Event::UpdateNextDirectiveSeq(next_seq));
+        state.next_directive_seq = next_seq;
+    }
+}
+
+pub fn update_next_ticket_seq(state: &mut CustomsState, next_seq: u64) {
+    if next_seq > state.next_ticket_seq {
+        record_event(&&Event::UpdateNextTicketSeq(next_seq));
+        state.next_ticket_seq = next_seq;
+    }
+}
+
 pub fn accept_release_token_request(state: &mut CustomsState, request: ReleaseTokenRequest) {
     record_event(&Event::AcceptedReleaseTokenRequest(request.clone()));
     state.push_back_pending_request(request);

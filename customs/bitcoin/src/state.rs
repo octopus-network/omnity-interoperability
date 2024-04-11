@@ -293,6 +293,8 @@ pub struct CustomsState {
     /// The bitcoin network that the customs will connect to
     pub btc_network: Network,
 
+    pub chain_id: String,
+
     /// The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
     /// a testing key for testnet and mainnet
     pub ecdsa_key_name: String,
@@ -315,15 +317,12 @@ pub struct CustomsState {
 
     pub finalized_gen_ticket_requests: VecDeque<GenTicketRequest>,
 
-    // Next index of query tickets from hub
-    pub next_ticket_seq: u64,
-
-    // Next index of query directives from hub
-    pub next_directive_seq: u64,
-
     /// Release_token requests that are waiting to be served, sorted by
     /// received_at.
     pub pending_release_token_requests: BTreeMap<RuneId, Vec<ReleaseTokenRequest>>,
+
+    /// Finalized release_token requests for which we received enough confirmations.
+    pub finalized_release_token_requests: VecDeque<FinalizedTokenRelease>,
 
     /// The identifiers of release_token requests which we're currently signing a
     /// transaction or sending to the Bitcoin network.
@@ -340,9 +339,6 @@ pub struct CustomsState {
 
     /// Maps ID of a replacement transaction to the ID of the corresponding stuck transaction.
     pub rev_replacement_txid: BTreeMap<Txid, Txid>,
-
-    /// Finalized release_token requests for which we received enough confirmations.
-    pub finalized_release_token_requests: VecDeque<FinalizedTokenRelease>,
 
     /// The total number of finalized requests.
     pub finalized_requests_count: u64,
@@ -367,6 +363,12 @@ pub struct CustomsState {
 
     pub tokens: BTreeMap<TokenId, (RuneId, Token)>,
 
+    // Next index of query tickets from hub
+    pub next_ticket_seq: u64,
+
+    // Next index of query directives from hub
+    pub next_directive_seq: u64,
+
     pub hub_principal: Principal,
 
     pub runes_oracle_principal: Principal,
@@ -382,8 +384,6 @@ pub struct CustomsState {
     pub mode: Mode,
 
     pub last_fee_per_vbyte: Vec<u64>,
-
-    pub chain_id: String,
 }
 
 impl CustomsState {
@@ -977,6 +977,11 @@ impl CustomsState {
             "btc_network does not match"
         );
         ensure_eq!(
+            self.chain_id,
+            other.chain_id,
+            "chain_id does not match"
+        );
+        ensure_eq!(
             self.ecdsa_key_name,
             other.ecdsa_key_name,
             "ecdsa_key_name does not match"
@@ -985,6 +990,31 @@ impl CustomsState {
             self.min_confirmations,
             other.min_confirmations,
             "min_confirmations does not match"
+        );
+        ensure_eq!(
+            self.max_time_in_queue_nanos,
+            other.max_time_in_queue_nanos,
+            "max_time_in_queue_nanos does not match"
+        );
+        ensure_eq!(
+            self.pending_gen_ticket_requests,
+            other.pending_gen_ticket_requests,
+            "pending_gen_ticket_requests do not match"
+        );
+        ensure_eq!(
+            self.finalized_gen_ticket_requests,
+            other.finalized_gen_ticket_requests,
+            "pending_gen_ticket_requests do not match"
+        );
+        ensure_eq!(
+            self.next_ticket_seq,
+            other.next_ticket_seq,
+            "next_ticket_seq do not match"
+        );
+        ensure_eq!(
+            self.next_directive_seq,
+            other.next_directive_seq,
+            "next_directive_seq do not match"
         );
         ensure_eq!(
             self.finalized_release_token_requests,
@@ -997,14 +1027,49 @@ impl CustomsState {
             "requests_in_flight do not match"
         );
         ensure_eq!(
+            self.available_fee_utxos,
+            other.available_fee_utxos,
+            "available_fee_utxos do not match"
+        );
+        ensure_eq!(
             self.available_runes_utxos,
             other.available_runes_utxos,
             "available_utxos do not match"
         );
         ensure_eq!(
+            self.outpoint_utxos,
+            other.outpoint_utxos,
+            "outpoint_destination do not match"
+        );
+        ensure_eq!(
+            self.outpoint_destination,
+            other.outpoint_destination,
+            "outpoint_destination do not match"
+        );
+        ensure_eq!(
             self.utxos_state_destinations,
             other.utxos_state_destinations,
             "utxos_state_addresses do not match"
+        );
+        ensure_eq!(
+            self.counterparties,
+            other.counterparties,
+            "counterparties do not match"
+        );
+        ensure_eq!(
+            self.tokens,
+            other.tokens,
+            "tokens do not match"
+        );
+        ensure_eq!(
+            self.hub_principal,
+            other.hub_principal,
+            "hub_principal does not match"
+        );
+        ensure_eq!(
+            self.runes_oracle_principal,
+            other.runes_oracle_principal,
+            "runes_oracle_principal does not match"
         );
 
         let my_txs = as_sorted_vec(self.submitted_transactions.iter().cloned(), |tx| tx.txid);
@@ -1064,6 +1129,7 @@ impl From<InitArgs> for CustomsState {
     fn from(args: InitArgs) -> Self {
         Self {
             btc_network: args.btc_network.into(),
+            chain_id: args.chain_id,
             ecdsa_key_name: args.ecdsa_key_name,
             ecdsa_public_key: None,
             min_confirmations: args
@@ -1073,16 +1139,14 @@ impl From<InitArgs> for CustomsState {
             generate_ticket_counter: 0,
             release_token_counter: 0,
             pending_gen_ticket_requests: Default::default(),
-            next_ticket_seq: 0,
-            next_directive_seq: 0,
             pending_release_token_requests: Default::default(),
+            finalized_release_token_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
+            finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
             replacement_txid: Default::default(),
             rev_replacement_txid: Default::default(),
             stuck_transactions: Default::default(),
-            finalized_release_token_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
-            finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             finalized_requests_count: 0,
             available_runes_utxos: Default::default(),
             available_fee_utxos: Default::default(),
@@ -1091,13 +1155,14 @@ impl From<InitArgs> for CustomsState {
             utxos_state_destinations: Default::default(),
             counterparties: Default::default(),
             tokens: Default::default(),
+            next_ticket_seq: 0,
+            next_directive_seq: 0,
             is_timer_running: false,
             is_process_hub_msg: false,
             mode: args.mode,
             hub_principal: args.hub_principal,
             runes_oracle_principal: args.runes_oracle_principal,
             last_fee_per_vbyte: vec![1; 100],
-            chain_id: args.chain_id,
         }
     }
 }
