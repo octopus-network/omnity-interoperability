@@ -24,16 +24,16 @@ num-traits = "0.2.17"
 # ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
 ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.12.x-stablelog" }
 
-icrc-ledger-types = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-icrc-ledger-client-cdk = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-ledger-canister-core = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-base-types = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-icrc1-ledger = {git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+icrc-ledger-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+icrc-ledger-client-cdk = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-ledger-canister-core = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-base-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-icrc1-ledger = {git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 omnity_types = { path = "../../types" }
 ic-ledger-types = "0.9.0"
 
 [dev-dependencies]
-ic-state-machine-tests = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-icp-ledger = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-dfn_candid = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+icp-ledger = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+dfn_candid = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }

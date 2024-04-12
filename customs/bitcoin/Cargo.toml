@@ -16,21 +16,21 @@ candid = { workspace = true }
 ciborium = { workspace = true }
 hex = "0.4.3"
 ic0 = "0.18.9"
-ic-base-types = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+ic-base-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-btc-interface = { workspace = true }
-ic-canisters-http-types = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-canister-log = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
 ic-cdk-timers = "0.6"
-ic-crypto-extended-bip32 = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-crypto-getrandom-for-wasm = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-crypto-sha2 = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-ic00-types = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-icrc1 = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+ic-crypto-extended-bip32 = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-crypto-getrandom-for-wasm = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-crypto-sha2 = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-ic00-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-icrc1 = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-metrics-encoder = "1"
 ic-stable-structures = { workspace = true }
-ic-utils-ensure = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+ic-utils-ensure = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 lazy_static = "1.4.0"
 minicbor = { workspace = true }
 minicbor-derive = { workspace = true }
@@ -47,9 +47,9 @@ rand = "0.7.3"
 assert_matches = "1.5.0"
 bitcoin = "0.28.1"
 candid_parser = { workspace = true }
-ic-config = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-state-machine-tests = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
-ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", rev = "7f6e7df37690a4256066a6bc0a55c8eb595f7755" }
+ic-config = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-bitcoin-canister-mock = { path = "../../mock/bitcoin" }
 proptest = "1.0"
 simple_asn1 = { workspace = true }
