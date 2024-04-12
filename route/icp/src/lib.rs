@@ -17,6 +17,8 @@ pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
 pub const ICP_TRANSFER_FEE: u64 = 10_000;
+pub const GIB: u64 = 1024 * 1024 * 1024;
+const DEFAULT_MEMORY_LIMIT: u64 = 1 * GIB;
 
 async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
