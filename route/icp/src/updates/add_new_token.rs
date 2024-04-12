@@ -60,7 +60,7 @@ async fn install_icrc2_ledger(
                     trigger_threshold: 1000,
                     // The number of blocks to archive when trigger threshold is exceeded.
                     num_blocks_to_archive: 1000,
-                    // Allocate 3GB for raw blocks.
+                    // Allocate 1GB for raw blocks.
                     node_max_memory_size_bytes: Some(DEFAULT_MEMORY_LIMIT),
                     // The maximum number of blocks to return in a single get_transactions request.
                     max_message_size_bytes: None,
