@@ -24,6 +24,11 @@ const TICKET_QUEUE: MemoryId = MemoryId::new(8);
 const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(9);
 const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(10);
 
+const EVENT_INDEX_MEMORY_ID: MemoryId = MemoryId::new(11);
+const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(12);
+
+
+
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
 
@@ -132,6 +137,14 @@ pub fn init_stable_log() -> IcLog<Vec<u8>, Memory, Memory> {
     IcLog::init(
         with_memory_manager(|m| m.get(LOG_INDEX_MEMORY_ID)),
         with_memory_manager(|m| m.get(LOG_DATA_MEMORY_ID)),
+    )
+    .expect("failed to initialize stable log")
+}
+
+pub fn init_event_log() -> IcLog<Vec<u8>, Memory, Memory> {
+    IcLog::init(
+        with_memory_manager(|m| m.get(EVENT_DATA_MEMORY_ID)),
+        with_memory_manager(|m| m.get(EVENT_INDEX_MEMORY_ID)),
     )
     .expect("failed to initialize stable log")
 }

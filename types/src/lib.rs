@@ -23,7 +23,7 @@ pub type TokenId = String;
 pub type TicketId = String;
 pub type Account = String;
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize,PartialEq, Eq, Clone, Debug)]
 pub enum Directive {
     AddChain(Chain),
     AddToken(Token),

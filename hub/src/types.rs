@@ -118,7 +118,7 @@ impl Into<Chain> for ChainMeta {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Default, Clone, Debug)]
 pub struct ChainWithSeq {
     pub canister_id: String,
     pub chain_id: ChainId,
@@ -276,3 +276,4 @@ impl Storable for ChainTokenFactor {
 
     const BOUND: Bound = Bound::Unbounded;
 }
+

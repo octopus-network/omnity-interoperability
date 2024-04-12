@@ -1,15 +1,15 @@
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_log::writer::Logs;
-use ic_stable_structures::writer::Writer;
-use ic_stable_structures::Memory;
+
 use log::{debug, info};
+use omnity_hub::event::{self, Event, GetEventsArg};
 
 use crate::memory::init_stable_log;
 use omnity_hub::auth::{auth, is_owner};
 use omnity_hub::memory;
 use omnity_hub::metrics;
-use omnity_hub::state::HubState;
-use omnity_hub::state::{set_state, with_state, with_state_mut};
+
+use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainWithSeq, Proposal};
 use omnity_types::log::{init_log, LoggerConfigService, StableLog, StableLogWriter};
 use omnity_types::{
@@ -23,32 +23,14 @@ fn init() {
         log_storage: Some(init_stable_log()),
     });
     let caller = ic_cdk::api::caller();
-    info!("canister init caller:{}", caller.to_string());
-    with_state_mut(|hs| {
-        hs.owner = Some(caller.to_string());
-    })
+    // save new chain
+    with_state_mut(|hub_state| hub_state.init(caller))
 }
 
 #[pre_upgrade]
 fn pre_upgrade() {
     info!("begin to handle pre_update state ...");
-
-    // Serialize the state.
-    let mut state_bytes = vec![];
-    with_state(|state| ciborium::ser::into_writer(state, &mut state_bytes))
-        .expect("failed to encode state");
-
-    // Write the length of the serialized bytes to memory, followed by the
-    // by the bytes themselves.
-    let len = state_bytes.len() as u32;
-    let mut memory = memory::get_upgrades_memory();
-    let mut writer = Writer::new(&mut memory, 0);
-    writer
-        .write(&len.to_le_bytes())
-        .expect("failed to save hub state len");
-    writer
-        .write(&state_bytes)
-        .expect("failed to save hub state");
+    with_state(|hub_state| hub_state.pre_upgrade())
 }
 
 #[post_upgrade]
@@ -57,20 +39,8 @@ fn post_upgrade() {
     init_log(StableLog {
         log_storage: Some(init_stable_log()),
     });
-    let memory = memory::get_upgrades_memory();
 
-    // Read the length of the state bytes.
-    let mut state_len_bytes = [0; 4];
-    memory.read(0, &mut state_len_bytes);
-    let state_len = u32::from_le_bytes(state_len_bytes) as usize;
-
-    // Read the bytes
-    let mut state_bytes = vec![0; state_len];
-    memory.read(4, &mut state_bytes);
-
-    // Deserialize and set the state.
-    let state: HubState = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-    set_state(state);
+    with_state_mut(|hub_state| hub_state.post_upgrade());
     info!("update successfully!");
 }
 
@@ -490,6 +460,11 @@ pub fn get_logs(offset: usize, limit: usize) -> Vec<String> {
 pub async fn set_logger_filter(filter: String) {
     LoggerConfigService::default().set_logger_filter(&filter);
     debug!("log filter set to {filter}");
+}
+
+#[query]
+fn get_events(args: GetEventsArg) -> Vec<Event> {
+    event::events(args)
 }
 
 fn main() {}

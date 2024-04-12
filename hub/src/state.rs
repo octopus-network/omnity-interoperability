@@ -1,7 +1,11 @@
+use crate::event::{record_event, Event};
 use crate::memory::{self, Memory};
 use crate::types::{Amount, ChainTokenFactor, ChainWithSeq, TokenKey, TokenMeta};
 
-use ic_stable_structures::StableBTreeMap;
+use candid::Principal;
+use ic_stable_structures::writer::Writer;
+use ic_stable_structures::{Memory as _, StableBTreeMap};
+
 use log::info;
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, ToggleAction,
@@ -80,6 +84,50 @@ pub fn set_state(state: HubState) {
 
 /// get settlement chain from token id
 impl HubState {
+    pub fn init(&mut self, owner: Principal) {
+        self.owner = Some(owner.to_string());
+        record_event(&Event::Init(owner));
+    }
+
+    pub fn pre_upgrade(&self) {
+        // Serialize the state.
+        let mut state_bytes = vec![];
+
+        let _ = ciborium::ser::into_writer(self, &mut state_bytes);
+
+        // Write the length of the serialized bytes to memory, followed by the
+        // by the bytes themselves.
+        let len = state_bytes.len() as u32;
+        let mut memory = memory::get_upgrades_memory();
+        let mut writer = Writer::new(&mut memory, 0);
+        writer
+            .write(&len.to_le_bytes())
+            .expect("failed to save hub state len");
+        writer
+            .write(&state_bytes)
+            .expect("failed to save hub state");
+        record_event(&Event::PreUpgrade(state_bytes));
+    }
+
+    pub fn post_upgrade(&mut self) {
+        let memory = memory::get_upgrades_memory();
+        // Read the length of the state bytes.
+        let mut state_len_bytes = [0; 4];
+        memory.read(0, &mut state_len_bytes);
+        let state_len = u32::from_le_bytes(state_len_bytes) as usize;
+
+        // Read the bytes
+        let mut state_bytes = vec![0; state_len];
+        memory.read(4, &mut state_bytes);
+
+        // Deserialize and set the state.
+        let state: HubState =
+            ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+        *self = state;
+        record_event(&Event::PostUpgrade(state_bytes));
+
+        // set_state(state);
+    }
     pub fn settlement_chain(&self, token_id: &TokenId) -> Result<ChainId, Error> {
         self.tokens
             .get(token_id)
@@ -102,6 +150,7 @@ impl HubState {
         // update auth
         self.authorized_caller
             .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
+        record_event(&Event::AddedChain(chain));
         Ok(())
     }
 
@@ -165,7 +214,12 @@ impl HubState {
                         }
                         ToggleAction::Deactivate => chain.chain_state = ChainState::Deactive,
                     }
-                    self.chains.insert(toggle_state.chain_id.to_string(), chain);
+                    self.chains
+                        .insert(toggle_state.chain_id.to_string(), chain.clone());
+                    record_event(&Event::ToggledChainState {
+                        chain,
+                        state: toggle_state.clone(),
+                    });
                     Ok(())
                 },
             )
@@ -173,7 +227,8 @@ impl HubState {
 
     pub fn save_token(&mut self, token_meata: TokenMeta) -> Result<(), Error> {
         self.tokens
-            .insert(token_meata.token_id.to_string(), token_meata);
+            .insert(token_meata.token_id.to_string(), token_meata.clone());
+        record_event(&Event::AddedToken(token_meata));
         Ok(())
     }
 
@@ -185,7 +240,7 @@ impl HubState {
 
     pub fn update_fee(&mut self, fee: Factor) -> Result<(), Error> {
         match fee {
-            Factor::UpdateTargetChainFactor(cf) => self
+            Factor::UpdateTargetChainFactor(ref cf) => self
                 .chains
                 .get(&cf.target_chain_id)
                 .ok_or(Error::NotFoundChain(cf.target_chain_id.to_string()))
@@ -196,13 +251,14 @@ impl HubState {
                             Err(Error::DeactiveChain(cf.target_chain_id.to_string()))
                         } else {
                             self.target_chain_factors
-                                .insert(cf.target_chain_id, cf.target_chain_factor);
+                                .insert(cf.target_chain_id.to_string(), cf.target_chain_factor);
+                            record_event(&Event::UpdatedFee(fee.clone()));
 
                             Ok(())
                         }
                     },
                 ),
-            Factor::UpdateFeeTokenFactor(tf) => {
+            Factor::UpdateFeeTokenFactor(ref tf) => {
                 self.target_chain_factors.iter().for_each(|(chain_id, _)| {
                     let token_key = TokenKey::from(chain_id.to_string(), tf.fee_token.to_string());
                     let fee_factor = ChainTokenFactor {
@@ -210,7 +266,9 @@ impl HubState {
                         fee_token: tf.fee_token.to_string(),
                         fee_token_factor: tf.fee_token_factor,
                     };
+
                     self.fee_token_factors.insert(token_key, fee_factor);
+                    record_event(&Event::UpdatedFee(fee.clone()));
                 });
                 Ok(())
             }
@@ -247,6 +305,10 @@ impl HubState {
                             SeqKey::from(chain.chain_id.to_string(), chain.latest_dire_seq),
                             dire.clone(),
                         );
+                        record_event(&Event::ReceivedDirective {
+                            dst_chain: chain.clone(),
+                            dire: dire.clone(),
+                        });
                     }
                     Ok(())
                 },
@@ -342,12 +404,17 @@ impl HubState {
     }
 
     pub fn add_token_position(&mut self, position: TokenKey, amount: u128) -> Result<(), Error> {
-        if let Some(total_amount) = self.token_position.get(&position).as_mut() {
+        let amount = if let Some(total_amount) = self.token_position.get(&position).as_mut() {
             *total_amount += amount;
-            self.token_position.insert(position, *total_amount);
+            *total_amount
         } else {
-            self.token_position.insert(position, amount);
-        }
+            amount
+        };
+        self.token_position.insert(position.clone(), amount);
+        record_event(&Event::AddedTokenPosition {
+            position: position,
+            amount: amount,
+        });
 
         Ok(())
     }
@@ -368,7 +435,11 @@ impl HubState {
                 |e| Err(e),
                 |total_amount| {
                     let total_amount = f(total_amount)?;
-                    self.token_position.insert(position, total_amount);
+                    self.token_position.insert(position.clone(), total_amount);
+                    record_event(&Event::UpdatedTokenPosition {
+                        position: position,
+                        amount: total_amount,
+                    });
                     Ok(())
                 },
             )
@@ -503,6 +574,10 @@ impl HubState {
                     //save ticket
                     self.cross_ledger
                         .insert(ticket.ticket_id.to_string(), ticket.clone());
+                    record_event(&Event::ReceivedTicket {
+                        dst_chain: chain.clone(),
+                        ticket: ticket.clone(),
+                    });
                     Ok(())
                 },
             )
