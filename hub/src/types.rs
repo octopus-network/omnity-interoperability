@@ -127,8 +127,8 @@ pub struct ChainWithSeq {
     pub contract_address: Option<String>,
     pub counterparties: Option<Vec<ChainId>>,
     pub fee_token: Option<TokenId>,
-    pub latest_dire_seq: Seq,
-    pub latest_ticket_seq: Seq,
+    pub latest_dire_seq: Option<Seq>,
+    pub latest_ticket_seq: Option<Seq>,
 }
 
 impl From<ChainMeta> for ChainWithSeq {
@@ -141,8 +141,8 @@ impl From<ChainMeta> for ChainWithSeq {
             contract_address: value.contract_address,
             counterparties: value.counterparties,
             fee_token: value.fee_token,
-            latest_dire_seq: 0,
-            latest_ticket_seq: 0,
+            latest_dire_seq: None,
+            latest_ticket_seq: None,
         }
     }
 }

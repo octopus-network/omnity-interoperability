@@ -231,20 +231,17 @@ impl HubState {
                             chain.chain_id.to_string()
                         );
                     } else {
-                        if self
-                            .dire_queue
-                            .iter()
-                            .find(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
-                            .is_some()
-                        {
-                            //increase seq
-                            chain.latest_dire_seq += 1;
-                            //update chain info
-                            self.chains
-                                .insert(chain.chain_id.to_string(), chain.clone());
-                        }
-                        let seq_key =
-                            SeqKey::from(chain.chain_id.to_string(), chain.latest_dire_seq);
+                        //increase seq
+                        chain.latest_dire_seq =
+                            Some(chain.latest_dire_seq.map_or(0, |seq| seq + 1));
+                        //update chain info
+                        self.chains
+                            .insert(chain.chain_id.to_string(), chain.clone());
+
+                        let seq_key = SeqKey::from(
+                            chain.chain_id.to_string(),
+                            chain.latest_dire_seq.unwrap(),
+                        );
 
                         self.dire_queue.insert(seq_key, dire.clone());
                     }
@@ -481,24 +478,20 @@ impl HubState {
                     if matches!(chain.chain_state, ChainState::Deactive) {
                         return Err(Error::DeactiveChain(chain.chain_id.to_string()));
                     }
+                    //increase seq
+                    chain.latest_ticket_seq =
+                        Some(chain.latest_ticket_seq.map_or(0, |seq| seq + 1));
 
-                    if self
-                        .ticket_queue
-                        .iter()
-                        .find(|(seq_key, _)| seq_key.chain_id.eq(&ticket.dst_chain))
-                        .is_some()
-                    {
-                        //increase seq
-                        chain.latest_ticket_seq += 1;
-
-                        //update chain info
-                        self.chains
-                            .insert(ticket.dst_chain.to_string(), chain.clone());
-                    }
+                    //update chain info
+                    self.chains
+                        .insert(ticket.dst_chain.to_string(), chain.clone());
 
                     // add new ticket
                     self.ticket_queue.insert(
-                        SeqKey::from(ticket.dst_chain.to_string(), chain.latest_ticket_seq),
+                        SeqKey::from(
+                            ticket.dst_chain.to_string(),
+                            chain.latest_ticket_seq.unwrap(),
+                        ),
                         ticket.clone(),
                     );
                     //save ticket
