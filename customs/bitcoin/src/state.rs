@@ -67,7 +67,7 @@ impl Error for ParseRuneIdError {
     Deserialize,
 )]
 pub struct RuneId {
-    pub block: u32,
+    pub block: u64,
     pub tx: u32,
 }
 
