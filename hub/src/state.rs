@@ -243,10 +243,10 @@ impl HubState {
                             self.chains
                                 .insert(chain.chain_id.to_string(), chain.clone());
                         }
-                        self.dire_queue.insert(
-                            SeqKey::from(chain.chain_id.to_string(), chain.latest_dire_seq),
-                            dire.clone(),
-                        );
+                        let seq_key =
+                            SeqKey::from(chain.chain_id.to_string(), chain.latest_dire_seq);
+
+                        self.dire_queue.insert(seq_key, dire.clone());
                     }
                     Ok(())
                 },
@@ -485,11 +485,12 @@ impl HubState {
                     if self
                         .ticket_queue
                         .iter()
-                        .find(|(seq_key, ticket)| seq_key.chain_id.eq(&ticket.dst_chain))
+                        .find(|(seq_key, _)| seq_key.chain_id.eq(&ticket.dst_chain))
                         .is_some()
                     {
                         //increase seq
                         chain.latest_ticket_seq += 1;
+                   
                         //update chain info
                         self.chains
                             .insert(ticket.dst_chain.to_string(), chain.clone());

@@ -1167,11 +1167,20 @@ mod tests {
             "{} -> {} transfer result:{:?}",
             src_chain, dst_chain, result
         );
+
+        with_state(|hus_state| {
+            hus_state.ticket_queue.iter().for_each(|(seq_key, ticket)| {
+                println!(" seq key: {:?} ticket: {:?}", seq_key, ticket)
+            })
+        });
+
         assert!(result.is_ok());
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
         println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
         assert!(result.is_ok());
+
+     
         // query token on chain
         let result = get_chain_tokens(None, None, 0, 5).await;
         println!("get_chain_tokens result: {:#?}", result);
@@ -1212,6 +1221,13 @@ mod tests {
         let result = send_ticket(redeem_ticket).await;
         println!("{} -> {} redeem result:{:?}", src_chain, dst_chain, result);
         assert!(result.is_ok());
+
+        with_state(|hus_state| {
+            hus_state.ticket_queue.iter().for_each(|(seq_key, ticket)| {
+                println!(" seq key: {:?} ticket: {:?}", seq_key, ticket)
+            })
+        });
+
 
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
