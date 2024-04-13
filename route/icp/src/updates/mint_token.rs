@@ -39,7 +39,7 @@ impl From<TransferError> for MintTokenError {
 }
 
 pub async fn mint_token(req: &mut MintTokenRequest) -> Result<(), MintTokenError> {
-    if read_state(|s| s.finalized_mint_token_requests.contains_key(&req.token_id)) {
+    if read_state(|s| s.finalized_mint_token_requests.contains_key(&req.ticket_id)) {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
     }
 
