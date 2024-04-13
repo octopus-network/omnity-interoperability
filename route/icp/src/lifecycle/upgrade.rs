@@ -8,7 +8,5 @@ pub struct UpgradeArgs {
 }
 
 pub fn post_upgrade(upgrade_args: Option<UpgradeArgs>) {
-    if let Some(upgrade_args) = upgrade_args {
-    }
-
+    if let Some(upgrade_args) = upgrade_args {}
 }

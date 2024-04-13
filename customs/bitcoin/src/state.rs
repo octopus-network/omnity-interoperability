@@ -976,11 +976,7 @@ impl CustomsState {
             other.btc_network,
             "btc_network does not match"
         );
-        ensure_eq!(
-            self.chain_id,
-            other.chain_id,
-            "chain_id does not match"
-        );
+        ensure_eq!(self.chain_id, other.chain_id, "chain_id does not match");
         ensure_eq!(
             self.ecdsa_key_name,
             other.ecdsa_key_name,
@@ -1056,11 +1052,7 @@ impl CustomsState {
             other.counterparties,
             "counterparties do not match"
         );
-        ensure_eq!(
-            self.tokens,
-            other.tokens,
-            "tokens do not match"
-        );
+        ensure_eq!(self.tokens, other.tokens, "tokens do not match");
         ensure_eq!(
             self.hub_principal,
             other.hub_principal,

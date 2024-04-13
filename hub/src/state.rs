@@ -490,7 +490,7 @@ impl HubState {
                     {
                         //increase seq
                         chain.latest_ticket_seq += 1;
-                   
+
                         //update chain info
                         self.chains
                             .insert(ticket.dst_chain.to_string(), chain.clone());

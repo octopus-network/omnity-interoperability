@@ -55,7 +55,7 @@ async fn install_icrc2_ledger(
                 .with_transfer_fee(Nat::from_str("0").unwrap())
                 .with_archive_options(ArchiveOptions {
                     // The number of blocks which, when exceeded, will trigger an archiving operation.
-                    // If the speed of block production is 1 block per second, 
+                    // If the speed of block production is 1 block per second,
                     // it means 1000 seconds ≈ 16 minutes will trigger an archiving operation.
                     trigger_threshold: 1000,
                     // The number of blocks to archive when trigger threshold is exceeded.

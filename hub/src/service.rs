@@ -1180,7 +1180,6 @@ mod tests {
         println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
         assert!(result.is_ok());
 
-     
         // query token on chain
         let result = get_chain_tokens(None, None, 0, 5).await;
         println!("get_chain_tokens result: {:#?}", result);
@@ -1227,7 +1226,6 @@ mod tests {
                 println!(" seq key: {:?} ticket: {:?}", seq_key, ticket)
             })
         });
-
 
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
