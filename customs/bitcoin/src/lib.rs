@@ -1233,7 +1233,7 @@ pub fn build_unsigned_transaction(
     if input_btc_amount < btc_consumed {
         log!(
             P0,
-            "input btc amount: {} greater than bec cocnsumed: {}",
+            "input btc amount: {} greater than btc cocnsumed: {}",
             input_btc_amount,
             btc_consumed,
         );
