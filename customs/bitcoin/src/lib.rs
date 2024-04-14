@@ -1180,6 +1180,12 @@ pub fn build_unsigned_transaction(
 
         btc_utxos = greedy(target_fee, available_btc_utxos, |u| u.value);
         if btc_utxos.is_empty() {
+            log!(
+                P0,
+                "[select_btc_utxos]: target fee required: {}: available fee: {}",
+                target_fee,
+                available_btc_utxos.iter().map(|u| u.value).sum::<u64>()
+            );
             return Err(BuildTxError::NotEnoughGas);
         }
 
@@ -1225,6 +1231,12 @@ pub fn build_unsigned_transaction(
     let btc_consumed = real_fee + MIN_OUTPUT_AMOUNT * outputs_size;
 
     if input_btc_amount < btc_consumed {
+        log!(
+            P0,
+            "input btc amount: {} greater than bec cocnsumed: {}",
+            input_btc_amount,
+            btc_consumed,
+        );
         return Err(BuildTxError::NotEnoughGas);
     }
 
