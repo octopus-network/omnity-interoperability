@@ -2,6 +2,17 @@ use bitcoin::Amount;
 use serde::Deserialize;
 
 type RuneId = String;
+
+#[derive(Deserialize, Debug)]
+pub struct IndexerResponse {
+    pub result: IndexerResult,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct IndexerResult {
+    pub transaction: Transaction,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Transaction {
     pub inputs: Vec<RsTxIn>,
@@ -82,7 +93,8 @@ pub struct RunesBalance {
 
 impl Transaction {
     pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
-        serde_json::from_str(json_str)
+        let response: IndexerResponse = serde_json::from_str(json_str)?;
+        Ok(response.result.transaction)
     }
 
     pub fn get_runes_balances(&self) -> Vec<RunesBalance> {
@@ -113,7 +125,10 @@ mod tests {
 
     #[test]
     fn test_deserialize_transaction() {
-        let json = json!({
+        let json = json!(
+         {"result" : {
+          "transaction":
+          {
           "inputs": [
             {
               "runes": [
@@ -180,9 +195,9 @@ mod tests {
               "op_return": null
             }
           ]
-        });
+        }}});
 
-        let transaction: Transaction = serde_json::from_value(json).unwrap();
+        let transaction = Transaction::from_json(&json.to_string()).unwrap();
 
         assert_eq!(transaction.outputs[2].runes[0].0, "108:1");
         assert_eq!(transaction.outputs[2].runes[0].1, 700);
