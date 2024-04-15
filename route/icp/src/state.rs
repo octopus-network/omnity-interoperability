@@ -1,7 +1,7 @@
 pub mod audit;
 pub mod eventlog;
 
-use crate::{lifecycle::{init::InitArgs, upgrade::UpgradeArgs}, updates::mint_token::MintTokenRequest};
+use crate::{lifecycle::init::InitArgs, updates::mint_token::MintTokenRequest};
 use candid::{CandidType, Principal};
 use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
@@ -46,22 +46,7 @@ pub struct RouteState {
 }
 
 impl RouteState {
-
     pub fn validate_config(&self) {}
-
-    pub fn upgrade(
-        &mut self, 
-        UpgradeArgs { 
-            chain_id, 
-            hub_principal 
-        }: UpgradeArgs) {
-            if let Some(chain_id) = chain_id {
-                self.chain_id = chain_id;
-            }
-            if let Some(hub_principal) = hub_principal {
-                self.hub_principal = hub_principal;
-            }
-    }
 }
 
 impl From<InitArgs> for RouteState {
@@ -119,5 +104,3 @@ pub fn replace_state(state: RouteState) {
         *s.borrow_mut() = Some(state);
     });
 }
-
-

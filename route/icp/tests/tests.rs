@@ -5,7 +5,9 @@ use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResu
 use ic_test_utilities_load_wasm::load_wasm;
 use icp_ledger::{AccountIdentifier, InitArgs as LedgerInitArgs, LedgerCanisterPayload, Tokens};
 use icp_route::{
-    lifecycle::{init::{InitArgs, RouteArg}, upgrade::UpgradeArgs},
+    lifecycle::{
+        init::{InitArgs, RouteArg},
+    },
     state::MintTokenStatus,
     updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq},
 };
@@ -279,23 +281,6 @@ impl RouteSetup {
             Result<Nat, ApproveError>
         )
         .unwrap();
-    }
-
-    pub fn get_hub_principal(&self) -> Principal {
-        Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        self.caller,
-                        self.route_id,
-                        "get_hub_principal",
-                        Encode!().unwrap(),
-                    )
-                    .expect("failed to get hub principal")
-            ),
-            Principal
-        )
-        .unwrap()
     }
 
     pub fn get_token_ledger(&self, token_id: String) -> CanisterId {
@@ -593,28 +578,4 @@ fn test_mint_multi_tokens() {
     let ledger_id2 = route.get_token_ledger(TOKEN_ID2.into());
     let balance = route.icrc1_balance_of(ledger_id2, route.caller.into());
     assert_eq!(balance, Nat::from_str("1000000").unwrap());
-}
-
-#[test]
-fn test_upgrade_change_route_id() {
-    let route = RouteSetup::new(); 
-    let hub_id = route.hub_id.clone();
-
-    let hub_principal = route.get_hub_principal();
-    let hub_canister = CanisterId::unchecked_from_principal(hub_principal.into());
-    assert_eq!(hub_canister, hub_id);
-
-    let new_hub_principal: Principal = PrincipalId::new_user_test_id(100).try_into().unwrap(); 
-
-    route.env.upgrade_canister(
-        route.route_id, 
-        route_wasm(),
-        Encode!(&RouteArg::Upgrade(UpgradeArgs {
-            chain_id: None,
-            hub_principal: Some(new_hub_principal.into()),
-        })).unwrap()
-    ).unwrap();
-
-    assert_eq!(new_hub_principal, route.get_hub_principal());
-
 }

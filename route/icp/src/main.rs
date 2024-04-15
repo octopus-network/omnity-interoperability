@@ -26,9 +26,6 @@ fn init(args: RouteArg) {
             lifecycle::init::init(args);
             set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
         }
-        RouteArg::Upgrade(_) => {
-            panic!("expected InitArgs got UpgradeArgs");
-        }
     }
 }
 
@@ -111,35 +108,17 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
     })
 }
 
-#[query]
-pub fn get_hub_principal() -> Principal {
-    read_state(|s| {
-        s.hub_principal.clone()
-    })
-}
-
 #[pre_upgrade]
 fn pre_upgrade() {
     take_state(|state| ic_cdk::storage::stable_save((state,)).expect("failed to save state"))
 }
 
 #[post_upgrade]
-fn post_upgrade(route_arg: Option<RouteArg>) {
-    match route_arg.unwrap() {
-        RouteArg::Init(_) => {
-            panic!("expected UpgradeArgs, got InitArgs");
-        }
-        RouteArg::Upgrade(upgrade_args) => {
-            let (mut stable_state,): (RouteState,) =
-                ic_cdk::storage::stable_restore().expect("failed to restore state");
+fn post_upgrade() {
+    let (stable_state,): (RouteState,) =
+        ic_cdk::storage::stable_restore().expect("failed to restore state");
 
-            stable_state.upgrade(upgrade_args.clone());
-
-            replace_state(stable_state);
-
-            storage::record_event(&Event::Upgrade(upgrade_args));
-        }
-    }
+    replace_state(stable_state);
 }
 
 fn main() {}
