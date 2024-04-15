@@ -5,7 +5,9 @@ use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResu
 use ic_test_utilities_load_wasm::load_wasm;
 use icp_ledger::{AccountIdentifier, InitArgs as LedgerInitArgs, LedgerCanisterPayload, Tokens};
 use icp_route::{
-    lifecycle::init::{InitArgs, RouteArg},
+    lifecycle::{
+        init::{InitArgs, RouteArg},
+    },
     state::MintTokenStatus,
     updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq},
 };

@@ -1,4 +1,7 @@
-use crate::updates::{generate_ticket::GenerateTicketReq, mint_token::MintTokenRequest};
+use crate::{
+    lifecycle::init::InitArgs,
+    updates::{generate_ticket::GenerateTicketReq, mint_token::MintTokenRequest},
+};
 use candid::Principal;
 use omnity_types::{Chain, Factor, ToggleState, Token};
 use serde::{Deserialize, Serialize};
@@ -11,6 +14,11 @@ pub struct GetEventsArg {
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Event {
+    /// Indicates the route initialization with the specified arguments.  Must be
+    /// the first event in the event log.
+    #[serde(rename = "init")]
+    Init(InitArgs),
+
     #[serde(rename = "added_chain")]
     AddedChain(Chain),
 

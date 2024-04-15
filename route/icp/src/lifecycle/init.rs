@@ -5,7 +5,6 @@ use serde::Serialize;
 #[derive(CandidType, serde::Deserialize)]
 pub enum RouteArg {
     Init(InitArgs),
-    Upgrade(),
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
