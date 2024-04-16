@@ -181,6 +181,14 @@ type Token = record {
   issue_chain : text;
   symbol : text;
 };
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  issue_chain : text;
+  rune_id : text;
+  symbol : text;
+};
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
 type UpdateRunesBalanceArgs = record {
   txid : vec nat8;
@@ -214,7 +222,7 @@ service : (CustomArg) -> {
   get_pending_gen_ticket_requests : (GetGenTicketReqsArgs) -> (
       vec GenTicketRequest,
     ) query;
-  get_token_list : () -> (vec Token) query;
+  get_token_list : () -> (vec TokenResp) query;
   release_token_status : (ReleaseTokenStatusArgs) -> (ReleaseTokenStatus) query;
   update_btc_utxos : () -> (Result_1);
   update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_2);

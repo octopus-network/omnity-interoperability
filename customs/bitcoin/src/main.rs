@@ -20,12 +20,14 @@ use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
 };
+use candid::CandidType;
 use ic_btc_interface::Utxo;
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk_macros::{init, post_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use omnity_types::{Chain, Token};
+use omnity_types::{Chain, ChainId, TokenId};
+use serde::Serialize;
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
 
@@ -208,12 +210,29 @@ fn get_chain_list() -> Vec<Chain> {
     })
 }
 
+#[derive(CandidType, Clone, Debug, Serialize)]
+pub struct TokenResp {
+    pub token_id: TokenId,
+    pub symbol: String,
+    pub issue_chain: ChainId,
+    pub decimals: u8,
+    pub icon: Option<String>,
+    pub rune_id: String,
+}
+
 #[query]
-fn get_token_list() -> Vec<Token> {
+fn get_token_list() -> Vec<TokenResp> {
     read_state(|s| {
         s.tokens
             .iter()
-            .map(|(_, (_, token))| token.clone())
+            .map(|(_, (rune_id, token))| TokenResp {
+                token_id: token.token_id.clone(),
+                symbol: token.symbol.clone(),
+                issue_chain: token.issue_chain.clone(),
+                decimals: token.decimals,
+                icon: token.icon.clone(),
+                rune_id: rune_id.to_string(),
+            })
             .collect()
     })
 }
