@@ -36,7 +36,7 @@ pub enum Event {
 
     #[serde(rename = "finalized_gen_ticket")]
     FinalizedGenTicket {
-        block_index: u64,
+        ticket_id: String,
         request: GenerateTicketReq,
     },
 }

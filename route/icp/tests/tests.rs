@@ -5,9 +5,7 @@ use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResu
 use ic_test_utilities_load_wasm::load_wasm;
 use icp_ledger::{AccountIdentifier, InitArgs as LedgerInitArgs, LedgerCanisterPayload, Tokens};
 use icp_route::{
-    lifecycle::{
-        init::{InitArgs, RouteArg},
-    },
+    lifecycle::init::{InitArgs, RouteArg},
     state::MintTokenStatus,
     updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq},
 };
@@ -17,7 +15,7 @@ use icrc_ledger_types::{
 };
 use omnity_types::{
     Chain, ChainState, ChainType, Directive, Factor, FeeTokenFactor, TargetChainFactor, Ticket,
-    TicketId, Token, TxAction,
+    Token, TxAction,
 };
 use std::{collections::HashMap, path::PathBuf, str::FromStr, time::Duration};
 
@@ -471,8 +469,13 @@ fn test_add_token() {
     let _ = route.get_token_ledger(TOKEN_ID1.into());
 }
 
-fn mint_token(route: &RouteSetup, token_id: String, receiver: String, amount: String) {
-    let ticket_id: TicketId = "test_ticket".into();
+fn mint_token(
+    ticket_id: String,
+    route: &RouteSetup,
+    token_id: String,
+    receiver: String,
+    amount: String,
+) {
     route.push_ticket(Ticket {
         ticket_id: ticket_id.clone(),
         ticket_time: 1708911143,
@@ -486,7 +489,7 @@ fn mint_token(route: &RouteSetup, token_id: String, receiver: String, amount: St
         memo: None,
     });
     route.env.advance_time(Duration::from_secs(5));
-    route.await_finalization(ticket_id.clone(), 10);
+    route.await_finalization(ticket_id, 10);
 }
 
 #[test]
@@ -501,6 +504,7 @@ fn test_mint_token() {
             .unwrap();
 
     mint_token(
+        "test_ticket".into(),
         &route,
         TOKEN_ID1.into(),
         receiver.to_string(),
@@ -522,6 +526,7 @@ fn test_generate_ticket() {
 
     let amount = "1000000";
     mint_token(
+        "test_ticket_id".into(),
         &route,
         TOKEN_ID1.into(),
         route.caller.to_string(),
@@ -557,6 +562,7 @@ fn test_mint_multi_tokens() {
 
     let amount = "1000000";
     mint_token(
+        "test_ticket_id1".into(),
         &route,
         TOKEN_ID1.into(),
         route.caller.to_string(),
@@ -569,6 +575,7 @@ fn test_mint_multi_tokens() {
 
     add_token(&route, SYMBOL2.into(), TOKEN_ID2.into());
     mint_token(
+        "test_ticket_id2".into(),
         &route,
         TOKEN_ID2.into(),
         route.caller.to_string(),
