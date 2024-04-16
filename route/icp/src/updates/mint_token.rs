@@ -16,7 +16,6 @@ pub struct MintTokenRequest {
     /// The owner of the account on the ledger.
     pub receiver: Principal,
     pub amount: u128,
-    pub finalized_block_index: Option<u64>,
 }
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -38,7 +37,7 @@ impl From<TransferError> for MintTokenError {
     }
 }
 
-pub async fn mint_token(req: &mut MintTokenRequest) -> Result<(), MintTokenError> {
+pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
     if read_state(|s| s.finalized_mint_token_requests.contains_key(&req.ticket_id)) {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
     }
@@ -54,9 +53,8 @@ pub async fn mint_token(req: &mut MintTokenRequest) -> Result<(), MintTokenError
     };
 
     let block_index = mint(ledger_id, req.amount, account).await?;
-    req.finalized_block_index = Some(block_index);
 
-    mutate_state(|s| audit::finalize_mint_token_req(s, req.clone()));
+    mutate_state(|s| audit::finalize_mint_token_req(s, req.ticket_id.clone(), block_index));
     Ok(())
 }
 

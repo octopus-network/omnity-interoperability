@@ -30,9 +30,9 @@ use ic_utils_ensure::{ensure, ensure_eq};
 use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::Serialize;
 
-/// The maximum number of finalized BTC retrieval requests that we keep in the
+/// The maximum number of finalized requests that we keep in the
 /// history.
-const MAX_FINALIZED_REQUESTS: usize = 100;
+const MAX_FINALIZED_REQUESTS: usize = 10000;
 
 thread_local! {
     static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
@@ -185,15 +185,6 @@ pub struct SubmittedBtcTransaction {
     pub fee_per_vbyte: Option<u64>,
 }
 
-/// Pairs a release token request with its outcome.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FinalizedTokenRelease {
-    /// The original release token request that initiated the transaction.
-    pub request: ReleaseTokenRequest,
-    /// The status of the finalized request.
-    pub status: FinalizedStatus,
-}
-
 /// The outcome of a release token request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedStatus {
@@ -321,7 +312,7 @@ pub struct CustomsState {
     pub pending_release_token_requests: BTreeMap<RuneId, Vec<ReleaseTokenRequest>>,
 
     /// Finalized release_token requests for which we received enough confirmations.
-    pub finalized_release_token_requests: VecDeque<FinalizedTokenRelease>,
+    pub finalized_release_token_requests: BTreeMap<TicketId, FinalizedStatus>,
 
     /// The identifiers of release_token requests which we're currently signing a
     /// transaction or sending to the Bitcoin network.
@@ -614,13 +605,8 @@ impl CustomsState {
             return ReleaseTokenStatus::Submitted(txid);
         }
 
-        match self
-            .finalized_release_token_requests
-            .iter()
-            .find(|finalized_request| finalized_request.request.ticket_id.eq(ticket_id))
-            .map(|final_req| final_req.status.clone())
-        {
-            Some(FinalizedStatus::Confirmed(txid)) => return ReleaseTokenStatus::Confirmed(txid),
+        match self.finalized_release_token_requests.get(ticket_id) {
+            Some(FinalizedStatus::Confirmed(txid)) => return ReleaseTokenStatus::Confirmed(*txid),
             None => (),
         }
 
@@ -752,10 +738,7 @@ impl CustomsState {
         }
         self.finalized_requests_count += finalized_tx.requests.len() as u64;
         for request in finalized_tx.requests {
-            self.push_finalized_release_token(FinalizedTokenRelease {
-                request,
-                status: FinalizedStatus::Confirmed(*txid),
-            });
+            self.push_finalized_release_token(request.ticket_id, FinalizedStatus::Confirmed(*txid));
         }
 
         self.cleanup_tx_replacement_chain(txid);
@@ -931,13 +914,11 @@ impl CustomsState {
     ///
     /// This function panics if there is a pending release_token request with the
     /// same identifier.
-    fn push_finalized_release_token(&mut self, req: FinalizedTokenRelease) {
-        assert!(!self.has_pending_request(&req.request.ticket_id));
+    fn push_finalized_release_token(&mut self, ticket_id: TicketId, status: FinalizedStatus) {
+        assert!(!self.has_pending_request(&ticket_id));
 
-        if self.finalized_release_token_requests.len() >= MAX_FINALIZED_REQUESTS {
-            self.finalized_release_token_requests.pop_front();
-        }
-        self.finalized_release_token_requests.push_back(req)
+        self.finalized_release_token_requests
+            .insert(ticket_id, status);
     }
 
     fn push_finalized_ticket(&mut self, req: GenTicketRequest) {
@@ -1131,7 +1112,7 @@ impl From<InitArgs> for CustomsState {
             release_token_counter: 0,
             pending_gen_ticket_requests: Default::default(),
             pending_release_token_requests: Default::default(),
-            finalized_release_token_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
+            finalized_release_token_requests: BTreeMap::new(),
             finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),

@@ -56,7 +56,6 @@ type Event = variant {
     btc_utxos : vec Utxo;
     requests : vec text;
     runes_change_output : RunesChangeOutput;
-    raw_tx : text;
     runes_utxos : vec RunesUtxo;
     rune_id : RuneId;
     submitted_at : nat64;
@@ -80,7 +79,6 @@ type Event = variant {
     old_txid : vec nat8;
     new_txid : vec nat8;
     runes_change_output : RunesChangeOutput;
-    raw_tx : text;
     submitted_at : nat64;
   };
   accepted_generate_ticket_request : GenTicketRequest;

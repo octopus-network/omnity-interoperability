@@ -1,7 +1,7 @@
 pub mod audit;
 pub mod eventlog;
 
-use crate::{lifecycle::init::InitArgs, updates::mint_token::MintTokenRequest};
+use crate::lifecycle::init::InitArgs;
 use candid::{CandidType, Principal};
 use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ pub struct RouteState {
 
     pub token_ledgers: BTreeMap<TokenId, Principal>,
 
-    pub finalized_mint_token_requests: BTreeMap<TicketId, MintTokenRequest>,
+    pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
 
     pub fee_token_factor: Option<u128>,
 

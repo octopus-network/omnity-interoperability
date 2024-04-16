@@ -56,8 +56,8 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     read_state(|s| {
         s.finalized_mint_token_requests
             .get(&ticket_id)
-            .map_or(MintTokenStatus::Unknown, |req| MintTokenStatus::Finalized {
-                block_index: req.finalized_block_index.unwrap(),
+            .map_or(MintTokenStatus::Unknown, |&block_index| {
+                MintTokenStatus::Finalized { block_index }
             })
     })
 }

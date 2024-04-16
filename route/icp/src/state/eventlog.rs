@@ -1,7 +1,4 @@
-use crate::{
-    lifecycle::init::InitArgs,
-    updates::{generate_ticket::GenerateTicketReq, mint_token::MintTokenRequest},
-};
+use crate::{lifecycle::init::InitArgs, updates::generate_ticket::GenerateTicketReq};
 use candid::Principal;
 use omnity_types::{Chain, Factor, ToggleState, Token};
 use serde::{Deserialize, Serialize};
@@ -32,7 +29,7 @@ pub enum Event {
     ToggleChainState(ToggleState),
 
     #[serde(rename = "finalized_mint_token")]
-    FinalizedMintToken(MintTokenRequest),
+    FinalizedMintToken { ticket_id: String, block_index: u64 },
 
     #[serde(rename = "finalized_gen_ticket")]
     FinalizedGenTicket {

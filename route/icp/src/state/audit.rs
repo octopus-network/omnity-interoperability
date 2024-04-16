@@ -1,9 +1,6 @@
 use super::eventlog::Event;
 use super::RouteState;
-use crate::{
-    storage::record_event,
-    updates::{generate_ticket::GenerateTicketReq, mint_token::MintTokenRequest},
-};
+use crate::{storage::record_event, updates::generate_ticket::GenerateTicketReq};
 use candid::Principal;
 use omnity_types::{Chain, Factor, ToggleState, Token};
 
@@ -29,18 +26,22 @@ pub fn toggle_chain_state(state: &mut RouteState, toggle: ToggleState) {
     }
 }
 
-pub fn finalize_mint_token_req(state: &mut RouteState, req: MintTokenRequest) {
-    record_event(&Event::FinalizedMintToken(req.clone()));
+pub fn finalize_mint_token_req(
+    state: &mut RouteState,
+    ticket_id: String,
+    finalized_block_index: u64,
+) {
+    record_event(&Event::FinalizedMintToken {
+        ticket_id: ticket_id.clone(),
+        block_index: finalized_block_index,
+    });
     state
         .finalized_mint_token_requests
-        .insert(req.ticket_id.clone(), req);
+        .insert(ticket_id, finalized_block_index);
 }
 
 pub fn finalize_gen_ticket(ticket_id: String, request: GenerateTicketReq) {
-    record_event(&Event::FinalizedGenTicket {
-        ticket_id,
-        request,
-    })
+    record_event(&Event::FinalizedGenTicket { ticket_id, request })
 }
 
 pub fn update_fee(state: &mut RouteState, fee: Factor) {

@@ -51,7 +51,6 @@ async fn process_tickets() {
                     token_id: ticket.token.clone(),
                     receiver,
                     amount,
-                    finalized_block_index: None,
                 })
                 .await
                 {
