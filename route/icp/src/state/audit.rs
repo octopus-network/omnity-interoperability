@@ -36,9 +36,9 @@ pub fn finalize_mint_token_req(state: &mut RouteState, req: MintTokenRequest) {
         .insert(req.ticket_id.clone(), req);
 }
 
-pub fn finalize_gen_ticket(block_index: u64, request: GenerateTicketReq) {
+pub fn finalize_gen_ticket(ticket_id: String, request: GenerateTicketReq) {
     record_event(&Event::FinalizedGenTicket {
-        block_index,
+        ticket_id,
         request,
     })
 }

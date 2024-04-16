@@ -25,8 +25,7 @@ pub struct GenerateTicketReq {
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct GenerateTicketOk {
-    // the index of the burn block on the ledger
-    pub block_index: u64,
+    pub ticket_id: String,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -78,12 +77,13 @@ pub async fn generate_ticket(
     };
 
     let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
+    let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     hub::send_ticket(
         hub_principal,
         Ticket {
-            ticket_id: block_index.to_string(),
+            ticket_id: ticket_id.clone(),
             ticket_time: ic_cdk::api::time(),
             src_chain: chain_id,
             dst_chain: req.target_chain_id.clone(),
@@ -98,8 +98,8 @@ pub async fn generate_ticket(
     .await
     .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
 
-    audit::finalize_gen_ticket(block_index, req);
-    Ok(GenerateTicketOk { block_index })
+    audit::finalize_gen_ticket(ticket_id.clone(), req);
+    Ok(GenerateTicketOk { ticket_id })
 }
 
 async fn burn_token_icrc2(

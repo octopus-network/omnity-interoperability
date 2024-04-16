@@ -851,7 +851,6 @@ proptest! {
             runes_change_output,
             btc_change_output,
             fee_per_vbyte: Some(fee_per_vbyte),
-            raw_tx: "".into(),
         });
 
         state.check_invariants().expect("violated invariants");
@@ -883,7 +882,6 @@ proptest! {
                 runes_change_output,
                 btc_change_output,
                 fee_per_vbyte: Some(fee_per_vbyte),
-                raw_tx: "".into(),
             });
 
             for txid in &txids {
