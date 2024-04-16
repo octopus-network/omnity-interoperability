@@ -110,15 +110,17 @@ impl Into<Chain> for ChainMeta {
     fn into(self) -> Chain {
         Chain {
             chain_id: self.chain_id,
+            canister_id: self.canister_id,
             chain_type: self.chain_type,
             chain_state: self.chain_state,
             contract_address: self.contract_address,
+            counterparties: self.counterparties,
             fee_token: self.fee_token,
         }
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Default, Clone, Debug)]
 pub struct ChainWithSeq {
     pub canister_id: String,
     pub chain_id: ChainId,
@@ -150,9 +152,11 @@ impl Into<Chain> for ChainWithSeq {
     fn into(self) -> Chain {
         Chain {
             chain_id: self.chain_id.to_string(),
+            canister_id: self.canister_id,
             chain_type: self.chain_type.clone(),
             chain_state: self.chain_state.clone(),
             contract_address: self.contract_address.clone(),
+            counterparties: self.counterparties.clone(),
             fee_token: self.fee_token,
         }
     }
@@ -176,12 +180,13 @@ impl Storable for ChainWithSeq {
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct TokenMeta {
     pub token_id: TokenId,
+    pub name: String,
     pub symbol: String,
     // the token`s setllment chain
-    pub settlement_chain: ChainId,
+    pub issue_chain: ChainId,
     pub decimals: u8,
     pub icon: Option<String>,
-    pub metadata: Option<HashMap<String, String>>,
+    pub metadata: HashMap<String, String>,
     pub dst_chains: Vec<ChainId>,
     // pub token_constract_address: Option<String>,
 }
@@ -205,8 +210,8 @@ impl core::fmt::Display for TokenMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\ntoken name:{} \nsymbol:{:?} \nissue chain:{} \ndecimals:{} \nicon:{:?} \nmetadata:{:?} \ndst chains:{:?}",
-            self.token_id, self.symbol, self.settlement_chain, self.decimals, self.icon,self.metadata,self.dst_chains
+            "\token_id name:{} \ntoken name:{} \nsymbol:{:?} \nissue chain:{} \ndecimals:{} \nicon:{:?} \nmetadata:{:?} \ndst chains:{:?}",
+            self.token_id, self.name,self.symbol, self.issue_chain, self.decimals, self.icon,self.metadata,self.dst_chains
         )
     }
 }
@@ -215,8 +220,8 @@ impl Into<Token> for TokenMeta {
     fn into(self) -> Token {
         Token {
             token_id: self.token_id,
+            name: self.name,
             symbol: self.symbol,
-            issue_chain: self.settlement_chain,
             decimals: self.decimals,
             icon: self.icon,
             metadata: self.metadata,

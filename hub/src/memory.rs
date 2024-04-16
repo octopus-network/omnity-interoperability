@@ -21,8 +21,10 @@ const TOKEN_POSITION: MemoryId = MemoryId::new(5);
 const LEDGER: MemoryId = MemoryId::new(6);
 const DIRE_QUEUE: MemoryId = MemoryId::new(7);
 const TICKET_QUEUE: MemoryId = MemoryId::new(8);
-const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(9);
-const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(10);
+const LOG_MEMORY_ID: MemoryId = MemoryId::new(9);
+
+const EVENT_INDEX_MEMORY_ID: MemoryId = MemoryId::new(10);
+const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(11);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
@@ -128,10 +130,14 @@ pub fn init_ticket_queue() -> StableBTreeMap<SeqKey, Ticket, Memory> {
     StableBTreeMap::init(get_ticket_queue_memory())
 }
 
-pub fn init_stable_log() -> IcLog<Vec<u8>, Memory, Memory> {
+pub fn init_stable_log() -> StableBTreeMap<Vec<u8>, Vec<u8>, Memory> {
+    StableBTreeMap::init(with_memory_manager(|m| m.get(LOG_MEMORY_ID)))
+}
+
+pub fn init_event_log() -> IcLog<Vec<u8>, Memory, Memory> {
     IcLog::init(
-        with_memory_manager(|m| m.get(LOG_INDEX_MEMORY_ID)),
-        with_memory_manager(|m| m.get(LOG_DATA_MEMORY_ID)),
+        with_memory_manager(|m| m.get(EVENT_DATA_MEMORY_ID)),
+        with_memory_manager(|m| m.get(EVENT_INDEX_MEMORY_ID)),
     )
     .expect("failed to initialize stable log")
 }

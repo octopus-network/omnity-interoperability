@@ -71,10 +71,9 @@ pub async fn get_tokens(
             .filter(|(_, token_meta)| match &condition {
                 (None, None) => true,
                 (None, Some(dst_token_id)) => token_meta.token_id.eq(dst_token_id),
-                (Some(dst_chain_id), None) => token_meta.settlement_chain.eq(dst_chain_id),
+                (Some(dst_chain_id), None) => token_meta.issue_chain.eq(dst_chain_id),
                 (Some(dst_chain_id), Some(dst_token_id)) => {
-                    token_meta.settlement_chain.eq(dst_chain_id)
-                        && token_meta.token_id.eq(dst_token_id)
+                    token_meta.issue_chain.eq(dst_chain_id) && token_meta.token_id.eq(dst_token_id)
                 }
             })
             .skip(offset)

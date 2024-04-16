@@ -6,6 +6,7 @@ use candid::{Decode, Encode};
 use cargo_metadata::MetadataCommand;
 use escargot::CargoBuild;
 use ic_base_types::{CanisterId, PrincipalId};
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{StateMachine, WasmResult};
 use omnity_hub::types::{ChainMeta, Proposal, TokenMeta};
 use omnity_types::{Chain, ChainId, Directive, Seq, Ticket, Token, TokenId, TokenOnChain, Topic};
@@ -218,12 +219,38 @@ impl OmnityHub {
         Decode!(&assert_reply(ret), Result<Vec<Ticket>, Error>).unwrap()
     }
 
-    pub fn get_logs(&self, offset: &usize, limit: &usize) -> Vec<String> {
-        let ret = self
-            .sm
-            .query(self.hub_id, "get_logs", Encode!(offset, limit).unwrap())
-            .expect("failed to get tx");
-        Decode!(&assert_reply(ret), Vec<String>).unwrap()
+    pub fn get_logs(
+        &self,
+        max_skip_timestamp: &Option<u64>,
+        offset: &usize,
+        limit: &usize,
+    ) -> Vec<String> {
+        let url = if let Some(max_skip_timestamp) = max_skip_timestamp {
+            format!(
+                "/logs?time={}&offset={}&limit={}",
+                max_skip_timestamp, offset, limit
+            )
+        } else {
+            format!("/logs?offset={}&limit={}", offset, limit)
+        };
+
+        let request = HttpRequest {
+            method: "".to_string(),
+            url: url,
+            headers: vec![],
+            body: serde_bytes::ByteBuf::new(),
+        };
+        let response = Decode!(
+            &assert_reply(
+                self.sm
+                    .query(self.hub_id, "http_request", Encode!(&request).unwrap(),)
+                    .expect("failed to get logs")
+            ),
+            HttpResponse
+        )
+        .unwrap();
+        serde_json::from_slice(&response.body).expect("failed to parse hub log")
+        
     }
     pub fn upgrade(&self) {
         let ret = self.sm.upgrade_canister(self.hub_id, hub_wasm(), vec![]);
@@ -394,14 +421,12 @@ pub fn tokens() -> Vec<Proposal> {
     let tokens = vec![
         Proposal::AddToken(TokenMeta {
             token_id: "Bitcoin-RUNES-150:1".to_string(),
+            name: "BTC".to_owned(),
             symbol: "BTC".to_owned(),
-            settlement_chain: "Bitcoin".to_string(),
+            issue_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
-            metadata: Some(HashMap::from([(
-                "rune_id".to_string(),
-                "150:1".to_string(),
-            )])),
+            metadata: HashMap::from([("rune_id".to_string(), "150:1".to_string())]),
             dst_chains: vec![
                 "Ethereum".to_string(),
                 "ICP".to_string(),
@@ -412,11 +437,12 @@ pub fn tokens() -> Vec<Proposal> {
         }),
         Proposal::AddToken(TokenMeta {
             token_id: "ETH".to_string(),
+            name: "ETH".to_owned(),
             symbol: "ETH".to_owned(),
-            settlement_chain: "Ethereum".to_string(),
+            issue_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "ICP".to_string(),
@@ -427,11 +453,12 @@ pub fn tokens() -> Vec<Proposal> {
         }),
         Proposal::AddToken(TokenMeta {
             token_id: "ICP".to_string(),
+            name: "ICP".to_owned(),
             symbol: "ICP".to_owned(),
-            settlement_chain: "ICP".to_string(),
+            issue_chain: "ICP".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
@@ -442,11 +469,12 @@ pub fn tokens() -> Vec<Proposal> {
         }),
         Proposal::AddToken(TokenMeta {
             token_id: "Ethereum-ERC20-ARB".to_string(),
+            name: "ARB".to_owned(),
             symbol: "ARB".to_owned(),
-            settlement_chain: "Ethereum".to_string(),
+            issue_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
@@ -457,11 +485,12 @@ pub fn tokens() -> Vec<Proposal> {
         }),
         Proposal::AddToken(TokenMeta {
             token_id: "Ethereum-ERC20-OP".to_string(),
+            name: "OP".to_owned(),
             symbol: "OP".to_owned(),
-            settlement_chain: "Ethereum".to_string(),
+            issue_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
@@ -472,11 +501,12 @@ pub fn tokens() -> Vec<Proposal> {
         }),
         Proposal::AddToken(TokenMeta {
             token_id: "Ethereum-ERC20-StarkNet".to_string(),
+            name: "StarkNet".to_owned(),
             symbol: "StarkNet".to_owned(),
-            settlement_chain: "Ethereum".to_string(),
+            issue_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),

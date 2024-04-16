@@ -17,10 +17,9 @@ serde_with = { workspace = true }
 derive_more = { workspace = true }
 
 ciborium = { workspace = true }
-#ic-stable-structures =  { workspace = true }
 lazy_static = { workspace = true }
 ic-stable-structures = { workspace = true }
-# omnity_hub = { path = "../hub" }
+
 
 k256 = { version = "0.12.0", features = ["ecdsa"] }
 # Enable `custom` feature of k256's getrandom dependency. See lib.rs for more details.
@@ -29,6 +28,9 @@ getrandom = { version = "0.2", features = ["custom"] }
 # ic-log = { path = "/home/boern/workspace/bitfinity/canister-sdk/ic-log" }
 # ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
 ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.12.x-stablelog" }
+# chrono = { version = "0.4.38", features = ["serde"] }
+# time = {version="0.3.36",features = ["parsing"]}
+humantime = "2.1"
 
 [dev-dependencies.tokio]
 version = "1.35.1"

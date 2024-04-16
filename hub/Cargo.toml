@@ -19,12 +19,7 @@ serde = { workspace = true }
 serde_with = { workspace = true }
 derive_more = { workspace = true }
 
-
-k256 = { version = "0.12.0", features = ["ecdsa"] }
-
-# Enable `custom` feature of k256's getrandom dependency. See lib.rs for more details.
-getrandom = { version = "0.2", features = ["custom"] }
-
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
 # log deps
 # ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
 ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.12.x-stablelog" }
@@ -47,3 +42,4 @@ ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", package =
 ic-base-types = { git = "https://github.com/dfinity/ic", package = "ic-base-types", tag = "release-2024-03-06_23-01+p2p" }
 env_logger = "0.9"
 # log = "0.4"
+serde_bytes = { workspace = true }

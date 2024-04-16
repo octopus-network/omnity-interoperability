@@ -1,6 +1,6 @@
 use ic_base_types::PrincipalId;
 use omnity_hub::types::Proposal;
-use omnity_types::{ChainState, ChainType, Factor, FeeTokenFactor, Ticket, TxAction};
+use omnity_types::{ChainState, ChainType, Factor, FeeTokenFactor, Ticket, TicketType, TxAction};
 use omnity_types::{ToggleAction, ToggleState, Topic};
 mod common;
 
@@ -245,6 +245,7 @@ fn test_a_b_tx() {
 
     let transfer_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -286,6 +287,7 @@ fn test_a_b_tx() {
 
     let redeem_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -342,6 +344,7 @@ fn test_a_b_c_tx() {
 
     let a_2_b_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -379,6 +382,7 @@ fn test_a_b_c_tx() {
 
     let b_2_c_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -418,6 +422,7 @@ fn test_a_b_c_tx() {
 
     let c_2_b_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -451,6 +456,7 @@ fn test_a_b_c_tx() {
 
     let b_2_a_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -508,6 +514,7 @@ fn test_upgrade() {
 
     let a_2_b_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -541,6 +548,7 @@ fn test_upgrade() {
 
     let b_2_c_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -576,6 +584,7 @@ fn test_upgrade() {
 
     let c_2_b_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -607,6 +616,7 @@ fn test_upgrade() {
 
     let b_2_a_ticket = Ticket {
         ticket_id: Uuid::new_v4().to_string(),
+        ticket_type: TicketType::Normal,
         ticket_time: get_timestamp(),
         src_chain: src_chain.to_string(),
         dst_chain: dst_chain.to_string(),
@@ -631,10 +641,10 @@ fn test_upgrade() {
     println!("get_chain_tokens result: {:#?}", result);
     assert!(result.is_ok());
 
-    let logs = hub.get_logs(&0, &100);
+    let logs = hub.get_logs(&None, &0, &100);
 
     for r in logs.iter() {
-        print!("stable log: {}", r)
+        print!("http requst stable log: {}", r)
     }
     // upgrade
     println!("--------- begint to upgrade ---------");
@@ -684,9 +694,9 @@ fn test_upgrade() {
     assert!(result.is_ok());
     println!("get_chains result filter by token id : {:#?}", result);
 
-    let logs = hub.get_logs(&0, &100);
+    let logs = hub.get_logs(&None, &0, &100);
 
     for r in logs.iter() {
-        print!("stable log: {}", r)
+        print!("http requst stable log: {}", r)
     }
 }
