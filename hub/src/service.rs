@@ -1,17 +1,17 @@
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
-use ic_log::writer::Logs;
 
-use log::{debug, info};
+use log::info;
 use omnity_hub::event::{self, Event, GetEventsArg};
 
 use crate::memory::init_stable_log;
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use omnity_hub::auth::{auth, is_owner};
 use omnity_hub::memory;
 use omnity_hub::metrics;
-
+use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
-use omnity_hub::types::{ChainWithSeq, Proposal};
-use omnity_types::log::{init_log, LoggerConfigService, StableLog, StableLogWriter};
+use omnity_hub::types::Proposal;
+use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId, Token,
     TokenId, TokenOnChain, Topic,
@@ -19,10 +19,9 @@ use omnity_types::{
 
 #[init]
 fn init() {
-    init_log(StableLog {
-        log_storage: Some(init_stable_log()),
-    });
+    init_log(Some(init_stable_log()));
     let caller = ic_cdk::api::caller();
+
     // save new chain
     with_state_mut(|hub_state| hub_state.init(caller))
 }
@@ -36,9 +35,7 @@ fn pre_upgrade() {
 #[post_upgrade]
 fn post_upgrade() {
     // init log
-    init_log(StableLog {
-        log_storage: Some(init_stable_log()),
-    });
+    init_log(Some(init_stable_log()));
 
     with_state_mut(|hub_state| hub_state.post_upgrade());
     info!("update successfully!");
@@ -47,277 +44,12 @@ fn post_upgrade() {
 /// validate directive ,this method will be called by sns
 #[query(guard = "auth")]
 pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, Error> {
-    if proposals.len() == 0 {
-        return Err(Error::ProposalError(
-            "Proposal can not be empty".to_string(),
-        ));
-    }
-    let mut proposal_msgs = Vec::new();
-    for proposal in proposals.into_iter() {
-        match proposal {
-            Proposal::AddChain(chain_meta) => {
-                if chain_meta.chain_id.is_empty() {
-                    return Err(Error::ProposalError(
-                        "Chain name can not be empty".to_string(),
-                    ));
-                }
-
-                if matches!(chain_meta.chain_state, ChainState::Deactive) {
-                    return Err(Error::ProposalError(
-                        "The status of the new chain state must be active".to_string(),
-                    ));
-                }
-
-                with_state(|hub_state| {
-                    hub_state.chain(&chain_meta.chain_id).map_or(Ok(()), |_| {
-                        Err(Error::ChainAlreadyExisting(chain_meta.chain_id.to_string()))
-                    })
-                })?;
-
-                let result = format!("Tne AddChain proposal: {}", chain_meta);
-                info!("validate_proposal result:{} ", result);
-                proposal_msgs.push(result);
-            }
-            Proposal::AddToken(token_meta) => {
-                if token_meta.token_id.is_empty()
-                    || token_meta.symbol.is_empty()
-                    || token_meta.settlement_chain.is_empty()
-                {
-                    return Err(Error::ProposalError(
-                        "Token id, token symbol or issue chain can not be empty".to_string(),
-                    ));
-                }
-                with_state(|hub_state| {
-                    // check token repetitive
-                    hub_state.token(&token_meta.token_id).map_or(Ok(()), |_| {
-                        Err(Error::TokenAlreadyExisting(token_meta.to_string()))
-                    })?;
-
-                    //ensure the dst chains must exsits!
-                    if let Some(id) = token_meta
-                        .dst_chains
-                        .iter()
-                        .find(|id| !hub_state.chains.contains_key(&**id))
-                    {
-                        return Err(Error::NotFoundChain(id.to_string()));
-                    }
-
-                    hub_state.available_chain(&token_meta.settlement_chain)
-                })?;
-                let result = format!("The AddToken proposal: {}", token_meta);
-                info!("validate_proposal result:{} ", result);
-                proposal_msgs.push(result);
-            }
-            Proposal::ToggleChainState(toggle_state) => {
-                if toggle_state.chain_id.is_empty() {
-                    return Err(Error::ProposalError(
-                        "Chain id can not be empty".to_string(),
-                    ));
-                }
-
-                with_state(|hub_state| hub_state.available_state(&toggle_state))?;
-                let result = format!("The ToggleChainStatus proposal: {}", toggle_state);
-                info!("validate_proposal result:{} ", result);
-                proposal_msgs.push(result);
-            }
-            Proposal::UpdateFee(factor) => {
-                match factor {
-                    Factor::UpdateTargetChainFactor(ref cf) => {
-                        with_state(|hub_state| {
-                            //check the issue chain must exsiting and not deactive!
-                            hub_state.available_chain(&cf.target_chain_id)
-                        })?;
-                        let result = format!("The UpdateFee proposal: {}", factor);
-                        info!("validate_proposal result:{} ", result);
-                        proposal_msgs.push(result);
-                    }
-                    Factor::UpdateFeeTokenFactor(ref tf) => {
-                        if tf.fee_token.is_empty() {
-                            return Err(Error::ProposalError(
-                                "The fee token can not be empty".to_string(),
-                            ));
-                        };
-
-                        let result = format!("The UpdateFee proposal: {}", factor);
-                        info!("validate_proposal result:{} ", result);
-                        proposal_msgs.push(result);
-                    }
-                }
-            }
-        }
-    }
-    Ok(proposal_msgs)
+    proposal::validate_proposal(proposals).await
 }
-
-/// build directive based on proposal, this method will be called by sns
 #[update(guard = "auth")]
 pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
-    for proposal in proposals.into_iter() {
-        match proposal {
-            Proposal::AddChain(chain_meta) => {
-                info!(
-                    "build directive for `AddChain` proposal :{:?}",
-                    chain_meta.to_string()
-                );
-
-                let new_chain = ChainWithSeq::from(chain_meta.clone());
-                // save new chain
-                with_state_mut(|hub_state| {
-                    info!(" save new chain: {:?}", new_chain);
-                    hub_state.save_chain(new_chain.clone())
-                })?;
-                // build directives
-                match chain_meta.chain_type {
-                    // nothing to do
-                    ChainType::SettlementChain => {
-                        info!("for settlement chain,  no need to build directive!");
-                    }
-
-                    ChainType::ExecutionChain => {
-                        if let Some(counterparties) = chain_meta.counterparties {
-                            counterparties
-                                .into_iter()
-                                .map(|counterparty| {
-                                    info!(
-                                        " build directive for counterparty chain:{:?} !",
-                                        counterparty.to_string()
-                                    );
-                                    let dst_chain = with_state(|hub_state| {
-                                        hub_state.available_chain(&counterparty)
-                                    })?;
-                                    // build directive for counterparty chain
-                                    with_state_mut(|hub_state| {
-                                        //TODO: Consider whether this is necessary？
-                                        hub_state.push_directive(
-                                            &counterparty,
-                                            Directive::AddChain(new_chain.clone().into()),
-                                        )?;
-                                        // generate directive for the new chain
-                                        hub_state.push_directive(
-                                            &new_chain.chain_id,
-                                            Directive::AddChain(dst_chain.into()),
-                                        )
-                                    })
-                                })
-                                .collect::<Result<(), Error>>()?;
-                        }
-                    }
-                }
-            }
-
-            Proposal::AddToken(token_meata) => {
-                info!("build directive for `AddToken` proposal :{:?}", token_meata);
-                // save token info
-                with_state_mut(|hub_state| hub_state.save_token(token_meata.clone()))?;
-                // generate dirctive
-                token_meata
-                    .dst_chains
-                    .iter()
-                    .map(|dst_chain| {
-                        info!(
-                            " build directive for counterparty chain:{:?} !",
-                            dst_chain.to_string()
-                        );
-
-                        with_state_mut(|hub_state| {
-                            hub_state.push_directive(
-                                &dst_chain,
-                                Directive::AddToken(token_meata.clone().into()),
-                            )
-                        })
-                    })
-                    .collect::<Result<(), Error>>()?;
-            }
-
-            Proposal::ToggleChainState(toggle_status) => {
-                info!(
-                    "build directive for `ToggleChainState` proposal :{:?}",
-                    toggle_status
-                );
-
-                // generate directive for counterparty chain
-                if let Some(counterparties) =
-                    with_state(|hs| hs.chain(&toggle_status.chain_id))?.counterparties
-                {
-                    counterparties
-                        .into_iter()
-                        .map(|counterparty| {
-                            info!(
-                                " build directive for counterparty chain:{:?} !",
-                                counterparty.to_string()
-                            );
-
-                            // build directive for counterparty chain
-                            with_state_mut(|hub_state| {
-                                hub_state.push_directive(
-                                    &counterparty,
-                                    Directive::ToggleChainState(toggle_status.clone()),
-                                )
-                            })
-                        })
-                        .collect::<Result<(), Error>>()?;
-                }
-                // update dst chain state
-                with_state_mut(|hub_state| hub_state.update_chain_state(&toggle_status))?;
-            }
-
-            Proposal::UpdateFee(fee) => {
-                info!("build directive for `UpdateFee` proposal :{:?}", fee);
-                // save fee info
-                with_state_mut(|hub_state| hub_state.update_fee(fee.clone()))?;
-
-                match fee {
-                    Factor::UpdateTargetChainFactor(ref cf) => {
-                        with_state(|hub_state| {
-                            hub_state
-                                .chains
-                                .iter()
-                                .filter(|(_,chain)|matches!(&chain.counterparties,Some(counterparties) if counterparties.contains(&cf.target_chain_id)))
-                                .map(|(_,chain)| chain.clone())
-                                .collect::<Vec<_>>()
-                        })
-                        .into_iter()
-                        .map(|chain| {
-                            with_state_mut(|hub_state| {
-                                                    hub_state.push_directive(
-                                                        &chain.chain_id,
-                                                        Directive::UpdateFee(fee.clone()),
-                                                    )
-                                          })
-                        })
-                        .collect::<Result<(), Error>>()?;
-                    }
-
-                    Factor::UpdateFeeTokenFactor(ref tf) => {
-                        with_state(|hub_state| {
-                            hub_state
-                                .chains
-                                .iter()
-                                .filter(|(_, chain)| {matches!(&chain.fee_token,Some(fee_token) if fee_token.eq(&tf.fee_token))})
-                                .map(|(_, chain)| {
-                                    chain.chain_id.to_string()
-                                    })
-                                .collect::<Vec<_>>()
-                        })
-                        .into_iter()
-                        .map(|chain_id| {
-                            with_state_mut(|hub_state| {
-                                hub_state.push_directive(
-                                    &chain_id,
-                                    Directive::UpdateFee(fee.clone()),
-                                )
-                            })
-                        })
-                        .collect::<Result<(), Error>>()?;
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(())
+    proposal::execute_proposal(proposals).await
 }
-
 /// check and build update fee directive and push it to the directive queue
 #[update(guard = "auth")]
 pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
@@ -444,22 +176,79 @@ pub async fn get_total_tx() -> Result<u64, Error> {
     metrics::get_total_tx().await
 }
 
-#[query]
-pub fn take_memory_records(limit: usize, offset: usize) -> Logs {
-    debug!("collecting {limit} log records");
-    ic_log::take_memory_records(limit, offset)
-}
+#[query(hidden = true)]
+fn http_request(req: HttpRequest) -> HttpResponse {
+    // if ic_cdk::api::data_certificate().is_none() {
+    //     ic_cdk::trap("update call rejected");
+    // }
 
-#[query]
-pub fn get_logs(offset: usize, limit: usize) -> Vec<String> {
-    debug!("collecting {limit} log records");
-    StableLogWriter::get_logs(offset, limit)
+    if req.path() == "/logs" {
+        use serde_json;
+        use std::str::FromStr;
+
+        let max_skip_timestamp = match req.raw_query_param("time") {
+            Some(arg) => match u64::from_str(arg) {
+                Ok(value) => value,
+                Err(_) => {
+                    return HttpResponseBuilder::bad_request()
+                        .with_body_and_content_length("failed to parse the 'time' parameter")
+                        .build()
+                }
+            },
+            None => 0,
+        };
+        let offset = match req.raw_query_param("offset") {
+            Some(arg) => match u64::from_str(arg) {
+                Ok(value) => value,
+                Err(_) => {
+                    return HttpResponseBuilder::bad_request()
+                        .with_body_and_content_length("failed to parse the 'offset' parameter")
+                        .build()
+                }
+            },
+            None => {
+                return HttpResponseBuilder::bad_request()
+                    .with_body_and_content_length("must provide the 'offset' parameter")
+                    .build()
+            }
+        };
+        let limit = match req.raw_query_param("limit") {
+            Some(arg) => match u64::from_str(arg) {
+                Ok(value) => value,
+                Err(_) => {
+                    return HttpResponseBuilder::bad_request()
+                        .with_body_and_content_length("failed to parse the 'limit' parameter")
+                        .build()
+                }
+            },
+            None => {
+                return HttpResponseBuilder::bad_request()
+                    .with_body_and_content_length("must provide the 'limit' parameter")
+                    .build()
+            }
+        };
+        info!(
+            "log req, max_skip_timestamp: {}, offset: {}, limit: {}",
+            max_skip_timestamp, offset, limit
+        );
+
+        let logs = StableLogWriter::get_logs(
+            max_skip_timestamp,
+            offset.try_into().unwrap(),
+            limit.try_into().unwrap(),
+        );
+        HttpResponseBuilder::ok()
+            .header("Content-Type", "application/json; charset=utf-8")
+            .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())
+            .build()
+    } else {
+        HttpResponseBuilder::not_found().build()
+    }
 }
 
 #[update(guard = "is_owner")]
 pub async fn set_logger_filter(filter: String) {
     LoggerConfigService::default().set_logger_filter(&filter);
-    debug!("log filter set to {filter}");
 }
 
 #[query]
@@ -474,12 +263,13 @@ ic_cdk::export_candid!();
 #[cfg(test)]
 mod tests {
 
+    use candid::Decode;
     use omnity_hub::types::{ChainMeta, TokenMeta};
 
     use super::*;
     use omnity_types::{
-        ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, ToggleAction, ToggleState,
-        TxAction,
+        ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketType, ToggleAction,
+        ToggleState, TxAction,
     };
 
     // use env_logger;
@@ -492,9 +282,7 @@ mod tests {
 
     // init logger
     pub fn init_logger() {
-        init_log(StableLog {
-            log_storage: Some(init_stable_log()),
-        });
+        init_log(Some(init_stable_log()));
         // env_logger::builder().filter_level(LevelFilter::Info).init();
     }
 
@@ -595,7 +383,7 @@ mod tests {
 
         let icp = ChainMeta {
             chain_id: "ICP".to_string(),
-            chain_type: ChainType::SettlementChain,
+            chain_type: ChainType::ExecutionChain,
             chain_state: ChainState::Active,
             canister_id: "bkyz2-fmaaa-aaaaa-qadaab-cai".to_string(),
             contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
@@ -685,11 +473,12 @@ mod tests {
     async fn add_tokens() {
         let btc = TokenMeta {
             token_id: "BTC".to_string(),
+            name: "BTC".to_owned(),
             symbol: "BTC".to_owned(),
-            settlement_chain: "Bitcoin".to_string(),
+            issue_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Ethereum".to_string(),
                 "ICP".to_string(),
@@ -712,14 +501,12 @@ mod tests {
 
         let runse_150 = TokenMeta {
             token_id: "Bitcoin-RUNES-150:1".to_string(),
+            name: "150:1".to_owned(),
             symbol: "150:1".to_owned(),
-            settlement_chain: "Bitcoin".to_string(),
+            issue_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
-            metadata: Some(HashMap::from([(
-                "rune_id".to_string(),
-                "150:1".to_string(),
-            )])),
+            metadata: HashMap::from([("rune_id".to_string(), "150:1".to_string())]),
             dst_chains: vec![
                 "Ethereum".to_string(),
                 "ICP".to_string(),
@@ -740,11 +527,12 @@ mod tests {
 
         let runes_wtf = TokenMeta {
             token_id: "Bitcoin-RUNES-WTF".to_string(),
+            name: "BTC".to_owned(),
             symbol: "BTC".to_owned(),
-            settlement_chain: "Bitcoin".to_string(),
+            issue_chain: "Bitcoin".to_string(),
             decimals: 18,
             icon: None,
-            metadata: Some(HashMap::from([("rune_id".to_string(), "WTF".to_string())])),
+            metadata: HashMap::from([("rune_id".to_string(), "WTF".to_string())]),
             dst_chains: vec![
                 "Ethereum".to_string(),
                 "ICP".to_string(),
@@ -765,11 +553,12 @@ mod tests {
 
         let eth = TokenMeta {
             token_id: "ETH".to_string(),
+            name: "ETH".to_owned(),
             symbol: "ETH".to_owned(),
-            settlement_chain: "Ethereum".to_string(),
+            issue_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "ICP".to_string(),
@@ -789,11 +578,12 @@ mod tests {
 
         let icp = TokenMeta {
             token_id: "ICP".to_string(),
+            name: "ICP".to_owned(),
             symbol: "ICP".to_owned(),
-            settlement_chain: "ICP".to_string(),
+            issue_chain: "ICP".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
@@ -813,11 +603,12 @@ mod tests {
 
         let arb = TokenMeta {
             token_id: "Ethereum-ERC20-ARB".to_string(),
+            name: "ARB".to_owned(),
             symbol: "ARB".to_owned(),
-            settlement_chain: "Ethereum".to_string(),
+            issue_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
@@ -837,11 +628,12 @@ mod tests {
 
         let op = TokenMeta {
             token_id: "Ethereum-ERC20-OP".to_string(),
+            name: "OP".to_owned(),
             symbol: "OP".to_owned(),
-            settlement_chain: "Ethereum".to_string(),
+            issue_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
@@ -861,11 +653,12 @@ mod tests {
 
         let starknet = TokenMeta {
             token_id: "Ethereum-ERC20-StarkNet".to_string(),
+            name: "StarkNet".to_owned(),
             symbol: "StarkNet".to_owned(),
-            settlement_chain: "Ethereum".to_string(),
+            issue_chain: "Ethereum".to_string(),
             decimals: 18,
             icon: None,
-            metadata: None,
+            metadata: HashMap::default(),
             dst_chains: vec![
                 "Bitcoin".to_string(),
                 "Ethereum".to_string(),
@@ -1122,6 +915,7 @@ mod tests {
 
         let transfer_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
+            ticket_type: TicketType::Normal,
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
             dst_chain: dst_chain.to_string(),
@@ -1169,6 +963,7 @@ mod tests {
 
         let redeem_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
+            ticket_type: TicketType::Normal,
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
             dst_chain: dst_chain.to_string(),
@@ -1242,6 +1037,7 @@ mod tests {
 
         let a_2_b_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
+            ticket_type: TicketType::Normal,
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
             dst_chain: dst_chain.to_string(),
@@ -1278,6 +1074,7 @@ mod tests {
 
         let b_2_c_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
+            ticket_type: TicketType::Normal,
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
             dst_chain: dst_chain.to_string(),
@@ -1317,6 +1114,7 @@ mod tests {
 
         let c_2_b_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
+            ticket_type: TicketType::Normal,
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
             dst_chain: dst_chain.to_string(),
@@ -1350,6 +1148,7 @@ mod tests {
 
         let b_2_a_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
+            ticket_type: TicketType::Normal,
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
             dst_chain: dst_chain.to_string(),
@@ -1382,10 +1181,39 @@ mod tests {
         assert!(result.is_ok());
 
         // print log
-        let logs = get_logs(0, 50);
+        let logs = StableLogWriter::get_logs(0, 0, 50);
         for r in logs.iter() {
             print!("stable log: {}", r)
         }
+        let logs = get_logs(&None, &0, &50);
+        for r in logs.iter() {
+            print!("http request stable log: {}", r)
+        }
+    }
+
+    pub fn get_logs(
+        max_skip_timestamp: &Option<u64>,
+        offset: &usize,
+        limit: &usize,
+    ) -> Vec<String> {
+        let url = if let Some(max_skip_timestamp) = max_skip_timestamp {
+            format!(
+                "/logs?time={}&offset={}&limit={}",
+                max_skip_timestamp, offset, limit
+            )
+        } else {
+            format!("/logs?offset={}&limit={}", offset, limit)
+        };
+
+        let request = HttpRequest {
+            method: "".to_string(),
+            url: url,
+            headers: vec![],
+            body: serde_bytes::ByteBuf::new(),
+        };
+
+        let response = http_request(request);
+        serde_json::from_slice(&response.body).expect("failed to parse hub log")
     }
 
     #[tokio::test]
@@ -1404,6 +1232,7 @@ mod tests {
 
         let transfer_ticket = Ticket {
             ticket_id: Uuid::new_v4().to_string(),
+            ticket_type: TicketType::Normal,
             ticket_time: get_timestamp(),
             src_chain: src_chain.to_string(),
             dst_chain: dst_chain.to_string(),

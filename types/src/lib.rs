@@ -23,7 +23,7 @@ pub type TokenId = String;
 pub type TicketId = String;
 pub type Account = String;
 
-#[derive(CandidType, Deserialize, Serialize,PartialEq, Eq, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
 pub enum Directive {
     AddChain(Chain),
     AddToken(Token),
@@ -111,8 +111,18 @@ pub enum Topic {
 #[derive(
     CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
+pub enum TicketType {
+    #[default]
+    Normal,
+    Resubmit,
+}
+
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 pub struct Ticket {
     pub ticket_id: TicketId,
+    pub ticket_type: TicketType,
     pub ticket_time: Timestamp,
     pub src_chain: ChainId,
     pub dst_chain: ChainId,
@@ -143,8 +153,9 @@ impl core::fmt::Display for Ticket {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\nticket id:{} \ncreated time:{} \nsrc chain:{} \ndst_chain:{} \naction:{:?} \ntoken:{} \namount:{} \nsender:{:?} \nrecevier:{} \nmemo:{:?}",
+            "\nticket id:{} \nticket type:{:?} \ncreated time:{} \nsrc chain:{} \ndst_chain:{} \naction:{:?} \ntoken:{} \namount:{} \nsender:{:?} \nrecevier:{} \nmemo:{:?}",
             self.ticket_id,
+            self.ticket_type,
             self.ticket_time,
             self.src_chain,
             self.dst_chain,
@@ -353,14 +364,17 @@ impl core::fmt::Display for FeeTokenFactor {
 /// for execution chain, the chain id spec is: type-chain_name,eg: EVM-Base,Cosmos-Gaia, Substrate-Xxx
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Chain {
-    // pub canister_id: String,
     pub chain_id: ChainId,
+    pub canister_id: String,
     pub chain_type: ChainType,
     // the chain default state is true
     pub chain_state: ChainState,
     // settlement chain: export contract address
     // execution chain: port contract address
     pub contract_address: Option<String>,
+
+    // optional counterparty chains
+    pub counterparties: Option<Vec<ChainId>>,
     // fee token
     pub fee_token: Option<TokenId>,
 }
@@ -394,13 +408,12 @@ impl core::fmt::Display for ToggleState {
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct Token {
     pub token_id: TokenId,
+    pub name: String,
     pub symbol: String,
-    // the token`s issuse chain
-    pub issue_chain: ChainId,
+
     pub decimals: u8,
     pub icon: Option<String>,
-    pub metadata: Option<HashMap<String, String>>,
-    // pub token_constract_address: Option<String>,
+    pub metadata: HashMap<String, String>,
 }
 
 impl Token {

@@ -116,6 +116,9 @@ pub enum Event {
     #[serde(rename = "added_chain")]
     AddedChain(ChainWithSeq),
 
+    #[serde(rename = "updated_chain")]
+    UpdatedChainCounterparties(ChainWithSeq),
+
     #[serde(rename = "added_token")]
     AddedToken(TokenMeta),
 
@@ -192,10 +195,17 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     .authorized_caller
                     .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
             }
+            Event::UpdatedChainCounterparties(chain) => {
+                hub_state
+                    .chains
+                    .insert(chain.chain_id.to_string(), chain.clone());
+            }
             Event::AddedToken(token) => {
                 hub_state.tokens.insert(token.token_id.to_string(), token);
             }
-
+            Event::ToggledChainState { chain, state } => {
+                hub_state.chains.insert(state.chain_id.to_string(), chain);
+            }
             Event::UpdatedFee(fee) => match fee {
                 Factor::UpdateTargetChainFactor(cf) => {
                     hub_state
@@ -220,9 +230,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     ()
                 }
             },
-            Event::ToggledChainState { chain, state } => {
-                hub_state.chains.insert(state.chain_id.to_string(), chain);
-            }
+
             Event::ReceivedDirective { dst_chain, dire } => {
                 //update chain info
                 hub_state
@@ -243,12 +251,12 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                 hub_state
                     .chains
                     .insert(ticket.dst_chain.to_string(), dst_chain.clone());
-                // add new ticket
+                // add new ticket to queue
                 hub_state.ticket_queue.insert(
                     SeqKey::from(ticket.dst_chain.to_string(), dst_chain.latest_ticket_seq),
                     ticket.clone(),
                 );
-                //save ticket
+                //save ticket to ledger
                 hub_state
                     .cross_ledger
                     .insert(ticket.ticket_id.to_string(), ticket.clone());
@@ -258,19 +266,22 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
     Ok(hub_state)
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::types::ChainWithSeq;
     use crate::types::TokenMeta;
     use candid::Principal;
-    use omnity_types::ChainId;
+    use omnity_types::Chain;
+    use omnity_types::ChainState;
     use omnity_types::Directive;
     use omnity_types::Factor;
-    use omnity_types::SeqKey;
     use omnity_types::Ticket;
     use omnity_types::ToggleState;
-    use omnity_types::TokenId;
+    use omnity_types::{ChainType, TargetChainFactor, TicketType, ToggleAction, TxAction};
     use std::collections::HashMap;
+    use uuid::Uuid;
 
     #[test]
     fn test_encode_decode_event() {
@@ -280,5 +291,104 @@ mod tests {
         assert_eq!(event, decoded_event);
     }
 
-    
+    #[test]
+    fn test_replay() {
+        let events = vec![
+            Event::Init(Principal::anonymous()),
+            Event::AddedChain(ChainWithSeq {
+                chain_id: "Bitcoin".to_string(),
+                chain_type: ChainType::SettlementChain,
+                chain_state: ChainState::Active,
+                canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
+                contract_address: None,
+                counterparties: None,
+                fee_token: None,
+                latest_dire_seq: 0,
+                latest_ticket_seq: 0,
+            }),
+            Event::AddedToken(TokenMeta {
+                token_id: "Bitcoin-RUNES-WTF".to_string(),
+                name: "BTC".to_owned(),
+                symbol: "BTC".to_owned(),
+                issue_chain: "Bitcoin".to_string(),
+                decimals: 18,
+                icon: None,
+                metadata: HashMap::new(),
+                dst_chains: vec![],
+            }),
+            Event::ToggledChainState {
+                chain: ChainWithSeq {
+                    chain_id: "Bitcoin".to_string(),
+                    chain_type: ChainType::SettlementChain,
+                    chain_state: ChainState::Deactive,
+                    canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
+                    contract_address: None,
+                    counterparties: None,
+                    fee_token: None,
+                    latest_dire_seq: 0,
+                    latest_ticket_seq: 0,
+                },
+                state: ToggleState {
+                    chain_id: "Bitcoin".to_string(),
+                    action: ToggleAction::Deactivate,
+                },
+            },
+            Event::UpdatedFee(Factor::UpdateTargetChainFactor(TargetChainFactor {
+                target_chain_id: "Bitcoin".to_string(),
+                target_chain_factor: 1000,
+            })),
+            Event::ReceivedDirective {
+                dst_chain: ChainWithSeq {
+                    chain_id: "Bitcoin".to_string(),
+                    chain_type: ChainType::SettlementChain,
+                    chain_state: ChainState::Active,
+                    canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
+                    contract_address: None,
+                    counterparties: None,
+                    fee_token: None,
+                    latest_dire_seq: 0,
+                    latest_ticket_seq: 0,
+                },
+                dire: Directive::AddChain(Chain {
+                    chain_id: "Bitcoin".to_string(),
+                    chain_type: ChainType::SettlementChain,
+                    chain_state: ChainState::Active,
+                    canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
+                    contract_address: None,
+                    counterparties: None,
+                    fee_token: None,
+                }),
+            },
+            Event::ReceivedTicket {
+                dst_chain: ChainWithSeq {
+                    chain_id: "Bitcoin".to_string(),
+                    chain_type: ChainType::SettlementChain,
+                    chain_state: ChainState::Active,
+                    canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
+                    contract_address: None,
+                    counterparties: None,
+                    fee_token: None,
+                    latest_dire_seq: 0,
+                    latest_ticket_seq: 0,
+                },
+                ticket: Ticket {
+                    ticket_id: Uuid::new_v4().to_string(),
+                    ticket_type: TicketType::Normal,
+                    ticket_time: 0,
+                    src_chain: "Bitcoin".to_string(),
+                    dst_chain: "EVM-Arbitrum".to_string(),
+                    action: TxAction::Transfer,
+                    token: "Bitcoin-RUNES-WTF".to_string(),
+                    amount: "1000".to_string(),
+                    sender: None,
+                    receiver: Principal::anonymous().to_string(),
+                    memo: None,
+                },
+            },
+        ];
+
+        let hub_state = replay(events.into_iter()).unwrap();
+
+        println!("{:?}", hub_state.owner);
+    }
 }

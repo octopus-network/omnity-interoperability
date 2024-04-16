@@ -131,20 +131,20 @@ impl HubState {
     pub fn settlement_chain(&self, token_id: &TokenId) -> Result<ChainId, Error> {
         self.tokens
             .get(token_id)
-            .map(|v| v.settlement_chain.to_string())
+            .map(|v| v.issue_chain.to_string())
             .ok_or(Error::NotFoundToken(token_id.to_string()))
     }
     //Determine whether the token is from the issuing chain
     pub fn is_origin(&self, chain_id: &ChainId, token_id: &TokenId) -> Result<bool, Error> {
         self.tokens
             .get(token_id)
-            .map(|v| v.settlement_chain.eq(chain_id))
+            .map(|v| v.issue_chain.eq(chain_id))
             .ok_or(Error::NotFoundChainToken(
                 token_id.to_string(),
                 chain_id.to_string(),
             ))
     }
-    pub fn save_chain(&mut self, chain: ChainWithSeq) -> Result<(), Error> {
+    pub fn add_chain(&mut self, chain: ChainWithSeq) -> Result<(), Error> {
         self.chains
             .insert(chain.chain_id.to_string(), chain.clone());
         // update auth
@@ -154,6 +154,41 @@ impl HubState {
         Ok(())
     }
 
+    pub fn update_chain_counterparties(
+        &mut self,
+        dst_chain_id: &ChainId,
+        counterparty: &ChainId,
+    ) -> Result<(), Error> {
+        self.chains
+            .get(dst_chain_id)
+            .as_mut()
+            .ok_or(Error::NotFoundChain(dst_chain_id.to_string()))
+            .map_or_else(
+                |e| Err(e),
+                |chain| {
+                    // excluds the deactive state
+                    if matches!(chain.chain_state, ChainState::Deactive) {
+                        info!(
+                            "dst chain {} is deactive, don`t push directive for it! ",
+                            chain.chain_id.to_string()
+                        );
+                    } else {
+                        if let Some(ref mut counterparties) = chain.counterparties {
+                            if !counterparties.contains(counterparty) {
+                                counterparties.push(counterparty.to_string());
+                            }
+                        } else {
+                            chain.counterparties = Some(vec![counterparty.to_string()])
+                        }
+                        //update chain info
+                        self.chains
+                            .insert(chain.chain_id.to_string(), chain.clone());
+                        record_event(&Event::UpdatedChainCounterparties(chain.clone()))
+                    }
+                    Ok(())
+                },
+            )
+    }
     pub fn chain(&self, chain_id: &ChainId) -> Result<ChainWithSeq, Error> {
         self.chains
             .get(chain_id)
@@ -225,7 +260,7 @@ impl HubState {
             )
     }
 
-    pub fn save_token(&mut self, token_meata: TokenMeta) -> Result<(), Error> {
+    pub fn add_token(&mut self, token_meata: TokenMeta) -> Result<(), Error> {
         self.tokens
             .insert(token_meata.token_id.to_string(), token_meata.clone());
         record_event(&Event::AddedToken(token_meata));
@@ -556,7 +591,7 @@ impl HubState {
                     if self
                         .ticket_queue
                         .iter()
-                        .find(|(seq_key, ticket)| seq_key.chain_id.eq(&ticket.dst_chain))
+                        .find(|(seq_key, _)| seq_key.chain_id.eq(&ticket.dst_chain))
                         .is_some()
                     {
                         //increase seq

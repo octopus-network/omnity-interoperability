@@ -1,51 +1,78 @@
-use std::cell::RefCell;
-use std::marker::PhantomData;
-use std::rc::Rc;
-
+use candid::CandidType;
+// use chrono::{DateTime, FixedOffset};
 use ic_log::{
     formatter::buffer::Buffer,
+    formatter::humantime::Rfc3339Timestamp,
     writer::{self, ConsoleWriter, InMemoryWriter, Writer},
     Builder, LogSettings, LoggerConfig,
 };
 use ic_stable_structures::{memory_manager::VirtualMemory, DefaultMemoryImpl, StableLog as IcLog};
-
+use ic_stable_structures::{storable::Bound, StableBTreeMap, Storable};
 use log::info;
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::{borrow::Cow, cell::RefCell};
+// use time::PrimitiveDateTime;
+// use time_macros::{datetime, format_description};
+
+use humantime::parse_rfc3339;
+use std::time::UNIX_EPOCH;
 
 type VMem = VirtualMemory<DefaultMemoryImpl>;
-pub type IcStableLog = IcLog<Vec<u8>, VMem, VMem>;
+pub type IcStableLog = IcLog<Vec<LogEntry>, VMem, VMem>;
 
 thread_local! {
-
-    static STABLE_LOGS: RefCell<StableLog> =RefCell::new(StableLog::default());
+    // static STABLE_LOGS: RefCell<StableLog> =RefCell::new(StableLog::default());
+    static STABLE_LOGS: RefCell<Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>> =RefCell::new(None);
 }
 
-#[derive(Deserialize, Serialize)]
-pub struct StableLog {
-    #[serde(skip)]
-    pub log_storage: Option<IcStableLog>,
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+pub struct LogEntry {
+    pub timstamp: u64,
+    pub log: String,
 }
 
-impl Default for StableLog {
-    fn default() -> Self {
-        Self { log_storage: None }
+impl Storable for LogEntry {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
     }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let log_entry =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        log_entry
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
 }
 
 pub struct StableLogWriter {}
 impl StableLogWriter {
-    pub fn init_stable_log(stable_log: StableLog) {
+    pub fn init_stable_log(stable_log: Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>) {
         STABLE_LOGS.with(|logs| {
             *logs.borrow_mut() = stable_log;
         });
     }
-    pub fn get_logs(offset: usize, limit: usize) -> Vec<String> {
+    pub fn get_logs(max_skip_timestamp: u64, offset: usize, limit: usize) -> Vec<String> {
         STABLE_LOGS.with(|cell| {
-            if let Some(logs) = cell.borrow().log_storage.as_ref() {
+            if let Some(logs) = cell.borrow().as_ref() {
                 logs.iter()
+                    .filter(|(time_str, _)| {
+                        let datetime =
+                            parse_rfc3339(&String::from_utf8_lossy(&time_str).to_string())
+                                .expect("Failed to parse timestamp");
+                        let timestamp = datetime
+                            .duration_since(UNIX_EPOCH)
+                            .expect("Time went backwards")
+                            .as_secs();
+                        timestamp >= max_skip_timestamp
+                    })
                     .skip(offset)
                     .take(limit)
-                    .map(|log| String::from_utf8_lossy(&log).to_string())
+                    .map(|(_, log)| String::from_utf8_lossy(&log).to_string())
                     .collect::<Vec<_>>()
             } else {
                 vec![]
@@ -57,9 +84,9 @@ impl StableLogWriter {
 impl Writer for StableLogWriter {
     fn print(&self, buf: &Buffer) -> std::io::Result<()> {
         STABLE_LOGS.with(|cell| {
-            if let Some(logs) = cell.borrow().log_storage.as_ref() {
-                //TODO: define a log entry to suppport retrieval by time
-                let _ = logs.append(&buf.bytes().to_vec());
+            if let Some(logs) = cell.borrow_mut().as_mut() {
+                let timestamp = format!("{}", Rfc3339Timestamp::now());
+                logs.insert(timestamp.into_bytes(), buf.bytes().to_vec());
             }
         });
 
@@ -93,7 +120,7 @@ impl LoggerConfigService {
     }
 }
 
-pub fn init_log(stable_log: StableLog) {
+pub fn init_log(stable_log: Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>) {
     let settings = LogSettings {
         in_memory_records: Some(256),
         log_filter: Some("info".to_string()),
@@ -128,6 +155,7 @@ pub fn init_log(stable_log: StableLog) {
 
 #[cfg(test)]
 mod tests {
+
     use ic_log::take_memory_records;
     use ic_stable_structures::memory_manager::{MemoryId, MemoryManager};
     use log::*;
@@ -139,11 +167,12 @@ mod tests {
         // log level: debug < info < error
 
         //default log level: info
-        init_log(StableLog::default());
+        init_log(None);
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
 
+        //
         // debug level
         LoggerConfigService::default().set_logger_filter("debug");
         info!("This info should be printed");
@@ -169,8 +198,9 @@ mod tests {
 
     #[test]
     fn test_stable_log() {
-        const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(0);
-        const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(1);
+        // const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(0);
+        // const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(1);
+        const LOG_MEMORY_ID: MemoryId = MemoryId::new(0);
         type InnerMemory = DefaultMemoryImpl;
         //type Memory = VirtualMemory<InnerMemory>;
         thread_local! {
@@ -179,47 +209,39 @@ mod tests {
             static MEMORY_MANAGER: RefCell<Option<MemoryManager<InnerMemory>>> =
                 RefCell::new(Some(MemoryManager::init(MEMORY.with(|m| m.borrow().clone().unwrap()))));
         }
-        let log_index_memory = MEMORY_MANAGER.with(|m| {
+        let log_memory = MEMORY_MANAGER.with(|m| {
             m.borrow()
                 .as_ref()
                 .expect("memory manager not initialized")
-                .get(LOG_INDEX_MEMORY_ID)
+                .get(LOG_MEMORY_ID)
         });
-        let log_data_memory = MEMORY_MANAGER.with(|m| {
-            m.borrow()
-                .as_ref()
-                .expect("memory manager not initialized")
-                .get(LOG_DATA_MEMORY_ID)
-        });
-        let logs = Some(
-            IcStableLog::init(log_index_memory, log_data_memory)
-                .expect("failed to initialize stable log"),
-        );
-        let stable_log = StableLog { log_storage: logs };
+
+        let stable_log = StableBTreeMap::init(log_memory);
         //default log level: info
-        init_log(stable_log);
+        init_log(Some(stable_log));
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
-
+        // sleep(std::time::Duration::from_secs(1));
         // debug level
         LoggerConfigService::default().set_logger_filter("debug");
         info!("This info should be printed");
         debug!("This debug should be printed");
         error!("This error should be printed");
-
+        // sleep(std::time::Duration::from_secs(1));
         // error
         LoggerConfigService::default().set_logger_filter("error");
         info!("This info should NOT be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
-
+        // sleep(std::time::Duration::from_secs(1));
         LoggerConfigService::default().set_logger_filter("info");
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
+        // sleep(std::time::Duration::from_secs(1));
 
-        let logs = StableLogWriter::get_logs(0, 12);
+        let logs = StableLogWriter::get_logs(0, 0, 12);
         for r in logs.iter() {
             print!("stable log: {}", r)
         }
