@@ -491,7 +491,6 @@ async fn submit_pending_requests() {
                                         btc_change_output: req.btc_change_output,
                                         submitted_at: ic_cdk::api::time(),
                                         fee_per_vbyte: Some(fee_millisatoshi_per_vbyte),
-                                        raw_tx: hex::encode(signed_tx.serialize()),
                                     },
                                 );
                             });
@@ -823,7 +822,6 @@ async fn finalize_requests() {
                     runes_change_output: runes_change,
                     btc_change_output: btc_change,
                     fee_per_vbyte: Some(tx_fee_per_vbyte),
-                    raw_tx: hex::encode(signed_tx.serialize()),
                 };
 
                 state::mutate_state(|s| {
@@ -1233,7 +1231,7 @@ pub fn build_unsigned_transaction(
     if input_btc_amount < btc_consumed {
         log!(
             P0,
-            "input btc amount: {} greater than btc cocnsumed: {}",
+            "input btc amount: {} greater than btc consumed: {}",
             input_btc_amount,
             btc_consumed,
         );
