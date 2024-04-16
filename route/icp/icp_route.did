@@ -67,6 +67,14 @@ type Token = record {
   issue_chain : text;
   symbol : text;
 };
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  issue_chain : text;
+  rune_id : opt text;
+  symbol : text;
+};
 service : (RouteArg) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
@@ -75,6 +83,6 @@ service : (RouteArg) -> {
   get_log_records : (nat64, nat64) -> (Logs) query;
   get_redeem_fee : (text) -> (opt nat64) query;
   get_token_ledger : (text) -> (opt principal) query;
-  get_token_list : () -> (vec Token) query;
+  get_token_list : () -> (vec TokenResp) query;
   mint_token_status : (text) -> (MintTokenStatus) query;
 }

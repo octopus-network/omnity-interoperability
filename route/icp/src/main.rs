@@ -1,4 +1,4 @@
-use candid::Principal;
+use candid::{CandidType, Principal};
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
@@ -14,7 +14,9 @@ use icp_route::updates::{self};
 use icp_route::{periodic_task, storage, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
 use log::{self};
 use omnity_types::log::{init_log, StableLog};
-use omnity_types::{Chain, ChainId, Token};
+use omnity_types::{Chain, ChainId, Token, TokenId};
+use serde::Serialize;
+use std::collections::HashMap;
 use std::time::Duration;
 
 #[init]
@@ -62,9 +64,42 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     })
 }
 
+#[derive(CandidType, Clone, Debug, Serialize)]
+pub struct TokenResp {
+    pub token_id: TokenId,
+    pub symbol: String,
+    // the token`s issuse chain
+    pub issue_chain: ChainId,
+    pub decimals: u8,
+    pub icon: Option<String>,
+    pub rune_id: Option<String>,
+}
+
+impl From<Token> for TokenResp {
+    fn from(value: Token) -> Self {
+        TokenResp {
+            token_id: value.token_id,
+            symbol: value.symbol,
+            issue_chain: value.issue_chain,
+            decimals: value.decimals,
+            icon: value.icon,
+            rune_id: value
+                .metadata
+                .unwrap_or(HashMap::default())
+                .get("rune_id")
+                .cloned(),
+        }
+    }
+}
+
 #[query]
-fn get_token_list() -> Vec<Token> {
-    read_state(|s| s.tokens.iter().map(|(_, token)| token.clone()).collect())
+fn get_token_list() -> Vec<TokenResp> {
+    read_state(|s| {
+        s.tokens
+            .iter()
+            .map(|(_, token)| token.clone().into())
+            .collect()
+    })
 }
 
 #[query]
