@@ -21,7 +21,7 @@ const MAX_EVENTS_PER_QUERY: usize = 2000;
 type EventLog = Log<Vec<u8>, Memory, Memory>;
 
 thread_local! {
-    /// The event storage
+    // The event storage
     static EVENTS: RefCell<EventLog> =  RefCell::new(init_event_log())
 }
 

@@ -22,12 +22,12 @@ type ChainWithSeq = record {
   fee_token : opt text;
   canister_id : text;
   chain_id : text;
-  latest_ticket_seq : nat64;
+  latest_ticket_seq : opt nat64;
   counterparties : opt vec text;
   chain_state : ChainState;
   chain_type : ChainType;
   contract_address : opt text;
-  latest_dire_seq : nat64;
+  latest_dire_seq : opt nat64;
 };
 type Directive = variant {
   UpdateFee : Factor;
@@ -150,6 +150,7 @@ service : () -> {
     ) query;
   get_events : (GetEventsArg) -> (vec Event) query;
   get_fees : (opt text, opt text, nat64, nat64) -> (Result_4) query;
+  get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
   get_tokens : (opt text, opt text, nat64, nat64) -> (Result_5) query;
   get_total_tx : () -> (Result_6) query;
   get_tx : (text) -> (Result_7) query;

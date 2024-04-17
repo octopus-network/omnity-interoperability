@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 
 use log::info;
@@ -176,67 +178,53 @@ pub async fn get_total_tx() -> Result<u64, Error> {
     metrics::get_total_tx().await
 }
 
+#[update(guard = "is_owner")]
+pub async fn set_logger_filter(filter: String) {
+    LoggerConfigService::default().set_logger_filter(&filter);
+}
+
+#[query]
+pub async fn get_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
+    let max_skip_timestamp = time.unwrap_or(0);
+    StableLogWriter::get_logs(max_skip_timestamp, offset, limit)
+}
+
+fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, HttpResponse> {
+    match req.raw_query_param(param_name) {
+        Some(arg) => match arg.parse() {
+            Ok(value) => Ok(value),
+            Err(_) => Err(HttpResponseBuilder::bad_request()
+                .with_body_and_content_length(format!(
+                    "failed to parse the '{}' parameter",
+                    param_name
+                ))
+                .build()),
+        },
+        None => Err(HttpResponseBuilder::bad_request()
+            .with_body_and_content_length(format!("must provide the '{}' parameter", param_name))
+            .build()),
+    }
+}
+
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    // if ic_cdk::api::data_certificate().is_none() {
-    //     ic_cdk::trap("update call rejected");
-    // }
-
     if req.path() == "/logs" {
         use serde_json;
-        use std::str::FromStr;
-
-        let max_skip_timestamp = match req.raw_query_param("time") {
-            Some(arg) => match u64::from_str(arg) {
-                Ok(value) => value,
-                Err(_) => {
-                    return HttpResponseBuilder::bad_request()
-                        .with_body_and_content_length("failed to parse the 'time' parameter")
-                        .build()
-                }
-            },
-            None => 0,
+        let max_skip_timestamp = parse_param::<u64>(&req, "time").unwrap_or(0);
+        let offset = match parse_param::<usize>(&req, "offset") {
+            Ok(value) => value,
+            Err(err) => return err,
         };
-        let offset = match req.raw_query_param("offset") {
-            Some(arg) => match u64::from_str(arg) {
-                Ok(value) => value,
-                Err(_) => {
-                    return HttpResponseBuilder::bad_request()
-                        .with_body_and_content_length("failed to parse the 'offset' parameter")
-                        .build()
-                }
-            },
-            None => {
-                return HttpResponseBuilder::bad_request()
-                    .with_body_and_content_length("must provide the 'offset' parameter")
-                    .build()
-            }
-        };
-        let limit = match req.raw_query_param("limit") {
-            Some(arg) => match u64::from_str(arg) {
-                Ok(value) => value,
-                Err(_) => {
-                    return HttpResponseBuilder::bad_request()
-                        .with_body_and_content_length("failed to parse the 'limit' parameter")
-                        .build()
-                }
-            },
-            None => {
-                return HttpResponseBuilder::bad_request()
-                    .with_body_and_content_length("must provide the 'limit' parameter")
-                    .build()
-            }
+        let limit = match parse_param::<usize>(&req, "limit") {
+            Ok(value) => value,
+            Err(err) => return err,
         };
         info!(
             "log req, max_skip_timestamp: {}, offset: {}, limit: {}",
             max_skip_timestamp, offset, limit
         );
 
-        let logs = StableLogWriter::get_logs(
-            max_skip_timestamp,
-            offset.try_into().unwrap(),
-            limit.try_into().unwrap(),
-        );
+        let logs = StableLogWriter::get_logs(max_skip_timestamp, offset, limit);
         HttpResponseBuilder::ok()
             .header("Content-Type", "application/json; charset=utf-8")
             .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())
@@ -244,11 +232,6 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     } else {
         HttpResponseBuilder::not_found().build()
     }
-}
-
-#[update(guard = "is_owner")]
-pub async fn set_logger_filter(filter: String) {
-    LoggerConfigService::default().set_logger_filter(&filter);
 }
 
 #[query]

@@ -16,7 +16,6 @@ pub mod signer;
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
 pub type Timestamp = u64;
-// pub type Proposal = Directive;
 pub type ChainId = String;
 pub type DstChain = ChainId;
 pub type TokenId = String;
@@ -71,8 +70,6 @@ impl Storable for DireKey {
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, Default)]
 pub struct DireMap {
-    // pub seq: Seq,
-    // pub dire: Directive,
     pub dires: BTreeMap<Seq, Directive>,
 }
 
@@ -429,12 +426,10 @@ pub struct TokenOnChain {
     pub chain_id: ChainId,
     pub token_id: TokenId,
     pub amount: u128,
-    // pub chain_type: ChainType,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
 pub struct ChainCondition {
-    // chain_id: Option<ChainId>,
     pub chain_type: Option<ChainType>,
     pub chain_state: Option<ChainState>,
 }
@@ -443,14 +438,12 @@ pub struct ChainCondition {
 pub struct TokenCondition {
     pub token_id: Option<TokenId>,
     pub chain_id: Option<ChainId>,
-    // pub chain_type: Option<ChainType>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 pub struct TxCondition {
     pub src_chain: Option<ChainId>,
     pub dst_chain: Option<ChainId>,
-    // chain_type: Option<ChainType>,
     pub token_id: Option<TokenId>,
     // time range: from .. end
     pub time_range: Option<(u64, u64)>,
