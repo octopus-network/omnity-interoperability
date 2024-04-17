@@ -24,15 +24,12 @@ pub type Amount = u128;
 pub type ChainId = String;
 pub type DstChain = ChainId;
 pub type TokenId = String;
-// pub type Directive = Proposal;
 
 /// Directive Queue
 /// K: DstChain, V:  BTreeMap<Seq, Directive>
-// pub type DireQueue = StableBTreeMap<DstChain, BTreeMap<Seq, Directive>, Memory>;
 pub type DireQueue = StableBTreeMap<DireKey, Directive, Memory>;
 /// Ticket Queue
 /// K: DstChain, V: BTreeMap<Seq, Ticket>
-// pub type TicketQueue = StableBTreeMap<DstChain, BTreeMap<Seq, Ticket>, Memory>;
 pub type TicketQueue = StableBTreeMap<SeqKey, Ticket, Memory>;
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
@@ -188,7 +185,7 @@ pub struct TokenMeta {
     pub icon: Option<String>,
     pub metadata: HashMap<String, String>,
     pub dst_chains: Vec<ChainId>,
-    // pub token_constract_address: Option<String>,
+   
 }
 
 impl Storable for TokenMeta {

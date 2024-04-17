@@ -325,18 +325,16 @@ impl HubState {
                         );
                     } else {
                         //increase seq
-                        chain.latest_dire_seq =
-                            Some(chain.latest_dire_seq.map_or(0, |seq| seq + 1));
+                        let latest_seq = chain.latest_dire_seq.map_or(0, |seq| seq + 1);
+                        chain.latest_dire_seq = Some(latest_seq);
                         //update chain info
                         self.chains
                             .insert(chain.chain_id.to_string(), chain.clone());
 
-                        let seq_key = SeqKey::from(
-                            chain.chain_id.to_string(),
-                            chain.latest_dire_seq.unwrap(),
+                        self.dire_queue.insert(
+                            SeqKey::from(chain.chain_id.to_string(), latest_seq),
+                            dire.clone(),
                         );
-
-                        self.dire_queue.insert(seq_key, dire.clone());
                     }
                     Ok(())
                 },
@@ -581,8 +579,8 @@ impl HubState {
                         return Err(Error::DeactiveChain(chain.chain_id.to_string()));
                     }
                     //increase seq
-                    chain.latest_ticket_seq =
-                        Some(chain.latest_ticket_seq.map_or(0, |seq| seq + 1));
+                    let latest_seq = chain.latest_ticket_seq.map_or(0, |seq| seq + 1);
+                    chain.latest_ticket_seq = Some(latest_seq);
 
                     //update chain info
                     self.chains
@@ -590,10 +588,7 @@ impl HubState {
 
                     // add new ticket
                     self.ticket_queue.insert(
-                        SeqKey::from(
-                            ticket.dst_chain.to_string(),
-                            chain.latest_ticket_seq.unwrap(),
-                        ),
+                        SeqKey::from(ticket.dst_chain.to_string(), latest_seq),
                         ticket.clone(),
                     );
                     //save ticket

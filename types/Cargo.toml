@@ -32,6 +32,6 @@ ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch =
 # time = {version="0.3.36",features = ["parsing"]}
 humantime = "2.1"
 
-[dev-dependencies.tokio]
-version = "1.35.1"
-features = ["full"]
+[dev-dependencies]
+tokio = { version = "1.35.1", features = ["full"] }
+rand = "0.8.4"

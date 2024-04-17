@@ -1,5 +1,4 @@
 use candid::CandidType;
-// use chrono::{DateTime, FixedOffset};
 use ic_log::{
     formatter::buffer::Buffer,
     formatter::humantime::Rfc3339Timestamp,
@@ -13,8 +12,6 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::{borrow::Cow, cell::RefCell};
-// use time::PrimitiveDateTime;
-// use time_macros::{datetime, format_description};
 
 use humantime::parse_rfc3339;
 use std::time::UNIX_EPOCH;
@@ -23,7 +20,6 @@ type VMem = VirtualMemory<DefaultMemoryImpl>;
 pub type IcStableLog = IcLog<Vec<LogEntry>, VMem, VMem>;
 
 thread_local! {
-    // static STABLE_LOGS: RefCell<StableLog> =RefCell::new(StableLog::default());
     static STABLE_LOGS: RefCell<Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>> =RefCell::new(None);
 }
 
@@ -49,6 +45,14 @@ impl Storable for LogEntry {
     const BOUND: Bound = Bound::Unbounded;
 }
 
+fn parse_timestamp(time_str: &Vec<u8>) -> u64 {
+    let datetime = parse_rfc3339(&String::from_utf8_lossy(&time_str).to_string())
+        .expect("Failed to parse timestamp");
+    datetime
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs()
+}
 pub struct StableLogWriter {}
 impl StableLogWriter {
     pub fn init_stable_log(stable_log: Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>) {
@@ -61,13 +65,7 @@ impl StableLogWriter {
             if let Some(logs) = cell.borrow().as_ref() {
                 logs.iter()
                     .filter(|(time_str, _)| {
-                        let datetime =
-                            parse_rfc3339(&String::from_utf8_lossy(&time_str).to_string())
-                                .expect("Failed to parse timestamp");
-                        let timestamp = datetime
-                            .duration_since(UNIX_EPOCH)
-                            .expect("Time went backwards")
-                            .as_secs();
+                        let timestamp = parse_timestamp(time_str);
                         timestamp >= max_skip_timestamp
                     })
                     .skip(offset)
@@ -85,6 +83,7 @@ impl Writer for StableLogWriter {
     fn print(&self, buf: &Buffer) -> std::io::Result<()> {
         STABLE_LOGS.with(|cell| {
             if let Some(logs) = cell.borrow_mut().as_mut() {
+                // string format: 2018-02-13T23:08:32.123000000Z
                 let timestamp = format!("{}", Rfc3339Timestamp::now());
                 logs.insert(timestamp.into_bytes(), buf.bytes().to_vec());
             }
@@ -122,7 +121,7 @@ impl LoggerConfigService {
 
 pub fn init_log(stable_log: Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>) {
     let settings = LogSettings {
-        in_memory_records: Some(256),
+        in_memory_records: None,
         log_filter: Some("info".to_string()),
         enable_console: true,
     };
@@ -159,8 +158,46 @@ mod tests {
     use ic_log::take_memory_records;
     use ic_stable_structures::memory_manager::{MemoryId, MemoryManager};
     use log::*;
+    use rand::Rng;
 
     use super::*;
+
+    #[test]
+    fn test_timestamp() {
+        // string format: 2018-02-13T23:08:32.123000000Z
+        let time_str = format!("{}", Rfc3339Timestamp::now());
+        println!("{}", time_str);
+        let datetime = parse_rfc3339(&time_str).expect("Failed to parse timestamp");
+        println!("{:?}", datetime);
+
+        let timestamp = datetime
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_secs();
+        println!("{}", timestamp);
+
+        let input = "2024-04-17T01:12:04.000000000Z";
+        println!("{}", input);
+        let (head, tail) = input.split_at(input.find('.').unwrap() + 1);
+        let (zeros, z) = tail.split_at(tail.find('Z').unwrap());
+        if zeros.chars().all(|c| c == '0') && zeros.len() == 9 {
+            let random_number: u64 = rand::thread_rng().gen_range(100000000..1000000000);
+            println!("{}{}{}", head, random_number, z);
+        } else {
+            println!("{}", input);
+        }
+
+        let time_str = "2024-04-17T02:34:52.297978721Z";
+        let datetime = parse_rfc3339(&time_str).expect("Failed to parse timestamp");
+        let timestamp = datetime
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_secs();
+        println!(
+            "from time_str: {} parsed to timestamp: {}",
+            time_str, timestamp
+        );
+    }
 
     #[test]
     fn update_filter_at_runtime() {
@@ -198,11 +235,9 @@ mod tests {
 
     #[test]
     fn test_stable_log() {
-        // const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(0);
-        // const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(1);
         const LOG_MEMORY_ID: MemoryId = MemoryId::new(0);
         type InnerMemory = DefaultMemoryImpl;
-        //type Memory = VirtualMemory<InnerMemory>;
+
         thread_local! {
             static MEMORY: RefCell<Option<InnerMemory>> = RefCell::new(Some(InnerMemory::default()));
 
@@ -222,24 +257,23 @@ mod tests {
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
-        // sleep(std::time::Duration::from_secs(1));
+     
         // debug level
         LoggerConfigService::default().set_logger_filter("debug");
         info!("This info should be printed");
         debug!("This debug should be printed");
         error!("This error should be printed");
-        // sleep(std::time::Duration::from_secs(1));
+       
         // error
         LoggerConfigService::default().set_logger_filter("error");
         info!("This info should NOT be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
-        // sleep(std::time::Duration::from_secs(1));
+     
         LoggerConfigService::default().set_logger_filter("info");
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
-        // sleep(std::time::Duration::from_secs(1));
 
         let logs = StableLogWriter::get_logs(0, 0, 12);
         for r in logs.iter() {
