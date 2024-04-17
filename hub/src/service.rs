@@ -1,12 +1,10 @@
-use std::str::FromStr;
-
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 
 use log::info;
 use omnity_hub::event::{self, Event, GetEventsArg};
 
 use crate::memory::init_stable_log;
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use omnity_hub::auth::{auth, is_owner};
 use omnity_hub::memory;
 use omnity_hub::metrics;
@@ -189,49 +187,9 @@ pub async fn get_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<Str
     StableLogWriter::get_logs(max_skip_timestamp, offset, limit)
 }
 
-fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, HttpResponse> {
-    match req.raw_query_param(param_name) {
-        Some(arg) => match arg.parse() {
-            Ok(value) => Ok(value),
-            Err(_) => Err(HttpResponseBuilder::bad_request()
-                .with_body_and_content_length(format!(
-                    "failed to parse the '{}' parameter",
-                    param_name
-                ))
-                .build()),
-        },
-        None => Err(HttpResponseBuilder::bad_request()
-            .with_body_and_content_length(format!("must provide the '{}' parameter", param_name))
-            .build()),
-    }
-}
-
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    if req.path() == "/logs" {
-        use serde_json;
-        let max_skip_timestamp = parse_param::<u64>(&req, "time").unwrap_or(0);
-        let offset = match parse_param::<usize>(&req, "offset") {
-            Ok(value) => value,
-            Err(err) => return err,
-        };
-        let limit = match parse_param::<usize>(&req, "limit") {
-            Ok(value) => value,
-            Err(err) => return err,
-        };
-        info!(
-            "log req, max_skip_timestamp: {}, offset: {}, limit: {}",
-            max_skip_timestamp, offset, limit
-        );
-
-        let logs = StableLogWriter::get_logs(max_skip_timestamp, offset, limit);
-        HttpResponseBuilder::ok()
-            .header("Content-Type", "application/json; charset=utf-8")
-            .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())
-            .build()
-    } else {
-        HttpResponseBuilder::not_found().build()
-    }
+    StableLogWriter::http_request(req)
 }
 
 #[query]

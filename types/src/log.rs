@@ -9,11 +9,13 @@ use ic_stable_structures::{memory_manager::VirtualMemory, DefaultMemoryImpl, Sta
 use ic_stable_structures::{storable::Bound, StableBTreeMap, Storable};
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 use std::rc::Rc;
 use std::{borrow::Cow, cell::RefCell};
+use std::{marker::PhantomData, str::FromStr};
 
 use humantime::parse_rfc3339;
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use serde_json;
 use std::time::UNIX_EPOCH;
 
 type VMem = VirtualMemory<DefaultMemoryImpl>;
@@ -76,6 +78,51 @@ impl StableLogWriter {
                 vec![]
             }
         })
+    }
+    fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, HttpResponse> {
+        match req.raw_query_param(param_name) {
+            Some(arg) => match arg.parse() {
+                Ok(value) => Ok(value),
+                Err(_) => Err(HttpResponseBuilder::bad_request()
+                    .with_body_and_content_length(format!(
+                        "failed to parse the '{}' parameter",
+                        param_name
+                    ))
+                    .build()),
+            },
+            None => Err(HttpResponseBuilder::bad_request()
+                .with_body_and_content_length(format!(
+                    "must provide the '{}' parameter",
+                    param_name
+                ))
+                .build()),
+        }
+    }
+
+    pub fn http_request(req: HttpRequest) -> HttpResponse {
+        if req.path() == "/logs" {
+            let max_skip_timestamp = Self::parse_param::<u64>(&req, "time").unwrap_or(0);
+            let offset = match Self::parse_param::<usize>(&req, "offset") {
+                Ok(value) => value,
+                Err(err) => return err,
+            };
+            let limit = match Self::parse_param::<usize>(&req, "limit") {
+                Ok(value) => value,
+                Err(err) => return err,
+            };
+            info!(
+                "request params: max_skip_timestamp: {}, offset: {}, limit: {}",
+                max_skip_timestamp, offset, limit
+            );
+
+            let logs = StableLogWriter::get_logs(max_skip_timestamp, offset, limit);
+            HttpResponseBuilder::ok()
+                .header("Content-Type", "application/json; charset=utf-8")
+                .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())
+                .build()
+        } else {
+            HttpResponseBuilder::not_found().build()
+        }
     }
 }
 
@@ -257,19 +304,19 @@ mod tests {
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
-     
+
         // debug level
         LoggerConfigService::default().set_logger_filter("debug");
         info!("This info should be printed");
         debug!("This debug should be printed");
         error!("This error should be printed");
-       
+
         // error
         LoggerConfigService::default().set_logger_filter("error");
         info!("This info should NOT be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
-     
+
         LoggerConfigService::default().set_logger_filter("info");
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
