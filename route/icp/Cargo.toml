@@ -32,6 +32,8 @@ ic-icrc1-ledger = {git = "https://github.com/dfinity/ic", tag = "release-2024-01
 omnity_types = { path = "../../types" }
 ic-ledger-types = "0.9.0"
 
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
+
 [dev-dependencies]
 ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
