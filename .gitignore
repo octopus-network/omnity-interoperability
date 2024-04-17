@@ -23,7 +23,7 @@ dist/
 # environment variables
 .env
 
-Cargo.lock
+route/ethl2/Cargo.lock
 
 # log
 *.log
