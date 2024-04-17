@@ -84,6 +84,7 @@ pub async fn generate_ticket(
         hub_principal,
         Ticket {
             ticket_id: ticket_id.clone(),
+            ticket_type: omnity_types::TicketType::Normal,
             ticket_time: ic_cdk::api::time(),
             src_chain: chain_id,
             dst_chain: req.target_chain_id.clone(),

@@ -1,29 +1,28 @@
-use candid::{CandidType, Principal};
+use candid::Principal;
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
 use ic_ledger_types::AccountIdentifier;
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg};
+use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{read_state, replace_state, take_state, MintTokenStatus, RouteState};
 use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{periodic_task, storage, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
+use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
 use log::{self};
-use omnity_types::log::{init_log, StableLog};
-use omnity_types::{Chain, ChainId, Token, TokenId};
-use serde::Serialize;
-use std::collections::HashMap;
+use omnity_types::log::init_log;
+use omnity_types::{Chain, ChainId};
 use std::time::Duration;
 
 #[init]
 fn init(args: RouteArg) {
     match args {
         RouteArg::Init(args) => {
-            init_log(StableLog::default());
+            init_log(Some(init_stable_log()));
             storage::record_event(&Event::Init(args.clone()));
             lifecycle::init::init(args);
             set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
@@ -62,34 +61,6 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
                 MintTokenStatus::Finalized { block_index }
             })
     })
-}
-
-#[derive(CandidType, Clone, Debug, Serialize)]
-pub struct TokenResp {
-    pub token_id: TokenId,
-    pub symbol: String,
-    // the token`s issuse chain
-    pub issue_chain: ChainId,
-    pub decimals: u8,
-    pub icon: Option<String>,
-    pub rune_id: Option<String>,
-}
-
-impl From<Token> for TokenResp {
-    fn from(value: Token) -> Self {
-        TokenResp {
-            token_id: value.token_id,
-            symbol: value.symbol,
-            issue_chain: value.issue_chain,
-            decimals: value.decimals,
-            icon: value.icon,
-            rune_id: value
-                .metadata
-                .unwrap_or(HashMap::default())
-                .get("rune_id")
-                .cloned(),
-        }
-    }
 }
 
 #[query]
