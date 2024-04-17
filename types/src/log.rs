@@ -257,19 +257,19 @@ mod tests {
         info!("This info should be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
-     
+
         // debug level
         LoggerConfigService::default().set_logger_filter("debug");
         info!("This info should be printed");
         debug!("This debug should be printed");
         error!("This error should be printed");
-       
+
         // error
         LoggerConfigService::default().set_logger_filter("error");
         info!("This info should NOT be printed");
         debug!("This debug should NOT be printed");
         error!("This error should be printed");
-     
+
         LoggerConfigService::default().set_logger_filter("info");
         info!("This info should be printed");
         debug!("This debug should NOT be printed");

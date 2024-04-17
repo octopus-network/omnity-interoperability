@@ -1,4 +1,6 @@
 use candid::Principal;
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_cdk::api::management_canister::main::CanisterStatusResponse;
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
@@ -12,13 +14,14 @@ use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
+use icp_route::{
+    manage_icrc_canister, periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL,
+};
 use log::{self, info};
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::str::FromStr;
 use std::time::Duration;
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 
 #[init]
 fn init(args: RouteArg) {
@@ -42,6 +45,44 @@ fn check_anonymous_caller() {
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
     updates::generate_ticket(args).await
+}
+
+#[update]
+async fn stop_icrc_ledger(icrc_ledger_id: Principal) -> Result<(), String> {
+    assert_eq!(ic_cdk::caller(), ic_cdk::api::id());
+    manage_icrc_canister::stop_icrc_ledger(icrc_ledger_id)
+        .await
+        .and_then(|_| Ok(()))
+        .map_err(|(_, reason)| reason)
+}
+
+#[update]
+async fn start_icrc_ledger(icrc_ledger_id: Principal) -> Result<(), String> {
+    assert_eq!(ic_cdk::caller(), ic_cdk::api::id());
+    manage_icrc_canister::start_icrc_ledger(icrc_ledger_id)
+        .await
+        .and_then(|_| Ok(()))
+        .map_err(|(_, reason)| reason)
+}
+
+#[update]
+async fn delete_icrc_canister(icrc_ledger_id: Principal) -> Result<(), String> {
+    assert_eq!(ic_cdk::caller(), ic_cdk::api::id());
+    manage_icrc_canister::delete_icrc_canister(icrc_ledger_id)
+        .await
+        .and_then(|_| Ok(()))
+        .map_err(|(_, reason)| reason)
+}
+
+#[update]
+pub async fn icrc_canister_status(
+    icrc_ledger_id: Principal,
+) -> Result<CanisterStatusResponse, String> {
+    assert_eq!(ic_cdk::caller(), ic_cdk::api::id());
+    manage_icrc_canister::icrc_canister_status(icrc_ledger_id)
+        .await
+        .and_then(|(e,)| Ok(e))
+        .map_err(|(_, reason)| reason)
 }
 
 #[query]
@@ -160,7 +201,6 @@ fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, Htt
             .build()),
     }
 }
-
 
 #[pre_upgrade]
 fn pre_upgrade() {

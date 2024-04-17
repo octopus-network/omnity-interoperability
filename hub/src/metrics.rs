@@ -5,7 +5,6 @@ use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Error, Ticket, TicketId, Token, TokenId, TokenOnChain,
 };
 
-
 pub async fn get_chains(
     chain_type: Option<ChainType>,
     chain_state: Option<ChainState>,
@@ -39,7 +38,6 @@ pub async fn get_chains(
     Ok(chains)
 }
 
-
 pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     info!("get_chain chain_id: {:?} ", chain_id);
     with_state(|hub_state| {
@@ -50,7 +48,6 @@ pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
         }
     })
 }
-
 
 pub async fn get_tokens(
     chain_id: Option<ChainId>,
@@ -168,7 +165,6 @@ pub async fn get_chain_tokens(
     Ok(tokens_on_chain)
 }
 
-
 pub async fn get_txs(
     src_chain: Option<ChainId>,
     dst_chain: Option<ChainId>,
@@ -177,7 +173,6 @@ pub async fn get_txs(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<Ticket>, Error> {
-    
     info!(
         "get_txs condition: src chain:{:?},  dst chain:{:?},  token id:{:?}, time range:{:?}, offset: {}, limit: {}",
         src_chain, dst_chain, token_id, time_range, offset, limit
@@ -213,7 +208,6 @@ pub async fn get_txs(
     Ok(filtered_tickets)
 }
 
-
 pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
     info!("get_tx ticket_id: {:?} ", ticket_id);
     with_state(|hub_state| {
@@ -228,14 +222,12 @@ pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
     })
 }
 
-
 pub async fn get_total_tx() -> Result<u64, Error> {
     with_state(|hub_state| {
         let total_num = hub_state.cross_ledger.len() as u64;
         Ok(total_num)
     })
 }
-
 
 pub async fn get_chain_type(chain_id: ChainId) -> Result<ChainType, Error> {
     with_state(|hub_state| {

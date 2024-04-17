@@ -1,5 +1,6 @@
 use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
+use ic_cdk::api::management_canister::main::{CanisterStatusResponse, CanisterStatusType};
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
@@ -280,6 +281,81 @@ impl RouteSetup {
             Result<Nat, ApproveError>
         )
         .unwrap();
+    }
+
+    pub fn stop_icrc_ledger(&self, icrc_ledger_id: Principal) {
+        let _ = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.route_id.into(),
+                        self.route_id,
+                        "stop_icrc_ledger",
+                        Encode!(&icrc_ledger_id).unwrap(),
+                    )
+                    .expect("failed to stop icrc ledger")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
+    pub fn start_icrc_ledger(&self, icrc_ledger_id: Principal) {
+        let _ = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.route_id.into(),
+                        self.route_id,
+                        "start_icrc_ledger",
+                        Encode!(&icrc_ledger_id).unwrap(),
+                    )
+                    .expect("failed to start icrc ledger")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
+    pub fn delete_icrc_ledger(&self, icrc_ledger_id: Principal) {
+        let _ = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.route_id.into(),
+                        self.route_id,
+                        "delete_icrc_canister",
+                        Encode!(&icrc_ledger_id).unwrap(),
+                    )
+                    .expect("failed to delete icrc ledger")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
+    pub fn canister_status(
+        &self,
+        icrc_ledger_id: Principal,
+    ) -> Result<CanisterStatusResponse, String> {
+        let r = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.route_id.into(),
+                        self.route_id,
+                        "icrc_canister_status",
+                        Encode!(&icrc_ledger_id).unwrap(),
+                    )
+                    .expect("failed to get canister status")
+            ),
+            Result<CanisterStatusResponse, String>
+        )
+        .unwrap();
+        return r;
     }
 
     pub fn get_token_ledger(&self, token_id: String) -> CanisterId {
@@ -589,4 +665,31 @@ fn test_mint_multi_tokens() {
     let ledger_id2 = route.get_token_ledger(TOKEN_ID2.into());
     let balance = route.icrc1_balance_of(ledger_id2, route.caller.into());
     assert_eq!(balance, Nat::from_str("1000000").unwrap());
+}
+
+#[test]
+fn test_icrc_control() -> Result<(), String> {
+    let route = RouteSetup::new();
+    add_chain(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    let token_ledger = route.get_token_ledger(TOKEN_ID1.into());
+
+    route.stop_icrc_ledger(token_ledger.into());
+    let status = route.canister_status(token_ledger.into())?;
+    assert!(matches!(status.status, CanisterStatusType::Stopped));
+
+    route.start_icrc_ledger(token_ledger.into());
+    let status = route.canister_status(token_ledger.into())?;
+    assert!(matches!(status.status, CanisterStatusType::Running));
+
+    // must be stopped before it is deleted
+    route.stop_icrc_ledger(token_ledger.into());
+    route.delete_icrc_ledger(token_ledger.into());
+    let result = route.canister_status(token_ledger.into());
+    assert!(result
+        .err()
+        .unwrap()
+        .contains(&format!("Canister {} not found.", token_ledger.to_string())));
+
+    Result::Ok(())
 }
