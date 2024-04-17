@@ -14,16 +14,16 @@ use omnity_types::Token;
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum AddNewTokenError {
-    AleardyAdded(String),
+    AlreadyAdded(String),
     CreateLedgerErr(String),
 }
 
 pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
     if read_state(|s| s.tokens.contains_key(&token.token_id)) {
-        return Err(AddNewTokenError::AleardyAdded(token.token_id));
+        return Err(AddNewTokenError::AlreadyAdded(token.token_id));
     }
 
-    let record = install_icrc2_ledger(token.token_id.clone(), token.symbol.clone(), token.decimals)
+    let record = install_icrc2_ledger(token.name.clone(), token.symbol.clone(), token.decimals)
         .await
         .map_err(AddNewTokenError::CreateLedgerErr)?;
 

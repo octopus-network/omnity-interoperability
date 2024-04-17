@@ -237,7 +237,10 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     .chains
                     .insert(dst_chain.chain_id.to_string(), dst_chain.clone());
                 hub_state.dire_queue.insert(
-                    SeqKey::from(dst_chain.chain_id.to_string(), dst_chain.latest_dire_seq.unwrap()),
+                    SeqKey::from(
+                        dst_chain.chain_id.to_string(),
+                        dst_chain.latest_dire_seq.unwrap(),
+                    ),
                     dire,
                 );
             }
@@ -253,7 +256,10 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     .insert(ticket.dst_chain.to_string(), dst_chain.clone());
                 // add new ticket to queue
                 hub_state.ticket_queue.insert(
-                    SeqKey::from(ticket.dst_chain.to_string(), dst_chain.latest_ticket_seq.unwrap()),
+                    SeqKey::from(
+                        ticket.dst_chain.to_string(),
+                        dst_chain.latest_ticket_seq.unwrap(),
+                    ),
                     ticket.clone(),
                 );
                 //save ticket to ledger
@@ -326,7 +332,7 @@ mod tests {
                     counterparties: None,
                     fee_token: None,
                     latest_dire_seq: Some(0),
-                latest_ticket_seq: Some(0),
+                    latest_ticket_seq: Some(0),
                 },
                 state: ToggleState {
                     chain_id: "Bitcoin".to_string(),
@@ -347,7 +353,7 @@ mod tests {
                     counterparties: None,
                     fee_token: None,
                     latest_dire_seq: Some(0),
-                latest_ticket_seq: Some(0),
+                    latest_ticket_seq: Some(0),
                 },
                 dire: Directive::AddChain(Chain {
                     chain_id: "Bitcoin".to_string(),
@@ -369,7 +375,7 @@ mod tests {
                     counterparties: None,
                     fee_token: None,
                     latest_dire_seq: Some(0),
-                latest_ticket_seq: Some(0),
+                    latest_ticket_seq: Some(0),
                 },
                 ticket: Ticket {
                     ticket_id: Uuid::new_v4().to_string(),

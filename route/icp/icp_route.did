@@ -1,6 +1,8 @@
 type Chain = record {
   fee_token : opt text;
+  canister_id : text;
   chain_id : text;
+  counterparties : opt vec text;
   chain_state : ChainState;
   chain_type : ChainType;
   contract_address : opt text;
@@ -62,16 +64,15 @@ type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
-  metadata : opt vec record { text; text };
+  metadata : vec record { text; text };
   icon : opt text;
-  issue_chain : text;
+  name : text;
   symbol : text;
 };
 type TokenResp = record {
   decimals : nat8;
   token_id : text;
   icon : opt text;
-  issue_chain : text;
   rune_id : opt text;
   symbol : text;
 };

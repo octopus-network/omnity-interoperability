@@ -8,6 +8,7 @@ use icp_route::{
     lifecycle::init::{InitArgs, RouteArg},
     state::MintTokenStatus,
     updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq},
+    TokenResp,
 };
 use icrc_ledger_types::{
     icrc1::account::Account,
@@ -237,7 +238,7 @@ impl RouteSetup {
         .unwrap()
     }
 
-    pub fn get_token_list(&self) -> Vec<Token> {
+    pub fn get_token_list(&self) -> Vec<TokenResp> {
         Decode!(
             &assert_reply(
                 self.env
@@ -249,7 +250,7 @@ impl RouteSetup {
                     )
                     .expect("failed to get token list")
             ),
-            Vec<Token>
+            Vec<TokenResp>
         )
         .unwrap()
     }
@@ -418,9 +419,11 @@ impl RouteSetup {
 fn add_chain(route: &RouteSetup) {
     route.push_directives(vec![Directive::AddChain(Chain {
         chain_id: SETTLEMENT_CHAIN.into(),
+        canister_id: route.route_id.to_string(),
         chain_type: ChainType::SettlementChain,
         chain_state: ChainState::Active,
         contract_address: None,
+        counterparties: None,
         fee_token: None,
     })]);
     route.env.advance_time(Duration::from_secs(10));
@@ -430,11 +433,11 @@ fn add_chain(route: &RouteSetup) {
 fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
     route.push_directives(vec![Directive::AddToken(Token {
         token_id: token_id.clone(),
+        name: symbol.clone(),
         symbol,
-        issue_chain: SETTLEMENT_CHAIN.into(),
         decimals: 0,
         icon: None,
-        metadata: None,
+        metadata: HashMap::default(),
     })]);
     route.env.advance_time(Duration::from_secs(10));
     route.await_token(token_id, 10);
@@ -478,6 +481,7 @@ fn mint_token(
 ) {
     route.push_ticket(Ticket {
         ticket_id: ticket_id.clone(),
+        ticket_type: omnity_types::TicketType::Normal,
         ticket_time: 1708911143,
         src_chain: SETTLEMENT_CHAIN.into(),
         dst_chain: EXECUTION_CHAIN.into(),

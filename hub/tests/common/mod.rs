@@ -250,7 +250,6 @@ impl OmnityHub {
         )
         .unwrap();
         serde_json::from_slice(&response.body).expect("failed to parse hub log")
-        
     }
     pub fn upgrade(&self) {
         let ret = self.sm.upgrade_canister(self.hub_id, hub_wasm(), vec![]);
