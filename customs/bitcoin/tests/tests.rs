@@ -11,7 +11,7 @@ use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
 use bitcoin_customs::updates::update_runes_balance::{
     UpdateRunesBalanceArgs, UpdateRunesBalanceError,
 };
-use bitcoin_customs::{Log, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
+use bitcoin_customs::{Log, TokenResp, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
 use candid::{Decode, Encode};
 use ic_base_types::{CanisterId, PrincipalId};
 use ic_bitcoin_canister_mock::{OutPoint, PushUtxosToAddress, Utxo};
@@ -20,7 +20,8 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
 use omnity_types::{
-    Chain, ChainState, ChainType, Directive, Ticket, ToggleAction, ToggleState, Token, TxAction,
+    Chain, ChainState, ChainType, Directive, Ticket, TicketType, ToggleAction, ToggleState, Token,
+    TxAction,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -251,32 +252,31 @@ impl CustomsSetup {
         let directives = vec![
             Directive::AddChain(Chain {
                 chain_id: COSMOS_HUB.into(),
+                canister_id: "bw4dl-smaaa-aaaaa-qaacq-cai".into(),
                 chain_type: ChainType::ExecutionChain,
                 chain_state: ChainState::Active,
                 contract_address: None,
+                counterparties: None,
                 fee_token: Some("Cosmos-ATOM".to_owned()),
             }),
             Directive::AddToken(Token {
                 token_id: TOKEN_ID_1.into(),
+                name: "UNCOMMON•GOODS".into(),
                 symbol: "UNCOMMON•GOODS".into(),
-                issue_chain: COSMOS_HUB.into(),
                 decimals: 0,
                 icon: None,
-                metadata: Some(HashMap::from([(
-                    "rune_id".to_string(),
-                    RUNE_ID_1.to_string(),
-                )])),
+                metadata: HashMap::from([("rune_id".to_string(), RUNE_ID_1.to_string())]),
             }),
             Directive::AddToken(Token {
                 token_id: TOKEN_ID_2.into(),
+                name: "SECOND•RUNE•TOKEN".into(),
                 symbol: "SECOND•RUNE•TOKEN".into(),
-                issue_chain: COSMOS_HUB.into(),
                 decimals: 0,
                 icon: None,
-                metadata: Some(HashMap::from([(
+                metadata: HashMap::from([(
                     "rune_id".to_string(),
                     RUNE_ID_2.to_string(),
-                )])),
+                )]),
             }),
         ];
         customs.push_directives(directives);
@@ -356,7 +356,7 @@ impl CustomsSetup {
         .unwrap()
     }
 
-    pub fn get_token_list(&self) -> Vec<Token> {
+    pub fn get_token_list(&self) -> Vec<TokenResp> {
         Decode!(
             &assert_reply(
                 self.env
@@ -368,7 +368,7 @@ impl CustomsSetup {
                     )
                     .expect("failed to get token list")
             ),
-            Vec<Token>
+            Vec<TokenResp>
         )
         .unwrap()
     }
@@ -1125,6 +1125,7 @@ fn test_finalize_release_token_tx() {
     let ticket_id: String = "ticket_id1".into();
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911143,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
@@ -1173,6 +1174,7 @@ fn test_finalize_batch_release_token_tx() {
         let ticket_id: String = format!("ticket_id{}", i).into();
         let ticket = Ticket {
             ticket_id: ticket_id.clone(),
+            ticket_type: TicketType::Normal,
             ticket_time: 1708911143,
             src_chain: COSMOS_HUB.into(),
             dst_chain: "BTC".into(),
@@ -1222,6 +1224,7 @@ fn test_exist_two_submitted_tx() {
     let first_ticket_id: String = "ticket_id1".into();
     let first_ticket = Ticket {
         ticket_id: first_ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911143,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
@@ -1250,6 +1253,7 @@ fn test_exist_two_submitted_tx() {
     let second_ticket_id: String = "ticket_id2".into();
     let second_ticket = Ticket {
         ticket_id: second_ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911146,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
@@ -1300,6 +1304,7 @@ fn test_transaction_use_prev_change_output() {
     let first_ticket_id: String = "ticket_id1".into();
     let first_ticket = Ticket {
         ticket_id: first_ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911143,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
@@ -1333,6 +1338,7 @@ fn test_transaction_use_prev_change_output() {
     let second_ticket_id: String = "ticket_id2".into();
     let second_ticket = Ticket {
         ticket_id: second_ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911146,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
@@ -1384,6 +1390,7 @@ fn test_transaction_multi_runes_id() {
     let first_ticket_id: String = "ticket_id1".into();
     let first_ticket = Ticket {
         ticket_id: first_ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911143,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
@@ -1398,6 +1405,7 @@ fn test_transaction_multi_runes_id() {
     let second_ticket_id: String = "ticket_id2".into();
     let second_ticket = Ticket {
         ticket_id: second_ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911146,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
@@ -1455,6 +1463,7 @@ fn test_transaction_resubmission_finalize_new() {
     let ticket_id: String = "ticket_id1".into();
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911143,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
@@ -1525,6 +1534,7 @@ fn test_transaction_resubmission_finalize_old() {
     let ticket_id: String = "ticket_id1".into();
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911143,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),
@@ -1588,6 +1598,7 @@ fn test_transaction_resubmission_finalize_middle() {
     let ticket_id: String = "ticket_id1".into();
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
+        ticket_type: TicketType::Normal,
         ticket_time: 1708911143,
         src_chain: COSMOS_HUB.into(),
         dst_chain: "BTC".into(),

@@ -263,10 +263,8 @@ ic_cdk::export_candid!();
 #[cfg(test)]
 mod tests {
 
-    use candid::Decode;
-    use omnity_hub::types::{ChainMeta, TokenMeta};
-
     use super::*;
+    use omnity_hub::types::{ChainMeta, TokenMeta};
     use omnity_types::{
         ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketType, ToggleAction,
         ToggleState, TxAction,

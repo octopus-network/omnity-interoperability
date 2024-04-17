@@ -3,7 +3,7 @@ use crate::state::{audit, GenTicketStatus, RunesBalance};
 use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
-use omnity_types::{Ticket, TxAction};
+use omnity_types::{Ticket, TicketType, TxAction};
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -53,6 +53,7 @@ pub async fn update_runes_balance(
         hub_principal,
         Ticket {
             ticket_id: args.txid.to_string(),
+            ticket_type: TicketType::Normal,
             ticket_time: ic_cdk::api::time(),
             src_chain: chain_id,
             dst_chain: req.target_chain_id.clone(),

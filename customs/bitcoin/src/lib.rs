@@ -9,12 +9,12 @@ use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
-use omnity_types::Directive;
+use omnity_types::{Directive, TokenId};
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
 use state::{read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::iter::Sum;
 use std::str::FromStr;
 use std::time::Duration;
@@ -96,6 +96,15 @@ pub struct CustomsInfo {
 pub struct ECDSAPublicKey {
     pub public_key: Vec<u8>,
     pub chain_code: Vec<u8>,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
+pub struct TokenResp {
+    pub token_id: TokenId,
+    pub symbol: String,
+    pub decimals: u8,
+    pub icon: Option<String>,
+    pub rune_id: String,
 }
 
 struct SignTxRequest {
@@ -291,12 +300,7 @@ async fn process_directive() {
                 match directive {
                     Directive::AddChain(chain) => audit::add_chain(s, chain.clone()),
                     Directive::AddToken(token) => {
-                        if let Some(rune_id) = token
-                            .metadata
-                            .clone()
-                            .unwrap_or(HashMap::default())
-                            .get("rune_id")
-                        {
+                        if let Some(rune_id) = token.metadata.clone().get("rune_id") {
                             match RuneId::from_str(rune_id) {
                                 Err(err) => {
                                     log!(

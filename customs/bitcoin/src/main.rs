@@ -13,21 +13,19 @@ use bitcoin_customs::updates::{
     update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
 use bitcoin_customs::{
-    process_hub_msg_task, process_tx_task, refresh_fee_task, CustomsInfo, FEE_ESTIMATE_DELAY,
-    INTERVAL_PROCESSING,
+    process_hub_msg_task, process_tx_task, refresh_fee_task, CustomsInfo, TokenResp,
+    FEE_ESTIMATE_DELAY, INTERVAL_PROCESSING,
 };
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
 };
-use candid::CandidType;
 use ic_btc_interface::Utxo;
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk_macros::{init, post_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use omnity_types::{Chain, ChainId, TokenId};
-use serde::Serialize;
+use omnity_types::Chain;
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
 
@@ -210,16 +208,6 @@ fn get_chain_list() -> Vec<Chain> {
     })
 }
 
-#[derive(CandidType, Clone, Debug, Serialize)]
-pub struct TokenResp {
-    pub token_id: TokenId,
-    pub symbol: String,
-    pub issue_chain: ChainId,
-    pub decimals: u8,
-    pub icon: Option<String>,
-    pub rune_id: String,
-}
-
 #[query]
 fn get_token_list() -> Vec<TokenResp> {
     read_state(|s| {
@@ -228,7 +216,6 @@ fn get_token_list() -> Vec<TokenResp> {
             .map(|(_, (rune_id, token))| TokenResp {
                 token_id: token.token_id.clone(),
                 symbol: token.symbol.clone(),
-                issue_chain: token.issue_chain.clone(),
                 decimals: token.decimals,
                 icon: token.icon.clone(),
                 rune_id: rune_id.to_string(),
