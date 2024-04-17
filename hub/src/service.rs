@@ -194,7 +194,10 @@ fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, Htt
         Some(arg) => match arg.parse() {
             Ok(value) => Ok(value),
             Err(_) => Err(HttpResponseBuilder::bad_request()
-                .with_body_and_content_length(format!("failed to parse the '{}' parameter", param_name))
+                .with_body_and_content_length(format!(
+                    "failed to parse the '{}' parameter",
+                    param_name
+                ))
                 .build()),
         },
         None => Err(HttpResponseBuilder::bad_request()
@@ -207,10 +210,7 @@ fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, Htt
 fn http_request(req: HttpRequest) -> HttpResponse {
     if req.path() == "/logs" {
         use serde_json;
-        let max_skip_timestamp = match parse_param::<u64>(&req, "time") {
-            Ok(value) => value,
-            Err(err) => return err,
-        };
+        let max_skip_timestamp = parse_param::<u64>(&req, "time").unwrap_or(0);
         let offset = match parse_param::<usize>(&req, "offset") {
             Ok(value) => value,
             Err(err) => return err,
