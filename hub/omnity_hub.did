@@ -41,7 +41,9 @@ type Error = variant {
   NotFoundChain : text;
   DeactiveChain : text;
   ChainAlreadyExisting : text;
+  ResubmitTicketIdMustExist;
   ProposalError : text;
+  ResubmitTicketMustSame;
   NotFoundAccountToken : record { text; text; text };
   NotSupportedProposal;
   SighWithEcdsaError : text;
@@ -49,6 +51,7 @@ type Error = variant {
   TicketAmountParseError : record { text; text };
   NotFoundChainToken : record { text; text };
   TokenAlreadyExisting : text;
+  ResubmitTicketSentTooOften;
   GenerateDirectiveError : text;
   EcdsaPublicKeyError : text;
   NotFoundToken : text;
@@ -61,12 +64,13 @@ type Event = variant {
   added_token_position : record { position : TokenKey; amount : nat };
   added_token : TokenMeta;
   post_upgrade : blob;
-  init : principal;
+  init : InitArgs;
   received_directive : record { dst_chain : ChainWithSeq; dire : Directive };
   added_chain : ChainWithSeq;
   updated_token_position : record { position : TokenKey; amount : nat };
   updated_chain : ChainWithSeq;
   received_ticket : record { ticket : Ticket; dst_chain : ChainWithSeq };
+  resubmit_ticket : record { ticket_id : text; timestamp : nat64 };
   pre_upgrade : blob;
 };
 type Factor = variant {
@@ -75,6 +79,8 @@ type Factor = variant {
 };
 type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type GetEventsArg = record { start : nat64; length : nat64 };
+type HubArg = variant { Init : InitArgs };
+type InitArgs = record { admin : principal };
 type Proposal = variant {
   UpdateFee : Factor;
   AddToken : TokenMeta;
@@ -141,7 +147,7 @@ type Topic = variant {
   AddChain : opt ChainType;
 };
 type TxAction = variant { Redeem; Transfer };
-service : () -> {
+service : (HubArg) -> {
   execute_proposal : (vec Proposal) -> (Result);
   get_chain : (text) -> (Result_1) query;
   get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_2) query;
@@ -164,6 +170,7 @@ service : () -> {
     ) -> (Result_8) query;
   query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_9) query;
   query_tickets : (opt text, nat64, nat64) -> (Result_10) query;
+  resubmit_ticket : (Ticket) -> (Result);
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
   update_fee : (vec Factor) -> (Result);
