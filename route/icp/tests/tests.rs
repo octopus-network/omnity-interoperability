@@ -683,36 +683,18 @@ fn test_mint_multi_tokens() {
 }
 
 #[test]
-fn test_icrc_control_auth_and_check() -> Result<(), String> {
+#[should_panic(expected = "caller is not controller")]
+fn test_icrc_control_auth_and_check() {
     let route = RouteSetup::new();
     add_chain(&route);
     add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
     let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
 
-    route.controlled_canister_status(token_canister_id.into(), Some(route.hub_id.into()))?;
+    route.controlled_canister_status(token_canister_id.into(), Some(route.hub_id.into())).unwrap();
 
-    route.controlled_canister_status(token_canister_id.into(), Some(route.caller))?;
+    route.controlled_canister_status(token_canister_id.into(), Some(route.caller)).unwrap();
 
-    let wasm_result = route
-        .env
-        .execute_ingress_as(
-            route.route_id.into(),
-            route.route_id,
-            "controlled_canister_status",
-            Encode!(&token_canister_id).unwrap(),
-        )
-        .expect("failed to get canister status");
-
-    match wasm_result {
-        WasmResult::Reply(_) => {
-            return Err("should not be able to get canister status".to_string());
-        }
-        WasmResult::Reject(r) => {
-            assert!(r.contains("caller is not controller"));
-        }
-    }
-
-    Ok(())
+    route.controlled_canister_status(token_canister_id.into(), Some(route.route_id.into())).unwrap();
 }
 
 #[test]
