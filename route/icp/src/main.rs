@@ -1,6 +1,7 @@
 use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use ic_cdk::api::management_canister::main::CanisterStatusResponse;
+use ic_cdk::api::call::call;
+use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
@@ -14,9 +15,7 @@ use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{
-    manage_icrc_canister, periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL,
-};
+use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
 use log::{self, info};
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
@@ -56,58 +55,48 @@ pub fn is_controller() -> Result<(), String> {
 }
 
 #[update(guard = "is_controller")]
-async fn stop_icrc_canister(icrc_canister_id: Principal) -> Result<(), String> {
-    let exist_token_canister = read_state(|s| {
-        s.token_ledgers.values().find(|&e| e.eq(&icrc_canister_id)).is_some()
-    });
-    if !exist_token_canister {
-        return Err("Icrc canister id not exist".to_string());
-    }
-    manage_icrc_canister::stop_icrc_canister(icrc_canister_id)
+async fn stop_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+
+    call(Principal::management_canister(), "stop_canister", (args,))
         .await
-        .and_then(|_| Ok(()))
+        .and_then(|((),)| Ok(()))
         .map_err(|(_, reason)| reason)
 }
 
 #[update(guard = "is_controller")]
-async fn start_icrc_canister(icrc_canister_id: Principal) -> Result<(), String> {
-    let exist_token_canister = read_state(|s| {
-        s.token_ledgers.values().find(|&e| e.eq(&icrc_canister_id)).is_some()
-    });
-    if !exist_token_canister {
-        return Err("Icrc canister id not exist".to_string());
-    }
-    manage_icrc_canister::start_icrc_canister(icrc_canister_id)
+async fn start_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+
+    call(Principal::management_canister(), "start_canister", (args,))
         .await
-        .and_then(|_| Ok(()))
+        .and_then(|((),)| Ok(()))
         .map_err(|(_, reason)| reason)
 }
 
 #[update(guard = "is_controller")]
-async fn delete_icrc_canister(icrc_canister_id: Principal) -> Result<(), String> {
-    let exist_token_canister = read_state(|s| {
-        s.token_ledgers.values().find(|&e| e.eq(&icrc_canister_id)).is_some()
-    });
-    if !exist_token_canister {
-        return Err("Icrc canister id not exist".to_string());
-    }
-    manage_icrc_canister::delete_icrc_canister(icrc_canister_id)
+async fn delete_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+    call(Principal::management_canister(), "delete_canister", (args,))
         .await
-        .and_then(|_| Ok(()))
+        .and_then(|((),)| Ok(()))
         .map_err(|(_, reason)| reason)
 }
 
 #[update(guard = "is_controller")]
-pub async fn icrc_canister_status(
+pub async fn controlled_canister_status(
     icrc_canister_id: Principal,
 ) -> Result<CanisterStatusResponse, String> {
-    let exist_token_canister = read_state(|s| {
-        s.token_ledgers.values().find(|&e| e.eq(&icrc_canister_id)).is_some()
-    });
-    if !exist_token_canister {
-        return Err("Icrc canister id not exist".to_string());
-    }
-    manage_icrc_canister::icrc_canister_status(icrc_canister_id)
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+    call(Principal::management_canister(), "canister_status", (args,))
         .await
         .and_then(|(e,)| Ok(e))
         .map_err(|(_, reason)| reason)

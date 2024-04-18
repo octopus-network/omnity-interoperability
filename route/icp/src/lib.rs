@@ -10,7 +10,6 @@ pub mod call_error;
 pub mod guard;
 pub mod hub;
 pub mod lifecycle;
-pub mod manage_icrc_canister;
 pub mod memory;
 pub mod state;
 pub mod storage;

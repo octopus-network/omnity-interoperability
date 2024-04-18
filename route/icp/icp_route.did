@@ -77,9 +77,9 @@ type QueryStats = record {
   num_calls_total : nat;
   request_payload_bytes_total : nat;
 };
-type Result = variant { Ok; Err : text };
-type Result_1 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-type Result_2 = variant { Ok : CanisterStatusResponse; Err : text };
+type Result = variant { Ok : CanisterStatusResponse; Err : text };
+type Result_1 = variant { Ok; Err : text };
+type Result_2 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type RouteArg = variant { Init : InitArgs };
 type TargetChainFactor = record {
   target_chain_id : text;
@@ -103,8 +103,9 @@ type TokenResp = record {
   symbol : text;
 };
 service : (RouteArg) -> {
-  delete_icrc_canister : (principal) -> (Result);
-  generate_ticket : (GenerateTicketReq) -> (Result_1);
+  controlled_canister_status : (principal) -> (Result);
+  delete_controlled_canister : (principal) -> (Result_1);
+  generate_ticket : (GenerateTicketReq) -> (Result_2);
   get_chain_list : () -> (vec Chain) query;
   get_events : (GetEventsArg) -> (vec Event) query;
   get_fee_account : (opt principal) -> (vec nat8) query;
@@ -112,8 +113,7 @@ service : (RouteArg) -> {
   get_redeem_fee : (text) -> (opt nat64) query;
   get_token_ledger : (text) -> (opt principal) query;
   get_token_list : () -> (vec TokenResp) query;
-  icrc_canister_status : (principal) -> (Result_2);
   mint_token_status : (text) -> (MintTokenStatus) query;
-  start_icrc_canister : (principal) -> (Result);
-  stop_icrc_canister : (principal) -> (Result);
+  start_controlled_canister : (principal) -> (Result_1);
+  stop_controlled_canister : (principal) -> (Result_1);
 }
