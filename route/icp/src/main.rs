@@ -47,39 +47,67 @@ async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, Ge
     updates::generate_ticket(args).await
 }
 
-#[update]
-async fn stop_icrc_ledger(icrc_ledger_id: Principal) -> Result<(), String> {
-    assert_eq!(ic_cdk::caller(), ic_cdk::api::id());
-    manage_icrc_canister::stop_icrc_ledger(icrc_ledger_id)
+pub fn is_controller() -> Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
+}
+
+#[update(guard = "is_controller")]
+async fn stop_icrc_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let exist_token_canister = read_state(|s| {
+        s.token_ledgers.values().find(|&e| e.eq(&icrc_canister_id)).is_some()
+    });
+    if !exist_token_canister {
+        return Err("Icrc canister id not exist".to_string());
+    }
+    manage_icrc_canister::stop_icrc_canister(icrc_canister_id)
         .await
         .and_then(|_| Ok(()))
         .map_err(|(_, reason)| reason)
 }
 
-#[update]
-async fn start_icrc_ledger(icrc_ledger_id: Principal) -> Result<(), String> {
-    assert_eq!(ic_cdk::caller(), ic_cdk::api::id());
-    manage_icrc_canister::start_icrc_ledger(icrc_ledger_id)
+#[update(guard = "is_controller")]
+async fn start_icrc_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let exist_token_canister = read_state(|s| {
+        s.token_ledgers.values().find(|&e| e.eq(&icrc_canister_id)).is_some()
+    });
+    if !exist_token_canister {
+        return Err("Icrc canister id not exist".to_string());
+    }
+    manage_icrc_canister::start_icrc_canister(icrc_canister_id)
         .await
         .and_then(|_| Ok(()))
         .map_err(|(_, reason)| reason)
 }
 
-#[update]
-async fn delete_icrc_canister(icrc_ledger_id: Principal) -> Result<(), String> {
-    assert_eq!(ic_cdk::caller(), ic_cdk::api::id());
-    manage_icrc_canister::delete_icrc_canister(icrc_ledger_id)
+#[update(guard = "is_controller")]
+async fn delete_icrc_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let exist_token_canister = read_state(|s| {
+        s.token_ledgers.values().find(|&e| e.eq(&icrc_canister_id)).is_some()
+    });
+    if !exist_token_canister {
+        return Err("Icrc canister id not exist".to_string());
+    }
+    manage_icrc_canister::delete_icrc_canister(icrc_canister_id)
         .await
         .and_then(|_| Ok(()))
         .map_err(|(_, reason)| reason)
 }
 
-#[update]
+#[update(guard = "is_controller")]
 pub async fn icrc_canister_status(
-    icrc_ledger_id: Principal,
+    icrc_canister_id: Principal,
 ) -> Result<CanisterStatusResponse, String> {
-    assert_eq!(ic_cdk::caller(), ic_cdk::api::id());
-    manage_icrc_canister::icrc_canister_status(icrc_ledger_id)
+    let exist_token_canister = read_state(|s| {
+        s.token_ledgers.values().find(|&e| e.eq(&icrc_canister_id)).is_some()
+    });
+    if !exist_token_canister {
+        return Err("Icrc canister id not exist".to_string());
+    }
+    manage_icrc_canister::icrc_canister_status(icrc_canister_id)
         .await
         .and_then(|(e,)| Ok(e))
         .map_err(|(_, reason)| reason)

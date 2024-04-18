@@ -3,6 +3,7 @@ use ic_base_types::{CanisterId, PrincipalId};
 use ic_cdk::api::management_canister::main::{CanisterStatusResponse, CanisterStatusType};
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
+use ic_ic00_types::CanisterSettingsArgsBuilder;
 use ic_test_utilities_load_wasm::load_wasm;
 use icp_ledger::{AccountIdentifier, InitArgs as LedgerInitArgs, LedgerCanisterPayload, Tokens};
 use icp_route::{
@@ -100,7 +101,17 @@ fn install_ledger(env: &StateMachine) {
 }
 
 fn install_router(env: &StateMachine, hub_id: CanisterId) -> CanisterId {
-    let route_id = env.create_canister_with_cycles(None, Cycles::new(100_000_000_000_0000), None);
+    let setting = CanisterSettingsArgsBuilder::new()
+    .with_controllers(vec![
+        hub_id.into(),
+        caller_account()
+    ]).build();
+
+    let route_id = 
+    env.create_canister_with_cycles(
+        None, 
+        Cycles::new(100_000_000_000_0000), 
+        Some(setting));
     env.install_existing_canister(
         route_id,
         route_wasm(),
@@ -143,10 +154,6 @@ impl RouteSetup {
         install_ledger(&env);
 
         let caller = caller_account();
-
-        dbg!(&hub_id);
-        dbg!(&route_id);
-        dbg!(&caller);
 
         Self {
             env,
@@ -283,17 +290,17 @@ impl RouteSetup {
         .unwrap();
     }
 
-    pub fn stop_icrc_ledger(&self, icrc_ledger_id: Principal) {
+    pub fn stop_icrc_canister(&self, icrc_canister_id: Principal, caller: Option<PrincipalId>) {
         let _ = Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
-                        self.route_id.into(),
+                        caller.unwrap_or(self.caller),
                         self.route_id,
-                        "stop_icrc_ledger",
-                        Encode!(&icrc_ledger_id).unwrap(),
+                        "stop_icrc_canister",
+                        Encode!(&icrc_canister_id).unwrap(),
                     )
-                    .expect("failed to stop icrc ledger")
+                    .expect("failed to stop icrc canister")
             ),
             Result<(), String>
         )
@@ -301,17 +308,17 @@ impl RouteSetup {
         .unwrap();
     }
 
-    pub fn start_icrc_ledger(&self, icrc_ledger_id: Principal) {
+    pub fn start_icrc_canister(&self, icrc_canister_id: Principal, caller: Option<PrincipalId>) {
         let _ = Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
-                        self.route_id.into(),
+                        caller.unwrap_or(self.caller),
                         self.route_id,
-                        "start_icrc_ledger",
-                        Encode!(&icrc_ledger_id).unwrap(),
+                        "start_icrc_canister",
+                        Encode!(&icrc_canister_id).unwrap(),
                     )
-                    .expect("failed to start icrc ledger")
+                    .expect("failed to start icrc canister")
             ),
             Result<(), String>
         )
@@ -319,17 +326,17 @@ impl RouteSetup {
         .unwrap();
     }
 
-    pub fn delete_icrc_ledger(&self, icrc_ledger_id: Principal) {
+    pub fn delete_icrc_canister(&self, icrc_canister_id: Principal, caller: Option<PrincipalId>) {
         let _ = Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
-                        self.route_id.into(),
+                        caller.unwrap_or(self.caller),
                         self.route_id,
                         "delete_icrc_canister",
-                        Encode!(&icrc_ledger_id).unwrap(),
+                        Encode!(&icrc_canister_id).unwrap(),
                     )
-                    .expect("failed to delete icrc ledger")
+                    .expect("failed to delete icrc canister")
             ),
             Result<(), String>
         )
@@ -337,18 +344,19 @@ impl RouteSetup {
         .unwrap();
     }
 
-    pub fn canister_status(
+    pub fn icrc_canister_status(
         &self,
-        icrc_ledger_id: Principal,
+        icrc_canister_id: Principal,
+        caller: Option<PrincipalId>
     ) -> Result<CanisterStatusResponse, String> {
         let r = Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
-                        self.route_id.into(),
+                        caller.unwrap_or(self.caller),
                         self.route_id,
                         "icrc_canister_status",
-                        Encode!(&icrc_ledger_id).unwrap(),
+                        Encode!(&icrc_canister_id).unwrap(),
                     )
                     .expect("failed to get canister status")
             ),
@@ -668,28 +676,68 @@ fn test_mint_multi_tokens() {
 }
 
 #[test]
+fn test_icrc_control_auth_and_check() -> Result<(), String> {
+
+    let route = RouteSetup::new();
+    add_chain(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    route.icrc_canister_status(token_canister_id.into(), Some(route.hub_id.into()))?;
+
+    route.icrc_canister_status(token_canister_id.into(), Some(route.caller))?;
+
+    let wasm_result = route.env
+    .execute_ingress_as(
+        route.route_id.into(),
+        route.route_id,
+        "icrc_canister_status",
+        Encode!(&token_canister_id).unwrap(),
+    )
+    .expect("failed to get canister status");
+
+    match wasm_result {
+        WasmResult::Reply(_) => {
+            return Err("should not be able to get canister status".to_string());
+        },
+        WasmResult::Reject(r) => {
+            assert!(r.contains("caller is not controller"));
+        },
+    }
+
+    let result = route.icrc_canister_status(
+        route.route_id.into(), 
+        Some(route.caller));
+    assert!(result.is_err_and(|err| err.contains("Icrc canister id not exist")));
+
+    Ok(())
+}
+
+#[test]
 fn test_icrc_control() -> Result<(), String> {
     let route = RouteSetup::new();
     add_chain(&route);
     add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
-    let token_ledger = route.get_token_ledger(TOKEN_ID1.into());
+    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
 
-    route.stop_icrc_ledger(token_ledger.into());
-    let status = route.canister_status(token_ledger.into())?;
+    route.stop_icrc_canister(token_canister_id.into(), None);
+    let status = route.icrc_canister_status(token_canister_id.into(), None)?;
     assert!(matches!(status.status, CanisterStatusType::Stopped));
 
-    route.start_icrc_ledger(token_ledger.into());
-    let status = route.canister_status(token_ledger.into())?;
+    route.start_icrc_canister(token_canister_id.into(), None);
+    let status = route.icrc_canister_status(token_canister_id.into(), None)?;
     assert!(matches!(status.status, CanisterStatusType::Running));
 
     // must be stopped before it is deleted
-    route.stop_icrc_ledger(token_ledger.into());
-    route.delete_icrc_ledger(token_ledger.into());
-    let result = route.canister_status(token_ledger.into());
+    route.stop_icrc_canister(token_canister_id.into(), None);
+    route.delete_icrc_canister(token_canister_id.into(), None);
+    let result = route.icrc_canister_status(token_canister_id.into(), None);
     assert!(result
         .err()
         .unwrap()
-        .contains(&format!("Canister {} not found.", token_ledger.to_string())));
+        .contains(&format!("Canister {} not found.", token_canister_id.to_string())));
 
     Result::Ok(())
 }
+
+

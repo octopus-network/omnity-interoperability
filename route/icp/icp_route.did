@@ -114,6 +114,6 @@ service : (RouteArg) -> {
   get_token_list : () -> (vec TokenResp) query;
   icrc_canister_status : (principal) -> (Result_2);
   mint_token_status : (text) -> (MintTokenStatus) query;
-  start_icrc_ledger : (principal) -> (Result);
-  stop_icrc_ledger : (principal) -> (Result);
+  start_icrc_canister : (principal) -> (Result);
+  stop_icrc_canister : (principal) -> (Result);
 }
