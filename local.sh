@@ -36,7 +36,7 @@ $ dfx deploy --specified-id ryjl3-tyaaa-aaaaa-aaaba-cai icp_ledger_canister --ar
 $ dfx ledger balance $DEFAULT_ACCOUNT_ID
 100.00000000 ICP
 
-$ dfx deploy omnity_hub
+$ dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "cu4zh-2c4it-54irp-xgtxc-gajvr-h6gle-c5n7r-hwpeg-spkye-z4ta7-iae"} })'
 $ dfx identity --identity default get-principal
 o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe
 $ dfx deploy bitcoin_customs --argument '(variant { Init = record { mode = variant { GeneralAvailability }; btc_network = variant { Regtest }; hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; ecdsa_key_name = "dfx_test_key"; min_confirmations = opt 1; max_time_in_queue_nanos = 1_000_000_000; runes_oracle_principal = principal "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe"; chain_id = "Bitcoin" } })'
