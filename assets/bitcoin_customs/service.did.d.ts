@@ -27,7 +27,9 @@ export type CanisterStatusType = { 'stopped' : null } |
   { 'running' : null };
 export interface Chain {
   'fee_token' : [] | [string],
+  'canister_id' : string,
   'chain_id' : string,
+  'counterparties' : [] | [Array<string>],
   'chain_state' : ChainState,
   'chain_type' : ChainType,
   'contract_address' : [] | [string],
@@ -70,7 +72,6 @@ export type Event = {
       'btc_utxos' : Array<Utxo>,
       'requests' : Array<string>,
       'runes_change_output' : RunesChangeOutput,
-      'raw_tx' : string,
       'runes_utxos' : Array<RunesUtxo>,
       'rune_id' : RuneId,
       'submitted_at' : bigint,
@@ -93,6 +94,8 @@ export type Event = {
   } |
   { 'upgrade' : UpgradeArgs } |
   { 'added_chain' : Chain } |
+  { 'update_next_ticket_seq' : bigint } |
+  { 'update_next_directive_seq' : bigint } |
   { 'confirmed_transaction' : GenTicketStatusArgs } |
   {
     'replaced_transaction' : {
@@ -101,7 +104,6 @@ export type Event = {
       'old_txid' : Uint8Array | number[],
       'new_txid' : Uint8Array | number[],
       'runes_change_output' : RunesChangeOutput,
-      'raw_tx' : string,
       'submitted_at' : bigint,
     }
   } |
@@ -188,7 +190,7 @@ export type Result_1 = { 'Ok' : Array<Utxo> } |
   { 'Err' : UpdateBtcUtxosErr };
 export type Result_2 = { 'Ok' : null } |
   { 'Err' : UpdateRunesBalanceError };
-export interface RuneId { 'tx' : number, 'block' : number }
+export interface RuneId { 'tx' : number, 'block' : bigint }
 export interface RunesBalance {
   'vout' : number,
   'amount' : bigint,
@@ -206,9 +208,16 @@ export interface ToggleState { 'action' : ToggleAction, 'chain_id' : string }
 export interface Token {
   'decimals' : number,
   'token_id' : string,
-  'metadata' : [] | [Array<[string, string]>],
+  'metadata' : Array<[string, string]>,
   'icon' : [] | [string],
-  'issue_chain' : string,
+  'name' : string,
+  'symbol' : string,
+}
+export interface TokenResp {
+  'decimals' : number,
+  'token_id' : string,
+  'icon' : [] | [string],
+  'rune_id' : string,
   'symbol' : string,
 }
 export type UpdateBtcUtxosErr = { 'TemporarilyUnavailable' : string };
@@ -250,7 +259,7 @@ export interface _SERVICE {
     [GetGenTicketReqsArgs],
     Array<GenTicketRequest>
   >,
-  'get_token_list' : ActorMethod<[], Array<Token>>,
+  'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'release_token_status' : ActorMethod<
     [ReleaseTokenStatusArgs],
     ReleaseTokenStatus

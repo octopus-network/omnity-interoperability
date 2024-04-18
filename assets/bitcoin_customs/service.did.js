@@ -31,7 +31,7 @@ export const idlFactory = ({ IDL }) => {
     'Upgrade' : IDL.Opt(UpgradeArgs),
     'Init' : InitArgs,
   });
-  const RuneId = IDL.Record({ 'tx' : IDL.Nat32, 'block' : IDL.Nat32 });
+  const RuneId = IDL.Record({ 'tx' : IDL.Nat32, 'block' : IDL.Nat64 });
   const EstimateFeeArgs = IDL.Record({
     'amount' : IDL.Opt(IDL.Nat),
     'rune_id' : RuneId,
@@ -114,7 +114,9 @@ export const idlFactory = ({ IDL }) => {
   });
   const Chain = IDL.Record({
     'fee_token' : IDL.Opt(IDL.Text),
+    'canister_id' : IDL.Text,
     'chain_id' : IDL.Text,
+    'counterparties' : IDL.Opt(IDL.Vec(IDL.Text)),
     'chain_state' : ChainState,
     'chain_type' : ChainType,
     'contract_address' : IDL.Opt(IDL.Text),
@@ -156,9 +158,9 @@ export const idlFactory = ({ IDL }) => {
   const Token = IDL.Record({
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
-    'metadata' : IDL.Opt(IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text))),
+    'metadata' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
     'icon' : IDL.Opt(IDL.Text),
-    'issue_chain' : IDL.Text,
+    'name' : IDL.Text,
     'symbol' : IDL.Text,
   });
   const BitcoinAddress = IDL.Variant({
@@ -197,7 +199,6 @@ export const idlFactory = ({ IDL }) => {
       'btc_utxos' : IDL.Vec(Utxo),
       'requests' : IDL.Vec(IDL.Text),
       'runes_change_output' : RunesChangeOutput,
-      'raw_tx' : IDL.Text,
       'runes_utxos' : IDL.Vec(RunesUtxo),
       'rune_id' : RuneId,
       'submitted_at' : IDL.Nat64,
@@ -215,6 +216,8 @@ export const idlFactory = ({ IDL }) => {
     }),
     'upgrade' : UpgradeArgs,
     'added_chain' : Chain,
+    'update_next_ticket_seq' : IDL.Nat64,
+    'update_next_directive_seq' : IDL.Nat64,
     'confirmed_transaction' : GenTicketStatusArgs,
     'replaced_transaction' : IDL.Record({
       'fee' : IDL.Nat64,
@@ -222,7 +225,6 @@ export const idlFactory = ({ IDL }) => {
       'old_txid' : IDL.Vec(IDL.Nat8),
       'new_txid' : IDL.Vec(IDL.Nat8),
       'runes_change_output' : RunesChangeOutput,
-      'raw_tx' : IDL.Text,
       'submitted_at' : IDL.Nat64,
     }),
     'accepted_generate_ticket_request' : GenTicketRequest,
@@ -231,6 +233,13 @@ export const idlFactory = ({ IDL }) => {
   const GetGenTicketReqsArgs = IDL.Record({
     'max_count' : IDL.Nat64,
     'start_txid' : IDL.Opt(IDL.Vec(IDL.Nat8)),
+  });
+  const TokenResp = IDL.Record({
+    'decimals' : IDL.Nat8,
+    'token_id' : IDL.Text,
+    'icon' : IDL.Opt(IDL.Text),
+    'rune_id' : IDL.Text,
+    'symbol' : IDL.Text,
   });
   const ReleaseTokenStatusArgs = IDL.Record({ 'ticket_id' : IDL.Text });
   const ReleaseTokenStatus = IDL.Variant({
@@ -282,7 +291,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(GenTicketRequest)],
         ['query'],
       ),
-    'get_token_list' : IDL.Func([], [IDL.Vec(Token)], ['query']),
+    'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'release_token_status' : IDL.Func(
         [ReleaseTokenStatusArgs],
         [ReleaseTokenStatus],

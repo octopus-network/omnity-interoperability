@@ -3,10 +3,7 @@ export const idlFactory = ({ IDL }) => {
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
   });
-  const RouteArg = IDL.Variant({
-    'Upgrade' : IDL.Record({}),
-    'Init' : InitArgs,
-  });
+  const RouteArg = IDL.Variant({ 'Init' : InitArgs });
   const GenerateTicketReq = IDL.Record({
     'token_id' : IDL.Text,
     'from_subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
@@ -14,7 +11,7 @@ export const idlFactory = ({ IDL }) => {
     'amount' : IDL.Nat,
     'receiver' : IDL.Text,
   });
-  const GenerateTicketOk = IDL.Record({ 'block_index' : IDL.Nat64 });
+  const GenerateTicketOk = IDL.Record({ 'ticket_id' : IDL.Text });
   const GenerateTicketError = IDL.Variant({
     'InsufficientRedeemFee' : IDL.Record({
       'provided' : IDL.Nat64,
@@ -43,7 +40,9 @@ export const idlFactory = ({ IDL }) => {
   });
   const Chain = IDL.Record({
     'fee_token' : IDL.Opt(IDL.Text),
+    'canister_id' : IDL.Text,
     'chain_id' : IDL.Text,
+    'counterparties' : IDL.Opt(IDL.Vec(IDL.Text)),
     'chain_state' : ChainState,
     'chain_type' : ChainType,
     'contract_address' : IDL.Opt(IDL.Text),
@@ -64,19 +63,12 @@ export const idlFactory = ({ IDL }) => {
     'UpdateFeeTokenFactor' : FeeTokenFactor,
     'UpdateTargetChainFactor' : TargetChainFactor,
   });
-  const MintTokenRequest = IDL.Record({
-    'token_id' : IDL.Text,
-    'ticket_id' : IDL.Text,
-    'finalized_block_index' : IDL.Opt(IDL.Nat64),
-    'amount' : IDL.Nat,
-    'receiver' : IDL.Principal,
-  });
   const Token = IDL.Record({
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
-    'metadata' : IDL.Opt(IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text))),
+    'metadata' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
     'icon' : IDL.Opt(IDL.Text),
-    'issue_chain' : IDL.Text,
+    'name' : IDL.Text,
     'symbol' : IDL.Text,
   });
   const ToggleAction = IDL.Variant({
@@ -89,15 +81,19 @@ export const idlFactory = ({ IDL }) => {
   });
   const Event = IDL.Variant({
     'finalized_gen_ticket' : IDL.Record({
-      'block_index' : IDL.Nat64,
       'request' : GenerateTicketReq,
+      'ticket_id' : IDL.Text,
     }),
     'updated_fee' : IDL.Record({ 'fee' : Factor }),
-    'finalized_mint_token' : MintTokenRequest,
+    'finalized_mint_token' : IDL.Record({
+      'block_index' : IDL.Nat64,
+      'ticket_id' : IDL.Text,
+    }),
     'added_token' : IDL.Record({
       'token' : Token,
       'ledger_id' : IDL.Principal,
     }),
+    'init' : InitArgs,
     'added_chain' : Chain,
     'toggle_chain_state' : ToggleState,
   });
@@ -106,8 +102,15 @@ export const idlFactory = ({ IDL }) => {
     'logs' : IDL.Vec(Log),
     'all_logs_count' : IDL.Nat64,
   });
+  const TokenResp = IDL.Record({
+    'decimals' : IDL.Nat8,
+    'token_id' : IDL.Text,
+    'icon' : IDL.Opt(IDL.Text),
+    'rune_id' : IDL.Opt(IDL.Text),
+    'symbol' : IDL.Text,
+  });
   const MintTokenStatus = IDL.Variant({
-    'Finalized' : GenerateTicketOk,
+    'Finalized' : IDL.Record({ 'block_index' : IDL.Nat64 }),
     'Unknown' : IDL.Null,
   });
   return IDL.Service({
@@ -126,7 +129,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(IDL.Principal)],
         ['query'],
       ),
-    'get_token_list' : IDL.Func([], [IDL.Vec(Token)], ['query']),
+    'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
   });
 };
@@ -135,9 +138,6 @@ export const init = ({ IDL }) => {
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
   });
-  const RouteArg = IDL.Variant({
-    'Upgrade' : IDL.Record({}),
-    'Init' : InitArgs,
-  });
+  const RouteArg = IDL.Variant({ 'Init' : InitArgs });
   return [RouteArg];
 };

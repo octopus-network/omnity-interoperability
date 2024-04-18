@@ -1,10 +1,10 @@
 type BitcoinAddress = variant {
-  OpReturn : vec nat8;
-  p2wsh_v0 : vec nat8;
-  p2tr_v1 : vec nat8;
-  p2sh : vec nat8;
-  p2wpkh_v0 : vec nat8;
-  p2pkh : vec nat8;
+  OpReturn : blob;
+  p2wsh_v0 : blob;
+  p2tr_v1 : blob;
+  p2sh : blob;
+  p2wpkh_v0 : blob;
+  p2pkh : blob;
 };
 type BtcChangeOutput = record { value : nat64; vout : nat32 };
 type BtcNetwork = variant { Mainnet; Regtest; Testnet };
@@ -15,7 +15,7 @@ type CanisterStatusResponse = record {
   settings : DefiniteCanisterSettings;
   query_stats : QueryStats;
   idle_cycles_burned_per_day : nat;
-  module_hash : opt vec nat8;
+  module_hash : opt blob;
   reserved_cycles : nat;
 };
 type CanisterStatusType = variant { stopped; stopping; running };
@@ -53,7 +53,7 @@ type Event = variant {
   };
   sent_transaction : record {
     fee : opt nat64;
-    txid : vec nat8;
+    txid : blob;
     btc_change_output : BtcChangeOutput;
     btc_utxos : vec Utxo;
     requests : vec text;
@@ -64,12 +64,12 @@ type Event = variant {
   };
   added_token : record { token : Token; rune_id : RuneId };
   finalized_ticket_request : record {
-    txid : vec nat8;
+    txid : blob;
     balances : vec RunesBalance;
   };
   accepted_release_token_request : ReleaseTokenRequest;
   init : InitArgs;
-  updated_runes_balance : record { balance : RunesBalance; txid : vec nat8 };
+  updated_runes_balance : record { balance : RunesBalance; txid : blob };
   upgrade : UpgradeArgs;
   added_chain : Chain;
   update_next_ticket_seq : nat64;
@@ -78,8 +78,8 @@ type Event = variant {
   replaced_transaction : record {
     fee : nat64;
     btc_change_output : BtcChangeOutput;
-    old_txid : vec nat8;
-    new_txid : vec nat8;
+    old_txid : blob;
+    new_txid : blob;
     runes_change_output : RunesChangeOutput;
     submitted_at : nat64;
   };
@@ -89,7 +89,7 @@ type Event = variant {
 type GenTicketRequest = record {
   received_at : nat64;
   token_id : text;
-  txid : vec nat8;
+  txid : blob;
   target_chain_id : text;
   address : text;
   amount : nat;
@@ -102,7 +102,7 @@ type GenTicketStatus = variant {
   Unknown;
   Pending : GenTicketRequest;
 };
-type GenTicketStatusArgs = record { txid : vec nat8 };
+type GenTicketStatusArgs = record { txid : blob };
 type GenerateTicketArgs = record {
   txid : text;
   target_chain_id : text;
@@ -122,10 +122,7 @@ type GenerateTicketError = variant {
 };
 type GetBtcAddressArgs = record { target_chain_id : text; receiver : text };
 type GetEventsArg = record { start : nat64; length : nat64 };
-type GetGenTicketReqsArgs = record {
-  max_count : nat64;
-  start_txid : opt vec nat8;
-};
+type GetGenTicketReqsArgs = record { max_count : nat64; start_txid : opt blob };
 type InitArgs = record {
   hub_principal : principal;
   ecdsa_key_name : text;
@@ -142,7 +139,7 @@ type Mode = variant {
   ReleaseRestricted;
   TransportRestricted;
 };
-type OutPoint = record { txid : vec nat8; vout : nat32 };
+type OutPoint = record { txid : blob; vout : nat32 };
 type QueryStats = record {
   response_payload_bytes_total : nat;
   num_instructions_total : nat;
@@ -159,10 +156,10 @@ type ReleaseTokenRequest = record {
 };
 type ReleaseTokenStatus = variant {
   Signing;
-  Confirmed : vec nat8;
-  Sending : vec nat8;
+  Confirmed : blob;
+  Sending : blob;
   Unknown;
-  Submitted : vec nat8;
+  Submitted : blob;
   Pending;
 };
 type ReleaseTokenStatusArgs = record { ticket_id : text };
@@ -192,7 +189,7 @@ type TokenResp = record {
 };
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
 type UpdateRunesBalanceArgs = record {
-  txid : vec nat8;
+  txid : blob;
   balances : vec RunesBalance;
 };
 type UpdateRunesBalanceError = variant {
