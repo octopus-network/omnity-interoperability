@@ -4,7 +4,9 @@ import type { IDL } from '@dfinity/candid';
 
 export interface Chain {
   'fee_token' : [] | [string],
+  'canister_id' : string,
   'chain_id' : string,
+  'counterparties' : [] | [Array<string>],
   'chain_state' : ChainState,
   'chain_type' : ChainType,
   'contract_address' : [] | [string],
@@ -22,6 +24,17 @@ export type ChainState = { 'Active' : null } |
   { 'Deactive' : null };
 export type ChainType = { 'SettlementChain' : null } |
   { 'ExecutionChain' : null };
+export interface ChainWithSeq {
+  'fee_token' : [] | [string],
+  'canister_id' : string,
+  'chain_id' : string,
+  'latest_ticket_seq' : [] | [bigint],
+  'counterparties' : [] | [Array<string>],
+  'chain_state' : ChainState,
+  'chain_type' : ChainType,
+  'contract_address' : [] | [string],
+  'latest_dire_seq' : [] | [bigint],
+}
 export type Directive = { 'UpdateFee' : Factor } |
   { 'AddToken' : Token } |
   { 'AddChain' : Chain } |
@@ -44,17 +57,32 @@ export type Error = { 'AlreadyExistingTicketId' : string } |
   { 'NotFoundToken' : string } |
   { 'CustomError' : string } |
   { 'NotSufficientTokens' : [string, string] };
+export type Event = {
+    'toggled_chain_state' : { 'chain' : ChainWithSeq, 'state' : ToggleState }
+  } |
+  { 'updated_fee' : Factor } |
+  { 'added_token_position' : { 'position' : TokenKey, 'amount' : bigint } } |
+  { 'added_token' : TokenMeta } |
+  { 'post_upgrade' : Uint8Array | number[] } |
+  { 'init' : Principal } |
+  {
+    'received_directive' : { 'dst_chain' : ChainWithSeq, 'dire' : Directive }
+  } |
+  { 'added_chain' : ChainWithSeq } |
+  { 'updated_token_position' : { 'position' : TokenKey, 'amount' : bigint } } |
+  { 'updated_chain' : ChainWithSeq } |
+  { 'received_ticket' : { 'ticket' : Ticket, 'dst_chain' : ChainWithSeq } } |
+  { 'pre_upgrade' : Uint8Array | number[] };
 export type Factor = { 'UpdateFeeTokenFactor' : FeeTokenFactor } |
   { 'UpdateTargetChainFactor' : TargetChainFactor };
 export interface FeeTokenFactor {
   'fee_token' : string,
   'fee_token_factor' : bigint,
 }
-export interface Log { 'log' : string, 'offset' : bigint }
-export interface Logs { 'logs' : Array<Log>, 'all_logs_count' : bigint }
+export interface GetEventsArg { 'start' : bigint, 'length' : bigint }
 export type Proposal = { 'UpdateFee' : Factor } |
   { 'AddToken' : TokenMeta } |
-  { 'AddChain' : ChainMeta } |
+  { 'AddChain' : Chain } |
   { 'ToggleChainState' : ToggleState };
 export type Result = { 'Ok' : null } |
   { 'Err' : Error };
@@ -92,27 +120,32 @@ export interface Ticket {
   'ticket_id' : string,
   'sender' : [] | [string],
   'ticket_time' : bigint,
+  'ticket_type' : TicketType,
   'src_chain' : string,
   'amount' : string,
   'receiver' : string,
 }
+export type TicketType = { 'Resubmit' : null } |
+  { 'Normal' : null };
 export type ToggleAction = { 'Deactivate' : null } |
   { 'Activate' : null };
 export interface ToggleState { 'action' : ToggleAction, 'chain_id' : string }
 export interface Token {
   'decimals' : number,
   'token_id' : string,
-  'metadata' : [] | [Array<[string, string]>],
+  'metadata' : Array<[string, string]>,
   'icon' : [] | [string],
-  'issue_chain' : string,
+  'name' : string,
   'symbol' : string,
 }
+export interface TokenKey { 'token_id' : string, 'chain_id' : string }
 export interface TokenMeta {
   'decimals' : number,
   'token_id' : string,
-  'metadata' : [] | [Array<[string, string]>],
+  'metadata' : Array<[string, string]>,
   'icon' : [] | [string],
-  'settlement_chain' : string,
+  'name' : string,
+  'issue_chain' : string,
   'symbol' : string,
   'dst_chains' : Array<string>,
 }
@@ -139,11 +172,12 @@ export interface _SERVICE {
     [[] | [ChainType], [] | [ChainState], bigint, bigint],
     Result_3
   >,
+  'get_events' : ActorMethod<[GetEventsArg], Array<Event>>,
   'get_fees' : ActorMethod<
     [[] | [string], [] | [string], bigint, bigint],
     Result_4
   >,
-  'get_logs' : ActorMethod<[bigint, bigint], Array<string>>,
+  'get_logs' : ActorMethod<[[] | [bigint], bigint, bigint], Array<string>>,
   'get_tokens' : ActorMethod<
     [[] | [string], [] | [string], bigint, bigint],
     Result_5
@@ -168,7 +202,6 @@ export interface _SERVICE {
   'query_tickets' : ActorMethod<[[] | [string], bigint, bigint], Result_10>,
   'send_ticket' : ActorMethod<[Ticket], Result>,
   'set_logger_filter' : ActorMethod<[string], undefined>,
-  'take_memory_records' : ActorMethod<[bigint, bigint], Logs>,
   'update_fee' : ActorMethod<[Array<Factor>], Result>,
   'validate_proposal' : ActorMethod<[Array<Proposal>], Result_11>,
 }
