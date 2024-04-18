@@ -1,5 +1,7 @@
 use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
+use ic_cdk::api::management_canister::main::{CanisterStatusResponse, CanisterStatusType};
+use ic_ic00_types::CanisterSettingsArgsBuilder;
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
@@ -99,7 +101,12 @@ fn install_ledger(env: &StateMachine) {
 }
 
 fn install_router(env: &StateMachine, hub_id: CanisterId) -> CanisterId {
-    let route_id = env.create_canister_with_cycles(None, Cycles::new(100_000_000_000_0000), None);
+    let setting = CanisterSettingsArgsBuilder::new()
+        .with_controllers(vec![hub_id.into(), caller_account()])
+        .build();
+
+    let route_id =
+        env.create_canister_with_cycles(None, Cycles::new(100_000_000_000_0000), Some(setting));
     env.install_existing_canister(
         route_id,
         route_wasm(),
@@ -142,10 +149,6 @@ impl RouteSetup {
         install_ledger(&env);
 
         let caller = caller_account();
-
-        dbg!(&hub_id);
-        dbg!(&route_id);
-        dbg!(&caller);
 
         Self {
             env,
@@ -280,6 +283,94 @@ impl RouteSetup {
             Result<Nat, ApproveError>
         )
         .unwrap();
+    }
+
+    pub fn stop_controlled_canister(
+        &self,
+        icrc_canister_id: Principal,
+        caller: Option<PrincipalId>,
+    ) {
+        let _ = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.unwrap_or(self.caller),
+                        self.route_id,
+                        "stop_controlled_canister",
+                        Encode!(&icrc_canister_id).unwrap(),
+                    )
+                    .expect("failed to stop controlled canister")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
+    pub fn start_controlled_canister(
+        &self,
+        icrc_canister_id: Principal,
+        caller: Option<PrincipalId>,
+    ) {
+        let _ = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.unwrap_or(self.caller),
+                        self.route_id,
+                        "start_controlled_canister",
+                        Encode!(&icrc_canister_id).unwrap(),
+                    )
+                    .expect("failed to start controlled canister")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
+    pub fn delete_controlled_canister(
+        &self,
+        icrc_canister_id: Principal,
+        caller: Option<PrincipalId>,
+    ) {
+        let _ = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.unwrap_or(self.caller),
+                        self.route_id,
+                        "delete_controlled_canister",
+                        Encode!(&icrc_canister_id).unwrap(),
+                    )
+                    .expect("failed to delete controlled canister")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
+    pub fn controlled_canister_status(
+        &self,
+        icrc_canister_id: Principal,
+        caller: Option<PrincipalId>,
+    ) -> Result<CanisterStatusResponse, String> {
+        let r = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.unwrap_or(self.caller),
+                        self.route_id,
+                        "controlled_canister_status",
+                        Encode!(&icrc_canister_id).unwrap(),
+                    )
+                    .expect("failed to get canister status")
+            ),
+            Result<CanisterStatusResponse, String>
+        )
+        .unwrap();
+        return r;
     }
 
     pub fn get_token_ledger(&self, token_id: String) -> CanisterId {
@@ -589,4 +680,46 @@ fn test_mint_multi_tokens() {
     let ledger_id2 = route.get_token_ledger(TOKEN_ID2.into());
     let balance = route.icrc1_balance_of(ledger_id2, route.caller.into());
     assert_eq!(balance, Nat::from_str("1000000").unwrap());
+}
+
+#[test]
+#[should_panic(expected = "caller is not controller")]
+fn test_icrc_control_auth_and_check() {
+    let route = RouteSetup::new();
+    add_chain(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    route.controlled_canister_status(token_canister_id.into(), Some(route.hub_id.into())).unwrap();
+
+    route.controlled_canister_status(token_canister_id.into(), Some(route.caller)).unwrap();
+
+    route.controlled_canister_status(token_canister_id.into(), Some(route.route_id.into())).unwrap();
+}
+
+#[test]
+fn test_icrc_control() -> Result<(), String> {
+    let route = RouteSetup::new();
+    add_chain(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    route.stop_controlled_canister(token_canister_id.into(), None);
+    let status = route.controlled_canister_status(token_canister_id.into(), None)?;
+    assert!(matches!(status.status, CanisterStatusType::Stopped));
+
+    route.start_controlled_canister(token_canister_id.into(), None);
+    let status = route.controlled_canister_status(token_canister_id.into(), None)?;
+    assert!(matches!(status.status, CanisterStatusType::Running));
+
+    // must be stopped before it is deleted
+    route.stop_controlled_canister(token_canister_id.into(), None);
+    route.delete_controlled_canister(token_canister_id.into(), None);
+    let result = route.controlled_canister_status(token_canister_id.into(), None);
+    assert!(result.err().unwrap().contains(&format!(
+        "Canister {} not found.",
+        token_canister_id.to_string()
+    )));
+
+    Result::Ok(())
 }

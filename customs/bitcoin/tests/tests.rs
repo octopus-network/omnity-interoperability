@@ -273,10 +273,7 @@ impl CustomsSetup {
                 symbol: "SECOND•RUNE•TOKEN".into(),
                 decimals: 0,
                 icon: None,
-                metadata: HashMap::from([(
-                    "rune_id".to_string(),
-                    RUNE_ID_2.to_string(),
-                )]),
+                metadata: HashMap::from([("rune_id".to_string(), RUNE_ID_2.to_string())]),
             }),
         ];
         customs.push_directives(directives);

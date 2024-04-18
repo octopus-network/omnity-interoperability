@@ -185,7 +185,6 @@ pub struct TokenMeta {
     pub icon: Option<String>,
     pub metadata: HashMap<String, String>,
     pub dst_chains: Vec<ChainId>,
-   
 }
 
 impl Storable for TokenMeta {

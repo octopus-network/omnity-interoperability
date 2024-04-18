@@ -1,4 +1,7 @@
 use candid::Principal;
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_cdk::api::call::call;
+use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
@@ -18,7 +21,6 @@ use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::str::FromStr;
 use std::time::Duration;
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 
 #[init]
 fn init(args: RouteArg) {
@@ -42,6 +44,62 @@ fn check_anonymous_caller() {
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
     updates::generate_ticket(args).await
+}
+
+pub fn is_controller() -> Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
+}
+
+#[update(guard = "is_controller")]
+async fn stop_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+
+    call(Principal::management_canister(), "stop_canister", (args,))
+        .await
+        .and_then(|((),)| Ok(()))
+        .map_err(|(_, reason)| reason)
+}
+
+#[update(guard = "is_controller")]
+async fn start_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+
+    call(Principal::management_canister(), "start_canister", (args,))
+        .await
+        .and_then(|((),)| Ok(()))
+        .map_err(|(_, reason)| reason)
+}
+
+#[update(guard = "is_controller")]
+async fn delete_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+    call(Principal::management_canister(), "delete_canister", (args,))
+        .await
+        .and_then(|((),)| Ok(()))
+        .map_err(|(_, reason)| reason)
+}
+
+#[update(guard = "is_controller")]
+pub async fn controlled_canister_status(
+    icrc_canister_id: Principal,
+) -> Result<CanisterStatusResponse, String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+    call(Principal::management_canister(), "canister_status", (args,))
+        .await
+        .and_then(|(e,)| Ok(e))
+        .map_err(|(_, reason)| reason)
 }
 
 #[query]
@@ -160,7 +218,6 @@ fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, Htt
             .build()),
     }
 }
-
 
 #[pre_upgrade]
 fn pre_upgrade() {
