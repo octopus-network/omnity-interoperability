@@ -5,7 +5,7 @@ use ic_stable_structures::{
 };
 use std::cell::RefCell;
 
-const LOG_MEMORY_ID: MemoryId = MemoryId::new(0);
+const LOG_MEMORY_ID: MemoryId = MemoryId::new(2);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
