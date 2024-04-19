@@ -690,11 +690,17 @@ fn test_icrc_control_auth_and_check() {
     add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
     let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
 
-    route.controlled_canister_status(token_canister_id.into(), Some(route.hub_id.into())).unwrap();
+    route
+        .controlled_canister_status(token_canister_id.into(), Some(route.hub_id.into()))
+        .unwrap();
 
-    route.controlled_canister_status(token_canister_id.into(), Some(route.caller)).unwrap();
+    route
+        .controlled_canister_status(token_canister_id.into(), Some(route.caller))
+        .unwrap();
 
-    route.controlled_canister_status(token_canister_id.into(), Some(route.route_id.into())).unwrap();
+    route
+        .controlled_canister_status(token_canister_id.into(), Some(route.route_id.into()))
+        .unwrap();
 }
 
 #[test]

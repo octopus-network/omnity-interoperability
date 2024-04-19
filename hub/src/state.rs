@@ -629,7 +629,7 @@ impl HubState {
                 };
                 self.push_ticket(new_ticket)?;
                 self.last_resubmit_ticket_time = now;
-                
+
                 record_event(&Event::ResubmitTicket {
                     ticket_id,
                     timestamp: now,
