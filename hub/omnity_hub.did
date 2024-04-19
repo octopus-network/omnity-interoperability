@@ -94,7 +94,7 @@ type Result_11 = variant { Ok : vec text; Err : Error };
 type Result_2 = variant { Ok : vec TokenOnChain; Err : Error };
 type Result_3 = variant { Ok : vec Chain; Err : Error };
 type Result_4 = variant { Ok : vec record { text; text; nat }; Err : Error };
-type Result_5 = variant { Ok : vec Token; Err : Error };
+type Result_5 = variant { Ok : vec TokenResp; Err : Error };
 type Result_6 = variant { Ok : nat64; Err : Error };
 type Result_7 = variant { Ok : Ticket; Err : Error };
 type Result_8 = variant { Ok : vec Ticket; Err : Error };
@@ -139,6 +139,13 @@ type TokenMeta = record {
   dst_chains : vec text;
 };
 type TokenOnChain = record { token_id : text; chain_id : text; amount : nat };
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  rune_id : opt text;
+  symbol : text;
+};
 type Topic = variant {
   UpdateFee : opt text;
   ActivateChain;

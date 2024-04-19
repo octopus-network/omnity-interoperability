@@ -9,7 +9,7 @@ use ic_base_types::{CanisterId, PrincipalId};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{StateMachine, WasmResult};
 use omnity_hub::lifecycle::init::{HubArg, InitArgs};
-use omnity_hub::types::{ChainMeta, Proposal, TokenMeta};
+use omnity_hub::types::{ChainMeta, Proposal, TokenMeta, TokenResp};
 use omnity_types::{Chain, ChainId, Directive, Seq, Ticket, Token, TokenId, TokenOnChain, Topic};
 use omnity_types::{ChainState, ChainType, Error, Factor};
 
@@ -118,7 +118,7 @@ impl OmnityHub {
         token_id: &Option<TokenId>,
         offset: &usize,
         limit: &usize,
-    ) -> Result<Vec<Token>, Error> {
+    ) -> Result<Vec<TokenResp>, Error> {
         let ret = self
             .sm
             .query(
@@ -127,7 +127,7 @@ impl OmnityHub {
                 Encode!(chain_id, token_id, offset, limit).unwrap(),
             )
             .expect("failed to get tokens");
-        Decode!(&assert_reply(ret), Result<Vec<Token>, Error>).unwrap()
+        Decode!(&assert_reply(ret), Result<Vec<TokenResp>, Error>).unwrap()
     }
     pub fn get_fees(
         &self,

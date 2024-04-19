@@ -225,6 +225,27 @@ impl Into<Token> for TokenMeta {
     }
 }
 
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
+pub struct TokenResp {
+    pub token_id: TokenId,
+    pub symbol: String,
+    pub decimals: u8,
+    pub icon: Option<String>,
+    pub rune_id: Option<String>,
+}
+
+impl From<Token> for TokenResp {
+    fn from(value: Token) -> Self {
+        TokenResp {
+            token_id: value.token_id,
+            symbol: value.symbol,
+            decimals: value.decimals,
+            icon: value.icon,
+            rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
+        }
+    }
+}
+
 /// This struct as HashMap key to find the token or else info
 #[derive(
     CandidType, Deserialize, Serialize, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,

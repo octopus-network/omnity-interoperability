@@ -10,11 +10,11 @@ use omnity_hub::auth::{auth, is_owner};
 use omnity_hub::metrics;
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
-use omnity_hub::types::Proposal;
+use omnity_hub::types::{Proposal, TokenResp};
 use omnity_hub::{lifecycle, memory};
 use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
 use omnity_types::{
-    Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId, Token,
+    Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
     TokenId, TokenOnChain, Topic,
 };
 
@@ -140,8 +140,10 @@ pub async fn get_tokens(
     token_id: Option<TokenId>,
     offset: usize,
     limit: usize,
-) -> Result<Vec<Token>, Error> {
-    metrics::get_tokens(chain_id, token_id, offset, limit).await
+) -> Result<Vec<TokenResp>, Error> {
+    metrics::get_tokens(chain_id, token_id, offset, limit)
+        .await
+        .map(|tokens| tokens.iter().map(|t| t.clone().into()).collect())
 }
 
 #[query]
