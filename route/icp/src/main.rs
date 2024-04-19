@@ -1,5 +1,5 @@
 use candid::Principal;
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::call::call;
 use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
@@ -16,10 +16,8 @@ use icp_route::updates::generate_ticket::{
 };
 use icp_route::updates::{self};
 use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
-use log::{self, info};
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
-use std::str::FromStr;
 use std::time::Duration;
 
 #[init]
@@ -176,47 +174,7 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
 
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    if req.path() == "/logs" {
-        use serde_json;
-        let max_skip_timestamp = parse_param::<u64>(&req, "time").unwrap_or(0);
-        let offset = match parse_param::<usize>(&req, "offset") {
-            Ok(value) => value,
-            Err(err) => return err,
-        };
-        let limit = match parse_param::<usize>(&req, "limit") {
-            Ok(value) => value,
-            Err(err) => return err,
-        };
-        info!(
-            "log req, max_skip_timestamp: {}, offset: {}, limit: {}",
-            max_skip_timestamp, offset, limit
-        );
-
-        let logs = StableLogWriter::get_logs(max_skip_timestamp, offset, limit);
-        HttpResponseBuilder::ok()
-            .header("Content-Type", "application/json; charset=utf-8")
-            .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())
-            .build()
-    } else {
-        HttpResponseBuilder::not_found().build()
-    }
-}
-
-fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, HttpResponse> {
-    match req.raw_query_param(param_name) {
-        Some(arg) => match arg.parse() {
-            Ok(value) => Ok(value),
-            Err(_) => Err(HttpResponseBuilder::bad_request()
-                .with_body_and_content_length(format!(
-                    "failed to parse the '{}' parameter",
-                    param_name
-                ))
-                .build()),
-        },
-        None => Err(HttpResponseBuilder::bad_request()
-            .with_body_and_content_length(format!("must provide the '{}' parameter", param_name))
-            .build()),
-    }
+    StableLogWriter::http_request(req)
 }
 
 #[pre_upgrade]
