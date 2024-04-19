@@ -2,7 +2,6 @@ use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
-use bitcoin_customs::queries::{GenTicketStatusArgs, ReleaseTokenStatusArgs};
 use bitcoin_customs::state::{GenTicketStatus, RuneId, RunesBalance};
 use bitcoin_customs::state::{Mode, ReleaseTokenStatus};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
@@ -453,7 +452,7 @@ impl CustomsSetup {
                     .query(
                         self.customs_id,
                         "generate_ticket_status",
-                        Encode!(&GenTicketStatusArgs { txid }).unwrap()
+                        Encode!(&txid.to_string()).unwrap()
                     )
                     .expect("failed to get generate ticket status")
             ),
@@ -507,7 +506,7 @@ impl CustomsSetup {
                     .query(
                         self.customs_id,
                         "release_token_status",
-                        Encode!(&ReleaseTokenStatusArgs { ticket_id }).unwrap()
+                        Encode!(&ticket_id).unwrap()
                     )
                     .expect("failed to get release token status")
             ),

@@ -1,19 +1,7 @@
+use crate::state::RuneId;
 use candid::CandidType;
 use ic_btc_interface::Txid;
-use omnity_types::TicketId;
 use serde::Deserialize;
-
-use crate::state::RuneId;
-
-#[derive(CandidType, Deserialize)]
-pub struct ReleaseTokenStatusArgs {
-    pub ticket_id: TicketId,
-}
-
-#[derive(CandidType, Deserialize)]
-pub struct GenTicketStatusArgs {
-    pub txid: Txid,
-}
 
 #[derive(CandidType, Deserialize)]
 pub struct EstimateFeeArgs {

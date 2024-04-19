@@ -1,9 +1,7 @@
 use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::lifecycle::{self, init::CustomArg};
 use bitcoin_customs::metrics::encode_metrics;
-use bitcoin_customs::queries::{
-    EstimateFeeArgs, GenTicketStatusArgs, GetGenTicketReqsArgs, RedeemFee, ReleaseTokenStatusArgs,
-};
+use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
 use bitcoin_customs::state::{read_state, GenTicketRequest, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
@@ -20,7 +18,7 @@ use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
 };
-use ic_btc_interface::Utxo;
+use ic_btc_interface::{Txid, Utxo};
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk_macros::{init, post_upgrade, query, update};
@@ -28,6 +26,7 @@ use ic_cdk_timers::set_timer_interval;
 use omnity_types::Chain;
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
+use std::str::FromStr;
 
 #[init]
 fn init(args: CustomArg) {
@@ -119,13 +118,19 @@ async fn get_main_btc_address(token: String) -> String {
 }
 
 #[query]
-fn release_token_status(args: ReleaseTokenStatusArgs) -> ReleaseTokenStatus {
-    read_state(|s| s.release_token_status(&args.ticket_id))
+fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
+    read_state(|s| s.release_token_status(&ticket_id))
 }
 
 #[query]
-fn generate_ticket_status(args: GenTicketStatusArgs) -> GenTicketStatus {
-    read_state(|s| s.generate_ticket_status(args.txid))
+fn generate_ticket_status(txid: String) -> GenTicketStatus {
+    let txid = match Txid::from_str(&txid) {
+        Ok(txid) => txid,
+        Err(_) => {
+            return GenTicketStatus::Unknown;
+        }
+    };
+    read_state(|s| s.generate_ticket_status(txid))
 }
 
 #[query]

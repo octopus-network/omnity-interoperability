@@ -74,7 +74,7 @@ type Event = variant {
   added_chain : Chain;
   update_next_ticket_seq : nat64;
   update_next_directive_seq : nat64;
-  confirmed_transaction : GenTicketStatusArgs;
+  confirmed_transaction : record { txid : blob };
   replaced_transaction : record {
     fee : nat64;
     btc_change_output : BtcChangeOutput;
@@ -102,7 +102,6 @@ type GenTicketStatus = variant {
   Unknown;
   Pending : GenTicketRequest;
 };
-type GenTicketStatusArgs = record { txid : blob };
 type GenerateTicketArgs = record {
   txid : text;
   target_chain_id : text;
@@ -162,7 +161,6 @@ type ReleaseTokenStatus = variant {
   Submitted : blob;
   Pending;
 };
-type ReleaseTokenStatusArgs = record { ticket_id : text };
 type Result = variant { Ok; Err : GenerateTicketError };
 type Result_1 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
 type Result_2 = variant { Ok; Err : UpdateRunesBalanceError };
@@ -210,7 +208,7 @@ type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 service : (CustomArg) -> {
   estimate_redeem_fee : (EstimateFeeArgs) -> (RedeemFee) query;
   generate_ticket : (GenerateTicketArgs) -> (Result);
-  generate_ticket_status : (GenTicketStatusArgs) -> (GenTicketStatus) query;
+  generate_ticket_status : (text) -> (GenTicketStatus) query;
   get_btc_address : (GetBtcAddressArgs) -> (text);
   get_canister_status : () -> (CanisterStatusResponse);
   get_chain_list : () -> (vec Chain) query;
@@ -221,7 +219,7 @@ service : (CustomArg) -> {
       vec GenTicketRequest,
     ) query;
   get_token_list : () -> (vec TokenResp) query;
-  release_token_status : (ReleaseTokenStatusArgs) -> (ReleaseTokenStatus) query;
+  release_token_status : (text) -> (ReleaseTokenStatus) query;
   update_btc_utxos : () -> (Result_1);
   update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_2);
 }
