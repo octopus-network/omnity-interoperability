@@ -36,6 +36,7 @@ type Event = variant {
   finalized_mint_token : record { block_index : nat64; ticket_id : text };
   added_token : record { token : Token; ledger_id : principal };
   init : InitArgs;
+  upgrade : UpgradeArgs;
   added_chain : Chain;
   toggle_chain_state : ToggleState;
 };
@@ -80,7 +81,7 @@ type QueryStats = record {
 type Result = variant { Ok : CanisterStatusResponse; Err : text };
 type Result_1 = variant { Ok; Err : text };
 type Result_2 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-type RouteArg = variant { Init : InitArgs };
+type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type TargetChainFactor = record {
   target_chain_id : text;
   target_chain_factor : nat;
@@ -101,6 +102,10 @@ type TokenResp = record {
   icon : opt text;
   rune_id : opt text;
   symbol : text;
+};
+type UpgradeArgs = record {
+  hub_principal : opt principal;
+  chain_id : opt text;
 };
 service : (RouteArg) -> {
   controlled_canister_status : (principal) -> (Result);

@@ -7,10 +7,10 @@ use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
 use ic_ledger_types::AccountIdentifier;
 use ic_log::writer::Logs;
-use icp_route::lifecycle::{self, init::RouteArg};
+use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
 use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
-use icp_route::state::{read_state, replace_state, take_state, MintTokenStatus, RouteState};
+use icp_route::state::{read_state, take_state, MintTokenStatus};
 use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
@@ -26,8 +26,11 @@ fn init(args: RouteArg) {
         RouteArg::Init(args) => {
             init_log(Some(init_stable_log()));
             storage::record_event(&Event::Init(args.clone()));
-            lifecycle::init::init(args);
+            lifecycle::init(args);
             set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
+        }
+        RouteArg::Upgrade(_) => {
+            panic!("expected InitArgs got UpgradeArgs");
         }
     }
 }
@@ -183,11 +186,17 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
-    let (stable_state,): (RouteState,) =
-        ic_cdk::storage::stable_restore().expect("failed to restore state");
+fn post_upgrade(route_arg: Option<RouteArg>) {
+    let mut upgrade_arg: Option<UpgradeArgs> = None;
+    if let Some(route_arg) = route_arg {
+        upgrade_arg = match route_arg {
+            RouteArg::Upgrade(upgrade_args) => upgrade_args,
+            RouteArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
+        };
+    }
+    lifecycle::post_upgrade(upgrade_arg);
 
-    replace_state(stable_state);
+    set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
 }
 
 fn main() {}
