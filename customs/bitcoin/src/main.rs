@@ -123,8 +123,8 @@ fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
 }
 
 #[query]
-fn generate_ticket_status(txid: String) -> GenTicketStatus {
-    let txid = match Txid::from_str(&txid) {
+fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
+    let txid = match Txid::from_str(&ticket_id) {
         Ok(txid) => txid,
         Err(_) => {
             return GenTicketStatus::Unknown;
