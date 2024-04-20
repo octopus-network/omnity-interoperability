@@ -4,7 +4,7 @@ use omnity_types::{ChainState, ChainType, Directive, Error, Factor};
 
 use crate::{
     state::{with_state, with_state_mut},
-    types::{ChainWithSeq, Proposal},
+    types::Proposal,
 };
 
 pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, Error> {
@@ -119,11 +119,10 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     chain_meta.to_string()
                 );
 
-                let new_chain = ChainWithSeq::from(chain_meta.clone());
                 // save new chain
                 with_state_mut(|hub_state| {
-                    info!(" save new chain: {:?}", new_chain);
-                    hub_state.add_chain(new_chain.clone())
+                    info!(" save new chain: {:?}", chain_meta);
+                    hub_state.add_chain(chain_meta.clone())
                 })?;
                 // build directives
                 match chain_meta.chain_type {
@@ -136,7 +135,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                         // publish directive for the new chain)
                         with_state_mut(|hub_state| {
                             //check and update counterparty of dst chain
-                            hub_state.pub_directive(Directive::AddChain(new_chain.clone().into()))
+                            hub_state.pub_directive(Directive::AddChain(chain_meta.clone().into()))
                         })?;
                     }
                 }

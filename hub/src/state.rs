@@ -1,6 +1,6 @@
 use crate::event::{record_event, Event};
 use crate::memory::{self, Memory};
-use crate::types::{Amount, ChainTokenFactor, ChainWithSeq, Subscribers, TokenKey, TokenMeta};
+use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
@@ -24,7 +24,7 @@ thread_local! {
 #[derive(Deserialize, Serialize)]
 pub struct HubState {
     #[serde(skip, default = "memory::init_chain")]
-    pub chains: StableBTreeMap<ChainId, ChainWithSeq, Memory>,
+    pub chains: StableBTreeMap<ChainId, ChainMeta, Memory>,
     #[serde(skip, default = "memory::init_token")]
     pub tokens: StableBTreeMap<TokenId, TokenMeta, Memory>,
     #[serde(skip, default = "memory::init_chain_factor")]
@@ -34,7 +34,7 @@ pub struct HubState {
     #[serde(skip, default = "memory::init_dire_queue")]
     pub dire_queue: StableBTreeMap<SeqKey, Directive, Memory>,
     #[serde(skip, default = "memory::init_subs")]
-    pub subscribers: StableBTreeMap<Topic, Subscribers, Memory>,
+    pub topic_subscribers: StableBTreeMap<Topic, Subscribers, Memory>,
     #[serde(skip, default = "memory::init_ticket_queue")]
     pub ticket_queue: StableBTreeMap<SeqKey, Ticket, Memory>,
     #[serde(skip, default = "memory::init_token_position")]
@@ -58,7 +58,7 @@ impl Default for HubState {
             token_position: StableBTreeMap::init(memory::get_token_position_memory()),
             cross_ledger: StableBTreeMap::init(memory::get_ledger_memory()),
             dire_queue: StableBTreeMap::init(memory::get_dire_queue_memory()),
-            subscribers: StableBTreeMap::init(memory::get_subs_memory()),
+            topic_subscribers: StableBTreeMap::init(memory::get_subs_memory()),
             ticket_queue: StableBTreeMap::init(memory::get_ticket_queue_memory()),
             directive_seq: HashMap::default(),
             ticket_seq: HashMap::default(),
@@ -132,8 +132,6 @@ impl HubState {
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
         *self = state;
         record_event(&Event::PostUpgrade(state_bytes));
-
-        // set_state(state);
     }
     pub fn settlement_chain(&self, token_id: &TokenId) -> Result<ChainId, Error> {
         self.tokens
@@ -151,7 +149,7 @@ impl HubState {
                 chain_id.to_string(),
             ))
     }
-    pub fn add_chain(&mut self, chain: ChainWithSeq) -> Result<(), Error> {
+    pub fn add_chain(&mut self, chain: ChainMeta) -> Result<(), Error> {
         // save chain
         self.chains
             .insert(chain.chain_id.to_string(), chain.clone());
@@ -179,7 +177,7 @@ impl HubState {
         dst_chain_id: &ChainId,
         counterparty: &ChainId,
     ) -> Result<(), Error> {
-        self.chains.get(dst_chain_id).as_mut().map(|chain| {
+        self.chains.get(dst_chain_id).map(|mut chain| {
             // excluds the deactive state
             if matches!(chain.chain_state, ChainState::Deactive) {
                 info!(
@@ -197,20 +195,20 @@ impl HubState {
                 //update chain info
                 self.chains
                     .insert(chain.chain_id.to_string(), chain.clone());
-                record_event(&Event::UpdatedChainCounterparties(chain.clone()))
+                record_event(&Event::UpdatedChainCounterparties(chain))
             }
         });
         Ok(())
     }
 
-    pub fn chain(&self, chain_id: &ChainId) -> Result<ChainWithSeq, Error> {
+    pub fn chain(&self, chain_id: &ChainId) -> Result<ChainMeta, Error> {
         self.chains
             .get(chain_id)
             .ok_or(Error::NotFoundChain(chain_id.to_string()))
     }
 
     //check the dst chain must exsiting and not deactive!
-    pub fn available_chain(&self, chain_id: &ChainId) -> Result<ChainWithSeq, Error> {
+    pub fn available_chain(&self, chain_id: &ChainId) -> Result<ChainMeta, Error> {
         self.chains
             .get(chain_id)
             .ok_or(Error::NotFoundChain(chain_id.to_string()))
@@ -326,11 +324,12 @@ impl HubState {
 
     pub fn sub_directives(&mut self, chain_id: &ChainId, topics: &Vec<Topic>) -> Result<(), Error> {
         topics.iter().for_each(|topic| {
-            if let Some(subscribers) = self.subscribers.get(topic).as_mut() {
+            if let Some(subscribers) = self.topic_subscribers.get(topic).as_mut() {
                 if !subscribers.subs.contains(chain_id) {
                     subscribers.subs.push(chain_id.to_string());
                     //update subscribers
-                    self.subscribers.insert(topic.clone(), subscribers.clone());
+                    self.topic_subscribers
+                        .insert(topic.clone(), subscribers.clone());
                     record_event(&Event::SubTopic {
                         topic: topic.clone(),
                         subs: subscribers.clone(),
@@ -341,7 +340,7 @@ impl HubState {
                     subs: vec![chain_id.to_string()],
                 };
                 //update subscribers
-                self.subscribers.insert(topic.clone(), subs.clone());
+                self.topic_subscribers.insert(topic.clone(), subs.clone());
                 record_event(&Event::SubTopic {
                     topic: topic.clone(),
                     subs: subs,
@@ -357,9 +356,10 @@ impl HubState {
         topics: &Vec<Topic>,
     ) -> Result<(), Error> {
         topics.iter().for_each(|topic| {
-            if let Some(subscribers) = self.subscribers.get(topic).as_mut() {
+            if let Some(mut subscribers) = self.topic_subscribers.get(topic) {
                 if let Some(idx) = subscribers.subs.iter().position(|dst| dst.eq(chain_id)) {
                     subscribers.subs.remove(idx);
+                    self.topic_subscribers.insert(topic.clone(), subscribers);
                     record_event(&Event::UnSubTopic {
                         topic: topic.clone(),
                         sub: chain_id.to_string(),
@@ -369,6 +369,23 @@ impl HubState {
         });
         Ok(())
     }
+    pub fn query_subscribers(
+        &self,
+        dst_topic: Option<Topic>,
+    ) -> Result<Vec<(Topic, Subscribers)>, Error> {
+        let ret = self
+            .topic_subscribers
+            .iter()
+            .filter(|(topic, _)| {
+                dst_topic
+                    .as_ref()
+                    .map_or(true, |dst_topic| topic == dst_topic)
+            })
+            .map(|(topic, subs)| (topic, subs))
+            .collect::<Vec<_>>();
+        Ok(ret)
+    }
+
     pub fn pub_directive(&mut self, dire: Directive) -> Result<(), Error> {
         fn handle_directive<'a>(
             hub_state: &'a mut HubState,
@@ -376,7 +393,7 @@ impl HubState {
             dire: &'a Directive,
         ) -> Result<(), Error> {
             hub_state
-                .subscribers
+                .topic_subscribers
                 .iter()
                 .filter_map(|(topic, subs)| {
                     if condition(&topic) {
@@ -433,9 +450,13 @@ impl HubState {
             Directive::UpdateFee(ref factor) => handle_directive(
                 self,
                 |topic: &Topic| match factor {
-                    Factor::UpdateTargetChainFactor(_) => matches!(topic, Topic::UpdateFee(None)),
+                    Factor::UpdateTargetChainFactor(cf) => {
+                        matches!(topic, Topic::UpdateTargetChainFactor(None))
+                            || matches!(topic, Topic::UpdateTargetChainFactor(Some(chain_id)) if cf.target_chain_id.eq(chain_id))
+                    }
                     Factor::UpdateFeeTokenFactor(tf) => {
-                        matches!(topic, Topic::UpdateFee(Some(token_id)) if token_id.eq(&tf.fee_token))
+                        matches!(topic, Topic::UpdateFeeTokenFactor(None))
+                            || matches!(topic, Topic::UpdateFeeTokenFactor(Some(token_id)) if tf.fee_token.eq(token_id))
                     }
                 },
                 &dire,
@@ -498,12 +519,21 @@ impl HubState {
                         }
                     })
                 }
-                Topic::UpdateFee(token_id) => {
+                Topic::UpdateTargetChainFactor(dst_chain_id) => {
                     filter_dires(&self.dire_queue, &chain_id, offset, limit, |dire| {
-                        if let Some(dst_token_id) = &token_id {
-                            matches!(dire, Directive::UpdateFee(fee) if  matches!(fee,Factor::UpdateFeeTokenFactor(tf) if tf.fee_token.eq(dst_token_id)))
+                        if let Some(dst_token_id) = &dst_chain_id {
+                            matches!(dire, Directive::UpdateFee(factor) if  matches!(factor,Factor::UpdateTargetChainFactor(cf) if cf.target_chain_id.eq(dst_token_id)))
                         } else {
-                            matches!(dire, Directive::UpdateFee(_))
+                            matches!(dire, Directive::UpdateFee(factor) if  matches!(factor,Factor::UpdateTargetChainFactor(_)))
+                        }
+                    })
+                }
+                Topic::UpdateFeeTokenFactor(dst_token_id) => {
+                    filter_dires(&self.dire_queue, &chain_id, offset, limit, |dire| {
+                        if let Some(dst_token_id) = &dst_token_id {
+                            matches!(dire, Directive::UpdateFee(factor) if  matches!(factor,Factor::UpdateFeeTokenFactor(tf) if tf.fee_token.eq(dst_token_id)))
+                        } else {
+                            matches!(dire, Directive::UpdateFee(factor) if  matches!(factor,Factor::UpdateFeeTokenFactor(_)))
                         }
                     })
                 }
@@ -589,7 +619,7 @@ impl HubState {
         })?;
 
         // check token on chain availability
-        
+
         match ticket.action {
             TxAction::Transfer => {
                 // ticket from issue chain

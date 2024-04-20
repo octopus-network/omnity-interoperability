@@ -10,7 +10,7 @@ use std::cell::RefCell;
 
 use omnity_types::{ChainId, Directive, SeqKey, Ticket, TicketId, TokenId, Topic};
 
-use crate::types::{Amount, ChainTokenFactor, ChainWithSeq, Subscribers, TokenKey, TokenMeta};
+use crate::types::{Amount, ChainTokenFactor, ChainMeta, Subscribers, TokenKey, TokenMeta};
 
 const UPGRADES: MemoryId = MemoryId::new(0);
 const CHAIN: MemoryId = MemoryId::new(1);
@@ -108,7 +108,7 @@ pub fn get_ticket_queue_memory() -> Memory {
     with_memory_manager(|m| m.get(TICKET_QUEUE))
 }
 
-pub fn init_chain() -> StableBTreeMap<ChainId, ChainWithSeq, Memory> {
+pub fn init_chain() -> StableBTreeMap<ChainId, ChainMeta, Memory> {
     StableBTreeMap::init(get_chain_memory())
 }
 pub fn init_token() -> StableBTreeMap<TokenId, TokenMeta, Memory> {

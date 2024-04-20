@@ -12,9 +12,9 @@ use std::cell::RefCell;
 use crate::state::HubState;
 
 use crate::memory::{init_event_log, Memory};
-use crate::types::ChainId;
+
+use crate::types::ChainMeta;
 use crate::types::ChainTokenFactor;
-use crate::types::ChainWithSeq;
 use crate::types::Subscribers;
 use crate::types::TokenKey;
 use crate::types::TokenMeta;
@@ -117,10 +117,10 @@ pub enum Event {
     PostUpgrade(Vec<u8>),
 
     #[serde(rename = "added_chain")]
-    AddedChain(ChainWithSeq),
+    AddedChain(ChainMeta),
 
     #[serde(rename = "updated_chain")]
-    UpdatedChainCounterparties(ChainWithSeq),
+    UpdatedChainCounterparties(ChainMeta),
 
     #[serde(rename = "Subscribed_topic")]
     SubTopic { topic: Topic, subs: Subscribers },
@@ -133,7 +133,7 @@ pub enum Event {
 
     #[serde(rename = "toggled_chain_state")]
     ToggledChainState {
-        chain: ChainWithSeq,
+        chain: ChainMeta,
         state: ToggleState,
     },
 
@@ -257,10 +257,10 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     .insert(ticket.ticket_id.to_string(), ticket.clone());
             }
             Event::SubTopic { topic, subs } => {
-                hub_state.subscribers.insert(topic, subs);
+                hub_state.topic_subscribers.insert(topic, subs);
             }
             Event::UnSubTopic { topic, sub } => {
-                if let Some(subscribers) = hub_state.subscribers.get(&topic).as_mut() {
+                if let Some(subscribers) = hub_state.topic_subscribers.get(&topic).as_mut() {
                     if let Some(idx) = subscribers.subs.iter().position(|dst| dst.eq(&sub)) {
                         subscribers.subs.remove(idx);
                     }
@@ -275,7 +275,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
 mod tests {
     use super::*;
 
-    use crate::types::ChainWithSeq;
+    use crate::types::ChainMeta;
     use crate::types::TokenMeta;
     use candid::Principal;
     use omnity_types::Chain;
@@ -300,7 +300,7 @@ mod tests {
     fn test_replay() {
         let events = vec![
             Event::Init(Principal::anonymous()),
-            Event::AddedChain(ChainWithSeq {
+            Event::AddedChain(ChainMeta {
                 chain_id: "Bitcoin".to_string(),
                 chain_type: ChainType::SettlementChain,
                 chain_state: ChainState::Active,
@@ -308,8 +308,6 @@ mod tests {
                 contract_address: None,
                 counterparties: None,
                 fee_token: None,
-                latest_dire_seq: Some(0),
-                latest_ticket_seq: Some(0),
             }),
             Event::AddedToken(TokenMeta {
                 token_id: "Bitcoin-RUNES-WTF".to_string(),
@@ -322,7 +320,7 @@ mod tests {
                 dst_chains: vec![],
             }),
             Event::ToggledChainState {
-                chain: ChainWithSeq {
+                chain: ChainMeta {
                     chain_id: "Bitcoin".to_string(),
                     chain_type: ChainType::SettlementChain,
                     chain_state: ChainState::Deactive,
@@ -330,8 +328,6 @@ mod tests {
                     contract_address: None,
                     counterparties: None,
                     fee_token: None,
-                    latest_dire_seq: Some(0),
-                    latest_ticket_seq: Some(0),
                 },
                 state: ToggleState {
                     chain_id: "Bitcoin".to_string(),

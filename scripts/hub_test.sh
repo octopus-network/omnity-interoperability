@@ -13,8 +13,16 @@ dfx canister delete omnity_hub
 # dfx deploy omnity_hub --mode reinstall -y 
 dfx canister create omnity_hub
 dfx deploy omnity_hub
-# add authed canister id
 
+# sub topic
+dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
+dfx canister call omnity_hub sub_directives '(opt "Ethereum", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
+dfx canister call omnity_hub sub_directives '(opt "ICP", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
+dfx canister call omnity_hub sub_directives '(opt "Arbitrum", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
+dfx canister call omnity_hub sub_directives '(opt "Optimistic", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
+dfx canister call omnity_hub sub_directives '(opt "Starknet", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
+
+dfx canister call omnity_hub query_subscribers '(null)'
 # add chain
 # Bitcoin
 dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Bitcoin"; chain_type=variant { SettlementChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=null;counterparties=null; fee_token= null}}})'
@@ -114,8 +122,8 @@ dfx canister call omnity_hub query_directives '(opt "Starknet",opt variant {AddT
 # dfx canister call omnity_hub update_fee 'vec {record {fee_token = "OP"; dst_chain_id = "Arbitrum"; target_chain_factor = 12 : nat; fee_token_factor = 12 : nat;}}'
 dfx canister call omnity_hub update_fee 'vec {variant { UpdateTargetChainFactor = record {target_chain_id="Bitcoin"; target_chain_factor=1000 : nat}}; variant { UpdateFeeTokenFactor = record { fee_token="ICP"; fee_token_factor=60000000000 : nat}}}'
 
-dfx canister call omnity_hub query_directives '(opt "ICP",opt variant {UpdateFee=opt "ICP"},0:nat64,5:nat64)' 
-# dfx canister call omnity_hub query_directives '(opt "ICP",null,0:nat64,12:nat64)' 
+# dfx canister call omnity_hub query_directives '(opt "ICP",opt variant {UpdateFee=opt "ICP"},0:nat64,5:nat64)' 
+dfx canister call omnity_hub query_directives '(opt "ICP",null,0:nat64,12:nat64)' 
 
 # A-B tansfer/redeem
 # transfer from Bitcoin to Arbitrum

@@ -100,7 +100,8 @@ pub enum Topic {
     // AddChain(Option<ChainType>)
     AddChain(Option<ChainType>),
     AddToken(Option<TokenId>),
-    UpdateFee(Option<TokenId>),
+    UpdateTargetChainFactor(Option<ChainId>),
+    UpdateFeeTokenFactor(Option<TokenId>),
     ActivateChain,
     DeactivateChain,
 }

@@ -10,7 +10,7 @@ use omnity_hub::memory;
 use omnity_hub::metrics;
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
-use omnity_hub::types::Proposal;
+use omnity_hub::types::{Proposal, Subscribers};
 use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId, Token,
@@ -67,7 +67,7 @@ pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
 }
 
 #[update(guard = "auth")]
-pub async fn sub_topics(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
+pub async fn sub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
     info!(
         "sub_topics for chain: {:?}, with topics: {:?} ",
         chain_id, topics
@@ -77,13 +77,20 @@ pub async fn sub_topics(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result
 }
 
 #[update(guard = "auth")]
-pub async fn unsub_topics(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
+pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
     info!(
         "unsub_topics for chain: {:?}, with topics: {:?} ",
         chain_id, topics
     );
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state_mut(|hub_state| hub_state.unsub_directives(&dst_chain_id, &topics))
+}
+
+#[query(guard = "auth")]
+pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subscribers)>, Error> {
+    info!("query_subscribers for topic: {:?} ", topic);
+
+    with_state(|hub_state| hub_state.query_subscribers(topic))
 }
 
 /// query directives for chain id filter by topic,this method will be called by route and custom
@@ -181,7 +188,7 @@ pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
 }
 
 #[query]
-pub async fn get_txs(
+pub async fn get_txs_with_chain(
     src_chain: Option<ChainId>,
     dst_chain: Option<ChainId>,
     token_id: Option<TokenId>,
@@ -189,7 +196,19 @@ pub async fn get_txs(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<Ticket>, Error> {
-    metrics::get_txs(src_chain, dst_chain, token_id, time_range, offset, limit).await
+    metrics::get_txs_with_chain(src_chain, dst_chain, token_id, time_range, offset, limit).await
+}
+
+#[query]
+pub async fn get_txs_with_account(
+    sender: Option<ChainId>,
+    receiver: Option<ChainId>,
+    token_id: Option<TokenId>,
+    time_range: Option<(u64, u64)>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<Ticket>, Error> {
+    metrics::get_txs_with_account(sender, receiver, token_id, time_range, offset, limit).await
 }
 
 #[query]
@@ -279,7 +298,42 @@ mod tests {
             "ICP-ICRC2-XXY".to_string(),
         ]
     }
-
+    fn default_topic() -> Vec<Topic> {
+        vec![
+            Topic::AddChain(None),
+            Topic::AddToken(None),
+            Topic::UpdateTargetChainFactor(None),
+            Topic::UpdateFeeTokenFactor(None),
+            Topic::ActivateChain,
+            Topic::DeactivateChain,
+        ]
+    }
+    async fn sub_dires() {
+        for chain_id in chain_ids() {
+            let result = sub_directives(Some(chain_id.to_string()), default_topic()).await;
+            println!("chain({}) sub topic result: {:?}", chain_id, result)
+        }
+        //check sub result
+        // with_state(|hub_state| {
+        //     hub_state
+        //         .subscribers
+        //         .iter()
+        //         .for_each(|(topic, subs)| println!("topic:{:?},subs:{:?}", topic, subs))
+        // });
+    }
+    async fn unsub_dires() {
+        for chain_id in chain_ids() {
+            let result = unsub_directives(Some(chain_id.to_string()), default_topic()).await;
+            println!("chain({}) unsub topic result: {:?}", chain_id, result)
+        }
+        //check sub result
+        // with_state(|hub_state| {
+        //     hub_state
+        //         .subscribers
+        //         .iter()
+        //         .for_each(|(topic, subs)| println!("topic:{:?},subs:{:?}", topic, subs))
+        // })
+    }
     async fn add_chains() {
         let btc = ChainMeta {
             chain_id: "Bitcoin".to_string(),
@@ -638,15 +692,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_sub_unsub() {
+        sub_dires().await;
+        let result = query_subscribers(None).await;
+        println!("query_subscribers result: {:?}", result);
+        unsub_dires().await;
+        let result = query_subscribers(None).await;
+        println!("query_subscribers result: {:?}", result);
+    }
+
+    #[tokio::test]
     async fn test_add_chain() {
         init_logger();
+        // sub_dires().await;
+        let result = sub_directives(
+            Some("Bitcoin".to_string()),
+            vec![Topic::AddChain(Some(ChainType::ExecutionChain))],
+        )
+        .await;
+        println!(
+            "chain({}) sub topic result: {:?}",
+            "Bitcoin".to_string(),
+            result
+        );
+
+        //check sub result
+        with_state(|hub_state| {
+            hub_state
+                .topic_subscribers
+                .iter()
+                .for_each(|(topic, subs)| println!("topic:{:?},subs:{:?}", topic, subs))
+        });
         // add chain
         add_chains().await;
 
         for chain_id in chain_ids() {
             let result = query_directives(
                 Some(chain_id.to_string()),
-                Some(Topic::AddChain(None)),
+                Some(Topic::AddChain(Some(ChainType::ExecutionChain))),
                 0,
                 10,
             )
@@ -671,6 +754,26 @@ mod tests {
     #[tokio::test]
     async fn test_add_token() {
         init_logger();
+        sub_dires().await;
+
+        // sub special token id
+        let result = sub_directives(
+            Some("ICP".to_string()),
+            vec![Topic::AddToken(Some("Bitcoin-RUNES-WTF".to_string()))],
+        )
+        .await;
+        println!(
+            "chain({}) sub topic result: {:?}",
+            "ICP".to_string(),
+            result
+        );
+        //check sub result
+        with_state(|hub_state| {
+            hub_state
+                .topic_subscribers
+                .iter()
+                .for_each(|(topic, subs)| println!("topic:{:?},subs:{:?}", topic, subs))
+        });
         // add chain
         add_chains().await;
         // add token
@@ -700,13 +803,7 @@ mod tests {
         let result = get_tokens(Some("Bitcoin".to_string()), None, 0, 10).await;
         assert!(result.is_ok());
         println!("get_tokens result by chain_id: {:#?}", result);
-        let result = get_tokens(
-            Some("ICP".to_string()),
-            Some("ICP-Native-ICP".to_string()),
-            0,
-            10,
-        )
-        .await;
+        let result = get_tokens(Some("ICP".to_string()), Some("ICP".to_string()), 0, 10).await;
         assert!(result.is_ok());
         println!("get_tokens result by chain_id and token id: {:#?}", result);
     }
@@ -714,6 +811,7 @@ mod tests {
     #[tokio::test]
     async fn test_toggle_chain_state() {
         init_logger();
+        sub_dires().await;
         // add chain
         add_chains().await;
         // add token
@@ -804,15 +902,37 @@ mod tests {
             "get_chains result by chain type and chain state: {:#?}",
             result
         );
+        let chain = get_chain("EVM-Optimistic".to_string()).await;
+        println!(
+            "get chain for {:} chain: {:#?}",
+            "EVM-Optimistic".to_string(),
+            chain
+        );
     }
 
     #[tokio::test]
     async fn test_update_fee() {
         init_logger();
+        sub_dires().await;
         // add chain
         add_chains().await;
         // add token
         add_tokens().await;
+
+        // sub special token id
+        let result = sub_directives(
+            Some("ICP".to_string()),
+            vec![
+                Topic::UpdateTargetChainFactor(Some("Bitcoin".to_string())),
+                Topic::UpdateFeeTokenFactor(Some("ICP".to_string())),
+            ],
+        )
+        .await;
+        println!(
+            "chain({}) sub topic result: {:?}",
+            "ICP".to_string(),
+            result
+        );
 
         //  chain factor
         let chain_factor = Factor::UpdateTargetChainFactor(TargetChainFactor {
@@ -834,7 +954,7 @@ mod tests {
         for chain_id in chain_ids() {
             let result = query_directives(
                 Some(chain_id.to_string()),
-                Some(Topic::UpdateFee(None)),
+                Some(Topic::UpdateTargetChainFactor(None)),
                 0,
                 5,
             )
@@ -842,7 +962,18 @@ mod tests {
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
-        let result = query_directives(Some("ICP".to_string()), None, 0, 12).await;
+        for chain_id in chain_ids() {
+            let result = query_directives(
+                Some(chain_id.to_string()),
+                Some(Topic::UpdateFeeTokenFactor(None)),
+                0,
+                5,
+            )
+            .await;
+            println!("query_directives for {:} dires: {:#?}", chain_id, result);
+            assert!(result.is_ok());
+        }
+        let result = query_directives(Some("ICP".to_string()), None, 0, 20).await;
         println!(
             "query_directives for {:} dires: {:#?}",
             "ICP".to_string(),
@@ -853,7 +984,7 @@ mod tests {
         assert!(result.is_ok());
         println!("get_fees result : {:#?}", result);
 
-        let result = get_fees(None, Some("ICP".to_string()), 0, 10).await;
+        let result = get_fees(None, Some("ICP".to_string()), 0, 12).await;
         assert!(result.is_ok());
         println!("get_fees result filter by token id : {:#?}", result);
     }
@@ -861,6 +992,7 @@ mod tests {
     #[tokio::test]
     async fn test_a_b_tx_ticket() {
         init_logger();
+        sub_dires().await;
         // add chain
         add_chains().await;
         // add token
@@ -915,7 +1047,7 @@ mod tests {
         assert!(result.is_ok());
 
         // query tx from get_txs
-        let result = get_txs(Some(src_chain.to_string()), None, None, None, 0, 10).await;
+        let result = get_txs_with_chain(Some(src_chain.to_string()), None, None, None, 0, 10).await;
         println!(
             "get_txs by src chain({}) result: {:#?}",
             src_chain.to_string(),
@@ -967,7 +1099,7 @@ mod tests {
         assert!(result.is_ok());
 
         // query tx from get_txs
-        let result = get_txs(None, Some(dst_chain.to_string()), None, None, 0, 10).await;
+        let result = get_txs_with_chain(None, Some(dst_chain.to_string()), None, None, 0, 10).await;
         println!(
             "get_txs by dst chain({}) result: {:#?}",
             dst_chain.to_string(),
@@ -976,7 +1108,7 @@ mod tests {
         assert!(result.is_ok());
 
         // query tx from get_txs
-        let result = get_txs(
+        let result = get_txs_with_chain(
             None,
             None,
             Some("Bitcoin-RUNES-150:1".to_string()),
@@ -991,6 +1123,16 @@ mod tests {
             result
         );
         assert!(result.is_ok());
+
+        //print ticket seq
+        with_state(|hub_state| {
+            hub_state
+                .ticket_seq
+                .iter()
+                .for_each(|(chain_id, latest_seq)| {
+                    println!("chain:{},latest seq:{}", chain_id, latest_seq)
+                })
+        })
     }
 
     #[tokio::test]
@@ -1040,6 +1182,16 @@ mod tests {
         println!("get_chain_tokens result: {:#?}", result);
         assert!(result.is_ok());
 
+        // query txs
+        let result =
+            get_txs_with_account(None, Some(receiver.to_string()), None, None, 0, 10).await;
+        println!(
+            "get_txs_with_account({}) result: {:#?}",
+            receiver.to_string(),
+            result
+        );
+        assert!(result.is_ok());
+
         // B->C: `transfer` ticket
         let sender = "address_on_Optimistic";
         let receiver = "address_on_Starknet";
@@ -1079,6 +1231,14 @@ mod tests {
         println!("get_chain_tokens result: {:#?}", result);
         assert!(result.is_ok());
 
+        let result =
+            get_txs_with_account(None, Some(receiver.to_string()), None, None, 0, 10).await;
+        println!(
+            "get_txs_with_account({}) result: {:#?}",
+            receiver.to_string(),
+            result
+        );
+        assert!(result.is_ok());
         // redeem
         // C->B: `redeem` ticket
         let src_chain = "EVM-Starknet";
@@ -1112,6 +1272,14 @@ mod tests {
         // query token on chain
         let result = get_chain_tokens(None, None, 0, 5).await;
         println!("get_chain_tokens result: {:#?}", result);
+        assert!(result.is_ok());
+        let result =
+            get_txs_with_account(None, Some(receiver.to_string()), None, None, 0, 10).await;
+        println!(
+            "get_txs_with_account({}) result: {:#?}",
+            receiver.to_string(),
+            result
+        );
         assert!(result.is_ok());
 
         // B->A: `redeem` ticket
@@ -1149,8 +1317,17 @@ mod tests {
         println!("get_chain_tokens result: {:#?}", result);
         assert!(result.is_ok());
 
+        let result =
+            get_txs_with_account(None, Some(receiver.to_string()), None, None, 0, 10).await;
+        println!(
+            "get_txs_with_account({}) result: {:#?}",
+            receiver.to_string(),
+            result
+        );
+        assert!(result.is_ok());
+
         // query txs
-        let result = get_txs(None, None, None, None, 0, 10).await;
+        let result = get_txs_with_chain(None, None, None, None, 0, 10).await;
         println!("get_txs result: {:#?}", result);
         assert!(result.is_ok());
 
@@ -1163,6 +1340,15 @@ mod tests {
         for r in logs.iter() {
             print!("http request stable log: {}", r)
         }
+        //print ticket seq
+        with_state(|hub_state| {
+            hub_state
+                .ticket_seq
+                .iter()
+                .for_each(|(chain_id, latest_seq)| {
+                    println!("chain:{},latest seq:{}", chain_id, latest_seq)
+                })
+        })
     }
 
     pub fn get_logs(

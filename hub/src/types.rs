@@ -97,8 +97,8 @@ impl core::fmt::Display for ChainMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\ncanister id:{} \nchain name:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?} \ncounterparties:{:?} \nfee_token:{:?}",
-            self.canister_id,self.chain_id, self.chain_type, self.chain_state, self.contract_address,self.counterparties,self.fee_token,
+            "\nchain id:{} \ncanister id:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?} \ncounterparties:{:?} \nfee_token:{:?}",
+            self.chain_id,self.canister_id, self.chain_type, self.chain_state, self.contract_address,self.counterparties,self.fee_token,
         )
     }
 }
@@ -117,61 +117,6 @@ impl Into<Chain> for ChainMeta {
     }
 }
 
-#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Default, Clone, Debug)]
-pub struct ChainWithSeq {
-    pub canister_id: String,
-    pub chain_id: ChainId,
-    pub chain_type: ChainType,
-    pub chain_state: ChainState,
-    pub contract_address: Option<String>,
-    pub counterparties: Option<Vec<ChainId>>,
-    pub fee_token: Option<TokenId>,
-    pub latest_dire_seq: Option<Seq>,
-    pub latest_ticket_seq: Option<Seq>,
-}
-
-impl From<ChainMeta> for ChainWithSeq {
-    fn from(value: ChainMeta) -> Self {
-        Self {
-            canister_id: value.canister_id,
-            chain_id: value.chain_id,
-            chain_type: value.chain_type,
-            chain_state: value.chain_state,
-            contract_address: value.contract_address,
-            counterparties: value.counterparties,
-            fee_token: value.fee_token,
-            latest_dire_seq: None,
-            latest_ticket_seq: None,
-        }
-    }
-}
-impl Into<Chain> for ChainWithSeq {
-    fn into(self) -> Chain {
-        Chain {
-            chain_id: self.chain_id.to_string(),
-            canister_id: self.canister_id,
-            chain_type: self.chain_type.clone(),
-            chain_state: self.chain_state.clone(),
-            contract_address: self.contract_address.clone(),
-            counterparties: self.counterparties.clone(),
-            fee_token: self.fee_token,
-        }
-    }
-}
-impl Storable for ChainWithSeq {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
-        let mut bytes = vec![];
-        let _ = ciborium::ser::into_writer(self, &mut bytes);
-        Cow::Owned(bytes)
-    }
-
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let cs = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
-        cs
-    }
-
-    const BOUND: Bound = Bound::Unbounded;
-}
 /// token id spec is setllmentchain_name-potocol-symbol, eg:  Bitcoin-RUNES-WHAT•ABOUT•THIS•RUNE,Ethereurm-ERC20-OCT,ICP-ICRC2-XO
 /// metadata stores extended information，for runes protocol token, it stores the runes id
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
@@ -206,7 +151,7 @@ impl core::fmt::Display for TokenMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\token_id name:{} \ntoken name:{} \nsymbol:{:?} \nissue chain:{} \ndecimals:{} \nicon:{:?} \nmetadata:{:?} \ndst chains:{:?}",
+            "\ttoken_id name:{} \ntoken name:{} \nsymbol:{:?} \nissue chain:{} \ndecimals:{} \nicon:{:?} \nmetadata:{:?} \ndst chains:{:?}",
             self.token_id, self.name,self.symbol, self.issue_chain, self.decimals, self.icon,self.metadata,self.dst_chains
         )
     }
@@ -291,8 +236,7 @@ impl Storable for Subscribers {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let subs =
-            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let subs = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         subs
     }
 
