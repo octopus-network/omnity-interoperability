@@ -95,7 +95,7 @@ impl Storable for DireMap {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Topic {
     // AddChain(Option<ChainType>)
     AddChain(Option<ChainType>),
@@ -103,6 +103,21 @@ pub enum Topic {
     UpdateFee(Option<TokenId>),
     ActivateChain,
     DeactivateChain,
+}
+
+impl Storable for Topic {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let topic = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        topic
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
 }
 
 #[derive(
@@ -225,7 +240,7 @@ impl Storable for TicketMap {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord,Hash)]
 pub enum ChainType {
     #[default]
     SettlementChain,

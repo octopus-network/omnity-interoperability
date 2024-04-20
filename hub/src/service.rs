@@ -38,7 +38,7 @@ fn post_upgrade() {
     init_log(Some(init_stable_log()));
 
     with_state_mut(|hub_state| hub_state.post_upgrade());
-    info!("update successfully!");
+    info!("upgrade successfully!");
 }
 
 /// validate directive ,this method will be called by sns
@@ -66,6 +66,26 @@ pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
     Ok(())
 }
 
+#[update(guard = "auth")]
+pub async fn sub_topics(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
+    info!(
+        "sub_topics for chain: {:?}, with topics: {:?} ",
+        chain_id, topics
+    );
+    let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    with_state_mut(|hub_state| hub_state.sub_directives(&dst_chain_id, &topics))
+}
+
+#[update(guard = "auth")]
+pub async fn unsub_topics(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
+    info!(
+        "unsub_topics for chain: {:?}, with topics: {:?} ",
+        chain_id, topics
+    );
+    let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    with_state_mut(|hub_state| hub_state.unsub_directives(&dst_chain_id, &topics))
+}
+
 /// query directives for chain id filter by topic,this method will be called by route and custom
 #[query(guard = "auth")]
 pub async fn query_directives(
@@ -86,7 +106,7 @@ pub async fn query_directives(
 /// check and push ticket into queue
 #[update(guard = "auth")]
 pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
-    info!("received ticket: {:?}", ticket);
+    info!("send_ticket: {:?}", ticket);
 
     with_state_mut(|hub_state| {
         // checke ticket and update token on chain
@@ -104,6 +124,7 @@ pub async fn query_tickets(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
+    info!("query_tickets: {:?},{offset},{limit}", chain_id);
     // let end = from + num;
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))

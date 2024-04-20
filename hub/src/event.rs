@@ -5,14 +5,17 @@ use omnity_types::Directive;
 use omnity_types::Factor;
 use omnity_types::SeqKey;
 use omnity_types::Ticket;
+use omnity_types::Topic;
 
 use std::cell::RefCell;
 
 use crate::state::HubState;
 
 use crate::memory::{init_event_log, Memory};
+use crate::types::ChainId;
 use crate::types::ChainTokenFactor;
 use crate::types::ChainWithSeq;
+use crate::types::Subscribers;
 use crate::types::TokenKey;
 use crate::types::TokenMeta;
 use omnity_types::ToggleState;
@@ -119,6 +122,12 @@ pub enum Event {
     #[serde(rename = "updated_chain")]
     UpdatedChainCounterparties(ChainWithSeq),
 
+    #[serde(rename = "Subscribed_topic")]
+    SubTopic { topic: Topic, subs: Subscribers },
+
+    #[serde(rename = "Unsubscribed_topic")]
+    UnSubTopic { topic: Topic, sub: String },
+
     #[serde(rename = "added_token")]
     AddedToken(TokenMeta),
 
@@ -132,16 +141,10 @@ pub enum Event {
     UpdatedFee(Factor),
 
     #[serde(rename = "received_directive")]
-    ReceivedDirective {
-        dst_chain: ChainWithSeq,
-        dire: Directive,
-    },
+    ReceivedDirective { seq_key: SeqKey, dire: Directive },
 
     #[serde(rename = "received_ticket")]
-    ReceivedTicket {
-        dst_chain: ChainWithSeq,
-        ticket: Ticket,
-    },
+    ReceivedTicket { seq_key: SeqKey, ticket: Ticket },
 
     #[serde(rename = "added_token_position")]
     AddedTokenPosition { position: TokenKey, amount: u128 },
@@ -231,41 +234,37 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                 }
             },
 
-            Event::ReceivedDirective { dst_chain, dire } => {
-                //update chain info
+            Event::ReceivedDirective { seq_key, dire } => {
                 hub_state
-                    .chains
-                    .insert(dst_chain.chain_id.to_string(), dst_chain.clone());
-                hub_state.dire_queue.insert(
-                    SeqKey::from(
-                        dst_chain.chain_id.to_string(),
-                        dst_chain.latest_dire_seq.unwrap(),
-                    ),
-                    dire,
-                );
+                    .directive_seq
+                    .insert(seq_key.chain_id.to_string(), seq_key.seq);
+                hub_state.dire_queue.insert(seq_key, dire);
             }
             Event::AddedTokenPosition { position, amount }
             | Event::UpdatedTokenPosition { position, amount } => {
                 hub_state.token_position.insert(position, amount);
             }
 
-            Event::ReceivedTicket { dst_chain, ticket } => {
-                //update chain info
+            Event::ReceivedTicket { seq_key, ticket } => {
                 hub_state
-                    .chains
-                    .insert(ticket.dst_chain.to_string(), dst_chain.clone());
+                    .ticket_seq
+                    .insert(seq_key.chain_id.to_string(), seq_key.seq);
                 // add new ticket to queue
-                hub_state.ticket_queue.insert(
-                    SeqKey::from(
-                        ticket.dst_chain.to_string(),
-                        dst_chain.latest_ticket_seq.unwrap(),
-                    ),
-                    ticket.clone(),
-                );
+                hub_state.ticket_queue.insert(seq_key, ticket.clone());
                 //save ticket to ledger
                 hub_state
                     .cross_ledger
                     .insert(ticket.ticket_id.to_string(), ticket.clone());
+            }
+            Event::SubTopic { topic, subs } => {
+                hub_state.subscribers.insert(topic, subs);
+            }
+            Event::UnSubTopic { topic, sub } => {
+                if let Some(subscribers) = hub_state.subscribers.get(&topic).as_mut() {
+                    if let Some(idx) = subscribers.subs.iter().position(|dst| dst.eq(&sub)) {
+                        subscribers.subs.remove(idx);
+                    }
+                }
             }
         }
     }
@@ -344,17 +343,7 @@ mod tests {
                 target_chain_factor: 1000,
             })),
             Event::ReceivedDirective {
-                dst_chain: ChainWithSeq {
-                    chain_id: "Bitcoin".to_string(),
-                    chain_type: ChainType::SettlementChain,
-                    chain_state: ChainState::Active,
-                    canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
-                    contract_address: None,
-                    counterparties: None,
-                    fee_token: None,
-                    latest_dire_seq: Some(0),
-                    latest_ticket_seq: Some(0),
-                },
+                seq_key: SeqKey::from("Bitcoin".to_string(), 0),
                 dire: Directive::AddChain(Chain {
                     chain_id: "Bitcoin".to_string(),
                     chain_type: ChainType::SettlementChain,
@@ -366,17 +355,7 @@ mod tests {
                 }),
             },
             Event::ReceivedTicket {
-                dst_chain: ChainWithSeq {
-                    chain_id: "Bitcoin".to_string(),
-                    chain_type: ChainType::SettlementChain,
-                    chain_state: ChainState::Active,
-                    canister_id: "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string(),
-                    contract_address: None,
-                    counterparties: None,
-                    fee_token: None,
-                    latest_dire_seq: Some(0),
-                    latest_ticket_seq: Some(0),
-                },
+                seq_key: SeqKey::from("Bitcoin".to_string(), 0),
                 ticket: Ticket {
                     ticket_id: Uuid::new_v4().to_string(),
                     ticket_type: TicketType::Normal,

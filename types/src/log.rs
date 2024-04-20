@@ -79,21 +79,21 @@ impl StableLogWriter {
             }
         })
     }
-    fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, HttpResponse> {
-        match req.raw_query_param(param_name) {
+    fn parse_param<T: FromStr>(req: &HttpRequest, param: &str) -> Result<T, HttpResponse> {
+        match req.raw_query_param(param) {
             Some(arg) => match arg.parse() {
                 Ok(value) => Ok(value),
                 Err(_) => Err(HttpResponseBuilder::bad_request()
                     .with_body_and_content_length(format!(
                         "failed to parse the '{}' parameter",
-                        param_name
+                        param
                     ))
                     .build()),
             },
             None => Err(HttpResponseBuilder::bad_request()
                 .with_body_and_content_length(format!(
                     "must provide the '{}' parameter",
-                    param_name
+                    param
                 ))
                 .build()),
         }
@@ -115,7 +115,7 @@ impl StableLogWriter {
                 max_skip_timestamp, offset, limit
             );
 
-            let logs = StableLogWriter::get_logs(max_skip_timestamp, offset, limit);
+            let logs = Self::get_logs(max_skip_timestamp, offset, limit);
             HttpResponseBuilder::ok()
                 .header("Content-Type", "application/json; charset=utf-8")
                 .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())

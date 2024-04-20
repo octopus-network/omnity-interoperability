@@ -133,39 +133,11 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     }
 
                     ChainType::ExecutionChain => {
-                        if let Some(counterparties) = chain_meta.counterparties {
-                            counterparties
-                                .into_iter()
-                                .map(|counterparty| {
-                                    info!(
-                                        " build directive for counterparty chain:{:?} !",
-                                        counterparty.to_string()
-                                    );
-                                    let dst_chain = with_state(|hub_state| {
-                                        hub_state.available_chain(&counterparty)
-                                    })?;
-                                    // build directive for counterparty chain
-                                    with_state_mut(|hub_state| {
-                                        //TODO: check and update counterparty of dst chain
-                                        hub_state.update_chain_counterparties(
-                                            &dst_chain.chain_id,
-                                            &new_chain.chain_id,
-                                        )?;
-                                        // generate directive for the new chain)
-                                        //TODO: Consider whether this is necessary？
-                                        hub_state.push_directive(
-                                            &counterparty,
-                                            Directive::AddChain(new_chain.clone().into()),
-                                        )?;
-                                        // generate directive for the new chain
-                                        hub_state.push_directive(
-                                            &new_chain.chain_id,
-                                            Directive::AddChain(dst_chain.into()),
-                                        )
-                                    })
-                                })
-                                .collect::<Result<(), Error>>()?;
-                        }
+                        // publish directive for the new chain)
+                        with_state_mut(|hub_state| {
+                            //check and update counterparty of dst chain
+                            hub_state.pub_directive(Directive::AddChain(new_chain.clone().into()))
+                        })?;
                     }
                 }
             }
@@ -174,24 +146,10 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 info!("build directive for `AddToken` proposal :{:?}", token_meata);
                 // save token info
                 with_state_mut(|hub_state| hub_state.add_token(token_meata.clone()))?;
-                // generate dirctive
-                token_meata
-                    .dst_chains
-                    .iter()
-                    .map(|dst_chain| {
-                        info!(
-                            " build directive for counterparty chain:{:?} !",
-                            dst_chain.to_string()
-                        );
-
-                        with_state_mut(|hub_state| {
-                            hub_state.push_directive(
-                                &dst_chain,
-                                Directive::AddToken(token_meata.clone().into()),
-                            )
-                        })
-                    })
-                    .collect::<Result<(), Error>>()?;
+                // publish directive
+                with_state_mut(|hub_state| {
+                    hub_state.pub_directive(Directive::AddToken(token_meata.clone().into()))
+                })?
             }
 
             Proposal::ToggleChainState(toggle_status) => {
@@ -200,82 +158,22 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     toggle_status
                 );
 
-                // generate directive for counterparty chain
-                if let Some(counterparties) =
-                    with_state(|hs| hs.chain(&toggle_status.chain_id))?.counterparties
-                {
-                    counterparties
-                        .into_iter()
-                        .map(|counterparty| {
-                            info!(
-                                " build directive for counterparty chain:{:?} !",
-                                counterparty.to_string()
-                            );
-
-                            // build directive for counterparty chain
-                            with_state_mut(|hub_state| {
-                                hub_state.push_directive(
-                                    &counterparty,
-                                    Directive::ToggleChainState(toggle_status.clone()),
-                                )
-                            })
-                        })
-                        .collect::<Result<(), Error>>()?;
-                }
+                // publish directive
+                with_state_mut(|hub_state| {
+                    hub_state.pub_directive(Directive::ToggleChainState(toggle_status.clone()))
+                })?;
                 // update dst chain state
                 with_state_mut(|hub_state| hub_state.update_chain_state(&toggle_status))?;
             }
 
-            Proposal::UpdateFee(fee) => {
-                info!("build directive for `UpdateFee` proposal :{:?}", fee);
+            Proposal::UpdateFee(factor) => {
+                info!("build directive for `UpdateFee` proposal :{:?}", factor);
                 // save fee info
-                with_state_mut(|hub_state| hub_state.update_fee(fee.clone()))?;
+                with_state_mut(|hub_state| hub_state.update_fee(factor.clone()))?;
 
-                match fee {
-                    Factor::UpdateTargetChainFactor(ref cf) => {
-                        with_state(|hub_state| {
-                            hub_state
-                                .chains
-                                .iter()
-                                .filter(|(_,chain)|matches!(&chain.counterparties,Some(counterparties) if counterparties.contains(&cf.target_chain_id)))
-                                .map(|(_,chain)| chain.clone())
-                                .collect::<Vec<_>>()
-                        })
-                        .into_iter()
-                        .map(|chain| {
-                            with_state_mut(|hub_state| {
-                                                    hub_state.push_directive(
-                                                        &chain.chain_id,
-                                                        Directive::UpdateFee(fee.clone()),
-                                                    )
-                                          })
-                        })
-                        .collect::<Result<(), Error>>()?;
-                    }
-
-                    Factor::UpdateFeeTokenFactor(ref tf) => {
-                        with_state(|hub_state| {
-                            hub_state
-                                .chains
-                                .iter()
-                                .filter(|(_, chain)| {matches!(&chain.fee_token,Some(fee_token) if fee_token.eq(&tf.fee_token))})
-                                .map(|(_, chain)| {
-                                    chain.chain_id.to_string()
-                                    })
-                                .collect::<Vec<_>>()
-                        })
-                        .into_iter()
-                        .map(|chain_id| {
-                            with_state_mut(|hub_state| {
-                                hub_state.push_directive(
-                                    &chain_id,
-                                    Directive::UpdateFee(fee.clone()),
-                                )
-                            })
-                        })
-                        .collect::<Result<(), Error>>()?;
-                    }
-                }
+                with_state_mut(|hub_state| {
+                    hub_state.pub_directive(Directive::UpdateFee(factor.clone()))
+                })?;
             }
         }
     }

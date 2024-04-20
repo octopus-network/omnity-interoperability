@@ -1,6 +1,6 @@
 use crate::event::{record_event, Event};
 use crate::memory::{self, Memory};
-use crate::types::{Amount, ChainTokenFactor, ChainWithSeq, TokenKey, TokenMeta};
+use crate::types::{Amount, ChainTokenFactor, ChainWithSeq, Subscribers, TokenKey, TokenMeta};
 
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
@@ -33,6 +33,8 @@ pub struct HubState {
     pub fee_token_factors: StableBTreeMap<TokenKey, ChainTokenFactor, Memory>,
     #[serde(skip, default = "memory::init_dire_queue")]
     pub dire_queue: StableBTreeMap<SeqKey, Directive, Memory>,
+    #[serde(skip, default = "memory::init_subs")]
+    pub subscribers: StableBTreeMap<Topic, Subscribers, Memory>,
     #[serde(skip, default = "memory::init_ticket_queue")]
     pub ticket_queue: StableBTreeMap<SeqKey, Ticket, Memory>,
     #[serde(skip, default = "memory::init_token_position")]
@@ -40,6 +42,8 @@ pub struct HubState {
     #[serde(skip, default = "memory::init_ledger")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
 
+    pub directive_seq: HashMap<String, Seq>,
+    pub ticket_seq: HashMap<String, Seq>,
     pub owner: Option<String>,
     pub authorized_caller: HashMap<String, ChainId>,
 }
@@ -54,7 +58,10 @@ impl Default for HubState {
             token_position: StableBTreeMap::init(memory::get_token_position_memory()),
             cross_ledger: StableBTreeMap::init(memory::get_ledger_memory()),
             dire_queue: StableBTreeMap::init(memory::get_dire_queue_memory()),
+            subscribers: StableBTreeMap::init(memory::get_subs_memory()),
             ticket_queue: StableBTreeMap::init(memory::get_ticket_queue_memory()),
+            directive_seq: HashMap::default(),
+            ticket_seq: HashMap::default(),
             owner: None,
             authorized_caller: HashMap::default(),
         }
@@ -145,12 +152,25 @@ impl HubState {
             ))
     }
     pub fn add_chain(&mut self, chain: ChainWithSeq) -> Result<(), Error> {
+        // save chain
         self.chains
             .insert(chain.chain_id.to_string(), chain.clone());
         // update auth
         self.authorized_caller
             .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
-        record_event(&Event::AddedChain(chain));
+        record_event(&Event::AddedChain(chain.clone()));
+
+        // update counterparties
+        if let Some(counterparties) = chain.counterparties {
+            counterparties
+                .iter()
+                .map(|counterparty| {
+                    //check and update counterparty of dst chain
+                    self.update_chain_counterparties(&counterparty, &chain.chain_id)
+                })
+                .collect::<Result<(), Error>>()?;
+        }
+
         Ok(())
     }
 
@@ -159,36 +179,30 @@ impl HubState {
         dst_chain_id: &ChainId,
         counterparty: &ChainId,
     ) -> Result<(), Error> {
-        self.chains
-            .get(dst_chain_id)
-            .as_mut()
-            .ok_or(Error::NotFoundChain(dst_chain_id.to_string()))
-            .map_or_else(
-                |e| Err(e),
-                |chain| {
-                    // excluds the deactive state
-                    if matches!(chain.chain_state, ChainState::Deactive) {
-                        info!(
-                            "dst chain {} is deactive, don`t push directive for it! ",
-                            chain.chain_id.to_string()
-                        );
-                    } else {
-                        if let Some(ref mut counterparties) = chain.counterparties {
-                            if !counterparties.contains(counterparty) {
-                                counterparties.push(counterparty.to_string());
-                            }
-                        } else {
-                            chain.counterparties = Some(vec![counterparty.to_string()])
-                        }
-                        //update chain info
-                        self.chains
-                            .insert(chain.chain_id.to_string(), chain.clone());
-                        record_event(&Event::UpdatedChainCounterparties(chain.clone()))
+        self.chains.get(dst_chain_id).as_mut().map(|chain| {
+            // excluds the deactive state
+            if matches!(chain.chain_state, ChainState::Deactive) {
+                info!(
+                    "dst chain {} is deactive, donn`t update counterparties for it! ",
+                    chain.chain_id.to_string()
+                );
+            } else {
+                if let Some(ref mut counterparties) = chain.counterparties {
+                    if !counterparties.contains(counterparty) {
+                        counterparties.push(counterparty.to_string());
                     }
-                    Ok(())
-                },
-            )
+                } else {
+                    chain.counterparties = Some(vec![counterparty.to_string()])
+                }
+                //update chain info
+                self.chains
+                    .insert(chain.chain_id.to_string(), chain.clone());
+                record_event(&Event::UpdatedChainCounterparties(chain.clone()))
+            }
+        });
+        Ok(())
     }
+
     pub fn chain(&self, chain_id: &ChainId) -> Result<ChainWithSeq, Error> {
         self.chains
             .get(chain_id)
@@ -310,35 +324,123 @@ impl HubState {
         }
     }
 
-    pub fn push_directive(&mut self, chain_id: &ChainId, dire: Directive) -> Result<(), Error> {
-        self.chains
-            .get(chain_id)
-            .ok_or(Error::NotFoundChain(chain_id.to_string()))
-            .map_or_else(
-                |e| Err(e),
-                |mut chain| {
-                    // excluds the deactive state
-                    if matches!(chain.chain_state, ChainState::Deactive) {
-                        info!(
-                            "dst chain {} is deactive, don`t push directive for it! ",
-                            chain.chain_id.to_string()
-                        );
-                    } else {
-                        //increase seq
-                        let latest_seq = chain.latest_dire_seq.map_or(0, |seq| seq + 1);
-                        chain.latest_dire_seq = Some(latest_seq);
-                        //update chain info
-                        self.chains
-                            .insert(chain.chain_id.to_string(), chain.clone());
+    pub fn sub_directives(&mut self, chain_id: &ChainId, topics: &Vec<Topic>) -> Result<(), Error> {
+        topics.iter().for_each(|topic| {
+            if let Some(subscribers) = self.subscribers.get(topic).as_mut() {
+                if !subscribers.subs.contains(chain_id) {
+                    subscribers.subs.push(chain_id.to_string());
+                    //update subscribers
+                    self.subscribers.insert(topic.clone(), subscribers.clone());
+                    record_event(&Event::SubTopic {
+                        topic: topic.clone(),
+                        subs: subscribers.clone(),
+                    })
+                }
+            } else {
+                let subs = Subscribers {
+                    subs: vec![chain_id.to_string()],
+                };
+                //update subscribers
+                self.subscribers.insert(topic.clone(), subs.clone());
+                record_event(&Event::SubTopic {
+                    topic: topic.clone(),
+                    subs: subs,
+                })
+            }
+        });
+        Ok(())
+    }
 
-                        self.dire_queue.insert(
-                            SeqKey::from(chain.chain_id.to_string(), latest_seq),
-                            dire.clone(),
-                        );
+    pub fn unsub_directives(
+        &mut self,
+        chain_id: &ChainId,
+        topics: &Vec<Topic>,
+    ) -> Result<(), Error> {
+        topics.iter().for_each(|topic| {
+            if let Some(subscribers) = self.subscribers.get(topic).as_mut() {
+                if let Some(idx) = subscribers.subs.iter().position(|dst| dst.eq(chain_id)) {
+                    subscribers.subs.remove(idx);
+                    record_event(&Event::UnSubTopic {
+                        topic: topic.clone(),
+                        sub: chain_id.to_string(),
+                    })
+                }
+            }
+        });
+        Ok(())
+    }
+    pub fn pub_directive(&mut self, dire: Directive) -> Result<(), Error> {
+        fn handle_directive<'a>(
+            hub_state: &'a mut HubState,
+            condition: impl Fn(&Topic) -> bool,
+            dire: &'a Directive,
+        ) -> Result<(), Error> {
+            hub_state
+                .subscribers
+                .iter()
+                .filter_map(|(topic, subs)| {
+                    if condition(&topic) {
+                        Some((topic, subs))
+                    } else {
+                        None
                     }
+                })
+                .flat_map(|(_, subs)| subs.subs)
+                .map(|sub| {
+                    let latest_seq = hub_state
+                        .directive_seq
+                        .entry(sub.to_string())
+                        .and_modify(|seq| *seq += 1)
+                        .or_insert(0);
+
+                    let seq_key = SeqKey::from(sub.to_string(), *latest_seq);
+                    hub_state.dire_queue.insert(seq_key.clone(), dire.clone());
+                    record_event(&Event::ReceivedDirective {
+                        seq_key,
+                        dire: dire.clone(),
+                    });
                     Ok(())
+                })
+                .collect::<Result<Vec<()>, _>>()?;
+            Ok(())
+        }
+
+        match dire {
+            Directive::AddChain(ref chain) => handle_directive(
+                self,
+                |topic: &Topic| {
+                    matches!(topic, Topic::AddChain(None))
+                        || matches!(topic, Topic::AddChain(Some(chain_type)) if *chain_type == chain.chain_type)
                 },
-            )
+                &dire,
+            ),
+            Directive::AddToken(ref token) => handle_directive(
+                self,
+                |topic: &Topic| {
+                    matches!(topic, Topic::AddToken(None))
+                        || matches!(topic, Topic::AddToken(Some(token_id)) if *token_id == token.token_id)
+                },
+                &dire,
+            ),
+            Directive::ToggleChainState(ref toggle_state) => handle_directive(
+                self,
+                |topic: &Topic| match toggle_state.action {
+                    ToggleAction::Activate => matches!(topic, Topic::ActivateChain),
+                    ToggleAction::Deactivate => matches!(topic, Topic::DeactivateChain),
+                },
+                &dire,
+            ),
+            Directive::UpdateFee(ref factor) => handle_directive(
+                self,
+                |topic: &Topic| match factor {
+                    Factor::UpdateTargetChainFactor(_) => matches!(topic, Topic::UpdateFee(None)),
+                    Factor::UpdateFeeTokenFactor(tf) => {
+                        matches!(topic, Topic::UpdateFee(Some(token_id)) if token_id.eq(&tf.fee_token))
+                    }
+                },
+                &dire,
+            ),
+        }
     }
 
     pub fn pull_directives(
@@ -487,6 +589,7 @@ impl HubState {
         })?;
 
         // check token on chain availability
+        
         match ticket.action {
             TxAction::Transfer => {
                 // ticket from issue chain
@@ -568,40 +671,26 @@ impl HubState {
     }
 
     pub fn push_ticket(&mut self, ticket: Ticket) -> Result<(), Error> {
-        self.chains
-            .get(&ticket.dst_chain)
-            .as_mut()
-            .ok_or(Error::NotFoundChain(ticket.dst_chain.to_string()))
-            .map_or_else(
-                |e| Err(e),
-                |chain| {
-                    if matches!(chain.chain_state, ChainState::Deactive) {
-                        return Err(Error::DeactiveChain(chain.chain_id.to_string()));
-                    }
-                    //increase seq
-                    let latest_seq = chain.latest_ticket_seq.map_or(0, |seq| seq + 1);
-                    chain.latest_ticket_seq = Some(latest_seq);
+        // get latest ticket seq
+        let latest_seq = self
+            .ticket_seq
+            .entry(ticket.dst_chain.to_string())
+            .and_modify(|seq| *seq += 1)
+            .or_insert(0);
 
-                    //update chain info
-                    self.chains
-                        .insert(ticket.dst_chain.to_string(), chain.clone());
-
-                    // add new ticket
-                    self.ticket_queue.insert(
-                        SeqKey::from(ticket.dst_chain.to_string(), latest_seq),
-                        ticket.clone(),
-                    );
-                    //save ticket
-                    self.cross_ledger
-                        .insert(ticket.ticket_id.to_string(), ticket.clone());
-                    record_event(&Event::ReceivedTicket {
-                        dst_chain: chain.clone(),
-                        ticket: ticket.clone(),
-                    });
-                    Ok(())
-                },
-            )
+        // add new ticket
+        let seq_key = SeqKey::from(ticket.dst_chain.to_string(), *latest_seq);
+        self.ticket_queue.insert(seq_key.clone(), ticket.clone());
+        //save ticket
+        self.cross_ledger
+            .insert(ticket.ticket_id.to_string(), ticket.clone());
+        record_event(&Event::ReceivedTicket {
+            seq_key,
+            ticket: ticket.clone(),
+        });
+        Ok(())
     }
+
     pub fn pull_tickets(
         &self,
         chain_id: &ChainId,

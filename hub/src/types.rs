@@ -185,7 +185,6 @@ pub struct TokenMeta {
     pub icon: Option<String>,
     pub metadata: HashMap<String, String>,
     pub dst_chains: Vec<ChainId>,
-   
 }
 
 impl Storable for TokenMeta {
@@ -274,6 +273,27 @@ impl Storable for ChainTokenFactor {
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
         let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         fee
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Default)]
+pub struct Subscribers {
+    pub subs: Vec<String>,
+}
+
+impl Storable for Subscribers {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let subs =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        subs
     }
 
     const BOUND: Bound = Bound::Unbounded;
