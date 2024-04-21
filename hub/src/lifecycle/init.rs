@@ -2,9 +2,12 @@ use crate::state::{set_state, HubState};
 use candid::{CandidType, Deserialize, Principal};
 use serde::Serialize;
 
+use super::upgrade::UpgradeArgs;
+
 #[derive(CandidType, serde::Deserialize)]
 pub enum HubArg {
     Init(InitArgs),
+    Upgrade(Option<UpgradeArgs>),
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

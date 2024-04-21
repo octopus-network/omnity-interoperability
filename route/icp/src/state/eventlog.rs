@@ -1,4 +1,4 @@
-use crate::{lifecycle::init::InitArgs, updates::generate_ticket::GenerateTicketReq};
+use crate::{lifecycle::{init::InitArgs, upgrade::UpgradeArgs}, updates::generate_ticket::GenerateTicketReq};
 use candid::Principal;
 use omnity_types::{Chain, Factor, ToggleState, Token};
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,9 @@ pub enum Event {
     /// the first event in the event log.
     #[serde(rename = "init")]
     Init(InitArgs),
+
+    #[serde(rename = "upgrade")]
+    Upgrade(UpgradeArgs),
 
     #[serde(rename = "added_chain")]
     AddedChain(Chain),

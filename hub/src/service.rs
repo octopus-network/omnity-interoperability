@@ -1,12 +1,10 @@
-use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
-
-use log::info;
-use omnity_hub::event::{self, record_event, Event, GetEventsArg};
-use omnity_hub::lifecycle::init::HubArg;
-
 use crate::memory::init_stable_log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use log::info;
 use omnity_hub::auth::{auth, is_owner};
+use omnity_hub::event::{self, record_event, Event, GetEventsArg};
+use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::metrics;
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
@@ -27,6 +25,9 @@ fn init(args: HubArg) {
             record_event(&Event::Init(args.clone()));
             lifecycle::init(args);
         }
+        HubArg::Upgrade(_) => {
+            panic!("expected InitArgs got UpgradeArgs");
+        }
     }
 }
 
@@ -37,11 +38,23 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
+fn post_upgrade(hub_args: Option<HubArg>) {
     // init log
     init_log(Some(init_stable_log()));
 
     with_state_mut(|hub_state| hub_state.post_upgrade());
+
+    if let Some(hub_args) = hub_args {
+        match hub_args {
+            HubArg::Upgrade(upgrade_args) => {
+                if let Some(args) = upgrade_args {
+                    with_state_mut(|hub_state| hub_state.upgrade(args.clone()));
+                    record_event(&Event::Upgrade(args));
+                }
+            }
+            HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
+        };
+    }
     info!("update successfully!");
 }
 

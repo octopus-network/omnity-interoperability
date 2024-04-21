@@ -63,15 +63,14 @@ type Event = variant {
   updated_fee : Factor;
   added_token_position : record { position : TokenKey; amount : nat };
   added_token : TokenMeta;
-  post_upgrade : blob;
   init : InitArgs;
   received_directive : record { dst_chain : ChainWithSeq; dire : Directive };
+  upgrade : UpgradeArgs;
   added_chain : ChainWithSeq;
   updated_token_position : record { position : TokenKey; amount : nat };
   updated_chain : ChainWithSeq;
   received_ticket : record { ticket : Ticket; dst_chain : ChainWithSeq };
   resubmit_ticket : record { ticket_id : text; timestamp : nat64 };
-  pre_upgrade : blob;
 };
 type Factor = variant {
   UpdateFeeTokenFactor : FeeTokenFactor;
@@ -79,7 +78,7 @@ type Factor = variant {
 };
 type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type GetEventsArg = record { start : nat64; length : nat64 };
-type HubArg = variant { Init : InitArgs };
+type HubArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type InitArgs = record { admin : principal };
 type Proposal = variant {
   UpdateFee : Factor;
@@ -154,6 +153,7 @@ type Topic = variant {
   AddChain : opt ChainType;
 };
 type TxAction = variant { Redeem; Transfer };
+type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
   execute_proposal : (vec Proposal) -> (Result);
   get_chain : (text) -> (Result_1) query;

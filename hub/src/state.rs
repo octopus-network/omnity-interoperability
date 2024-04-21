@@ -1,5 +1,6 @@
 use crate::event::{record_event, Event};
 use crate::lifecycle::init::InitArgs;
+use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::types::{Amount, ChainTokenFactor, ChainWithSeq, TokenKey, TokenMeta};
 
@@ -106,7 +107,6 @@ impl HubState {
         writer
             .write(&state_bytes)
             .expect("failed to save hub state");
-        record_event(&Event::PreUpgrade(state_bytes));
     }
 
     pub fn post_upgrade(&mut self) {
@@ -124,10 +124,16 @@ impl HubState {
         let state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
         *self = state;
-        record_event(&Event::PostUpgrade(state_bytes));
 
         // set_state(state);
     }
+
+    pub fn upgrade(&mut self, args: UpgradeArgs) {
+        if let Some(admin) = args.admin {
+            self.admin = admin;
+        }
+    }
+
     pub fn settlement_chain(&self, token_id: &TokenId) -> Result<ChainId, Error> {
         self.tokens
             .get(token_id)

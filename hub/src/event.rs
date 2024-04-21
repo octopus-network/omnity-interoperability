@@ -1,4 +1,5 @@
 use crate::lifecycle::init::InitArgs;
+use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::HubState;
 use ic_stable_structures::Log;
 use omnity_types::Directive;
@@ -104,11 +105,8 @@ pub enum Event {
     #[serde(rename = "init")]
     Init(InitArgs),
 
-    #[serde(rename = "pre_upgrade")]
-    PreUpgrade(Vec<u8>),
-
-    #[serde(rename = "post_upgrade")]
-    PostUpgrade(Vec<u8>),
+    #[serde(rename = "upgrade")]
+    Upgrade(UpgradeArgs),
 
     #[serde(rename = "added_chain")]
     AddedChain(ChainWithSeq),
@@ -176,11 +174,8 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
             Event::Init(args) => {
                 hub_state.admin = args.admin;
             }
-            Event::PreUpgrade(_) => {}
-            Event::PostUpgrade(state_bytes) => {
-                let state: HubState =
-                    ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-                hub_state = state;
+            Event::Upgrade(args) => {
+                hub_state.upgrade(args);
             }
             Event::AddedChain(chain) => {
                 hub_state
