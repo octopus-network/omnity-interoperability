@@ -28,3 +28,5 @@ route/ethl2/Cargo.lock
 # log
 *.log
 *.out
+
+canister_ids.json

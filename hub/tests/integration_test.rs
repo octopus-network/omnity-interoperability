@@ -17,7 +17,7 @@ fn test_init_hub() {
     println!(
         "hub canister id: {}, hub controller:{}",
         hub.hub_id.to_string(),
-        hub.controller.to_string()
+        hub.admin.to_string()
     );
 }
 

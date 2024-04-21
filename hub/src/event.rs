@@ -1,6 +1,7 @@
-use candid::Principal;
+use crate::lifecycle::init::InitArgs;
+use crate::lifecycle::upgrade::UpgradeArgs;
+use crate::state::HubState;
 use ic_stable_structures::Log;
-
 use omnity_types::Directive;
 use omnity_types::Factor;
 use omnity_types::SeqKey;
@@ -8,8 +9,6 @@ use omnity_types::Ticket;
 use omnity_types::Topic;
 
 use std::cell::RefCell;
-
-use crate::state::HubState;
 
 use crate::memory::{init_event_log, Memory};
 
@@ -108,13 +107,10 @@ pub struct GetEventsArg {
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Event {
     #[serde(rename = "init")]
-    Init(Principal),
+    Init(InitArgs),
 
-    #[serde(rename = "pre_upgrade")]
-    PreUpgrade(Vec<u8>),
-
-    #[serde(rename = "post_upgrade")]
-    PostUpgrade(Vec<u8>),
+    #[serde(rename = "upgrade")]
+    Upgrade(UpgradeArgs),
 
     #[serde(rename = "added_chain")]
     AddedChain(ChainMeta),
@@ -156,6 +152,9 @@ pub enum Event {
 
     #[serde(rename = "updated_token_position")]
     UpdatedTokenPosition { position: TokenKey, amount: u128 },
+
+    #[serde(rename = "resubmit_ticket")]
+    ResubmitTicket { ticket_id: String, timestamp: u64 },
 }
 
 #[derive(Debug)]
@@ -169,11 +168,7 @@ pub enum ReplayLogError {
 /// Reconstructs the hub state from an event log.
 pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, ReplayLogError> {
     let mut hub_state = match events.next() {
-        Some(Event::Init(principal)) => {
-            let mut hub_state = HubState::default();
-            hub_state.owner = Some(principal.to_string());
-            hub_state
-        }
+        Some(Event::Init(args)) => HubState::from(args),
         Some(evt) => {
             return Err(ReplayLogError::InconsistentLog(format!(
                 "The first event is not Init: {:?}",
@@ -185,14 +180,11 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
 
     for event in events {
         match event {
-            Event::Init(principal) => {
-                hub_state.owner = Some(principal.to_string());
+            Event::Init(args) => {
+                hub_state.admin = args.admin;
             }
-            Event::PreUpgrade(_) => {}
-            Event::PostUpgrade(state_bytes) => {
-                let state: HubState =
-                    ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-                hub_state = state;
+            Event::Upgrade(args) => {
+                hub_state.upgrade(args);
             }
             Event::AddedChain(chain) => {
                 hub_state
@@ -280,6 +272,10 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     .insert(seq_key.chain_id.to_string(), seq_key.seq);
                 hub_state.dire_queue.insert(seq_key, dire);
             }
+            Event::ResubmitTicket {
+                ticket_id: _,
+                timestamp,
+            } => hub_state.last_resubmit_ticket_time = timestamp,
         }
     }
     Ok(hub_state)
@@ -304,7 +300,9 @@ mod tests {
 
     #[test]
     fn test_encode_decode_event() {
-        let event = Event::Init(Principal::anonymous());
+        let event = Event::Init(InitArgs {
+            admin: Principal::anonymous(),
+        });
         let bytes = encode_event(&event);
         let decoded_event = decode_event(&bytes);
         assert_eq!(event, decoded_event);
@@ -313,7 +311,9 @@ mod tests {
     #[test]
     fn test_replay() {
         let events = vec![
-            Event::Init(Principal::anonymous()),
+            Event::Init(InitArgs {
+                admin: Principal::anonymous(),
+            }),
             Event::AddedChain(ChainMeta {
                 chain_id: "Bitcoin".to_string(),
                 chain_type: ChainType::SettlementChain,
@@ -384,6 +384,6 @@ mod tests {
 
         let hub_state = replay(events.into_iter()).unwrap();
 
-        println!("{:?}", hub_state.owner);
+        println!("{:?}", hub_state.admin);
     }
 }

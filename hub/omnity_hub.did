@@ -30,7 +30,9 @@ type Error = variant {
   NotFoundChain : text;
   DeactiveChain : text;
   ChainAlreadyExisting : text;
+  ResubmitTicketIdMustExist;
   ProposalError : text;
+  ResubmitTicketMustSame;
   NotFoundAccountToken : record { text; text; text };
   NotSupportedProposal;
   SighWithEcdsaError : text;
@@ -38,6 +40,7 @@ type Error = variant {
   TicketAmountParseError : record { text; text };
   NotFoundChainToken : record { text; text };
   TokenAlreadyExisting : text;
+  ResubmitTicketSentTooOften;
   GenerateDirectiveError : text;
   EcdsaPublicKeyError : text;
   NotFoundToken : text;
@@ -68,6 +71,8 @@ type Factor = variant {
 };
 type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type GetEventsArg = record { start : nat64; length : nat64 };
+type HubArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type InitArgs = record { admin : principal };
 type Proposal = variant {
   UpdateFee : Factor;
   AddToken : TokenMeta;
@@ -85,7 +90,7 @@ type Result_12 = variant { Ok : vec text; Err : Error };
 type Result_2 = variant { Ok : vec TokenOnChain; Err : Error };
 type Result_3 = variant { Ok : vec Chain; Err : Error };
 type Result_4 = variant { Ok : vec record { text; text; nat }; Err : Error };
-type Result_5 = variant { Ok : vec Token; Err : Error };
+type Result_5 = variant { Ok : vec TokenResp; Err : Error };
 type Result_6 = variant { Ok : nat64; Err : Error };
 type Result_7 = variant { Ok : Ticket; Err : Error };
 type Result_8 = variant { Ok : vec Ticket; Err : Error };
@@ -132,6 +137,13 @@ type TokenMeta = record {
   dst_chains : vec text;
 };
 type TokenOnChain = record { token_id : text; chain_id : text; amount : nat };
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  rune_id : opt text;
+  symbol : text;
+};
 type Topic = variant {
   UpdateFeeTokenFactor : opt text;
   ActivateChain;
@@ -141,7 +153,8 @@ type Topic = variant {
   UpdateTargetChainFactor : opt text;
 };
 type TxAction = variant { Redeem; Transfer };
-service : () -> {
+type UpgradeArgs = record { admin : opt principal };
+service : (HubArg) -> {
   execute_proposal : (vec Proposal) -> (Result);
   get_chain : (text) -> (Result_1) query;
   get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_2) query;

@@ -8098,6 +8098,7 @@ dependencies = [
  "ic-cdk 0.12.1",
  "ic-cdk-macros 0.8.4",
  "ic-cdk-timers 0.6.0",
+ "ic-ic00-types",
  "ic-icrc1-ledger",
  "ic-ledger-canister-core",
  "ic-ledger-types",

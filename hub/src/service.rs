@@ -1,29 +1,34 @@
-use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
-
-use log::info;
-use omnity_hub::event::{self, Event, GetEventsArg};
-
 use crate::memory::init_stable_log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use log::info;
 use omnity_hub::auth::{auth, is_owner};
-use omnity_hub::memory;
+use omnity_hub::event::{self, record_event, Event, GetEventsArg};
+use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::metrics;
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
-use omnity_hub::types::{Proposal, Subscribers};
+use omnity_hub::types::{{Proposal, Subscribers}, TokenResp};
+use omnity_hub::{lifecycle, memory};
 use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
 use omnity_types::{
-    Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId, Token,
+    Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
     TokenId, TokenOnChain, Topic,
 };
 
 #[init]
-fn init() {
-    init_log(Some(init_stable_log()));
-    let caller = ic_cdk::api::caller();
+fn init(args: HubArg) {
+    match args {
+        HubArg::Init(args) => {
+            init_log(Some(init_stable_log()));
 
-    // save new chain
-    with_state_mut(|hub_state| hub_state.init(caller))
+            record_event(&Event::Init(args.clone()));
+            lifecycle::init(args);
+        }
+        HubArg::Upgrade(_) => {
+            panic!("expected InitArgs got UpgradeArgs");
+        }
+    }
 }
 
 #[pre_upgrade]
@@ -33,11 +38,23 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
+fn post_upgrade(hub_args: Option<HubArg>) {
     // init log
     init_log(Some(init_stable_log()));
 
     with_state_mut(|hub_state| hub_state.post_upgrade());
+
+    if let Some(hub_args) = hub_args {
+        match hub_args {
+            HubArg::Upgrade(upgrade_args) => {
+                if let Some(args) = upgrade_args {
+                    with_state_mut(|hub_state| hub_state.upgrade(args.clone()));
+                    record_event(&Event::Upgrade(args));
+                }
+            }
+            HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
+        };
+    }
     info!("upgrade successfully!");
 }
 
@@ -119,8 +136,14 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
         hub_state.check_and_update(&ticket)?;
         // push ticket into queue
         hub_state.push_ticket(ticket)
-    })?;
-    Ok(())
+    })
+}
+
+#[update(guard = "auth")]
+pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
+    info!("received resubmit ticket: {:?}", ticket);
+    // No need to update the token since the old ticket has already added
+    with_state_mut(|hub_state| hub_state.resubmit_ticket(ticket))
 }
 
 /// query tickets for chain id,this method will be called by route and custom
@@ -157,8 +180,10 @@ pub async fn get_tokens(
     token_id: Option<TokenId>,
     offset: usize,
     limit: usize,
-) -> Result<Vec<Token>, Error> {
-    metrics::get_tokens(chain_id, token_id, offset, limit).await
+) -> Result<Vec<TokenResp>, Error> {
+    metrics::get_tokens(chain_id, token_id, offset, limit)
+        .await
+        .map(|tokens| tokens.iter().map(|t| t.clone().into()).collect())
 }
 
 #[query]
@@ -244,7 +269,12 @@ ic_cdk::export_candid!();
 mod tests {
 
     use super::*;
-    use omnity_hub::types::{ChainMeta, TokenMeta};
+    use candid::Principal;
+    use omnity_hub::{
+        lifecycle::init::InitArgs,
+        state::{set_state, HubState},
+        types::{ChainMeta, TokenMeta},
+    };
     use omnity_types::{
         ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketType, ToggleAction,
         ToggleState, TxAction,
@@ -688,6 +718,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_chain() {
+        set_state(HubState::from(InitArgs {
+            admin: Principal::anonymous(),
+        }));
         init_logger();
         // sub_dires().await;
         let result = sub_directives(
@@ -779,6 +812,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_token() {
+        set_state(HubState::from(InitArgs {
+            admin: Principal::anonymous(),
+        }));
         init_logger();
         sub_dires().await;
 
@@ -835,6 +871,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_toggle_chain_state() {
+        set_state(HubState::from(InitArgs {
+            admin: Principal::anonymous(),
+        }));
         init_logger();
         sub_dires().await;
         // add chain
@@ -937,6 +976,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_fee() {
+        set_state(HubState::from(InitArgs {
+            admin: Principal::anonymous(),
+        }));
         init_logger();
         sub_dires().await;
         // add chain
@@ -1038,6 +1080,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_tx_ticket() {
+        set_state(HubState::from(InitArgs {
+            admin: Principal::anonymous(),
+        }));
         init_logger();
         sub_dires().await;
         // add chain
@@ -1184,6 +1229,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_c_tx_ticket() {
+        set_state(HubState::from(InitArgs {
+            admin: Principal::anonymous(),
+        }));
         init_logger();
         // add chain
         add_chains().await;

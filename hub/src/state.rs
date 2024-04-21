@@ -1,4 +1,6 @@
 use crate::event::{record_event, Event};
+use crate::lifecycle::init::InitArgs;
+use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 
@@ -8,8 +10,8 @@ use ic_stable_structures::{Memory as _, StableBTreeMap};
 
 use log::info;
 use omnity_types::{
-    ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, ToggleAction,
-    ToggleState, TokenId, Topic, TxAction,
+    ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, TicketType,
+    ToggleAction, ToggleState, TokenId, Topic, TxAction,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -17,8 +19,10 @@ use std::collections::HashMap;
 
 use std::num::ParseIntError;
 
+const HOUR: u64 = 3600_000_000_000;
+
 thread_local! {
-    static STATE: RefCell<HubState> = RefCell::new(HubState::default());
+    static STATE: RefCell<Option<HubState>> = RefCell::default();
 }
 
 #[derive(Deserialize, Serialize)]
@@ -46,12 +50,13 @@ pub struct HubState {
 
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
-    pub owner: Option<String>,
+    pub admin: Principal,
     pub authorized_caller: HashMap<String, ChainId>,
+    pub last_resubmit_ticket_time: u64,
 }
 
-impl Default for HubState {
-    fn default() -> Self {
+impl From<InitArgs> for HubState {
+    fn from(args: InitArgs) -> Self {
         Self {
             chains: StableBTreeMap::init(memory::get_chain_memory()),
             tokens: StableBTreeMap::init(memory::get_token_memory()),
@@ -65,8 +70,9 @@ impl Default for HubState {
             ticket_queue: StableBTreeMap::init(memory::get_ticket_queue_memory()),
             directive_seq: HashMap::default(),
             ticket_seq: HashMap::default(),
-            owner: None,
+            admin: args.admin,
             authorized_caller: HashMap::default(),
+            last_resubmit_ticket_time: 0,
         }
     }
 }
@@ -75,30 +81,25 @@ impl Default for HubState {
 ///
 /// Precondition: the state is already initialized.
 pub fn with_state<R>(f: impl FnOnce(&HubState) -> R) -> R {
-    STATE.with(|cell| f(&cell.borrow()))
+    STATE.with(|cell| f(cell.borrow().as_ref().expect("State not initialized!")))
 }
 
 /// A helper method to mutate the state.
 ///
 /// Precondition: the state is already initialized.
 pub fn with_state_mut<R>(f: impl FnOnce(&mut HubState) -> R) -> R {
-    STATE.with(|cell| f(&mut cell.borrow_mut()))
+    STATE.with(|cell| f(cell.borrow_mut().as_mut().expect("State not initialized!")))
 }
 
 // A helper method to set the state.
 //
 // Precondition: the state is _not_ initialized.
 pub fn set_state(state: HubState) {
-    STATE.with(|cell| *cell.borrow_mut() = state);
+    STATE.with(|cell| *cell.borrow_mut() = Some(state));
 }
 
 /// get settlement chain from token id
 impl HubState {
-    pub fn init(&mut self, owner: Principal) {
-        self.owner = Some(owner.to_string());
-        record_event(&Event::Init(owner));
-    }
-
     pub fn pre_upgrade(&self) {
         // Serialize the state.
         let mut state_bytes = vec![];
@@ -116,7 +117,6 @@ impl HubState {
         writer
             .write(&state_bytes)
             .expect("failed to save hub state");
-        record_event(&Event::PreUpgrade(state_bytes));
     }
 
     pub fn post_upgrade(&mut self) {
@@ -134,8 +134,14 @@ impl HubState {
         let state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
         *self = state;
-        record_event(&Event::PostUpgrade(state_bytes));
     }
+
+    pub fn upgrade(&mut self, args: UpgradeArgs) {
+        if let Some(admin) = args.admin {
+            self.admin = admin;
+        }
+    }
+
     pub fn settlement_chain(&self, token_id: &TokenId) -> Result<ChainId, Error> {
         self.tokens
             .get(token_id)
@@ -878,6 +884,43 @@ impl HubState {
             ticket: ticket.clone(),
         });
         Ok(())
+    }
+
+    pub fn resubmit_ticket(&mut self, ticket: Ticket) -> Result<(), Error> {
+        let now = ic_cdk::api::time();
+        if now - self.last_resubmit_ticket_time < 6 * HOUR {
+            return Err(Error::ResubmitTicketSentTooOften);
+        }
+        match self.cross_ledger.get(&ticket.ticket_id) {
+            Some(old_ticket) => {
+                if ticket != old_ticket {
+                    return Err(Error::ResubmitTicketMustSame);
+                }
+                let ticket_id = format!("{}_{}", ticket.ticket_id, now);
+                let new_ticket = Ticket {
+                    ticket_id: ticket_id.clone(),
+                    ticket_type: TicketType::Resubmit,
+                    ticket_time: now,
+                    src_chain: ticket.src_chain,
+                    dst_chain: ticket.dst_chain,
+                    action: ticket.action,
+                    token: ticket.token,
+                    amount: ticket.amount,
+                    sender: ticket.sender,
+                    receiver: ticket.receiver,
+                    memo: ticket.memo,
+                };
+                self.push_ticket(new_ticket)?;
+                self.last_resubmit_ticket_time = now;
+
+                record_event(&Event::ResubmitTicket {
+                    ticket_id,
+                    timestamp: now,
+                });
+                Ok(())
+            }
+            None => Err(Error::ResubmitTicketIdMustExist),
+        }
     }
 
     pub fn pull_tickets(

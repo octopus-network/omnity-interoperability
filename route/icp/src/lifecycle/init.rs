@@ -1,3 +1,4 @@
+use super::upgrade::UpgradeArgs;
 use crate::state::{replace_state, RouteState};
 use candid::{CandidType, Deserialize, Principal};
 use serde::Serialize;
@@ -5,6 +6,7 @@ use serde::Serialize;
 #[derive(CandidType, serde::Deserialize)]
 pub enum RouteArg {
     Init(InitArgs),
+    Upgrade(Option<UpgradeArgs>),
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

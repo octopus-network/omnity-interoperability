@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::state::{audit, mutate_state, read_state};
-use crate::{DEFAULT_MEMORY_LIMIT, ICRC2_WASM};
+use crate::ICRC2_WASM;
 use candid::{CandidType, Deserialize, Nat};
 use candid::{Encode, Principal};
 use ic_cdk::api::management_canister::main::{
@@ -9,6 +9,7 @@ use ic_cdk::api::management_canister::main::{
     InstallCodeArgument,
 };
 use ic_icrc1_ledger::{ArchiveOptions, InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument};
+use icrc_ledger_types::icrc::generic_metadata_value::MetadataValue;
 use icrc_ledger_types::icrc1::account::Account;
 use omnity_types::Token;
 
@@ -23,9 +24,14 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
         return Err(AddNewTokenError::AlreadyAdded(token.token_id));
     }
 
-    let record = install_icrc2_ledger(token.name.clone(), token.symbol.clone(), token.decimals)
-        .await
-        .map_err(AddNewTokenError::CreateLedgerErr)?;
+    let record = install_icrc2_ledger(
+        token.name.clone(),
+        token.symbol.clone(),
+        token.decimals,
+        token.icon.clone(),
+    )
+    .await
+    .map_err(AddNewTokenError::CreateLedgerErr)?;
 
     mutate_state(|s| {
         audit::add_token(s, token, record.canister_id);
@@ -37,6 +43,7 @@ async fn install_icrc2_ledger(
     token_name: String,
     token_symbol: String,
     token_decimal: u8,
+    token_icon: Option<String>,
 ) -> Result<CanisterIdRecord, String> {
     let create_canister_arg = CreateCanisterArgument { settings: None };
     let (canister_id_record,) = create_canister(create_canister_arg, 500_000_000_000)
@@ -53,21 +60,17 @@ async fn install_icrc2_ledger(
                 .with_decimals(token_decimal)
                 .with_minting_account(Into::<Account>::into(owner))
                 .with_transfer_fee(Nat::from_str("0").unwrap())
+                .with_metadata_entry(
+                    "icrc1:logo",
+                    MetadataValue::Text(token_icon.unwrap_or_default())
+                )
                 .with_archive_options(ArchiveOptions {
-                    // The number of blocks which, when exceeded, will trigger an archiving operation.
-                    // If the speed of block production is 1 block per second,
-                    // it means 1000 seconds ≈ 16 minutes will trigger an archiving operation.
                     trigger_threshold: 1000,
-                    // The number of blocks to archive when trigger threshold is exceeded.
                     num_blocks_to_archive: 1000,
-                    // Allocate 1GB for raw blocks.
-                    node_max_memory_size_bytes: Some(DEFAULT_MEMORY_LIMIT),
-                    // The maximum number of blocks to return in a single get_transactions request.
+                    node_max_memory_size_bytes: None,
                     max_message_size_bytes: None,
                     controller_id: owner.into(),
-                    // default value: 0
                     cycles_for_archive_creation: None,
-                    // default value: 2000
                     max_transactions_per_response: None,
                 })
                 .build()

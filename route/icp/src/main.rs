@@ -1,24 +1,24 @@
 use candid::Principal;
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_cdk::api::call::call;
+use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
 use ic_ledger_types::AccountIdentifier;
 use ic_log::writer::Logs;
-use icp_route::lifecycle::{self, init::RouteArg};
+use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
 use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
-use icp_route::state::{read_state, replace_state, take_state, MintTokenStatus, RouteState};
+use icp_route::state::{read_state, take_state, MintTokenStatus};
 use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
 use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
-use log::{self, info};
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
-use std::str::FromStr;
 use std::time::Duration;
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 
 #[init]
 fn init(args: RouteArg) {
@@ -26,8 +26,11 @@ fn init(args: RouteArg) {
         RouteArg::Init(args) => {
             init_log(Some(init_stable_log()));
             storage::record_event(&Event::Init(args.clone()));
-            lifecycle::init::init(args);
+            lifecycle::init(args);
             set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
+        }
+        RouteArg::Upgrade(_) => {
+            panic!("expected InitArgs got UpgradeArgs");
         }
     }
 }
@@ -42,6 +45,62 @@ fn check_anonymous_caller() {
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
     updates::generate_ticket(args).await
+}
+
+pub fn is_controller() -> Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
+}
+
+#[update(guard = "is_controller")]
+async fn stop_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+
+    call(Principal::management_canister(), "stop_canister", (args,))
+        .await
+        .and_then(|((),)| Ok(()))
+        .map_err(|(_, reason)| reason)
+}
+
+#[update(guard = "is_controller")]
+async fn start_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+
+    call(Principal::management_canister(), "start_canister", (args,))
+        .await
+        .and_then(|((),)| Ok(()))
+        .map_err(|(_, reason)| reason)
+}
+
+#[update(guard = "is_controller")]
+async fn delete_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+    call(Principal::management_canister(), "delete_canister", (args,))
+        .await
+        .and_then(|((),)| Ok(()))
+        .map_err(|(_, reason)| reason)
+}
+
+#[update(guard = "is_controller")]
+pub async fn controlled_canister_status(
+    icrc_canister_id: Principal,
+) -> Result<CanisterStatusResponse, String> {
+    let args = CanisterIdRecord {
+        canister_id: icrc_canister_id,
+    };
+    call(Principal::management_canister(), "canister_status", (args,))
+        .await
+        .and_then(|(e,)| Ok(e))
+        .map_err(|(_, reason)| reason)
 }
 
 #[query]
@@ -118,49 +177,8 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
 
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    if req.path() == "/logs" {
-        use serde_json;
-        let max_skip_timestamp = parse_param::<u64>(&req, "time").unwrap_or(0);
-        let offset = match parse_param::<usize>(&req, "offset") {
-            Ok(value) => value,
-            Err(err) => return err,
-        };
-        let limit = match parse_param::<usize>(&req, "limit") {
-            Ok(value) => value,
-            Err(err) => return err,
-        };
-        info!(
-            "log req, max_skip_timestamp: {}, offset: {}, limit: {}",
-            max_skip_timestamp, offset, limit
-        );
-
-        let logs = StableLogWriter::get_logs(max_skip_timestamp, offset, limit);
-        HttpResponseBuilder::ok()
-            .header("Content-Type", "application/json; charset=utf-8")
-            .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())
-            .build()
-    } else {
-        HttpResponseBuilder::not_found().build()
-    }
+    StableLogWriter::http_request(req)
 }
-
-fn parse_param<T: FromStr>(req: &HttpRequest, param_name: &str) -> Result<T, HttpResponse> {
-    match req.raw_query_param(param_name) {
-        Some(arg) => match arg.parse() {
-            Ok(value) => Ok(value),
-            Err(_) => Err(HttpResponseBuilder::bad_request()
-                .with_body_and_content_length(format!(
-                    "failed to parse the '{}' parameter",
-                    param_name
-                ))
-                .build()),
-        },
-        None => Err(HttpResponseBuilder::bad_request()
-            .with_body_and_content_length(format!("must provide the '{}' parameter", param_name))
-            .build()),
-    }
-}
-
 
 #[pre_upgrade]
 fn pre_upgrade() {
@@ -168,11 +186,17 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
-    let (stable_state,): (RouteState,) =
-        ic_cdk::storage::stable_restore().expect("failed to restore state");
+fn post_upgrade(route_arg: Option<RouteArg>) {
+    let mut upgrade_arg: Option<UpgradeArgs> = None;
+    if let Some(route_arg) = route_arg {
+        upgrade_arg = match route_arg {
+            RouteArg::Upgrade(upgrade_args) => upgrade_args,
+            RouteArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
+        };
+    }
+    lifecycle::post_upgrade(upgrade_arg);
 
-    replace_state(stable_state);
+    set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
 }
 
 fn main() {}

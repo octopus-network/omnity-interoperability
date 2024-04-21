@@ -2,15 +2,16 @@ use std::collections::HashMap;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use candid::{Decode, Encode};
+use candid::{Decode, Encode, Principal};
 use cargo_metadata::MetadataCommand;
 use escargot::CargoBuild;
 use ic_base_types::{CanisterId, PrincipalId};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{StateMachine, WasmResult};
 use omnity_hub::event::{Event, GetEventsArg};
-use omnity_hub::types::{ChainMeta, Proposal, Subscribers, TokenMeta};
-use omnity_types::{Chain, ChainId, Directive, Seq, Ticket, Token, TokenId, TokenOnChain, Topic};
+use omnity_hub::lifecycle::init::{HubArg, InitArgs};
+use omnity_hub::types::{ChainMeta, Proposal, Subscribers, TokenMeta, TokenResp};
+use omnity_types::{Chain, ChainId, Directive, Seq, Ticket, TokenId, TokenOnChain, Topic};
 use omnity_types::{ChainState, ChainType, Error, Factor};
 
 const BINARY_NAME: &str = "omnity_hub";
@@ -23,27 +24,23 @@ const DEFAULT_HUB_WASM_LOCATION: &str = "../target/wasm32-unknown-unknown/releas
 pub struct OmnityHub {
     pub sm: StateMachine,
     pub hub_id: CanisterId,
-    pub controller: PrincipalId,
+    pub admin: PrincipalId,
 }
 
 impl OmnityHub {
     pub fn new() -> Self {
         let sm = StateMachine::new();
-        let hub_id = install_hub(&sm);
-        let controller = sm.canister_status(hub_id).unwrap().unwrap().controller();
+        let admin = PrincipalId::new_user_test_id(1);
+        let hub_id = install_hub(&sm, admin.0);
 
-        Self {
-            sm,
-            hub_id,
-            controller,
-        }
+        Self { sm, hub_id, admin }
     }
 
     pub fn validate_proposal(&self, proposals: &Vec<Proposal>) -> Result<Vec<String>, Error> {
         let ret = self
             .sm
             .query_as(
-                self.controller,
+                self.admin,
                 self.hub_id,
                 "validate_proposal",
                 Encode!(proposals).unwrap(),
@@ -101,11 +98,32 @@ impl OmnityHub {
         Decode!(&assert_reply(ret), Result<Vec<(Topic, Subscribers)>, Error>).unwrap()
     }
 
-    pub fn execute_proposal(&self, proposals: &Vec<Proposal>) -> Result<(), Error> {
+    pub fn sub_directives(
+        &self,
+        chain_id: &Option<ChainId>,
+        topics: &Vec<Topic>,
+    ) -> Result<(), Error> {
         let ret = self
             .sm
             .execute_ingress_as(
                 self.controller,
+                self.hub_id,
+                "sub_directives",
+                Encode!(chain_id, topics).unwrap(),
+            )
+            .expect("failed to sub_directives");
+        Decode!(&assert_reply(ret), Result<(), Error>).unwrap()
+    }
+
+    pub fn unsub_directives(
+        &self,
+        chain_id: &Option<ChainId>,
+        topics: &Vec<Topic>,
+    ) -> Result<(), Error> {
+        let ret = self
+            .sm
+            .execute_ingress_as(
+                self.admin,
                 self.hub_id,
                 "execute_proposal",
                 Encode!(proposals).unwrap(),
@@ -118,7 +136,7 @@ impl OmnityHub {
         let ret = self
             .sm
             .execute_ingress_as(
-                self.controller,
+                self.admin,
                 self.hub_id,
                 "update_fee",
                 Encode!(fees).unwrap(),
@@ -135,7 +153,7 @@ impl OmnityHub {
         offset: &usize,
         limit: &usize,
     ) -> Result<Vec<(Seq, Directive)>, Error> {
-        let sender = sender.unwrap_or(self.controller);
+        let sender = sender.unwrap_or(self.admin);
         let ret = self
             .sm
             .query_as(
@@ -171,7 +189,7 @@ impl OmnityHub {
         token_id: &Option<TokenId>,
         offset: &usize,
         limit: &usize,
-    ) -> Result<Vec<Token>, Error> {
+    ) -> Result<Vec<TokenResp>, Error> {
         let ret = self
             .sm
             .query(
@@ -180,7 +198,7 @@ impl OmnityHub {
                 Encode!(chain_id, token_id, offset, limit).unwrap(),
             )
             .expect("failed to get tokens");
-        Decode!(&assert_reply(ret), Result<Vec<Token>, Error>).unwrap()
+        Decode!(&assert_reply(ret), Result<Vec<TokenResp>, Error>).unwrap()
     }
     pub fn get_fees(
         &self,
@@ -204,7 +222,7 @@ impl OmnityHub {
         .unwrap()
     }
     pub fn send_ticket(&self, sender: &Option<PrincipalId>, ticket: &Ticket) -> Result<(), Error> {
-        let sender = sender.unwrap_or(self.controller);
+        let sender = sender.unwrap_or(self.admin);
         let ret = self
             .sm
             .execute_ingress_as(sender, self.hub_id, "send_ticket", Encode!(ticket).unwrap())
@@ -218,7 +236,7 @@ impl OmnityHub {
         offset: &usize,
         limit: &usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
-        let sender = sender.unwrap_or(self.controller);
+        let sender = sender.unwrap_or(self.admin);
         let ret = self
             .sm
             .query_as(
@@ -369,9 +387,13 @@ fn hub_wasm() -> Vec<u8> {
         build_hub()
     })
 }
-fn install_hub(sm: &StateMachine) -> CanisterId {
-    sm.install_canister(hub_wasm(), vec![], None)
-        .expect("install hub error !")
+fn install_hub(sm: &StateMachine, admin: Principal) -> CanisterId {
+    sm.install_canister(
+        hub_wasm(),
+        Encode!(&HubArg::Init(InitArgs { admin })).unwrap(),
+        None,
+    )
+    .expect("install hub error !")
 }
 
 fn assert_reply(result: WasmResult) -> Vec<u8> {
