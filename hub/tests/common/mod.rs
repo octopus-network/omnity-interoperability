@@ -8,6 +8,7 @@ use escargot::CargoBuild;
 use ic_base_types::{CanisterId, PrincipalId};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{StateMachine, WasmResult};
+use omnity_hub::event::{Event, GetEventsArg};
 use omnity_hub::types::{ChainMeta, Proposal, Subscribers, TokenMeta};
 use omnity_types::{Chain, ChainId, Directive, Seq, Ticket, Token, TokenId, TokenOnChain, Topic};
 use omnity_types::{ChainState, ChainType, Error, Factor};
@@ -300,6 +301,19 @@ impl OmnityHub {
         .unwrap();
         serde_json::from_slice(&response.body).expect("failed to parse hub log")
     }
+
+    pub fn get_events(&self, start: &u64, length: &u64) -> Vec<Event> {
+        let artgs = GetEventsArg {
+            start: *start,
+            length: *length,
+        };
+        let ret = self
+            .sm
+            .query(self.hub_id, "get_events", Encode!(&artgs).unwrap())
+            .expect("failed to get chain tokens");
+        Decode!(&assert_reply(ret), Vec<Event>).unwrap()
+    }
+
     pub fn upgrade(&self) {
         let ret = self.sm.upgrade_canister(self.hub_id, hub_wasm(), vec![]);
         println!("upgrade result:{:?}", ret)

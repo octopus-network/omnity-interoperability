@@ -52,11 +52,13 @@ type Event = variant {
   added_token : TokenMeta;
   post_upgrade : blob;
   init : principal;
-  received_directive : record { dire : Directive; seq_key : SeqKey };
+  published_directive : record { dire : Directive; seq_key : SeqKey };
   added_chain : Chain;
   updated_token_position : record { position : TokenKey; amount : nat };
   updated_chain : Chain;
+  saved_directive : Directive;
   received_ticket : record { ticket : Ticket; seq_key : SeqKey };
+  deleted_directive : SeqKey;
   Subscribed_topic : record { topic : Topic; subs : Subscribers };
   pre_upgrade : blob;
 };

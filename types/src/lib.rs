@@ -44,6 +44,18 @@ impl Storable for Directive {
 
     const BOUND: Bound = Bound::Unbounded;
 }
+impl core::fmt::Display for Directive {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Directive::AddChain(chain) => write!(f, "AddChain({})", chain),
+            Directive::AddToken(token) => write!(f, "AddToken({})", token),
+            Directive::ToggleChainState(toggle_state) => {
+                write!(f, "ToggleChainState({})", toggle_state)
+            }
+            Directive::UpdateFee(factor) => write!(f, "UpdateFee({})", factor),
+        }
+    }
+}
 
 #[derive(
     CandidType, Deserialize, Serialize, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
@@ -241,7 +253,9 @@ impl Storable for TicketMap {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord,Hash)]
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 pub enum ChainType {
     #[default]
     SettlementChain,
@@ -400,6 +414,16 @@ impl Chain {
     }
 }
 
+impl core::fmt::Display for Chain {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(
+            f,
+            "\nchain id:{} \ncanister id:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?} \ncounterparties:{:?} \nfee_token:{:?}",
+            self.chain_id,self.canister_id, self.chain_type, self.chain_state, self.contract_address,self.counterparties,self.fee_token,
+        )
+    }
+}
+
 //TODO: update chain and token info
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct ToggleState {
@@ -433,6 +457,15 @@ impl Token {
     /// return (settlmentchain,token protocol, token symbol)
     pub fn token_id_info(&self) -> Vec<&str> {
         self.token_id.split('-').collect()
+    }
+}
+impl core::fmt::Display for Token {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(
+            f,
+            "\ttoken id:{} \ntoken name:{} \nsymbol:{:?} \ndecimals:{} \nicon:{:?} \nmetadata:{:?}",
+            self.token_id, self.name, self.symbol, self.decimals, self.icon, self.metadata
+        )
     }
 }
 

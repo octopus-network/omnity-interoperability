@@ -123,10 +123,10 @@ pub enum Event {
     UpdatedChainCounterparties(ChainMeta),
 
     #[serde(rename = "Subscribed_topic")]
-    SubTopic { topic: Topic, subs: Subscribers },
+    SubDirectives { topic: Topic, subs: Subscribers },
 
     #[serde(rename = "Unsubscribed_topic")]
-    UnSubTopic { topic: Topic, sub: String },
+    UnSubDirectives { topic: Topic, sub: String },
 
     #[serde(rename = "added_token")]
     AddedToken(TokenMeta),
@@ -140,8 +140,13 @@ pub enum Event {
     #[serde(rename = "updated_fee")]
     UpdatedFee(Factor),
 
-    #[serde(rename = "received_directive")]
-    ReceivedDirective { seq_key: SeqKey, dire: Directive },
+    #[serde(rename = "saved_directive")]
+    SavedDirective(Directive),
+    #[serde(rename = "deleted_directive")]
+    DeletedDirective(SeqKey),
+
+    #[serde(rename = "published_directive")]
+    PubedDirective { seq_key: SeqKey, dire: Directive },
 
     #[serde(rename = "received_ticket")]
     ReceivedTicket { seq_key: SeqKey, ticket: Ticket },
@@ -234,12 +239,6 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                 }
             },
 
-            Event::ReceivedDirective { seq_key, dire } => {
-                hub_state
-                    .directive_seq
-                    .insert(seq_key.chain_id.to_string(), seq_key.seq);
-                hub_state.dire_queue.insert(seq_key, dire);
-            }
             Event::AddedTokenPosition { position, amount }
             | Event::UpdatedTokenPosition { position, amount } => {
                 hub_state.token_position.insert(position, amount);
@@ -256,15 +255,30 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     .cross_ledger
                     .insert(ticket.ticket_id.to_string(), ticket.clone());
             }
-            Event::SubTopic { topic, subs } => {
+            Event::SubDirectives { topic, subs } => {
                 hub_state.topic_subscribers.insert(topic, subs);
             }
-            Event::UnSubTopic { topic, sub } => {
-                if let Some(subscribers) = hub_state.topic_subscribers.get(&topic).as_mut() {
+            Event::UnSubDirectives { topic, sub } => {
+                if let Some(mut subscribers) = hub_state.topic_subscribers.get(&topic) {
                     if let Some(idx) = subscribers.subs.iter().position(|dst| dst.eq(&sub)) {
                         subscribers.subs.remove(idx);
+                        hub_state
+                            .topic_subscribers
+                            .insert(topic.clone(), subscribers);
                     }
                 }
+            }
+            Event::SavedDirective(dire) => {
+                hub_state.directives.insert(format!("{}", dire), dire);
+            }
+            Event::DeletedDirective(seq_key) => {
+                hub_state.dire_queue.remove(&seq_key);
+            }
+            Event::PubedDirective { seq_key, dire } => {
+                hub_state
+                    .directive_seq
+                    .insert(seq_key.chain_id.to_string(), seq_key.seq);
+                hub_state.dire_queue.insert(seq_key, dire);
             }
         }
     }
@@ -338,7 +352,7 @@ mod tests {
                 target_chain_id: "Bitcoin".to_string(),
                 target_chain_factor: 1000,
             })),
-            Event::ReceivedDirective {
+            Event::PubedDirective {
                 seq_key: SeqKey::from("Bitcoin".to_string(), 0),
                 dire: Directive::AddChain(Chain {
                     chain_id: "Bitcoin".to_string(),

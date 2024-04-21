@@ -765,4 +765,10 @@ fn test_upgrade() {
     for r in logs.iter() {
         print!("http requst stable log: {}", r)
     }
+
+    let events = hub.get_events(&0, &100);
+
+    for event in events.iter() {
+        print!("get_events -> event: {:?}", event)
+    }
 }

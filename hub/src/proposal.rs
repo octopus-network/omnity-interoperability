@@ -35,9 +35,7 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                     })
                 })?;
 
-                let result = format!("Tne AddChain proposal: {}", chain_meta);
-                info!("validate_proposal result:{} ", result);
-                proposal_msgs.push(result);
+                proposal_msgs.push(format!("Tne AddChain proposal: {}", chain_meta));
             }
             Proposal::AddToken(token_meta) => {
                 if token_meta.token_id.is_empty()
@@ -65,9 +63,8 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
 
                     hub_state.available_chain(&token_meta.issue_chain)
                 })?;
-                let result = format!("The AddToken proposal: {}", token_meta);
-                info!("validate_proposal result:{} ", result);
-                proposal_msgs.push(result);
+
+                proposal_msgs.push(format!("The AddToken proposal: {}", token_meta));
             }
             Proposal::ToggleChainState(toggle_state) => {
                 if toggle_state.chain_id.is_empty() {
@@ -77,9 +74,8 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                 }
 
                 with_state(|hub_state| hub_state.available_state(&toggle_state))?;
-                let result = format!("The ToggleChainStatus proposal: {}", toggle_state);
-                info!("validate_proposal result:{} ", result);
-                proposal_msgs.push(result);
+
+                proposal_msgs.push(format!("The ToggleChainStatus proposal: {}", toggle_state));
             }
             Proposal::UpdateFee(factor) => {
                 match factor {
@@ -88,9 +84,8 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                             //check the issue chain must exsiting and not deactive!
                             hub_state.available_chain(&cf.target_chain_id)
                         })?;
-                        let result = format!("The UpdateFee proposal: {}", factor);
-                        info!("validate_proposal result:{} ", result);
-                        proposal_msgs.push(result);
+
+                        proposal_msgs.push(format!("The UpdateFee proposal: {}", factor));
                     }
                     Factor::UpdateFeeTokenFactor(ref tf) => {
                         if tf.fee_token.is_empty() {
@@ -98,10 +93,7 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                                 "The fee token can not be empty".to_string(),
                             ));
                         };
-
-                        let result = format!("The UpdateFee proposal: {}", factor);
-                        info!("validate_proposal result:{} ", result);
-                        proposal_msgs.push(result);
+                        proposal_msgs.push(format!("The UpdateFee proposal: {}", factor));
                     }
                 }
             }
@@ -124,6 +116,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     info!(" save new chain: {:?}", chain_meta);
                     hub_state.add_chain(chain_meta.clone())
                 })?;
+
                 // build directives
                 match chain_meta.chain_type {
                     // nothing to do
@@ -134,8 +127,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     ChainType::ExecutionChain => {
                         // publish directive for the new chain)
                         with_state_mut(|hub_state| {
-                            //check and update counterparty of dst chain
-                            hub_state.pub_directive(Directive::AddChain(chain_meta.clone().into()))
+                            hub_state.pub_directive(&Directive::AddChain(chain_meta.into()))
                         })?;
                     }
                 }
@@ -143,11 +135,12 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
             Proposal::AddToken(token_meata) => {
                 info!("build directive for `AddToken` proposal :{:?}", token_meata);
-                // save token info
-                with_state_mut(|hub_state| hub_state.add_token(token_meata.clone()))?;
-                // publish directive
+
                 with_state_mut(|hub_state| {
-                    hub_state.pub_directive(Directive::AddToken(token_meata.clone().into()))
+                    // save token info
+                    hub_state.add_token(token_meata.clone())?;
+                    // publish directive
+                    hub_state.pub_directive(&Directive::AddToken(token_meata.clone().into()))
                 })?
             }
 
@@ -157,21 +150,19 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     toggle_status
                 );
 
-                // publish directive
                 with_state_mut(|hub_state| {
-                    hub_state.pub_directive(Directive::ToggleChainState(toggle_status.clone()))
+                    // publish directive
+                    hub_state.pub_directive(&Directive::ToggleChainState(toggle_status.clone()))?;
+                    // update dst chain state
+                    hub_state.update_chain_state(&toggle_status)
                 })?;
-                // update dst chain state
-                with_state_mut(|hub_state| hub_state.update_chain_state(&toggle_status))?;
             }
 
             Proposal::UpdateFee(factor) => {
                 info!("build directive for `UpdateFee` proposal :{:?}", factor);
-                // save fee info
-                with_state_mut(|hub_state| hub_state.update_fee(factor.clone()))?;
-
                 with_state_mut(|hub_state| {
-                    hub_state.pub_directive(Directive::UpdateFee(factor.clone()))
+                    hub_state.update_fee(factor.clone())?;
+                    hub_state.pub_directive(&Directive::UpdateFee(factor.clone()))
                 })?;
             }
         }

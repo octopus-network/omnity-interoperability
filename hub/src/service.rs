@@ -89,7 +89,6 @@ pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> 
 #[query(guard = "auth")]
 pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subscribers)>, Error> {
     info!("query_subscribers for topic: {:?} ", topic);
-
     with_state(|hub_state| hub_state.query_subscribers(topic))
 }
 
@@ -313,26 +312,12 @@ mod tests {
             let result = sub_directives(Some(chain_id.to_string()), default_topic()).await;
             println!("chain({}) sub topic result: {:?}", chain_id, result)
         }
-        //check sub result
-        // with_state(|hub_state| {
-        //     hub_state
-        //         .subscribers
-        //         .iter()
-        //         .for_each(|(topic, subs)| println!("topic:{:?},subs:{:?}", topic, subs))
-        // });
     }
     async fn unsub_dires() {
         for chain_id in chain_ids() {
             let result = unsub_directives(Some(chain_id.to_string()), default_topic()).await;
             println!("chain({}) unsub topic result: {:?}", chain_id, result)
         }
-        //check sub result
-        // with_state(|hub_state| {
-        //     hub_state
-        //         .subscribers
-        //         .iter()
-        //         .for_each(|(topic, subs)| println!("topic:{:?},subs:{:?}", topic, subs))
-        // })
     }
     async fn add_chains() {
         let btc = ChainMeta {
@@ -716,22 +701,65 @@ mod tests {
             result
         );
 
-        //check sub result
-        with_state(|hub_state| {
-            hub_state
-                .topic_subscribers
-                .iter()
-                .for_each(|(topic, subs)| println!("topic:{:?},subs:{:?}", topic, subs))
-        });
+        let topic_subs = query_subscribers(None).await.unwrap();
+        for (topic, subs) in topic_subs.iter() {
+            println!("topic:{:?},subs:{:?}", topic, subs)
+        }
         // add chain
         add_chains().await;
 
-        for chain_id in chain_ids() {
+        // print directives
+        with_state(|hub_state| {
+            hub_state.directives.iter().for_each(|(k, v)| {
+                println!("directive -> {}, value -> {:?}", k, v);
+            })
+        });
+
+        let result = query_directives(
+            Some("Bitcoin".to_string()),
+            Some(Topic::AddChain(None)),
+            0,
+            20,
+        )
+        .await;
+        println!(
+            "query_directives for {:} dires: {:#?}",
+            "Bitcoin".to_string(),
+            result
+        );
+        assert!(result.is_ok());
+        let chain = get_chain("Bitcoin".to_string()).await;
+        println!(
+            "get chain for {:} chain: {:#?}",
+            "Bitcoin".to_string(),
+            chain
+        );
+
+        // new subscribers
+        println!("---- add new subscribers -------");
+        sub_dires().await;
+        // let result = sub_directives(Some("Bitcoin".to_string()), vec![Topic::AddChain(None)]).await;
+        println!(
+            "chain({}) sub topic({:?}) result: {:?}",
+            "Bitcoin".to_string(),
+            Topic::AddChain(None),
+            result
+        );
+        let topic_subs = query_subscribers(None).await.unwrap();
+        for (topic, subs) in topic_subs.iter() {
+            println!("topic:{:?},subs:{:?}", topic, subs)
+        }
+
+        for chain_id in vec![
+            "Bitcoin".to_string(),
+            // "Ethereum".to_string(),
+            "ICP".to_string(),
+        ] {
             let result = query_directives(
                 Some(chain_id.to_string()),
-                Some(Topic::AddChain(Some(ChainType::ExecutionChain))),
+                Some(Topic::AddChain(None)),
                 0,
-                10,
+                20,
             )
             .await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
@@ -739,8 +767,6 @@ mod tests {
             let chain = get_chain(chain_id.to_string()).await;
             println!("get chain for {:} chain: {:#?}", chain_id, chain);
         }
-        // let result = query_directives(None, None, 0, 10).await;
-        // println!("query_directives dires: {:#?}", result);
 
         let result = get_chains(None, None, 0, 10).await;
         println!("get_chains result : {:#?}", result);
@@ -768,12 +794,11 @@ mod tests {
             result
         );
         //check sub result
-        with_state(|hub_state| {
-            hub_state
-                .topic_subscribers
-                .iter()
-                .for_each(|(topic, subs)| println!("topic:{:?},subs:{:?}", topic, subs))
-        });
+        let topic_subs = query_subscribers(None).await.unwrap();
+        for (topic, subs) in topic_subs.iter() {
+            println!("topic:{:?},subs:{:?}", topic, subs)
+        }
+
         // add chain
         add_chains().await;
         // add token
@@ -784,7 +809,7 @@ mod tests {
                 Some(chain_id.to_string()),
                 Some(Topic::AddToken(None)),
                 0,
-                5,
+                50,
             )
             .await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
@@ -950,6 +975,7 @@ mod tests {
         assert!(result.is_ok());
         println!("update_fee result:{:?}", result);
 
+
         // query directives for chain id
         for chain_id in chain_ids() {
             let result = query_directives(
@@ -973,12 +999,7 @@ mod tests {
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
-        let result = query_directives(Some("ICP".to_string()), None, 0, 20).await;
-        println!(
-            "query_directives for {:} dires: {:#?}",
-            "ICP".to_string(),
-            result
-        );
+
         assert!(result.is_ok());
         let result = get_fees(None, None, 0, 10).await;
         assert!(result.is_ok());
@@ -987,6 +1008,32 @@ mod tests {
         let result = get_fees(None, Some("ICP".to_string()), 0, 12).await;
         assert!(result.is_ok());
         println!("get_fees result filter by token id : {:#?}", result);
+
+        let result = query_directives(Some("ICP".to_string()), None, 0, 20).await;
+        println!(
+            "query_directives for {:} dires: {:#?}",
+            "ICP".to_string(),
+            result
+        );
+        //unsub all the topic for icp
+        let result = unsub_directives(Some("ICP".to_string()), default_topic()).await;
+        println!(
+            "chain({}) unsub topic result: {:?}",
+            "ICP".to_string(),
+            result
+        );
+        let topic_subs = query_subscribers(None).await.unwrap();
+        for (topic, subs) in topic_subs.iter() {
+            println!("topic:{:?},subs:{:?}", topic, subs)
+        }
+        let result = query_directives(Some("ICP".to_string()), None, 0, 20).await;
+        println!(
+            "query_directives for {:} dires: {:#?}",
+            "ICP".to_string(),
+            result
+        );
+
+       
     }
 
     #[tokio::test]
@@ -1069,7 +1116,7 @@ mod tests {
             dst_chain: dst_chain.to_string(),
             action: TxAction::Redeem,
             token: token.clone(),
-            amount: 88888.to_string(),
+            amount: 22222.to_string(),
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
@@ -1206,7 +1253,7 @@ mod tests {
             dst_chain: dst_chain.to_string(),
             action: TxAction::Transfer,
             token: token.clone(),
-            amount: 6666.to_string(),
+            amount: 1111.to_string(),
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
@@ -1254,7 +1301,7 @@ mod tests {
             dst_chain: dst_chain.to_string(),
             action: TxAction::Redeem,
             token: token.clone(),
-            amount: 6666.to_string(),
+            amount: 555.to_string(),
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
@@ -1296,7 +1343,7 @@ mod tests {
             dst_chain: dst_chain.to_string(),
             action: TxAction::Redeem,
             token: token.clone(),
-            amount: 6666.to_string(),
+            amount: 222.to_string(),
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
