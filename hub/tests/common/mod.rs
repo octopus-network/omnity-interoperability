@@ -57,7 +57,7 @@ impl OmnityHub {
         let ret = self
             .sm
             .execute_ingress_as(
-                self.controller,
+                self.admin,
                 self.hub_id,
                 "sub_directives",
                 Encode!(chain_id, topics).unwrap(),
@@ -74,7 +74,7 @@ impl OmnityHub {
         let ret = self
             .sm
             .execute_ingress_as(
-                self.controller,
+                self.admin,
                 self.hub_id,
                 "unsub_directives",
                 Encode!(chain_id, topics).unwrap(),
@@ -89,7 +89,7 @@ impl OmnityHub {
         let ret = self
             .sm
             .query_as(
-                self.controller,
+                self.admin,
                 self.hub_id,
                 "query_subscribers",
                 Encode!(topic).unwrap(),
@@ -98,28 +98,7 @@ impl OmnityHub {
         Decode!(&assert_reply(ret), Result<Vec<(Topic, Subscribers)>, Error>).unwrap()
     }
 
-    pub fn sub_directives(
-        &self,
-        chain_id: &Option<ChainId>,
-        topics: &Vec<Topic>,
-    ) -> Result<(), Error> {
-        let ret = self
-            .sm
-            .execute_ingress_as(
-                self.controller,
-                self.hub_id,
-                "sub_directives",
-                Encode!(chain_id, topics).unwrap(),
-            )
-            .expect("failed to sub_directives");
-        Decode!(&assert_reply(ret), Result<(), Error>).unwrap()
-    }
-
-    pub fn unsub_directives(
-        &self,
-        chain_id: &Option<ChainId>,
-        topics: &Vec<Topic>,
-    ) -> Result<(), Error> {
+    pub fn execute_proposal(&self, proposals: &Vec<Proposal>) -> Result<(), Error> {
         let ret = self
             .sm
             .execute_ingress_as(
@@ -333,7 +312,12 @@ impl OmnityHub {
     }
 
     pub fn upgrade(&self) {
-        let ret = self.sm.upgrade_canister(self.hub_id, hub_wasm(), vec![]);
+        //Encode!(&HubArg::Init(InitArgs { admin })).unwrap(),
+        let ret = self.sm.upgrade_canister(
+            self.hub_id,
+            hub_wasm(),
+            Encode!(&HubArg::Upgrade(None)).unwrap(),
+        );
         println!("upgrade result:{:?}", ret)
     }
 }

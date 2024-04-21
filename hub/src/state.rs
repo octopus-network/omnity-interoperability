@@ -133,7 +133,9 @@ impl HubState {
         // Deserialize and set the state.
         let state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-        *self = state;
+            info!("post_upgrade state.admin :{:?}",state.admin);
+        // *self = state;
+        set_state(state)
     }
 
     pub fn upgrade(&mut self, args: UpgradeArgs) {

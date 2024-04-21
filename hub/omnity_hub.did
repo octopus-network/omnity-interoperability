@@ -53,17 +53,17 @@ type Event = variant {
   updated_fee : Factor;
   added_token_position : record { position : TokenKey; amount : nat };
   added_token : TokenMeta;
-  post_upgrade : blob;
-  init : principal;
+  init : InitArgs;
   published_directive : record { dire : Directive; seq_key : SeqKey };
+  upgrade : UpgradeArgs;
   added_chain : Chain;
   updated_token_position : record { position : TokenKey; amount : nat };
   updated_chain : Chain;
   saved_directive : Directive;
   received_ticket : record { ticket : Ticket; seq_key : SeqKey };
+  resubmit_ticket : record { ticket_id : text; timestamp : nat64 };
   deleted_directive : SeqKey;
   Subscribed_topic : record { topic : Topic; subs : Subscribers };
-  pre_upgrade : blob;
 };
 type Factor = variant {
   UpdateFeeTokenFactor : FeeTokenFactor;
@@ -186,6 +186,7 @@ service : (HubArg) -> {
   query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_9) query;
   query_subscribers : (opt Topic) -> (Result_10) query;
   query_tickets : (opt text, nat64, nat64) -> (Result_11) query;
+  resubmit_ticket : (Ticket) -> (Result);
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
   sub_directives : (opt text, vec Topic) -> (Result);

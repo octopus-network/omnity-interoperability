@@ -12,8 +12,10 @@ dfx canister delete omnity_hub
 # dfx canister call omnity_hub set_whitelist '(principal "bkyz2-fmaaa-aaaaa-qaaaq-cai", true)'
 # dfx deploy omnity_hub --mode reinstall -y 
 dfx canister create omnity_hub
-dfx deploy omnity_hub
-
+# dfx deploy omnity_hub
+# dfx identity --identity default get-principal
+# output: rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe
+dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
 # sub topic
 dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
 dfx canister call omnity_hub sub_directives '(opt "Ethereum", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
