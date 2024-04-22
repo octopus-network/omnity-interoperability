@@ -7,6 +7,7 @@ use candid::CandidType;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use std::borrow::Cow;
 use thiserror::Error;
 
@@ -54,6 +55,14 @@ impl core::fmt::Display for Directive {
             }
             Directive::UpdateFee(factor) => write!(f, "UpdateFee({})", factor),
         }
+    }
+}
+impl Directive {
+    pub fn hash(&self) -> String {
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(self.to_string().as_bytes());
+        let bytes: [u8; 32] = hasher.finalize().into();
+        bytes.iter().map(|byte| format!("{:02x}", byte)).collect()
     }
 }
 
@@ -109,7 +118,6 @@ impl Storable for DireMap {
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Topic {
-    // AddChain(Option<ChainType>)
     AddChain(Option<ChainType>),
     AddToken(Option<TokenId>),
     UpdateTargetChainFactor(Option<ChainId>),

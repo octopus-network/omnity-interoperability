@@ -540,7 +540,7 @@ impl HubState {
     }
 
     pub fn save_directive(&mut self, dire: &Directive) -> Result<(), Error> {
-        self.directives.insert(format!("{}", dire), dire.clone());
+        self.directives.insert(dire.hash(), dire.clone());
         record_event(&&Event::SavedDirective(dire.clone()));
         Ok(())
     }
