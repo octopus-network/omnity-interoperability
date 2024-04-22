@@ -7,7 +7,7 @@ use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::metrics;
 use omnity_hub::proposal;
-use omnity_hub::state::{ with_state, with_state_mut};
+use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{
     TokenResp, {Proposal, Subscribers},
 };
@@ -260,10 +260,10 @@ ic_cdk::export_candid!();
 mod tests {
 
     use super::*;
-    use candid::Principal;
+
+    use ic_base_types::PrincipalId;
     use omnity_hub::{
         lifecycle::init::InitArgs,
-        state::{set_state, HubState},
         types::{ChainMeta, TokenMeta},
     };
     use omnity_types::{
@@ -279,10 +279,35 @@ mod tests {
     };
     use uuid::Uuid;
 
-    // init logger
-    pub fn init_logger() {
-        init_log(Some(init_stable_log()));
-        // env_logger::builder().filter_level(LevelFilter::Info).init();
+    fn init_hub() {
+        let arg = HubArg::Init(InitArgs {
+            admin: PrincipalId::new_user_test_id(1).0,
+        });
+        init(arg)
+    }
+    pub fn get_logs(
+        max_skip_timestamp: &Option<u64>,
+        offset: &usize,
+        limit: &usize,
+    ) -> Vec<String> {
+        let url = if let Some(max_skip_timestamp) = max_skip_timestamp {
+            format!(
+                "/logs?time={}&offset={}&limit={}",
+                max_skip_timestamp, offset, limit
+            )
+        } else {
+            format!("/logs?offset={}&limit={}", offset, limit)
+        };
+
+        let request = HttpRequest {
+            method: "".to_string(),
+            url: url,
+            headers: vec![],
+            body: serde_bytes::ByteBuf::new(),
+        };
+
+        let response = http_request(request);
+        serde_json::from_slice(&response.body).expect("failed to parse hub log")
     }
 
     fn get_timestamp() -> u64 {
@@ -699,6 +724,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sub_unsub() {
+        init_hub();
         sub_dires().await;
         let result = query_subscribers(None).await;
         println!("query_subscribers result: {:?}", result);
@@ -709,10 +735,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_chain() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
+
         // sub_dires().await;
         let result = sub_directives(
             Some("Bitcoin".to_string()),
@@ -762,13 +786,7 @@ mod tests {
         // new subscribers
         println!("---- add new subscribers -------");
         sub_dires().await;
-        // let result = sub_directives(Some("Bitcoin".to_string()), vec![Topic::AddChain(None)]).await;
-        println!(
-            "chain({}) sub topic({:?}) result: {:?}",
-            "Bitcoin".to_string(),
-            Topic::AddChain(None),
-            result
-        );
+
         let topic_subs = query_subscribers(None).await.unwrap();
         for (topic, subs) in topic_subs.iter() {
             println!("topic:{:?},subs:{:?}", topic, subs)
@@ -776,7 +794,7 @@ mod tests {
 
         for chain_id in vec![
             "Bitcoin".to_string(),
-            // "Ethereum".to_string(),
+            "Ethereum".to_string(),
             "ICP".to_string(),
         ] {
             let result = query_directives(
@@ -803,10 +821,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_token() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
         sub_dires().await;
 
         // sub special token id
@@ -862,10 +877,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_toggle_chain_state() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
         sub_dires().await;
         // add chain
         add_chains().await;
@@ -967,10 +979,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_fee() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
+
         sub_dires().await;
         // add chain
         add_chains().await;
@@ -1068,10 +1078,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_tx_ticket() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
         sub_dires().await;
         // add chain
         add_chains().await;
@@ -1217,10 +1224,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_c_tx_ticket() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
         // add chain
         add_chains().await;
         // add token
@@ -1432,31 +1436,6 @@ mod tests {
                     println!("chain:{},latest seq:{}", chain_id, latest_seq)
                 })
         })
-    }
-
-    pub fn get_logs(
-        max_skip_timestamp: &Option<u64>,
-        offset: &usize,
-        limit: &usize,
-    ) -> Vec<String> {
-        let url = if let Some(max_skip_timestamp) = max_skip_timestamp {
-            format!(
-                "/logs?time={}&offset={}&limit={}",
-                max_skip_timestamp, offset, limit
-            )
-        } else {
-            format!("/logs?offset={}&limit={}", offset, limit)
-        };
-
-        let request = HttpRequest {
-            method: "".to_string(),
-            url: url,
-            headers: vec![],
-            body: serde_bytes::ByteBuf::new(),
-        };
-
-        let response = http_request(request);
-        serde_json::from_slice(&response.body).expect("failed to parse hub log")
     }
 
     #[tokio::test]

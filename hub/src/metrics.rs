@@ -106,10 +106,10 @@ pub async fn get_fees(
             .filter_map(|(_, tf)| {
                 hub_state
                     .target_chain_factors
-                    .get(&tf.dst_chain_id)
+                    .get(&tf.target_chain_id)
                     .map(|chain_factor| {
                         (
-                            tf.dst_chain_id.to_string(),
+                            tf.target_chain_id.to_string(),
                             tf.fee_token.to_string(),
                             chain_factor * tf.fee_token_factor as u128,
                         )

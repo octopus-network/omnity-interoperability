@@ -15,7 +15,7 @@ use omnity_types::{
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use std::num::ParseIntError;
 
@@ -136,17 +136,17 @@ impl HubState {
 
         if let Some(args) = args {
             match args {
-                  HubArg::Upgrade(upgrade_args) => {
-                        if let Some(args) = upgrade_args {
-                            if let Some(admin) = args.admin {
-                                state.admin = admin;
-                            }
-                            record_event(&Event::Upgrade(args));
+                HubArg::Upgrade(upgrade_args) => {
+                    if let Some(args) = upgrade_args {
+                        if let Some(admin) = args.admin {
+                            state.admin = admin;
                         }
+                        record_event(&Event::Upgrade(args));
                     }
-                    HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
-                };
-            }
+                }
+                HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
+            };
+        }
 
         set_state(state)
     }
@@ -333,7 +333,7 @@ impl HubState {
                 self.target_chain_factors.iter().for_each(|(chain_id, _)| {
                     let token_key = TokenKey::from(chain_id.to_string(), tf.fee_token.to_string());
                     let fee_factor = ChainTokenFactor {
-                        dst_chain_id: chain_id.to_string(),
+                        target_chain_id: chain_id.to_string(),
                         fee_token: tf.fee_token.to_string(),
                         fee_token_factor: tf.fee_token_factor,
                     };
@@ -348,43 +348,23 @@ impl HubState {
 
     pub fn sub_directives(&mut self, chain_id: &ChainId, topics: &Vec<Topic>) -> Result<(), Error> {
         topics.iter().for_each(|topic| {
-            if let Some(subscribers) = self.topic_subscribers.get(topic).as_mut() {
-                if !subscribers.subs.contains(chain_id) {
-                    subscribers.subs.push(chain_id.to_string());
-                    //update subscribers
-                    self.topic_subscribers
-                        .insert(topic.clone(), subscribers.clone());
-                    record_event(&Event::SubDirectives {
-                        topic: topic.clone(),
-                        subs: subscribers.clone(),
-                    })
-                }
+            let subscribers = if let Some(mut subscribers) = self.topic_subscribers.get(topic) {
+                subscribers.subs.insert(chain_id.to_string());
+                subscribers
             } else {
-                let subs = Subscribers {
-                    subs: vec![chain_id.to_string()],
-                };
-                //update subscribers
-                self.topic_subscribers.insert(topic.clone(), subs.clone());
-                record_event(&Event::SubDirectives {
-                    topic: topic.clone(),
-                    subs: subs,
-                })
-            }
+                Subscribers {
+                    subs: BTreeSet::from([chain_id.to_string()]),
+                }
+            };
+
+            //update subscribers
+            self.topic_subscribers
+                .insert(topic.clone(), subscribers.clone());
+            record_event(&Event::SubDirectives {
+                topic: topic.clone(),
+                subs: subscribers.clone(),
+            })
         });
-        //publish directives for new subscribers
-        self.directives
-            .iter()
-            .map(|(_, d)| d.clone())
-            .collect::<Vec<Directive>>()
-            .into_iter()
-            .for_each(|d| {
-                info!(
-                    "publish directives({:?}) for new subscribers: {}",
-                    d,
-                    chain_id.to_string()
-                );
-                let _ = self.pub_2_subscribers(&Some(chain_id.to_string()), d);
-            });
 
         Ok(())
     }
@@ -396,8 +376,7 @@ impl HubState {
     ) -> Result<(), Error> {
         topics.iter().for_each(|topic| {
             if let Some(mut subscribers) = self.topic_subscribers.get(topic) {
-                if let Some(idx) = subscribers.subs.iter().position(|dst| dst.eq(chain_id)) {
-                    subscribers.subs.remove(idx);
+                if subscribers.subs.remove(chain_id) {
                     self.topic_subscribers.insert(topic.clone(), subscribers);
                     record_event(&Event::UnSubDirectives {
                         topic: topic.clone(),
@@ -406,113 +385,6 @@ impl HubState {
                 }
             }
         });
-
-        self.delete_directives(chain_id, topics)
-    }
-
-    pub fn delete_directives(
-        &mut self,
-        chain_id: &ChainId,
-        topics: &Vec<Topic>,
-    ) -> Result<(), Error> {
-        for (seq_key, dir) in self
-            .dire_queue
-            .iter()
-            .filter_map(|(seq_key, dir)| {
-                if seq_key.chain_id.eq(chain_id) {
-                    Some((seq_key.clone(), dir.clone()))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-        {
-            topics.iter().for_each(|topic| match topic {
-                Topic::AddChain(chain_type) => {
-                    if let Some(chain_type) = chain_type {
-                        if matches!(&dir,Directive::AddChain(chain) if chain.chain_type==*chain_type)
-                        {
-                            self.dire_queue.remove(&seq_key);
-                            record_event(&Event::DeletedDirective(seq_key.clone()))
-                        }
-                        
-                    }else {
-                        if matches!(&dir,Directive::AddChain(_))
-                        {
-                            self.dire_queue.remove(&seq_key);
-                            record_event(&Event::DeletedDirective(seq_key.clone()))
-                        }
-                    }
-                }
-                Topic::AddToken(dst_token_id) =>                 {
-                    if let Some(dst_token_id) = dst_token_id {
-                        
-                        if matches!(&dir,Directive::AddToken(token) if token.token_id.eq(dst_token_id))
-                        {
-                            self.dire_queue.remove(&seq_key);
-                            record_event(&Event::DeletedDirective(seq_key.clone()))
-                        }
-                        
-                    }else {
-                        if matches!(&dir,Directive::AddToken(_))
-                        {
-                            self.dire_queue.remove(&seq_key);
-                            record_event(&Event::DeletedDirective(seq_key.clone()))
-                        }
-                    }
-                },
-                Topic::UpdateTargetChainFactor(targe_chain_id) =>{
-                    if let Some(targe_chain_id) = targe_chain_id {
-                        
-                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateTargetChainFactor(cf) if cf.target_chain_id.eq(targe_chain_id)))
-                        {
-                            self.dire_queue.remove(&seq_key);
-                            record_event(&Event::DeletedDirective(seq_key.clone()))
-                        }
-                        
-                    }else {
-                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateTargetChainFactor(_)))
-                        {
-                            self.dire_queue.remove(&seq_key);
-                            record_event(&Event::DeletedDirective(seq_key.clone()))
-                        }
-                    }
-                },
-                Topic::UpdateFeeTokenFactor(dst_token_id) => {
-                    if let Some(dst_token_id) = dst_token_id {
-                        
-                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateFeeTokenFactor(tf) if tf.fee_token.eq(dst_token_id)))
-                        {
-                            self.dire_queue.remove(&seq_key);
-                            record_event(&Event::DeletedDirective(seq_key.clone()))
-                        }
-                        
-                    }else {
-                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateFeeTokenFactor(_)))
-                        {
-                            self.dire_queue.remove(&seq_key);
-                            record_event(&Event::DeletedDirective(seq_key.clone()))
-                        }
-                    }
-                },
-                Topic::ActivateChain => {
-                    if matches!(&dir,Directive::ToggleChainState(toggle_state) if matches!(toggle_state.action,ToggleAction::Activate))
-                    {
-                        self.dire_queue.remove(&seq_key);
-                        record_event(&Event::DeletedDirective(seq_key.clone()))
-                    }
-                }
-                Topic::DeactivateChain => {
-                    if matches!(&dir,Directive::ToggleChainState(toggle_state) if matches!(toggle_state.action,ToggleAction::Deactivate))
-                    {
-                        self.dire_queue.remove(&seq_key);
-                        record_event(&Event::DeletedDirective(seq_key.clone()))
-                    }
-                }
-            });
-
-        }
-
         Ok(())
     }
 
@@ -828,12 +700,10 @@ impl HubState {
                         |total_amount| {
                             // check src chain token balance
                             if *total_amount < ticket_amount {
-                                return Err::<u128, Error>(
-                                    Error::NotSufficientTokens(
-                                        ticket.token.to_string(),
-                                        ticket.src_chain.to_string(),
-                                    ),
-                                );
+                                return Err::<u128, Error>(Error::NotSufficientTokens(
+                                    ticket.token.to_string(),
+                                    ticket.src_chain.to_string(),
+                                ));
                             }
                             *total_amount -= ticket_amount;
                             Ok(*total_amount)
@@ -944,8 +814,6 @@ impl HubState {
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
-        // let end = from + num;
-
         let tickets = self
             .ticket_queue
             .iter()
@@ -956,5 +824,128 @@ impl HubState {
             .collect();
         info!("query_tickets result : {:?}", tickets);
         Ok(tickets)
+    }
+
+    pub fn repub_2_subscribers(&mut self, chain_id: &ChainId) -> Result<(), Error> {
+        self.directives
+            .iter()
+            .map(|(_, d)| d.clone())
+            .collect::<Vec<Directive>>()
+            .into_iter()
+            .for_each(|d| {
+                info!(
+                    "publish directives({:?}) for new subscribers: {}",
+                    d,
+                    chain_id.to_string()
+                );
+                let _ = self.pub_2_subscribers(&Some(chain_id.to_string()), d);
+            });
+
+        Ok(())
+    }
+
+    pub fn delete_directives(
+        &mut self,
+        chain_id: &ChainId,
+        topics: &Vec<Topic>,
+    ) -> Result<(), Error> {
+        for (seq_key, dir) in self
+            .dire_queue
+            .iter()
+            .filter_map(|(seq_key, dir)| {
+                if seq_key.chain_id.eq(chain_id) {
+                    Some((seq_key.clone(), dir.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+        {
+            topics.iter().for_each(|topic| match topic {
+                Topic::AddChain(chain_type) => {
+                    if let Some(chain_type) = chain_type {
+                        if matches!(&dir,Directive::AddChain(chain) if chain.chain_type==*chain_type)
+                        {
+                            self.dire_queue.remove(&seq_key);
+                            record_event(&Event::DeletedDirective(seq_key.clone()))
+                        }
+                        
+                    }else {
+                        if matches!(&dir,Directive::AddChain(_))
+                        {
+                            self.dire_queue.remove(&seq_key);
+                            record_event(&Event::DeletedDirective(seq_key.clone()))
+                        }
+                    }
+                }
+                Topic::AddToken(dst_token_id) => {
+                    if let Some(dst_token_id) = dst_token_id {
+                        
+                        if matches!(&dir,Directive::AddToken(token) if token.token_id.eq(dst_token_id))
+                        {
+                            self.dire_queue.remove(&seq_key);
+                            record_event(&Event::DeletedDirective(seq_key.clone()))
+                        }
+                        
+                    }else {
+                        if matches!(&dir,Directive::AddToken(_))
+                        {
+                            self.dire_queue.remove(&seq_key);
+                            record_event(&Event::DeletedDirective(seq_key.clone()))
+                        }
+                    }
+                },
+                Topic::UpdateTargetChainFactor(targe_chain_id) =>{
+                    if let Some(targe_chain_id) = targe_chain_id {
+                        
+                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateTargetChainFactor(cf) if cf.target_chain_id.eq(targe_chain_id)))
+                        {
+                            self.dire_queue.remove(&seq_key);
+                            record_event(&Event::DeletedDirective(seq_key.clone()))
+                        }
+                        
+                    }else {
+                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateTargetChainFactor(_)))
+                        {
+                            self.dire_queue.remove(&seq_key);
+                            record_event(&Event::DeletedDirective(seq_key.clone()))
+                        }
+                    }
+                },
+                Topic::UpdateFeeTokenFactor(dst_token_id) => {
+                    if let Some(dst_token_id) = dst_token_id {
+                        
+                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateFeeTokenFactor(tf) if tf.fee_token.eq(dst_token_id)))
+                        {
+                            self.dire_queue.remove(&seq_key);
+                            record_event(&Event::DeletedDirective(seq_key.clone()))
+                        }
+                        
+                    }else {
+                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateFeeTokenFactor(_)))
+                        {
+                            self.dire_queue.remove(&seq_key);
+                            record_event(&Event::DeletedDirective(seq_key.clone()))
+                        }
+                    }
+                },
+                Topic::ActivateChain => {
+                    if matches!(&dir,Directive::ToggleChainState(toggle_state) if matches!(toggle_state.action,ToggleAction::Activate))
+                    {
+                        self.dire_queue.remove(&seq_key);
+                        record_event(&Event::DeletedDirective(seq_key.clone()))
+                    }
+                }
+                Topic::DeactivateChain => {
+                    if matches!(&dir,Directive::ToggleChainState(toggle_state) if matches!(toggle_state.action,ToggleAction::Deactivate))
+                    {
+                        self.dire_queue.remove(&seq_key);
+                        record_event(&Event::DeletedDirective(seq_key.clone()))
+                    }
+                }
+            });
+        }
+
+        Ok(())
     }
 }

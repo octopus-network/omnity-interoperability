@@ -15,6 +15,7 @@ use omnity_types::ToggleState;
 use omnity_types::Token;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 
 use crate::memory::Memory;
@@ -224,7 +225,7 @@ impl Storable for TokenKey {
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Default)]
 pub struct ChainTokenFactor {
-    pub dst_chain_id: ChainId,
+    pub target_chain_id: ChainId,
     pub fee_token: TokenId,
     pub fee_token_factor: u128,
 }
@@ -246,7 +247,7 @@ impl Storable for ChainTokenFactor {
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Subscribers {
-    pub subs: Vec<String>,
+    pub subs: BTreeSet<String>,
 }
 
 impl Storable for Subscribers {

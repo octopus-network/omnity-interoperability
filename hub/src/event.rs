@@ -221,7 +221,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                             let token_key =
                                 TokenKey::from(chain_id.to_string(), tf.fee_token.to_string());
                             let fee_factor = ChainTokenFactor {
-                                dst_chain_id: chain_id.to_string(),
+                                target_chain_id: chain_id.to_string(),
                                 fee_token: tf.fee_token.to_string(),
                                 fee_token_factor: tf.fee_token_factor,
                             };
@@ -252,8 +252,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
             }
             Event::UnSubDirectives { topic, sub } => {
                 if let Some(mut subscribers) = hub_state.topic_subscribers.get(&topic) {
-                    if let Some(idx) = subscribers.subs.iter().position(|dst| dst.eq(&sub)) {
-                        subscribers.subs.remove(idx);
+                    if subscribers.subs.remove(&sub) {
                         hub_state
                             .topic_subscribers
                             .insert(topic.clone(), subscribers);
@@ -261,7 +260,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                 }
             }
             Event::SavedDirective(dire) => {
-                hub_state.directives.insert(format!("{}", dire), dire);
+                hub_state.directives.insert(dire.hash(), dire);
             }
             Event::DeletedDirective(seq_key) => {
                 hub_state.dire_queue.remove(&seq_key);
