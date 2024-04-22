@@ -8,7 +8,7 @@ use common::OmnityHub;
 
 use uuid::Uuid;
 
-use crate::common::{canister_ids, chain_ids, chains, get_timestamp, tokens};
+use crate::common::{canister_ids, chain_ids, chains, default_topic, get_timestamp, tokens};
 
 #[test]
 fn test_init_hub() {
@@ -29,8 +29,30 @@ fn test_validate_proposal() {
 }
 
 #[test]
+fn test_sub_unsub_directive() {
+    let hub = OmnityHub::new();
+
+    let ret = hub.sub_directives(&Some("ICP".to_string()), &default_topic());
+    println!("sub_directives result: {:#?}", ret);
+
+    let ret = hub.query_subscribers(&None);
+    println!("query_subscribers result: {:#?}", ret);
+    let ret = hub.unsub_directives(&Some("ICP".to_string()), &default_topic());
+    println!("unsub_directives result: {:#?}", ret);
+    let ret = hub.query_subscribers(&None);
+    println!("query_subscribers result: {:#?}", ret);
+}
+
+#[test]
 fn test_add_chain() {
     let hub = OmnityHub::new();
+    for chain in chain_ids() {
+        let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
+        println!("sub_directives({}) result: {:#?}", chain, ret);
+    }
+    let ret = hub.query_subscribers(&None);
+    println!("query_subscribers result: {:#?}", ret);
+
     let chains = chains();
     let ret = hub.validate_proposal(&chains);
     println!("test_validate_proposal result: {:#?}", ret);
@@ -61,6 +83,12 @@ fn test_add_chain() {
 #[test]
 fn test_add_token() {
     let hub = OmnityHub::new();
+    for chain in chain_ids() {
+        let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
+        println!("sub_directives({}) result: {:#?}", chain, ret);
+    }
+    let ret = hub.query_subscribers(&None);
+    println!("query_subscribers result: {:#?}", ret);
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
@@ -116,6 +144,13 @@ fn test_add_token() {
 #[test]
 fn test_toggle_chain_state() {
     let hub = OmnityHub::new();
+    for chain in chain_ids() {
+        let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
+        println!("sub_directives({}) result: {:#?}", chain, ret);
+    }
+    let ret = hub.query_subscribers(&None);
+    println!("query_subscribers result: {:#?}", ret);
+
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
@@ -173,6 +208,12 @@ fn test_toggle_chain_state() {
 #[test]
 fn test_update_fee() {
     let hub = OmnityHub::new();
+    for chain in chain_ids() {
+        let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
+        println!("sub_directives({}) result: {:#?}", chain, ret);
+    }
+    let ret = hub.query_subscribers(&None);
+    println!("query_subscribers result: {:#?}", ret);
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
@@ -205,7 +246,19 @@ fn test_update_fee() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
-            &Some(Topic::UpdateFee(None)),
+            &Some(Topic::UpdateTargetChainFactor(None)),
+            &0,
+            &5,
+        );
+        println!("query_directives for {:} dires: {:#?}", chain_id, result);
+        assert!(result.is_ok());
+    }
+
+    for chain_id in chain_ids() {
+        let result = hub.query_directives(
+            &None,
+            &Some(chain_id.to_string()),
+            &Some(Topic::UpdateFeeTokenFactor(None)),
             &0,
             &5,
         );
@@ -225,6 +278,7 @@ fn test_update_fee() {
 #[test]
 fn test_a_b_tx() {
     let hub = OmnityHub::new();
+
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
@@ -485,7 +539,7 @@ fn test_a_b_c_tx() {
     assert!(result.is_ok());
 
     // query txs
-    let result = hub.get_txs(&None, &None, &None, &None, &0, &10);
+    let result = hub.get_txs_with_chain(&None, &None, &None, &None, &0, &10);
     println!("get_txs result: {:#?}", result);
     assert!(result.is_ok());
 }
@@ -651,7 +705,7 @@ fn test_upgrade() {
     hub.upgrade();
     println!("--------- upgrade end ---------");
     // query txs
-    let result = hub.get_txs(&None, &None, &None, &None, &0, &10);
+    let result = hub.get_txs_with_chain(&None, &None, &None, &None, &0, &10);
     println!("get_txs result: {:#?}", result);
     assert!(result.is_ok());
 
@@ -678,7 +732,19 @@ fn test_upgrade() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
-            &Some(Topic::UpdateFee(None)),
+            &Some(Topic::UpdateTargetChainFactor(None)),
+            &0,
+            &5,
+        );
+        println!("query_directives for {:} dires: {:#?}", chain_id, result);
+        assert!(result.is_ok());
+    }
+
+    for chain_id in chain_ids() {
+        let result = hub.query_directives(
+            &None,
+            &Some(chain_id.to_string()),
+            &Some(Topic::UpdateFeeTokenFactor(None)),
             &0,
             &5,
         );
@@ -698,5 +764,11 @@ fn test_upgrade() {
 
     for r in logs.iter() {
         print!("http requst stable log: {}", r)
+    }
+
+    let events = hub.get_events(&0, &100);
+
+    for event in events.iter() {
+        print!("get_events -> event: {:?}", event)
     }
 }

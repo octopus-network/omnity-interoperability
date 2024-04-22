@@ -8,13 +8,17 @@ use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::metrics;
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
-use omnity_hub::types::{Proposal, TokenResp};
+use omnity_hub::types::{
+    TokenResp, {Proposal, Subscribers},
+};
 use omnity_hub::{lifecycle, memory};
 use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
     TokenId, TokenOnChain, Topic,
 };
+
+use omnity_hub::state::HubState;
 
 #[init]
 fn init(args: HubArg) {
@@ -38,24 +42,11 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade(hub_args: Option<HubArg>) {
+fn post_upgrade(args: Option<HubArg>) {
     // init log
     init_log(Some(init_stable_log()));
-
-    with_state_mut(|hub_state| hub_state.post_upgrade());
-
-    if let Some(hub_args) = hub_args {
-        match hub_args {
-            HubArg::Upgrade(upgrade_args) => {
-                if let Some(args) = upgrade_args {
-                    with_state_mut(|hub_state| hub_state.upgrade(args.clone()));
-                    record_event(&Event::Upgrade(args));
-                }
-            }
-            HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
-        };
-    }
-    info!("update successfully!");
+    HubState::post_upgrade(args);
+    info!("upgrade successfully!");
 }
 
 /// validate directive ,this method will be called by sns
@@ -83,6 +74,32 @@ pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
     Ok(())
 }
 
+#[update(guard = "auth")]
+pub async fn sub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
+    info!(
+        "sub_topics for chain: {:?}, with topics: {:?} ",
+        chain_id, topics
+    );
+    let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    with_state_mut(|hub_state| hub_state.sub_directives(&dst_chain_id, &topics))
+}
+
+#[update(guard = "auth")]
+pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
+    info!(
+        "unsub_topics for chain: {:?}, with topics: {:?} ",
+        chain_id, topics
+    );
+    let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    with_state_mut(|hub_state| hub_state.unsub_directives(&dst_chain_id, &topics))
+}
+
+#[query(guard = "auth")]
+pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subscribers)>, Error> {
+    info!("query_subscribers for topic: {:?} ", topic);
+    with_state(|hub_state| hub_state.query_subscribers(topic))
+}
+
 /// query directives for chain id filter by topic,this method will be called by route and custom
 #[query(guard = "auth")]
 pub async fn query_directives(
@@ -103,7 +120,7 @@ pub async fn query_directives(
 /// check and push ticket into queue
 #[update(guard = "auth")]
 pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
-    info!("received ticket: {:?}", ticket);
+    info!("send_ticket: {:?}", ticket);
 
     with_state_mut(|hub_state| {
         // checke ticket and update token on chain
@@ -127,6 +144,7 @@ pub async fn query_tickets(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
+    info!("query_tickets: {:?},{offset},{limit}", chain_id);
     // let end = from + num;
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
@@ -185,7 +203,7 @@ pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
 }
 
 #[query]
-pub async fn get_txs(
+pub async fn get_txs_with_chain(
     src_chain: Option<ChainId>,
     dst_chain: Option<ChainId>,
     token_id: Option<TokenId>,
@@ -193,7 +211,19 @@ pub async fn get_txs(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<Ticket>, Error> {
-    metrics::get_txs(src_chain, dst_chain, token_id, time_range, offset, limit).await
+    metrics::get_txs_with_chain(src_chain, dst_chain, token_id, time_range, offset, limit).await
+}
+
+#[query]
+pub async fn get_txs_with_account(
+    sender: Option<ChainId>,
+    receiver: Option<ChainId>,
+    token_id: Option<TokenId>,
+    time_range: Option<(u64, u64)>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<Ticket>, Error> {
+    metrics::get_txs_with_account(sender, receiver, token_id, time_range, offset, limit).await
 }
 
 #[query]
@@ -230,10 +260,10 @@ ic_cdk::export_candid!();
 mod tests {
 
     use super::*;
-    use candid::Principal;
+
+    use ic_base_types::PrincipalId;
     use omnity_hub::{
         lifecycle::init::InitArgs,
-        state::{set_state, HubState},
         types::{ChainMeta, TokenMeta},
     };
     use omnity_types::{
@@ -249,10 +279,35 @@ mod tests {
     };
     use uuid::Uuid;
 
-    // init logger
-    pub fn init_logger() {
-        init_log(Some(init_stable_log()));
-        // env_logger::builder().filter_level(LevelFilter::Info).init();
+    fn init_hub() {
+        let arg = HubArg::Init(InitArgs {
+            admin: PrincipalId::new_user_test_id(1).0,
+        });
+        init(arg)
+    }
+    pub fn get_logs(
+        max_skip_timestamp: &Option<u64>,
+        offset: &usize,
+        limit: &usize,
+    ) -> Vec<String> {
+        let url = if let Some(max_skip_timestamp) = max_skip_timestamp {
+            format!(
+                "/logs?time={}&offset={}&limit={}",
+                max_skip_timestamp, offset, limit
+            )
+        } else {
+            format!("/logs?offset={}&limit={}", offset, limit)
+        };
+
+        let request = HttpRequest {
+            method: "".to_string(),
+            url: url,
+            headers: vec![],
+            body: serde_bytes::ByteBuf::new(),
+        };
+
+        let response = http_request(request);
+        serde_json::from_slice(&response.body).expect("failed to parse hub log")
     }
 
     fn get_timestamp() -> u64 {
@@ -288,7 +343,28 @@ mod tests {
             "ICP-ICRC2-XXY".to_string(),
         ]
     }
-
+    fn default_topic() -> Vec<Topic> {
+        vec![
+            Topic::AddChain(None),
+            Topic::AddToken(None),
+            Topic::UpdateTargetChainFactor(None),
+            Topic::UpdateFeeTokenFactor(None),
+            Topic::ActivateChain,
+            Topic::DeactivateChain,
+        ]
+    }
+    async fn sub_dires() {
+        for chain_id in chain_ids() {
+            let result = sub_directives(Some(chain_id.to_string()), default_topic()).await;
+            println!("chain({}) sub topic result: {:?}", chain_id, result)
+        }
+    }
+    async fn unsub_dires() {
+        for chain_id in chain_ids() {
+            let result = unsub_directives(Some(chain_id.to_string()), default_topic()).await;
+            println!("chain({}) unsub topic result: {:?}", chain_id, result)
+        }
+    }
     async fn add_chains() {
         let btc = ChainMeta {
             chain_id: "Bitcoin".to_string(),
@@ -647,20 +723,85 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_sub_unsub() {
+        init_hub();
+        sub_dires().await;
+        let result = query_subscribers(None).await;
+        println!("query_subscribers result: {:?}", result);
+        unsub_dires().await;
+        let result = query_subscribers(None).await;
+        println!("query_subscribers result: {:?}", result);
+    }
+
+    #[tokio::test]
     async fn test_add_chain() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
+
+        // sub_dires().await;
+        let result = sub_directives(
+            Some("Bitcoin".to_string()),
+            vec![Topic::AddChain(Some(ChainType::ExecutionChain))],
+        )
+        .await;
+        println!(
+            "chain({}) sub topic result: {:?}",
+            "Bitcoin".to_string(),
+            result
+        );
+
+        let topic_subs = query_subscribers(None).await.unwrap();
+        for (topic, subs) in topic_subs.iter() {
+            println!("topic:{:?},subs:{:?}", topic, subs)
+        }
         // add chain
         add_chains().await;
 
-        for chain_id in chain_ids() {
+        // print directives
+        with_state(|hub_state| {
+            hub_state.directives.iter().for_each(|(k, v)| {
+                println!("directive -> {}, value -> {:?}", k, v);
+            })
+        });
+
+        let result = query_directives(
+            Some("Bitcoin".to_string()),
+            Some(Topic::AddChain(None)),
+            0,
+            20,
+        )
+        .await;
+        println!(
+            "query_directives for {:} dires: {:#?}",
+            "Bitcoin".to_string(),
+            result
+        );
+        assert!(result.is_ok());
+        let chain = get_chain("Bitcoin".to_string()).await;
+        println!(
+            "get chain for {:} chain: {:#?}",
+            "Bitcoin".to_string(),
+            chain
+        );
+
+        // new subscribers
+        println!("---- add new subscribers -------");
+        sub_dires().await;
+
+        let topic_subs = query_subscribers(None).await.unwrap();
+        for (topic, subs) in topic_subs.iter() {
+            println!("topic:{:?},subs:{:?}", topic, subs)
+        }
+
+        for chain_id in vec![
+            "Bitcoin".to_string(),
+            "Ethereum".to_string(),
+            "ICP".to_string(),
+        ] {
             let result = query_directives(
                 Some(chain_id.to_string()),
                 Some(Topic::AddChain(None)),
                 0,
-                10,
+                20,
             )
             .await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
@@ -668,8 +809,6 @@ mod tests {
             let chain = get_chain(chain_id.to_string()).await;
             println!("get chain for {:} chain: {:#?}", chain_id, chain);
         }
-        // let result = query_directives(None, None, 0, 10).await;
-        // println!("query_directives dires: {:#?}", result);
 
         let result = get_chains(None, None, 0, 10).await;
         println!("get_chains result : {:#?}", result);
@@ -682,10 +821,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_token() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
+        sub_dires().await;
+
+        // sub special token id
+        let result = sub_directives(
+            Some("ICP".to_string()),
+            vec![Topic::AddToken(Some("Bitcoin-RUNES-WTF".to_string()))],
+        )
+        .await;
+        println!(
+            "chain({}) sub topic result: {:?}",
+            "ICP".to_string(),
+            result
+        );
+        //check sub result
+        let topic_subs = query_subscribers(None).await.unwrap();
+        for (topic, subs) in topic_subs.iter() {
+            println!("topic:{:?},subs:{:?}", topic, subs)
+        }
+
         // add chain
         add_chains().await;
         // add token
@@ -696,7 +851,7 @@ mod tests {
                 Some(chain_id.to_string()),
                 Some(Topic::AddToken(None)),
                 0,
-                5,
+                50,
             )
             .await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
@@ -715,23 +870,15 @@ mod tests {
         let result = get_tokens(Some("Bitcoin".to_string()), None, 0, 10).await;
         assert!(result.is_ok());
         println!("get_tokens result by chain_id: {:#?}", result);
-        let result = get_tokens(
-            Some("ICP".to_string()),
-            Some("ICP-Native-ICP".to_string()),
-            0,
-            10,
-        )
-        .await;
+        let result = get_tokens(Some("ICP".to_string()), Some("ICP".to_string()), 0, 10).await;
         assert!(result.is_ok());
         println!("get_tokens result by chain_id and token id: {:#?}", result);
     }
 
     #[tokio::test]
     async fn test_toggle_chain_state() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
+        sub_dires().await;
         // add chain
         add_chains().await;
         // add token
@@ -822,18 +969,38 @@ mod tests {
             "get_chains result by chain type and chain state: {:#?}",
             result
         );
+        let chain = get_chain("EVM-Optimistic".to_string()).await;
+        println!(
+            "get chain for {:} chain: {:#?}",
+            "EVM-Optimistic".to_string(),
+            chain
+        );
     }
 
     #[tokio::test]
     async fn test_update_fee() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
+
+        sub_dires().await;
         // add chain
         add_chains().await;
         // add token
         add_tokens().await;
+
+        // sub special token id
+        let result = sub_directives(
+            Some("ICP".to_string()),
+            vec![
+                Topic::UpdateTargetChainFactor(Some("Bitcoin".to_string())),
+                Topic::UpdateFeeTokenFactor(Some("ICP".to_string())),
+            ],
+        )
+        .await;
+        println!(
+            "chain({}) sub topic result: {:?}",
+            "ICP".to_string(),
+            result
+        );
 
         //  chain factor
         let chain_factor = Factor::UpdateTargetChainFactor(TargetChainFactor {
@@ -855,7 +1022,7 @@ mod tests {
         for chain_id in chain_ids() {
             let result = query_directives(
                 Some(chain_id.to_string()),
-                Some(Topic::UpdateFee(None)),
+                Some(Topic::UpdateTargetChainFactor(None)),
                 0,
                 5,
             )
@@ -863,28 +1030,56 @@ mod tests {
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
-        let result = query_directives(Some("ICP".to_string()), None, 0, 12).await;
-        println!(
-            "query_directives for {:} dires: {:#?}",
-            "ICP".to_string(),
-            result
-        );
+        for chain_id in chain_ids() {
+            let result = query_directives(
+                Some(chain_id.to_string()),
+                Some(Topic::UpdateFeeTokenFactor(None)),
+                0,
+                5,
+            )
+            .await;
+            println!("query_directives for {:} dires: {:#?}", chain_id, result);
+            assert!(result.is_ok());
+        }
+
         assert!(result.is_ok());
         let result = get_fees(None, None, 0, 10).await;
         assert!(result.is_ok());
         println!("get_fees result : {:#?}", result);
 
-        let result = get_fees(None, Some("ICP".to_string()), 0, 10).await;
+        let result = get_fees(None, Some("ICP".to_string()), 0, 12).await;
         assert!(result.is_ok());
         println!("get_fees result filter by token id : {:#?}", result);
+
+        let result = query_directives(Some("ICP".to_string()), None, 0, 20).await;
+        println!(
+            "query_directives for {:} dires: {:#?}",
+            "ICP".to_string(),
+            result
+        );
+        //unsub all the topic for icp
+        let result = unsub_directives(Some("ICP".to_string()), default_topic()).await;
+        println!(
+            "chain({}) unsub topic result: {:?}",
+            "ICP".to_string(),
+            result
+        );
+        let topic_subs = query_subscribers(None).await.unwrap();
+        for (topic, subs) in topic_subs.iter() {
+            println!("topic:{:?},subs:{:?}", topic, subs)
+        }
+        let result = query_directives(Some("ICP".to_string()), None, 0, 20).await;
+        println!(
+            "query_directives for {:} dires: {:#?}",
+            "ICP".to_string(),
+            result
+        );
     }
 
     #[tokio::test]
     async fn test_a_b_tx_ticket() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
+        sub_dires().await;
         // add chain
         add_chains().await;
         // add token
@@ -939,7 +1134,7 @@ mod tests {
         assert!(result.is_ok());
 
         // query tx from get_txs
-        let result = get_txs(Some(src_chain.to_string()), None, None, None, 0, 10).await;
+        let result = get_txs_with_chain(Some(src_chain.to_string()), None, None, None, 0, 10).await;
         println!(
             "get_txs by src chain({}) result: {:#?}",
             src_chain.to_string(),
@@ -961,7 +1156,7 @@ mod tests {
             dst_chain: dst_chain.to_string(),
             action: TxAction::Redeem,
             token: token.clone(),
-            amount: 88888.to_string(),
+            amount: 22222.to_string(),
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
@@ -991,7 +1186,7 @@ mod tests {
         assert!(result.is_ok());
 
         // query tx from get_txs
-        let result = get_txs(None, Some(dst_chain.to_string()), None, None, 0, 10).await;
+        let result = get_txs_with_chain(None, Some(dst_chain.to_string()), None, None, 0, 10).await;
         println!(
             "get_txs by dst chain({}) result: {:#?}",
             dst_chain.to_string(),
@@ -1000,7 +1195,7 @@ mod tests {
         assert!(result.is_ok());
 
         // query tx from get_txs
-        let result = get_txs(
+        let result = get_txs_with_chain(
             None,
             None,
             Some("Bitcoin-RUNES-150:1".to_string()),
@@ -1015,14 +1210,21 @@ mod tests {
             result
         );
         assert!(result.is_ok());
+
+        //print ticket seq
+        with_state(|hub_state| {
+            hub_state
+                .ticket_seq
+                .iter()
+                .for_each(|(chain_id, latest_seq)| {
+                    println!("chain:{},latest seq:{}", chain_id, latest_seq)
+                })
+        })
     }
 
     #[tokio::test]
     async fn test_a_b_c_tx_ticket() {
-        set_state(HubState::from(InitArgs {
-            admin: Principal::anonymous(),
-        }));
-        init_logger();
+        init_hub();
         // add chain
         add_chains().await;
         // add token
@@ -1067,6 +1269,16 @@ mod tests {
         println!("get_chain_tokens result: {:#?}", result);
         assert!(result.is_ok());
 
+        // query txs
+        let result =
+            get_txs_with_account(None, Some(receiver.to_string()), None, None, 0, 10).await;
+        println!(
+            "get_txs_with_account({}) result: {:#?}",
+            receiver.to_string(),
+            result
+        );
+        assert!(result.is_ok());
+
         // B->C: `transfer` ticket
         let sender = "address_on_Optimistic";
         let receiver = "address_on_Starknet";
@@ -1081,7 +1293,7 @@ mod tests {
             dst_chain: dst_chain.to_string(),
             action: TxAction::Transfer,
             token: token.clone(),
-            amount: 6666.to_string(),
+            amount: 1111.to_string(),
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
@@ -1106,6 +1318,14 @@ mod tests {
         println!("get_chain_tokens result: {:#?}", result);
         assert!(result.is_ok());
 
+        let result =
+            get_txs_with_account(None, Some(receiver.to_string()), None, None, 0, 10).await;
+        println!(
+            "get_txs_with_account({}) result: {:#?}",
+            receiver.to_string(),
+            result
+        );
+        assert!(result.is_ok());
         // redeem
         // C->B: `redeem` ticket
         let src_chain = "EVM-Starknet";
@@ -1121,7 +1341,7 @@ mod tests {
             dst_chain: dst_chain.to_string(),
             action: TxAction::Redeem,
             token: token.clone(),
-            amount: 6666.to_string(),
+            amount: 555.to_string(),
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
@@ -1140,6 +1360,14 @@ mod tests {
         let result = get_chain_tokens(None, None, 0, 5).await;
         println!("get_chain_tokens result: {:#?}", result);
         assert!(result.is_ok());
+        let result =
+            get_txs_with_account(None, Some(receiver.to_string()), None, None, 0, 10).await;
+        println!(
+            "get_txs_with_account({}) result: {:#?}",
+            receiver.to_string(),
+            result
+        );
+        assert!(result.is_ok());
 
         // B->A: `redeem` ticket
         let sender = "address_on_Optimistic";
@@ -1155,7 +1383,7 @@ mod tests {
             dst_chain: dst_chain.to_string(),
             action: TxAction::Redeem,
             token: token.clone(),
-            amount: 6666.to_string(),
+            amount: 222.to_string(),
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
@@ -1176,8 +1404,17 @@ mod tests {
         println!("get_chain_tokens result: {:#?}", result);
         assert!(result.is_ok());
 
+        let result =
+            get_txs_with_account(None, Some(receiver.to_string()), None, None, 0, 10).await;
+        println!(
+            "get_txs_with_account({}) result: {:#?}",
+            receiver.to_string(),
+            result
+        );
+        assert!(result.is_ok());
+
         // query txs
-        let result = get_txs(None, None, None, None, 0, 10).await;
+        let result = get_txs_with_chain(None, None, None, None, 0, 10).await;
         println!("get_txs result: {:#?}", result);
         assert!(result.is_ok());
 
@@ -1190,31 +1427,15 @@ mod tests {
         for r in logs.iter() {
             print!("http request stable log: {}", r)
         }
-    }
-
-    pub fn get_logs(
-        max_skip_timestamp: &Option<u64>,
-        offset: &usize,
-        limit: &usize,
-    ) -> Vec<String> {
-        let url = if let Some(max_skip_timestamp) = max_skip_timestamp {
-            format!(
-                "/logs?time={}&offset={}&limit={}",
-                max_skip_timestamp, offset, limit
-            )
-        } else {
-            format!("/logs?offset={}&limit={}", offset, limit)
-        };
-
-        let request = HttpRequest {
-            method: "".to_string(),
-            url: url,
-            headers: vec![],
-            body: serde_bytes::ByteBuf::new(),
-        };
-
-        let response = http_request(request);
-        serde_json::from_slice(&response.body).expect("failed to parse hub log")
+        //print ticket seq
+        with_state(|hub_state| {
+            hub_state
+                .ticket_seq
+                .iter()
+                .for_each(|(chain_id, latest_seq)| {
+                    println!("chain:{},latest seq:{}", chain_id, latest_seq)
+                })
+        })
     }
 
     #[tokio::test]

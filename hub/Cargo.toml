@@ -29,7 +29,6 @@ ic-stable-structures = { workspace = true }
 lazy_static = { workspace = true }
 omnity_types = { path = "../types" }
 
-
 [dev-dependencies]
 tokio = { version = "1.35.1", features = ["full"] }
 rust-crypto = "0.2"

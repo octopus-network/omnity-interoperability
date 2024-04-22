@@ -18,17 +18,6 @@ type ChainMeta = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
-type ChainWithSeq = record {
-  fee_token : opt text;
-  canister_id : text;
-  chain_id : text;
-  latest_ticket_seq : opt nat64;
-  counterparties : opt vec text;
-  chain_state : ChainState;
-  chain_type : ChainType;
-  contract_address : opt text;
-  latest_dire_seq : opt nat64;
-};
 type Directive = variant {
   UpdateFee : Factor;
   AddToken : Token;
@@ -59,18 +48,22 @@ type Error = variant {
   NotSufficientTokens : record { text; text };
 };
 type Event = variant {
-  toggled_chain_state : record { chain : ChainWithSeq; state : ToggleState };
+  toggled_chain_state : record { chain : Chain; state : ToggleState };
+  Unsubscribed_topic : record { sub : text; topic : Topic };
   updated_fee : Factor;
   added_token_position : record { position : TokenKey; amount : nat };
   added_token : TokenMeta;
   init : InitArgs;
-  received_directive : record { dst_chain : ChainWithSeq; dire : Directive };
+  published_directive : record { dire : Directive; seq_key : SeqKey };
   upgrade : UpgradeArgs;
-  added_chain : ChainWithSeq;
+  added_chain : Chain;
   updated_token_position : record { position : TokenKey; amount : nat };
-  updated_chain : ChainWithSeq;
-  received_ticket : record { ticket : Ticket; dst_chain : ChainWithSeq };
+  updated_chain : Chain;
+  saved_directive : Directive;
+  received_ticket : record { ticket : Ticket; seq_key : SeqKey };
   resubmit_ticket : record { ticket_id : text; timestamp : nat64 };
+  deleted_directive : SeqKey;
+  Subscribed_topic : record { topic : Topic; subs : Subscribers };
 };
 type Factor = variant {
   UpdateFeeTokenFactor : FeeTokenFactor;
@@ -88,8 +81,12 @@ type Proposal = variant {
 };
 type Result = variant { Ok; Err : Error };
 type Result_1 = variant { Ok : Chain; Err : Error };
-type Result_10 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
-type Result_11 = variant { Ok : vec text; Err : Error };
+type Result_10 = variant {
+  Ok : vec record { Topic; Subscribers };
+  Err : Error;
+};
+type Result_11 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type Result_12 = variant { Ok : vec text; Err : Error };
 type Result_2 = variant { Ok : vec TokenOnChain; Err : Error };
 type Result_3 = variant { Ok : vec Chain; Err : Error };
 type Result_4 = variant { Ok : vec record { text; text; nat }; Err : Error };
@@ -98,6 +95,8 @@ type Result_6 = variant { Ok : nat64; Err : Error };
 type Result_7 = variant { Ok : Ticket; Err : Error };
 type Result_8 = variant { Ok : vec Ticket; Err : Error };
 type Result_9 = variant { Ok : vec record { nat64; Directive }; Err : Error };
+type SeqKey = record { seq : nat64; chain_id : text };
+type Subscribers = record { subs : vec text };
 type TargetChainFactor = record {
   target_chain_id : text;
   target_chain_factor : nat;
@@ -146,11 +145,12 @@ type TokenResp = record {
   symbol : text;
 };
 type Topic = variant {
-  UpdateFee : opt text;
+  UpdateFeeTokenFactor : opt text;
   ActivateChain;
   AddToken : opt text;
   DeactivateChain;
   AddChain : opt ChainType;
+  UpdateTargetChainFactor : opt text;
 };
 type TxAction = variant { Redeem; Transfer };
 type UpgradeArgs = record { admin : opt principal };
@@ -167,7 +167,15 @@ service : (HubArg) -> {
   get_tokens : (opt text, opt text, nat64, nat64) -> (Result_5) query;
   get_total_tx : () -> (Result_6) query;
   get_tx : (text) -> (Result_7) query;
-  get_txs : (
+  get_txs_with_account : (
+      opt text,
+      opt text,
+      opt text,
+      opt record { nat64; nat64 },
+      nat64,
+      nat64,
+    ) -> (Result_8) query;
+  get_txs_with_chain : (
       opt text,
       opt text,
       opt text,
@@ -176,10 +184,13 @@ service : (HubArg) -> {
       nat64,
     ) -> (Result_8) query;
   query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_9) query;
-  query_tickets : (opt text, nat64, nat64) -> (Result_10) query;
+  query_subscribers : (opt Topic) -> (Result_10) query;
+  query_tickets : (opt text, nat64, nat64) -> (Result_11) query;
   resubmit_ticket : (Ticket) -> (Result);
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
+  sub_directives : (opt text, vec Topic) -> (Result);
+  unsub_directives : (opt text, vec Topic) -> (Result);
   update_fee : (vec Factor) -> (Result);
-  validate_proposal : (vec Proposal) -> (Result_11) query;
+  validate_proposal : (vec Proposal) -> (Result_12) query;
 }

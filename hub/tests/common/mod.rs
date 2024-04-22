@@ -8,8 +8,9 @@ use escargot::CargoBuild;
 use ic_base_types::{CanisterId, PrincipalId};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{StateMachine, WasmResult};
+use omnity_hub::event::{Event, GetEventsArg};
 use omnity_hub::lifecycle::init::{HubArg, InitArgs};
-use omnity_hub::types::{ChainMeta, Proposal, TokenMeta, TokenResp};
+use omnity_hub::types::{ChainMeta, Proposal, Subscribers, TokenMeta, TokenResp};
 use omnity_types::{Chain, ChainId, Directive, Seq, Ticket, TokenId, TokenOnChain, Topic};
 use omnity_types::{ChainState, ChainType, Error, Factor};
 
@@ -46,6 +47,55 @@ impl OmnityHub {
             )
             .expect("failed to validate proposal");
         Decode!(&assert_reply(ret), Result<Vec<String>, Error>).unwrap()
+    }
+
+    pub fn sub_directives(
+        &self,
+        chain_id: &Option<ChainId>,
+        topics: &Vec<Topic>,
+    ) -> Result<(), Error> {
+        let ret = self
+            .sm
+            .execute_ingress_as(
+                self.admin,
+                self.hub_id,
+                "sub_directives",
+                Encode!(chain_id, topics).unwrap(),
+            )
+            .expect("failed to sub_directives");
+        Decode!(&assert_reply(ret), Result<(), Error>).unwrap()
+    }
+
+    pub fn unsub_directives(
+        &self,
+        chain_id: &Option<ChainId>,
+        topics: &Vec<Topic>,
+    ) -> Result<(), Error> {
+        let ret = self
+            .sm
+            .execute_ingress_as(
+                self.admin,
+                self.hub_id,
+                "unsub_directives",
+                Encode!(chain_id, topics).unwrap(),
+            )
+            .expect("failed to unsub_directives");
+        Decode!(&assert_reply(ret), Result<(), Error>).unwrap()
+    }
+    pub fn query_subscribers(
+        &self,
+        topic: &Option<Topic>,
+    ) -> Result<Vec<(Topic, Subscribers)>, Error> {
+        let ret = self
+            .sm
+            .query_as(
+                self.admin,
+                self.hub_id,
+                "query_subscribers",
+                Encode!(topic).unwrap(),
+            )
+            .expect("failed to query_subscribers");
+        Decode!(&assert_reply(ret), Result<Vec<(Topic, Subscribers)>, Error>).unwrap()
     }
 
     pub fn execute_proposal(&self, proposals: &Vec<Proposal>) -> Result<(), Error> {
@@ -195,7 +245,7 @@ impl OmnityHub {
             .expect("failed to get chain tokens");
         Decode!(&assert_reply(ret), Result<Vec<TokenOnChain>, Error>).unwrap()
     }
-    pub fn get_txs(
+    pub fn get_txs_with_chain(
         &self,
         src_chain: &Option<ChainId>,
         dst_chain: &Option<ChainId>,
@@ -209,7 +259,7 @@ impl OmnityHub {
             .sm
             .query(
                 self.hub_id,
-                "get_txs",
+                "get_txs_with_chain",
                 Encode!(src_chain, dst_chain, token_id, time_range, offset, limit).unwrap(),
             )
             .expect("failed to get tx");
@@ -248,8 +298,26 @@ impl OmnityHub {
         .unwrap();
         serde_json::from_slice(&response.body).expect("failed to parse hub log")
     }
+
+    pub fn get_events(&self, start: &u64, length: &u64) -> Vec<Event> {
+        let artgs = GetEventsArg {
+            start: *start,
+            length: *length,
+        };
+        let ret = self
+            .sm
+            .query(self.hub_id, "get_events", Encode!(&artgs).unwrap())
+            .expect("failed to get chain tokens");
+        Decode!(&assert_reply(ret), Vec<Event>).unwrap()
+    }
+
     pub fn upgrade(&self) {
-        let ret = self.sm.upgrade_canister(self.hub_id, hub_wasm(), vec![]);
+        //Encode!(&HubArg::Init(InitArgs { admin })).unwrap(),
+        let ret = self.sm.upgrade_canister(
+            self.hub_id,
+            hub_wasm(),
+            Encode!(&HubArg::Upgrade(None)).unwrap(),
+        );
         println!("upgrade result:{:?}", ret)
     }
 }
@@ -321,6 +389,17 @@ fn assert_reply(result: WasmResult) -> Vec<u8> {
     }
 }
 
+pub fn default_topic() -> Vec<Topic> {
+    vec![
+        Topic::AddChain(None),
+        Topic::AddToken(None),
+        Topic::UpdateTargetChainFactor(None),
+        Topic::UpdateFeeTokenFactor(None),
+        Topic::ActivateChain,
+        Topic::DeactivateChain,
+    ]
+}
+
 pub fn canister_ids() -> Vec<PrincipalId> {
     vec![
         PrincipalId::new_user_test_id(0),
@@ -341,6 +420,7 @@ pub fn chain_ids() -> Vec<String> {
         "EVM-Starknet".to_string(),
     ]
 }
+
 pub fn chains() -> Vec<Proposal> {
     let chains = vec![
         Proposal::AddChain(ChainMeta {

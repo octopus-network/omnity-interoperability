@@ -1,8 +1,9 @@
-use crate::types::ChainWithSeq;
+use crate::types::ChainMeta;
 use crate::{state::with_state, types::TokenKey};
 use log::info;
 use omnity_types::{
-    Chain, ChainId, ChainState, ChainType, Error, Ticket, TicketId, Token, TokenId, TokenOnChain,
+    Account, Chain, ChainId, ChainState, ChainType, Error, Ticket, TicketId, Token, TokenId,
+    TokenOnChain,
 };
 
 pub async fn get_chains(
@@ -31,7 +32,7 @@ pub async fn get_chains(
             })
             .skip(offset)
             .take(limit)
-            .map(|(_, chain)| <ChainWithSeq as Into<Chain>>::into(chain.clone()))
+            .map(|(_, chain)| <ChainMeta as Into<Chain>>::into(chain.clone()))
             .collect::<Vec<_>>()
     });
 
@@ -105,10 +106,10 @@ pub async fn get_fees(
             .filter_map(|(_, tf)| {
                 hub_state
                     .target_chain_factors
-                    .get(&tf.dst_chain_id)
+                    .get(&tf.target_chain_id)
                     .map(|chain_factor| {
                         (
-                            tf.dst_chain_id.to_string(),
+                            tf.target_chain_id.to_string(),
                             tf.fee_token.to_string(),
                             chain_factor * tf.fee_token_factor as u128,
                         )
@@ -165,7 +166,7 @@ pub async fn get_chain_tokens(
     Ok(tokens_on_chain)
 }
 
-pub async fn get_txs(
+pub async fn get_txs_with_chain(
     src_chain: Option<ChainId>,
     dst_chain: Option<ChainId>,
     token_id: Option<TokenId>,
@@ -174,7 +175,7 @@ pub async fn get_txs(
     limit: usize,
 ) -> Result<Vec<Ticket>, Error> {
     info!(
-        "get_txs condition: src chain:{:?},  dst chain:{:?},  token id:{:?}, time range:{:?}, offset: {}, limit: {}",
+        "get_txs_with_chain condition: src chain:{:?},  dst chain:{:?},  token id:{:?}, time range:{:?}, offset: {}, limit: {}",
         src_chain, dst_chain, token_id, time_range, offset, limit
     );
 
@@ -198,6 +199,49 @@ pub async fn get_txs(
                     None => true,
                 };
                 src_chain_match && dst_chain_match && token_id_match && time_range_match
+            })
+            .skip(offset)
+            .take(limit)
+            .map(|(_, ticket)| ticket.clone())
+            .collect::<Vec<_>>()
+    });
+
+    Ok(filtered_tickets)
+}
+
+pub async fn get_txs_with_account(
+    sender: Option<Account>,
+    receiver: Option<Account>,
+    token_id: Option<TokenId>,
+    time_range: Option<(u64, u64)>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<Ticket>, Error> {
+    info!(
+        "get_txs_with_account condition: sender:{:?}, receiver:{:?},  token id:{:?}, time range:{:?}, offset: {}, limit: {}",
+        sender, receiver, token_id, time_range, offset, limit
+    );
+
+    let filtered_tickets = with_state(|hub_state| {
+        hub_state
+            .cross_ledger
+            .iter()
+            .filter(|(_, ticket)| {
+                let sender_match = sender
+                    .as_ref()
+                    .map_or(true, |req_sender| matches!(&ticket.sender, Some(ticket_sender) if ticket_sender.eq(req_sender)));
+                let receiver_match = receiver
+                    .as_ref()
+                    .map_or(true, |receiver| ticket.receiver.eq(receiver));
+                let token_id_match = token_id
+                    .as_ref()
+                    .map_or(true, |token_id| ticket.token.eq(token_id));
+
+                let time_range_match = match time_range {
+                    Some((start, end)) => ticket.ticket_time >= start && ticket.ticket_time <= end,
+                    None => true,
+                };
+                sender_match && receiver_match && token_id_match && time_range_match
             })
             .skip(offset)
             .take(limit)

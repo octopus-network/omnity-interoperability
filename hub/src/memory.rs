@@ -8,9 +8,9 @@ use ic_stable_structures::FileMemory;
 use ic_stable_structures::StableBTreeMap;
 use std::cell::RefCell;
 
-use omnity_types::{ChainId, Directive, SeqKey, Ticket, TicketId, TokenId};
+use omnity_types::{ChainId, Directive, SeqKey, Ticket, TicketId, TokenId, Topic};
 
-use crate::types::{Amount, ChainTokenFactor, ChainWithSeq, TokenKey, TokenMeta};
+use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 
 const UPGRADES: MemoryId = MemoryId::new(0);
 const CHAIN: MemoryId = MemoryId::new(1);
@@ -19,12 +19,14 @@ const CHAIN_FACTOR: MemoryId = MemoryId::new(3);
 const TOKEN_FACTOR: MemoryId = MemoryId::new(4);
 const TOKEN_POSITION: MemoryId = MemoryId::new(5);
 const LEDGER: MemoryId = MemoryId::new(6);
-const DIRE_QUEUE: MemoryId = MemoryId::new(7);
-const TICKET_QUEUE: MemoryId = MemoryId::new(8);
-const LOG_MEMORY_ID: MemoryId = MemoryId::new(9);
+const DIRECTIVE: MemoryId = MemoryId::new(7);
+const DIRE_QUEUE: MemoryId = MemoryId::new(8);
+const TICKET_QUEUE: MemoryId = MemoryId::new(9);
+const LOG_MEMORY_ID: MemoryId = MemoryId::new(10);
+const SUBCRIBER: MemoryId = MemoryId::new(11);
 
-const EVENT_INDEX_MEMORY_ID: MemoryId = MemoryId::new(10);
-const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(11);
+const EVENT_INDEX_MEMORY_ID: MemoryId = MemoryId::new(12);
+const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(13);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
@@ -93,9 +95,17 @@ pub fn get_ledger_memory() -> Memory {
     with_memory_manager(|m| m.get(LEDGER))
 }
 
+pub fn get_directive_memory() -> Memory {
+    with_memory_manager(|m| m.get(DIRECTIVE))
+}
+
 // dire stable memory
 pub fn get_dire_queue_memory() -> Memory {
     with_memory_manager(|m| m.get(DIRE_QUEUE))
+}
+
+pub fn get_subs_memory() -> Memory {
+    with_memory_manager(|m| m.get(SUBCRIBER))
 }
 
 // ticket stable memory
@@ -103,7 +113,7 @@ pub fn get_ticket_queue_memory() -> Memory {
     with_memory_manager(|m| m.get(TICKET_QUEUE))
 }
 
-pub fn init_chain() -> StableBTreeMap<ChainId, ChainWithSeq, Memory> {
+pub fn init_chain() -> StableBTreeMap<ChainId, ChainMeta, Memory> {
     StableBTreeMap::init(get_chain_memory())
 }
 pub fn init_token() -> StableBTreeMap<TokenId, TokenMeta, Memory> {
@@ -123,9 +133,18 @@ pub fn init_token_position() -> StableBTreeMap<TokenKey, Amount, Memory> {
 pub fn init_ledger() -> StableBTreeMap<TicketId, Ticket, Memory> {
     StableBTreeMap::init(get_ledger_memory())
 }
+pub fn init_directive() -> StableBTreeMap<String, Directive, Memory> {
+    StableBTreeMap::init(get_directive_memory())
+}
+
 pub fn init_dire_queue() -> StableBTreeMap<SeqKey, Directive, Memory> {
     StableBTreeMap::init(get_dire_queue_memory())
 }
+
+pub fn init_subs() -> StableBTreeMap<Topic, Subscribers, Memory> {
+    StableBTreeMap::init(get_subs_memory())
+}
+
 pub fn init_ticket_queue() -> StableBTreeMap<SeqKey, Ticket, Memory> {
     StableBTreeMap::init(get_ticket_queue_memory())
 }

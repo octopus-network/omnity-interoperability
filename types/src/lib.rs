@@ -7,6 +7,7 @@ use candid::CandidType;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use std::borrow::Cow;
 use thiserror::Error;
 
@@ -43,6 +44,26 @@ impl Storable for Directive {
     }
 
     const BOUND: Bound = Bound::Unbounded;
+}
+impl core::fmt::Display for Directive {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Directive::AddChain(chain) => write!(f, "AddChain({})", chain),
+            Directive::AddToken(token) => write!(f, "AddToken({})", token),
+            Directive::ToggleChainState(toggle_state) => {
+                write!(f, "ToggleChainState({})", toggle_state)
+            }
+            Directive::UpdateFee(factor) => write!(f, "UpdateFee({})", factor),
+        }
+    }
+}
+impl Directive {
+    pub fn hash(&self) -> String {
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(self.to_string().as_bytes());
+        let bytes: [u8; 32] = hasher.finalize().into();
+        bytes.iter().map(|byte| format!("{:02x}", byte)).collect()
+    }
 }
 
 #[derive(
@@ -95,14 +116,29 @@ impl Storable for DireMap {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Topic {
-    // AddChain(Option<ChainType>)
     AddChain(Option<ChainType>),
     AddToken(Option<TokenId>),
-    UpdateFee(Option<TokenId>),
+    UpdateTargetChainFactor(Option<ChainId>),
+    UpdateFeeTokenFactor(Option<TokenId>),
     ActivateChain,
     DeactivateChain,
+}
+
+impl Storable for Topic {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let topic = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        topic
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
 }
 
 #[derive(
@@ -225,7 +261,9 @@ impl Storable for TicketMap {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-#[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 pub enum ChainType {
     #[default]
     SettlementChain,
@@ -384,6 +422,16 @@ impl Chain {
     }
 }
 
+impl core::fmt::Display for Chain {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(
+            f,
+            "\nchain id:{} \ncanister id:{} \nchain type:{:?} \nchain state:{:?} \ncontract address:{:?} \ncounterparties:{:?} \nfee_token:{:?}",
+            self.chain_id,self.canister_id, self.chain_type, self.chain_state, self.contract_address,self.counterparties,self.fee_token,
+        )
+    }
+}
+
 //TODO: update chain and token info
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct ToggleState {
@@ -417,6 +465,15 @@ impl Token {
     /// return (settlmentchain,token protocol, token symbol)
     pub fn token_id_info(&self) -> Vec<&str> {
         self.token_id.split('-').collect()
+    }
+}
+impl core::fmt::Display for Token {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(
+            f,
+            "\ttoken id:{} \ntoken name:{} \nsymbol:{:?} \ndecimals:{} \nicon:{:?} \nmetadata:{:?}",
+            self.token_id, self.name, self.symbol, self.decimals, self.icon, self.metadata
+        )
     }
 }
 
