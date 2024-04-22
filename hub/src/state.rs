@@ -1,5 +1,5 @@
 use crate::event::{record_event, Event};
-use crate::lifecycle::init::InitArgs;
+use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
@@ -119,7 +119,7 @@ impl HubState {
             .expect("failed to save hub state");
     }
 
-    pub fn post_upgrade(&mut self) {
+    pub fn post_upgrade(args: Option<HubArg>) {
         let memory = memory::get_upgrades_memory();
         // Read the length of the state bytes.
         let mut state_len_bytes = [0; 4];
@@ -131,10 +131,23 @@ impl HubState {
         memory.read(4, &mut state_bytes);
 
         // Deserialize and set the state.
-        let state: HubState =
+        let mut state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-            info!("post_upgrade state.admin :{:?}",state.admin);
-        // *self = state;
+
+        if let Some(args) = args {
+            match args {
+                  HubArg::Upgrade(upgrade_args) => {
+                        if let Some(args) = upgrade_args {
+                            if let Some(admin) = args.admin {
+                                state.admin = admin;
+                            }
+                            record_event(&Event::Upgrade(args));
+                        }
+                    }
+                    HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
+                };
+            }
+
         set_state(state)
     }
 
@@ -815,7 +828,7 @@ impl HubState {
                         |total_amount| {
                             // check src chain token balance
                             if *total_amount < ticket_amount {
-                                return Err::<u128, omnity_types::Error>(
+                                return Err::<u128, Error>(
                                     Error::NotSufficientTokens(
                                         ticket.token.to_string(),
                                         ticket.src_chain.to_string(),
@@ -841,7 +854,7 @@ impl HubState {
                     |total_amount| {
                         // check src chain token balance
                         if *total_amount < ticket_amount {
-                            return Err::<u128, omnity_types::Error>(Error::NotSufficientTokens(
+                            return Err::<u128, Error>(Error::NotSufficientTokens(
                                 ticket.token.to_string(),
                                 ticket.src_chain.to_string(),
                             ));

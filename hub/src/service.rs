@@ -7,7 +7,7 @@ use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::metrics;
 use omnity_hub::proposal;
-use omnity_hub::state::{set_state, with_state, with_state_mut};
+use omnity_hub::state::{ with_state, with_state_mut};
 use omnity_hub::types::{
     TokenResp, {Proposal, Subscribers},
 };
@@ -18,7 +18,6 @@ use omnity_types::{
     TokenId, TokenOnChain, Topic,
 };
 
-use ic_stable_structures::Memory as _;
 use omnity_hub::state::HubState;
 
 #[init]
@@ -43,36 +42,10 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade(hub_args: Option<HubArg>) {
+fn post_upgrade(args: Option<HubArg>) {
     // init log
     init_log(Some(init_stable_log()));
-    let memory = memory::get_upgrades_memory();
-    // Read the length of the state bytes.
-    let mut state_len_bytes = [0; 4];
-    memory.read(0, &mut state_len_bytes);
-    let state_len = u32::from_le_bytes(state_len_bytes) as usize;
-
-    // Read the bytes
-    let mut state_bytes = vec![0; state_len];
-    memory.read(4, &mut state_bytes);
-
-    // Deserialize and set the state.
-    let state: HubState = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-    info!("post_upgrade state.admin :{:?}", state.admin);
-
-    set_state(state);
-
-    if let Some(hub_args) = hub_args {
-        match hub_args {
-            HubArg::Upgrade(upgrade_args) => {
-                if let Some(args) = upgrade_args {
-                    with_state_mut(|hub_state| hub_state.upgrade(args.clone()));
-                    record_event(&Event::Upgrade(args));
-                }
-            }
-            HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
-        };
-    }
+    HubState::post_upgrade(args);
     info!("upgrade successfully!");
 }
 
