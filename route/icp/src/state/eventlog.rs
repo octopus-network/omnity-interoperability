@@ -1,4 +1,7 @@
-use crate::{lifecycle::{init::InitArgs, upgrade::UpgradeArgs}, updates::generate_ticket::GenerateTicketReq};
+use crate::{
+    lifecycle::{init::InitArgs, upgrade::UpgradeArgs},
+    updates::generate_ticket::GenerateTicketReq,
+};
 use candid::Principal;
 use omnity_types::{Chain, Factor, ToggleState, Token};
 use serde::{Deserialize, Serialize};

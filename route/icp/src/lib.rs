@@ -1,4 +1,5 @@
 use candid::{CandidType, Principal};
+use icrc_ledger_types::icrc1::account::Subaccount;
 use log::{self};
 use omnity_types::{Directive, Token, TokenId};
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,7 @@ pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
 pub const ICP_TRANSFER_FEE: u64 = 10_000;
+pub const FEE_COLLECTOR_SUB_ACCOUNT: &Subaccount = &[1; 32];
 
 async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));

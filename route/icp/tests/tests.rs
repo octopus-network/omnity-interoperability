@@ -10,12 +10,16 @@ use icp_route::{
     lifecycle::init::{InitArgs, RouteArg},
     state::MintTokenStatus,
     updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq},
-    TokenResp,
+    TokenResp, FEE_COLLECTOR_SUB_ACCOUNT,
 };
 use icrc_ledger_types::{
-    icrc1::account::Account,
+    icrc1::{
+        account::{Account, Subaccount},
+        transfer::{TransferArg, TransferError},
+    },
     icrc2::approve::{ApproveArgs, ApproveError},
 };
+use num_traits::Pow;
 use omnity_types::{
     Chain, ChainState, ChainType, Directive, Factor, FeeTokenFactor, TargetChainFactor, Ticket,
     Token, TxAction,
@@ -29,6 +33,7 @@ const SYMBOL1: &str = "FIRST•RUNE•TOKEN";
 const TOKEN_ID1: &str = "Bitcoin-RUNES-FIRST•RUNE•TOKEN";
 const SYMBOL2: &str = "SECOND•RUNE•TOKEN";
 const TOKEN_ID2: &str = "Bitcoin-RUNES-SECOND•RUNE•TOKEN";
+const DECIMALS: u8 = 2;
 const LEDGER_WASM: &[u8] = include_bytes!("../../../ledger-canister.wasm");
 
 fn mainnet_ledger_canister_id() -> CanisterId {
@@ -258,6 +263,38 @@ impl RouteSetup {
         .unwrap()
     }
 
+    pub fn icrc1_transfer(
+        &self,
+        ledger_id: CanisterId,
+        from: PrincipalId,
+        to: Account,
+        amount: Nat,
+    ) {
+        let _ = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        from,
+                        ledger_id,
+                        "icrc1_transfer",
+                        Encode!(&TransferArg {
+                            from_subaccount: None,
+                            to: to,
+                            fee: None,
+                            created_at_time: None,
+                            memo: None,
+                            amount
+                        })
+                        .unwrap()
+                    )
+                    .expect("failed to execute icrc1 transfer")
+            ),
+            Result<Nat, TransferError>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
     pub fn icrc2_approve(&self, ledger_id: CanisterId, amount: Nat) {
         let _ = Decode!(
             &assert_reply(
@@ -426,7 +463,12 @@ impl RouteSetup {
         .unwrap()
     }
 
-    pub fn icrc1_balance_of(&self, ledger_id: CanisterId, owner: Principal) -> Nat {
+    pub fn icrc1_balance_of(
+        &self,
+        ledger_id: CanisterId,
+        owner: Principal,
+        subaccount: Option<Subaccount>,
+    ) -> Nat {
         Decode!(
             &assert_reply(
                 self.env
@@ -436,7 +478,7 @@ impl RouteSetup {
                         "icrc1_balance_of",
                         Encode!(&Account {
                             owner: owner,
-                            subaccount: None,
+                            subaccount: subaccount,
                         })
                         .unwrap(),
                     )
@@ -529,6 +571,7 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
         decimals: 0,
         icon: None,
         metadata: HashMap::default(),
+        transfer_fee: Some(10_u128.pow(DECIMALS as u32)),
     })]);
     route.env.advance_time(Duration::from_secs(10));
     route.await_token(token_id, 10);
@@ -580,7 +623,7 @@ fn mint_token(
         token: token_id,
         amount: amount.into(),
         sender: None,
-        receiver: receiver.to_string(),
+        receiver: receiver,
         memo: None,
     });
     route.env.advance_time(Duration::from_secs(5));
@@ -608,7 +651,7 @@ fn test_mint_token() {
 
     let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
 
-    let balance = route.icrc1_balance_of(ledger_id, receiver);
+    let balance = route.icrc1_balance_of(ledger_id, receiver, None);
     assert_eq!(balance, Nat::from_str(amount).unwrap());
 }
 
@@ -645,7 +688,7 @@ fn test_generate_ticket() {
         })
         .expect("should generate ticket success");
 
-    let balance = route.icrc1_balance_of(ledger_id, route.caller.into());
+    let balance = route.icrc1_balance_of(ledger_id, route.caller.into(), None);
     assert_eq!(balance, Nat::from_str("600000").unwrap());
 }
 
@@ -665,7 +708,7 @@ fn test_mint_multi_tokens() {
     );
 
     let ledger_id1 = route.get_token_ledger(TOKEN_ID1.into());
-    let balance = route.icrc1_balance_of(ledger_id1, route.caller.into());
+    let balance = route.icrc1_balance_of(ledger_id1, route.caller.into(), None);
     assert_eq!(balance, Nat::from_str("1000000").unwrap());
 
     add_token(&route, SYMBOL2.into(), TOKEN_ID2.into());
@@ -678,7 +721,7 @@ fn test_mint_multi_tokens() {
     );
 
     let ledger_id2 = route.get_token_ledger(TOKEN_ID2.into());
-    let balance = route.icrc1_balance_of(ledger_id2, route.caller.into());
+    let balance = route.icrc1_balance_of(ledger_id2, route.caller.into(), None);
     assert_eq!(balance, Nat::from_str("1000000").unwrap());
 }
 
@@ -728,4 +771,51 @@ fn test_icrc_control() -> Result<(), String> {
     )));
 
     Result::Ok(())
+}
+
+#[test]
+pub fn test_transfer_fee() {
+    let route = RouteSetup::new();
+    add_chain(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    let amount = "1000100";
+    let receiver =
+        Principal::from_str("hsefg-sb4rm-qb5o2-vzqqa-ugrfq-tpdli-tazi3-3lmja-ur77u-tfncz-jqe")
+            .unwrap();
+
+    mint_token(
+        "test_ticket".into(),
+        &route,
+        TOKEN_ID1.into(),
+        route.caller.to_string(),
+        amount.into(),
+    );
+
+    let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    route.icrc1_transfer(
+        ledger_id,
+        route.caller,
+        Account {
+            owner: receiver,
+            subaccount: None,
+        },
+        Nat::from_str("1000000").unwrap(),
+    );
+
+    let receiver_balance = route.icrc1_balance_of(ledger_id, receiver, None);
+    let caller_balance = route.icrc1_balance_of(ledger_id, route.caller.into(), None);
+    let fee_collector_balance = route.icrc1_balance_of(
+        ledger_id,
+        route.route_id.into(),
+        Some(FEE_COLLECTOR_SUB_ACCOUNT.clone()),
+    );
+    dbg!(&receiver_balance);
+    dbg!(&caller_balance);
+    dbg!(&fee_collector_balance);
+    assert_eq!(receiver_balance, Nat::from_str("1000000").unwrap());
+    assert_eq!(caller_balance, Nat::from_str("0").unwrap());
+    assert_eq!(fee_collector_balance, Nat::from_str("100").unwrap());
 }

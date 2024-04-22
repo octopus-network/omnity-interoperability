@@ -1,7 +1,5 @@
-use std::str::FromStr;
-
 use crate::state::{audit, mutate_state, read_state};
-use crate::ICRC2_WASM;
+use crate::{FEE_COLLECTOR_SUB_ACCOUNT, ICRC2_WASM};
 use candid::{CandidType, Deserialize, Nat};
 use candid::{Encode, Principal};
 use ic_cdk::api::management_canister::main::{
@@ -29,6 +27,7 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
         token.symbol.clone(),
         token.decimals,
         token.icon.clone(),
+        token.transfer_fee.clone(),
     )
     .await
     .map_err(AddNewTokenError::CreateLedgerErr)?;
@@ -44,6 +43,7 @@ async fn install_icrc2_ledger(
     token_symbol: String,
     token_decimal: u8,
     token_icon: Option<String>,
+    transfer_fee: Option<u128>,
 ) -> Result<CanisterIdRecord, String> {
     let create_canister_arg = CreateCanisterArgument { settings: None };
     let (canister_id_record,) = create_canister(create_canister_arg, 500_000_000_000)
@@ -59,7 +59,11 @@ async fn install_icrc2_ledger(
             LedgerInitArgsBuilder::with_symbol_and_name(token_symbol, token_name)
                 .with_decimals(token_decimal)
                 .with_minting_account(Into::<Account>::into(owner))
-                .with_transfer_fee(Nat::from_str("0").unwrap())
+                .with_fee_collector_account(Account {
+                    owner,
+                    subaccount: Some(FEE_COLLECTOR_SUB_ACCOUNT.clone())
+                })
+                .with_transfer_fee(Nat::from(transfer_fee.unwrap_or(0)))
                 .with_metadata_entry(
                     "icrc1:logo",
                     MetadataValue::Text(token_icon.unwrap_or_default())
