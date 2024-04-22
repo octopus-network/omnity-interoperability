@@ -91,6 +91,7 @@ type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
+  transfer_fee : opt nat;
   metadata : vec record { text; text };
   icon : opt text;
   name : text;

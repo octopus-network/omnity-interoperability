@@ -19,7 +19,6 @@ use icrc_ledger_types::{
     },
     icrc2::approve::{ApproveArgs, ApproveError},
 };
-use num_traits::Pow;
 use omnity_types::{
     Chain, ChainState, ChainType, Directive, Factor, FeeTokenFactor, TargetChainFactor, Ticket,
     Token, TxAction,
@@ -689,7 +688,7 @@ fn test_generate_ticket() {
         .expect("should generate ticket success");
 
     let balance = route.icrc1_balance_of(ledger_id, route.caller.into(), None);
-    assert_eq!(balance, Nat::from_str("600000").unwrap());
+    assert_eq!(balance, Nat::from_str("599900").unwrap());
 }
 
 #[test]
@@ -778,7 +777,7 @@ pub fn test_transfer_fee() {
     let route = RouteSetup::new();
     add_chain(&route);
     add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
-    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
+    let _token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
 
     let amount = "1000100";
     let receiver =
