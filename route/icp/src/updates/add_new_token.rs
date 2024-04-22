@@ -27,7 +27,7 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
         token.symbol.clone(),
         token.decimals,
         token.icon.clone(),
-        token.transfer_fee.clone(),
+        token.transfer_fee,
     )
     .await
     .map_err(AddNewTokenError::CreateLedgerErr)?;
@@ -43,7 +43,7 @@ async fn install_icrc2_ledger(
     token_symbol: String,
     token_decimal: u8,
     token_icon: Option<String>,
-    transfer_fee: Option<u128>,
+    transfer_fee: u128,
 ) -> Result<CanisterIdRecord, String> {
     let create_canister_arg = CreateCanisterArgument { settings: None };
     let (canister_id_record,) = create_canister(create_canister_arg, 500_000_000_000)
@@ -63,7 +63,7 @@ async fn install_icrc2_ledger(
                     owner,
                     subaccount: Some(FEE_COLLECTOR_SUB_ACCOUNT.clone())
                 })
-                .with_transfer_fee(Nat::from(transfer_fee.unwrap_or(0)))
+                .with_transfer_fee(Nat::from(transfer_fee))
                 .with_metadata_entry(
                     "icrc1:logo",
                     MetadataValue::Text(token_icon.unwrap_or_default())

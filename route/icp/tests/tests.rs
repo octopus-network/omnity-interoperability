@@ -571,7 +571,7 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
         decimals: 0,
         icon: None,
         metadata: HashMap::default(),
-        transfer_fee: Some(10_u128.pow(DECIMALS as u32)),
+        transfer_fee: 10_u128.pow(DECIMALS as u32),
     })]);
     route.env.advance_time(Duration::from_secs(10));
     route.await_token(token_id, 10);
