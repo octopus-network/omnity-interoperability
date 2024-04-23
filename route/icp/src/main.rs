@@ -1,4 +1,4 @@
-use candid::Principal;
+use candid::{Nat, Principal};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::call::call;
 use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
@@ -11,6 +11,7 @@ use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
 use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{read_state, take_state, MintTokenStatus};
+use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
 use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
@@ -101,6 +102,29 @@ pub async fn controlled_canister_status(
         .await
         .and_then(|(e,)| Ok(e))
         .map_err(|(_, reason)| reason)
+}
+
+#[update(guard = "is_controller")]
+pub async fn update_icrc_transfer_fee(ledger_id: Principal, transfer_fee: Nat) -> Result<(), String> {
+    assert!(read_state(|state| {
+        state.token_ledgers.values().into_iter().find(|&id| ledger_id.eq(id)).is_some()
+    }), "ledger not found");
+
+    upgrade_icrc2_ledger(
+        ledger_id,
+        ic_icrc1_ledger::UpgradeArgs {
+            metadata: None,
+            token_name: None,
+            token_symbol: None,
+            transfer_fee: Some(transfer_fee),
+            change_fee_collector: None,
+            max_memo_length: None,
+            feature_flags: None,
+            maximum_number_of_accounts: None,
+            accounts_overflow_trim_quantity: None,
+        },
+    )
+    .await
 }
 
 #[query]

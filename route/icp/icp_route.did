@@ -121,4 +121,5 @@ service : (RouteArg) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   start_controlled_canister : (principal) -> (Result_1);
   stop_controlled_canister : (principal) -> (Result_1);
+  update_icrc_transfer_fee : (principal, nat) -> (Result_1);
 }
