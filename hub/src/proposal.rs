@@ -1,6 +1,6 @@
 use log::info;
 
-use omnity_types::{ChainState, ChainType, Directive, Error, Factor};
+use omnity_types::{ChainState, Directive, Error, Factor};
 
 use crate::{
     state::{with_state, with_state_mut},
