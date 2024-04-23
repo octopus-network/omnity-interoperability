@@ -1,4 +1,4 @@
-use candid::Principal;
+use candid::{Nat, Principal};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::call::call;
 use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
@@ -105,8 +105,26 @@ pub async fn controlled_canister_status(
 }
 
 #[update(guard = "is_controller")]
-pub async fn upgrade_icrc_ledger(principal: Principal, args: ic_icrc1_ledger::UpgradeArgs)-> Result<(), String> {
-    upgrade_icrc2_ledger(principal, args).await
+pub async fn update_icrc_transfer_fee(ledger_id: Principal, transfer_fee: Nat) -> Result<(), String> {
+    assert!(read_state(|state| {
+        state.token_ledgers.values().into_iter().find(|&id| ledger_id.eq(id)).is_some()
+    }), "ledger not found");
+
+    upgrade_icrc2_ledger(
+        ledger_id,
+        ic_icrc1_ledger::UpgradeArgs {
+            metadata: None,
+            token_name: None,
+            token_symbol: None,
+            transfer_fee: Some(transfer_fee),
+            change_fee_collector: None,
+            max_memo_length: None,
+            feature_flags: None,
+            maximum_number_of_accounts: None,
+            accounts_overflow_trim_quantity: None,
+        },
+    )
+    .await
 }
 
 #[query]

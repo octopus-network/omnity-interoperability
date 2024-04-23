@@ -2,7 +2,6 @@ use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
 use ic_cdk::api::management_canister::main::{CanisterStatusResponse, CanisterStatusType};
 use ic_ic00_types::CanisterSettingsArgsBuilder;
-use ic_icrc1_ledger::UpgradeArgs;
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
@@ -463,17 +462,17 @@ impl RouteSetup {
         .unwrap()
     }
 
-    pub fn upgrade_icrc2_ledger(&self, ledger_id: Principal, args: ic_icrc1_ledger::UpgradeArgs) {
+    pub fn update_icrc_transfer_fee(&self, ledger_id: Principal, transfer_fee: Nat) {
         let _ = Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
                         self.caller,
                         self.route_id,
-                        "upgrade_icrc_ledger",
-                        Encode!(&ledger_id, &args).unwrap(),
+                        "update_icrc_transfer_fee",
+                        Encode!(&ledger_id, &transfer_fee).unwrap(),
                     )
-                    .expect("failed to upgrade icrc2 ledger")
+                    .expect("failed to update icrc transfer fee")
             ),
             Result<(), String>
         )
@@ -595,17 +594,7 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
 
     let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
 
-    route.upgrade_icrc2_ledger(ledger_id.into(), UpgradeArgs {
-        metadata: None,
-        token_name: None,
-        token_symbol: None,
-        transfer_fee: Some(100_u128.into()),
-        change_fee_collector: None,
-        max_memo_length: None,
-        feature_flags: None,
-        maximum_number_of_accounts: None,
-        accounts_overflow_trim_quantity: None,
-    });
+    route.update_icrc_transfer_fee(ledger_id.into(), 100_u128.into());
 }
 
 fn set_fee(route: &RouteSetup) {
