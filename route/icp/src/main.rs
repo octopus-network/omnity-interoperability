@@ -105,10 +105,13 @@ pub async fn controlled_canister_status(
 }
 
 #[update(guard = "is_controller")]
-pub async fn update_icrc_transfer_fee(ledger_id: Principal, transfer_fee: Nat) -> Result<(), String> {
-    assert!(read_state(|state| {
-        state.token_ledgers.values().into_iter().find(|&id| ledger_id.eq(id)).is_some()
-    }), "ledger not found");
+pub async fn update_icrc_transfer_fee(
+    ledger_id: Principal,
+    transfer_fee: Nat,
+) -> Result<(), String> {
+    if !read_state(|s| s.token_ledgers.iter().any(|(_, id)| *id == ledger_id)) {
+        return Err("leder id not found!".into());
+    }
 
     upgrade_icrc2_ledger(
         ledger_id,

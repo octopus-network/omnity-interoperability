@@ -32,7 +32,6 @@ const SYMBOL1: &str = "FIRST•RUNE•TOKEN";
 const TOKEN_ID1: &str = "Bitcoin-RUNES-FIRST•RUNE•TOKEN";
 const SYMBOL2: &str = "SECOND•RUNE•TOKEN";
 const TOKEN_ID2: &str = "Bitcoin-RUNES-SECOND•RUNE•TOKEN";
-const DECIMALS: u8 = 2;
 const LEDGER_WASM: &[u8] = include_bytes!("../../../ledger-canister.wasm");
 
 fn mainnet_ledger_canister_id() -> CanisterId {
@@ -117,6 +116,7 @@ fn install_router(env: &StateMachine, hub_id: CanisterId) -> CanisterId {
         Encode!(&RouteArg::Init(InitArgs {
             chain_id: EXECUTION_CHAIN.into(),
             hub_principal: hub_id.into(),
+            chain_state: ChainState::Active,
         }))
         .unwrap(),
     )

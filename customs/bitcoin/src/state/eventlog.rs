@@ -175,7 +175,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                     .insert(token.token_id.clone(), (rune_id, token));
             }
             Event::ToggleChainState(toggle) => {
-                if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
+                if toggle.chain_id == state.chain_id {
+                    state.chain_state = toggle.action.into();
+                } else if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
                     chain.chain_state = toggle.action.into();
                 }
             }

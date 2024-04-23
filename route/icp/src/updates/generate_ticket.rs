@@ -53,6 +53,12 @@ pub enum GenerateTicketError {
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
+    if read_state(|s| s.chain_state == ChainState::Deactive) {
+        return Err(GenerateTicketError::TemporarilyUnavailable(
+            "chain state is deactive!".into(),
+        ));
+    }
+
     if !read_state(|s| {
         s.counterparties
             .get(&req.target_chain_id)

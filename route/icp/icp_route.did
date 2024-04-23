@@ -65,7 +65,11 @@ type GenerateTicketReq = record {
   receiver : text;
 };
 type GetEventsArg = record { start : nat64; length : nat64 };
-type InitArgs = record { hub_principal : principal; chain_id : text };
+type InitArgs = record {
+  hub_principal : principal;
+  chain_id : text;
+  chain_state : ChainState;
+};
 type Log = record { log : text; offset : nat64 };
 type Logs = record { logs : vec Log; all_logs_count : nat64 };
 type MintTokenStatus = variant {
@@ -106,6 +110,7 @@ type TokenResp = record {
 type UpgradeArgs = record {
   hub_principal : opt principal;
   chain_id : opt text;
+  chain_state : opt ChainState;
 };
 service : (RouteArg) -> {
   controlled_canister_status : (principal) -> (Result);
