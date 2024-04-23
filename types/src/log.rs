@@ -91,10 +91,7 @@ impl StableLogWriter {
                     .build()),
             },
             None => Err(HttpResponseBuilder::bad_request()
-                .with_body_and_content_length(format!(
-                    "must provide the '{}' parameter",
-                    param
-                ))
+                .with_body_and_content_length(format!("must provide the '{}' parameter", param))
                 .build()),
         }
     }
@@ -116,9 +113,12 @@ impl StableLogWriter {
             );
 
             let logs = Self::get_logs(max_skip_timestamp, offset, limit);
+            let logs_json = serde_json::to_string(&logs)
+                .unwrap_or_default()
+                .replace("\n", "");
             HttpResponseBuilder::ok()
                 .header("Content-Type", "application/json; charset=utf-8")
-                .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())
+                .with_body_and_content_length(logs_json)
                 .build()
         } else {
             HttpResponseBuilder::not_found().build()

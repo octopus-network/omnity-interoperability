@@ -449,13 +449,13 @@ impl HubState {
                         .find(|(seq_key, directive)| seq_key.chain_id.eq(&sub) && directive == dire)
                         .is_none()
                     {
-                        let latest_seq = hub_state
+                        let latest_dire_seq = hub_state
                             .directive_seq
                             .entry(sub.to_string())
                             .and_modify(|seq| *seq += 1)
                             .or_insert(0);
 
-                        let seq_key = SeqKey::from(sub.to_string(), *latest_seq);
+                        let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
                         hub_state.dire_queue.insert(seq_key.clone(), dire.clone());
                         info!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                         record_event(&Event::PubedDirective {
@@ -671,7 +671,6 @@ impl HubState {
         })?;
 
         // check token on chain availability
-
         match ticket.action {
             TxAction::Transfer => {
                 // ticket from issue chain
@@ -752,14 +751,14 @@ impl HubState {
 
     pub fn push_ticket(&mut self, ticket: Ticket) -> Result<(), Error> {
         // get latest ticket seq
-        let latest_seq = self
+        let latest_ticket_seq = self
             .ticket_seq
             .entry(ticket.dst_chain.to_string())
             .and_modify(|seq| *seq += 1)
             .or_insert(0);
 
         // add new ticket
-        let seq_key = SeqKey::from(ticket.dst_chain.to_string(), *latest_seq);
+        let seq_key = SeqKey::from(ticket.dst_chain.to_string(), *latest_ticket_seq);
         self.ticket_queue.insert(seq_key.clone(), ticket.clone());
         //save ticket
         self.cross_ledger
@@ -822,7 +821,6 @@ impl HubState {
             .take(limit)
             .map(|(tk, ticket)| (tk.seq, ticket.clone()))
             .collect();
-        info!("query_tickets result : {:?}", tickets);
         Ok(tickets)
     }
 
@@ -834,7 +832,7 @@ impl HubState {
             .into_iter()
             .for_each(|d| {
                 info!(
-                    "publish directives({:?}) for new subscribers: {}",
+                    "republish directives({:?}) for subscribers: {}",
                     d,
                     chain_id.to_string()
                 );
@@ -849,6 +847,11 @@ impl HubState {
         chain_id: &ChainId,
         topics: &Vec<Topic>,
     ) -> Result<(), Error> {
+        info!(
+            "delete directives with topic ({:?}) for subscribers: {}",
+            topics,
+            chain_id.to_string()
+        );
         for (seq_key, dir) in self
             .dire_queue
             .iter()

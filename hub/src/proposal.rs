@@ -7,7 +7,7 @@ use crate::{
     types::Proposal,
 };
 
-pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, Error> {
+pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>, Error> {
     if proposals.len() == 0 {
         return Err(Error::ProposalError(
             "Proposal can not be empty".to_string(),
@@ -106,11 +106,6 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
     for proposal in proposals.into_iter() {
         match proposal {
             Proposal::AddChain(chain_meta) => {
-                info!(
-                    "build directive for `AddChain` proposal :{:?}",
-                    chain_meta.to_string()
-                );
-
                 // save new chain
                 with_state_mut(|hub_state| {
                     info!(" save new chain: {:?}", chain_meta);
@@ -126,6 +121,10 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
                     ChainType::ExecutionChain => {
                         // publish directive for the new chain)
+                        info!(
+                            "publish directive for `AddChain` proposal :{:?}",
+                            chain_meta.to_string()
+                        );
                         with_state_mut(|hub_state| {
                             hub_state.pub_directive(&Directive::AddChain(chain_meta.into()))
                         })?;
@@ -134,7 +133,10 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             }
 
             Proposal::AddToken(token_meata) => {
-                info!("build directive for `AddToken` proposal :{:?}", token_meata);
+                info!(
+                    "publish directive for `AddToken` proposal :{:?}",
+                    token_meata
+                );
 
                 with_state_mut(|hub_state| {
                     // save token info
@@ -146,7 +148,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
             Proposal::ToggleChainState(toggle_status) => {
                 info!(
-                    "build directive for `ToggleChainState` proposal :{:?}",
+                    "publish directive for `ToggleChainState` proposal :{:?}",
                     toggle_status
                 );
 
@@ -159,7 +161,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             }
 
             Proposal::UpdateFee(factor) => {
-                info!("build directive for `UpdateFee` proposal :{:?}", factor);
+                info!("publish directive for `UpdateFee` proposal :{:?}", factor);
                 with_state_mut(|hub_state| {
                     hub_state.update_fee(factor.clone())?;
                     hub_state.pub_directive(&Directive::UpdateFee(factor.clone()))

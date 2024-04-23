@@ -2,7 +2,7 @@ use crate::memory::init_stable_log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use log::info;
-use omnity_hub::auth::{auth, is_owner};
+use omnity_hub::auth::{auth, is_admin};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::metrics;
@@ -22,6 +22,7 @@ use omnity_hub::state::HubState;
 
 #[init]
 fn init(args: HubArg) {
+    info!("hub init args: {:?}", args);
     match args {
         HubArg::Init(args) => {
             init_log(Some(init_stable_log()));
@@ -37,12 +38,13 @@ fn init(args: HubArg) {
 
 #[pre_upgrade]
 fn pre_upgrade() {
-    info!("begin to handle pre_update state ...");
+    info!("begin to execute pre_upgrade ...");
     with_state(|hub_state| hub_state.pre_upgrade())
 }
 
 #[post_upgrade]
 fn post_upgrade(args: Option<HubArg>) {
+    info!("begin to execute post_upgrade with :{:?}", args);
     // init log
     init_log(Some(init_stable_log()));
     HubState::post_upgrade(args);
@@ -52,7 +54,7 @@ fn post_upgrade(args: Option<HubArg>) {
 /// validate directive ,this method will be called by sns
 #[query(guard = "auth")]
 pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, Error> {
-    proposal::validate_proposal(proposals).await
+    proposal::validate_proposal(&proposals).await
 }
 #[update(guard = "auth")]
 pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
@@ -67,11 +69,9 @@ pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
         .collect();
 
     // validate proposal
-    validate_proposal(proposals.clone()).await?;
+    proposal::validate_proposal(&proposals).await?;
     // exection proposal and generate directives
-    execute_proposal(proposals).await?;
-
-    Ok(())
+    proposal::execute_proposal(proposals).await
 }
 
 #[update(guard = "auth")]
@@ -231,7 +231,7 @@ pub async fn get_total_tx() -> Result<u64, Error> {
     metrics::get_total_tx().await
 }
 
-#[update(guard = "is_owner")]
+#[update(guard = "is_admin")]
 pub async fn set_logger_filter(filter: String) {
     LoggerConfigService::default().set_logger_filter(&filter);
 }
