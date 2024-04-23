@@ -187,7 +187,7 @@ impl From<Token> for TokenResp {
             symbol: value.symbol,
             decimals: value.decimals,
             icon: value.icon,
-            rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
+            rune_id: value.metadata.get("rune_id").cloned(),
         }
     }
 }

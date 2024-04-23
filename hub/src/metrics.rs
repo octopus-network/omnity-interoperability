@@ -110,7 +110,7 @@ pub async fn get_fees(
                         (
                             tf.target_chain_id.to_string(),
                             tf.fee_token.to_string(),
-                            chain_factor * tf.fee_token_factor as u128,
+                            chain_factor * tf.fee_token_factor,
                         )
                     })
             })
@@ -267,7 +267,7 @@ pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
 
 pub async fn get_total_tx() -> Result<u64, Error> {
     with_state(|hub_state| {
-        let total_num = hub_state.cross_ledger.len() as u64;
+        let total_num = hub_state.cross_ledger.len();
         Ok(total_num)
     })
 }

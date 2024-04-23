@@ -48,7 +48,7 @@ impl Storable for LogEntry {
 }
 
 fn parse_timestamp(time_str: &Vec<u8>) -> u64 {
-    let datetime = parse_rfc3339(&String::from_utf8_lossy(&time_str).to_string())
+    let datetime = parse_rfc3339(&String::from_utf8_lossy(time_str).as_ref())
         .expect("Failed to parse timestamp");
     datetime
         .duration_since(UNIX_EPOCH)
@@ -115,7 +115,7 @@ impl StableLogWriter {
             let logs = Self::get_logs(max_skip_timestamp, offset, limit);
             let logs_json = serde_json::to_string(&logs)
                 .unwrap_or_default()
-                .replace("\n", "");
+                .replace('\n', "");
             HttpResponseBuilder::ok()
                 .header("Content-Type", "application/json; charset=utf-8")
                 .with_body_and_content_length(logs_json)

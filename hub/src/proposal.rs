@@ -8,13 +8,13 @@ use crate::{
 };
 
 pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>, Error> {
-    if proposals.len() == 0 {
+    if proposals.is_empty() {
         return Err(Error::ProposalError(
             "Proposal can not be empty".to_string(),
         ));
     }
     let mut proposal_msgs = Vec::new();
-    for proposal in proposals.into_iter() {
+    for proposal in proposals.iter() {
         match proposal {
             Proposal::AddChain(chain_meta) => {
                 if chain_meta.chain_id.is_empty() {
@@ -73,7 +73,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     ));
                 }
 
-                with_state(|hub_state| hub_state.available_state(&toggle_state))?;
+                with_state(|hub_state| hub_state.available_state(toggle_state))?;
 
                 proposal_msgs.push(format!("The ToggleChainStatus proposal: {}", toggle_state));
             }

@@ -63,10 +63,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 /// check and build update fee directive and push it to the directive queue
 #[update(guard = "auth")]
 pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
-    let proposals: Vec<Proposal> = factors
-        .into_iter()
-        .map(|factor| Proposal::UpdateFee(factor))
-        .collect();
+    let proposals: Vec<Proposal> = factors.into_iter().map(Proposal::UpdateFee).collect();
 
     // validate proposal
     proposal::validate_proposal(&proposals).await?;

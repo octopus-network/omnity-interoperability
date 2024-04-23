@@ -211,7 +211,6 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     hub_state
                         .target_chain_factors
                         .insert(cf.target_chain_id, cf.target_chain_factor);
-                    ()
                 }
                 Factor::UpdateFeeTokenFactor(tf) => {
                     hub_state
@@ -227,7 +226,6 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                             };
                             hub_state.fee_token_factors.insert(token_key, fee_factor);
                         });
-                    ()
                 }
             },
 
