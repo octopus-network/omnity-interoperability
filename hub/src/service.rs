@@ -342,12 +342,10 @@ mod tests {
     }
     fn default_topic() -> Vec<Topic> {
         vec![
-            Topic::AddChain(None),
-            Topic::AddToken(None),
-            Topic::UpdateTargetChainFactor(None),
-            Topic::UpdateFeeTokenFactor(None),
-            Topic::ActivateChain,
-            Topic::DeactivateChain,
+            Topic::AddChain,
+            Topic::AddToken,
+            Topic::UpdateFee,
+            Topic::ToggleChainState,
         ]
     }
     async fn sub_dires() {
@@ -735,11 +733,7 @@ mod tests {
         init_hub();
 
         // sub_dires().await;
-        let result = sub_directives(
-            Some("Bitcoin".to_string()),
-            vec![Topic::AddChain(Some(ChainType::ExecutionChain))],
-        )
-        .await;
+        let result = sub_directives(Some("Bitcoin".to_string()), vec![Topic::AddChain]).await;
         println!(
             "chain({}) sub topic result: {:?}",
             "Bitcoin".to_string(),
@@ -760,13 +754,8 @@ mod tests {
             })
         });
 
-        let result = query_directives(
-            Some("Bitcoin".to_string()),
-            Some(Topic::AddChain(None)),
-            0,
-            20,
-        )
-        .await;
+        let result =
+            query_directives(Some("Bitcoin".to_string()), Some(Topic::AddChain), 0, 20).await;
         println!(
             "query_directives for {:} dires: {:#?}",
             "Bitcoin".to_string(),
@@ -794,13 +783,8 @@ mod tests {
             "Ethereum".to_string(),
             "ICP".to_string(),
         ] {
-            let result = query_directives(
-                Some(chain_id.to_string()),
-                Some(Topic::AddChain(None)),
-                0,
-                20,
-            )
-            .await;
+            let result =
+                query_directives(Some(chain_id.to_string()), Some(Topic::AddChain), 0, 20).await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
             let chain = get_chain(chain_id.to_string()).await;
@@ -822,11 +806,7 @@ mod tests {
         sub_dires().await;
 
         // sub special token id
-        let result = sub_directives(
-            Some("ICP".to_string()),
-            vec![Topic::AddToken(Some("Bitcoin-RUNES-WTF".to_string()))],
-        )
-        .await;
+        let result = sub_directives(Some("ICP".to_string()), vec![Topic::AddToken]).await;
         println!(
             "chain({}) sub topic result: {:?}",
             "ICP".to_string(),
@@ -844,13 +824,8 @@ mod tests {
         add_tokens().await;
 
         for chain_id in chain_ids() {
-            let result = query_directives(
-                Some(chain_id.to_string()),
-                Some(Topic::AddToken(None)),
-                0,
-                50,
-            )
-            .await;
+            let result =
+                query_directives(Some(chain_id.to_string()), Some(Topic::AddToken), 0, 50).await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
@@ -907,7 +882,7 @@ mod tests {
             let result = query_directives(
                 Some(chain_id.to_string()),
                 // None,
-                Some(Topic::DeactivateChain),
+                Some(Topic::ToggleChainState),
                 0,
                 5,
             )
@@ -950,7 +925,7 @@ mod tests {
             let result = query_directives(
                 Some(chain_id.to_string()),
                 // None,
-                Some(Topic::ActivateChain),
+                Some(Topic::ToggleChainState),
                 0,
                 5,
             )
@@ -985,14 +960,7 @@ mod tests {
         add_tokens().await;
 
         // sub special token id
-        let result = sub_directives(
-            Some("ICP".to_string()),
-            vec![
-                Topic::UpdateTargetChainFactor(Some("Bitcoin".to_string())),
-                Topic::UpdateFeeTokenFactor(Some("ICP".to_string())),
-            ],
-        )
-        .await;
+        let result = sub_directives(Some("ICP".to_string()), vec![Topic::UpdateFee]).await;
         println!(
             "chain({}) sub topic result: {:?}",
             "ICP".to_string(),
@@ -1017,24 +985,14 @@ mod tests {
 
         // query directives for chain id
         for chain_id in chain_ids() {
-            let result = query_directives(
-                Some(chain_id.to_string()),
-                Some(Topic::UpdateTargetChainFactor(None)),
-                0,
-                5,
-            )
-            .await;
+            let result =
+                query_directives(Some(chain_id.to_string()), Some(Topic::UpdateFee), 0, 5).await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }
         for chain_id in chain_ids() {
-            let result = query_directives(
-                Some(chain_id.to_string()),
-                Some(Topic::UpdateFeeTokenFactor(None)),
-                0,
-                5,
-            )
-            .await;
+            let result =
+                query_directives(Some(chain_id.to_string()), Some(Topic::UpdateFee), 0, 5).await;
             println!("query_directives for {:} dires: {:#?}", chain_id, result);
             assert!(result.is_ok());
         }

@@ -63,7 +63,7 @@ fn test_add_chain() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
-            &Some(Topic::AddChain(None)),
+            &Some(Topic::AddChain),
             &0,
             &5,
         );
@@ -104,7 +104,7 @@ fn test_add_token() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
-            &Some(Topic::AddToken(None)),
+            &Some(Topic::AddToken),
             &0,
             &5,
         );
@@ -116,7 +116,7 @@ fn test_add_token() {
         let result = hub.query_directives(
             &Some(canister_id),
             &None,
-            &Some(Topic::AddToken(None)),
+            &Some(Topic::AddToken),
             &0,
             &5,
         );
@@ -184,7 +184,7 @@ fn test_toggle_chain_state() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
-            &Some(Topic::DeactivateChain),
+            &Some(Topic::ToggleChainState),
             &0,
             &5,
         );
@@ -246,7 +246,7 @@ fn test_update_fee() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
-            &Some(Topic::UpdateTargetChainFactor(None)),
+            &Some(Topic::UpdateFee),
             &0,
             &5,
         );
@@ -258,7 +258,7 @@ fn test_update_fee() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
-            &Some(Topic::UpdateFeeTokenFactor(None)),
+            &Some(Topic::UpdateFee),
             &0,
             &5,
         );
@@ -732,7 +732,7 @@ fn test_upgrade() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
-            &Some(Topic::UpdateTargetChainFactor(None)),
+            &Some(Topic::UpdateFee),
             &0,
             &5,
         );
@@ -744,7 +744,7 @@ fn test_upgrade() {
         let result = hub.query_directives(
             &None,
             &Some(chain_id.to_string()),
-            &Some(Topic::UpdateFeeTokenFactor(None)),
+            &Some(Topic::UpdateFee),
             &0,
             &5,
         );

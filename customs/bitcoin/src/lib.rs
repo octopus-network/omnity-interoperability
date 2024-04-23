@@ -90,6 +90,7 @@ pub struct Log {
 #[derive(CandidType, Debug, Deserialize, Serialize)]
 pub struct CustomsInfo {
     pub min_confirmations: u32,
+    pub chain_state: ChainState,
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]

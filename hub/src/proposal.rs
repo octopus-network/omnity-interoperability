@@ -1,6 +1,5 @@
 use log::info;
-
-use omnity_types::{ChainState, ChainType, Directive, Error, Factor};
+use omnity_types::{ChainState, Directive, Error, Factor};
 
 use crate::{
     state::{with_state, with_state_mut},
@@ -117,7 +116,9 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     chain_meta.to_string()
                 );
                 with_state_mut(|hub_state| {
-                    hub_state.pub_directive(&Directive::AddChain(chain_meta.into()))
+                    let target_subs = chain_meta.counterparties.clone().unwrap_or_default();
+                    hub_state
+                        .pub_directive(Some(target_subs), &Directive::AddChain(chain_meta.into()))
                 })?;
             }
 
@@ -131,7 +132,10 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     // save token info
                     hub_state.add_token(token_meata.clone())?;
                     // publish directive
-                    hub_state.pub_directive(&Directive::AddToken(token_meata.into()))
+                    hub_state.pub_directive(
+                        Some(token_meata.dst_chains.clone()),
+                        &Directive::AddToken(token_meata.into()),
+                    )
                 })?
             }
 
@@ -143,7 +147,8 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
                 with_state_mut(|hub_state| {
                     // publish directive
-                    hub_state.pub_directive(&Directive::ToggleChainState(toggle_status.clone()))?;
+                    hub_state
+                        .pub_directive(None, &Directive::ToggleChainState(toggle_status.clone()))?;
                     // update dst chain state
                     hub_state.update_chain_state(&toggle_status)
                 })?;
@@ -153,11 +158,19 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 info!("publish directive for `UpdateFee` proposal :{:?}", factor);
                 with_state_mut(|hub_state| {
                     hub_state.update_fee(factor.clone())?;
-                    hub_state.pub_directive(&Directive::UpdateFee(factor.clone()))
+                    let target_subs = match &factor {
+                        Factor::UpdateTargetChainFactor(factor) => {
+                            hub_state.get_chains_by_counterparty(factor.target_chain_id.clone())
+                        }
+                        Factor::UpdateFeeTokenFactor(factor) => {
+                            hub_state.get_chains_by_fee_token(factor.fee_token.clone())
+                        }
+                    };
+                    hub_state
+                        .pub_directive(Some(target_subs), &Directive::UpdateFee(factor.clone()))
                 })?;
             }
         }
     }
-
     Ok(())
 }

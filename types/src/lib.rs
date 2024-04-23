@@ -31,6 +31,17 @@ pub enum Directive {
     UpdateFee(Factor),
 }
 
+impl Directive {
+    pub fn to_topic(&self) -> Topic {
+        match self {
+            Self::AddChain(_) => Topic::AddChain,
+            Self::AddToken(_) => Topic::AddToken,
+            Self::ToggleChainState(_) => Topic::ToggleChainState,
+            Self::UpdateFee(_) => Topic::UpdateFee,
+        }
+    }
+}
+
 impl Storable for Directive {
     fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
         let mut bytes = vec![];
@@ -118,12 +129,10 @@ impl Storable for DireMap {
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Topic {
-    AddChain(Option<ChainType>),
-    AddToken(Option<TokenId>),
-    UpdateTargetChainFactor(Option<ChainId>),
-    UpdateFeeTokenFactor(Option<TokenId>),
-    ActivateChain,
-    DeactivateChain,
+    AddChain,
+    AddToken,
+    ToggleChainState,
+    UpdateFee,
 }
 
 impl Storable for Topic {
