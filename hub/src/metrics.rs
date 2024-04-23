@@ -1,4 +1,3 @@
-use crate::types::ChainMeta;
 use crate::{state::with_state, types::TokenKey};
 use log::info;
 use omnity_types::{
@@ -32,7 +31,7 @@ pub async fn get_chains(
             })
             .skip(offset)
             .take(limit)
-            .map(|(_, chain)| <ChainMeta as Into<Chain>>::into(chain.clone()))
+            .map(|(_, chain)| chain.into())
             .collect::<Vec<_>>()
     });
 
@@ -43,7 +42,7 @@ pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     info!("get_chain chain_id: {:?} ", chain_id);
     with_state(|hub_state| {
         if let Some(chain) = hub_state.chains.get(&chain_id) {
-            Ok(chain.clone().into())
+            Ok(chain.into())
         } else {
             Err(Error::NotFoundChain(chain_id))
         }
@@ -76,7 +75,7 @@ pub async fn get_tokens(
             })
             .skip(offset)
             .take(limit)
-            .map(|(_, token_meta)| token_meta.clone().into())
+            .map(|(_, token_meta)| token_meta.into())
             .collect::<Vec<_>>()
     });
 
@@ -202,7 +201,7 @@ pub async fn get_txs_with_chain(
             })
             .skip(offset)
             .take(limit)
-            .map(|(_, ticket)| ticket.clone())
+            .map(|(_, ticket)| ticket)
             .collect::<Vec<_>>()
     });
 
@@ -245,7 +244,7 @@ pub async fn get_txs_with_account(
             })
             .skip(offset)
             .take(limit)
-            .map(|(_, ticket)| ticket.clone())
+            .map(|(_, ticket)| ticket)
             .collect::<Vec<_>>()
     });
 
@@ -256,7 +255,7 @@ pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
     info!("get_tx ticket_id: {:?} ", ticket_id);
     with_state(|hub_state| {
         if let Some(ticket) = hub_state.cross_ledger.get(&ticket_id) {
-            Ok(ticket.clone())
+            Ok(ticket)
         } else {
             Err(Error::CustomError(format!(
                 "Not found this ticket: {}",
@@ -276,7 +275,7 @@ pub async fn get_total_tx() -> Result<u64, Error> {
 pub async fn get_chain_type(chain_id: ChainId) -> Result<ChainType, Error> {
     with_state(|hub_state| {
         if let Some(chain) = hub_state.chains.get(&chain_id) {
-            Ok(chain.chain_type.clone())
+            Ok(chain.chain_type)
         } else {
             Err(Error::NotFoundChain(chain_id))
         }

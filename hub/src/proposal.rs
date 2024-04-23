@@ -142,7 +142,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     // save token info
                     hub_state.add_token(token_meata.clone())?;
                     // publish directive
-                    hub_state.pub_directive(&Directive::AddToken(token_meata.clone().into()))
+                    hub_state.pub_directive(&Directive::AddToken(token_meata.into()))
                 })?
             }
 

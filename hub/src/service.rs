@@ -27,8 +27,8 @@ fn init(args: HubArg) {
         HubArg::Init(args) => {
             init_log(Some(init_stable_log()));
 
-            record_event(&Event::Init(args.clone()));
-            lifecycle::init(args);
+            lifecycle::init(args.clone());
+            record_event(&Event::Init(args));
         }
         HubArg::Upgrade(_) => {
             panic!("expected InitArgs got UpgradeArgs");
