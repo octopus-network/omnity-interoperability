@@ -53,9 +53,6 @@ impl From<GuardError> for ReleaseTokenError {
 }
 
 pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenError> {
-    read_state(|s| s.mode.is_release_available_for())
-        .map_err(ReleaseTokenError::TemporarilyUnavailable)?;
-
     let rune_id = read_state(|s| {
         if let Some((rune_id, _)) = s.tokens.get(&args.token_id) {
             Ok(*rune_id)

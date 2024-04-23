@@ -1,6 +1,7 @@
 use super::upgrade::UpgradeArgs;
 use crate::state::{replace_state, RouteState};
 use candid::{CandidType, Deserialize, Principal};
+use omnity_types::ChainState;
 use serde::Serialize;
 
 #[derive(CandidType, serde::Deserialize)]
@@ -13,6 +14,7 @@ pub enum RouteArg {
 pub struct InitArgs {
     pub chain_id: String,
     pub hub_principal: Principal,
+    pub chain_state: ChainState,
 }
 
 pub fn init(args: InitArgs) {

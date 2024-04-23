@@ -6,12 +6,13 @@ use crate::{
 };
 use crate::{
     lifecycle::init::InitArgs,
-    state::{CustomsState, Mode, ReleaseTokenStatus},
+    state::{CustomsState, ReleaseTokenStatus},
 };
 use bitcoin::network::constants::Network as BtcNetwork;
 use bitcoin::util::psbt::serialize::{Deserialize, Serialize};
 use ic_base_types::CanisterId;
 use ic_btc_interface::{Network, OutPoint, Satoshi, Txid, Utxo};
+use omnity_types::ChainState;
 use proptest::proptest;
 use proptest::{
     array::uniform20,
@@ -743,7 +744,7 @@ proptest! {
             ecdsa_key_name: "".to_string(),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
-            mode: Mode::GeneralAvailability,
+            chain_state: ChainState::Active,
             hub_principal: CanisterId::from_u64(1).into(),
             runes_oracle_principal: CanisterId::from_u64(2).into(),
             chain_id: "Bitcoin".into(),
@@ -766,7 +767,7 @@ proptest! {
             ecdsa_key_name: "".to_string(),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
-            mode: Mode::GeneralAvailability,
+            chain_state: ChainState::Active,
             hub_principal: CanisterId::from_u64(1).into(),
             runes_oracle_principal: CanisterId::from_u64(2).into(),
             chain_id: "Bitcoin".into(),
@@ -813,7 +814,7 @@ proptest! {
             ecdsa_key_name: "".to_string(),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
-            mode: Mode::GeneralAvailability,
+            chain_state: ChainState::Active,
             hub_principal: CanisterId::from_u64(1).into(),
             runes_oracle_principal: CanisterId::from_u64(2).into(),
             chain_id: "Bitcoin".into(),

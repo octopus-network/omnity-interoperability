@@ -13,7 +13,7 @@ pub fn auth() -> Result<(), String> {
     })
 }
 
-pub fn is_owner() -> Result<(), String> {
+pub fn is_admin() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
     with_state(|s| {
         if s.admin != caller {

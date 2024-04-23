@@ -27,7 +27,7 @@ pub use ic_btc_interface::Network;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_utils_ensure::{ensure, ensure_eq};
-use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
+use omnity_types::{Chain, ChainId, ChainState, TicketId, Token, TokenId};
 use serde::Serialize;
 
 /// The maximum number of finalized requests that we keep in the
@@ -230,51 +230,6 @@ pub enum GenTicketStatus {
     Finalized,
 }
 
-/// Controls which operations the customs can perform.
-#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
-pub enum Mode {
-    /// Custom's state is read-only.
-    ReadOnly,
-    /// Transport operations are restricted.
-    TransportRestricted,
-    /// Release operations are restricted.
-    ReleaseRestricted,
-    /// No restrictions on the custom interactions.
-    GeneralAvailability,
-}
-
-impl Mode {
-    /// Returns Ok if the transport operation is avaliable.
-    pub fn is_transport_available_for(&self) -> Result<(), String> {
-        match self {
-            Self::GeneralAvailability | Self::ReleaseRestricted => Ok(()),
-            Self::ReadOnly | Self::TransportRestricted => {
-                Err("transport operations are restricted".to_string())
-            }
-        }
-    }
-
-    /// Returns Ok if the release operation is avaliable.
-    pub fn is_release_available_for(&self) -> Result<(), String> {
-        match self {
-            Self::GeneralAvailability | Self::TransportRestricted => Ok(()),
-            Self::ReadOnly | Self::ReleaseRestricted => {
-                Err("release operations are restricted".to_string())
-            }
-        }
-    }
-}
-
-impl Default for Mode {
-    fn default() -> Self {
-        Self::GeneralAvailability
-    }
-}
-
-/// Indicates that fee distribution overdrafted.
-#[derive(Clone, Copy, Debug)]
-pub struct Overdraft(pub u64);
-
 /// The state of the Bitcoin Customs.
 ///
 /// Every piece of state of the Customs should be stored as field of this struct.
@@ -371,7 +326,7 @@ pub struct CustomsState {
     pub is_process_hub_msg: bool,
 
     /// The mode in which the customs runs.
-    pub mode: Mode,
+    pub chain_state: ChainState,
 
     pub last_fee_per_vbyte: Vec<u64>,
 }
@@ -384,7 +339,7 @@ impl CustomsState {
             ecdsa_key_name,
             max_time_in_queue_nanos,
             min_confirmations,
-            mode,
+            chain_state,
             hub_principal,
             runes_oracle_principal,
             chain_id,
@@ -393,7 +348,7 @@ impl CustomsState {
         self.btc_network = btc_network.into();
         self.ecdsa_key_name = ecdsa_key_name;
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
-        self.mode = mode;
+        self.chain_state = chain_state;
         self.hub_principal = hub_principal;
         self.runes_oracle_principal = runes_oracle_principal;
         self.chain_id = chain_id;
@@ -407,7 +362,7 @@ impl CustomsState {
         UpgradeArgs {
             max_time_in_queue_nanos,
             min_confirmations,
-            mode,
+            chain_state,
             hub_principal,
             runes_oracle_principal,
         }: UpgradeArgs,
@@ -427,8 +382,8 @@ impl CustomsState {
                 );
             }
         }
-        if let Some(mode) = mode {
-            self.mode = mode;
+        if let Some(chain_state) = chain_state {
+            self.chain_state = chain_state;
         }
         if let Some(hub_principal) = hub_principal {
             self.hub_principal = hub_principal;
@@ -1131,7 +1086,7 @@ impl From<InitArgs> for CustomsState {
             next_directive_seq: 0,
             is_timer_running: false,
             is_process_hub_msg: false,
-            mode: args.mode,
+            chain_state: args.chain_state,
             hub_principal: args.hub_principal,
             runes_oracle_principal: args.runes_oracle_principal,
             last_fee_per_vbyte: vec![1; 100],

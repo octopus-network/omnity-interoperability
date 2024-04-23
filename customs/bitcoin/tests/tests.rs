@@ -2,8 +2,8 @@ use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
+use bitcoin_customs::state::ReleaseTokenStatus;
 use bitcoin_customs::state::{GenTicketStatus, RuneId, RunesBalance};
-use bitcoin_customs::state::{Mode, ReleaseTokenStatus};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
@@ -79,7 +79,7 @@ fn install_customs(env: &StateMachine) -> CanisterId {
         ecdsa_key_name: "dfx_test_key".parse().unwrap(),
         max_time_in_queue_nanos: 0,
         min_confirmations: Some(1),
-        mode: Mode::GeneralAvailability,
+        chain_state: ChainState::Active,
         hub_principal: CanisterId::from_u64(1).into(),
         runes_oracle_principal: CanisterId::from_u64(2).into(),
         chain_id: "Bitcoin".into(),
@@ -142,7 +142,7 @@ fn test_customs() {
         ecdsa_key_name: "master_ecdsa_public_key".into(),
         max_time_in_queue_nanos: MAX_TIME_IN_QUEUE.as_nanos() as u64,
         min_confirmations: Some(6_u32),
-        mode: Mode::GeneralAvailability,
+        chain_state: ChainState::Active,
         hub_principal: CanisterId::from_u64(1).into(),
         runes_oracle_principal: CanisterId::from_u64(2).into(),
         chain_id: "Bitcoin".into(),
@@ -221,7 +221,7 @@ impl CustomsSetup {
                 ecdsa_key_name: "master_ecdsa_public_key".to_string(),
                 max_time_in_queue_nanos: 0,
                 min_confirmations: Some(MIN_CONFIRMATIONS),
-                mode: Mode::GeneralAvailability,
+                chain_state: ChainState::Active,
                 hub_principal: hub_id.into(),
                 runes_oracle_principal: runes_oracle.into(),
                 chain_id: "Bitcoin".into(),

@@ -26,7 +26,9 @@ pub fn add_token(state: &mut CustomsState, rune_id: RuneId, token: Token) {
 
 pub fn toggle_chain_state(state: &mut CustomsState, toggle: ToggleState) {
     record_event(&Event::ToggleChainState(toggle.clone()));
-    if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
+    if toggle.chain_id == state.chain_id {
+        state.chain_state = toggle.action.into();
+    } else if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
         chain.chain_state = toggle.action.into();
     }
 }

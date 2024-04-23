@@ -1,9 +1,10 @@
 use crate::logs::P0;
 use crate::state::eventlog::{replay, Event};
-use crate::state::{replace_state, Mode};
+use crate::state::replace_state;
 use crate::storage::{count_events, events, record_event};
 use candid::{CandidType, Deserialize, Principal};
 use ic_canister_log::log;
+use omnity_types::ChainState;
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
@@ -20,7 +21,7 @@ pub struct UpgradeArgs {
 
     /// The mode in which the customs is running.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<Mode>,
+    pub chain_state: Option<ChainState>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hub_principal: Option<Principal>,

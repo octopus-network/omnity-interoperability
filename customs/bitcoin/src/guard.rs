@@ -136,6 +136,7 @@ mod tests {
         state::read_state,
     };
     use ic_base_types::CanisterId;
+    use omnity_types::ChainState;
 
     fn test_state_args() -> InitArgs {
         InitArgs {
@@ -143,7 +144,7 @@ mod tests {
             ecdsa_key_name: "some_key".to_string(),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
-            mode: crate::state::Mode::GeneralAvailability,
+            chain_state: ChainState::Active,
             hub_principal: CanisterId::from(0).into(),
             runes_oracle_principal: CanisterId::from(0).into(),
             chain_id: "Bitcoin".into(),

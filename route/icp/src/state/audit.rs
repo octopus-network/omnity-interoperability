@@ -20,7 +20,9 @@ pub fn add_token(state: &mut RouteState, token: Token, ledger_id: Principal) {
 }
 
 pub fn toggle_chain_state(state: &mut RouteState, toggle: ToggleState) {
-    if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
+    if toggle.chain_id == state.chain_id {
+        state.chain_state = toggle.action.into();
+    } else if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
         record_event(&Event::ToggleChainState(toggle.clone()));
         chain.chain_state = toggle.action.into();
     }

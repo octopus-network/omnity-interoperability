@@ -19,7 +19,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use std::num::ParseIntError;
 
-const HOUR: u64 = 3600_000_000_000;
+const HOUR: u64 = 3_600_000_000_000;
 
 thread_local! {
     static STATE: RefCell<Option<HubState>> = RefCell::default();
@@ -185,12 +185,10 @@ impl HubState {
         // update counterparties
         if let Some(counterparties) = chain.counterparties {
             counterparties
-                .iter()
-                .map(|counterparty| {
-                    //check and update counterparty of dst chain
-                    self.update_chain_counterparties(&counterparty, &chain.chain_id)
-                })
-                .collect::<Result<(), Error>>()?;
+           .iter().try_for_each(|counterparty| {
+                                //check and update counterparty of dst chain
+                               self.update_chain_counterparties(counterparty, &chain.chain_id)
+                            })?;
         }
 
         Ok(())
@@ -346,7 +344,7 @@ impl HubState {
         }
     }
 
-    pub fn sub_directives(&mut self, chain_id: &ChainId, topics: &Vec<Topic>) -> Result<(), Error> {
+    pub fn sub_directives(&mut self, chain_id: &ChainId, topics: &[Topic]) -> Result<(), Error> {
         topics.iter().for_each(|topic| {
             let subscribers = if let Some(mut subscribers) = self.topic_subscribers.get(topic) {
                 subscribers.subs.insert(chain_id.to_string());
@@ -372,7 +370,7 @@ impl HubState {
     pub fn unsub_directives(
         &mut self,
         chain_id: &ChainId,
-        topics: &Vec<Topic>,
+        topics: &[Topic],
     ) -> Result<(), Error> {
         topics.iter().for_each(|topic| {
             if let Some(mut subscribers) = self.topic_subscribers.get(topic) {
@@ -400,13 +398,12 @@ impl HubState {
                     .as_ref()
                     .map_or(true, |dst_topic| topic == dst_topic)
             })
-            .map(|(topic, subs)| (topic, subs))
             .collect::<Vec<_>>();
         Ok(ret)
     }
     pub fn pub_directive(&mut self, dire: &Directive) -> Result<(), Error> {
         // save directive
-        self.save_directive(&dire)?;
+        self.save_directive(dire)?;
         //publish directive to subscribers
         self.pub_2_subscribers(&None, dire.clone())
     }
@@ -443,19 +440,18 @@ impl HubState {
                     let sub = target_sub.clone().map_or(sub, |targe_sub| targe_sub);
 
                     //repeatability detection
-                    if hub_state
+                    if !hub_state
                         .dire_queue
                         .iter()
-                        .find(|(seq_key, directive)| seq_key.chain_id.eq(&sub) && directive == dire)
-                        .is_none()
+                        .any(|(seq_key, directive)| seq_key.chain_id.eq(&sub) && directive == *dire)
                     {
-                        let latest_seq = hub_state
+                        let latest_dire_seq = hub_state
                             .directive_seq
                             .entry(sub.to_string())
                             .and_modify(|seq| *seq += 1)
                             .or_insert(0);
 
-                        let seq_key = SeqKey::from(sub.to_string(), *latest_seq);
+                        let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
                         hub_state.dire_queue.insert(seq_key.clone(), dire.clone());
                         info!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                         record_event(&Event::PubedDirective {
@@ -622,8 +618,8 @@ impl HubState {
         };
         self.token_position.insert(position.clone(), amount);
         record_event(&Event::AddedTokenPosition {
-            position: position,
-            amount: amount,
+            position,
+            amount,
         });
 
         Ok(())
@@ -647,7 +643,7 @@ impl HubState {
                     let total_amount = f(total_amount)?;
                     self.token_position.insert(position.clone(), total_amount);
                     record_event(&Event::UpdatedTokenPosition {
-                        position: position,
+                        position,
                         amount: total_amount,
                     });
                     Ok(())
@@ -752,14 +748,14 @@ impl HubState {
 
     pub fn push_ticket(&mut self, ticket: Ticket) -> Result<(), Error> {
         // get latest ticket seq
-        let latest_seq = self
+        let latest_ticket_seq = self
             .ticket_seq
             .entry(ticket.dst_chain.to_string())
             .and_modify(|seq| *seq += 1)
             .or_insert(0);
 
         // add new ticket
-        let seq_key = SeqKey::from(ticket.dst_chain.to_string(), *latest_seq);
+        let seq_key = SeqKey::from(ticket.dst_chain.to_string(), *latest_ticket_seq);
         self.ticket_queue.insert(seq_key.clone(), ticket.clone());
         //save ticket
         self.cross_ledger
@@ -822,7 +818,6 @@ impl HubState {
             .take(limit)
             .map(|(tk, ticket)| (tk.seq, ticket.clone()))
             .collect();
-        info!("query_tickets result : {:?}", tickets);
         Ok(tickets)
     }
 
@@ -834,7 +829,7 @@ impl HubState {
             .into_iter()
             .for_each(|d| {
                 info!(
-                    "publish directives({:?}) for new subscribers: {}",
+                    "republish directives({:?}) for subscribers: {}",
                     d,
                     chain_id.to_string()
                 );
@@ -849,6 +844,11 @@ impl HubState {
         chain_id: &ChainId,
         topics: &Vec<Topic>,
     ) -> Result<(), Error> {
+        info!(
+            "delete directives with topic ({:?}) for subscribers: {}",
+            topics,
+            chain_id.to_string()
+        );
         for (seq_key, dir) in self
             .dire_queue
             .iter()
@@ -870,13 +870,12 @@ impl HubState {
                             record_event(&Event::DeletedDirective(seq_key.clone()))
                         }
                         
-                    }else {
-                        if matches!(&dir,Directive::AddChain(_))
+                    }else if matches!(&dir,Directive::AddChain(_))
                         {
                             self.dire_queue.remove(&seq_key);
                             record_event(&Event::DeletedDirective(seq_key.clone()))
                         }
-                    }
+                    
                 }
                 Topic::AddToken(dst_token_id) => {
                     if let Some(dst_token_id) = dst_token_id {
@@ -887,13 +886,12 @@ impl HubState {
                             record_event(&Event::DeletedDirective(seq_key.clone()))
                         }
                         
-                    }else {
-                        if matches!(&dir,Directive::AddToken(_))
+                    }else if matches!(&dir,Directive::AddToken(_))
                         {
                             self.dire_queue.remove(&seq_key);
                             record_event(&Event::DeletedDirective(seq_key.clone()))
                         }
-                    }
+                    
                 },
                 Topic::UpdateTargetChainFactor(targe_chain_id) =>{
                     if let Some(targe_chain_id) = targe_chain_id {
@@ -904,13 +902,12 @@ impl HubState {
                             record_event(&Event::DeletedDirective(seq_key.clone()))
                         }
                         
-                    }else {
-                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateTargetChainFactor(_)))
+                    }else if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateTargetChainFactor(_)))
                         {
                             self.dire_queue.remove(&seq_key);
                             record_event(&Event::DeletedDirective(seq_key.clone()))
                         }
-                    }
+                    
                 },
                 Topic::UpdateFeeTokenFactor(dst_token_id) => {
                     if let Some(dst_token_id) = dst_token_id {
@@ -921,13 +918,12 @@ impl HubState {
                             record_event(&Event::DeletedDirective(seq_key.clone()))
                         }
                         
-                    }else {
-                        if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateFeeTokenFactor(_)))
+                    }else if matches!(&dir,Directive::UpdateFee(factor) if matches!(factor,Factor::UpdateFeeTokenFactor(_)))
                         {
                             self.dire_queue.remove(&seq_key);
                             record_event(&Event::DeletedDirective(seq_key.clone()))
                         }
-                    }
+                    
                 },
                 Topic::ActivateChain => {
                     if matches!(&dir,Directive::ToggleChainState(toggle_state) if matches!(toggle_state.action,ToggleAction::Activate))

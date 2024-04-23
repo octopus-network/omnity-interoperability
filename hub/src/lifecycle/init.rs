@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use super::upgrade::UpgradeArgs;
 
-#[derive(CandidType, serde::Deserialize)]
+#[derive(CandidType, serde::Deserialize, Debug)]
 pub enum HubArg {
     Init(InitArgs),
     Upgrade(Option<UpgradeArgs>),

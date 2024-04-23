@@ -1,4 +1,4 @@
-use crate::state;
+use crate::state::{self, ReleaseTokenRequest};
 use std::cell::Cell;
 
 thread_local! {
@@ -50,7 +50,13 @@ pub fn encode_metrics(
         )?
         .value(
             &[("status", "pending")],
-            state::read_state(|s| s.pending_release_token_requests.len()) as f64,
+            state::read_state(|s| {
+                s.pending_release_token_requests
+                    .iter()
+                    .flat_map(|(_, r)| r.clone())
+                    .collect::<Vec<ReleaseTokenRequest>>()
+                    .len()
+            }) as f64,
         )?
         .value(
             &[("status", "signing")],
@@ -160,6 +166,18 @@ pub fn encode_metrics(
         "bitcoin_customs_median_fee_per_vbyte",
         state::read_state(|s| s.last_fee_per_vbyte[50]) as f64,
         "Median Bitcoin transaction fee per vbyte in Satoshi.",
+    )?;
+
+    metrics.encode_gauge(
+        "bitcoin_customs_next_ticket_seq",
+        state::read_state(|s| s.next_ticket_seq) as f64,
+        "Next sequence of query tickets.",
+    )?;
+
+    metrics.encode_gauge(
+        "bitcoin_customs_next_directive_seq",
+        state::read_state(|s: &state::CustomsState| s.next_directive_seq) as f64,
+        "Next sequence of query directives. ",
     )?;
 
     Ok(())

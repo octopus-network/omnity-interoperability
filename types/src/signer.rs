@@ -74,7 +74,7 @@ pub async fn sign_with_ecdsa(network: Network, message: Vec<u8>) -> Result<Signa
     match network {
         Network::Testnet => {
             // let signature: Signature = SIGING_KEY.sign(&message);
-            let signature: Signature = SIGING_KEY.sign(&sha256(&message).to_vec());
+            let signature: Signature = SIGING_KEY.sign(sha256(&message).as_ref());
             let sig_reply = SignatureReply {
                 signature: signature.to_vec(),
             };

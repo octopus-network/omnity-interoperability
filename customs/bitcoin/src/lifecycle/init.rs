@@ -1,8 +1,8 @@
 use crate::lifecycle::upgrade::UpgradeArgs;
-pub use crate::state::Mode;
 use crate::state::{replace_state, CustomsState};
 use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::Network;
+use omnity_types::ChainState;
 use serde::Serialize;
 
 pub const DEFAULT_MIN_CONFIRMATIONS: u32 = 6;
@@ -65,7 +65,7 @@ pub struct InitArgs {
 
     /// The mode controlling access to the customs.
     #[serde(default)]
-    pub mode: Mode,
+    pub chain_state: ChainState,
 
     pub hub_principal: Principal,
 

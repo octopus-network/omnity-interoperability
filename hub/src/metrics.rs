@@ -1,4 +1,3 @@
-use crate::types::ChainMeta;
 use crate::{state::with_state, types::TokenKey};
 use log::info;
 use omnity_types::{
@@ -32,7 +31,7 @@ pub async fn get_chains(
             })
             .skip(offset)
             .take(limit)
-            .map(|(_, chain)| <ChainMeta as Into<Chain>>::into(chain.clone()))
+            .map(|(_, chain)| chain.into())
             .collect::<Vec<_>>()
     });
 
@@ -43,7 +42,7 @@ pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     info!("get_chain chain_id: {:?} ", chain_id);
     with_state(|hub_state| {
         if let Some(chain) = hub_state.chains.get(&chain_id) {
-            Ok(chain.clone().into())
+            Ok(chain.into())
         } else {
             Err(Error::NotFoundChain(chain_id))
         }
@@ -76,7 +75,7 @@ pub async fn get_tokens(
             })
             .skip(offset)
             .take(limit)
-            .map(|(_, token_meta)| token_meta.clone().into())
+            .map(|(_, token_meta)| token_meta.into())
             .collect::<Vec<_>>()
     });
 
@@ -111,7 +110,7 @@ pub async fn get_fees(
                         (
                             tf.target_chain_id.to_string(),
                             tf.fee_token.to_string(),
-                            chain_factor * tf.fee_token_factor as u128,
+                            chain_factor * tf.fee_token_factor,
                         )
                     })
             })
@@ -202,7 +201,7 @@ pub async fn get_txs_with_chain(
             })
             .skip(offset)
             .take(limit)
-            .map(|(_, ticket)| ticket.clone())
+            .map(|(_, ticket)| ticket)
             .collect::<Vec<_>>()
     });
 
@@ -245,7 +244,93 @@ pub async fn get_txs_with_account(
             })
             .skip(offset)
             .take(limit)
-            .map(|(_, ticket)| ticket.clone())
+            .map(|(_, ticket)| ticket)
+            .collect::<Vec<_>>()
+    });
+
+    Ok(filtered_tickets)
+}
+
+pub async fn get_txs_with_account(
+    sender: Option<Account>,
+    receiver: Option<Account>,
+    token_id: Option<TokenId>,
+    time_range: Option<(u64, u64)>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<Ticket>, Error> {
+    info!(
+        "get_txs_with_account condition: sender:{:?}, receiver:{:?},  token id:{:?}, time range:{:?}, offset: {}, limit: {}",
+        sender, receiver, token_id, time_range, offset, limit
+    );
+
+    let filtered_tickets = with_state(|hub_state| {
+        hub_state
+            .cross_ledger
+            .iter()
+            .filter(|(_, ticket)| {
+                let sender_match = sender
+                    .as_ref()
+                    .map_or(true, |req_sender| matches!(&ticket.sender, Some(ticket_sender) if ticket_sender.eq(req_sender)));
+                let receiver_match = receiver
+                    .as_ref()
+                    .map_or(true, |receiver| ticket.receiver.eq(receiver));
+                let token_id_match = token_id
+                    .as_ref()
+                    .map_or(true, |token_id| ticket.token.eq(token_id));
+
+                let time_range_match = match time_range {
+                    Some((start, end)) => ticket.ticket_time >= start && ticket.ticket_time <= end,
+                    None => true,
+                };
+                sender_match && receiver_match && token_id_match && time_range_match
+            })
+            .skip(offset)
+            .take(limit)
+            .map(|(_, ticket)| ticket)
+            .collect::<Vec<_>>()
+    });
+
+    Ok(filtered_tickets)
+}
+
+pub async fn get_txs_with_account(
+    sender: Option<Account>,
+    receiver: Option<Account>,
+    token_id: Option<TokenId>,
+    time_range: Option<(u64, u64)>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<Ticket>, Error> {
+    info!(
+        "get_txs_with_account condition: sender:{:?}, receiver:{:?},  token id:{:?}, time range:{:?}, offset: {}, limit: {}",
+        sender, receiver, token_id, time_range, offset, limit
+    );
+
+    let filtered_tickets = with_state(|hub_state| {
+        hub_state
+            .cross_ledger
+            .iter()
+            .filter(|(_, ticket)| {
+                let sender_match = sender
+                    .as_ref()
+                    .map_or(true, |req_sender| matches!(&ticket.sender, Some(ticket_sender) if ticket_sender.eq(req_sender)));
+                let receiver_match = receiver
+                    .as_ref()
+                    .map_or(true, |receiver| ticket.receiver.eq(receiver));
+                let token_id_match = token_id
+                    .as_ref()
+                    .map_or(true, |token_id| ticket.token.eq(token_id));
+
+                let time_range_match = match time_range {
+                    Some((start, end)) => ticket.ticket_time >= start && ticket.ticket_time <= end,
+                    None => true,
+                };
+                sender_match && receiver_match && token_id_match && time_range_match
+            })
+            .skip(offset)
+            .take(limit)
+            .map(|(_, ticket)| ticket)
             .collect::<Vec<_>>()
     });
 
@@ -256,7 +341,7 @@ pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
     info!("get_tx ticket_id: {:?} ", ticket_id);
     with_state(|hub_state| {
         if let Some(ticket) = hub_state.cross_ledger.get(&ticket_id) {
-            Ok(ticket.clone())
+            Ok(ticket)
         } else {
             Err(Error::CustomError(format!(
                 "Not found this ticket: {}",
@@ -268,7 +353,7 @@ pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
 
 pub async fn get_total_tx() -> Result<u64, Error> {
     with_state(|hub_state| {
-        let total_num = hub_state.cross_ledger.len() as u64;
+        let total_num = hub_state.cross_ledger.len();
         Ok(total_num)
     })
 }
@@ -276,7 +361,7 @@ pub async fn get_total_tx() -> Result<u64, Error> {
 pub async fn get_chain_type(chain_id: ChainId) -> Result<ChainType, Error> {
     with_state(|hub_state| {
         if let Some(chain) = hub_state.chains.get(&chain_id) {
-            Ok(chain.chain_type.clone())
+            Ok(chain.chain_type)
         } else {
             Err(Error::NotFoundChain(chain_id))
         }

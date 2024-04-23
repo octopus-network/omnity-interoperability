@@ -3,7 +3,7 @@ pub mod eventlog;
 
 use crate::lifecycle::{init::InitArgs, upgrade::UpgradeArgs};
 use candid::{CandidType, Principal};
-use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
+use omnity_types::{Chain, ChainId, ChainState, TicketId, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -41,6 +41,8 @@ pub struct RouteState {
 
     pub target_chain_factor: BTreeMap<ChainId, u128>,
 
+    pub chain_state: ChainState,
+
     #[serde(skip)]
     pub is_timer_running: bool,
 }
@@ -53,6 +55,7 @@ impl RouteState {
         UpgradeArgs {
             chain_id,
             hub_principal,
+            chain_state,
         }: UpgradeArgs,
     ) {
         if let Some(chain_id) = chain_id {
@@ -60,6 +63,9 @@ impl RouteState {
         }
         if let Some(hub_principal) = hub_principal {
             self.hub_principal = hub_principal;
+        }
+        if let Some(chain_state) = chain_state {
+            self.chain_state = chain_state;
         }
     }
 }
@@ -77,6 +83,7 @@ impl From<InitArgs> for RouteState {
             finalized_mint_token_requests: Default::default(),
             fee_token_factor: None,
             target_chain_factor: Default::default(),
+            chain_state: args.chain_state,
             is_timer_running: false,
         }
     }

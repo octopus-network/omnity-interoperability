@@ -7,14 +7,14 @@ use crate::{
     types::Proposal,
 };
 
-pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, Error> {
-    if proposals.len() == 0 {
+pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>, Error> {
+    if proposals.is_empty() {
         return Err(Error::ProposalError(
             "Proposal can not be empty".to_string(),
         ));
     }
     let mut proposal_msgs = Vec::new();
-    for proposal in proposals.into_iter() {
+    for proposal in proposals.iter() {
         match proposal {
             Proposal::AddChain(chain_meta) => {
                 if chain_meta.chain_id.is_empty() {
@@ -73,7 +73,7 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
                     ));
                 }
 
-                with_state(|hub_state| hub_state.available_state(&toggle_state))?;
+                with_state(|hub_state| hub_state.available_state(toggle_state))?;
 
                 proposal_msgs.push(format!("The ToggleChainStatus proposal: {}", toggle_state));
             }
@@ -106,47 +106,38 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
     for proposal in proposals.into_iter() {
         match proposal {
             Proposal::AddChain(chain_meta) => {
-                info!(
-                    "build directive for `AddChain` proposal :{:?}",
-                    chain_meta.to_string()
-                );
-
                 // save new chain
                 with_state_mut(|hub_state| {
                     info!(" save new chain: {:?}", chain_meta);
                     hub_state.add_chain(chain_meta.clone())
                 })?;
-
-                // build directives
-                match chain_meta.chain_type {
-                    // nothing to do
-                    ChainType::SettlementChain => {
-                        info!("for settlement chain,  no need to build directive!");
-                    }
-
-                    ChainType::ExecutionChain => {
-                        // publish directive for the new chain)
-                        with_state_mut(|hub_state| {
-                            hub_state.pub_directive(&Directive::AddChain(chain_meta.into()))
-                        })?;
-                    }
-                }
+                // publish directive for the new chain)
+                info!(
+                    "publish directive for `AddChain` proposal :{:?}",
+                    chain_meta.to_string()
+                );
+                with_state_mut(|hub_state| {
+                    hub_state.pub_directive(&Directive::AddChain(chain_meta.into()))
+                })?;
             }
 
             Proposal::AddToken(token_meata) => {
-                info!("build directive for `AddToken` proposal :{:?}", token_meata);
+                info!(
+                    "publish directive for `AddToken` proposal :{:?}",
+                    token_meata
+                );
 
                 with_state_mut(|hub_state| {
                     // save token info
                     hub_state.add_token(token_meata.clone())?;
                     // publish directive
-                    hub_state.pub_directive(&Directive::AddToken(token_meata.clone().into()))
+                    hub_state.pub_directive(&Directive::AddToken(token_meata.into()))
                 })?
             }
 
             Proposal::ToggleChainState(toggle_status) => {
                 info!(
-                    "build directive for `ToggleChainState` proposal :{:?}",
+                    "publish directive for `ToggleChainState` proposal :{:?}",
                     toggle_status
                 );
 
@@ -159,7 +150,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             }
 
             Proposal::UpdateFee(factor) => {
-                info!("build directive for `UpdateFee` proposal :{:?}", factor);
+                info!("publish directive for `UpdateFee` proposal :{:?}", factor);
                 with_state_mut(|hub_state| {
                     hub_state.update_fee(factor.clone())?;
                     hub_state.pub_directive(&Directive::UpdateFee(factor.clone()))
