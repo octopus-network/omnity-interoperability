@@ -117,6 +117,7 @@ fn install_router(env: &StateMachine, hub_id: CanisterId) -> CanisterId {
         Encode!(&RouteArg::Init(InitArgs {
             chain_id: EXECUTION_CHAIN.into(),
             hub_principal: hub_id.into(),
+            chain_state: ChainState::Active,
         }))
         .unwrap(),
     )

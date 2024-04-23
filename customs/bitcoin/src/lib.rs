@@ -9,7 +9,7 @@ use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
-use omnity_types::{Directive, TokenId};
+use omnity_types::{ChainState, Directive, TokenId};
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
@@ -226,6 +226,10 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
 }
 
 async fn process_tickets() {
+    if read_state(|s| s.chain_state == ChainState::Deactive) {
+        return;
+    }
+
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {

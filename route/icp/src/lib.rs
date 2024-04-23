@@ -1,7 +1,7 @@
 use candid::{CandidType, Principal};
 use icrc_ledger_types::icrc1::account::Subaccount;
 use log::{self};
-use omnity_types::{Directive, Token, TokenId};
+use omnity_types::{ChainState, Directive, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use state::{audit, mutate_state, read_state};
 use std::str::FromStr;
@@ -23,6 +23,10 @@ pub const ICP_TRANSFER_FEE: u64 = 10_000;
 pub const FEE_COLLECTOR_SUB_ACCOUNT: &Subaccount = &[1; 32];
 
 async fn process_tickets() {
+    if read_state(|s| s.chain_state == ChainState::Deactive) {
+        return;
+    }
+
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {

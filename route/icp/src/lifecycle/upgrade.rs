@@ -3,12 +3,14 @@ use crate::{
     storage::record_event,
 };
 use candid::{CandidType, Principal};
+use omnity_types::ChainState;
 use serde::{Deserialize, Serialize};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UpgradeArgs {
     pub chain_id: Option<String>,
     pub hub_principal: Option<Principal>,
+    pub chain_state: Option<ChainState>,
 }
 
 pub fn post_upgrade(upgrade_args: Option<UpgradeArgs>) {

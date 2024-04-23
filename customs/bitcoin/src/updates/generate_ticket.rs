@@ -43,8 +43,11 @@ impl From<GuardError> for GenerateTicketError {
 }
 
 pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
-    read_state(|s| s.mode.is_transport_available_for())
-        .map_err(GenerateTicketError::TemporarilyUnavailable)?;
+    if read_state(|s| s.chain_state == ChainState::Deactive) {
+        return Err(GenerateTicketError::TemporarilyUnavailable(
+            "chain state is deactive!".into(),
+        ));
+    }
 
     init_ecdsa_public_key().await;
     let _guard = generate_ticket_guard()?;
