@@ -111,25 +111,14 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                     info!(" save new chain: {:?}", chain_meta);
                     hub_state.add_chain(chain_meta.clone())
                 })?;
-
-                // build directives
-                match chain_meta.chain_type {
-                    // nothing to do
-                    ChainType::SettlementChain => {
-                        info!("for settlement chain,  no need to build directive!");
-                    }
-
-                    ChainType::ExecutionChain => {
-                        // publish directive for the new chain)
-                        info!(
-                            "publish directive for `AddChain` proposal :{:?}",
-                            chain_meta.to_string()
-                        );
-                        with_state_mut(|hub_state| {
-                            hub_state.pub_directive(&Directive::AddChain(chain_meta.into()))
-                        })?;
-                    }
-                }
+                // publish directive for the new chain)
+                info!(
+                    "publish directive for `AddChain` proposal :{:?}",
+                    chain_meta.to_string()
+                );
+                with_state_mut(|hub_state| {
+                    hub_state.pub_directive(&Directive::AddChain(chain_meta.into()))
+                })?;
             }
 
             Proposal::AddToken(token_meata) => {
