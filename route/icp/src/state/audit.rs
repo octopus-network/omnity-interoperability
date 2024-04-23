@@ -56,7 +56,9 @@ pub fn update_fee(state: &mut RouteState, fee: Factor) {
         }
 
         Factor::UpdateFeeTokenFactor(token_factor) => {
-            state.fee_token_factor = Some(token_factor.fee_token_factor);
+            if token_factor.fee_token == "LICP" {
+                state.fee_token_factor = Some(token_factor.fee_token_factor);
+            }
         }
     }
 }

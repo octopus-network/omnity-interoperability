@@ -391,12 +391,10 @@ fn assert_reply(result: WasmResult) -> Vec<u8> {
 
 pub fn default_topic() -> Vec<Topic> {
     vec![
-        Topic::AddChain(None),
-        Topic::AddToken(None),
-        Topic::UpdateTargetChainFactor(None),
-        Topic::UpdateFeeTokenFactor(None),
-        Topic::ActivateChain,
-        Topic::DeactivateChain,
+        Topic::AddChain,
+        Topic::AddToken,
+        Topic::UpdateFee,
+        Topic::ToggleChainState,
     ]
 }
 

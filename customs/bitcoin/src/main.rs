@@ -200,6 +200,7 @@ fn estimate_redeem_fee(arg: EstimateFeeArgs) -> RedeemFee {
 fn get_customs_info() -> CustomsInfo {
     read_state(|s| CustomsInfo {
         min_confirmations: s.min_confirmations,
+        chain_state: s.chain_state.clone(),
     })
 }
 
