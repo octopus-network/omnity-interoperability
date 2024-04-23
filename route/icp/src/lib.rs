@@ -156,7 +156,6 @@ pub struct TokenResp {
     pub decimals: u8,
     pub icon: Option<String>,
     pub rune_id: Option<String>,
-    pub transfer_fee: u128,
 }
 
 impl From<Token> for TokenResp {
@@ -167,7 +166,6 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
-            transfer_fee: value.transfer_fee,
         }
     }
 }

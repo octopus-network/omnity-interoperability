@@ -2,6 +2,7 @@ use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
 use ic_cdk::api::management_canister::main::{CanisterStatusResponse, CanisterStatusType};
 use ic_ic00_types::CanisterSettingsArgsBuilder;
+use ic_icrc1_ledger::UpgradeArgs;
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
@@ -462,6 +463,24 @@ impl RouteSetup {
         .unwrap()
     }
 
+    pub fn upgrade_icrc2_ledger(&self, ledger_id: Principal, args: ic_icrc1_ledger::UpgradeArgs) {
+        let _ = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.route_id,
+                        "upgrade_icrc_ledger",
+                        Encode!(&ledger_id, &args).unwrap(),
+                    )
+                    .expect("failed to upgrade icrc2 ledger")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
     pub fn icrc1_balance_of(
         &self,
         ledger_id: CanisterId,
@@ -570,10 +589,23 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
         decimals: 0,
         icon: None,
         metadata: HashMap::default(),
-        transfer_fee: 10_u128.pow(DECIMALS as u32),
     })]);
     route.env.advance_time(Duration::from_secs(10));
     route.await_token(token_id, 10);
+
+    let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    route.upgrade_icrc2_ledger(ledger_id.into(), UpgradeArgs {
+        metadata: None,
+        token_name: None,
+        token_symbol: None,
+        transfer_fee: Some(100_u128.into()),
+        change_fee_collector: None,
+        max_memo_length: None,
+        feature_flags: None,
+        maximum_number_of_accounts: None,
+        accounts_overflow_trim_quantity: None,
+    });
 }
 
 fn set_fee(route: &RouteSetup) {
@@ -811,9 +843,6 @@ pub fn test_transfer_fee() {
         route.route_id.into(),
         Some(FEE_COLLECTOR_SUB_ACCOUNT.clone()),
     );
-    dbg!(&receiver_balance);
-    dbg!(&caller_balance);
-    dbg!(&fee_collector_balance);
     assert_eq!(receiver_balance, Nat::from_str("1000000").unwrap());
     assert_eq!(caller_balance, Nat::from_str("0").unwrap());
     assert_eq!(fee_collector_balance, Nat::from_str("100").unwrap());

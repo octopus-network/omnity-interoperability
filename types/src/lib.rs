@@ -411,7 +411,6 @@ pub struct Token {
     pub decimals: u8,
     pub icon: Option<String>,
     pub metadata: HashMap<String, String>,
-    pub transfer_fee: u128,
 }
 
 impl Token {

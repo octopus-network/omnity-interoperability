@@ -1,12 +1,12 @@
 use crate::state::{audit, mutate_state, read_state};
 use crate::{FEE_COLLECTOR_SUB_ACCOUNT, ICRC2_WASM};
-use candid::{CandidType, Deserialize, Nat};
+use candid::{CandidType, Deserialize};
 use candid::{Encode, Principal};
 use ic_cdk::api::management_canister::main::{
     create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CreateCanisterArgument,
     InstallCodeArgument,
 };
-use ic_icrc1_ledger::{ArchiveOptions, InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument};
+use ic_icrc1_ledger::{ArchiveOptions, InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument, UpgradeArgs};
 use icrc_ledger_types::icrc::generic_metadata_value::MetadataValue;
 use icrc_ledger_types::icrc1::account::Account;
 use omnity_types::Token;
@@ -27,7 +27,6 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
         token.symbol.clone(),
         token.decimals,
         token.icon.clone(),
-        token.transfer_fee,
     )
     .await
     .map_err(AddNewTokenError::CreateLedgerErr)?;
@@ -43,7 +42,6 @@ async fn install_icrc2_ledger(
     token_symbol: String,
     token_decimal: u8,
     token_icon: Option<String>,
-    transfer_fee: u128,
 ) -> Result<CanisterIdRecord, String> {
     let create_canister_arg = CreateCanisterArgument { settings: None };
     let (canister_id_record,) = create_canister(create_canister_arg, 500_000_000_000)
@@ -63,7 +61,6 @@ async fn install_icrc2_ledger(
                     owner,
                     subaccount: Some(FEE_COLLECTOR_SUB_ACCOUNT.clone())
                 })
-                .with_transfer_fee(Nat::from(transfer_fee))
                 .with_metadata_entry(
                     "icrc1:logo",
                     MetadataValue::Text(token_icon.unwrap_or_default())
@@ -86,4 +83,17 @@ async fn install_icrc2_ledger(
         .map_err(|(_, reason)| reason)?;
 
     Ok(canister_id_record)
+}
+
+pub async fn upgrade_icrc2_ledger(canister_id: Principal ,upgrade_args: UpgradeArgs)->Result<(), String> {
+    let install_code_arg = InstallCodeArgument {
+        mode: CanisterInstallMode::Upgrade,
+        canister_id: canister_id,
+        wasm_module: ICRC2_WASM.to_vec(),
+        arg: Encode!(&LedgerArgument::Upgrade(Some(upgrade_args)))
+        .unwrap(),
+    };
+    install_code(install_code_arg)
+        .await
+        .map_err(|(_, reason)| reason)
 }

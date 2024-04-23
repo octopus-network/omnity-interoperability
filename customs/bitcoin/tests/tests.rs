@@ -265,7 +265,6 @@ impl CustomsSetup {
                 decimals: 0,
                 icon: None,
                 metadata: HashMap::from([("rune_id".to_string(), RUNE_ID_1.to_string())]),
-                transfer_fee: 0,
             }),
             Directive::AddToken(Token {
                 token_id: TOKEN_ID_2.into(),
@@ -274,7 +273,6 @@ impl CustomsSetup {
                 decimals: 0,
                 icon: None,
                 metadata: HashMap::from([("rune_id".to_string(), RUNE_ID_2.to_string())]),
-                transfer_fee: 0,
             }),
         ];
         customs.push_directives(directives);

@@ -11,6 +11,7 @@ use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
 use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{read_state, take_state, MintTokenStatus};
+use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
 use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
@@ -101,6 +102,11 @@ pub async fn controlled_canister_status(
         .await
         .and_then(|(e,)| Ok(e))
         .map_err(|(_, reason)| reason)
+}
+
+#[update(guard = "is_controller")]
+pub async fn upgrade_icrc_ledger(principal: Principal, args: ic_icrc1_ledger::UpgradeArgs)-> Result<(), String> {
+    upgrade_icrc2_ledger(principal, args).await
 }
 
 #[query]

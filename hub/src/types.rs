@@ -221,7 +221,6 @@ impl Into<Token> for TokenMeta {
             decimals: self.decimals,
             icon: self.icon,
             metadata: self.metadata,
-            transfer_fee: 0,
         }
     }
 }
