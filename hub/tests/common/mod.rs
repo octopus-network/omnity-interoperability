@@ -446,7 +446,7 @@ pub fn chains() -> Vec<Proposal> {
             canister_id: PrincipalId::new_user_test_id(2).to_string(),
             contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
-            fee_token: None,
+            fee_token: Some("ICP".to_string()),
         }),
         Proposal::AddChain(ChainMeta {
             chain_id: "EVM-Arbitrum".to_string(),

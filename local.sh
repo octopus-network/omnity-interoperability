@@ -152,8 +152,8 @@ http://192.168.1.105:23456/rune/UNCOMMON%E2%80%A2GOODS
 rune_id: 108:1
 
 # sub hub topic
-dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
-dfx canister call omnity_hub sub_directives '(opt "ICP", vec {variant {AddChain=null};variant {AddToken=null};variant {UpdateTargetChainFactor=null};variant {UpdateFeeTokenFactor=null} ;variant {ActivateChain};variant {DeactivateChain} })'
+dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {AddToken};variant {UpdateFee};variant {ToggleChainState}})'
+dfx canister call omnity_hub sub_directives '(opt "eICP", vec {variant {AddChain};variant {AddToken};variant {UpdateFee};variant {ToggleChainState}})'
 
 # Note: replace the canister id to Bitcoin customs canister id
 $ dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Bitcoin"; chain_type=variant { SettlementChain };canister_id="be2us-64aaa-aaaaa-qaabq-cai"; contract_address=null;counterparties=opt vec {"eICP"}; fee_token=null}}})'
