@@ -278,7 +278,13 @@ fn test_update_fee() {
 #[test]
 fn test_a_b_tx() {
     let hub = OmnityHub::new();
-
+    // sub topic
+    for chain in chain_ids() {
+        let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
+        println!("sub_directives({}) result: {:#?}", chain, ret);
+    }
+    let ret = hub.query_subscribers(&None);
+    println!("query_subscribers result: {:#?}", ret);
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
@@ -377,6 +383,14 @@ fn test_a_b_tx() {
 #[test]
 fn test_a_b_c_tx() {
     let hub = OmnityHub::new();
+     // sub topic
+     for chain in chain_ids() {
+        let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
+        println!("sub_directives({}) result: {:#?}", chain, ret);
+    }
+    let ret = hub.query_subscribers(&None);
+    println!("query_subscribers result: {:#?}", ret);
+
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
@@ -547,6 +561,14 @@ fn test_a_b_c_tx() {
 #[test]
 fn test_upgrade() {
     let hub = OmnityHub::new();
+     // sub topic
+     for chain in chain_ids() {
+        let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
+        println!("sub_directives({}) result: {:#?}", chain, ret);
+    }
+    let ret = hub.query_subscribers(&None);
+    println!("query_subscribers result: {:#?}", ret);
+
     // add chain
     let ret = hub.validate_proposal(&chains());
     println!("test_validate_proposal result: {:#?}", ret);
@@ -629,6 +651,21 @@ fn test_upgrade() {
     println!("get_chain_tokens result: {:#?}", result);
     assert!(result.is_ok());
 
+    let logs = hub.get_logs(&None, &0, &100);
+
+    for r in logs.iter() {
+        print!("http requst stable log: {}", r)
+    }
+    // upgrade
+    println!("--------- begint to upgrade ---------");
+    hub.upgrade();
+    println!("--------- upgrade end ---------");
+    // query txs
+    let result = hub.get_txs_with_chain(&None, &None, &None, &None, &0, &10);
+    println!("get_txs result: {:#?}", result);
+    assert!(result.is_ok());
+
+
     // redeem
     // C->B: `redeem` ticket
     let src_chain = "EVM-Starknet";
@@ -695,22 +732,8 @@ fn test_upgrade() {
     println!("get_chain_tokens result: {:#?}", result);
     assert!(result.is_ok());
 
-    let logs = hub.get_logs(&None, &0, &100);
-
-    for r in logs.iter() {
-        print!("http requst stable log: {}", r)
-    }
-    // upgrade
-    println!("--------- begint to upgrade ---------");
-    hub.upgrade();
-    println!("--------- upgrade end ---------");
-    // query txs
-    let result = hub.get_txs_with_chain(&None, &None, &None, &None, &0, &10);
-    println!("get_txs result: {:#?}", result);
-    assert!(result.is_ok());
 
     // update fee
-
     //  chain factor
     let chain_factor = Factor::UpdateTargetChainFactor(omnity_types::TargetChainFactor {
         target_chain_id: "Bitcoin".to_string(),
