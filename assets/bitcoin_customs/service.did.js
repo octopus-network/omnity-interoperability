@@ -1,15 +1,13 @@
 export const idlFactory = ({ IDL }) => {
-  const Mode = IDL.Variant({
-    'ReadOnly' : IDL.Null,
-    'GeneralAvailability' : IDL.Null,
-    'ReleaseRestricted' : IDL.Null,
-    'TransportRestricted' : IDL.Null,
+  const ChainState = IDL.Variant({
+    'Active' : IDL.Null,
+    'Deactive' : IDL.Null,
   });
   const UpgradeArgs = IDL.Record({
     'hub_principal' : IDL.Opt(IDL.Principal),
-    'mode' : IDL.Opt(Mode),
     'runes_oracle_principal' : IDL.Opt(IDL.Principal),
     'max_time_in_queue_nanos' : IDL.Opt(IDL.Nat64),
+    'chain_state' : IDL.Opt(ChainState),
     'min_confirmations' : IDL.Opt(IDL.Nat32),
   });
   const BtcNetwork = IDL.Variant({
@@ -20,11 +18,11 @@ export const idlFactory = ({ IDL }) => {
   const InitArgs = IDL.Record({
     'hub_principal' : IDL.Principal,
     'ecdsa_key_name' : IDL.Text,
-    'mode' : Mode,
     'runes_oracle_principal' : IDL.Principal,
     'max_time_in_queue_nanos' : IDL.Nat64,
     'chain_id' : IDL.Text,
     'btc_network' : BtcNetwork,
+    'chain_state' : ChainState,
     'min_confirmations' : IDL.Opt(IDL.Nat32),
   });
   const CustomArg = IDL.Variant({
@@ -55,7 +53,6 @@ export const idlFactory = ({ IDL }) => {
     'UnsupportedToken' : IDL.Text,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : GenerateTicketError });
-  const GenTicketStatusArgs = IDL.Record({ 'txid' : IDL.Vec(IDL.Nat8) });
   const GenTicketRequest = IDL.Record({
     'received_at' : IDL.Nat64,
     'token_id' : IDL.Text,
@@ -103,10 +100,6 @@ export const idlFactory = ({ IDL }) => {
     'idle_cycles_burned_per_day' : IDL.Nat,
     'module_hash' : IDL.Opt(IDL.Vec(IDL.Nat8)),
     'reserved_cycles' : IDL.Nat,
-  });
-  const ChainState = IDL.Variant({
-    'Active' : IDL.Null,
-    'Deactive' : IDL.Null,
   });
   const ChainType = IDL.Variant({
     'SettlementChain' : IDL.Null,
@@ -218,7 +211,7 @@ export const idlFactory = ({ IDL }) => {
     'added_chain' : Chain,
     'update_next_ticket_seq' : IDL.Nat64,
     'update_next_directive_seq' : IDL.Nat64,
-    'confirmed_transaction' : GenTicketStatusArgs,
+    'confirmed_transaction' : IDL.Record({ 'txid' : IDL.Vec(IDL.Nat8) }),
     'replaced_transaction' : IDL.Record({
       'fee' : IDL.Nat64,
       'btc_change_output' : BtcChangeOutput,
@@ -241,7 +234,6 @@ export const idlFactory = ({ IDL }) => {
     'rune_id' : IDL.Text,
     'symbol' : IDL.Text,
   });
-  const ReleaseTokenStatusArgs = IDL.Record({ 'ticket_id' : IDL.Text });
   const ReleaseTokenStatus = IDL.Variant({
     'Signing' : IDL.Null,
     'Confirmed' : IDL.Vec(IDL.Nat8),
@@ -276,7 +268,7 @@ export const idlFactory = ({ IDL }) => {
     'estimate_redeem_fee' : IDL.Func([EstimateFeeArgs], [RedeemFee], ['query']),
     'generate_ticket' : IDL.Func([GenerateTicketArgs], [Result], []),
     'generate_ticket_status' : IDL.Func(
-        [GenTicketStatusArgs],
+        [IDL.Text],
         [GenTicketStatus],
         ['query'],
       ),
@@ -293,7 +285,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'release_token_status' : IDL.Func(
-        [ReleaseTokenStatusArgs],
+        [IDL.Text],
         [ReleaseTokenStatus],
         ['query'],
       ),
@@ -302,17 +294,15 @@ export const idlFactory = ({ IDL }) => {
   });
 };
 export const init = ({ IDL }) => {
-  const Mode = IDL.Variant({
-    'ReadOnly' : IDL.Null,
-    'GeneralAvailability' : IDL.Null,
-    'ReleaseRestricted' : IDL.Null,
-    'TransportRestricted' : IDL.Null,
+  const ChainState = IDL.Variant({
+    'Active' : IDL.Null,
+    'Deactive' : IDL.Null,
   });
   const UpgradeArgs = IDL.Record({
     'hub_principal' : IDL.Opt(IDL.Principal),
-    'mode' : IDL.Opt(Mode),
     'runes_oracle_principal' : IDL.Opt(IDL.Principal),
     'max_time_in_queue_nanos' : IDL.Opt(IDL.Nat64),
+    'chain_state' : IDL.Opt(ChainState),
     'min_confirmations' : IDL.Opt(IDL.Nat32),
   });
   const BtcNetwork = IDL.Variant({
@@ -323,11 +313,11 @@ export const init = ({ IDL }) => {
   const InitArgs = IDL.Record({
     'hub_principal' : IDL.Principal,
     'ecdsa_key_name' : IDL.Text,
-    'mode' : Mode,
     'runes_oracle_principal' : IDL.Principal,
     'max_time_in_queue_nanos' : IDL.Nat64,
     'chain_id' : IDL.Text,
     'btc_network' : BtcNetwork,
+    'chain_state' : ChainState,
     'min_confirmations' : IDL.Opt(IDL.Nat32),
   });
   const CustomArg = IDL.Variant({

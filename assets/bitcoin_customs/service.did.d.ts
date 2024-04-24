@@ -96,7 +96,7 @@ export type Event = {
   { 'added_chain' : Chain } |
   { 'update_next_ticket_seq' : bigint } |
   { 'update_next_directive_seq' : bigint } |
-  { 'confirmed_transaction' : GenTicketStatusArgs } |
+  { 'confirmed_transaction' : { 'txid' : Uint8Array | number[] } } |
   {
     'replaced_transaction' : {
       'fee' : bigint,
@@ -123,7 +123,6 @@ export type GenTicketStatus = { 'Invalid' : null } |
   { 'Finalized' : null } |
   { 'Unknown' : null } |
   { 'Pending' : GenTicketRequest };
-export interface GenTicketStatusArgs { 'txid' : Uint8Array | number[] }
 export interface GenerateTicketArgs {
   'txid' : string,
   'target_chain_id' : string,
@@ -151,17 +150,13 @@ export interface GetGenTicketReqsArgs {
 export interface InitArgs {
   'hub_principal' : Principal,
   'ecdsa_key_name' : string,
-  'mode' : Mode,
   'runes_oracle_principal' : Principal,
   'max_time_in_queue_nanos' : bigint,
   'chain_id' : string,
   'btc_network' : BtcNetwork,
+  'chain_state' : ChainState,
   'min_confirmations' : [] | [number],
 }
-export type Mode = { 'ReadOnly' : null } |
-  { 'GeneralAvailability' : null } |
-  { 'ReleaseRestricted' : null } |
-  { 'TransportRestricted' : null };
 export interface OutPoint { 'txid' : Uint8Array | number[], 'vout' : number }
 export interface QueryStats {
   'response_payload_bytes_total' : bigint,
@@ -183,7 +178,6 @@ export type ReleaseTokenStatus = { 'Signing' : null } |
   { 'Unknown' : null } |
   { 'Submitted' : Uint8Array | number[] } |
   { 'Pending' : null };
-export interface ReleaseTokenStatusArgs { 'ticket_id' : string }
 export type Result = { 'Ok' : null } |
   { 'Err' : GenerateTicketError };
 export type Result_1 = { 'Ok' : Array<Utxo> } |
@@ -232,9 +226,9 @@ export type UpdateRunesBalanceError = { 'SendTicketErr' : string } |
   { 'MismatchWithGenTicketReq' : null };
 export interface UpgradeArgs {
   'hub_principal' : [] | [Principal],
-  'mode' : [] | [Mode],
   'runes_oracle_principal' : [] | [Principal],
   'max_time_in_queue_nanos' : [] | [bigint],
+  'chain_state' : [] | [ChainState],
   'min_confirmations' : [] | [number],
 }
 export interface Utxo {
@@ -245,10 +239,7 @@ export interface Utxo {
 export interface _SERVICE {
   'estimate_redeem_fee' : ActorMethod<[EstimateFeeArgs], RedeemFee>,
   'generate_ticket' : ActorMethod<[GenerateTicketArgs], Result>,
-  'generate_ticket_status' : ActorMethod<
-    [GenTicketStatusArgs],
-    GenTicketStatus
-  >,
+  'generate_ticket_status' : ActorMethod<[string], GenTicketStatus>,
   'get_btc_address' : ActorMethod<[GetBtcAddressArgs], string>,
   'get_canister_status' : ActorMethod<[], CanisterStatusResponse>,
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
@@ -260,10 +251,7 @@ export interface _SERVICE {
     Array<GenTicketRequest>
   >,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
-  'release_token_status' : ActorMethod<
-    [ReleaseTokenStatusArgs],
-    ReleaseTokenStatus
-  >,
+  'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
   'update_btc_utxos' : ActorMethod<[], Result_1>,
   'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_2>,
 }

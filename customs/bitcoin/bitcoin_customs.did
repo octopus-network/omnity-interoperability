@@ -31,7 +31,10 @@ type Chain = record {
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type CustomArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
-type CustomsInfo = record { min_confirmations : nat32 };
+type CustomsInfo = record {
+  chain_state : ChainState;
+  min_confirmations : nat32;
+};
 type DefiniteCanisterSettings = record {
   freezing_threshold : nat;
   controllers : vec principal;

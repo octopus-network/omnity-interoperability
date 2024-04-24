@@ -144,14 +144,7 @@ type TokenResp = record {
   rune_id : opt text;
   symbol : text;
 };
-type Topic = variant {
-  UpdateFeeTokenFactor : opt text;
-  ActivateChain;
-  AddToken : opt text;
-  DeactivateChain;
-  AddChain : opt ChainType;
-  UpdateTargetChainFactor : opt text;
-};
+type Topic = variant { UpdateFee; AddToken; AddChain; ToggleChainState };
 type TxAction = variant { Redeem; Transfer };
 type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {

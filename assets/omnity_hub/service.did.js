@@ -1,4 +1,10 @@
 export const idlFactory = ({ IDL }) => {
+  const UpgradeArgs = IDL.Record({ 'admin' : IDL.Opt(IDL.Principal) });
+  const InitArgs = IDL.Record({ 'admin' : IDL.Principal });
+  const HubArg = IDL.Variant({
+    'Upgrade' : IDL.Opt(UpgradeArgs),
+    'Init' : InitArgs,
+  });
   const FeeTokenFactor = IDL.Record({
     'fee_token' : IDL.Text,
     'fee_token_factor' : IDL.Nat,
@@ -58,7 +64,9 @@ export const idlFactory = ({ IDL }) => {
     'NotFoundChain' : IDL.Text,
     'DeactiveChain' : IDL.Text,
     'ChainAlreadyExisting' : IDL.Text,
+    'ResubmitTicketIdMustExist' : IDL.Null,
     'ProposalError' : IDL.Text,
+    'ResubmitTicketMustSame' : IDL.Null,
     'NotFoundAccountToken' : IDL.Tuple(IDL.Text, IDL.Text, IDL.Text),
     'NotSupportedProposal' : IDL.Null,
     'SighWithEcdsaError' : IDL.Text,
@@ -66,6 +74,7 @@ export const idlFactory = ({ IDL }) => {
     'TicketAmountParseError' : IDL.Tuple(IDL.Text, IDL.Text),
     'NotFoundChainToken' : IDL.Tuple(IDL.Text, IDL.Text),
     'TokenAlreadyExisting' : IDL.Text,
+    'ResubmitTicketSentTooOften' : IDL.Null,
     'GenerateDirectiveError' : IDL.Text,
     'EcdsaPublicKeyError' : IDL.Text,
     'NotFoundToken' : IDL.Text,
@@ -85,16 +94,13 @@ export const idlFactory = ({ IDL }) => {
     'start' : IDL.Nat64,
     'length' : IDL.Nat64,
   });
-  const ChainWithSeq = IDL.Record({
-    'fee_token' : IDL.Opt(IDL.Text),
-    'canister_id' : IDL.Text,
-    'chain_id' : IDL.Text,
-    'latest_ticket_seq' : IDL.Opt(IDL.Nat64),
-    'counterparties' : IDL.Opt(IDL.Vec(IDL.Text)),
-    'chain_state' : ChainState,
-    'chain_type' : ChainType,
-    'contract_address' : IDL.Opt(IDL.Text),
-    'latest_dire_seq' : IDL.Opt(IDL.Nat64),
+  const Topic = IDL.Variant({
+    'UpdateFeeTokenFactor' : IDL.Opt(IDL.Text),
+    'ActivateChain' : IDL.Null,
+    'AddToken' : IDL.Opt(IDL.Text),
+    'DeactivateChain' : IDL.Null,
+    'AddChain' : IDL.Opt(ChainType),
+    'UpdateTargetChainFactor' : IDL.Opt(IDL.Text),
   });
   const TokenKey = IDL.Record({ 'token_id' : IDL.Text, 'chain_id' : IDL.Text });
   const Token = IDL.Record({
@@ -111,6 +117,7 @@ export const idlFactory = ({ IDL }) => {
     'AddChain' : Chain,
     'ToggleChainState' : ToggleState,
   });
+  const SeqKey = IDL.Record({ 'seq' : IDL.Nat64, 'chain_id' : IDL.Text });
   const TxAction = IDL.Variant({ 'Redeem' : IDL.Null, 'Transfer' : IDL.Null });
   const TicketType = IDL.Variant({
     'Resubmit' : IDL.Null,
@@ -129,59 +136,68 @@ export const idlFactory = ({ IDL }) => {
     'amount' : IDL.Text,
     'receiver' : IDL.Text,
   });
+  const Subscribers = IDL.Record({ 'subs' : IDL.Vec(IDL.Text) });
   const Event = IDL.Variant({
     'toggled_chain_state' : IDL.Record({
-      'chain' : ChainWithSeq,
+      'chain' : Chain,
       'state' : ToggleState,
     }),
+    'Unsubscribed_topic' : IDL.Record({ 'sub' : IDL.Text, 'topic' : Topic }),
     'updated_fee' : Factor,
     'added_token_position' : IDL.Record({
       'position' : TokenKey,
       'amount' : IDL.Nat,
     }),
     'added_token' : TokenMeta,
-    'post_upgrade' : IDL.Vec(IDL.Nat8),
-    'init' : IDL.Principal,
-    'received_directive' : IDL.Record({
-      'dst_chain' : ChainWithSeq,
+    'init' : InitArgs,
+    'published_directive' : IDL.Record({
       'dire' : Directive,
+      'seq_key' : SeqKey,
     }),
-    'added_chain' : ChainWithSeq,
+    'upgrade' : UpgradeArgs,
+    'added_chain' : Chain,
     'updated_token_position' : IDL.Record({
       'position' : TokenKey,
       'amount' : IDL.Nat,
     }),
-    'updated_chain' : ChainWithSeq,
-    'received_ticket' : IDL.Record({
-      'ticket' : Ticket,
-      'dst_chain' : ChainWithSeq,
+    'updated_chain' : Chain,
+    'saved_directive' : Directive,
+    'received_ticket' : IDL.Record({ 'ticket' : Ticket, 'seq_key' : SeqKey }),
+    'resubmit_ticket' : IDL.Record({
+      'ticket_id' : IDL.Text,
+      'timestamp' : IDL.Nat64,
     }),
-    'pre_upgrade' : IDL.Vec(IDL.Nat8),
+    'deleted_directive' : SeqKey,
+    'Subscribed_topic' : IDL.Record({ 'topic' : Topic, 'subs' : Subscribers }),
   });
   const Result_4 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text, IDL.Nat)),
     'Err' : Error,
   });
-  const Result_5 = IDL.Variant({ 'Ok' : IDL.Vec(Token), 'Err' : Error });
+  const TokenResp = IDL.Record({
+    'decimals' : IDL.Nat8,
+    'token_id' : IDL.Text,
+    'icon' : IDL.Opt(IDL.Text),
+    'rune_id' : IDL.Opt(IDL.Text),
+    'symbol' : IDL.Text,
+  });
+  const Result_5 = IDL.Variant({ 'Ok' : IDL.Vec(TokenResp), 'Err' : Error });
   const Result_6 = IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : Error });
   const Result_7 = IDL.Variant({ 'Ok' : Ticket, 'Err' : Error });
   const Result_8 = IDL.Variant({ 'Ok' : IDL.Vec(Ticket), 'Err' : Error });
-  const Topic = IDL.Variant({
-    'UpdateFee' : IDL.Opt(IDL.Text),
-    'ActivateChain' : IDL.Null,
-    'AddToken' : IDL.Opt(IDL.Text),
-    'DeactivateChain' : IDL.Null,
-    'AddChain' : IDL.Opt(ChainType),
-  });
   const Result_9 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Tuple(IDL.Nat64, Directive)),
     'Err' : Error,
   });
   const Result_10 = IDL.Variant({
+    'Ok' : IDL.Vec(IDL.Tuple(Topic, Subscribers)),
+    'Err' : Error,
+  });
+  const Result_11 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Tuple(IDL.Nat64, Ticket)),
     'Err' : Error,
   });
-  const Result_11 = IDL.Variant({ 'Ok' : IDL.Vec(IDL.Text), 'Err' : Error });
+  const Result_12 = IDL.Variant({ 'Ok' : IDL.Vec(IDL.Text), 'Err' : Error });
   return IDL.Service({
     'execute_proposal' : IDL.Func([IDL.Vec(Proposal)], [Result], []),
     'get_chain' : IDL.Func([IDL.Text], [Result_1], ['query']),
@@ -213,7 +229,19 @@ export const idlFactory = ({ IDL }) => {
       ),
     'get_total_tx' : IDL.Func([], [Result_6], ['query']),
     'get_tx' : IDL.Func([IDL.Text], [Result_7], ['query']),
-    'get_txs' : IDL.Func(
+    'get_txs_with_account' : IDL.Func(
+        [
+          IDL.Opt(IDL.Text),
+          IDL.Opt(IDL.Text),
+          IDL.Opt(IDL.Text),
+          IDL.Opt(IDL.Tuple(IDL.Nat64, IDL.Nat64)),
+          IDL.Nat64,
+          IDL.Nat64,
+        ],
+        [Result_8],
+        ['query'],
+      ),
+    'get_txs_with_chain' : IDL.Func(
         [
           IDL.Opt(IDL.Text),
           IDL.Opt(IDL.Text),
@@ -230,15 +258,35 @@ export const idlFactory = ({ IDL }) => {
         [Result_9],
         ['query'],
       ),
+    'query_subscribers' : IDL.Func([IDL.Opt(Topic)], [Result_10], ['query']),
     'query_tickets' : IDL.Func(
         [IDL.Opt(IDL.Text), IDL.Nat64, IDL.Nat64],
-        [Result_10],
+        [Result_11],
         ['query'],
       ),
+    'resubmit_ticket' : IDL.Func([Ticket], [Result], []),
     'send_ticket' : IDL.Func([Ticket], [Result], []),
     'set_logger_filter' : IDL.Func([IDL.Text], [], []),
+    'sub_directives' : IDL.Func(
+        [IDL.Opt(IDL.Text), IDL.Vec(Topic)],
+        [Result],
+        [],
+      ),
+    'unsub_directives' : IDL.Func(
+        [IDL.Opt(IDL.Text), IDL.Vec(Topic)],
+        [Result],
+        [],
+      ),
     'update_fee' : IDL.Func([IDL.Vec(Factor)], [Result], []),
-    'validate_proposal' : IDL.Func([IDL.Vec(Proposal)], [Result_11], ['query']),
+    'validate_proposal' : IDL.Func([IDL.Vec(Proposal)], [Result_12], ['query']),
   });
 };
-export const init = ({ IDL }) => { return []; };
+export const init = ({ IDL }) => {
+  const UpgradeArgs = IDL.Record({ 'admin' : IDL.Opt(IDL.Principal) });
+  const InitArgs = IDL.Record({ 'admin' : IDL.Principal });
+  const HubArg = IDL.Variant({
+    'Upgrade' : IDL.Opt(UpgradeArgs),
+    'Init' : InitArgs,
+  });
+  return [HubArg];
+};

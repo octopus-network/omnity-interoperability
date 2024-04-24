@@ -1,9 +1,55 @@
 export const idlFactory = ({ IDL }) => {
+  const ChainState = IDL.Variant({
+    'Active' : IDL.Null,
+    'Deactive' : IDL.Null,
+  });
+  const UpgradeArgs = IDL.Record({
+    'hub_principal' : IDL.Opt(IDL.Principal),
+    'chain_id' : IDL.Opt(IDL.Text),
+    'chain_state' : IDL.Opt(ChainState),
+  });
   const InitArgs = IDL.Record({
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
+    'chain_state' : ChainState,
   });
-  const RouteArg = IDL.Variant({ 'Init' : InitArgs });
+  const RouteArg = IDL.Variant({
+    'Upgrade' : IDL.Opt(UpgradeArgs),
+    'Init' : InitArgs,
+  });
+  const CanisterStatusType = IDL.Variant({
+    'stopped' : IDL.Null,
+    'stopping' : IDL.Null,
+    'running' : IDL.Null,
+  });
+  const DefiniteCanisterSettings = IDL.Record({
+    'freezing_threshold' : IDL.Nat,
+    'controllers' : IDL.Vec(IDL.Principal),
+    'reserved_cycles_limit' : IDL.Nat,
+    'memory_allocation' : IDL.Nat,
+    'compute_allocation' : IDL.Nat,
+  });
+  const QueryStats = IDL.Record({
+    'response_payload_bytes_total' : IDL.Nat,
+    'num_instructions_total' : IDL.Nat,
+    'num_calls_total' : IDL.Nat,
+    'request_payload_bytes_total' : IDL.Nat,
+  });
+  const CanisterStatusResponse = IDL.Record({
+    'status' : CanisterStatusType,
+    'memory_size' : IDL.Nat,
+    'cycles' : IDL.Nat,
+    'settings' : DefiniteCanisterSettings,
+    'query_stats' : QueryStats,
+    'idle_cycles_burned_per_day' : IDL.Nat,
+    'module_hash' : IDL.Opt(IDL.Vec(IDL.Nat8)),
+    'reserved_cycles' : IDL.Nat,
+  });
+  const Result = IDL.Variant({
+    'Ok' : CanisterStatusResponse,
+    'Err' : IDL.Text,
+  });
+  const Result_1 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
   const GenerateTicketReq = IDL.Record({
     'token_id' : IDL.Text,
     'from_subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
@@ -26,13 +72,9 @@ export const idlFactory = ({ IDL }) => {
     'UnsupportedToken' : IDL.Text,
     'InsufficientFunds' : IDL.Record({ 'balance' : IDL.Nat64 }),
   });
-  const Result = IDL.Variant({
+  const Result_2 = IDL.Variant({
     'Ok' : GenerateTicketOk,
     'Err' : GenerateTicketError,
-  });
-  const ChainState = IDL.Variant({
-    'Active' : IDL.Null,
-    'Deactive' : IDL.Null,
   });
   const ChainType = IDL.Variant({
     'SettlementChain' : IDL.Null,
@@ -94,6 +136,7 @@ export const idlFactory = ({ IDL }) => {
       'ledger_id' : IDL.Principal,
     }),
     'init' : InitArgs,
+    'upgrade' : UpgradeArgs,
     'added_chain' : Chain,
     'toggle_chain_state' : ToggleState,
   });
@@ -114,7 +157,9 @@ export const idlFactory = ({ IDL }) => {
     'Unknown' : IDL.Null,
   });
   return IDL.Service({
-    'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
+    'controlled_canister_status' : IDL.Func([IDL.Principal], [Result], []),
+    'delete_controlled_canister' : IDL.Func([IDL.Principal], [Result_1], []),
+    'generate_ticket' : IDL.Func([GenerateTicketReq], [Result_2], []),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_events' : IDL.Func([GetEventsArg], [IDL.Vec(Event)], ['query']),
     'get_fee_account' : IDL.Func(
@@ -131,13 +176,33 @@ export const idlFactory = ({ IDL }) => {
       ),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
+    'start_controlled_canister' : IDL.Func([IDL.Principal], [Result_1], []),
+    'stop_controlled_canister' : IDL.Func([IDL.Principal], [Result_1], []),
+    'update_icrc_transfer_fee' : IDL.Func(
+        [IDL.Principal, IDL.Nat],
+        [Result_1],
+        [],
+      ),
   });
 };
 export const init = ({ IDL }) => {
+  const ChainState = IDL.Variant({
+    'Active' : IDL.Null,
+    'Deactive' : IDL.Null,
+  });
+  const UpgradeArgs = IDL.Record({
+    'hub_principal' : IDL.Opt(IDL.Principal),
+    'chain_id' : IDL.Opt(IDL.Text),
+    'chain_state' : IDL.Opt(ChainState),
+  });
   const InitArgs = IDL.Record({
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
+    'chain_state' : ChainState,
   });
-  const RouteArg = IDL.Variant({ 'Init' : InitArgs });
+  const RouteArg = IDL.Variant({
+    'Upgrade' : IDL.Opt(UpgradeArgs),
+    'Init' : InitArgs,
+  });
   return [RouteArg];
 };
