@@ -493,6 +493,10 @@ impl CustomsState {
             .or_default();
 
         for utxo in &utxos {
+            // It is possible that utxo has been added via update_btc_utxos.
+            if bucket.contains(utxo) {
+                continue;
+            }
             self.outpoint_destination
                 .insert(utxo.outpoint.clone(), destination.clone());
             self.outpoint_utxos
