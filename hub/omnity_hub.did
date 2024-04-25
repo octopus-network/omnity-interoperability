@@ -141,6 +141,7 @@ type TokenResp = record {
   decimals : nat8;
   token_id : text;
   icon : opt text;
+  name : text;
   rune_id : opt text;
   symbol : text;
 };

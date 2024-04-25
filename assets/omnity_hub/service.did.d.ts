@@ -162,12 +162,10 @@ export interface TokenResp {
   'rune_id' : [] | [string],
   'symbol' : string,
 }
-export type Topic = { 'UpdateFeeTokenFactor' : [] | [string] } |
-  { 'ActivateChain' : null } |
-  { 'AddToken' : [] | [string] } |
-  { 'DeactivateChain' : null } |
-  { 'AddChain' : [] | [ChainType] } |
-  { 'UpdateTargetChainFactor' : [] | [string] };
+export type Topic = { 'UpdateFee' : null } |
+  { 'AddToken' : null } |
+  { 'AddChain' : null } |
+  { 'ToggleChainState' : null };
 export type TxAction = { 'Redeem' : null } |
   { 'Transfer' : null };
 export interface UpgradeArgs { 'admin' : [] | [Principal] }

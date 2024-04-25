@@ -114,7 +114,10 @@ export const idlFactory = ({ IDL }) => {
     'chain_type' : ChainType,
     'contract_address' : IDL.Opt(IDL.Text),
   });
-  const CustomsInfo = IDL.Record({ 'min_confirmations' : IDL.Nat32 });
+  const CustomsInfo = IDL.Record({
+    'chain_state' : ChainState,
+    'min_confirmations' : IDL.Nat32,
+  });
   const GetEventsArg = IDL.Record({
     'start' : IDL.Nat64,
     'length' : IDL.Nat64,

@@ -40,7 +40,10 @@ export type ChainType = { 'SettlementChain' : null } |
   { 'ExecutionChain' : null };
 export type CustomArg = { 'Upgrade' : [] | [UpgradeArgs] } |
   { 'Init' : InitArgs };
-export interface CustomsInfo { 'min_confirmations' : number }
+export interface CustomsInfo {
+  'chain_state' : ChainState,
+  'min_confirmations' : number,
+}
 export interface DefiniteCanisterSettings {
   'freezing_threshold' : bigint,
   'controllers' : Array<Principal>,

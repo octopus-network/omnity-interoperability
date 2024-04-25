@@ -95,12 +95,10 @@ export const idlFactory = ({ IDL }) => {
     'length' : IDL.Nat64,
   });
   const Topic = IDL.Variant({
-    'UpdateFeeTokenFactor' : IDL.Opt(IDL.Text),
-    'ActivateChain' : IDL.Null,
-    'AddToken' : IDL.Opt(IDL.Text),
-    'DeactivateChain' : IDL.Null,
-    'AddChain' : IDL.Opt(ChainType),
-    'UpdateTargetChainFactor' : IDL.Opt(IDL.Text),
+    'UpdateFee' : IDL.Null,
+    'AddToken' : IDL.Null,
+    'AddChain' : IDL.Null,
+    'ToggleChainState' : IDL.Null,
   });
   const TokenKey = IDL.Record({ 'token_id' : IDL.Text, 'chain_id' : IDL.Text });
   const Token = IDL.Record({

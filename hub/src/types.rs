@@ -174,6 +174,7 @@ impl Into<Token> for TokenMeta {
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
 pub struct TokenResp {
     pub token_id: TokenId,
+    pub name: String,
     pub symbol: String,
     pub decimals: u8,
     pub icon: Option<String>,
@@ -184,6 +185,7 @@ impl From<Token> for TokenResp {
     fn from(value: Token) -> Self {
         TokenResp {
             token_id: value.token_id,
+            name: value.name,
             symbol: value.symbol,
             decimals: value.decimals,
             icon: value.icon,
