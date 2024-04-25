@@ -176,6 +176,7 @@ export const idlFactory = ({ IDL }) => {
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
     'icon' : IDL.Opt(IDL.Text),
+    'name' : IDL.Text,
     'rune_id' : IDL.Opt(IDL.Text),
     'symbol' : IDL.Text,
   });

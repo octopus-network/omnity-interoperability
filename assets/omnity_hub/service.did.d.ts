@@ -159,6 +159,7 @@ export interface TokenResp {
   'decimals' : number,
   'token_id' : string,
   'icon' : [] | [string],
+  'name' : string,
   'rune_id' : [] | [string],
   'symbol' : string,
 }
