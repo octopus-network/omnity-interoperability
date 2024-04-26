@@ -659,6 +659,12 @@ async fn finalize_requests() {
                 &tx.txid
             );
             state::audit::confirm_transaction(s, &tx.txid);
+            let balance = RunesBalance {
+                rune_id: tx.runes_change_output.rune_id.clone(),
+                vout: tx.runes_change_output.vout,
+                amount: tx.runes_change_output.value,
+            };
+            audit::update_runes_balance(s, tx.txid, balance);
         }
     });
 

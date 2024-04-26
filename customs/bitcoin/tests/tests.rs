@@ -563,7 +563,7 @@ impl CustomsSetup {
             let status = self.release_token_status(ticket_id.clone());
             match status {
                 ReleaseTokenStatus::Submitted(txid) => {
-                    return txid;
+                    return Txid::from_str(&txid).unwrap();
                 }
                 status => {
                     last_status = Some(status);
@@ -635,7 +635,7 @@ impl CustomsSetup {
             let status = self.release_token_status(ticket_id.clone());
             match status {
                 ReleaseTokenStatus::Confirmed(txid) => {
-                    return txid;
+                    return Txid::from_str(&txid).unwrap();
                 }
                 status => {
                     last_status = Some(status);
@@ -1198,7 +1198,7 @@ fn test_finalize_batch_release_token_tx() {
     for i in 1..5 {
         assert_eq!(
             customs.release_token_status(format!("ticket_id{}", i)),
-            ReleaseTokenStatus::Confirmed(txid)
+            ReleaseTokenStatus::Confirmed(txid.to_string())
         );
     }
     customs.customs_self_check();
