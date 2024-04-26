@@ -1147,6 +1147,7 @@ fn test_finalize_release_token_tx() {
 
     customs.finalize_transaction(tx, RUNE_ID_1.into());
     assert_eq!(customs.await_finalization(ticket_id, 10), txid);
+    customs.print_customs_events();
     customs.customs_self_check();
 }
 
