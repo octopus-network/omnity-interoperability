@@ -13,7 +13,9 @@ use omnity_types::{ChainState, Directive, TokenId};
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
-use state::{read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo};
+use state::{
+    read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo, SubmittedBtcTransaction,
+};
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter::Sum;
 use std::str::FromStr;
@@ -580,10 +582,7 @@ async fn finalize_requests() {
     }
 
     let main_chain_id = read_state(|s| s.chain_id.clone());
-    let main_btc_address = (
-        main_destination(main_chain_id.clone(), BTC_TOKEN.into()),
-        address::main_bitcoin_address(&ecdsa_public_key, main_chain_id.clone(), BTC_TOKEN.into()),
-    );
+    let main_btc_destination = main_destination(main_chain_id.clone(), BTC_TOKEN.into());
     let main_runes_addresses: Vec<(Destination, BitcoinAddress)> = maybe_finalized_transactions
         .iter()
         .map(|(_, tx)| {
@@ -601,8 +600,6 @@ async fn finalize_requests() {
     let (btc_network, min_confirmations) =
         state::read_state(|s| (s.btc_network, s.min_confirmations));
 
-    let dest_btc_utxos =
-        fetch_main_utxos(vec![main_btc_address], btc_network, min_confirmations).await;
     let dest_runes_utxos =
         fetch_main_utxos(main_runes_addresses.clone(), btc_network, min_confirmations).await;
 
@@ -625,9 +622,9 @@ async fn finalize_requests() {
         state::read_state(|s| finalized_txs(&s.stuck_transactions, &new_runes_utxos));
 
     state::mutate_state(|s| {
-        for (dest, utxos) in dest_btc_utxos {
-            audit::add_utxos(s, dest, utxos, false);
-        }
+        let btc_utxos = get_btc_utxos_from_confirmed_tx(&confirmed_transactions);
+        audit::add_utxos(s, main_btc_destination.clone(), btc_utxos, false);
+        
         for (dest, utxos) in dest_runes_utxos {
             audit::add_utxos(s, dest, utxos, true);
         }
@@ -652,6 +649,8 @@ async fn finalize_requests() {
     }
 
     state::mutate_state(|s| {
+        let btc_utxos = get_btc_utxos_from_confirmed_tx(&unstuck_transactions);
+        audit::add_utxos(s, main_btc_destination, btc_utxos, false);
         for tx in unstuck_transactions {
             log!(
                 P0,
@@ -853,6 +852,22 @@ async fn finalize_requests() {
             }
         }
     }
+}
+
+fn get_btc_utxos_from_confirmed_tx(confirmed_txs: &Vec<SubmittedBtcTransaction>) -> Vec<Utxo> {
+    confirmed_txs
+        .iter()
+        .map(|tx| Utxo {
+            outpoint: OutPoint {
+                txid: tx.txid,
+                vout: tx.btc_change_output.vout,
+            },
+            value: tx.btc_change_output.value,
+            // We can get the height of the btc utxos from the corresponding rune change utxo in the same tx, 
+            // but now the height is useless.
+            height: 0,
+        })
+        .collect()
 }
 
 /// Builds the minimal OutPoint -> Account map required to sign a transaction.
