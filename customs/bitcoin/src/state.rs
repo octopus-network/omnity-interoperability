@@ -212,11 +212,11 @@ pub enum ReleaseTokenStatus {
     /// Waiting for a signature on a transaction satisfy this request.
     Signing,
     /// Sending the transaction satisfying this request.
-    Sending(Txid),
+    Sending(String),
     /// Awaiting for confirmations on the transaction satisfying this request.
-    Submitted(Txid),
+    Submitted(String),
     /// Confirmed a transaction satisfying this request.
-    Confirmed(Txid),
+    Confirmed(String),
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -554,18 +554,18 @@ impl CustomsState {
         if let Some(status) = self.requests_in_flight.get(ticket_id).cloned() {
             return match status {
                 InFlightStatus::Signing => ReleaseTokenStatus::Signing,
-                InFlightStatus::Sending { txid } => ReleaseTokenStatus::Sending(txid),
+                InFlightStatus::Sending { txid } => ReleaseTokenStatus::Sending(txid.to_string()),
             };
         }
 
         if let Some(txid) = self.submitted_transactions.iter().find_map(|tx| {
             (tx.requests.iter().any(|r| r.ticket_id.eq(ticket_id))).then_some(tx.txid)
         }) {
-            return ReleaseTokenStatus::Submitted(txid);
+            return ReleaseTokenStatus::Submitted(txid.to_string());
         }
 
         match self.finalized_release_token_requests.get(ticket_id) {
-            Some(FinalizedStatus::Confirmed(txid)) => return ReleaseTokenStatus::Confirmed(*txid),
+            Some(FinalizedStatus::Confirmed(txid)) => return ReleaseTokenStatus::Confirmed(txid.to_string()),
             None => (),
         }
 

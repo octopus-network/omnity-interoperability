@@ -152,10 +152,10 @@ type ReleaseTokenRequest = record {
 };
 type ReleaseTokenStatus = variant {
   Signing;
-  Confirmed : blob;
-  Sending : blob;
+  Confirmed : text;
+  Sending : text;
   Unknown;
-  Submitted : blob;
+  Submitted : text;
   Pending;
 };
 type Result = variant { Ok; Err : GenerateTicketError };

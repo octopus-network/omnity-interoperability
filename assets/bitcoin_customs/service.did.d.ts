@@ -176,10 +176,10 @@ export interface ReleaseTokenRequest {
   'rune_id' : RuneId,
 }
 export type ReleaseTokenStatus = { 'Signing' : null } |
-  { 'Confirmed' : Uint8Array | number[] } |
-  { 'Sending' : Uint8Array | number[] } |
+  { 'Confirmed' : string } |
+  { 'Sending' : string } |
   { 'Unknown' : null } |
-  { 'Submitted' : Uint8Array | number[] } |
+  { 'Submitted' : string } |
   { 'Pending' : null };
 export type Result = { 'Ok' : null } |
   { 'Err' : GenerateTicketError };

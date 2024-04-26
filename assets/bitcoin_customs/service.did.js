@@ -239,10 +239,10 @@ export const idlFactory = ({ IDL }) => {
   });
   const ReleaseTokenStatus = IDL.Variant({
     'Signing' : IDL.Null,
-    'Confirmed' : IDL.Vec(IDL.Nat8),
-    'Sending' : IDL.Vec(IDL.Nat8),
+    'Confirmed' : IDL.Text,
+    'Sending' : IDL.Text,
     'Unknown' : IDL.Null,
-    'Submitted' : IDL.Vec(IDL.Nat8),
+    'Submitted' : IDL.Text,
     'Pending' : IDL.Null,
   });
   const UpdateBtcUtxosErr = IDL.Variant({
