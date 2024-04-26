@@ -863,7 +863,7 @@ fn get_btc_utxos_from_confirmed_tx(confirmed_txs: &Vec<SubmittedBtcTransaction>)
                 vout: tx.btc_change_output.vout,
             },
             value: tx.btc_change_output.value,
-            // We can get the height of the btc utxos from the corresponding rune change output in the same tx, 
+            // We can get the height of the btc utxos from the corresponding rune change utxo in the same tx, 
             // but now the height is useless.
             height: 0,
         })
