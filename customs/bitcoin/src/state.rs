@@ -494,7 +494,7 @@ impl CustomsState {
 
         for utxo in &utxos {
             // It is possible that utxo has been added via update_btc_utxos.
-            if bucket.contains(utxo) {
+            if self.outpoint_utxos.contains_key(&utxo.outpoint) {
                 continue;
             }
             self.outpoint_destination
@@ -565,7 +565,9 @@ impl CustomsState {
         }
 
         match self.finalized_release_token_requests.get(ticket_id) {
-            Some(FinalizedStatus::Confirmed(txid)) => return ReleaseTokenStatus::Confirmed(txid.to_string()),
+            Some(FinalizedStatus::Confirmed(txid)) => {
+                return ReleaseTokenStatus::Confirmed(txid.to_string())
+            }
             None => (),
         }
 
@@ -889,18 +891,10 @@ impl CustomsState {
         self.finalized_gen_ticket_requests.push_back(req)
     }
 
-    /// Filters out known UTXOs of the given destination from the given UTXO list.
-    pub fn new_utxos_for_destination(
-        &self,
-        mut utxos: Vec<Utxo>,
-        destination: &Destination,
-        tx_id: Option<Txid>,
-    ) -> Vec<Utxo> {
-        let maybe_existing_utxos = self.utxos_state_destinations.get(destination);
+    /// Filters out known UTXOs from the given UTXO list.
+    pub fn new_utxos(&self, mut utxos: Vec<Utxo>, tx_id: Option<Txid>) -> Vec<Utxo> {
         utxos.retain(|utxo| {
-            !maybe_existing_utxos
-                .map(|utxos| utxos.contains(utxo))
-                .unwrap_or(false)
+            !self.outpoint_utxos.contains_key(&utxo.outpoint)
                 && tx_id.map_or(true, |t| utxo.outpoint.txid == t)
         });
         utxos
