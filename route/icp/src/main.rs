@@ -17,6 +17,7 @@ use icp_route::updates::generate_ticket::{
 };
 use icp_route::updates::{self};
 use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
+use icrc_ledger_types::icrc::generic_metadata_value::MetadataValue;
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::time::Duration;
@@ -105,9 +106,10 @@ pub async fn controlled_canister_status(
 }
 
 #[update(guard = "is_controller")]
-pub async fn update_icrc_transfer_fee(
+pub async fn update_icrc_ledger(
     ledger_id: Principal,
-    transfer_fee: Nat,
+    transfer_fee: Option<Nat>,
+    metadata: Option<Vec<(String, MetadataValue)>>,
 ) -> Result<(), String> {
     if !read_state(|s| s.token_ledgers.iter().any(|(_, id)| *id == ledger_id)) {
         return Err("leder id not found!".into());
@@ -116,10 +118,10 @@ pub async fn update_icrc_transfer_fee(
     upgrade_icrc2_ledger(
         ledger_id,
         ic_icrc1_ledger::UpgradeArgs {
-            metadata: None,
+            metadata,
             token_name: None,
             token_symbol: None,
-            transfer_fee: Some(transfer_fee),
+            transfer_fee,
             change_fee_collector: None,
             max_memo_length: None,
             feature_flags: None,

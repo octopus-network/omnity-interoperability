@@ -72,6 +72,7 @@ type InitArgs = record {
 };
 type Log = record { log : text; offset : nat64 };
 type Logs = record { logs : vec Log; all_logs_count : nat64 };
+type MetadataValue = variant { Int : int; Nat : nat; Blob : blob; Text : text };
 type MintTokenStatus = variant {
   Finalized : record { block_index : nat64 };
   Unknown;
@@ -126,5 +127,9 @@ service : (RouteArg) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   start_controlled_canister : (principal) -> (Result_1);
   stop_controlled_canister : (principal) -> (Result_1);
-  update_icrc_transfer_fee : (principal, nat) -> (Result_1);
+  update_icrc_ledger : (
+      principal,
+      opt nat,
+      opt vec record { text; MetadataValue },
+    ) -> (Result_1);
 }
