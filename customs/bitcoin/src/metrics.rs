@@ -130,11 +130,20 @@ pub fn encode_metrics(
         "Total number of Runes UTXOs the customs can use for release_token requests.",
     )?;
 
-    metrics.encode_gauge(
-        "bitcoin_customs_btc_utxos_available",
-        state::read_state(|s| s.available_fee_utxos.len()) as f64,
-        "Total number of BTC UTXOs the customs can use for release_token requests.",
-    )?;
+    metrics
+        .gauge_vec(
+            "bitcoin_customs_btc_utxos_available",
+            "Total BTC UTXOs the customs can use for release_token requests.",
+        )?
+        .value(
+            &[("type", "count")],
+            state::read_state(|s| s.available_fee_utxos.len()) as f64,
+        )?
+        .value(
+            &[("type", "balance")],
+            state::read_state(|s| s.available_fee_utxos.iter().map(|u| u.value).sum::<u64>())
+                as f64,
+        )?;
 
     metrics
         .counter_vec(
