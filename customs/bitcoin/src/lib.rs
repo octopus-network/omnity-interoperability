@@ -624,7 +624,7 @@ async fn finalize_requests() {
     state::mutate_state(|s| {
         let btc_utxos = get_btc_utxos_from_confirmed_tx(&confirmed_transactions);
         audit::add_utxos(s, main_btc_destination.clone(), btc_utxos, false);
-        
+
         for (dest, utxos) in dest_runes_utxos {
             audit::add_utxos(s, dest, utxos, true);
         }
@@ -863,7 +863,7 @@ fn get_btc_utxos_from_confirmed_tx(confirmed_txs: &Vec<SubmittedBtcTransaction>)
                 vout: tx.btc_change_output.vout,
             },
             value: tx.btc_change_output.value,
-            // We can get the height of the btc utxos from the corresponding rune change utxo in the same tx, 
+            // We can get the height of the btc utxos from the corresponding rune change utxo in the same tx,
             // but now the height is useless.
             height: 0,
         })
@@ -1188,9 +1188,9 @@ pub fn build_unsigned_transaction(
     );
     let fee: u64 = (tx_vsize as u64 * fee_per_vbyte) / 1000;
     // Additional MIN_OUTPUT_AMOUNT are used as the value of the outputs(two chagne output + multiple dest runes outputs).
-    let outputs_size = (outputs.len() + 2) as u64;
+    let non_op_return_outputs_sz = (outputs.len() + 2) as u64;
     // Select twise the fee to handle resubmissions.
-    let select_fee = fee * 2 + MIN_OUTPUT_AMOUNT * outputs_size;
+    let select_fee = fee * 2 + MIN_OUTPUT_AMOUNT * non_op_return_outputs_sz;
 
     let mut input_btc_amount = runes_utxos_guard
         .iter()
@@ -1256,8 +1256,7 @@ pub fn build_unsigned_transaction(
 
     // We need to recaculate the fee when the number of inputs and outputs is finalized.
     let real_fee = fake_sign(&unsigned_tx).vsize() as u64 * fee_per_vbyte / 1000;
-    let btc_consumed = real_fee + MIN_OUTPUT_AMOUNT * outputs_size;
-
+    let btc_consumed = real_fee + MIN_OUTPUT_AMOUNT * non_op_return_outputs_sz;
     if input_btc_amount < btc_consumed {
         log!(
             P0,
@@ -1268,7 +1267,7 @@ pub fn build_unsigned_transaction(
         return Err(BuildTxError::NotEnoughGas);
     }
 
-    let btc_change_amount = input_btc_amount - btc_consumed;
+    let btc_change_amount = input_btc_amount - btc_consumed + MIN_OUTPUT_AMOUNT;
     unsigned_tx.outputs.iter_mut().last().unwrap().value = btc_change_amount;
     let btc_change_out = BtcChangeOutput {
         vout: unsigned_tx.outputs.len() as u32 - 1,
