@@ -5,7 +5,6 @@ use crate::{hub, audit};
 use crate::state::{ mutate_state, read_state};
 use std::str::FromStr;
 use crate::evm_address::EvmAddress;
-use crate::updates::mint_token::{MintTokenError, MintTokenRequest};
 use crate::types::{ChainState, Directive, Token, TokenId};
 
 
