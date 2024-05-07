@@ -5,6 +5,9 @@ use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee}
 use bitcoin_customs::state::{read_state, GenTicketRequest, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
+use bitcoin_customs::updates::update_pending_ticket::{
+    UpdatePendingTicketArgs, UpdatePendingTicketError,
+};
 use bitcoin_customs::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
@@ -157,6 +160,14 @@ pub fn is_runes_oracle() -> Result<(), String> {
     })
 }
 
+pub fn is_controller() -> Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
+}
+
 #[update(guard = "is_runes_oracle")]
 async fn update_runes_balance(args: UpdateRunesBalanceArgs) -> Result<(), UpdateRunesBalanceError> {
     check_postcondition(updates::update_runes_balance(args).await)
@@ -170,6 +181,13 @@ async fn update_btc_utxos() -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
 #[update]
 async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     check_postcondition(updates::generate_ticket(args).await)
+}
+
+#[update(guard = "is_controller")]
+async fn update_pending_ticket(
+    args: UpdatePendingTicketArgs,
+) -> Result<(), UpdatePendingTicketError> {
+    check_postcondition(updates::update_pending_ticket(args).await)
 }
 
 #[update]
