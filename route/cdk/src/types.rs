@@ -29,15 +29,15 @@ pub struct PendingTicketStatus {
 }
 
 impl Storable for PendingTicketStatus {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let topic = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode pending ticket status");
-        topic
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        let pts = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode pending ticket status");
+        pts
     }
 
     const BOUND: Bound = Bound::Unbounded;
@@ -74,13 +74,13 @@ impl Directive {
 }
 
 impl Storable for Directive {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         dire
     }
@@ -117,13 +117,13 @@ pub struct DireKey {
 }
 
 impl Storable for DireKey {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let dk = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         dk
     }
@@ -144,13 +144,13 @@ impl DireMap {
     }
 }
 impl Storable for DireMap {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         dire
     }
@@ -167,13 +167,13 @@ pub enum Topic {
 }
 
 impl Storable for Topic {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let topic = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         topic
     }
@@ -229,13 +229,13 @@ impl Ticket {
 
 
 impl Storable for Ticket {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let ticket = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         ticket
     }
@@ -278,13 +278,13 @@ impl SeqKey {
 }
 
 impl Storable for SeqKey {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let tk = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         tk
     }
@@ -308,13 +308,13 @@ impl TicketMap {
 }
 
 impl Storable for TicketMap {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let ticket = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         ticket
     }
@@ -372,13 +372,13 @@ pub enum Factor {
 }
 
 impl Storable for Factor {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         fee
     }
@@ -400,13 +400,13 @@ pub struct TargetChainFactor {
 }
 
 impl Storable for TargetChainFactor {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         fee
     }
@@ -431,13 +431,13 @@ pub struct FeeTokenFactor {
 }
 
 impl Storable for FeeTokenFactor {
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+    fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
         Cow::Owned(bytes)
     }
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
         let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         fee
     }
