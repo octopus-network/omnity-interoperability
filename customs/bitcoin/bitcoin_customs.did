@@ -160,7 +160,8 @@ type ReleaseTokenStatus = variant {
 };
 type Result = variant { Ok; Err : GenerateTicketError };
 type Result_1 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
-type Result_2 = variant { Ok; Err : UpdateRunesBalanceError };
+type Result_2 = variant { Ok; Err : UpdatePendingTicketError };
+type Result_3 = variant { Ok; Err : UpdateRunesBalanceError };
 type RuneId = record { tx : nat32; block : nat64 };
 type RunesBalance = record { vout : nat32; amount : nat; rune_id : RuneId };
 type RunesChangeOutput = record { value : nat; vout : nat32; rune_id : RuneId };
@@ -183,6 +184,16 @@ type TokenResp = record {
   symbol : text;
 };
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
+type UpdatePendingTicketArgs = record {
+  txid : text;
+  amount : opt nat;
+  rune_id : opt text;
+};
+type UpdatePendingTicketError = variant {
+  InvalidRuneId : text;
+  InvalidTxId;
+  TicketNotFound;
+};
 type UpdateRunesBalanceArgs = record {
   txid : blob;
   balances : vec RunesBalance;
@@ -218,5 +229,6 @@ service : (CustomArg) -> {
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   update_btc_utxos : () -> (Result_1);
-  update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_2);
+  update_pending_ticket : (UpdatePendingTicketArgs) -> (Result_2);
+  update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_3);
 }
