@@ -45,6 +45,8 @@ pub struct HubState {
     #[serde(skip, default = "memory::init_ledger")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
 
+
+
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
     pub admin: Principal,
