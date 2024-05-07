@@ -1,10 +1,10 @@
 use cketh_common::eth_rpc_client::RpcConfig;
 use evm_rpc::candid_types::SendRawTransactionStatus;
 use evm_rpc::RpcServices;
+
 use crate::contracts::{gen_eip1559_tx, gen_mint_token_data, sign_transaction};
-use crate::Error;
 use crate::state::{mutate_state, read_state};
-use crate::types::{PendingTicketStatus, Ticket};
+use crate::types::PendingTicketStatus;
 
 pub fn to_cdk_tickets_task() {
     ic_cdk::spawn(async {
@@ -12,11 +12,28 @@ pub fn to_cdk_tickets_task() {
             Some(guard) => guard,
             None => return,
         };
+
     });
 }
 
-pub async fn send_tickets_to_cdk() {
+pub async fn send_directives_to_cdk() {
+    let from = read_state(|s| s.next_consume_directive_seq);
+    let to  = read_state(|s|s.next_directive_seq);
+    for seq in from..to {
+        let  dire = read_state(|s|s.directives_queue.get(&seq));
+        match dire {
+            None => {
+                continue;
+            }
+            Some(d) => {
 
+            }
+        }
+    }
+    mutate_state(|s|s.next_consume_ticket_seq = to);
+}
+
+pub async fn send_tickets_to_cdk() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     for seq in from..to {
@@ -60,7 +77,6 @@ pub async fn send_tickets_to_cdk() {
 
 async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
     let raw = hex::encode(tx);
-    // see https://github.com/internet-computer-protocol/evm-rpc-canister/blob/main/src/main.rs#L87
     let (r,): (SendRawTransactionStatus,) = ic_cdk::call(
         crate::state::rpc_addr(),
         "eth_sendRawTransaction",
