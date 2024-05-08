@@ -6,8 +6,7 @@ use thiserror::Error;
 
 use crate::types::{Chain, Ticket};
 
-pub mod redeem;
-pub mod tx;
+pub mod cdk_scan;
 pub mod types;
 pub mod main;
 pub mod state;

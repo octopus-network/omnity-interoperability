@@ -1,16 +1,22 @@
 use std::str::FromStr;
+use cketh_common::eth_rpc_client::RpcConfig;
 
 use ethers_contract::abigen;
 use ethers_core::abi::{AbiEncode, ethereum_types};
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
 use ethers_core::utils::keccak256;
+use evm_rpc::candid_types::SendRawTransactionStatus;
+use evm_rpc::RpcServices;
 use hex::ToHex;
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
+use secp256k1::{Message, PublicKey};
+use secp256k1::ecdsa::{RecoverableSignature, RecoveryId};
+use crate::Error;
 
 use crate::evm_address::EvmAddress;
 use crate::state::read_state;
-use crate::tx::EthereumSignature;
-use crate::types::{Directive, Ticket};
+use crate::types::{Directive, Ticket, ToggleState};
+pub type PortContractCommandIndex = u8;
 
 abigen!(
     OmnityPortContract,
@@ -23,7 +29,28 @@ abigen!(
 );
 
 pub fn gen_execute_directive_data(directive: &Directive) -> Vec<u8> {
-    vec![]
+    match directive {
+        Directive::AddChain(c) => {
+
+
+
+        }
+        Directive::AddToken(_) => {
+
+
+        }
+        Directive::ToggleChainState(_) => {}
+        Directive::UpdateFee(_) => {}
+    }
+
+
+
+
+    let v: Vec<u8> = vec![];
+    let call = PrivilegedExecuteDirectiveCall {
+        directive_bytes: Bytes::from(v),
+    };
+    call.encode()
 }
 
 pub fn gen_mint_token_data(ticket: &Ticket) -> Vec<u8> {
@@ -38,6 +65,21 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> Vec<u8> {
         memo: String::from_utf8(ticket.memo.clone().unwrap_or_default()).unwrap_or_default(),
     };
     call.encode()
+}
+
+//TODO confirm the rule is correctly
+impl Into<PortContractCommandIndex> for Directive {
+    fn into(self) -> PortContractCommandIndex {
+        match self {
+            Directive::AddChain(_) => 0u8,
+            Directive::AddToken(_) => 1u8,
+            Directive::ToggleChainState(t) => {
+
+                3
+            }
+            Directive::UpdateFee(_) => 2u8
+        }
+    }
 }
 
 pub fn gen_eip1559_tx(tx_data: Vec<u8>) -> Eip1559TransactionRequest {
@@ -93,4 +135,79 @@ pub async fn sign_transaction( tx: Eip1559TransactionRequest ) -> anyhow::Result
     let mut signed_tx_bytes = tx.rlp_signed(&signature).to_vec();
     signed_tx_bytes.insert(0, EIP1559_TX_ID);
     Ok(signed_tx_bytes)
+}
+
+
+pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
+    let raw = hex::encode(tx);
+    let (r,): (SendRawTransactionStatus,) = ic_cdk::call(
+        crate::state::rpc_addr(),
+        "eth_sendRawTransaction",
+        (
+            RpcServices::Custom {
+                chain_id: crate::state::target_chain_id(),
+                services: crate::state::rpc_providers(),
+            },
+            None::<RpcConfig>,
+            raw,
+        ),
+    )
+        .await
+        .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
+    match r {
+        SendRawTransactionStatus::Ok(hash) => hash.map(|h| h.to_string()).ok_or(
+            super::Error::EvmRpcError("A transaction hash is expected".to_string()),
+        ),
+        _ => Err(super::Error::EvmRpcError(format!("{:?}", r))),
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct EthereumSignature {
+    pub r: Vec<u8>,
+    pub s: Vec<u8>,
+    pub v: u64,
+}
+
+impl EthereumSignature {
+    pub(crate) fn try_from_ecdsa(
+        signature: &[u8],
+        prehash: &[u8],
+        chain_id: u64,
+        pubkey: &[u8],
+    ) -> Result<Self, Error> {
+        let mut r = signature[..32].to_vec();
+        let mut s = signature[32..].to_vec();
+        while r[0] == 0 {
+            r.remove(0);
+        }
+        while s[0] == 0 {
+            s.remove(0);
+        }
+        let v = Self::try_derive_recid(signature, prehash, chain_id, pubkey)?;
+        Ok(Self { r, s, v })
+    }
+
+    fn try_derive_recid(
+        signature: &[u8],
+        prehash: &[u8],
+        chain_id: u64,
+        pubkey: &[u8],
+    ) -> Result<u64, Error> {
+        let pubkey = PublicKey::from_slice(pubkey)
+            .map_err(|_| Error::ChainKeyError("invalid public key".to_string()))?;
+        let digest = Message::from_digest_slice(prehash)
+            .map_err(|_| Error::ChainKeyError("invalid signature".to_string()))?;
+        for r in 0..4 {
+            let rec_id = RecoveryId::from_i32(r).expect("less than 4;qed");
+            let sig = RecoverableSignature::from_compact(signature, rec_id)
+                .map_err(|_| Error::ChainKeyError("invalid signature length".to_string()))?;
+            if let Ok(pk) = sig.recover(&digest) {
+                if pk == pubkey {
+                    return Ok(r as u64 + chain_id * 2 + 35);
+                }
+            }
+        }
+        Err(Error::ChainKeyError("invalid signature".to_string()))
+    }
 }

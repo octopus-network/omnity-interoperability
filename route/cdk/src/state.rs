@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use crate::types::{ChainId, Directive, PendingTicketStatus, Ticket, TicketId};
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
@@ -37,14 +37,14 @@ pub struct CdkRouteState {
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
+    pub handled_cdk_event: BTreeSet<String>,
     #[serde(skip, default = "crate::stable_memory::init_to_cdk_tickets_queue")]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
     #[serde(skip, default = "crate::stable_memory::init_to_cdk_directives_queue")]
     pub directives_queue: StableBTreeMap<u64, Directive, Memory>,
-
     #[serde(skip, default = "crate::stable_memory::init_pending_ticket_map")]
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
-
+    pub scan_start_height: u64,
     #[serde(skip)]
     pub is_timer_running: bool,
 }
@@ -78,10 +78,12 @@ impl CdkRouteState {
             tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_tickets_memory()),
             directives_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_directives_memory()),
             pending_tickets_map: StableBTreeMap::init(crate::stable_memory::get_pending_ticket_map_memory()),
+            scan_start_height: 0,
             is_timer_running: false,
             evm_chain_id: 0,
 
             omnity_port_contract: EvmAddress::default(),
+            handled_cdk_event: Default::default(),
         }
     }
 }

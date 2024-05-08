@@ -5,7 +5,7 @@ use crate::{hub, audit};
 use crate::state::{ mutate_state, read_state};
 use std::str::FromStr;
 use crate::evm_address::EvmAddress;
-use crate::types::{ChainState, Directive, Token, TokenId};
+use crate::types::{ChainState};
 
 
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
@@ -114,36 +114,4 @@ pub fn periodic_task() {
         process_directives().await;
         process_tickets().await;
     });
-}
-
-pub fn to_cdk_tickets_task() {
-    ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new() {
-            Some(guard) => guard,
-            None => return,
-        };
-
-    });
-}
-
-
-#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
-pub struct TokenResp {
-    pub token_id: TokenId,
-    pub symbol: String,
-    pub decimals: u8,
-    pub icon: Option<String>,
-    pub rune_id: Option<String>,
-}
-
-impl From<Token> for TokenResp {
-    fn from(value: Token) -> Self {
-        TokenResp {
-            token_id: value.token_id,
-            symbol: value.symbol,
-            decimals: value.decimals,
-            icon: value.icon,
-            rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
-        }
-    }
 }
