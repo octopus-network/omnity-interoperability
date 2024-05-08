@@ -1,8 +1,4 @@
-use cketh_common::eth_rpc_client::RpcConfig;
-use evm_rpc::candid_types::SendRawTransactionStatus;
-use evm_rpc::RpcServices;
-
-use crate::contracts::{gen_eip1559_tx, gen_mint_token_data, sign_transaction};
+use crate::contracts::{broadcast, gen_eip1559_tx, gen_mint_token_data, sign_transaction};
 use crate::state::{mutate_state, read_state};
 use crate::types::PendingTicketStatus;
 
@@ -73,28 +69,4 @@ pub async fn send_tickets_to_cdk() {
         }
     }
     mutate_state(|s| s.next_consume_ticket_seq = to);
-}
-
-async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
-    let raw = hex::encode(tx);
-    let (r,): (SendRawTransactionStatus,) = ic_cdk::call(
-        crate::state::rpc_addr(),
-        "eth_sendRawTransaction",
-        (
-            RpcServices::Custom {
-                chain_id: crate::state::target_chain_id(),
-                services: crate::state::rpc_providers(),
-            },
-            None::<RpcConfig>,
-            raw,
-        ),
-    )
-        .await
-        .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
-    match r {
-        SendRawTransactionStatus::Ok(hash) => hash.map(|h| h.to_string()).ok_or(
-            super::Error::EvmRpcError("A transaction hash is expected".to_string()),
-        ),
-        _ => Err(super::Error::EvmRpcError(format!("{:?}", r))),
-    }
 }

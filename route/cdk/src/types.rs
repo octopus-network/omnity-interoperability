@@ -54,15 +54,7 @@ pub enum Directive {
 
 
 impl Directive {
-    pub fn to_index(&self) -> u8 {
-        match self {
-            Directive::AddChain(_) => 0,
-            Directive::AddToken(_) => 1,
-            Directive::ToggleChainState(_) => 2,
-            Directive::UpdateFee(_) => 3,
-        }
 
-    }
     pub fn to_topic(&self) -> Topic {
         match self {
             Self::AddChain(_) => Topic::AddChain,
@@ -570,7 +562,7 @@ pub struct TxCondition {
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
-use crate::redeem::TokenBurned;
+use crate::cdk_scan::TokenBurned;
 
 pub type CanisterId = Principal;
 
