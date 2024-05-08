@@ -200,14 +200,17 @@ pub struct Ticket {
 }
 
 impl Ticket {
-    pub fn from_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
+    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
+        let src_chain = read_state(|s| s.omnity_chain_id.clone());
+        let token = read_state(|s|s.tokens.get(&token_burned.tokenId.to_string()).expect("token not found").clone());
+        let dst_chain = token.token_id_info()[0].to_string();
         let ticket = Ticket {
             ticket_id: log_entry.transaction_hash.clone().unwrap().to_string()
                 + log_entry.log_index.clone().unwrap().to_string().as_str(),
             ticket_time: log_entry.block_number.clone().unwrap().as_f64() as u64,
             ticket_type: TicketType::Normal,
-            src_chain: "eth".to_string(),
-            dst_chain: "ic".to_string(),
+            src_chain,
+            dst_chain,
             action: TxAction::Redeem,
             token: token_burned.tokenId.to_string(),
             amount: token_burned.amount.to_string(),
@@ -216,6 +219,28 @@ impl Ticket {
             memo: None,
         };
         ticket
+    }
+
+    pub fn from_transport_event(log_entry: &LogEntry, token_transport_requested: TokenTransportRequested) -> Self {
+        let src_chain = read_state(|s| s.omnity_chain_id.clone());
+        //TODO
+        let dst_chain = token_transport_requested.dstChainId.to_string();
+        let ticket = Ticket {
+            ticket_id: log_entry.transaction_hash.clone().unwrap().to_string()
+                + log_entry.log_index.clone().unwrap().to_string().as_str(),
+            ticket_time: log_entry.block_number.clone().unwrap().as_f64() as u64,
+            ticket_type: TicketType::Normal,
+            src_chain,
+            dst_chain,
+            action: TxAction::Transfer,
+            token: token_transport_requested.tokenId.to_string(),
+            amount: token_transport_requested.amount.to_string(),
+            sender: None, //TODO
+            receiver: token_transport_requested.receiver,
+            memo: Some(token_transport_requested.memo.into_bytes()),
+        };
+        ticket
+
     }
 }
 
@@ -562,7 +587,8 @@ pub struct TxCondition {
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
-use crate::cdk_scan::TokenBurned;
+use crate::cdk_scan::{TokenBurned, TokenTransportRequested};
+use crate::state::read_state;
 
 pub type CanisterId = Principal;
 
