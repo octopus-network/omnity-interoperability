@@ -4,6 +4,8 @@ use ethers_core::abi::ethereum_types;
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 use ethereum_types::Address;
+use hex::ToHex;
+
 const EVM_ADDR_BYTES_LEN: usize = 20;
 
 #[derive(Deserialize, CandidType,Serialize, Default, Clone, Eq, PartialEq)]
@@ -20,6 +22,11 @@ pub enum EvmAddressError {
 impl Into<Address> for EvmAddress {
     fn into(self) -> Address {
         Address::from(self.0)
+    }
+}
+impl AsRef<[u8]> for EvmAddress {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
     }
 }
 
