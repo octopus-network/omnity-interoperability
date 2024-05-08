@@ -8,7 +8,6 @@ pub fn to_cdk_tickets_task() {
             Some(guard) => guard,
             None => return,
         };
-
     });
 }
 

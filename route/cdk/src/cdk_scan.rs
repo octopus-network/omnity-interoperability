@@ -14,7 +14,7 @@ use evm_rpc::{
     MultiRpcResult, RpcServices,
 };
 use log::{error, info};
-use crate::state::read_state;
+use crate::state::{mutate_state, read_state};
 const MAX_SCAN_BLOCKS: u64 = 20;
 
 sol! {
@@ -56,8 +56,9 @@ pub async fn handle_port_events() -> anyhow::Result<()>{
         }
         let block = l.block_number.ok_or(anyhow!("block is pending"))?;
         let log_index = l.log_index.ok_or(anyhow!("log is pending"))?;
+        let log_key = std::format!("{}-{}", block, log_index);
         if read_state(|s|
-            s.handled_cdk_event.contains(&std::format!("{}-{}", block, log_index))){
+            s.handled_cdk_event.contains(&log_key)){
             continue;
         }
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.clone();
@@ -69,29 +70,43 @@ pub async fn handle_port_events() -> anyhow::Result<()>{
                 .collect_vec(),
             alloy_primitives::Bytes::from(l.data.0.clone())).expect("topics lenght > 4");
         if topic1 == TokenBurned::SIGNATURE_HASH.0 {
-
             let token_burned = TokenBurned::decode_log_data(&raw_log, false)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-
+            handle_token_burn(&l, token_burned).await?;
+            mutate_state(|s|s.handled_cdk_event.insert(log_key));
         }else if topic1 == TokenMinted::SIGNATURE_HASH.0{
+
             let token_mint = TokenMinted::decode_log_data(&raw_log, false)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-
+            handle_token_mint(token_mint);
+            mutate_state(|s|s.handled_cdk_event.insert(log_key));
         }else if topic1 == TokenTransportRequested::SIGNATURE_HASH.0{
             let token_transport = TokenTransportRequested::decode_log_data(&raw_log, false)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
+
         }
     }
+    mutate_state(|s|s.scan_start_height = to);
     Ok(())
 }
 
-pub fn handle_token_burn(event: TokenBurned) {
+pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyhow::Result<()> {
+    let ticket = Ticket::from_burn_event(&log_entry, event);
+    ic_cdk::call(
+        crate::state::hub_addr(),
+        "send_ticket",
+        (ticket,),
+    )
+        .await
+        .map_err(|(_, s)| Error::HubError(s))?;
 
+    Ok(())
 }
 
 
 pub fn handle_token_mint(event: TokenMinted) {
-
+    let tid = event.ticketId.to_string();
+    mutate_state(|s| s.pending_tickets_map.remove(&tid));
 }
 
 
@@ -166,33 +181,6 @@ pub async fn fetch_logs(from_height: u64, to_height: u64, address: String) -> st
                        Error::EvmRpcError(format!("{:?}",e))
                    }
             )
-
-
-            /*for log_entry in result.expect("Evm rpc error") {
-                let raw_log = RawLog {
-                    topics: log_entry
-                        .topics
-                        .iter()
-                        .map(|topic| topic.0.into())
-                        .collect_vec(),
-                    data: log_entry.data.0.clone(),
-                };
-                */
-/*                let token_burned = TokenBurned::decode_raw_log(
-                    vec![WordToken(TokenBurned::SIGNATURE_HASH)],
-                    &raw_log.data,
-                    false,
-                )
-                .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-                let ticket = Ticket::from_event(&log_entry, token_burned);
-                ic_cdk::call(
-                    crate::state::hub_addr(),
-                    "send_ticket",
-                    (ticket,),
-                )
-                .await
-                .map_err(|(_, s)| Error::HubError(s))?;*/
-
         }
         MultiRpcResult::Inconsistent(_) => {
             return Result::Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
