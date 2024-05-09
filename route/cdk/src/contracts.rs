@@ -30,10 +30,10 @@ abigen!(
 );
 
 pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
-    let index: PortContractCommandIndex = directive.into();
+    let index: PortContractCommandIndex = directive.clone().into();
     let data = match directive {
         Directive::AddChain(c) => {
-            (index, seq, c.clone()).encode()
+            (index, seq, (c.chain_id.clone())).encode()
         }
         Directive::AddToken(t) => {
             /*
@@ -47,7 +47,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
             )
             */
             let token = t.clone();
-            let t_info = t.clone().token_id_info();
+            let t_info = token.token_id_info();
             let settlement_chain_id = t_info[0].to_string();
             let token_id = token.token_id;
             let contract_addr = ethereum_types::Address::from([0u8;20]);
@@ -86,7 +86,7 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> Vec<u8> {
 
 //TODO confirm the rule is correctly
 impl Into<PortContractCommandIndex> for Directive {
-    fn into(&self) -> PortContractCommandIndex {
+    fn into(self) -> PortContractCommandIndex {
         match self {
             Directive::AddChain(_) => 0u8,
             Directive::AddToken(_) => 1u8,
