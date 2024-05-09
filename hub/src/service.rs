@@ -8,6 +8,7 @@ use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::metrics;
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
+use omnity_hub::types::{ChainMeta, TokenMeta};
 use omnity_hub::types::{
     TokenResp, {Proposal, Subscribers},
 };
@@ -158,6 +159,11 @@ pub async fn get_chains(
 }
 
 #[query]
+pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
+    metrics::get_chain_metas(offset, limit).await
+}
+
+#[query]
 pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     metrics::get_chain(chain_id).await
 }
@@ -172,6 +178,10 @@ pub async fn get_tokens(
     metrics::get_tokens(chain_id, token_id, offset, limit)
         .await
         .map(|tokens| tokens.iter().map(|t| t.clone().into()).collect())
+}
+#[query]
+pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
+    metrics::get_token_metas(offset, limit).await
 }
 
 #[query]
@@ -221,6 +231,11 @@ pub async fn get_txs_with_account(
     limit: usize,
 ) -> Result<Vec<Ticket>, Error> {
     metrics::get_txs_with_account(sender, receiver, token_id, time_range, offset, limit).await
+}
+
+#[query]
+pub async fn get_txs(offset: usize, limit: usize) -> Result<Vec<Ticket>, Error> {
+    metrics::get_txs(offset, limit).await
 }
 
 #[query]

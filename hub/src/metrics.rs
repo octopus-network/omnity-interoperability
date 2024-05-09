@@ -1,4 +1,7 @@
-use crate::{state::with_state, types::TokenKey};
+use crate::{
+    state::with_state,
+    types::{ChainMeta, TokenKey, TokenMeta},
+};
 use log::info;
 use omnity_types::{
     Account, Chain, ChainId, ChainState, ChainType, Error, Ticket, TicketId, Token, TokenId,
@@ -32,6 +35,22 @@ pub async fn get_chains(
             .skip(offset)
             .take(limit)
             .map(|(_, chain)| chain.into())
+            .collect::<Vec<_>>()
+    });
+
+    Ok(chains)
+}
+
+pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
+    info!("get_chains from {}, limit: {}", offset, limit);
+
+    let chains = with_state(|hub_state| {
+        hub_state
+            .chains
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(_, chain)| chain)
             .collect::<Vec<_>>()
     });
 
@@ -76,6 +95,22 @@ pub async fn get_tokens(
             .skip(offset)
             .take(limit)
             .map(|(_, token_meta)| token_meta.into())
+            .collect::<Vec<_>>()
+    });
+
+    Ok(tokens)
+}
+
+pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
+    info!("get_token_metas  from: {}, limit: {}", offset, limit);
+
+    let tokens = with_state(|hub_state| {
+        hub_state
+            .tokens
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(_, token_meta)| token_meta)
             .collect::<Vec<_>>()
     });
 
@@ -242,6 +277,22 @@ pub async fn get_txs_with_account(
                 };
                 sender_match && receiver_match && token_id_match && time_range_match
             })
+            .skip(offset)
+            .take(limit)
+            .map(|(_, ticket)| ticket)
+            .collect::<Vec<_>>()
+    });
+
+    Ok(filtered_tickets)
+}
+
+pub async fn get_txs(offset: usize, limit: usize) -> Result<Vec<Ticket>, Error> {
+    info!("get_txs offset: {}, limit: {}", offset, limit);
+
+    let filtered_tickets = with_state(|hub_state| {
+        hub_state
+            .cross_ledger
+            .iter()
             .skip(offset)
             .take(limit)
             .map(|(_, ticket)| ticket)

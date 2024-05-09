@@ -81,20 +81,22 @@ type Proposal = variant {
 };
 type Result = variant { Ok; Err : Error };
 type Result_1 = variant { Ok : Chain; Err : Error };
-type Result_10 = variant {
+type Result_10 = variant { Ok : vec Ticket; Err : Error };
+type Result_11 = variant { Ok : vec record { nat64; Directive }; Err : Error };
+type Result_12 = variant {
   Ok : vec record { Topic; Subscribers };
   Err : Error;
 };
-type Result_11 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
-type Result_12 = variant { Ok : vec text; Err : Error };
-type Result_2 = variant { Ok : vec TokenOnChain; Err : Error };
-type Result_3 = variant { Ok : vec Chain; Err : Error };
-type Result_4 = variant { Ok : vec record { text; text; nat }; Err : Error };
-type Result_5 = variant { Ok : vec TokenResp; Err : Error };
-type Result_6 = variant { Ok : nat64; Err : Error };
-type Result_7 = variant { Ok : Ticket; Err : Error };
-type Result_8 = variant { Ok : vec Ticket; Err : Error };
-type Result_9 = variant { Ok : vec record { nat64; Directive }; Err : Error };
+type Result_13 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type Result_14 = variant { Ok : vec text; Err : Error };
+type Result_2 = variant { Ok : vec Chain; Err : Error };
+type Result_3 = variant { Ok : vec TokenOnChain; Err : Error };
+type Result_4 = variant { Ok : vec Chain; Err : Error };
+type Result_5 = variant { Ok : vec record { text; text; nat }; Err : Error };
+type Result_6 = variant { Ok : vec TokenMeta; Err : Error };
+type Result_7 = variant { Ok : vec TokenResp; Err : Error };
+type Result_8 = variant { Ok : nat64; Err : Error };
+type Result_9 = variant { Ok : Ticket; Err : Error };
 type SeqKey = record { seq : nat64; chain_id : text };
 type Subscribers = record { subs : vec text };
 type TargetChainFactor = record {
@@ -151,16 +153,19 @@ type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
   execute_proposal : (vec Proposal) -> (Result);
   get_chain : (text) -> (Result_1) query;
-  get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_2) query;
+  get_chain_metas : (nat64, nat64) -> (Result_2) query;
+  get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_3) query;
   get_chains : (opt ChainType, opt ChainState, nat64, nat64) -> (
-      Result_3,
+      Result_4,
     ) query;
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_fees : (opt text, opt text, nat64, nat64) -> (Result_4) query;
+  get_fees : (opt text, opt text, nat64, nat64) -> (Result_5) query;
   get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
-  get_tokens : (opt text, opt text, nat64, nat64) -> (Result_5) query;
-  get_total_tx : () -> (Result_6) query;
-  get_tx : (text) -> (Result_7) query;
+  get_token_metas : (nat64, nat64) -> (Result_6) query;
+  get_tokens : (opt text, opt text, nat64, nat64) -> (Result_7) query;
+  get_total_tx : () -> (Result_8) query;
+  get_tx : (text) -> (Result_9) query;
+  get_txs : (nat64, nat64) -> (Result_10) query;
   get_txs_with_account : (
       opt text,
       opt text,
@@ -168,7 +173,7 @@ service : (HubArg) -> {
       opt record { nat64; nat64 },
       nat64,
       nat64,
-    ) -> (Result_8) query;
+    ) -> (Result_10) query;
   get_txs_with_chain : (
       opt text,
       opt text,
@@ -176,15 +181,15 @@ service : (HubArg) -> {
       opt record { nat64; nat64 },
       nat64,
       nat64,
-    ) -> (Result_8) query;
-  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_9) query;
-  query_subscribers : (opt Topic) -> (Result_10) query;
-  query_tickets : (opt text, nat64, nat64) -> (Result_11) query;
+    ) -> (Result_10) query;
+  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_11) query;
+  query_subscribers : (opt Topic) -> (Result_12) query;
+  query_tickets : (opt text, nat64, nat64) -> (Result_13) query;
   resubmit_ticket : (Ticket) -> (Result);
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
   sub_directives : (opt text, vec Topic) -> (Result);
   unsub_directives : (opt text, vec Topic) -> (Result);
   update_fee : (vec Factor) -> (Result);
-  validate_proposal : (vec Proposal) -> (Result_12) query;
+  validate_proposal : (vec Proposal) -> (Result_14) query;
 }
