@@ -806,7 +806,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d32a725bc159af97c3e629873bb9f88fb8cf8a4867175f76dc987815ea07c83b"
 
 [[package]]
-name = "cdk_route_canister"
+name = "cdk_route"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",

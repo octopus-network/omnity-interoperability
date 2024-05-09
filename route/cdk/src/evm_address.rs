@@ -4,7 +4,6 @@ use ethers_core::abi::ethereum_types;
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 use ethereum_types::Address;
-use hex::ToHex;
 
 const EVM_ADDR_BYTES_LEN: usize = 20;
 
@@ -35,6 +34,19 @@ impl FromStr for EvmAddress {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         EvmAddress::from_text(s)
+    }
+}
+
+impl TryFrom<Vec<u8>> for EvmAddress {
+    type Error = String;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        if value.len() != EVM_ADDR_BYTES_LEN {
+            return Result::Err("addr_length_error".to_string());
+        }
+        let mut c = [0u8;EVM_ADDR_BYTES_LEN];
+        c.copy_from_slice(value.as_slice());
+        Ok(EvmAddress(c))
     }
 }
 

@@ -6,6 +6,7 @@ fn init(
     args: InitArgs
 ) {
     mutate_state(|s| *s = CdkRouteState::init(args));
+
 }
 
 
@@ -16,6 +17,12 @@ fn pre_upgrade() {
 
 #[post_upgrade]
 fn post_upgrade() {}
+
+fn periodic_task() {
+
+
+
+}
 
 ic_cdk::export_candid!();
 
