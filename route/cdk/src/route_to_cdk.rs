@@ -1,6 +1,7 @@
-use crate::contracts::{broadcast, gen_eip1559_tx, gen_mint_token_data, sign_transaction};
+use ethers_core::types::U256;
+use crate::contracts::{broadcast, gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data, PortContractCommandIndex, sign_transaction};
 use crate::state::{mutate_state, read_state};
-use crate::types::PendingTicketStatus;
+use crate::types::{Directive, PendingTicketStatus};
 
 pub fn to_cdk_tickets_task() {
     ic_cdk::spawn(async {
@@ -21,12 +22,17 @@ pub async fn send_directives_to_cdk() {
                 continue;
             }
             Some(d) => {
+                let data = gen_execute_directive_data(&d, U256::from(seq));
+                let tx = gen_eip1559_tx(data);
+                let raw = sign_transaction(tx).await;
 
             }
         }
     }
     mutate_state(|s|s.next_consume_ticket_seq = to);
 }
+
+
 
 pub async fn send_tickets_to_cdk() {
     let from = read_state(|s| s.next_consume_ticket_seq);

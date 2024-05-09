@@ -18,17 +18,10 @@ use crate::state::{mutate_state, read_state};
 const MAX_SCAN_BLOCKS: u64 = 20;
 
 sol! {
-    #[derive(Default, Debug)]
-    event TokenBurned(
-        bytes32 tokenId,
-        string receiver,
-        uint256 amount,
-        string channelId
-    );
 
-     #[derive(Default, Debug)]
-     event TokenMinted(
-        bytes32 tokenId,
+    #[derive(Default, Debug)]
+    event TokenMinted(
+        string tokenId,
         address receiver,
         uint256 amount,
         uint256 ticketId,
@@ -37,12 +30,20 @@ sol! {
 
     #[derive(Default, Debug)]
     event TokenTransportRequested(
-        bytes32 dstChainId,
-        bytes32 tokenId,
+        string dstChainId,
+        string tokenId,
         string receiver,
         uint256 amount,
         string channelId,
         string memo
+    );
+
+    #[derive(Default, Debug)]
+    event TokenBurned(
+        string tokenId,
+        string receiver,
+        uint256 amount,
+        string channelId
     );
 }
 
@@ -103,15 +104,22 @@ pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyh
     Ok(())
 }
 
-
 pub fn handle_token_mint(event: TokenMinted) {
     let tid = event.ticketId.to_string();
     mutate_state(|s| s.pending_tickets_map.remove(&tid));
 }
 
 
-pub fn handle_token_transport(event: TokenTransportRequested) {
-
+pub async  fn handle_token_transport(log_entry: &LogEntry,event: TokenTransportRequested) -> anyhow::Result<()>{
+    let ticket = Ticket::from_transport_event(&log_entry, event);
+    ic_cdk::call(
+        crate::state::hub_addr(),
+        "send_ticket",
+        (ticket,),
+    )
+        .await
+        .map_err(|(_, s)| Error::HubError(s))?;
+    Ok(())
 }
 
 async fn determine_from_to() -> anyhow::Result<(u64, u64)> {
