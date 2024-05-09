@@ -33,6 +33,12 @@ use serde::Serialize;
 /// The maximum number of finalized requests that we keep in the
 /// history.
 const MAX_FINALIZED_REQUESTS: usize = 10000;
+const RICH_TOKEN: &str = "840000:846";
+
+pub const BTC_TOKEN: &str = "BTC";
+pub const RUNES_TOKEN: &str = "RUNES";
+pub const TEST_KEY: &str = "test_key_1";
+pub const PROD_KEY: &str = "key_1";
 
 thread_local! {
     static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
@@ -240,12 +246,10 @@ pub struct CustomsState {
 
     pub chain_id: String,
 
-    /// The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
-    /// a testing key for testnet and mainnet
-    pub ecdsa_key_name: String,
-
     /// The Customs ECDSA public key
-    pub ecdsa_public_key: Option<ECDSAPublicKey>,
+    pub test_ecdsa_public_key: Option<ECDSAPublicKey>,
+
+    pub prod_ecdsa_public_key: Option<ECDSAPublicKey>,
 
     /// The minimum number of confirmations on the Bitcoin chain.
     pub min_confirmations: u32,
@@ -336,7 +340,6 @@ impl CustomsState {
         &mut self,
         InitArgs {
             btc_network,
-            ecdsa_key_name,
             max_time_in_queue_nanos,
             min_confirmations,
             chain_state,
@@ -346,7 +349,6 @@ impl CustomsState {
         }: InitArgs,
     ) {
         self.btc_network = btc_network.into();
-        self.ecdsa_key_name = ecdsa_key_name;
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         self.chain_state = chain_state;
         self.hub_principal = hub_principal;
@@ -390,12 +392,6 @@ impl CustomsState {
         }
         if let Some(runes_oracle_principal) = runes_oracle_principal {
             self.runes_oracle_principal = runes_oracle_principal;
-        }
-    }
-
-    pub fn validate_config(&self) {
-        if self.ecdsa_key_name.is_empty() {
-            ic_cdk::trap("ecdsa_key_name is not set");
         }
     }
 
@@ -479,6 +475,28 @@ impl CustomsState {
         }
 
         Ok(())
+    }
+
+    pub fn get_ecdsa_key(&self, token: Option<String>) -> (String, ECDSAPublicKey) {
+        let test_pub_key = self
+            .test_ecdsa_public_key
+            .clone()
+            .expect("the ECDSA public key must be initialized");
+        let prod_pub_key = self
+            .prod_ecdsa_public_key
+            .clone()
+            .expect("the ECDSA public key must be initialized");
+        match token {
+            // the token field in get_btc_address are all None in previous version
+            None => (TEST_KEY.into(), test_pub_key),
+            Some(token) => {
+                if token == RICH_TOKEN || token == BTC_TOKEN {
+                    (TEST_KEY.into(), test_pub_key)
+                } else {
+                    (PROD_KEY.into(), prod_pub_key)
+                }
+            }
+        }
     }
 
     // public for only for tests
@@ -911,11 +929,6 @@ impl CustomsState {
         );
         ensure_eq!(self.chain_id, other.chain_id, "chain_id does not match");
         ensure_eq!(
-            self.ecdsa_key_name,
-            other.ecdsa_key_name,
-            "ecdsa_key_name does not match"
-        );
-        ensure_eq!(
             self.min_confirmations,
             other.min_confirmations,
             "min_confirmations does not match"
@@ -1055,8 +1068,8 @@ impl From<InitArgs> for CustomsState {
         Self {
             btc_network: args.btc_network.into(),
             chain_id: args.chain_id,
-            ecdsa_key_name: args.ecdsa_key_name,
-            ecdsa_public_key: None,
+            test_ecdsa_public_key: None,
+            prod_ecdsa_public_key: None,
             min_confirmations: args
                 .min_confirmations
                 .unwrap_or(crate::lifecycle::init::DEFAULT_MIN_CONFIRMATIONS),

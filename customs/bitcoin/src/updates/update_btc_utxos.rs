@@ -2,9 +2,8 @@ use super::get_btc_address::init_ecdsa_public_key;
 use crate::{
     address::main_destination,
     management,
-    state::{audit, mutate_state, read_state},
+    state::{audit, mutate_state, read_state, BTC_TOKEN},
     updates::get_btc_address::destination_to_p2wpkh_address_from_state,
-    BTC_TOKEN,
 };
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Utxo;
@@ -19,7 +18,7 @@ pub async fn update_btc_utxos() -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
 
     let (btc_network, chain_id, min_confirmations) =
         read_state(|s| (s.btc_network, s.chain_id.clone(), s.min_confirmations));
-    let destination = main_destination(chain_id, String::from(BTC_TOKEN));
+    let destination = main_destination(chain_id, BTC_TOKEN.into());
     let address = read_state(|s| destination_to_p2wpkh_address_from_state(s, &destination));
 
     let resp = management::get_utxos(

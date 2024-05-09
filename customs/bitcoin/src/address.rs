@@ -16,6 +16,8 @@ const BTC_MAINNET_P2SH_PREFIX: u8 = 5;
 const BTC_TESTNET_PREFIX: u8 = 111;
 const BTC_TESTNET_P2SH_PREFIX: u8 = 196;
 
+const MAIN_DEST_TOKEN_SUFFIX: &str = "_PROD";
+
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BitcoinAddress {
     /// Pay to witness public key hash address.
@@ -102,7 +104,7 @@ pub fn main_destination(main_chain_id: String, token: String) -> Destination {
     Destination {
         target_chain_id: main_chain_id,
         receiver: ic_cdk::id().to_string(),
-        token: Some(token),
+        token: Some(token + MAIN_DEST_TOKEN_SUFFIX),
     }
 }
 

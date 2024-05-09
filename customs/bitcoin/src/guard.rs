@@ -141,7 +141,6 @@ mod tests {
     fn test_state_args() -> InitArgs {
         InitArgs {
             btc_network: BtcNetwork::Regtest,
-            ecdsa_key_name: "some_key".to_string(),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             chain_state: ChainState::Active,

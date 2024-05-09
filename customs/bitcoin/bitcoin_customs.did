@@ -127,7 +127,6 @@ type GetEventsArg = record { start : nat64; length : nat64 };
 type GetGenTicketReqsArgs = record { max_count : nat64; start_txid : opt blob };
 type InitArgs = record {
   hub_principal : principal;
-  ecdsa_key_name : text;
   runes_oracle_principal : principal;
   max_time_in_queue_nanos : nat64;
   chain_id : text;

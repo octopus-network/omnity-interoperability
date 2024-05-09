@@ -1,7 +1,7 @@
 use crate::destination::Destination;
 use crate::guard::{generate_ticket_guard, GuardError};
 use crate::management::{get_utxos, CallSource};
-use crate::state::{audit, mutate_state, read_state, GenTicketRequest, GenTicketStatus, RuneId};
+use crate::state::{audit, mutate_state, read_state, GenTicketRequest, GenTicketStatus, RuneId, RUNES_TOKEN};
 use crate::updates::get_btc_address::{
     destination_to_p2wpkh_address_from_state, init_ecdsa_public_key,
 };
@@ -88,7 +88,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     let destination = Destination {
         target_chain_id: args.target_chain_id.clone(),
         receiver: args.receiver.clone(),
-        token: None,
+        token: Some(RUNES_TOKEN.into()),
     };
 
     let address = read_state(|s| destination_to_p2wpkh_address_from_state(s, &destination));

@@ -741,7 +741,6 @@ proptest! {
     ) {
         let mut state = CustomsState::from(InitArgs {
             btc_network: Network::Regtest.into(),
-            ecdsa_key_name: "".to_string(),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             chain_state: ChainState::Active,
@@ -764,7 +763,6 @@ proptest! {
     ) {
         let mut state = CustomsState::from(InitArgs {
             btc_network: Network::Regtest.into(),
-            ecdsa_key_name: "".to_string(),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             chain_state: ChainState::Active,
@@ -811,7 +809,6 @@ proptest! {
     let rune_id = RuneId{block: 100, tx: 1};
         let mut state = CustomsState::from(InitArgs {
             btc_network: Network::Regtest.into(),
-            ecdsa_key_name: "".to_string(),
             max_time_in_queue_nanos: 0,
             min_confirmations: None,
             chain_state: ChainState::Active,

@@ -15,6 +15,7 @@ use serde::Serialize;
 use serde_bytes::ByteBuf;
 use state::{
     read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo, SubmittedBtcTransaction,
+    BTC_TOKEN,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter::Sum;
@@ -53,8 +54,6 @@ pub const BATCH_QUERY_LIMIT: u64 = 20;
 
 pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
 pub const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
-
-const BTC_TOKEN: &str = "BTC";
 
 /// The minimum fee increment for transaction resubmission.
 /// See https://en.bitcoin.it/wiki/Miner_fees#Relaying for more detail.
@@ -111,9 +110,7 @@ pub struct TokenResp {
 }
 
 struct SignTxRequest {
-    key_name: String,
     network: Network,
-    ecdsa_public_key: ECDSAPublicKey,
     unsigned_tx: tx::UnsignedTransaction,
     runes_change_output: RunesChangeOutput,
     btc_change_output: BtcChangeOutput,
@@ -362,16 +359,14 @@ async fn submit_pending_requests() {
         }
 
         let main_chain_id = read_state(|s| s.chain_id.clone());
-        let ecdsa_public_key = updates::get_btc_address::init_ecdsa_public_key().await;
-        let btc_main_address = address::main_bitcoin_address(
-            &ecdsa_public_key,
-            main_chain_id.clone(),
-            String::from(BTC_TOKEN),
-        );
+        let (_, prod_pub_key) = updates::get_btc_address::init_ecdsa_public_key().await;
+
+        let btc_main_address =
+            address::main_bitcoin_address(&prod_pub_key, main_chain_id.clone(), BTC_TOKEN.into());
 
         // Each runes tokens use isolated main addresses
         let runes_main_address =
-            address::main_bitcoin_address(&ecdsa_public_key, main_chain_id, rune_id.to_string());
+            address::main_bitcoin_address(&prod_pub_key, main_chain_id, rune_id.to_string());
 
         let maybe_sign_request = state::mutate_state(|s| {
             let batch = s.build_batch(rune_id, MAX_REQUESTS_PER_BATCH);
@@ -410,8 +405,6 @@ async fn submit_pending_requests() {
                     }
 
                     Some(SignTxRequest {
-                        key_name: s.ecdsa_key_name.clone(),
-                        ecdsa_public_key,
                         runes_change_output,
                         btc_change_output,
                         outpoint_destination: filter_output_destinations(s, &unsigned_tx),
@@ -453,14 +446,7 @@ async fn submit_pending_requests() {
 
             let txid = req.unsigned_tx.txid();
 
-            match sign_transaction(
-                req.key_name,
-                &req.ecdsa_public_key,
-                &req.outpoint_destination,
-                req.unsigned_tx,
-            )
-            .await
-            {
+            match sign_transaction(&req.outpoint_destination, req.unsigned_tx).await {
                 Ok(signed_tx) => {
                     state::mutate_state(|s| {
                         for release_req in requests_guard.0.iter() {
@@ -563,7 +549,7 @@ async fn finalize_requests() {
         return;
     }
 
-    let ecdsa_public_key = updates::get_btc_address::init_ecdsa_public_key().await;
+    let (_, prod_pub_key) = updates::get_btc_address::init_ecdsa_public_key().await;
     let now = ic_cdk::api::time();
 
     // The list of transactions that are likely to be finalized, indexed by the transaction id.
@@ -589,7 +575,7 @@ async fn finalize_requests() {
             (
                 main_destination(main_chain_id.clone(), tx.rune_id.to_string()),
                 address::main_bitcoin_address(
-                    &ecdsa_public_key,
+                    &prod_pub_key,
                     main_chain_id.clone(),
                     tx.rune_id.to_string(),
                 ),
@@ -721,8 +707,6 @@ async fn finalize_requests() {
         None => return,
     };
 
-    let key_name = state::read_state(|s| s.ecdsa_key_name.clone());
-
     for (old_txid, submitted_tx) in maybe_finalized_transactions {
         let mut runes_utxos: BTreeSet<_> = submitted_tx.runes_utxos.iter().cloned().collect();
         let mut btc_utxos: BTreeSet<_> = submitted_tx.btc_utxos.iter().cloned().collect();
@@ -748,12 +732,12 @@ async fn finalize_requests() {
                 &mut runes_utxos,
                 &mut btc_utxos,
                 main_bitcoin_address(
-                    &ecdsa_public_key,
+                    &prod_pub_key,
                     main_chain_id.clone(),
                     submitted_tx.rune_id.to_string(),
                 ),
                 main_bitcoin_address(
-                    &ecdsa_public_key,
+                    &prod_pub_key,
                     main_chain_id.clone(),
                     String::from(BTC_TOKEN),
                 ),
@@ -786,13 +770,7 @@ async fn finalize_requests() {
 
         let new_txid = unsigned_tx.txid();
 
-        let maybe_signed_tx = sign_transaction(
-            key_name.clone(),
-            &ecdsa_public_key,
-            &outpoint_dests,
-            unsigned_tx,
-        )
-        .await;
+        let maybe_signed_tx = sign_transaction(&outpoint_dests, unsigned_tx).await;
 
         let signed_tx = match maybe_signed_tx {
             Ok(tx) => tx,
@@ -1007,8 +985,6 @@ pub fn fake_sign(unsigned_tx: &tx::UnsignedTransaction) -> tx::SignedTransaction
 /// This function panics if the `output_account` map does not have an entry for
 /// at least one of the transaction previous output points.
 pub async fn sign_transaction(
-    key_name: String,
-    ecdsa_public_key: &ECDSAPublicKey,
     output_destinations: &BTreeMap<tx::OutPoint, Destination>,
     unsigned_tx: tx::UnsignedTransaction,
 ) -> Result<tx::SignedTransaction, call_error::CallError> {
@@ -1023,8 +999,11 @@ pub async fn sign_transaction(
             .get(outpoint)
             .unwrap_or_else(|| panic!("bug: no account for outpoint {:?}", outpoint));
 
+        let (key_name, ecdsa_public_key) =
+            read_state(|s| s.get_ecdsa_key(destination.token.clone()));
+
         let path = derivation_path(destination);
-        let pubkey = ByteBuf::from(derive_public_key(ecdsa_public_key, destination).public_key);
+        let pubkey = ByteBuf::from(derive_public_key(&ecdsa_public_key, destination).public_key);
         let pkhash = tx::hash160(&pubkey);
 
         let sighash = sighasher.sighash(input, &pkhash);
