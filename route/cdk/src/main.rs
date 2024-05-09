@@ -1,8 +1,11 @@
-use ic_cdk::{init, pre_upgrade, post_upgrade};
+use ic_cdk::{init, post_upgrade, pre_upgrade};
+use cdk_route::state::{CdkRouteState, InitArgs, mutate_state};
 
 #[init]
-fn init() {
-
+fn init(
+    args: InitArgs
+) {
+    mutate_state(|s| *s = CdkRouteState::init(args));
 }
 
 
@@ -17,3 +20,4 @@ fn post_upgrade() {}
 ic_cdk::export_candid!();
 
 pub fn main() {}
+

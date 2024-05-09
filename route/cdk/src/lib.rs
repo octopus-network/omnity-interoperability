@@ -1,4 +1,3 @@
-extern crate core;
 
 use ic_cdk::api::call::RejectionCode;
 use itertools::Itertools;
@@ -8,8 +7,9 @@ use crate::types::{Chain, Ticket};
 
 pub mod cdk_scan;
 pub mod types;
-pub mod main;
 pub mod state;
+pub mod main;
+
 pub mod call_error;
 pub mod hub;
 pub mod hub_to_route;
@@ -20,6 +20,7 @@ pub mod audit;
 pub mod stable_memory;
 pub mod evm_address;
 pub mod route_to_cdk;
+
 type Result<T = ()> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
@@ -38,13 +39,12 @@ pub enum Error {
     RouteNotInitialized,
     #[error("IC call error: {0:?}, {1}")]
     IcCallError(RejectionCode, String),
-
     #[error(transparent)]
     Custom(#[from] anyhow::Error),
 }
-
+/*
 pub fn init(target_chain: Chain, target_chain_id: u64) {
-   /* // TODO TOKEN
+   /*// TODO TOKEN
     TARGET_CHAIN.with_borrow_mut(|id| *id = target_chain.clone());
     TARGET_CHAIN_ID.with_borrow_mut(|id| *id = target_chain_id);
     KEY_ID.with_borrow_mut(|k| {
@@ -81,3 +81,4 @@ pub fn max_ticket_id() -> u64 {
     0
     //TICKETS.with_borrow(|tickets| *tickets.keys().last().unwrap_or(&0))
 }
+*/
