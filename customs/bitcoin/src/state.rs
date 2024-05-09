@@ -37,8 +37,16 @@ const RICH_TOKEN: &str = "840000:846";
 
 pub const BTC_TOKEN: &str = "BTC";
 pub const RUNES_TOKEN: &str = "RUNES";
-pub const TEST_KEY: &str = "test_key_1";
-pub const PROD_KEY: &str = "key_1";
+pub const TEST_KEY: &str = if cfg!(feature = "local_test") {
+    "master_ecdsa_public_key"
+} else {
+    "test_key_1"
+};
+pub const PROD_KEY: &str = if cfg!(feature = "local_test") {
+    "master_ecdsa_public_key"
+} else {
+    "key_1"
+};
 
 thread_local! {
     static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
@@ -487,9 +495,10 @@ impl CustomsState {
             .clone()
             .expect("the ECDSA public key must be initialized");
         match token {
-            // the token field in get_btc_address are all None in previous version
+            // the token field in the destination of user deposit address are all None in previous version
             None => (TEST_KEY.into(), test_pub_key),
             Some(token) => {
+                // main change address in previous version
                 if token == RICH_TOKEN || token == BTC_TOKEN {
                     (TEST_KEY.into(), test_pub_key)
                 } else {

@@ -43,7 +43,7 @@ fn customs_wasm() -> Vec<u8> {
     load_wasm(
         std::env::var("CARGO_MANIFEST_DIR").unwrap(),
         "bitcoin_customs",
-        &["self_check"],
+        &["self_check", "local_test"],
     )
 }
 
