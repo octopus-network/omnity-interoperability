@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
-use crate::types::{Directive, PendingTicketStatus, Ticket, TicketId};
+use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId};
 
 pub type InnerMemory = DefaultMemoryImpl;
 pub type Memory = VirtualMemory<InnerMemory>;
@@ -39,11 +39,19 @@ pub fn get_pending_ticket_map_memory() -> Memory {
     with_memory_manager(|m| m.get(PENDING_TICKET_MAP_MEMORY_ID))
 }
 
+pub fn get_pending_directive_map_memory() -> Memory {
+    with_memory_manager(|m| m.get(PENDING_DIRECTIVE_MAP_MEMORY_ID))
+}
 pub fn init_to_cdk_tickets_queue() -> StableBTreeMap<u64, Ticket, Memory> {
     StableBTreeMap::init(get_to_cdk_tickets_memory())
 }
+
 pub fn init_pending_ticket_map() -> StableBTreeMap<TicketId, PendingTicketStatus, Memory> {
     StableBTreeMap::init(get_pending_ticket_map_memory())
+}
+
+pub fn init_pending_directive_map() -> StableBTreeMap<Seq, PendingDirectiveStatus, Memory> {
+    StableBTreeMap::init(get_pending_directive_map_memory())
 }
 
 pub fn init_to_cdk_directives_queue() -> StableBTreeMap<u64, Directive, Memory> {
