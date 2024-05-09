@@ -1,6 +1,6 @@
 use std::str::FromStr;
-use cketh_common::eth_rpc_client::RpcConfig;
 
+use cketh_common::eth_rpc_client::RpcConfig;
 use ethers_contract::abigen;
 use ethers_core::abi::{AbiEncode, ethereum_types};
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
@@ -11,54 +11,71 @@ use hex::ToHex;
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use secp256k1::{Message, PublicKey};
 use secp256k1::ecdsa::{RecoverableSignature, RecoveryId};
-use crate::Error;
 
+use crate::Error;
 use crate::evm_address::EvmAddress;
 use crate::state::read_state;
-use crate::types::{Directive, Ticket, ToggleState};
+use crate::types::{Directive, Ticket, ToggleAction};
+
 pub type PortContractCommandIndex = u8;
 
 abigen!(
     OmnityPortContract,
     r#"[
-        function privilegedMintToken(bytes32 tokenId,address receiver,uint256 amount,uint256 ticketId, string memory memo) external
+        function privilegedMintToken(string tokenId,address receiver,uint256 amount,uint256 ticketId, string memory memo) external
         function privilegedExecuteDirective(bytes memory directiveBytes) external
     ]"#,
     derives(serde::Deserialize, serde::Serialize)
 
 );
 
-pub fn gen_execute_directive_data(directive: &Directive) -> Vec<u8> {
-    match directive {
+pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
+    let index: PortContractCommandIndex = directive.into();
+    let data = match directive {
         Directive::AddChain(c) => {
-
-
-
+            (index, seq, c.clone()).encode()
         }
-        Directive::AddToken(_) => {
-
-
+        Directive::AddToken(t) => {
+            /*
+            (
+                string memory settlementChainId,
+                string memory tokenId,
+                address contractAddress,
+                string memory name,
+                string memory symbol,
+                uint8 decimals
+            )
+            */
+            let token = t.clone();
+            let t_info = t.clone().token_id_info();
+            let settlement_chain_id = t_info[0].to_string();
+            let token_id = token.token_id;
+            let contract_addr = ethereum_types::Address::from([0u8;20]);
+            let name = token.name;
+            let symbol = token.symbol;
+            let decimal = token.decimals;
+            (index, seq,(settlement_chain_id, token_id, contract_addr, name, symbol, decimal)).encode()
         }
-        Directive::ToggleChainState(_) => {}
-        Directive::UpdateFee(_) => {}
-    }
+        Directive::ToggleChainState(t) => {
+            (index, seq, (t.chain_id.clone())).encode()
+        }
+        Directive::UpdateFee(f) => {
+            //TODO
+            vec![]
+        }
+    };
 
-
-
-
-    let v: Vec<u8> = vec![];
     let call = PrivilegedExecuteDirectiveCall {
-        directive_bytes: Bytes::from(v),
+        directive_bytes: Bytes::from(data),
     };
     call.encode()
 }
 
 pub fn gen_mint_token_data(ticket: &Ticket) -> Vec<u8> {
-    let token_id = ticket.token.clone();
     let receiver = ethereum_types::Address::from_slice(EvmAddress::from_str(ticket.receiver.as_str()).unwrap().0.as_slice());
     let amount: u128 = ticket.amount.parse().unwrap();
     let call = PrivilegedMintTokenCall {
-        token_id: [1u8;32],
+        token_id: ticket.token.clone(),
         receiver,
         amount: U256::from(amount),
         ticket_id: U256::from_str_radix(ticket.ticket_id.as_str(), 16).unwrap(),
@@ -69,15 +86,17 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> Vec<u8> {
 
 //TODO confirm the rule is correctly
 impl Into<PortContractCommandIndex> for Directive {
-    fn into(self) -> PortContractCommandIndex {
+    fn into(&self) -> PortContractCommandIndex {
         match self {
             Directive::AddChain(_) => 0u8,
             Directive::AddToken(_) => 1u8,
+            Directive::UpdateFee(_) => 2u8,
             Directive::ToggleChainState(t) => {
-
-                3
+                match t.action {
+                    ToggleAction::Activate => { 4 }
+                    ToggleAction::Deactivate => { 3 }
+                }
             }
-            Directive::UpdateFee(_) => 2u8
         }
     }
 }
@@ -103,9 +122,7 @@ pub fn gen_eip1559_tx(tx_data: Vec<u8>) -> Eip1559TransactionRequest {
 }
 pub async fn sign_transaction( tx: Eip1559TransactionRequest ) -> anyhow::Result<Vec<u8>> {
     use ethers_core::types::Signature;
-
     const EIP1559_TX_ID: u8 = 2;
-
     let caller = ic_cdk::caller();
     let mut unsigned_tx_bytes = tx.rlp().to_vec();
     unsigned_tx_bytes.insert(0, EIP1559_TX_ID);

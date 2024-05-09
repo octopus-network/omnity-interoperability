@@ -28,6 +28,13 @@ pub struct PendingTicketStatus {
     pub error: Option<String>
 }
 
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct PendingDirectiveStatus {
+    pub evm_tx_hash: Option<String>,
+    pub seq: u64,
+    pub error: Option<String>
+}
+
 impl Storable for PendingTicketStatus {
     fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
@@ -212,7 +219,7 @@ impl Ticket {
             src_chain,
             dst_chain,
             action: TxAction::Redeem,
-            token: token_burned.tokenId.to_string(),
+            token: token_burned.tokenId,
             amount: token_burned.amount.to_string(),
             sender: None, //TODO
             receiver: token_burned.receiver,
@@ -223,8 +230,7 @@ impl Ticket {
 
     pub fn from_transport_event(log_entry: &LogEntry, token_transport_requested: TokenTransportRequested) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
-        //TODO
-        let dst_chain = token_transport_requested.dstChainId.to_string();
+        let dst_chain = token_transport_requested.dstChainId;
         let ticket = Ticket {
             ticket_id: log_entry.transaction_hash.clone().unwrap().to_string()
                 + log_entry.log_index.clone().unwrap().to_string().as_str(),
