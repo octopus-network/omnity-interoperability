@@ -8,7 +8,6 @@ use crate::types::{Chain, Ticket};
 pub mod cdk_scan;
 pub mod types;
 pub mod state;
-pub mod main;
 
 pub mod call_error;
 pub mod hub;

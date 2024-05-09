@@ -15,6 +15,8 @@ use evm_rpc::{
 };
 use log::{error, info};
 use crate::state::{mutate_state, read_state};
+use crate::types::Ticket;
+
 const MAX_SCAN_BLOCKS: u64 = 20;
 
 sol! {

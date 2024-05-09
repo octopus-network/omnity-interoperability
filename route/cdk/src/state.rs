@@ -12,7 +12,19 @@ use crate::stable_memory::Memory;
 use crate::types::{Chain, ChainState, Token, TokenId};
 
 thread_local! {
-    static STATE: RefCell<CdkRouteState> = RefCell::new(CdkRouteState::new());
+    static STATE: RefCell<CdkRouteState> = RefCell::new(CdkRouteState::default());
+}
+
+#[derive(CandidType, Deserialize)]
+pub struct InitArgs {
+    pub chain_id: String,
+    pub hub_principal: Principal,
+    pub evm_chain_id: u64,
+    pub evm_rpc_canister_addr: Principal,
+    pub omnity_port_contract: Vec<u8>,
+    pub scan_start_height: u64,
+    pub key_derivation_path: String,
+    pub key_id_str: String,
 }
 
 #[derive( Deserialize, Serialize)]
@@ -22,9 +34,7 @@ pub struct CdkRouteState {
     pub evm_chain_id: u64,
     pub tokens: BTreeMap<TokenId, Token>,
     pub counterparties: BTreeMap<ChainId, Chain>,
-    pub fee_token_factor: Option<u128>,
     pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
-    pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub chain_state: ChainState,
     pub evm_rpc_addr: Principal,
     pub key_id: EcdsaKeyId,
@@ -55,41 +65,66 @@ pub struct CdkRouteState {
 
 impl CdkRouteState {
 
-    pub(crate) fn new() -> Self {
+    pub fn init(args: InitArgs) -> Self {
         CdkRouteState {
-            hub_principal: Principal::anonymous(),
-            omnity_chain_id: "".to_string(),
-            next_ticket_seq: 0,
-            next_directive_seq: 0,
-            next_consume_ticket_seq: 0,
-            next_consume_directive_seq: 0,
+            hub_principal: args.hub_principal.clone(),
+            omnity_chain_id: args.chain_id,
+            evm_chain_id: args.evm_chain_id,
             tokens: Default::default(),
             counterparties: Default::default(),
-            fee_token_factor: None,
             finalized_mint_token_requests: Default::default(),
-            target_chain_factor: Default::default(),
-            chain_state: Default::default(),
-            evm_rpc_addr: Principal::anonymous(),
-            key_id: EcdsaKeyId {
-                curve: EcdsaCurve::Secp256k1,
-                name: "".to_string(),
-            },
+            chain_state: ChainState::Active,
+            evm_rpc_addr: args.evm_rpc_canister_addr,
+            key_id: Default::default(),
             key_derivation_path: vec![],
             nonce: 0,
             pubkey: vec![],
             rpc_privders: vec![],
+            omnity_port_contract: EvmAddress::try_from(args.omnity_port_contract).expect("omnity port contract address error"),
+            next_ticket_seq: 0,
+            next_directive_seq: 0,
+            next_consume_ticket_seq: 0,
+            next_consume_directive_seq: 0,
+            handled_cdk_event: Default::default(),
+            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_tickets_memory()),
+            directives_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_directives_memory()),
+            pending_tickets_map: StableBTreeMap::init(crate::stable_memory::get_pending_ticket_map_memory()),
+            pending_directive_map: StableBTreeMap::init(crate::stable_memory::get_pending_directive_map_memory()),
+            scan_start_height: args.scan_start_height,
+            is_timer_running: false,
+        }
+    }
+
+    pub(crate) fn default() -> Self {
+        CdkRouteState {
+            hub_principal: Principal::anonymous(),
+            omnity_chain_id: "".to_string(),
+            evm_chain_id: 0,
+            tokens: Default::default(),
+            counterparties: Default::default(),
+            finalized_mint_token_requests: Default::default(),
+            chain_state: ChainState::Active,
+            evm_rpc_addr: Principal::anonymous(),
+            key_id: Default::default(),
+            key_derivation_path: vec![],
+            nonce: 0,
+            pubkey: vec![],
+            rpc_privders: vec![],
+            omnity_port_contract: EvmAddress::default(),
+            next_ticket_seq: 0,
+            next_directive_seq: 0,
+            next_consume_ticket_seq: 0,
+            next_consume_directive_seq: 0,
+            handled_cdk_event: Default::default(),
             tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_tickets_memory()),
             directives_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_directives_memory()),
             pending_tickets_map: StableBTreeMap::init(crate::stable_memory::get_pending_ticket_map_memory()),
             pending_directive_map: StableBTreeMap::init(crate::stable_memory::get_pending_directive_map_memory()),
             scan_start_height: 0,
             is_timer_running: false,
-            evm_chain_id: 0,
-
-            omnity_port_contract: EvmAddress::default(),
-            handled_cdk_event: Default::default(),
         }
     }
+
 }
 
 pub fn is_active() -> bool {
