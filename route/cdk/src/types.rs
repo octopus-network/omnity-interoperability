@@ -35,6 +35,21 @@ pub struct PendingDirectiveStatus {
     pub error: Option<String>
 }
 
+impl Storable for PendingDirectiveStatus {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        let pds = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode pending ticket status");
+        pds
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
 impl Storable for PendingTicketStatus {
     fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
