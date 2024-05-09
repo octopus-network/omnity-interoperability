@@ -47,7 +47,7 @@ pub fn finalize_mint_token_req(
 
 pub fn update_fee(state: &mut CdkRouteState, fee: Factor) {
    // record_event(&Event::UpdatedFee { fee: fee.clone() });
-    match fee {
+  /*  match fee {
         Factor::UpdateTargetChainFactor(factor) => {
             state
                 .target_chain_factor
@@ -59,5 +59,5 @@ pub fn update_fee(state: &mut CdkRouteState, fee: Factor) {
                 state.fee_token_factor = Some(token_factor.fee_token_factor);
             }
         }
-    }
+    }*/
 }

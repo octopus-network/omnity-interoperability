@@ -1,5 +1,5 @@
 [package]
-name = "cdk_route_canister"
+name = "cdk_route"
 version = "0.1.0"
 edition = "2021"
 
