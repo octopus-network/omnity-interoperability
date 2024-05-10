@@ -3,7 +3,7 @@ use crate::state::CdkRouteState;
 use crate::types::{Chain, Factor, ToggleState, Token};
 
 pub fn add_chain(state: &mut CdkRouteState, chain: Chain) {
-   // record_event(&Event::AddedChain(chain.clone()));
+    // record_event(&Event::AddedChain(chain.clone()));
     state.counterparties.insert(chain.chain_id.clone(), chain);
 }
 
@@ -21,7 +21,7 @@ pub fn toggle_chain_state(state: &mut CdkRouteState, toggle: ToggleState) {
     if toggle.chain_id == state.omnity_chain_id {
         state.chain_state = toggle.action.into();
     } else if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
-       // record_event(&Event::ToggleChainState(toggle.clone()));
+        // record_event(&Event::ToggleChainState(toggle.clone()));
         chain.chain_state = toggle.action.into();
     }
 }
@@ -32,7 +32,7 @@ pub fn finalize_mint_token_req(
     finalized_block_index: u64,
 ) {
     //TODO
-   /* record_event(&Event::FinalizedMintToken {
+    /* record_event(&Event::FinalizedMintToken {
         ticket_id: ticket_id.clone(),
         block_index: finalized_block_index,
     });*/
@@ -46,8 +46,8 @@ pub fn finalize_mint_token_req(
 }*/
 
 pub fn update_fee(state: &mut CdkRouteState, fee: Factor) {
-   // record_event(&Event::UpdatedFee { fee: fee.clone() });
-  /*  match fee {
+    // record_event(&Event::UpdatedFee { fee: fee.clone() });
+    /*  match fee {
         Factor::UpdateTargetChainFactor(factor) => {
             state
                 .target_chain_factor

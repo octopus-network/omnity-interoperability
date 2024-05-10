@@ -1,8 +1,8 @@
 use crate::call_error::{CallError, Reason};
-use candid::Principal;
 use crate::types::Directive;
 use crate::types::Topic;
 use crate::types::{ChainId, Seq, Ticket};
+use candid::Principal;
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     // TODO determine how many cycle it will cost.
@@ -32,11 +32,11 @@ pub async fn query_tickets(
         "query_tickets",
         (None::<Option<ChainId>>, offset, limit),
     )
-        .await
-        .map_err(|(code, message)| CallError {
-            method: "query_tickets".to_string(),
-            reason: Reason::from_reject(code, message),
-        })?;
+    .await
+    .map_err(|(code, message)| CallError {
+        method: "query_tickets".to_string(),
+        reason: Reason::from_reject(code, message),
+    })?;
     let data = resp.0.map_err(|err| CallError {
         method: "query_tickets".to_string(),
         reason: Reason::CanisterError(err.to_string()),
@@ -59,11 +59,11 @@ pub async fn query_directives(
             limit,
         ),
     )
-        .await
-        .map_err(|(code, message)| CallError {
-            method: "query_directives".to_string(),
-            reason: Reason::from_reject(code, message),
-        })?;
+    .await
+    .map_err(|(code, message)| CallError {
+        method: "query_directives".to_string(),
+        reason: Reason::from_reject(code, message),
+    })?;
     let data = resp.0.map_err(|err| CallError {
         method: "query_directives".to_string(),
         reason: Reason::CanisterError(err.to_string()),

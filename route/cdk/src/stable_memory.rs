@@ -1,7 +1,7 @@
-use std::cell::RefCell;
-use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
-use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId};
+use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
+use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
+use std::cell::RefCell;
 
 pub type InnerMemory = DefaultMemoryImpl;
 pub type Memory = VirtualMemory<InnerMemory>;

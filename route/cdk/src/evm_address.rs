@@ -1,16 +1,16 @@
-use std::str::FromStr;
 use candid::CandidType;
+use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
 use serde_derive::{Deserialize, Serialize};
+use std::str::FromStr;
 use thiserror::Error;
-use ethereum_types::Address;
 
 const EVM_ADDR_BYTES_LEN: usize = 20;
 
-#[derive(Deserialize, CandidType,Serialize, Default, Clone, Eq, PartialEq)]
-pub struct EvmAddress(pub(crate) [u8;EVM_ADDR_BYTES_LEN]);
+#[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
+pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
 
-#[derive(Error, Clone,Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Error, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum EvmAddressError {
     #[error("Bytes is longer than 29 bytes.")]
     LengthError,
@@ -44,20 +44,20 @@ impl TryFrom<Vec<u8>> for EvmAddress {
         if value.len() != EVM_ADDR_BYTES_LEN {
             return Result::Err("addr_length_error".to_string());
         }
-        let mut c = [0u8;EVM_ADDR_BYTES_LEN];
+        let mut c = [0u8; EVM_ADDR_BYTES_LEN];
         c.copy_from_slice(value.as_slice());
         Ok(EvmAddress(c))
     }
 }
 
 impl EvmAddress {
-    pub fn from_text<S: AsRef<str>>(text: S) -> Result<Self, EvmAddressError>{
+    pub fn from_text<S: AsRef<str>>(text: S) -> Result<Self, EvmAddressError> {
         let t = if text.as_ref().starts_with("0x") {
             text.as_ref().strip_prefix("0x").unwrap()
-        }else {
+        } else {
             text.as_ref()
         };
-        let r =  hex::decode(t).map_err(|_e| EvmAddressError::FormatError)?;
+        let r = hex::decode(t).map_err(|_e| EvmAddressError::FormatError)?;
         if r.len() != EVM_ADDR_BYTES_LEN {
             return Err(EvmAddressError::LengthError);
         }
@@ -65,5 +65,4 @@ impl EvmAddress {
         v.copy_from_slice(r.as_slice());
         Ok(EvmAddress(v))
     }
-
 }

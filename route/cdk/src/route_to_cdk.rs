@@ -1,22 +1,27 @@
 use ethers_core::types::U256;
-use crate::contracts::{broadcast, gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data, PortContractCommandIndex, sign_transaction};
-use crate::state::{mutate_state, read_state};
-use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus};
 
-pub fn to_cdk_tickets_task() {
+use crate::contracts::{
+    broadcast, gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data, sign_transaction,
+};
+use crate::state::{mutate_state, read_state};
+use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
+
+pub fn to_cdk_task() {
     ic_cdk::spawn(async {
         let _guard = match crate::guard::TimerLogicGuard::new() {
             Some(guard) => guard,
             None => return,
         };
+        send_directives_to_cdk().await;
+        send_tickets_to_cdk().await;
     });
 }
 
 pub async fn send_directives_to_cdk() {
     let from = read_state(|s| s.next_consume_directive_seq);
-    let to  = read_state(|s|s.next_directive_seq);
+    let to = read_state(|s| s.next_directive_seq);
     for seq in from..to {
-        let  dire = read_state(|s|s.directives_queue.get(&seq));
+        let dire = read_state(|s| s.directives_queue.get(&seq));
         match dire {
             None => {
                 continue;
@@ -50,16 +55,14 @@ pub async fn send_directives_to_cdk() {
             }
         }
     }
-    mutate_state(|s|s.next_consume_directive_seq = to);
+    mutate_state(|s| s.next_consume_directive_seq = to);
 }
-
-
 
 pub async fn send_tickets_to_cdk() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     for seq in from..to {
-        let ticket = read_state(|s|s.tickets_queue.get(&seq));
+        let ticket = read_state(|s| s.tickets_queue.get(&seq));
         match ticket {
             None => {
                 continue;
