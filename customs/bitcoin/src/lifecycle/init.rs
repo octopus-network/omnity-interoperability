@@ -50,6 +50,10 @@ pub struct InitArgs {
     /// The bitcoin network that the customs will connect to
     pub btc_network: BtcNetwork,
 
+    /// The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
+    /// a testing key for testnet and mainnet
+    pub ecdsa_key_name: String,
+
     /// Maximum time in nanoseconds that a transaction should spend in the queue
     /// before being sent.
     pub max_time_in_queue_nanos: u64,
@@ -72,5 +76,6 @@ pub struct InitArgs {
 
 pub fn init(args: InitArgs) {
     let state: CustomsState = CustomsState::from(args);
+    state.validate_config();
     replace_state(state);
 }

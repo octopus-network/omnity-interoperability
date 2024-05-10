@@ -51,6 +51,8 @@ pub fn post_upgrade(upgrade_args: Option<UpgradeArgs>) {
         ))
     });
 
+    state.validate_config();
+
     replace_state(state);
 
     let end = ic_cdk::api::instruction_counter();

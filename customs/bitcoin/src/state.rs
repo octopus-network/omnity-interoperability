@@ -37,16 +37,7 @@ const RICH_TOKEN: &str = "840000:846";
 
 pub const BTC_TOKEN: &str = "BTC";
 pub const RUNES_TOKEN: &str = "RUNES";
-pub const TEST_KEY: &str = if cfg!(feature = "local_test") {
-    "master_ecdsa_public_key"
-} else {
-    "test_key_1"
-};
-pub const PROD_KEY: &str = if cfg!(feature = "local_test") {
-    "master_ecdsa_public_key"
-} else {
-    "key_1"
-};
+pub const PROD_KEY: &str = "key_1";
 
 thread_local! {
     static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
@@ -254,8 +245,12 @@ pub struct CustomsState {
 
     pub chain_id: String,
 
+    /// The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
+    /// a testing key for testnet and mainnet
+    pub ecdsa_key_name: String,
+
     /// The Customs ECDSA public key
-    pub test_ecdsa_public_key: Option<ECDSAPublicKey>,
+    pub ecdsa_public_key: Option<ECDSAPublicKey>,
 
     pub prod_ecdsa_public_key: Option<ECDSAPublicKey>,
 
@@ -348,6 +343,7 @@ impl CustomsState {
         &mut self,
         InitArgs {
             btc_network,
+            ecdsa_key_name,
             max_time_in_queue_nanos,
             min_confirmations,
             chain_state,
@@ -357,6 +353,7 @@ impl CustomsState {
         }: InitArgs,
     ) {
         self.btc_network = btc_network.into();
+        self.ecdsa_key_name = ecdsa_key_name;
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         self.chain_state = chain_state;
         self.hub_principal = hub_principal;
@@ -400,6 +397,12 @@ impl CustomsState {
         }
         if let Some(runes_oracle_principal) = runes_oracle_principal {
             self.runes_oracle_principal = runes_oracle_principal;
+        }
+    }
+
+    pub fn validate_config(&self) {
+        if self.ecdsa_key_name.is_empty() {
+            ic_cdk::trap("ecdsa_key_name is not set");
         }
     }
 
@@ -486,21 +489,24 @@ impl CustomsState {
     }
 
     pub fn get_ecdsa_key(&self, token: Option<String>) -> (String, ECDSAPublicKey) {
-        let test_pub_key = self
-            .test_ecdsa_public_key
+        let pub_key = self
+            .ecdsa_public_key
             .clone()
             .expect("the ECDSA public key must be initialized");
+        if cfg!(feature = "non_prod") {
+            return (self.ecdsa_key_name.clone(), pub_key);
+        }
         let prod_pub_key = self
             .prod_ecdsa_public_key
             .clone()
             .expect("the ECDSA public key must be initialized");
         match token {
             // the token field in the destination of user deposit address are all None in previous version
-            None => (TEST_KEY.into(), test_pub_key),
+            None => (self.ecdsa_key_name.clone(), pub_key),
             Some(token) => {
                 // main change address in previous version
                 if token == RICH_TOKEN || token == BTC_TOKEN {
-                    (TEST_KEY.into(), test_pub_key)
+                    (self.ecdsa_key_name.clone(), pub_key)
                 } else {
                     (PROD_KEY.into(), prod_pub_key)
                 }
@@ -1077,7 +1083,8 @@ impl From<InitArgs> for CustomsState {
         Self {
             btc_network: args.btc_network.into(),
             chain_id: args.chain_id,
-            test_ecdsa_public_key: None,
+            ecdsa_key_name: args.ecdsa_key_name,
+            ecdsa_public_key: None,
             prod_ecdsa_public_key: None,
             min_confirmations: args
                 .min_confirmations

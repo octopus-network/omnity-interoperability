@@ -56,4 +56,4 @@ simple_asn1 = { workspace = true }
 
 [features]
 self_check = []
-local_test = []
+non_prod = []

@@ -43,7 +43,7 @@ fn customs_wasm() -> Vec<u8> {
     load_wasm(
         std::env::var("CARGO_MANIFEST_DIR").unwrap(),
         "bitcoin_customs",
-        &["self_check", "local_test"],
+        &["self_check", "non_prod"],
     )
 }
 
@@ -78,6 +78,7 @@ fn hub_mock_wasm() -> Vec<u8> {
 fn install_customs(env: &StateMachine) -> CanisterId {
     let args = InitArgs {
         btc_network: Network::Regtest.into(),
+        ecdsa_key_name: "dfx_test_key".parse().unwrap(),
         max_time_in_queue_nanos: 0,
         min_confirmations: Some(1),
         chain_state: ChainState::Active,
@@ -140,6 +141,7 @@ fn test_customs() {
     let env = StateMachine::new();
     let args = CustomArg::Init(InitArgs {
         btc_network: Network::Regtest.into(),
+        ecdsa_key_name: "master_ecdsa_public_key".into(),
         max_time_in_queue_nanos: MAX_TIME_IN_QUEUE.as_nanos() as u64,
         min_confirmations: Some(6_u32),
         chain_state: ChainState::Active,
@@ -223,6 +225,7 @@ impl CustomsSetup {
             customs_wasm(),
             Encode!(&CustomArg::Init(InitArgs {
                 btc_network: Network::Mainnet.into(),
+                ecdsa_key_name: "master_ecdsa_public_key".to_string(),
                 max_time_in_queue_nanos: 0,
                 min_confirmations: Some(MIN_CONFIRMATIONS),
                 chain_state: ChainState::Active,

@@ -359,14 +359,14 @@ async fn submit_pending_requests() {
         }
 
         let main_chain_id = read_state(|s| s.chain_id.clone());
-        let (_, prod_pub_key) = updates::get_btc_address::init_ecdsa_public_key().await;
+        let pub_key = updates::get_btc_address::init_ecdsa_public_key().await;
 
         let btc_main_address =
-            address::main_bitcoin_address(&prod_pub_key, main_chain_id.clone(), BTC_TOKEN.into());
+            address::main_bitcoin_address(&pub_key, main_chain_id.clone(), BTC_TOKEN.into());
 
         // Each runes tokens use isolated main addresses
         let runes_main_address =
-            address::main_bitcoin_address(&prod_pub_key, main_chain_id, rune_id.to_string());
+            address::main_bitcoin_address(&pub_key, main_chain_id, rune_id.to_string());
 
         let maybe_sign_request = state::mutate_state(|s| {
             let batch = s.build_batch(rune_id, MAX_REQUESTS_PER_BATCH);
@@ -549,7 +549,7 @@ async fn finalize_requests() {
         return;
     }
 
-    let (_, prod_pub_key) = updates::get_btc_address::init_ecdsa_public_key().await;
+    let pub_key = updates::get_btc_address::init_ecdsa_public_key().await;
     let now = ic_cdk::api::time();
 
     // The list of transactions that are likely to be finalized, indexed by the transaction id.
@@ -575,7 +575,7 @@ async fn finalize_requests() {
             (
                 main_destination(main_chain_id.clone(), tx.rune_id.to_string()),
                 address::main_bitcoin_address(
-                    &prod_pub_key,
+                    &pub_key,
                     main_chain_id.clone(),
                     tx.rune_id.to_string(),
                 ),
@@ -732,15 +732,11 @@ async fn finalize_requests() {
                 &mut runes_utxos,
                 &mut btc_utxos,
                 main_bitcoin_address(
-                    &prod_pub_key,
+                    &pub_key,
                     main_chain_id.clone(),
                     submitted_tx.rune_id.to_string(),
                 ),
-                main_bitcoin_address(
-                    &prod_pub_key,
-                    main_chain_id.clone(),
-                    String::from(BTC_TOKEN),
-                ),
+                main_bitcoin_address(&pub_key, main_chain_id.clone(), String::from(BTC_TOKEN)),
                 outputs,
                 tx_fee_per_vbyte,
                 true,
