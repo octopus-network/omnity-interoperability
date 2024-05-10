@@ -33,16 +33,6 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     let data = match directive {
         Directive::AddChain(c) => (index, seq, (c.chain_id.clone())).encode(),
         Directive::AddToken(t) => {
-            /*
-            (
-                string memory settlementChainId,
-                string memory tokenId,
-                address contractAddress,
-                string memory name,
-                string memory symbol,
-                uint8 decimals
-            )
-            */
             let token = t.clone();
             let t_info = token.token_id_info();
             let settlement_chain_id = t_info[0].to_string();
