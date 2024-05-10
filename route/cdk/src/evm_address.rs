@@ -57,7 +57,7 @@ impl EvmAddress {
         }else {
             text.as_ref()
         };
-        let r =  hex::decode(t).map_err(|e| EvmAddressError::FormatError)?;
+        let r =  hex::decode(t).map_err(|_e| EvmAddressError::FormatError)?;
         if r.len() != EVM_ADDR_BYTES_LEN {
             return Err(EvmAddressError::LengthError);
         }

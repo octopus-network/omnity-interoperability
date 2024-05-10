@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::ptr::read;
 use crate::types::{ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId};
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
@@ -12,7 +13,7 @@ use crate::stable_memory::Memory;
 use crate::types::{Chain, ChainState, Token, TokenId};
 
 thread_local! {
-    static STATE: RefCell<CdkRouteState> = RefCell::new(CdkRouteState::default());
+    static STATE: RefCell<Option<CdkRouteState>> = RefCell::new(None);
 }
 
 #[derive(CandidType, Deserialize)]
@@ -94,93 +95,59 @@ impl CdkRouteState {
             is_timer_running: false,
         }
     }
-
-    pub(crate) fn default() -> Self {
-        CdkRouteState {
-            hub_principal: Principal::anonymous(),
-            omnity_chain_id: "".to_string(),
-            evm_chain_id: 0,
-            tokens: Default::default(),
-            counterparties: Default::default(),
-            finalized_mint_token_requests: Default::default(),
-            chain_state: ChainState::Active,
-            evm_rpc_addr: Principal::anonymous(),
-            key_id: Default::default(),
-            key_derivation_path: vec![],
-            nonce: 0,
-            pubkey: vec![],
-            rpc_privders: vec![],
-            omnity_port_contract: EvmAddress::default(),
-            next_ticket_seq: 0,
-            next_directive_seq: 0,
-            next_consume_ticket_seq: 0,
-            next_consume_directive_seq: 0,
-            handled_cdk_event: Default::default(),
-            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_tickets_memory()),
-            directives_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_directives_memory()),
-            pending_tickets_map: StableBTreeMap::init(crate::stable_memory::get_pending_ticket_map_memory()),
-            pending_directive_map: StableBTreeMap::init(crate::stable_memory::get_pending_directive_map_memory()),
-            scan_start_height: 0,
-            is_timer_running: false,
-        }
-    }
-
 }
 
 pub fn is_active() -> bool {
-    STATE.with(|s|s.borrow().chain_state == ChainState::Active)
+    read_state(|s| s.chain_state == ChainState::Active)
 }
 
 pub fn hub_addr() -> Principal {
-    STATE.with(|s| s.borrow().hub_principal.clone())
+    read_state(|s| s.hub_principal.clone())
 }
 
 pub fn rpc_addr() -> Principal {
-    STATE.with(|s| s.borrow().evm_rpc_addr.clone())
+    read_state(|s| s.evm_rpc_addr.clone())
 }
 
 pub fn rpc_providers() -> Vec<RpcApi> {
-    STATE.with_borrow(|s|s.rpc_privders.clone())
+    read_state(|s| s.rpc_privders.clone())
 }
 
 pub fn target_chain_id() -> u64 {
-    STATE.with_borrow(|s|s.evm_chain_id)
+    read_state(|s| s.evm_chain_id)
 }
 
 pub fn try_public_key() -> crate::Result<Vec<u8>> {
     Ok(
-        STATE.with(|s| s.borrow().pubkey.clone())
+        read_state(|s|s.pubkey.clone())
     )
 }
 
 pub fn key_id() -> EcdsaKeyId {
-    STATE.with(|s|
-        s.borrow().key_id.clone()
-    )
+   read_state(|s| s.key_id.clone())
 }
 
 pub fn key_derivation_path() -> Vec<Vec<u8>> {
     read_state(|s|s.key_derivation_path.clone())
 }
 
-pub fn fetch_and_incr_nonce() -> u64 {
-    STATE.with(|s| {
-        let nonce = s.borrow().nonce+1;
-        s.borrow_mut().nonce = nonce;
-        nonce
-    })
+pub fn mutate_state<F, R>(f: F) -> R
+    where
+        F: FnOnce(&mut CdkRouteState) -> R,
+{
+    STATE.with(|s| f(s.borrow_mut().as_mut().expect("State not initialized!")))
 }
 
 pub fn read_state<F, R>(f: F) -> R
     where
         F: FnOnce(&CdkRouteState) -> R,
 {
-    STATE.with(|s| f(&*s.borrow()))
+    STATE.with(|s| f(s.borrow().as_ref().expect("State not initialized!")))
 }
 
-pub fn mutate_state<F, R>(f: F) -> R
-    where
-        F: FnOnce(&mut CdkRouteState) -> R,
-{
-    STATE.with(|s| f(&mut *s.borrow_mut()))
+/// Replaces the current state.
+pub fn replace_state(state: CdkRouteState) {
+    STATE.with(|s| {
+        *s.borrow_mut() = Some(state);
+    });
 }
