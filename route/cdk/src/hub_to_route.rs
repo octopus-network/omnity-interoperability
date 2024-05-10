@@ -1,12 +1,11 @@
+use crate::evm_address::EvmAddress;
+use crate::state::{mutate_state, read_state};
+use crate::types::{ChainState, Directive};
+use crate::{audit, hub};
 use candid::{CandidType, Principal};
 use log::{self};
 use serde::{Deserialize, Serialize};
-use crate::{hub, audit};
-use crate::state::{ mutate_state, read_state};
 use std::str::FromStr;
-use crate::evm_address::EvmAddress;
-use crate::types::{ChainState, Directive};
-
 
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
@@ -43,7 +42,7 @@ async fn process_tickets() {
                     next_seq = seq + 1;
                     continue;
                 };
-                mutate_state(|s|s.tickets_queue.insert(*seq, ticket.clone()));
+                mutate_state(|s| s.tickets_queue.insert(*seq, ticket.clone()));
                 next_seq = seq + 1;
             }
             mutate_state(|s| s.next_ticket_seq = next_seq)
@@ -89,7 +88,7 @@ async fn process_directives() {
                         log::info!("[process_directives] success to update fee, fee: {}", fee);
                     }
                 }
-                mutate_state(|s|s.directives_queue.insert(*seq, directive.clone()));
+                mutate_state(|s| s.directives_queue.insert(*seq, directive.clone()));
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
             mutate_state(|s| {
@@ -105,7 +104,7 @@ async fn process_directives() {
     };
 }
 
-pub fn periodic_task() {
+pub fn fetch_hub_periodic_task() {
     ic_cdk::spawn(async {
         let _guard = match crate::guard::TimerLogicGuard::new() {
             Some(guard) => guard,

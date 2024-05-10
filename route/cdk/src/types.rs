@@ -25,14 +25,14 @@ pub struct PendingTicketStatus {
     pub evm_tx_hash: Option<String>,
     pub ticket_id: TicketId,
     pub seq: u64,
-    pub error: Option<String>
+    pub error: Option<String>,
 }
 
 #[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
 pub struct PendingDirectiveStatus {
     pub evm_tx_hash: Option<String>,
     pub seq: u64,
-    pub error: Option<String>
+    pub error: Option<String>,
 }
 
 impl Storable for PendingDirectiveStatus {
@@ -43,7 +43,8 @@ impl Storable for PendingDirectiveStatus {
     }
 
     fn from_bytes(bytes: Cow<[u8]>) -> Self {
-        let pds = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode pending ticket status");
+        let pds = ciborium::de::from_reader(bytes.as_ref())
+            .expect("failed to decode pending ticket status");
         pds
     }
 
@@ -58,7 +59,8 @@ impl Storable for PendingTicketStatus {
     }
 
     fn from_bytes(bytes: Cow<[u8]>) -> Self {
-        let pts = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode pending ticket status");
+        let pts = ciborium::de::from_reader(bytes.as_ref())
+            .expect("failed to decode pending ticket status");
         pts
     }
 
@@ -73,10 +75,7 @@ pub enum Directive {
     UpdateFee(Factor),
 }
 
-
-
 impl Directive {
-
     pub fn to_topic(&self) -> Topic {
         match self {
             Self::AddChain(_) => Topic::AddChain,
@@ -123,7 +122,7 @@ impl Directive {
 }
 
 #[derive(
-CandidType, Deserialize, Serialize, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
+    CandidType, Deserialize, Serialize, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
 )]
 pub struct DireKey {
     pub chain_id: ChainId,
@@ -196,7 +195,7 @@ impl Storable for Topic {
 }
 
 #[derive(
-CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 pub enum TicketType {
     #[default]
@@ -205,7 +204,7 @@ pub enum TicketType {
 }
 
 #[derive(
-CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 pub struct Ticket {
     pub ticket_id: TicketId,
@@ -224,7 +223,12 @@ pub struct Ticket {
 impl Ticket {
     pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
-        let token = read_state(|s|s.tokens.get(&token_burned.tokenId.to_string()).expect("token not found").clone());
+        let token = read_state(|s| {
+            s.tokens
+                .get(&token_burned.tokenId.to_string())
+                .expect("token not found")
+                .clone()
+        });
         let dst_chain = token.token_id_info()[0].to_string();
         let ticket = Ticket {
             ticket_id: log_entry.transaction_hash.clone().unwrap().to_string()
@@ -243,7 +247,10 @@ impl Ticket {
         ticket
     }
 
-    pub fn from_transport_event(log_entry: &LogEntry, token_transport_requested: TokenTransportRequested) -> Self {
+    pub fn from_transport_event(
+        log_entry: &LogEntry,
+        token_transport_requested: TokenTransportRequested,
+    ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let dst_chain = token_transport_requested.dstChainId;
         let ticket = Ticket {
@@ -261,10 +268,8 @@ impl Ticket {
             memo: Some(token_transport_requested.memo.into_bytes()),
         };
         ticket
-
     }
 }
-
 
 impl Storable for Ticket {
     fn to_bytes(&self) -> Cow<[u8]> {
@@ -302,7 +307,7 @@ impl core::fmt::Display for Ticket {
 }
 
 #[derive(
-CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
 )]
 pub struct SeqKey {
     pub chain_id: ChainId,
@@ -361,7 +366,7 @@ impl Storable for TicketMap {
 }
 
 #[derive(
-CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 pub enum ChainType {
     #[default]
@@ -395,7 +400,7 @@ impl From<ToggleAction> for ChainState {
 }
 
 #[derive(
-CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 pub enum TxAction {
     #[default]
@@ -605,11 +610,11 @@ pub struct TxCondition {
     pub time_range: Option<(u64, u64)>,
 }
 
+use crate::cdk_scan::{TokenBurned, TokenTransportRequested};
+use crate::state::read_state;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
-use crate::cdk_scan::{TokenBurned, TokenTransportRequested};
-use crate::state::read_state;
 
 pub type CanisterId = Principal;
 
@@ -671,7 +676,6 @@ impl From<bool> for SignatureVerificationReply {
     }
 }
 
-
 pub enum EcdsaKeyIds {
     #[allow(unused)]
     TestKeyLocalDevelopment,
@@ -690,7 +694,7 @@ impl EcdsaKeyIds {
                 Self::TestKey1 => "test_key_1",
                 Self::ProductionKey1 => "key_1",
             }
-                .to_string(),
+            .to_string(),
         }
     }
 }
@@ -714,8 +718,6 @@ impl Network {
         }
     }
 }
-
-
 
 impl core::fmt::Display for Network {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {

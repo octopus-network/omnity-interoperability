@@ -1,7 +1,7 @@
-use crate::state::{ mutate_state, read_state};
-use candid::{CandidType, Deserialize};
 use crate::audit;
+use crate::state::{mutate_state, read_state};
 use crate::types::Token;
+use candid::{CandidType, Deserialize};
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum AddNewTokenError {
@@ -14,10 +14,8 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
         return Err(AddNewTokenError::AlreadyAdded(token.token_id));
     }
 
-
     mutate_state(|s| {
         audit::add_token(s, token);
     });
     Ok(())
 }
-
