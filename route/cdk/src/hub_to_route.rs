@@ -5,7 +5,7 @@ use crate::{hub, audit};
 use crate::state::{ mutate_state, read_state};
 use std::str::FromStr;
 use crate::evm_address::EvmAddress;
-use crate::types::{ChainState};
+use crate::types::{ChainState, Directive};
 
 
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
@@ -59,8 +59,7 @@ async fn process_directives() {
     match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(directives) => {
             for (seq, directive) in &directives {
-                mutate_state(|s|s.directives_queue.insert(*seq, directive.clone()));
-              /*  match directive {
+                match directive.clone() {
                     Directive::AddChain(chain) => {
                         mutate_state(|s| audit::add_chain(s, chain.clone()));
                     }
@@ -78,6 +77,7 @@ async fn process_directives() {
                                     token.token_id,
                                     err
                                 );
+                                continue;
                             }
                         }
                     }
@@ -88,7 +88,8 @@ async fn process_directives() {
                         mutate_state(|s| audit::update_fee(s, fee.clone()));
                         log::info!("[process_directives] success to update fee, fee: {}", fee);
                     }
-                }*/
+                }
+                mutate_state(|s|s.directives_queue.insert(*seq, directive.clone()));
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
             mutate_state(|s| {

@@ -3,8 +3,6 @@ use ic_cdk::api::call::RejectionCode;
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::types::{Chain, Ticket};
-
 pub mod cdk_scan;
 pub mod types;
 pub mod state;
