@@ -28,9 +28,68 @@ pub struct InitArgs {
     pub evm_rpc_canister_addr: Principal,
     pub omnity_port_contract: Vec<u8>,
     pub scan_start_height: u64,
-    pub key_derivation_path: String,
     pub key_id_str: String,
 }
+
+
+impl CdkRouteState {
+    pub fn init(args: InitArgs) -> anyhow::Result<Self> {
+        /*
+        match self {
+                Self::TestKeyLocalDevelopment => "dfx_test_key",
+                Self::TestKey1 => "test_key_1",
+                Self::ProductionKey1 => "key_1",*/
+        if args.key_id_str != "dfx_test_key"
+            || args.key_id_str != "test_key_1"
+            || args.key_id_str != "key_1"
+        {
+            return Err(anyhow!("unspport key id "));
+        }
+
+        let key_id = EcdsaKeyId {
+            curve: EcdsaCurve::Secp256k1,
+            name: args.key_id_str.clone(),
+        };
+
+
+        let ret = CdkRouteState {
+            hub_principal: args.hub_principal.clone(),
+            omnity_chain_id: args.chain_id,
+            evm_chain_id: args.evm_chain_id,
+            tokens: Default::default(),
+            counterparties: Default::default(),
+            finalized_mint_token_requests: Default::default(),
+            chain_state: ChainState::Active,
+            evm_rpc_addr: args.evm_rpc_canister_addr,
+            key_id,
+            key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()], //TODO
+            nonce: 0,
+            pubkey: vec![],
+            rpc_privders: vec![],
+            omnity_port_contract: EvmAddress::try_from(args.omnity_port_contract)
+                .expect("omnity port contract address error"),
+            next_ticket_seq: 0,
+            next_directive_seq: 0,
+            next_consume_ticket_seq: 0,
+            next_consume_directive_seq: 0,
+            handled_cdk_event: Default::default(),
+            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_tickets_memory()),
+            directives_queue: StableBTreeMap::init(
+                crate::stable_memory::get_to_cdk_directives_memory(),
+            ),
+            pending_tickets_map: StableBTreeMap::init(
+                crate::stable_memory::get_pending_ticket_map_memory(),
+            ),
+            pending_directive_map: StableBTreeMap::init(
+                crate::stable_memory::get_pending_directive_map_memory(),
+            ),
+            scan_start_height: args.scan_start_height,
+            is_timer_running: false,
+        };
+        Ok(ret)
+    }
+}
+
 
 #[derive(Deserialize, Serialize)]
 pub struct CdkRouteState {
@@ -65,62 +124,6 @@ pub struct CdkRouteState {
     pub scan_start_height: u64,
     #[serde(skip)]
     pub is_timer_running: bool,
-}
-
-impl CdkRouteState {
-    pub fn init(args: InitArgs) -> anyhow::Result<Self> {
-        /*
-        match self {
-                Self::TestKeyLocalDevelopment => "dfx_test_key",
-                Self::TestKey1 => "test_key_1",
-                Self::ProductionKey1 => "key_1",*/
-        if args.key_id_str != "dfx_test_key"
-            || args.key_id_str != "test_key_1"
-            || args.key_id_str != "key_1"
-        {
-            return Err(anyhow!("unspport key id "));
-        }
-
-        let key_id = EcdsaKeyId {
-            curve: EcdsaCurve::Secp256k1,
-            name: args.key_id_str.clone(),
-        };
-        let ret = CdkRouteState {
-            hub_principal: args.hub_principal.clone(),
-            omnity_chain_id: args.chain_id,
-            evm_chain_id: args.evm_chain_id,
-            tokens: Default::default(),
-            counterparties: Default::default(),
-            finalized_mint_token_requests: Default::default(),
-            chain_state: ChainState::Active,
-            evm_rpc_addr: args.evm_rpc_canister_addr,
-            key_id,
-            key_derivation_path: vec![],
-            nonce: 0,
-            pubkey: vec![],
-            rpc_privders: vec![],
-            omnity_port_contract: EvmAddress::try_from(args.omnity_port_contract)
-                .expect("omnity port contract address error"),
-            next_ticket_seq: 0,
-            next_directive_seq: 0,
-            next_consume_ticket_seq: 0,
-            next_consume_directive_seq: 0,
-            handled_cdk_event: Default::default(),
-            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_tickets_memory()),
-            directives_queue: StableBTreeMap::init(
-                crate::stable_memory::get_to_cdk_directives_memory(),
-            ),
-            pending_tickets_map: StableBTreeMap::init(
-                crate::stable_memory::get_pending_ticket_map_memory(),
-            ),
-            pending_directive_map: StableBTreeMap::init(
-                crate::stable_memory::get_pending_directive_map_memory(),
-            ),
-            scan_start_height: args.scan_start_height,
-            is_timer_running: false,
-        };
-        Ok(ret)
-    }
 }
 
 pub fn is_active() -> bool {

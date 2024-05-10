@@ -44,7 +44,6 @@ pub fn finalize_mint_token_req(
 /*pub fn finalize_gen_ticket(ticket_id: String, request: GenerateTicketReq) {
    // record_event(&Event::FinalizedGenTicket { ticket_id, request })
 }*/
-
 pub fn update_fee(state: &mut CdkRouteState, fee: Factor) {
     // record_event(&Event::UpdatedFee { fee: fee.clone() });
     /*  match fee {
