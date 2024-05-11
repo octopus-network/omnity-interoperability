@@ -944,6 +944,11 @@ impl CustomsState {
         );
         ensure_eq!(self.chain_id, other.chain_id, "chain_id does not match");
         ensure_eq!(
+            self.ecdsa_key_name,
+            other.ecdsa_key_name,
+            "ecdsa_key_name does not match"
+        );
+        ensure_eq!(
             self.min_confirmations,
             other.min_confirmations,
             "min_confirmations does not match"
