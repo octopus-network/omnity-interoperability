@@ -5,7 +5,7 @@ use log::info;
 use omnity_hub::auth::{auth, is_admin};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
-use omnity_hub::metrics;
+use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta};
@@ -167,6 +167,10 @@ pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMet
 pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     metrics::get_chain(chain_id).await
 }
+#[query]
+pub async fn get_chain_size() -> Result<u64, Error> {
+    metrics::get_chain_size().await
+}
 
 #[query]
 pub async fn get_tokens(
@@ -179,9 +183,15 @@ pub async fn get_tokens(
         .await
         .map(|tokens| tokens.iter().map(|t| t.clone().into()).collect())
 }
+
 #[query]
 pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
     metrics::get_token_metas(offset, limit).await
+}
+
+#[query]
+pub async fn get_token_size() -> Result<u64, Error> {
+    metrics::get_token_size().await
 }
 
 #[query]
@@ -262,6 +272,24 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 #[query]
 fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
+}
+
+#[query]
+pub async fn get_directive_size() -> Result<u64, Error> {
+    metrics::get_directive_size().await
+}
+#[query]
+pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<(u64, Directive)>, Error> {
+    metrics::get_directives(offset, limit).await
+}
+
+#[query]
+pub async fn get_tickets_size() -> Result<u64, Error> {
+    with_metrics(|metrics| metrics.get_ticket_size())
+}
+#[query]
+pub async fn get_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
+    with_metrics(|metrics| metrics.get_tickets(offset, limit))
 }
 
 fn main() {}

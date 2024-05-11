@@ -1,12 +1,125 @@
+use crate::memory::{self, Memory};
 use crate::{
     state::with_state,
     types::{ChainMeta, TokenKey, TokenMeta},
 };
+
+use ic_stable_structures::StableBTreeMap;
 use log::info;
 use omnity_types::{
-    Account, Chain, ChainId, ChainState, ChainType, Error, Ticket, TicketId, Token, TokenId,
-    TokenOnChain,
+    Account, Chain, ChainId, ChainState, ChainType, Directive, Error, Ticket, TicketId, Token,
+    TokenId, TokenOnChain,
 };
+use serde::Serialize;
+use std::cell::RefCell;
+
+const CHAIN_META_KEY: &[u8] = b"chain_meta";
+const TOKEN_META_KEY: &[u8] = b"token_meta";
+const TICKET_KEY: &[u8] = b"ticket_meta";
+
+thread_local! {
+    static METRICS: RefCell<Metrics> = RefCell::new(Metrics::default());
+}
+
+#[derive(Serialize)]
+pub struct Metrics {
+    #[serde(skip, default = "memory::init_chain_metric")]
+    pub chain_metas: StableBTreeMap<u64, ChainMeta, Memory>,
+    #[serde(skip, default = "memory::init_token_metric")]
+    pub token_metas: StableBTreeMap<u64, TokenMeta, Memory>,
+    #[serde(skip, default = "memory::init_ledger_metric")]
+    pub ticket_metric: StableBTreeMap<u64, Ticket, Memory>,
+    #[serde(skip, default = "memory::init_metric_seqs")]
+    pub metric_seqs: StableBTreeMap<Vec<u8>, u64, Memory>,
+}
+
+impl Default for Metrics {
+    fn default() -> Self {
+        Self {
+            chain_metas: StableBTreeMap::init(memory::get_chain_metric()),
+            token_metas: StableBTreeMap::init(memory::get_token_metric()),
+            ticket_metric: StableBTreeMap::init(memory::get_ledger_metric()),
+            metric_seqs: StableBTreeMap::init(memory::get_metric_seqs()),
+        }
+    }
+}
+
+pub fn with_metrics<R>(f: impl FnOnce(&Metrics) -> R) -> R {
+    METRICS.with(|cell| f(&cell.borrow()))
+}
+
+pub fn with_metrics_mut<R>(f: impl FnOnce(&mut Metrics) -> R) -> R {
+    METRICS.with(|cell| f(&mut cell.borrow_mut()))
+}
+
+pub fn set_metrics(metrics: Metrics) {
+    METRICS.with(|cell| *cell.borrow_mut() = metrics);
+}
+
+impl Metrics {
+    pub fn add_chain_meta(&mut self, chain_meta: ChainMeta) {
+        let latest_chain_seq = self
+            .metric_seqs
+            .get(&CHAIN_META_KEY.to_vec())
+            .unwrap_or_default();
+        self.chain_metas.insert(latest_chain_seq, chain_meta);
+    }
+    pub fn update_chain_meta(&mut self, chain_meta: ChainMeta) {
+        self.chain_metas
+            .iter()
+            .find(|(_, chain)| chain.chain_id.eq(&chain_meta.chain_id))
+            .map(|(seq, _)| self.chain_metas.insert(seq, chain_meta));
+    }
+
+    pub fn add_token_meta(&mut self, token_meta: TokenMeta) {
+        let latest_token_seq = self
+            .metric_seqs
+            .get(&TOKEN_META_KEY.to_vec())
+            .unwrap_or_default();
+        self.token_metas.insert(latest_token_seq, token_meta);
+    }
+    pub fn update_token_meta(&mut self, token_meta: TokenMeta) {
+        self.token_metas
+            .iter()
+            .find(|(_, token)| token.token_id.eq(&token_meta.token_id))
+            .map(|(seq, _)| self.token_metas.insert(seq, token_meta));
+    }
+    pub fn update_ticket_metric(&mut self, ticket: Ticket) {
+        match self
+            .ticket_metric
+            .iter()
+            .find(|(_, tk)| tk.ticket_id.eq(&ticket.ticket_id))
+        {
+            Some((seq, _)) => {
+                self.ticket_metric.insert(seq, ticket);
+            }
+            None => {
+                let latest_ticket_seq = self
+                    .metric_seqs
+                    .get(&TICKET_KEY.to_vec())
+                    .unwrap_or_default();
+                self.ticket_metric.insert(latest_ticket_seq, ticket.clone());
+            }
+        }
+    }
+    pub fn get_ticket_size(&self) -> Result<u64, Error> {
+        let total_num = self.ticket_metric.len();
+        Ok(total_num)
+    }
+
+    pub fn get_tickets(&self, offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
+        info!("get_tickets  from: {}, limit: {}", offset, limit);
+        let tickets = self
+            .ticket_metric
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(seq, ticket)| (seq, ticket))
+            .collect::<Vec<_>>();
+
+        Ok(tickets)
+    }
+}
 
 pub async fn get_chains(
     chain_type: Option<ChainType>,
@@ -68,6 +181,13 @@ pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     })
 }
 
+pub async fn get_chain_size() -> Result<u64, Error> {
+    with_state(|hub_state| {
+        let total_num = hub_state.chains.len();
+        Ok(total_num)
+    })
+}
+
 pub async fn get_tokens(
     chain_id: Option<ChainId>,
     token_id: Option<TokenId>,
@@ -117,6 +237,13 @@ pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMet
     Ok(tokens)
 }
 
+pub async fn get_token_size() -> Result<u64, Error> {
+    with_state(|hub_state| {
+        let total_num = hub_state.tokens.len();
+        Ok(total_num)
+    })
+}
+
 /// get fees
 pub async fn get_fees(
     chain_id: Option<ChainId>,
@@ -153,6 +280,28 @@ pub async fn get_fees(
     });
 
     Ok(fees)
+}
+
+pub async fn get_directive_size() -> Result<u64, Error> {
+    with_state(|hub_state| {
+        let total_num = hub_state.directives.len();
+        Ok(total_num)
+    })
+}
+pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<(u64, Directive)>, Error> {
+    info!("get_directives  from: {}, limit: {}", offset, limit);
+
+    let tokens = with_state(|hub_state| {
+        hub_state
+            .directives
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(seq, dire)| (seq, dire))
+            .collect::<Vec<_>>()
+    });
+
+    Ok(tokens)
 }
 
 fn filter_chain_token(

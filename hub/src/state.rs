@@ -2,6 +2,7 @@ use crate::event::{record_event, Event};
 use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
+use crate::metrics::with_metrics_mut;
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
@@ -33,7 +34,7 @@ pub struct HubState {
     #[serde(skip, default = "memory::init_token_factor")]
     pub fee_token_factors: StableBTreeMap<TokenKey, ChainTokenFactor, Memory>,
     #[serde(skip, default = "memory::init_directive")]
-    pub directives: StableBTreeMap<String, Directive, Memory>,
+    pub directives: StableBTreeMap<u64, Directive, Memory>,
     #[serde(skip, default = "memory::init_dire_queue")]
     pub dire_queue: StableBTreeMap<SeqKey, Directive, Memory>,
     #[serde(skip, default = "memory::init_subs")]
@@ -50,6 +51,7 @@ pub struct HubState {
     pub admin: Principal,
     pub authorized_caller: HashMap<String, ChainId>,
     pub last_resubmit_ticket_time: u64,
+    pub lastest_directive_seq: u64,
 }
 
 impl From<InitArgs> for HubState {
@@ -70,6 +72,7 @@ impl From<InitArgs> for HubState {
             admin: args.admin,
             authorized_caller: HashMap::default(),
             last_resubmit_ticket_time: 0,
+            lastest_directive_seq: 0,
         }
     }
 }
@@ -178,6 +181,10 @@ impl HubState {
         self.authorized_caller
             .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
         record_event(&Event::AddedChain(chain.clone()));
+        // add chain for metric
+        with_metrics_mut(|metrics| {
+            metrics.add_chain_meta(chain.clone());
+        });
 
         // update counterparties
         if let Some(counterparties) = chain.counterparties {
@@ -213,7 +220,11 @@ impl HubState {
                 //update chain info
                 self.chains
                     .insert(chain.chain_id.to_string(), chain.clone());
-                record_event(&Event::UpdatedChainCounterparties(chain))
+                record_event(&Event::UpdatedChainCounterparties(chain.clone()));
+                // update chain metric
+                with_metrics_mut(|metrics| {
+                    metrics.update_chain_meta(chain);
+                })
             }
         });
         Ok(())
@@ -282,8 +293,12 @@ impl HubState {
                     self.chains
                         .insert(toggle_state.chain_id.to_string(), chain.clone());
                     record_event(&Event::ToggledChainState {
-                        chain,
+                        chain: chain.clone(),
                         state: toggle_state.clone(),
+                    });
+                    // update chain metric
+                    with_metrics_mut(|metrics| {
+                        metrics.update_chain_meta(chain);
                     });
                     Ok(())
                 },
@@ -293,7 +308,11 @@ impl HubState {
     pub fn add_token(&mut self, token_meata: TokenMeta) -> Result<(), Error> {
         self.tokens
             .insert(token_meata.token_id.to_string(), token_meata.clone());
-        record_event(&Event::AddedToken(token_meata));
+        record_event(&Event::AddedToken(token_meata.clone()));
+        // add chain for metric
+        with_metrics_mut(|metrics| {
+            metrics.add_token_meta(token_meata);
+        });
         Ok(())
     }
 
@@ -402,8 +421,13 @@ impl HubState {
     }
 
     pub fn save_directive(&mut self, dire: &Directive) -> Result<(), Error> {
-        self.directives.insert(dire.hash(), dire.clone());
-        record_event(&&Event::SavedDirective(dire.clone()));
+        self.directives
+            .insert(self.lastest_directive_seq, dire.clone());
+        record_event(&&Event::SavedDirective {
+            latest_seq: self.lastest_directive_seq,
+            dire: dire.clone(),
+        });
+        self.lastest_directive_seq += 1;
         Ok(())
     }
 
@@ -620,6 +644,8 @@ impl HubState {
         //save ticket
         self.cross_ledger
             .insert(ticket.ticket_id.to_string(), ticket.clone());
+        //update ticket metrice
+        with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket.clone()));
         record_event(&Event::ReceivedTicket {
             seq_key,
             ticket: ticket.clone(),

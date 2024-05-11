@@ -24,9 +24,13 @@ const DIRE_QUEUE: MemoryId = MemoryId::new(8);
 const TICKET_QUEUE: MemoryId = MemoryId::new(9);
 const LOG_MEMORY_ID: MemoryId = MemoryId::new(10);
 const SUBCRIBER: MemoryId = MemoryId::new(11);
-
 const EVENT_INDEX_MEMORY_ID: MemoryId = MemoryId::new(12);
 const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(13);
+
+const CHAIN_METRIC: MemoryId = MemoryId::new(14);
+const TOKEN_METRIC: MemoryId = MemoryId::new(15);
+const LEDGER_METRIC: MemoryId = MemoryId::new(16);
+const METRIC_SEQS: MemoryId = MemoryId::new(17);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
@@ -133,7 +137,7 @@ pub fn init_token_position() -> StableBTreeMap<TokenKey, Amount, Memory> {
 pub fn init_ledger() -> StableBTreeMap<TicketId, Ticket, Memory> {
     StableBTreeMap::init(get_ledger_memory())
 }
-pub fn init_directive() -> StableBTreeMap<String, Directive, Memory> {
+pub fn init_directive() -> StableBTreeMap<u64, Directive, Memory> {
     StableBTreeMap::init(get_directive_memory())
 }
 
@@ -159,4 +163,35 @@ pub fn init_event_log() -> IcLog<Vec<u8>, Memory, Memory> {
         with_memory_manager(|m| m.get(EVENT_INDEX_MEMORY_ID)),
     )
     .expect("failed to initialize stable log")
+}
+
+pub fn get_chain_metric() -> Memory {
+    with_memory_manager(|m| m.get(CHAIN_METRIC))
+}
+
+pub fn init_chain_metric() -> StableBTreeMap<u64, ChainMeta, Memory> {
+    StableBTreeMap::init(get_chain_metric())
+}
+
+pub fn get_token_metric() -> Memory {
+    with_memory_manager(|m| m.get(TOKEN_METRIC))
+}
+
+pub fn init_token_metric() -> StableBTreeMap<u64, TokenMeta, Memory> {
+    StableBTreeMap::init(get_token_metric())
+}
+
+pub fn get_ledger_metric() -> Memory {
+    with_memory_manager(|m| m.get(LEDGER_METRIC))
+}
+
+pub fn init_ledger_metric() -> StableBTreeMap<u64, TokenMeta, Memory> {
+    StableBTreeMap::init(get_ledger_metric())
+}
+pub fn get_metric_seqs() -> Memory {
+    with_memory_manager(|m| m.get(METRIC_SEQS))
+}
+
+pub fn init_metric_seqs() -> StableBTreeMap<Vec<u8>, u64, Memory> {
+    StableBTreeMap::init(get_metric_seqs())
 }
