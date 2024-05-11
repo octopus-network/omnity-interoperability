@@ -551,7 +551,7 @@ async fn finalize_requests() {
         return;
     }
 
-    let pub_key = updates::get_btc_address::init_ecdsa_public_key().await;
+    let ecdsa_public_key = updates::get_btc_address::init_ecdsa_public_key().await;
     let now = ic_cdk::api::time();
 
     // The list of transactions that are likely to be finalized, indexed by the transaction id.
@@ -577,7 +577,7 @@ async fn finalize_requests() {
             (
                 main_destination(main_chain_id.clone(), tx.rune_id.to_string()),
                 address::main_bitcoin_address(
-                    &pub_key,
+                    &ecdsa_public_key,
                     main_chain_id.clone(),
                     tx.rune_id.to_string(),
                 ),
@@ -734,11 +734,15 @@ async fn finalize_requests() {
                 &mut runes_utxos,
                 &mut btc_utxos,
                 main_bitcoin_address(
-                    &pub_key,
+                    &ecdsa_public_key,
                     main_chain_id.clone(),
                     submitted_tx.rune_id.to_string(),
                 ),
-                main_bitcoin_address(&pub_key, main_chain_id.clone(), String::from(BTC_TOKEN)),
+                main_bitcoin_address(
+                    &ecdsa_public_key,
+                    main_chain_id.clone(),
+                    String::from(BTC_TOKEN),
+                ),
                 outputs,
                 tx_fee_per_vbyte,
                 true,
