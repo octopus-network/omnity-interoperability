@@ -359,14 +359,16 @@ async fn submit_pending_requests() {
         }
 
         let main_chain_id = read_state(|s| s.chain_id.clone());
-        let pub_key = updates::get_btc_address::init_ecdsa_public_key().await;
-
-        let btc_main_address =
-            address::main_bitcoin_address(&pub_key, main_chain_id.clone(), BTC_TOKEN.into());
+        let ecdsa_public_key = updates::get_btc_address::init_ecdsa_public_key().await;
+        let btc_main_address = address::main_bitcoin_address(
+            &ecdsa_public_key,
+            main_chain_id.clone(),
+            String::from(BTC_TOKEN),
+        );
 
         // Each runes tokens use isolated main addresses
         let runes_main_address =
-            address::main_bitcoin_address(&pub_key, main_chain_id, rune_id.to_string());
+            address::main_bitcoin_address(&ecdsa_public_key, main_chain_id, rune_id.to_string());
 
         let maybe_sign_request = state::mutate_state(|s| {
             let batch = s.build_batch(rune_id, MAX_REQUESTS_PER_BATCH);
