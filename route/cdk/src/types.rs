@@ -506,15 +506,9 @@ pub struct Chain {
     pub chain_id: ChainId,
     pub canister_id: String,
     pub chain_type: ChainType,
-    // the chain default state is true
     pub chain_state: ChainState,
-    // settlement chain: export contract address
-    // execution chain: port contract address
     pub contract_address: Option<String>,
-
-    // optional counterparty chains
     pub counterparties: Option<Vec<ChainId>>,
-    // fee token
     pub fee_token: Option<TokenId>,
 }
 impl Chain {

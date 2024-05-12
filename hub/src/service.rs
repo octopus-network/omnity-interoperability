@@ -64,10 +64,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 #[update(guard = "auth")]
 pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
     let proposals: Vec<Proposal> = factors.into_iter().map(Proposal::UpdateFee).collect();
-
-    // validate proposal
     proposal::validate_proposal(&proposals).await?;
-    // exection proposal and generate directives
     proposal::execute_proposal(proposals).await
 }
 

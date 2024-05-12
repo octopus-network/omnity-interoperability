@@ -1,20 +1,21 @@
-use crate::contracts::OmnityPortContract;
-use crate::evm_address::EvmAddress;
+use crate::eth_common::EvmAddress;
 use crate::stable_memory::Memory;
-use crate::types::{Chain, ChainState, Token, TokenId};
+use crate::types::{Chain, ChainState, Network, Token, TokenId};
 use crate::types::{
-    ChainId, Directive, EcdsaKeyIds, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket,
+    ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket,
     TicketId,
 };
 use anyhow::anyhow;
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
-use ic_stable_structures::StableBTreeMap;
+use ic_stable_structures::{StableBTreeMap};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ptr::read;
+use ic_stable_structures::writer::Writer;
+use crate::stable_memory;
 
 thread_local! {
     static STATE: RefCell<Option<CdkRouteState>> = RefCell::new(None);
@@ -22,38 +23,62 @@ thread_local! {
 
 #[derive(CandidType, Deserialize)]
 pub struct InitArgs {
+    pub admin: Principal,
     pub chain_id: String,
     pub hub_principal: Principal,
     pub evm_chain_id: u64,
     pub evm_rpc_canister_addr: Principal,
     pub omnity_port_contract: Vec<u8>,
     pub scan_start_height: u64,
-    pub key_id_str: String,
+    pub network: Network,
 }
 
 
+
 impl CdkRouteState {
-    pub fn init(args: InitArgs) -> anyhow::Result<Self> {
-        /*
-        match self {
-                Self::TestKeyLocalDevelopment => "dfx_test_key",
-                Self::TestKey1 => "test_key_1",
-                Self::ProductionKey1 => "key_1",*/
-        if args.key_id_str != "dfx_test_key"
-            || args.key_id_str != "test_key_1"
-            || args.key_id_str != "key_1"
-        {
-            return Err(anyhow!("unspport key id "));
+    pub fn default() -> Self {
+        CdkRouteState {
+            admin: Principal::anonymous(),
+            hub_principal: Principal::anonymous(),
+            omnity_chain_id: "cdk".to_string(),
+            evm_chain_id: 4800,
+            tokens: Default::default(),
+            counterparties: Default::default(),
+            finalized_mint_token_requests: Default::default(),
+            chain_state: ChainState::Active,
+            evm_rpc_addr: Principal::anonymous(),
+            key_id: Network::Local.key_id(),
+            key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()], //TODO
+            nonce: 0,
+            pubkey: vec![],
+            rpc_privders: vec![],
+            omnity_port_contract: EvmAddress::try_from([0u8;32].to_vec())
+                .expect("omnity port contract address error"),
+            next_ticket_seq: 0,
+            next_directive_seq: 0,
+            next_consume_ticket_seq: 0,
+            next_consume_directive_seq: 0,
+            handled_cdk_event: Default::default(),
+            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_tickets_memory()),
+            directives_queue: StableBTreeMap::init(
+                crate::stable_memory::get_to_cdk_directives_memory(),
+            ),
+            pending_tickets_map: StableBTreeMap::init(
+                crate::stable_memory::get_pending_ticket_map_memory(),
+            ),
+            pending_directive_map: StableBTreeMap::init(
+                crate::stable_memory::get_pending_directive_map_memory(),
+            ),
+            scan_start_height: 1000,
+            is_timer_running: false,
         }
 
-        let key_id = EcdsaKeyId {
-            curve: EcdsaCurve::Secp256k1,
-            name: args.key_id_str.clone(),
-        };
-
+    }
+    pub fn init(args: InitArgs) -> anyhow::Result<Self> {
 
         let ret = CdkRouteState {
-            hub_principal: args.hub_principal.clone(),
+            admin: args.admin,
+            hub_principal: args.hub_principal,
             omnity_chain_id: args.chain_id,
             evm_chain_id: args.evm_chain_id,
             tokens: Default::default(),
@@ -61,7 +86,7 @@ impl CdkRouteState {
             finalized_mint_token_requests: Default::default(),
             chain_state: ChainState::Active,
             evm_rpc_addr: args.evm_rpc_canister_addr,
-            key_id,
+            key_id: args.network.key_id(),
             key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()], //TODO
             nonce: 0,
             pubkey: vec![],
@@ -88,11 +113,44 @@ impl CdkRouteState {
         };
         Ok(ret)
     }
-}
 
+    pub fn pre_upgrade(&self) {
+        let mut state_bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut state_bytes);
+        let len = state_bytes.len() as u32;
+        let mut memory = crate::stable_memory::get_upgrade_stash_memory();
+        let mut writer = Writer::new(&mut memory, 0);
+        writer
+            .write(&len.to_le_bytes())
+            .expect("failed to save hub state len");
+        writer
+            .write(&state_bytes)
+            .expect("failed to save hub state");
+    }
+
+    pub fn post_upgrade() {
+        use ic_stable_structures::Memory;
+        let memory = stable_memory::get_upgrade_stash_memory();
+        // Read the length of the state bytes.
+        let mut state_len_bytes = [0; 4];
+        memory.read(0, &mut state_len_bytes);
+        let state_len = u32::from_le_bytes(state_len_bytes) as usize;
+
+        // Read the bytes
+        let mut state_bytes = vec![0; state_len];
+        memory.read(4, &mut state_bytes);
+
+        // Deserialize and set the state.
+        let state: CdkRouteState =
+            ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+
+        STATE.with(|s| *s.borrow_mut() = Some(state));
+    }
+}
 
 #[derive(Deserialize, Serialize)]
 pub struct CdkRouteState {
+    pub admin: Principal,
     pub hub_principal: Principal,
     pub omnity_chain_id: String,
     pub evm_chain_id: u64,
@@ -177,4 +235,11 @@ pub fn replace_state(state: CdkRouteState) {
     STATE.with(|s| {
         *s.borrow_mut() = Some(state);
     });
+}
+
+pub fn take_state<F, R>(f: F) -> R
+    where
+        F: FnOnce(CdkRouteState) -> R,
+{
+    STATE.with(|s| f(s.take().expect("State not initialized!")))
 }

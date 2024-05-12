@@ -1,8 +1,7 @@
-use crate::evm_address::EvmAddress;
+use crate::eth_common::EvmAddress;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive};
 use crate::{audit, hub};
-use candid::{CandidType, Principal};
 use log::{self};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;

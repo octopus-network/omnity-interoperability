@@ -7,8 +7,6 @@ use alloy_primitives::{LogData, B256};
 use alloy_sol_types::{abi::token::WordToken, sol, SolEvent};
 use anyhow::anyhow;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
-use ethers_contract::abigen;
-use ethers_core::abi::RawLog;
 use evm_rpc::{
     candid_types::{self, BlockTag},
     MultiRpcResult, RpcServices,
@@ -44,6 +42,11 @@ sol! {
         string receiver,
         uint256 amount,
         string channelId
+    );
+
+    #[derive(Default, Debug)]
+    event DirectiveExecuted(
+        uint256 seq
     );
 }
 
@@ -81,16 +84,16 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             let token_burned = TokenBurned::decode_log_data(&raw_log, false)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             handle_token_burn(&l, token_burned).await?;
-            mutate_state(|s| s.handled_cdk_event.insert(log_key));
         } else if topic1 == TokenMinted::SIGNATURE_HASH.0 {
             let token_mint = TokenMinted::decode_log_data(&raw_log, false)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             handle_token_mint(token_mint);
-            mutate_state(|s| s.handled_cdk_event.insert(log_key));
         } else if topic1 == TokenTransportRequested::SIGNATURE_HASH.0 {
             let token_transport = TokenTransportRequested::decode_log_data(&raw_log, false)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
+            handle_token_transport(&l, token_transport).await?;
         }
+        mutate_state(|s| s.handled_cdk_event.insert(log_key));
     }
     mutate_state(|s| s.scan_start_height = to);
     Ok(())
