@@ -34,6 +34,6 @@ fn post_upgrade() {
     set_timer_interval(Duration::from_secs(30), scan_cdk_task);*/
 }
 
-ic_cdk::export_candid!();
+fn main() {}
 
-pub fn main() {}
+ic_cdk::export_candid!();
