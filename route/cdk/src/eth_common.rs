@@ -1,4 +1,4 @@
-use candid::CandidType;
+use candid::{CandidType, Principal};
 use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
 use serde_derive::{Deserialize, Serialize};
@@ -9,8 +9,6 @@ use ethers_core::utils::keccak256;
 use evm_rpc::candid_types::SendRawTransactionStatus;
 use evm_rpc::RpcServices;
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
-use secp256k1::{Message, PublicKey};
-use secp256k1::ecdsa::{RecoverableSignature, RecoveryId};
 use crate::Error;
 
 const EVM_ADDR_BYTES_LEN: usize = 20;
@@ -75,6 +73,8 @@ impl EvmAddress {
     }
 }
 
+
+
 pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<Vec<u8>> {
     use ethers_core::types::Signature;
     const EIP1559_TX_ID: u8 = 2;
@@ -91,17 +91,12 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<V
         .await
         .map_err(|(_, e)| super::Error::ChainKeyError(e))?;
     let chain_id = crate::state::target_chain_id();
-    let signature = EthereumSignature::try_from_ecdsa(
-        &r.signature,
-        &txhash,
-        chain_id,
-        crate::state::try_public_key()?.as_ref(),
-    )?;
+
 
     let signature = Signature {
-        v: signature.v,
-        r: U256::from_big_endian(&signature.r),
-        s: U256::from_big_endian(&signature.s),
+        v: y_parity(&txhash, &r.signature, crate::state::try_public_key()?.as_ref()),
+        r: U256::from_big_endian(&r.signature[0..32]),
+        s: U256::from_big_endian(&r.signature[32..64]),
     };
     let mut signed_tx_bytes = tx.rlp_signed(&signature).to_vec();
     signed_tx_bytes.insert(0, EIP1559_TX_ID);
@@ -132,52 +127,23 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct EthereumSignature {
-    pub r: Vec<u8>,
-    pub s: Vec<u8>,
-    pub v: u64,
-}
+fn y_parity(prehash: &[u8], sig: &[u8], pubkey: &[u8]) -> u64 {
+    use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 
-impl EthereumSignature {
-    pub(crate) fn try_from_ecdsa(
-        signature: &[u8],
-        prehash: &[u8],
-        chain_id: u64,
-        pubkey: &[u8],
-    ) -> Result<Self, Error> {
-        let mut r = signature[..32].to_vec();
-        let mut s = signature[32..].to_vec();
-        while r[0] == 0 {
-            r.remove(0);
+    let orig_key = VerifyingKey::from_sec1_bytes(pubkey).expect("failed to parse the pubkey");
+    let signature = Signature::try_from(sig).unwrap();
+    for parity in [0u8, 1] {
+        let recid = RecoveryId::try_from(parity).unwrap();
+        let recovered_key = VerifyingKey::recover_from_prehash(prehash, &signature, recid)
+            .expect("failed to recover key");
+        if recovered_key == orig_key {
+            return parity as u64;
         }
-        while s[0] == 0 {
-            s.remove(0);
-        }
-        let v = Self::try_derive_recid(signature, prehash, chain_id, pubkey)?;
-        Ok(Self { r, s, v })
     }
 
-    fn try_derive_recid(
-        signature: &[u8],
-        prehash: &[u8],
-        chain_id: u64,
-        pubkey: &[u8],
-    ) -> Result<u64, Error> {
-        let pubkey = PublicKey::from_slice(pubkey)
-            .map_err(|_| Error::ChainKeyError("invalid public key".to_string()))?;
-        let digest = Message::from_digest_slice(prehash)
-            .map_err(|_| Error::ChainKeyError("invalid signature".to_string()))?;
-        for r in 0..4 {
-            let rec_id = RecoveryId::from_i32(r).expect("less than 4;qed");
-            let sig = RecoverableSignature::from_compact(signature, rec_id)
-                .map_err(|_| Error::ChainKeyError("invalid signature length".to_string()))?;
-            if let Ok(pk) = sig.recover(&digest) {
-                if pk == pubkey {
-                    return Ok(r as u64 + chain_id * 2 + 35);
-                }
-            }
-        }
-        Err(Error::ChainKeyError("invalid signature".to_string()))
-    }
+    panic!(
+        "failed to recover the parity bit from a signature; sig: {}, pubkey: {}",
+        hex::encode(sig),
+        hex::encode(pubkey)
+    )
 }
