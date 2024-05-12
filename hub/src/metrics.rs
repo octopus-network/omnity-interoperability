@@ -58,11 +58,15 @@ pub fn set_metrics(metrics: Metrics) {
 
 impl Metrics {
     pub fn add_chain_meta(&mut self, chain_meta: ChainMeta) {
-        let latest_chain_seq = self
+        let mut latest_chain_seq = self
             .metric_seqs
             .get(&CHAIN_META_KEY.to_vec())
             .unwrap_or_default();
         self.chain_metas.insert(latest_chain_seq, chain_meta);
+        // increase the seq
+        latest_chain_seq += 1;
+        self.metric_seqs
+            .insert(CHAIN_META_KEY.to_vec(), latest_chain_seq);
     }
     pub fn update_chain_meta(&mut self, chain_meta: ChainMeta) {
         self.chain_metas
@@ -72,11 +76,15 @@ impl Metrics {
     }
 
     pub fn add_token_meta(&mut self, token_meta: TokenMeta) {
-        let latest_token_seq = self
+        let mut latest_token_seq = self
             .metric_seqs
             .get(&TOKEN_META_KEY.to_vec())
             .unwrap_or_default();
         self.token_metas.insert(latest_token_seq, token_meta);
+        // increase the seq
+        latest_token_seq += 1;
+        self.metric_seqs
+            .insert(TOKEN_META_KEY.to_vec(), latest_token_seq);
     }
     pub fn update_token_meta(&mut self, token_meta: TokenMeta) {
         self.token_metas
@@ -91,14 +99,20 @@ impl Metrics {
             .find(|(_, tk)| tk.ticket_id.eq(&ticket.ticket_id))
         {
             Some((seq, _)) => {
+                //update exited ticket
                 self.ticket_metric.insert(seq, ticket);
             }
             None => {
-                let latest_ticket_seq = self
+                // add new ticket
+                let mut latest_ticket_seq = self
                     .metric_seqs
                     .get(&TICKET_KEY.to_vec())
                     .unwrap_or_default();
                 self.ticket_metric.insert(latest_ticket_seq, ticket.clone());
+                // increase the seq
+                latest_ticket_seq += 1;
+                self.metric_seqs
+                    .insert(TICKET_KEY.to_vec(), latest_ticket_seq);
             }
         }
     }
