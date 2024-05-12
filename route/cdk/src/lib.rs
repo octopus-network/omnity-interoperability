@@ -5,11 +5,11 @@ use thiserror::Error;
 pub mod cdk_scan;
 pub mod state;
 pub mod types;
-
 pub mod audit;
 pub mod call_error;
 pub mod contracts;
-pub mod evm_address;
+pub mod eth_common;
+pub mod controller;
 pub mod guard;
 pub mod hub;
 pub mod hub_to_route;
@@ -39,37 +39,6 @@ pub enum Error {
     Custom(#[from] anyhow::Error),
 }
 /*
-pub fn init(target_chain: Chain, target_chain_id: u64) {
-   /*// TODO TOKEN
-    TARGET_CHAIN.with_borrow_mut(|id| *id = target_chain.clone());
-    TARGET_CHAIN_ID.with_borrow_mut(|id| *id = target_chain_id);
-    KEY_ID.with_borrow_mut(|k| {
-        *k = Some(EcdsaKeyId {
-            curve: EcdsaCurve::Secp256k1,
-            name: target_chain,
-        })
-    });
-    // TODO make derivation path compatiable with ETH account
-    // TODO this might be vec![b"m".to_vec(), b"44'".to_vec(), ...]
-    KEY_DERIVATION_PATH.with_borrow_mut(|p| p.push(b"m/44'/223'/0'/0/0".to_vec()));
-    // TODO init hub & rpc addr
-    // TODO init rpc providers*/
-}
-
-// don't call this in canister init function because ICP forbids IO during initialization
-pub async fn init_key() -> Result {
-/*    let arg = EcdsaPublicKeyArgument {
-        canister_id: None,
-        derivation_path: KEY_DERIVATION_PATH.with_borrow(|p| p.clone()),
-        key_id: KEY_ID.with_borrow(|k| k.as_ref().expect("already initialized;qed").clone()),
-    };
-    let (r,) = ecdsa_public_key(arg)
-        .await
-        .map_err(|(_, e)| Error::ChainKeyError(e))?;
-    PUBKEY.with_borrow_mut(|p| p.replace(r.public_key));*/
-    Ok(())
-}
-
 
 
 pub fn max_ticket_id() -> u64 {
