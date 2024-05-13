@@ -9,6 +9,7 @@ pub mod audit;
 pub mod call_error;
 pub mod contracts;
 pub mod eth_common;
+pub mod service;
 pub mod controller;
 pub mod guard;
 pub mod hub;
