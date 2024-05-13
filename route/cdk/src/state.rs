@@ -5,15 +5,13 @@ use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket,
     TicketId,
 };
-use anyhow::anyhow;
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
-use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
+use ic_cdk::api::management_canister::ecdsa::{ EcdsaKeyId};
 use ic_stable_structures::{StableBTreeMap};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
-use std::ptr::read;
 use ic_stable_structures::writer::Writer;
 use crate::stable_memory;
 

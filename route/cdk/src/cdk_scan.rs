@@ -1,11 +1,9 @@
-use crate::route_to_cdk::{send_directives_to_cdk, send_tickets_to_cdk};
 use crate::state::{mutate_state, read_state};
 use crate::types::Ticket;
 use crate::*;
 use alloy_primitives::hex::ToHexExt;
-use alloy_primitives::{LogData, B256};
-use alloy_sol_types::{abi::token::WordToken, sol, SolEvent};
-use anyhow::anyhow;
+use alloy_primitives::{LogData};
+use alloy_sol_types::{ sol, SolEvent};
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use evm_rpc::{
     candid_types::{self, BlockTag},
@@ -61,6 +59,7 @@ pub fn scan_cdk_task() {
 }
 
 pub async fn handle_port_events() -> anyhow::Result<()> {
+    use anyhow::anyhow;
     let (from, to) = determine_from_to().await?;
     let contract_addr = read_state(|s| s.omnity_port_contract.encode_hex());
     let logs = fetch_logs(from, to, contract_addr).await?;
