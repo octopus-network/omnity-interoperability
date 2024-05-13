@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use ethers_contract::abigen;
+use ethers_contract::{abigen, EthEvent};
 use ethers_core::abi::{AbiEncode, ethereum_types};
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
 
@@ -15,9 +15,14 @@ abigen!(
     r#"[
         function privilegedMintToken(string tokenId,address receiver,uint256 amount,uint256 ticketId, string memory memo) external
         function privilegedExecuteDirective(bytes memory directiveBytes) external
+        event TokenMinted(string tokenId,address receiver,uint256 amount,uint256 ticketId,string memo)
+        event TokenTransportRequested(string dstChainId,string tokenId,string receiver,uint256 amount,string channelId,string memo)
+        event TokenBurned(string tokenId,string receiver,uint256 amount,string channelId)
+        event DirectiveExecuted(uint256 seq)
     ]"#,
     derives(serde::Deserialize, serde::Serialize)
 );
+
 
 pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     let index: PortContractCommandIndex = directive.clone().into();

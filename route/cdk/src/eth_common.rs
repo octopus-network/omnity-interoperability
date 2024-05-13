@@ -3,7 +3,7 @@ use std::str::FromStr;
 use candid::CandidType;
 use cketh_common::eth_rpc_client::RpcConfig;
 use ethereum_types::Address;
-use ethers_core::abi::ethereum_types;
+use ethers_core::abi::{AbiEncode, ethereum_types};
 use ethers_core::types::{Eip1559TransactionRequest, U256};
 use ethers_core::utils::keccak256;
 use evm_rpc::candid_types::SendRawTransactionStatus;

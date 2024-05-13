@@ -1,52 +1,20 @@
 use crate::state::{mutate_state, read_state};
 use crate::types::Ticket;
 use crate::*;
-use alloy_primitives::hex::ToHexExt;
-use alloy_primitives::{LogData};
-use alloy_sol_types::{ sol, SolEvent};
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
+use ethers_contract::EthEvent;
+use ethers_core::abi::{AbiEncode, Log, RawLog};
+use ethers_core::utils::keccak256;
 use evm_rpc::{
     candid_types::{self, BlockTag},
     MultiRpcResult, RpcServices,
 };
+use itertools::Itertools;
 use log::{error, info};
+use crate::contracts::{DirectiveExecutedFilter, TokenBurnedFilter, TokenMintedFilter, TokenTransportRequestedFilter};
 
 const MAX_SCAN_BLOCKS: u64 = 20;
 
-sol! {
-
-    #[derive(Default, Debug)]
-    event TokenMinted(
-        string tokenId,
-        address receiver,
-        uint256 amount,
-        uint256 ticketId,
-        string memo
-    );
-
-    #[derive(Default, Debug)]
-    event TokenTransportRequested(
-        string dstChainId,
-        string tokenId,
-        string receiver,
-        uint256 amount,
-        string channelId,
-        string memo
-    );
-
-    #[derive(Default, Debug)]
-    event TokenBurned(
-        string tokenId,
-        string receiver,
-        uint256 amount,
-        string channelId
-    );
-
-    #[derive(Default, Debug)]
-    event DirectiveExecuted(
-        uint256 seq
-    );
-}
 
 pub fn scan_cdk_task() {
     ic_cdk::spawn(async {
@@ -61,7 +29,7 @@ pub fn scan_cdk_task() {
 pub async fn handle_port_events() -> anyhow::Result<()> {
     use anyhow::anyhow;
     let (from, to) = determine_from_to().await?;
-    let contract_addr = read_state(|s| s.omnity_port_contract.encode_hex());
+    let contract_addr = read_state(|s| s.omnity_port_contract.0.encode_hex());
     let logs = fetch_logs(from, to, contract_addr).await?;
     for l in logs {
         if l.removed {
@@ -74,21 +42,20 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             continue;
         }
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.clone();
-        let raw_log = LogData::new(
-            l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
-            alloy_primitives::Bytes::from(l.data.0.clone()),
-        )
-        .expect("topics lenght > 4");
-        if topic1 == TokenBurned::SIGNATURE_HASH.0 {
-            let token_burned = TokenBurned::decode_log_data(&raw_log, false)
+        let raw_log: RawLog = RawLog{
+            topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
+            data: l.data.0.clone(),
+        };
+        if topic1 == keccak256(TokenBurnedFilter::abi_signature().as_bytes()) {
+            let token_burned = TokenBurnedFilter::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             handle_token_burn(&l, token_burned).await?;
-        } else if topic1 == TokenMinted::SIGNATURE_HASH.0 {
-            let token_mint = TokenMinted::decode_log_data(&raw_log, false)
+        } else if topic1 == keccak256(TokenMintedFilter::abi_signature().as_bytes()) {
+            let token_mint = TokenMintedFilter::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             handle_token_mint(token_mint);
-        } else if topic1 == TokenTransportRequested::SIGNATURE_HASH.0 {
-            let token_transport = TokenTransportRequested::decode_log_data(&raw_log, false)
+        } else if topic1 == keccak256(TokenTransportRequestedFilter::abi_signature().as_bytes()) {
+            let token_transport = TokenTransportRequestedFilter::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             handle_token_transport(&l, token_transport).await?;
         }
@@ -98,7 +65,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyhow::Result<()> {
+pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurnedFilter) -> anyhow::Result<()> {
     let ticket = Ticket::from_burn_event(&log_entry, event);
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket,))
         .await
@@ -107,14 +74,14 @@ pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyh
     Ok(())
 }
 
-pub fn handle_token_mint(event: TokenMinted) {
-    let tid = event.ticketId.to_string();
+pub fn handle_token_mint(event: TokenMintedFilter) {
+    let tid = event.ticket_id.to_string();
     mutate_state(|s| s.pending_tickets_map.remove(&tid));
 }
 
 pub async fn handle_token_transport(
     log_entry: &LogEntry,
-    event: TokenTransportRequested,
+    event: TokenTransportRequestedFilter,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_transport_event(&log_entry, event);
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket,))
@@ -172,9 +139,10 @@ pub async fn fetch_logs(
                 addresses: vec![address],
                 // todo check if correct
                 topics: Some(vec![
-                    vec![TokenBurned::SIGNATURE_HASH.encode_hex()],
-                    vec![TokenMinted::SIGNATURE_HASH.encode_hex()],
-                    vec![TokenTransportRequested::SIGNATURE_HASH.encode_hex()],
+                    vec![keccak256(TokenBurnedFilter::abi_signature().to_owned().as_bytes()).encode_hex()],
+                    vec![keccak256(TokenMintedFilter::abi_signature().to_owned().as_bytes()).encode_hex()],
+                    vec![keccak256(TokenTransportRequestedFilter::abi_signature().to_owned().as_bytes()).encode_hex()],
+                    vec![keccak256(DirectiveExecutedFilter::abi_signature().to_owned().as_bytes()).encode_hex()],
                 ]),
             },
         ),
