@@ -219,7 +219,7 @@ pub struct Ticket {
     pub receiver: Account,
     pub memo: Option<Vec<u8>>,
 }
-
+/*
 impl Ticket {
     pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
@@ -269,7 +269,7 @@ impl Ticket {
         };
         ticket
     }
-}
+}*/
 
 impl Storable for Ticket {
     fn to_bytes(&self) -> Cow<[u8]> {
@@ -604,7 +604,7 @@ pub struct TxCondition {
     pub time_range: Option<(u64, u64)>,
 }
 
-use crate::cdk_scan::{TokenBurned, TokenTransportRequested};
+//use crate::cdk_scan::{TokenBurned, TokenTransportRequested};
 use crate::state::read_state;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
