@@ -3,7 +3,6 @@ use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive};
 use crate::{audit, hub};
 use log::{self};
-use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
@@ -21,7 +20,7 @@ async fn process_tickets() {
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
                 //TODO EVM_Address
-                let receiver = if let Ok(receiver) = EvmAddress::from_str(&ticket.receiver) {
+                let _receiver = if let Ok(receiver) = EvmAddress::from_str(&ticket.receiver) {
                     receiver
                 } else {
                     log::error!(
@@ -31,7 +30,7 @@ async fn process_tickets() {
                     next_seq = seq + 1;
                     continue;
                 };
-                let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
+                let _amount: u128 = if let Ok(amount) = ticket.amount.parse() {
                     amount
                 } else {
                     log::error!(

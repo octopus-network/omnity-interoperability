@@ -1,12 +1,7 @@
-use std::time::Duration;
-
 use ic_cdk::{init, post_upgrade, pre_upgrade};
-use ic_cdk_timers::set_timer_interval;
 
-use crate::cdk_scan::scan_cdk_task;
-use crate::hub_to_route::fetch_hub_periodic_task;
-use crate::route_to_cdk::to_cdk_task;
-use crate::state::{CdkRouteState, InitArgs, mutate_state, read_state};
+use crate::state::{CdkRouteState, mutate_state, read_state};
+
 /*
 #[init]
 fn init(args: InitArgs) {
