@@ -219,13 +219,13 @@ pub struct Ticket {
     pub receiver: Account,
     pub memo: Option<Vec<u8>>,
 }
-/*
+
 impl Ticket {
-    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
+    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurnedFilter) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
-                .get(&token_burned.tokenId.to_string())
+                .get(&token_burned.token_id.to_string())
                 .expect("token not found")
                 .clone()
         });
@@ -238,7 +238,7 @@ impl Ticket {
             src_chain,
             dst_chain,
             action: TxAction::Redeem,
-            token: token_burned.tokenId,
+            token: token_burned.token_id,
             amount: token_burned.amount.to_string(),
             sender: None, //TODO
             receiver: token_burned.receiver,
@@ -249,10 +249,10 @@ impl Ticket {
 
     pub fn from_transport_event(
         log_entry: &LogEntry,
-        token_transport_requested: TokenTransportRequested,
+        token_transport_requested: TokenTransportRequestedFilter,
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
-        let dst_chain = token_transport_requested.dstChainId;
+        let dst_chain = token_transport_requested.dst_chain_id;
         let ticket = Ticket {
             ticket_id: log_entry.transaction_hash.clone().unwrap().to_string()
                 + log_entry.log_index.clone().unwrap().to_string().as_str(),
@@ -261,7 +261,7 @@ impl Ticket {
             src_chain,
             dst_chain,
             action: TxAction::Transfer,
-            token: token_transport_requested.tokenId.to_string(),
+            token: token_transport_requested.token_id.to_string(),
             amount: token_transport_requested.amount.to_string(),
             sender: None, //TODO
             receiver: token_transport_requested.receiver,
@@ -269,7 +269,7 @@ impl Ticket {
         };
         ticket
     }
-}*/
+}
 
 impl Storable for Ticket {
     fn to_bytes(&self) -> Cow<[u8]> {
@@ -609,6 +609,7 @@ use crate::state::read_state;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
+use crate::contracts::{TokenBurnedFilter, TokenTransportRequestedFilter};
 
 pub type CanisterId = Principal;
 
