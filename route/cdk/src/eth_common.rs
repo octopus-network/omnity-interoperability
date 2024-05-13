@@ -1,14 +1,16 @@
-use candid::{CandidType, Principal};
+use std::str::FromStr;
+
+use candid::CandidType;
+use cketh_common::eth_rpc_client::RpcConfig;
 use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
-use serde_derive::{Deserialize, Serialize};
-use std::str::FromStr;
-use cketh_common::eth_rpc_client::RpcConfig;
 use ethers_core::types::{Eip1559TransactionRequest, U256};
 use ethers_core::utils::keccak256;
 use evm_rpc::candid_types::SendRawTransactionStatus;
 use evm_rpc::RpcServices;
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
+use serde_derive::{Deserialize, Serialize};
+
 use crate::Error;
 
 const EVM_ADDR_BYTES_LEN: usize = 20;
@@ -90,9 +92,6 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<V
     let (r,) = sign_with_ecdsa(arg)
         .await
         .map_err(|(_, e)| super::Error::ChainKeyError(e))?;
-    let chain_id = crate::state::target_chain_id();
-
-
     let signature = Signature {
         v: y_parity(&txhash, &r.signature, crate::state::try_public_key()?.as_ref()),
         r: U256::from_big_endian(&r.signature[0..32]),
