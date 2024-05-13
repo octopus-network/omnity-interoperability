@@ -1,0 +1,4 @@
+service : () -> {
+  init_chain_pubkey : () -> (text);
+  pubkey : () -> (text) query;
+}
