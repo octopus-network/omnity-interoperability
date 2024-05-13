@@ -37,3 +37,5 @@ fn is_admin() -> Result<(), String>{
         false => { Err("permission deny".to_string())}
     }
 }
+
+ic_cdk::export_candid!();
