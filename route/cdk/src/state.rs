@@ -1,19 +1,18 @@
 use crate::eth_common::EvmAddress;
+use crate::stable_memory;
 use crate::stable_memory::Memory;
 use crate::types::{Chain, ChainState, Network, Token, TokenId};
 use crate::types::{
-    ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket,
-    TicketId,
+    ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
-use ic_cdk::api::management_canister::ecdsa::{ EcdsaKeyId};
-use ic_stable_structures::{StableBTreeMap};
+use ic_cdk::api::management_canister::ecdsa::EcdsaKeyId;
+use ic_stable_structures::writer::Writer;
+use ic_stable_structures::StableBTreeMap;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
-use ic_stable_structures::writer::Writer;
-use crate::stable_memory;
 
 thread_local! {
     static STATE: RefCell<Option<CdkRouteState>> = RefCell::new(None);
@@ -30,8 +29,6 @@ pub struct InitArgs {
     pub scan_start_height: u64,
     pub network: Network,
 }
-
-
 
 impl CdkRouteState {
     pub fn default() -> Self {
@@ -50,7 +47,7 @@ impl CdkRouteState {
             nonce: 0,
             pubkey: vec![],
             rpc_privders: vec![],
-            omnity_port_contract: EvmAddress::try_from([0u8;32].to_vec())
+            omnity_port_contract: EvmAddress::try_from([0u8; 32].to_vec())
                 .expect("omnity port contract address error"),
             next_ticket_seq: 0,
             next_directive_seq: 0,
@@ -70,10 +67,8 @@ impl CdkRouteState {
             scan_start_height: 1000,
             is_timer_running: false,
         }
-
     }
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
-
         let ret = CdkRouteState {
             admin: args.admin,
             hub_principal: args.hub_principal,
@@ -236,8 +231,8 @@ pub fn replace_state(state: CdkRouteState) {
 }
 
 pub fn take_state<F, R>(f: F) -> R
-    where
-        F: FnOnce(CdkRouteState) -> R,
+where
+    F: FnOnce(CdkRouteState) -> R,
 {
     STATE.with(|s| f(s.take().expect("State not initialized!")))
 }

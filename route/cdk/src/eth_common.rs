@@ -3,7 +3,7 @@ use std::str::FromStr;
 use candid::CandidType;
 use cketh_common::eth_rpc_client::RpcConfig;
 use ethereum_types::Address;
-use ethers_core::abi::{AbiEncode, ethereum_types};
+use ethers_core::abi::{ethereum_types, AbiEncode};
 use ethers_core::types::{Eip1559TransactionRequest, U256};
 use ethers_core::utils::keccak256;
 use evm_rpc::candid_types::SendRawTransactionStatus;
@@ -75,8 +75,6 @@ impl EvmAddress {
     }
 }
 
-
-
 pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<Vec<u8>> {
     use ethers_core::types::Signature;
     const EIP1559_TX_ID: u8 = 2;
@@ -93,7 +91,11 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<V
         .await
         .map_err(|(_, e)| super::Error::ChainKeyError(e))?;
     let signature = Signature {
-        v: y_parity(&txhash, &r.signature, crate::state::try_public_key()?.as_ref()),
+        v: y_parity(
+            &txhash,
+            &r.signature,
+            crate::state::try_public_key()?.as_ref(),
+        ),
         r: U256::from_big_endian(&r.signature[0..32]),
         s: U256::from_big_endian(&r.signature[32..64]),
     };
@@ -116,8 +118,8 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
             raw,
         ),
     )
-        .await
-        .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
+    .await
+    .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
     match r {
         SendRawTransactionStatus::Ok(hash) => hash.map(|h| h.to_string()).ok_or(
             super::Error::EvmRpcError("A transaction hash is expected".to_string()),

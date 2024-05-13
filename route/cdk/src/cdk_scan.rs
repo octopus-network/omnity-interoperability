@@ -1,3 +1,6 @@
+use crate::contracts::{
+    DirectiveExecutedFilter, TokenBurnedFilter, TokenMintedFilter, TokenTransportRequestedFilter,
+};
 use crate::state::{mutate_state, read_state};
 use crate::types::Ticket;
 use crate::*;
@@ -9,12 +12,9 @@ use evm_rpc::{
     candid_types::{self, BlockTag},
     MultiRpcResult, RpcServices,
 };
-use itertools::Itertools;
 use log::{error, info};
-use crate::contracts::{DirectiveExecutedFilter, TokenBurnedFilter, TokenMintedFilter, TokenTransportRequestedFilter};
 
 const MAX_SCAN_BLOCKS: u64 = 20;
-
 
 pub fn scan_cdk_task() {
     ic_cdk::spawn(async {
@@ -42,7 +42,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             continue;
         }
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.clone();
-        let raw_log: RawLog = RawLog{
+        let raw_log: RawLog = RawLog {
             topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
             data: l.data.0.clone(),
         };
@@ -65,7 +65,10 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurnedFilter) -> anyhow::Result<()> {
+pub async fn handle_token_burn(
+    log_entry: &LogEntry,
+    event: TokenBurnedFilter,
+) -> anyhow::Result<()> {
     let ticket = Ticket::from_burn_event(&log_entry, event);
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket,))
         .await
@@ -139,10 +142,26 @@ pub async fn fetch_logs(
                 addresses: vec![address],
                 // todo check if correct
                 topics: Some(vec![
-                    vec![keccak256(TokenBurnedFilter::abi_signature().to_owned().as_bytes()).encode_hex()],
-                    vec![keccak256(TokenMintedFilter::abi_signature().to_owned().as_bytes()).encode_hex()],
-                    vec![keccak256(TokenTransportRequestedFilter::abi_signature().to_owned().as_bytes()).encode_hex()],
-                    vec![keccak256(DirectiveExecutedFilter::abi_signature().to_owned().as_bytes()).encode_hex()],
+                    vec![
+                        keccak256(TokenBurnedFilter::abi_signature().to_owned().as_bytes())
+                            .encode_hex(),
+                    ],
+                    vec![
+                        keccak256(TokenMintedFilter::abi_signature().to_owned().as_bytes())
+                            .encode_hex(),
+                    ],
+                    vec![keccak256(
+                        TokenTransportRequestedFilter::abi_signature()
+                            .to_owned()
+                            .as_bytes(),
+                    )
+                    .encode_hex()],
+                    vec![keccak256(
+                        DirectiveExecutedFilter::abi_signature()
+                            .to_owned()
+                            .as_bytes(),
+                    )
+                    .encode_hex()],
                 ]),
             },
         ),
