@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ethers_contract::{abigen, EthEvent};
-use ethers_core::abi::{AbiEncode, ethereum_types};
+use ethers_core::abi::{ethereum_types, AbiEncode};
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
 
 use crate::eth_common::EvmAddress;
@@ -22,7 +22,6 @@ abigen!(
     ]"#,
     derives(serde::Deserialize, serde::Serialize)
 );
-
 
 pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     let index: PortContractCommandIndex = directive.clone().into();

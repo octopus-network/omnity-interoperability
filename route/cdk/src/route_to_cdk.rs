@@ -1,9 +1,7 @@
 use ethers_core::types::U256;
 
-use crate::contracts::{
-     gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data,
-};
-use crate::eth_common::{sign_transaction, broadcast};
+use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
+use crate::eth_common::{broadcast, sign_transaction};
 use crate::state::{mutate_state, read_state};
 use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
 
