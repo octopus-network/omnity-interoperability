@@ -1,8 +1,8 @@
 {
-  "dfx": "0.20.0",
+  "dfx": "0.17.0",
   "canisters": {
     "cdk_route": {
-      "candid": "src/cdk_route.did",
+      "candid": "cdk_route.did",
       "package": "cdk_route",
       "type": "rust"
     },

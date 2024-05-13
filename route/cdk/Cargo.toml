@@ -3,11 +3,8 @@ name = "cdk_route"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "cdk_route"
-path = "src/main.rs"
-#[lib]
-#crate-type = ["cdylib"]
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -25,7 +22,6 @@ ic-cdk-timers = "0.2"
 ic-stable-structures = "0.6"
 
 tiny-keccak = { version = "2.0.2", features = ["keccak"], default-features = false }
-rlp = { version = "0.5.2", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 bytes = { version = "^1.4.0", default-features = false }
 serde_derive = "^1.0"
@@ -39,7 +35,6 @@ alloy-sol-types = "0.6.4"
 alloy-primitives = "0.6.4"
 anyhow = "1.0.80"
 sha2 = "0.10.8"
-hex-literal = "0.4.1"
 ethers-contract = "2.0.14"
 ethers-providers = "2.0.14"
 futures = "0.3.30"
