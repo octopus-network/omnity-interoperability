@@ -57,126 +57,96 @@ pub fn set_metrics(metrics: Metrics) {
 }
 
 impl Metrics {
-    pub fn add_chain_metric(&mut self, chain_meta: ChainMeta) {
-        self.chain_metas.insert(ic_cdk::api::time(), chain_meta);
-        info!(
-            "add_chain_metric,all the chains : {:?}",
-            self.chain_metas
-                .iter()
-                .map(|(_, chain)| chain)
-                .collect::<Vec<_>>()
-        );
-    }
     pub fn update_chain_metric(&mut self, chain_meta: ChainMeta) {
-        self.chain_metas
-            .iter()
-            .find(|(_, chain)| chain.chain_id.eq(&chain_meta.chain_id))
-            .map(|(timestamp, exited_chain)| {
-                info!(
-                    "update_chain_metric,remove : {:?} ->{:?}",
-                    timestamp, exited_chain
-                );
-                //remove exited chain
-                self.chain_metas.remove(&timestamp);
-                //add new chain
-                info!("update_chain_metric,add new chain : {:?}", chain_meta);
-                self.chain_metas.insert(ic_cdk::api::time(), chain_meta);
-            });
-
-        info!(
-            "update_chain_metric,all the chains : {:?}",
-            self.chain_metas
-                .iter()
-                .map(|(_, chain)| chain)
-                .collect::<Vec<_>>()
-        );
+        let mut latest_chain_seq = self
+            .metric_seqs
+            .get(&CHAIN_META_KEY.to_vec())
+            .unwrap_or_default();
+        self.chain_metas.insert(latest_chain_seq, chain_meta);
+        latest_chain_seq += 1;
+        self.metric_seqs
+            .insert(CHAIN_META_KEY.to_vec(), latest_chain_seq);
     }
     pub fn sync_chain_size(&self) -> Result<u64, Error> {
         let total_num = self.chain_metas.len();
         Ok(total_num)
     }
 
-    pub fn sync_chains(&self, offset: usize, limit: usize) -> Result<Vec<(u64, ChainMeta)>, Error> {
-        info!("sync_chains  from: {}, limit: {}", offset, limit);
-        let from_timestamp = offset as u64;
+    pub fn sync_chains(
+        &self,
+        from_seq: usize,
+        limit: usize,
+    ) -> Result<Vec<(u64, ChainMeta)>, Error> {
+        info!("sync_chains  from: {}, limit: {}", from_seq, limit);
+        let from_seq = from_seq as u64;
         let chains = self
             .chain_metas
             .iter()
-            .filter(|(timestamp, _)| *timestamp >= from_timestamp)
+            .filter(|(seq, _)| *seq >= from_seq)
             .take(limit)
-            .map(|(timestamp, chain)| (timestamp, chain))
+            .map(|(seq, chain)| (seq, chain))
             .collect::<Vec<_>>();
 
         Ok(chains)
     }
 
     pub fn update_token_metric(&mut self, token_meta: TokenMeta) {
-        match self
-            .token_metas
-            .iter()
-            .find(|(_, token)| token.token_id.eq(&token_meta.token_id))
-        {
-            Some((timestamp, _)) => {
-                self.token_metas.remove(&timestamp);
-                //update exited chain
-                self.token_metas.insert(ic_cdk::api::time(), token_meta);
-            }
-            None => {
-                // add new chain
-                self.token_metas
-                    .insert(ic_cdk::api::time(), token_meta.clone());
-            }
-        }
+        let mut latest_token_seq = self
+            .metric_seqs
+            .get(&TOKEN_META_KEY.to_vec())
+            .unwrap_or_default();
+        self.token_metas.insert(latest_token_seq, token_meta);
+        latest_token_seq += 1;
+        self.metric_seqs
+            .insert(TOKEN_META_KEY.to_vec(), latest_token_seq);
     }
     pub fn sync_token_size(&self) -> Result<u64, Error> {
         let total_num = self.token_metas.len();
         Ok(total_num)
     }
-    pub fn sync_tokens(&self, offset: usize, limit: usize) -> Result<Vec<(u64, TokenMeta)>, Error> {
-        info!("sync_tokens  from: {}, limit: {}", offset, limit);
-        let from_timestamp = offset as u64;
+
+    pub fn sync_tokens(
+        &self,
+        from_seq: usize,
+        limit: usize,
+    ) -> Result<Vec<(u64, TokenMeta)>, Error> {
+        info!("sync_tokens  from: {}, limit: {}", from_seq, limit);
+        let from_seq = from_seq as u64;
         let tokens = self
             .token_metas
             .iter()
-            .filter(|(timestamp, _)| *timestamp >= from_timestamp)
+            .filter(|(seq, _)| *seq >= from_seq)
             .take(limit)
-            .map(|(timestamp, token)| (timestamp, token))
+            .map(|(seq, token)| (seq, token))
             .collect::<Vec<_>>();
 
         Ok(tokens)
     }
 
     pub fn update_ticket_metric(&mut self, ticket: Ticket) {
-        match self
-            .ticket_metric
-            .iter()
-            .find(|(_, tk)| tk.ticket_id.eq(&ticket.ticket_id))
-        {
-            Some((seq, _)) => {
-                //update exited ticket
-                self.ticket_metric.insert(seq, ticket);
-            }
-            None => {
-                // add new ticket
-                self.ticket_metric
-                    .insert(ticket.ticket_time, ticket.clone());
-            }
-        }
+        let latest_ticket_seq = self
+            .metric_seqs
+            .get(&TICKET_KEY.to_vec())
+            .unwrap_or_default();
+        self.ticket_metric.insert(latest_ticket_seq, ticket.clone());
+        let latest_ticket_seq = latest_ticket_seq + 1;
+        self.metric_seqs
+            .insert(TICKET_KEY.to_vec(), latest_ticket_seq);
     }
     pub fn sync_ticket_size(&self) -> Result<u64, Error> {
         let total_num = self.ticket_metric.len();
         Ok(total_num)
     }
 
-    pub fn sync_tickets(&self, offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
-        info!("sync_tickets  from: {}, limit: {}", offset, limit);
-        let from_timestamp = offset as u64;
+    pub fn sync_tickets(&self, from_seq: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
+        info!("get_tickets  from: {}, limit: {}", from_seq, limit);
+        let from_seq = from_seq as u64;
         let tickets = self
             .ticket_metric
             .iter()
-            .filter(|(timestamp, _)| *timestamp >= from_timestamp)
+            .filter(|(seq, _)| *seq >= from_seq)
             .take(limit)
-            .map(|(timestamp, ticket)| (timestamp, ticket))
+            .map(|(seq, ticket)| (seq, ticket))
             .collect::<Vec<_>>();
 
         Ok(tickets)

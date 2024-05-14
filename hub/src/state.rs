@@ -181,7 +181,7 @@ impl HubState {
         record_event(&Event::AddedChain(chain.clone()));
         // add chain for metric
         with_metrics_mut(|metrics| {
-            metrics.add_chain_metric(chain.clone());
+            metrics.update_chain_metric(chain.clone());
         });
 
         // update counterparties
@@ -221,7 +221,8 @@ impl HubState {
                 record_event(&Event::UpdatedChainCounterparties(chain.clone()));
                 // update chain metric
                 with_metrics_mut(|metrics| {
-                    metrics.update_chain_metric(chain);
+                   
+                    metrics.update_chain_metric(chain.clone());
                 })
             }
         });
