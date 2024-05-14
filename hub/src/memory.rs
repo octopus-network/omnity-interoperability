@@ -137,7 +137,7 @@ pub fn init_token_position() -> StableBTreeMap<TokenKey, Amount, Memory> {
 pub fn init_ledger() -> StableBTreeMap<TicketId, Ticket, Memory> {
     StableBTreeMap::init(get_ledger_memory())
 }
-pub fn init_directive() -> StableBTreeMap<u64, Directive, Memory> {
+pub fn init_directive() -> StableBTreeMap<String, Directive, Memory> {
     StableBTreeMap::init(get_directive_memory())
 }
 

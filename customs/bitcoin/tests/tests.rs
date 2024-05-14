@@ -19,8 +19,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
 use omnity_types::{
-    Chain, ChainState, ChainType, Directive, Ticket, TicketType, ToggleAction, ToggleState, Token,
-    TxAction,
+    Chain, ChainState, ChainType, Directive, Ticket, TicketStatus, TicketType, ToggleAction, ToggleState, Token, TxAction
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -1131,6 +1130,7 @@ fn test_finalize_release_token_tx() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
     customs.push_ticket(ticket);
 
@@ -1180,6 +1180,7 @@ fn test_finalize_batch_release_token_tx() {
             sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
             receiver: recivers[i].into(),
             memo: None,
+            status: TicketStatus::Finalized,
         };
         customs.push_ticket(ticket);
     }
@@ -1230,6 +1231,7 @@ fn test_exist_two_submitted_tx() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
     customs.push_ticket(first_ticket);
     customs.env.advance_time(Duration::from_secs(5));
@@ -1259,6 +1261,7 @@ fn test_exist_two_submitted_tx() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
     customs.push_ticket(second_ticket);
     customs.env.advance_time(Duration::from_secs(5));
@@ -1310,6 +1313,7 @@ fn test_transaction_use_prev_change_output() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
     customs.push_ticket(first_ticket);
     customs.env.advance_time(Duration::from_secs(5));
@@ -1344,6 +1348,7 @@ fn test_transaction_use_prev_change_output() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
     customs.push_ticket(second_ticket);
     customs.env.advance_time(Duration::from_secs(5));
@@ -1396,6 +1401,7 @@ fn test_transaction_multi_runes_id() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     let second_ticket_id: String = "ticket_id2".into();
@@ -1411,6 +1417,7 @@ fn test_transaction_multi_runes_id() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
     customs.push_ticket(first_ticket);
     customs.push_ticket(second_ticket);
@@ -1469,6 +1476,7 @@ fn test_transaction_resubmission_finalize_new() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
     customs.push_ticket(ticket);
     customs.env.advance_time(Duration::from_secs(5));
@@ -1540,6 +1548,7 @@ fn test_transaction_resubmission_finalize_old() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
     customs.push_ticket(ticket);
     customs.env.advance_time(Duration::from_secs(5));
@@ -1604,6 +1613,7 @@ fn test_transaction_resubmission_finalize_middle() {
         sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
         receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
     customs.push_ticket(ticket);
     customs.env.advance_time(Duration::from_secs(5));

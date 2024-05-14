@@ -34,7 +34,7 @@ pub struct HubState {
     #[serde(skip, default = "memory::init_token_factor")]
     pub fee_token_factors: StableBTreeMap<TokenKey, ChainTokenFactor, Memory>,
     #[serde(skip, default = "memory::init_directive")]
-    pub directives: StableBTreeMap<u64, Directive, Memory>,
+    pub directives: StableBTreeMap<String, Directive, Memory>,
     #[serde(skip, default = "memory::init_dire_queue")]
     pub dire_queue: StableBTreeMap<SeqKey, Directive, Memory>,
     #[serde(skip, default = "memory::init_subs")]
@@ -51,7 +51,6 @@ pub struct HubState {
     pub admin: Principal,
     pub authorized_caller: HashMap<String, ChainId>,
     pub last_resubmit_ticket_time: u64,
-    pub lastest_directive_seq: u64,
 }
 
 impl From<InitArgs> for HubState {
@@ -72,7 +71,6 @@ impl From<InitArgs> for HubState {
             admin: args.admin,
             authorized_caller: HashMap::default(),
             last_resubmit_ticket_time: 0,
-            lastest_directive_seq: 0,
         }
     }
 }
@@ -183,7 +181,7 @@ impl HubState {
         record_event(&Event::AddedChain(chain.clone()));
         // add chain for metric
         with_metrics_mut(|metrics| {
-            metrics.add_chain_meta(chain.clone());
+            metrics.add_chain_metric(chain.clone());
         });
 
         // update counterparties
@@ -223,7 +221,7 @@ impl HubState {
                 record_event(&Event::UpdatedChainCounterparties(chain.clone()));
                 // update chain metric
                 with_metrics_mut(|metrics| {
-                    metrics.update_chain_meta(chain);
+                    metrics.update_chain_metric(chain);
                 })
             }
         });
@@ -298,7 +296,7 @@ impl HubState {
                     });
                     // update chain metric
                     with_metrics_mut(|metrics| {
-                        metrics.update_chain_meta(chain);
+                        metrics.update_chain_metric(chain);
                     });
                     Ok(())
                 },
@@ -311,7 +309,7 @@ impl HubState {
         record_event(&Event::AddedToken(token_meata.clone()));
         // add chain for metric
         with_metrics_mut(|metrics| {
-            metrics.add_token_meta(token_meata);
+            metrics.update_token_metric(token_meata);
         });
         Ok(())
     }
@@ -421,13 +419,9 @@ impl HubState {
     }
 
     pub fn save_directive(&mut self, dire: &Directive) -> Result<(), Error> {
-        self.directives
-            .insert(self.lastest_directive_seq, dire.clone());
-        record_event(&&Event::SavedDirective {
-            latest_seq: self.lastest_directive_seq,
-            dire: dire.clone(),
-        });
-        self.lastest_directive_seq += 1;
+        self.directives.insert(dire.hash(), dire.clone());
+        record_event(&&Event::SavedDirective(dire.clone()));
+
         Ok(())
     }
 
@@ -676,6 +670,7 @@ impl HubState {
                     sender: ticket.sender,
                     receiver: ticket.receiver,
                     memo: ticket.memo,
+                    status: ticket.status,
                 };
                 self.push_ticket(new_ticket)?;
                 self.last_resubmit_ticket_time = now;

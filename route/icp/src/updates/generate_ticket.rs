@@ -10,7 +10,7 @@ use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use num_traits::cast::ToPrimitive;
-use omnity_types::{ChainId, ChainState, Ticket, TxAction};
+use omnity_types::{ChainId, ChainState, Ticket, TicketStatus, TxAction};
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -100,6 +100,7 @@ pub async fn generate_ticket(
             sender: None,
             receiver: req.receiver.clone(),
             memo: None,
+            status: TicketStatus::WaitingForConfirmByDest,
         },
     )
     .await

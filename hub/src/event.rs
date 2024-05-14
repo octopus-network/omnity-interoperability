@@ -137,7 +137,7 @@ pub enum Event {
     UpdatedFee(Factor),
 
     #[serde(rename = "saved_directive")]
-    SavedDirective { latest_seq: u64, dire: Directive },
+    SavedDirective(Directive),
     #[serde(rename = "deleted_directive")]
     DeletedDirective(SeqKey),
 
@@ -257,8 +257,8 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     }
                 }
             }
-            Event::SavedDirective{latest_seq,dire} => {
-                hub_state.directives.insert(latest_seq, dire);
+            Event::SavedDirective(dire) => {
+                hub_state.directives.insert(dire.hash(), dire);
             }
             Event::DeletedDirective(seq_key) => {
                 hub_state.dire_queue.remove(&seq_key);
@@ -375,6 +375,7 @@ mod tests {
                     sender: None,
                     receiver: Principal::anonymous().to_string(),
                     memo: None,
+                    status: omnity_types::TicketStatus::Finalized,
                 },
             },
         ];

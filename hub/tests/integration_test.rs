@@ -1,6 +1,8 @@
 use ic_base_types::PrincipalId;
 use omnity_hub::types::Proposal;
-use omnity_types::{ChainState, ChainType, Factor, FeeTokenFactor, Ticket, TicketType, TxAction};
+use omnity_types::{
+    ChainState, ChainType, Factor, FeeTokenFactor, Ticket, TicketStatus, TicketType, TxAction,
+};
 use omnity_types::{ToggleAction, ToggleState, Topic};
 mod common;
 
@@ -113,13 +115,8 @@ fn test_add_token() {
     }
 
     for canister_id in canister_ids() {
-        let result = hub.query_directives(
-            &Some(canister_id),
-            &None,
-            &Some(Topic::AddToken),
-            &0,
-            &5,
-        );
+        let result =
+            hub.query_directives(&Some(canister_id), &None, &Some(Topic::AddToken), &0, &5);
         println!("query_directives for {:} dires: {:#?}", canister_id, result);
         assert!(result.is_ok());
     }
@@ -315,6 +312,7 @@ fn test_a_b_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     println!(
@@ -357,6 +355,7 @@ fn test_a_b_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     println!(
@@ -383,8 +382,8 @@ fn test_a_b_tx() {
 #[test]
 fn test_a_b_c_tx() {
     let hub = OmnityHub::new();
-     // sub topic
-     for chain in chain_ids() {
+    // sub topic
+    for chain in chain_ids() {
         let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
         println!("sub_directives({}) result: {:#?}", chain, ret);
     }
@@ -422,6 +421,7 @@ fn test_a_b_c_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, a_2_b_ticket);
@@ -460,6 +460,7 @@ fn test_a_b_c_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_c_ticket);
@@ -500,6 +501,7 @@ fn test_a_b_c_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, c_2_b_ticket);
@@ -534,6 +536,7 @@ fn test_a_b_c_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_a_ticket);
@@ -561,8 +564,8 @@ fn test_a_b_c_tx() {
 #[test]
 fn test_upgrade() {
     let hub = OmnityHub::new();
-     // sub topic
-     for chain in chain_ids() {
+    // sub topic
+    for chain in chain_ids() {
         let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
         println!("sub_directives({}) result: {:#?}", chain, ret);
     }
@@ -600,6 +603,7 @@ fn test_upgrade() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     let caller = Some(PrincipalId::new_user_test_id(3));
@@ -634,6 +638,7 @@ fn test_upgrade() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     assert!(result.is_ok());
@@ -665,7 +670,6 @@ fn test_upgrade() {
     println!("get_txs result: {:#?}", result);
     assert!(result.is_ok());
 
-
     // redeem
     // C->B: `redeem` ticket
     let src_chain = "EVM-Starknet";
@@ -685,6 +689,7 @@ fn test_upgrade() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     let caller = Some(PrincipalId::new_user_test_id(5));
@@ -717,6 +722,7 @@ fn test_upgrade() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
+        status: TicketStatus::Finalized,
     };
 
     let result = hub.send_ticket(&caller, &b_2_a_ticket);
@@ -731,7 +737,6 @@ fn test_upgrade() {
     let result = hub.get_chain_tokens(&None, &None, &0, &5);
     println!("get_chain_tokens result: {:#?}", result);
     assert!(result.is_ok());
-
 
     // update fee
     //  chain factor

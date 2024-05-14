@@ -167,10 +167,6 @@ pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMet
 pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     metrics::get_chain(chain_id).await
 }
-#[query]
-pub async fn get_chain_size() -> Result<u64, Error> {
-    metrics::get_chain_size().await
-}
 
 #[query]
 pub async fn get_tokens(
@@ -275,21 +271,41 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
 }
 
 #[query]
+pub async fn sync_chain_size() -> Result<u64, Error> {
+    with_metrics(|metrics| metrics.sync_chain_size())
+}
+#[query]
+pub async fn sync_chains(offset: usize, limit: usize) -> Result<Vec<(u64, ChainMeta)>, Error> {
+    with_metrics(|metrics| metrics.sync_chains(offset, limit))
+}
+
+#[query]
+pub async fn sync_token_size() -> Result<u64, Error> {
+    with_metrics(|metrics| metrics.sync_token_size())
+}
+
+#[query]
+pub async fn sync_tokens(offset: usize, limit: usize) -> Result<Vec<(u64, TokenMeta)>, Error> {
+    with_metrics(|metrics| metrics.sync_tokens(offset, limit))
+}
+
+#[query]
 pub async fn get_directive_size() -> Result<u64, Error> {
     metrics::get_directive_size().await
 }
 #[query]
-pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<(u64, Directive)>, Error> {
+pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
     metrics::get_directives(offset, limit).await
 }
 
 #[query]
-pub async fn get_tickets_size() -> Result<u64, Error> {
-    with_metrics(|metrics| metrics.get_ticket_size())
+pub async fn sync_ticket_size() -> Result<u64, Error> {
+    with_metrics(|metrics| metrics.sync_ticket_size())
 }
+
 #[query]
-pub async fn get_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
-    with_metrics(|metrics| metrics.get_tickets(offset, limit))
+pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
+    with_metrics(|metrics| metrics.sync_tickets(offset, limit))
 }
 
 fn main() {}
@@ -307,8 +323,8 @@ mod tests {
         types::{ChainMeta, TokenMeta},
     };
     use omnity_types::{
-        ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketType, ToggleAction,
-        ToggleState, TxAction,
+        ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketStatus, TicketType,
+        ToggleAction, ToggleState, TxAction,
     };
 
     // use env_logger;
@@ -1102,6 +1118,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
+            status: TicketStatus::Finalized,
         };
 
         println!(
@@ -1158,6 +1175,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
+            status: TicketStatus::Finalized,
         };
 
         println!(
@@ -1248,6 +1266,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
+            status: TicketStatus::Finalized,
         };
 
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, a_2_b_ticket);
@@ -1295,6 +1314,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
+            status: TicketStatus::Finalized,
         };
 
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_c_ticket);
@@ -1343,6 +1363,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
+            status: TicketStatus::Finalized,
         };
 
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, c_2_b_ticket);
@@ -1385,6 +1406,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
+            status: TicketStatus::Finalized,
         };
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_a_ticket);
 
@@ -1462,6 +1484,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
+            status: TicketStatus::Finalized,
         };
 
         // Serialize the ticket.
