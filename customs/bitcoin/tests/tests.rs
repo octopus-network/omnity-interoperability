@@ -43,7 +43,7 @@ fn customs_wasm() -> Vec<u8> {
     load_wasm(
         std::env::var("CARGO_MANIFEST_DIR").unwrap(),
         "bitcoin_customs",
-        &["self_check"],
+        &["self_check", "non_prod"],
     )
 }
 
@@ -78,8 +78,6 @@ fn hub_mock_wasm() -> Vec<u8> {
 fn install_customs(env: &StateMachine) -> CanisterId {
     let args = InitArgs {
         btc_network: Network::Regtest.into(),
-        // The name of the [EcdsaKeyId]. Use "dfx_test_key" for local replica and "test_key_1" for
-        // a testing key for testnet and mainnet
         ecdsa_key_name: "dfx_test_key".parse().unwrap(),
         max_time_in_queue_nanos: 0,
         min_confirmations: Some(1),
