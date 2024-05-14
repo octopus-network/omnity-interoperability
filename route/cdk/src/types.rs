@@ -219,9 +219,9 @@ pub struct Ticket {
     pub receiver: Account,
     pub memo: Option<Vec<u8>>,
 }
-/*
+
 impl Ticket {
-    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurnedFilter) -> Self {
+    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -249,7 +249,7 @@ impl Ticket {
 
     pub fn from_transport_event(
         log_entry: &LogEntry,
-        token_transport_requested: TokenTransportRequestedFilter,
+        token_transport_requested: TokenTransportRequested,
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let dst_chain = token_transport_requested.dst_chain_id;
@@ -269,7 +269,7 @@ impl Ticket {
         };
         ticket
     }
-}*/
+}
 
 impl Storable for Ticket {
     fn to_bytes(&self) -> Cow<[u8]> {
@@ -604,11 +604,12 @@ pub struct TxCondition {
     pub time_range: Option<(u64, u64)>,
 }
 
-//use crate::contracts::{TokenBurnedFilter, TokenTransportRequestedFilter};
+use crate::contract_types::{TokenBurned, TokenTransportRequested};
 use crate::state::read_state;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
+//use crate::contracts::{TokenBurned, TokenTransportRequested};
 
 pub type CanisterId = Principal;
 
