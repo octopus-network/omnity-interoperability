@@ -3,13 +3,14 @@ use thiserror::Error;
 
 pub mod audit;
 pub mod call_error;
-//pub mod cdk_scan;
-//pub mod contracts;
+pub mod cdk_scan;
+pub mod contract_types;
+pub mod contracts;
 pub mod eth_common;
 pub mod guard;
 pub mod hub;
 pub mod hub_to_route;
-//pub mod route_to_cdk;
+pub mod route_to_cdk;
 pub mod service;
 pub mod stable_memory;
 pub mod state;
@@ -37,12 +38,3 @@ pub enum Error {
     #[error(transparent)]
     Custom(#[from] anyhow::Error),
 }
-/*
-
-
-pub fn max_ticket_id() -> u64 {
-    //TODO
-    0
-    //TICKETS.with_borrow(|tickets| *tickets.keys().last().unwrap_or(&0))
-}
-*/
