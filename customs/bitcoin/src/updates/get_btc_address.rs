@@ -30,6 +30,19 @@ pub fn destination_to_p2wpkh_address_from_state(
     )
 }
 
+pub fn destination_to_p2wpkh_address_from_state_v0(
+    s: &CustomsState,
+    destination: &Destination,
+) -> String {
+    crate::address::destination_to_p2wpkh_address(
+        s.btc_network,
+        s.ecdsa_public_key
+            .as_ref()
+            .expect("bug: the ECDSA public key must be initialized"),
+        destination,
+    )
+}
+
 pub async fn get_btc_address(args: GetBtcAddressArgs) -> String {
     init_ecdsa_public_key().await;
 
@@ -61,9 +74,7 @@ pub async fn init_ecdsa_public_key() -> ECDSAPublicKey {
     let key_name = read_state(|s| s.ecdsa_key_name.clone());
     let pub_key = crate::management::ecdsa_public_key(key_name, DerivationPath::new(vec![]))
         .await
-        .unwrap_or_else(|e| {
-            ic_cdk::trap(&format!("failed to retrieve ECDSA public key: {e}"))
-        });
+        .unwrap_or_else(|e| ic_cdk::trap(&format!("failed to retrieve ECDSA public key: {e}")));
 
     let prod_pub_key = if cfg!(feature = "non_prod") {
         pub_key.clone()
