@@ -13,6 +13,8 @@ use ic_stable_structures::StableBTreeMap;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::str::FromStr;
+use itertools::Itertools;
 
 thread_local! {
     static STATE: RefCell<Option<CdkRouteState>> = RefCell::new(None);
@@ -20,14 +22,15 @@ thread_local! {
 
 #[derive(CandidType, Deserialize)]
 pub struct InitArgs {
-    pub admin: Principal,
-    pub chain_id: String,
-    pub hub_principal: Principal,
     pub evm_chain_id: u64,
-    pub evm_rpc_canister_addr: Principal,
-    pub omnity_port_contract: Vec<u8>,
-    pub scan_start_height: u64,
+    pub admin: Principal,
+    pub omnity_port_contract: String,
+    pub hub_principal: Principal,
     pub network: Network,
+    pub evm_rpc_canister_addr: Principal,
+    pub scan_start_height: u64,
+    pub chain_id: String,
+    pub rpc_url: String,
 }
 
 impl CdkRouteState {
@@ -36,7 +39,7 @@ impl CdkRouteState {
             admin: Principal::anonymous(),
             hub_principal: Principal::anonymous(),
             omnity_chain_id: "cdk".to_string(),
-            evm_chain_id: 4800,
+            evm_chain_id: 4200,
             tokens: Default::default(),
             counterparties: Default::default(),
             finalized_mint_token_requests: Default::default(),
@@ -47,7 +50,7 @@ impl CdkRouteState {
             nonce: 0,
             pubkey: vec![],
             rpc_privders: vec![],
-            omnity_port_contract: EvmAddress::try_from([0u8; 32].to_vec())
+            omnity_port_contract: EvmAddress::try_from([0u8; 20].to_vec())
                 .expect("omnity port contract address error"),
             next_ticket_seq: 0,
             next_directive_seq: 0,
@@ -83,8 +86,11 @@ impl CdkRouteState {
             key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()], //TODO
             nonce: 0,
             pubkey: vec![],
-            rpc_privders: vec![],
-            omnity_port_contract: EvmAddress::try_from(args.omnity_port_contract)
+            rpc_privders: vec![RpcApi{
+                url: args.rpc_url.clone(),
+                headers: None,
+            }],
+            omnity_port_contract: EvmAddress::from_str(args.omnity_port_contract.as_str())
                 .expect("omnity port contract address error"),
             next_ticket_seq: 0,
             next_directive_seq: 0,
@@ -177,6 +183,58 @@ pub struct CdkRouteState {
     pub is_timer_running: bool,
 }
 
+impl From<&CdkRouteState> for StateProfile {
+    fn from(v: &CdkRouteState) -> Self {
+        let t = v.tickets_queue.iter().map(|v| v.clone()).collect_vec();
+        StateProfile {
+            admin: v.admin.clone(),
+            hub_principal: v.hub_principal.clone(),
+            omnity_chain_id: v.omnity_chain_id.clone(),
+            evm_chain_id: v.evm_chain_id,
+            tokens: v.tokens.clone(),
+            counterparties: v.counterparties.clone(),
+            finalized_mint_token_requests: v.finalized_mint_token_requests.clone(),
+            chain_state: v.chain_state.clone(),
+            evm_rpc_addr: v.evm_rpc_addr.clone(),
+            key_id: v.key_id.clone(),
+            key_derivation_path: v.key_derivation_path.clone(),
+            nonce: v.nonce,
+            pubkey: v.pubkey.clone(),
+            omnity_port_contract: v.omnity_port_contract.clone(),
+            next_ticket_seq: v.next_ticket_seq,
+            next_directive_seq: v.next_directive_seq,
+            next_consume_ticket_seq: v.next_consume_ticket_seq,
+            next_consume_directive_seq: v.next_consume_directive_seq,
+            rpc_providers: v.rpc_privders.clone(),
+            tickets: t,
+        }
+    }
+}
+
+#[derive( Deserialize, Serialize, CandidType)]
+pub struct StateProfile {
+    pub admin: Principal,
+    pub hub_principal: Principal,
+    pub omnity_chain_id: String,
+    pub evm_chain_id: u64,
+    pub tokens: BTreeMap<TokenId, Token>,
+    pub counterparties: BTreeMap<ChainId, Chain>,
+    pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
+    pub chain_state: ChainState,
+    pub evm_rpc_addr: Principal,
+    pub key_id: EcdsaKeyId,
+    pub key_derivation_path: Vec<Vec<u8>>,
+    pub nonce: u64,
+    pub pubkey: Vec<u8>,
+    pub omnity_port_contract: EvmAddress,
+    pub next_ticket_seq: u64,
+    pub next_directive_seq: u64,
+    pub next_consume_ticket_seq: u64,
+    pub next_consume_directive_seq: u64,
+    pub tickets: Vec<(u64,Ticket)>,
+    pub rpc_providers: Vec<RpcApi>
+}
+
 pub fn is_active() -> bool {
     read_state(|s| s.chain_state == ChainState::Active)
 }
@@ -193,7 +251,7 @@ pub fn rpc_providers() -> Vec<RpcApi> {
     read_state(|s| s.rpc_privders.clone())
 }
 
-pub fn target_chain_id() -> u64 {
+pub fn evm_chain_id() -> u64 {
     read_state(|s| s.evm_chain_id)
 }
 

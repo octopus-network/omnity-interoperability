@@ -1,11 +1,9 @@
 use std::str::FromStr;
 
-use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
-use ethers_core::abi::{ethereum_types, AbiEncode};
+use ethers_core::abi::{AbiEncode, ethereum_types};
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
-use ethers_core::utils::keccak256;
-use serde_derive::{Deserialize, Serialize};
 
+use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
 use crate::eth_common::EvmAddress;
 use crate::state::read_state;
 use crate::types::{Directive, Ticket, ToggleAction};
