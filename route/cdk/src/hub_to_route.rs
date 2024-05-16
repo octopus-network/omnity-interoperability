@@ -1,6 +1,6 @@
 use crate::eth_common::EvmAddress;
 use crate::state::{mutate_state, read_state};
-use crate::types::{ChainState, Directive};
+use crate::types::{ChainState, Directive, Seq, Ticket};
 use crate::{audit, hub};
 use log::{self};
 use std::str::FromStr;
@@ -17,33 +17,7 @@ async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
-            let mut next_seq = offset;
-            for (seq, ticket) in &tickets {
-                //TODO EVM_Address
-                let _receiver = if let Ok(receiver) = EvmAddress::from_str(&ticket.receiver) {
-                    receiver
-                } else {
-                    log::error!(
-                        "[process tickets] failed to parse ticket receiver: {}",
-                        ticket.receiver
-                    );
-                    next_seq = seq + 1;
-                    continue;
-                };
-                let _amount: u128 = if let Ok(amount) = ticket.amount.parse() {
-                    amount
-                } else {
-                    log::error!(
-                        "[process tickets] failed to parse ticket amount: {}",
-                        ticket.amount
-                    );
-                    next_seq = seq + 1;
-                    continue;
-                };
-                mutate_state(|s| s.tickets_queue.insert(*seq, ticket.clone()));
-                next_seq = seq + 1;
-            }
-            mutate_state(|s| s.next_ticket_seq = next_seq)
+           store_tickets(tickets, offset);
         }
         Err(err) => {
             log::error!("[process tickets] failed to query tickets, err: {}", err);
@@ -51,10 +25,40 @@ async fn process_tickets() {
     }
 }
 
+pub fn store_tickets(tickets: Vec<(Seq,Ticket)>, offset: u64) {
+    let mut next_seq = offset;
+    for (seq, ticket) in &tickets {
+        let _receiver = if let Ok(receiver) = EvmAddress::from_str(&ticket.receiver) {
+            receiver
+        } else {
+            log::error!(
+                        "[process tickets] failed to parse ticket receiver: {}",
+                        ticket.receiver
+                    );
+            next_seq = seq + 1;
+            continue;
+        };
+        let _amount: u128 = if let Ok(amount) = ticket.amount.parse() {
+            amount
+        } else {
+            log::error!(
+                        "[process tickets] failed to parse ticket amount: {}",
+                        ticket.amount
+                    );
+            next_seq = seq + 1;
+            continue;
+        };
+        mutate_state(|s| s.tickets_queue.insert(*seq, ticket.clone()));
+        next_seq = seq + 1;
+    }
+    mutate_state(|s| s.next_ticket_seq = next_seq)
+}
+
 async fn process_directives() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
     match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(directives) => {
+
             for (seq, directive) in &directives {
                 match directive.clone() {
                     Directive::AddChain(chain) => {
@@ -112,4 +116,12 @@ pub fn fetch_hub_periodic_task() {
         process_directives().await;
         process_tickets().await;
     });
+}
+
+
+#[test]
+pub fn test_store_tickets() {
+
+
+
 }

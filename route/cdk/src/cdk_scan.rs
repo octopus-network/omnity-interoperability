@@ -1,3 +1,5 @@
+use std::env::args;
+use anyhow::anyhow;
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, TokenBurned, TokenMinted, TokenTransportRequested,
 };
@@ -5,7 +7,9 @@ use crate::state::{mutate_state, read_state};
 use crate::types::Ticket;
 use crate::*;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
-use ethers_core::abi::{AbiEncode, Log, RawLog};
+use cketh_common::eth_rpc::RpcError;
+use cketh_common::eth_rpc_client::providers::RpcService;
+use ethers_core::abi::{AbiEncode, RawLog};
 use ethers_core::utils::keccak256;
 use evm_rpc::{
     candid_types::{self, BlockTag},
@@ -13,6 +17,7 @@ use evm_rpc::{
 };
 use itertools::Itertools;
 use log::{error, info};
+use serde_derive::{Deserialize, Serialize};
 
 const MAX_SCAN_BLOCKS: u64 = 20;
 
@@ -100,36 +105,53 @@ async fn determine_from_to() -> anyhow::Result<(u64, u64)> {
 }
 
 pub async fn get_cdk_finalized_height() -> anyhow::Result<u64> {
-    let json_rpc_payload = r#"{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}"#;
-    let (result,): (u64,) = ic_cdk::api::call::call(
-        crate::state::rpc_addr(),
-        "request",
-        (
-            RpcServices::Custom {
-                chain_id: crate::state::target_chain_id(),
-                services: crate::state::rpc_providers(),
-            },
-            json_rpc_payload,
-            100000,
-        ),
-    )
-    .await
-    .map_err(|err| Error::IcCallError(err.0, err.1))?;
-    info!("received get cdk finalized height: {}", result);
-    Ok(result - 12)
+    // Define request parameters
+    let params = (
+        RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
+        r#"{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}"#.to_string(),
+        1000 as u64,
+    );
+    // Get cycles cost
+    let (cycles_result,): (std::result::Result<u128, RpcError>,) =
+        ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
+            .await
+            .unwrap();
+    let cycles = cycles_result
+        .unwrap_or_else(|e| ic_cdk::trap(&format!("error in `request_cost`: {:?}", e)));
+    // Call with expected number of cycles
+    let (result,): (std::result::Result<String, RpcError>,) =
+        ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
+            .await
+            .map_err(|err| Error::IcCallError(err.0, err.1))?;
+    #[derive(Serialize, Deserialize, Debug)]
+    struct BlockNumberResult {
+        pub id: u32,
+        pub jsonrpc: String,
+        pub result: String
+    }
+    let r = result.map_err(|e| {
+        error!("[cdk route]query block number error: {:?}",&e);
+        Error::Custom(anyhow!(format!("[cdk route]query block number error: {:?}",&e)))
+    })?;
+    let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
+    let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
+    let r = u64::from_str_radix(r, 16)?;
+    Ok(r - 12)
 }
+
 
 pub async fn fetch_logs(
     from_height: u64,
     to_height: u64,
     address: String,
 ) -> std::result::Result<Vec<LogEntry>, Error> {
-    let (rpc_result,): (MultiRpcResult<Vec<LogEntry>>,) = ic_cdk::api::call::call(
+    let cycles = 100_000_000_000; //TODO
+    let (rpc_result,): (MultiRpcResult<Vec<LogEntry>>,) = ic_cdk::api::call::call_with_payment128(
         crate::state::rpc_addr(),
         "eth_getLogs",
         (
             RpcServices::Custom {
-                chain_id: crate::state::target_chain_id(),
+                chain_id: crate::state::evm_chain_id(),
                 services: crate::state::rpc_providers(),
             },
             None::<RpcConfig>,
@@ -148,6 +170,7 @@ pub async fn fetch_logs(
                 ]),
             },
         ),
+        cycles
     )
     .await
     .map_err(|err| Error::IcCallError(err.0, err.1))?;

@@ -1,4 +1,3 @@
-use bytes::{Buf, BufMut};
 use ethers_core::abi::{ethereum_types, AbiDecode, AbiEncode, RawLog};
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
@@ -21,10 +20,7 @@ impl AbiEncode for PrivilegedExecuteDirectiveCall {
     fn encode(self) -> Vec<u8> {
         let signature = keccak256(PrivilegedExecuteDirectiveCall::abi_signature());
         let mut v = vec![];
-        v.push(signature[0]);
-        v.push(signature[1]);
-        v.push(signature[2]);
-        v.push(signature[3]);
+        v.append(&mut signature[0..4].to_vec());
         let mut data = self.directive_bytes.encode();
         v.append(&mut data);
         v
@@ -48,10 +44,7 @@ impl AbiEncode for PrivilegedMintTokenCall {
     fn encode(self) -> Vec<u8> {
         let signature = keccak256(PrivilegedMintTokenCall::abi_signature());
         let mut v = vec![];
-        v.push(signature[0]);
-        v.push(signature[1]);
-        v.push(signature[2]);
-        v.push(signature[3]);
+        v.append(&mut signature[0..4].to_vec());
         let mut data = (
             self.token_id,
             self.receiver,
@@ -194,7 +187,7 @@ mod test {
     pub fn tex() {
         let call1 = PrivilegedMintTokenCall {
             token_id: "122".to_string(),
-            receiver: ethereum_types::Address::from([1u8;20]),
+            receiver: ethereum_types::Address::from([1u8; 20]),
             amount: U256::from(10),
             ticket_id: U256::from(1000),
             memo: "".to_string(),
@@ -202,7 +195,7 @@ mod test {
 
         let call2 = crate::contract_types::PrivilegedMintTokenCall {
             token_id: "122".to_string(),
-            receiver: ethereum_types::Address::from([1u8;20]),
+            receiver: ethereum_types::Address::from([1u8; 20]),
             amount: U256::from(10),
             ticket_id: U256::from(1000),
             memo: "".to_string(),
@@ -218,7 +211,4 @@ mod test {
         };
         assert_eq!(call1.encode(), call2.encode());
     }
-
-
-
 }

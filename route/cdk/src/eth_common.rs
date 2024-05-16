@@ -12,6 +12,7 @@ use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgu
 use serde_derive::{Deserialize, Serialize};
 
 use crate::Error;
+use crate::eth_common::EvmAddressError::LengthError;
 
 const EVM_ADDR_BYTES_LEN: usize = 20;
 
@@ -40,17 +41,24 @@ impl AsRef<[u8]> for EvmAddress {
 impl FromStr for EvmAddress {
     type Err = EvmAddressError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        EvmAddress::from_text(s)
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let t = if text.starts_with("0x") {
+            text.strip_prefix("0x").unwrap()
+        } else {
+            text
+        };
+        let r = hex::decode(t).map_err(|_e| EvmAddressError::FormatError)?;
+        EvmAddress::try_from(r)
+
     }
 }
 
 impl TryFrom<Vec<u8>> for EvmAddress {
-    type Error = String;
+    type Error = EvmAddressError;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
         if value.len() != EVM_ADDR_BYTES_LEN {
-            return Result::Err("addr_length_error".to_string());
+            return Err(LengthError);
         }
         let mut c = [0u8; EVM_ADDR_BYTES_LEN];
         c.copy_from_slice(value.as_slice());
@@ -58,22 +66,6 @@ impl TryFrom<Vec<u8>> for EvmAddress {
     }
 }
 
-impl EvmAddress {
-    pub fn from_text<S: AsRef<str>>(text: S) -> Result<Self, EvmAddressError> {
-        let t = if text.as_ref().starts_with("0x") {
-            text.as_ref().strip_prefix("0x").unwrap()
-        } else {
-            text.as_ref()
-        };
-        let r = hex::decode(t).map_err(|_e| EvmAddressError::FormatError)?;
-        if r.len() != EVM_ADDR_BYTES_LEN {
-            return Err(EvmAddressError::LengthError);
-        }
-        let mut v = [0u8; 20];
-        v.copy_from_slice(r.as_slice());
-        Ok(EvmAddress(v))
-    }
-}
 
 pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<Vec<u8>> {
     use ethers_core::types::Signature;
@@ -105,13 +97,13 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<V
 }
 
 pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
-    let raw = hex::encode(tx);
+    let raw = format!("0x{}", hex::encode(tx));
     let (r,): (SendRawTransactionStatus,) = ic_cdk::call(
         crate::state::rpc_addr(),
         "eth_sendRawTransaction",
         (
             RpcServices::Custom {
-                chain_id: crate::state::target_chain_id(),
+                chain_id: crate::state::evm_chain_id(),
                 services: crate::state::rpc_providers(),
             },
             None::<RpcConfig>,
