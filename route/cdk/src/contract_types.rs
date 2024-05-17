@@ -180,9 +180,11 @@ mod test {
         event TokenTransportRequested(string dstChainId,string tokenId,string receiver,uint256 amount,string channelId,string memo)
         event TokenBurned(string tokenId,string receiver,uint256 amount,string channelId)
         event DirectiveExecuted(uint256 seq)
+        function tsx(string id)
     ]"#,
         derives(serde::Deserialize, serde::Serialize)
     );
+
     #[test]
     pub fn tex() {
         let call1 = PrivilegedMintTokenCall {

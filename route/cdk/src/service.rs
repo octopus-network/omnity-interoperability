@@ -1,19 +1,25 @@
+use std::str::FromStr;
+use candid::Principal;
 use ethers_core::abi::ethereum_types;
+use ethers_core::types::spoof::nonce;
+use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk::api::management_canister::ecdsa::{ecdsa_public_key, EcdsaPublicKeyArgument};
+use ic_cdk::api::management_canister::main::CanisterId;
 use k256::PublicKey;
 
-use crate::cdk_scan::{get_cdk_finalized_height};
+use crate::cdk_scan::{get_cdk_finalized_height, get_gasprice};
+use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::Error;
+use crate::eth_common::{broadcast, EvmAddress, get_account_nonce, sign_transaction};
 use crate::hub_to_route::store_tickets;
-use crate::state::{CdkRouteState, InitArgs, key_derivation_path, key_id, mutate_state, read_state, replace_state, StateProfile};
-use crate::types::{Seq, Ticket};
+use crate::state::{CdkRouteState, InitArgs, key_derivation_path, key_id, minter_addr, mutate_state, read_state, replace_state, StateProfile};
+use crate::types::{Directive, Seq, Ticket};
 
 #[init]
 fn init(args: InitArgs) {
     replace_state(CdkRouteState::init(args).expect("params error"));
-
 /*  set_timer_interval(Duration::from_secs(10), fetch_hub_periodic_task);
     set_timer_interval(Duration::from_secs(20), to_cdk_task);
     set_timer_interval(Duration::from_secs(30), scan_cdk_task);*/
@@ -34,9 +40,9 @@ fn post_upgrade() {
 }
 
 #[update]
-async fn init_chain_pubkey() -> String {
+async fn init_chain_pubkey(canister_id: Principal) -> String {
     let arg = EcdsaPublicKeyArgument {
-        canister_id: None,
+        canister_id: Some(canister_id),
         derivation_path: key_derivation_path(),
         key_id: key_id(),
     };
@@ -45,7 +51,7 @@ async fn init_chain_pubkey() -> String {
         .map_err(|(_, e)| Error::ChainKeyError(e));
     match res {
         Ok((t,)) => {
-            mutate_state(|s| s.pubkey = t.public_key.clone());
+            mutate_state(|s|s.pubkey = t.public_key.clone());
             hex::encode(t.public_key)
         }
         Err(e) => e.to_string(),
@@ -73,6 +79,11 @@ fn route_state() -> StateProfile {
     read_state(|s| StateProfile::from(s))
 }
 
+#[update]
+fn set_omnity_port_contract_addr(addr: String) {
+    mutate_state(|s|s.omnity_port_contract = EvmAddress::from_str(addr.as_str()).unwrap());
+}
+
 fn is_admin() -> Result<(), String> {
     let c = ic_cdk::caller();
     match read_state(|s| s.admin == c) {
@@ -81,12 +92,25 @@ fn is_admin() -> Result<(), String> {
     }
 }
 
-
 #[update]
-pub fn test_send_ticket(v: Vec<(Seq, Ticket)>) {
-    store_tickets(v,0);
+pub async fn test_send_directive_to_cdk(d: Directive, seq: Seq) -> String {
+    let data = gen_execute_directive_data(&d, U256::from(seq));
+    let nonce = get_account_nonce(minter_addr()).await.unwrap();
+    let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce);
+    let raw = sign_transaction(tx).await.unwrap();
+    let hash = broadcast(raw).await.unwrap();
+    hash
 }
 
+pub async fn test_send_ticket_to_cdk(t: Ticket, seq: Seq) -> String {
+    let data = gen_mint_token_data(&t);
+    let nonce = get_account_nonce(minter_addr()).await.unwrap();
+    let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce);
+    let raw = sign_transaction(tx).await.unwrap();
+    let hash = broadcast(raw).await.unwrap();
+    hash
+
+}
 #[update]
 pub async fn test_get_finalized_height() -> u64 {
     let r = get_cdk_finalized_height().await.unwrap();

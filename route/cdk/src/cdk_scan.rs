@@ -10,6 +10,7 @@ use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockN
 use cketh_common::eth_rpc::RpcError;
 use cketh_common::eth_rpc_client::providers::RpcService;
 use ethers_core::abi::{AbiEncode, RawLog};
+use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
 use evm_rpc::{
     candid_types::{self, BlockTag},
@@ -185,3 +186,41 @@ pub async fn fetch_logs(
         }
     }
 }
+
+
+
+pub async fn get_gasprice() -> anyhow::Result<U256> {
+    // Define request parameters
+    let params = (
+        RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
+        r#"{"method":"eth_gasPrice","params":[],"id":1,"jsonrpc":"2.0"}"#.to_string(),
+        1000 as u64,
+    );
+    // Get cycles cost
+    let (cycles_result,): (std::result::Result<u128, RpcError>,) =
+        ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
+            .await
+            .unwrap();
+    let cycles = cycles_result
+        .unwrap_or_else(|e| ic_cdk::trap(&format!("error in `request_cost`: {:?}", e)));
+    // Call with expected number of cycles
+    let (result,): (std::result::Result<String, RpcError>,) =
+        ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
+            .await
+            .map_err(|err| Error::IcCallError(err.0, err.1))?;
+    #[derive(Serialize, Deserialize, Debug)]
+    struct BlockNumberResult {
+        pub id: u32,
+        pub jsonrpc: String,
+        pub result: String
+    }
+    let r = result.map_err(|e| {
+        error!("[cdk route]query block number error: {:?}",&e);
+        Error::Custom(anyhow!(format!("[cdk route]query block number error: {:?}",&e)))
+    })?;
+    let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
+    let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
+    let r = u64::from_str_radix(r, 16)?;
+    Ok(U256::from(r*13/10))
+}
+
