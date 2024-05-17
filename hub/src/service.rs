@@ -164,6 +164,11 @@ pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMet
 }
 
 #[query]
+pub async fn get_chain_size() -> Result<u64, Error> {
+    metrics::get_chain_size().await
+}
+
+#[query]
 pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     metrics::get_chain(chain_id).await
 }
@@ -270,6 +275,15 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
 }
 
+
+#[query]
+pub async fn get_directive_size() -> Result<u64, Error> {
+    metrics::get_directive_size().await
+}
+#[query]
+pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
+    metrics::get_directives(offset, limit).await
+}
 #[query]
 pub async fn sync_chain_size() -> Result<u64, Error> {
     with_metrics(|metrics| metrics.sync_chain_size())
@@ -287,15 +301,6 @@ pub async fn sync_token_size() -> Result<u64, Error> {
 #[query]
 pub async fn sync_tokens(offset: usize, limit: usize) -> Result<Vec<(u64, TokenMeta)>, Error> {
     with_metrics(|metrics| metrics.sync_tokens(offset, limit))
-}
-
-#[query]
-pub async fn get_directive_size() -> Result<u64, Error> {
-    metrics::get_directive_size().await
-}
-#[query]
-pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
-    metrics::get_directives(offset, limit).await
 }
 
 #[query]
@@ -371,7 +376,7 @@ mod tests {
         let since_the_epoch = start
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards");
-        since_the_epoch.as_millis() as u64
+        since_the_epoch.as_nanos() as u64
     }
 
     fn chain_ids() -> Vec<String> {

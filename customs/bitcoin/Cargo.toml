@@ -50,7 +50,7 @@ candid_parser = { workspace = true }
 ic-config = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
-ic-bitcoin-canister-mock = { path = "../../mock/bitcoin" }
+bitcoin_mock = { path = "../../mock/bitcoin" }
 proptest = "1.0"
 simple_asn1 = { workspace = true }
 
