@@ -318,6 +318,9 @@ $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user
   "total": 44999989851
 }
 
+$ dfx canister call bw4dl-smaaa-aaaaa-qaacq-cai icrc1_balance_of "(record {owner = principal \"o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe\"; })"
+(6_970_000 : nat)
+
 # -------------------redeem token script--------------------------------
 # deploy the hub_mock canister instead of omnity_hub
 # when deploying customs, set the hub_principal parameter to the canister id of mock_hub
