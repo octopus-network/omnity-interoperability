@@ -16,7 +16,6 @@ pub mod stable_memory;
 pub mod state;
 pub mod types;
 pub mod updates;
-pub mod test_functions;
 
 type Result<T = ()> = std::result::Result<T, Error>;
 

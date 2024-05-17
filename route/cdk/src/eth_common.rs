@@ -1,21 +1,24 @@
 use std::str::FromStr;
 
-use candid::CandidType;
+use anyhow::anyhow;
+use candid::{CandidType, Nat};
+use cketh_common::eth_rpc::Hash;
 use cketh_common::eth_rpc_client::RpcConfig;
 use ethereum_types::Address;
-use ethers_core::abi::{ethereum_types, AbiEncode};
+use ethers_core::abi::{AbiEncode, ethereum_types};
 use ethers_core::types::{Eip1559TransactionRequest, U256};
 use ethers_core::utils::keccak256;
-use evm_rpc::candid_types::SendRawTransactionStatus;
-use evm_rpc::RpcServices;
+use evm_rpc::{MultiRpcResult, RpcServices};
+use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
+use log::error;
+use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::Error;
 use crate::eth_common::EvmAddressError::LengthError;
 
 const EVM_ADDR_BYTES_LEN: usize = 20;
-
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
 pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
 
@@ -66,7 +69,6 @@ impl TryFrom<Vec<u8>> for EvmAddress {
     }
 }
 
-
 pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<Vec<u8>> {
     use ethers_core::types::Signature;
     const EIP1559_TX_ID: u8 = 2;
@@ -86,7 +88,7 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<V
         v: y_parity(
             &txhash,
             &r.signature,
-            crate::state::try_public_key()?.as_ref(),
+            crate::state::public_key().as_ref(),
         ),
         r: U256::from_big_endian(&r.signature[0..32]),
         s: U256::from_big_endian(&r.signature[32..64]),
@@ -98,7 +100,8 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<V
 
 pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
     let raw = format!("0x{}", hex::encode(tx));
-    let (r,): (SendRawTransactionStatus,) = ic_cdk::call(
+    let cycles = 3_000_000_000;
+    let (r,): (MultiRpcResult<SendRawTransactionStatus,>,) = ic_cdk::api::call::call_with_payment128(
         crate::state::rpc_addr(),
         "eth_sendRawTransaction",
         (
@@ -109,20 +112,34 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
             None::<RpcConfig>,
             raw,
         ),
+        cycles
     )
     .await
     .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
     match r {
-        SendRawTransactionStatus::Ok(hash) => hash.map(|h| h.to_string()).ok_or(
-            super::Error::EvmRpcError("A transaction hash is expected".to_string()),
-        ),
-        _ => Err(super::Error::EvmRpcError(format!("{:?}", r))),
+        MultiRpcResult::Consistent(res) => {
+            match res {
+                Ok(s) => {
+                    match s {
+                        SendRawTransactionStatus::Ok(hash) => {Ok(hex::encode(hash.unwrap_or(Hash([0u8;32])).0))}
+                        SendRawTransactionStatus::InsufficientFunds => { Err(Error::Custom(anyhow!("InsufficientFunds")))}
+                        SendRawTransactionStatus::NonceTooLow => {Err(Error::Custom(anyhow!("NonceTooLow")))}
+                        SendRawTransactionStatus::NonceTooHigh => {Err(Error::Custom(anyhow!("NonceToohigh")))}
+                    }
+                }
+                Err(r) => {
+                    Err(Error::EvmRpcError(format!("{:?}",r)))
+                }
+            }
+        }
+        MultiRpcResult::Inconsistent(r) => {
+             return Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
+        }
     }
 }
 
 fn y_parity(prehash: &[u8], sig: &[u8], pubkey: &[u8]) -> u64 {
     use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
-
     let orig_key = VerifyingKey::from_sec1_bytes(pubkey).expect("failed to parse the pubkey");
     let signature = Signature::try_from(sig).unwrap();
     for parity in [0u8, 1] {
@@ -139,4 +156,43 @@ fn y_parity(prehash: &[u8], sig: &[u8], pubkey: &[u8]) -> u64 {
         hex::encode(sig),
         hex::encode(pubkey)
     )
+}
+
+
+
+pub async fn get_account_nonce(addr: String) -> Result<u64, super::Error> {
+    let cycles = 1_000_000_000;
+    let (r,): (MultiRpcResult<Nat>,) = ic_cdk::api::call::call_with_payment128(
+        crate::state::rpc_addr(),
+        "eth_getTransactionCount",
+        (
+            RpcServices::Custom {
+                chain_id: crate::state::evm_chain_id(),
+                services: crate::state::rpc_providers(),
+            },
+            None::<RpcConfig>,
+            GetTransactionCountArgs {
+                address: addr,
+                block: BlockTag::Pending,
+            }
+        ),
+        cycles
+    )
+        .await
+        .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
+    match r {
+        MultiRpcResult::Consistent(r) => {
+            match r {
+                Ok(c) => {
+                    Ok(c.0.to_u64().unwrap())
+                }
+                Err(r) => {
+                    Err(Error::EvmRpcError(format!("{:?}",r)))
+                }
+            }
+        }
+        MultiRpcResult::Inconsistent(_) => {
+            return Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
+        }
+    }
 }

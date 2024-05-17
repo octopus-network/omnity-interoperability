@@ -9,8 +9,19 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
+type Directive = variant {
+  UpdateFee : Factor;
+  AddToken : Token;
+  AddChain : Chain;
+  ToggleChainState : ToggleState;
+};
 type EcdsaCurve = variant { secp256k1 };
 type EcdsaKeyId = record { name : text; curve : EcdsaCurve };
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type HttpHeader = record { value : text; name : text };
 type InitArgs = record {
   evm_chain_id : nat64;
@@ -23,20 +34,8 @@ type InitArgs = record {
   evm_rpc_canister_addr : principal;
   scan_start_height : nat64;
 };
-type LogEntry = record {
-  transactionHash : opt text;
-  blockNumber : opt nat;
-  data : text;
-  blockHash : opt text;
-  transactionIndex : opt nat;
-  topics : vec text;
-  address : text;
-  logIndex : opt nat;
-  removed : bool;
-};
 type Network = variant { mainnet; local; testnet };
 type RpcApi = record { url : text; headers : opt vec HttpHeader };
-type ShowStruct = record { raw : text; seq : nat64; data : text };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
   evm_chain_id : nat64;
@@ -59,6 +58,10 @@ type StateProfile = record {
   rpc_providers : vec RpcApi;
   chain_state : ChainState;
 };
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -73,6 +76,8 @@ type Ticket = record {
   receiver : text;
 };
 type TicketType = variant { Resubmit; Normal };
+type ToggleAction = variant { Deactivate; Activate };
+type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -83,11 +88,10 @@ type Token = record {
 };
 type TxAction = variant { Redeem; Transfer };
 service : (InitArgs) -> {
-  init_chain_pubkey : () -> (text);
+  init_chain_pubkey : (principal) -> (text);
   pubkey_and_evm_addr : () -> (text, text) query;
   route_state : () -> (StateProfile) query;
-  test_getLogins : (nat64, nat64) -> (vec LogEntry);
+  set_omnity_port_contract_addr : (text) -> ();
   test_get_finalized_height : () -> (nat64);
-  test_send_ticket : (vec record { nat64; Ticket }) -> ();
-  test_to_cdk_ticket : () -> (vec ShowStruct);
+  test_send_directive_to_cdk : (Directive, nat64) -> (text);
 }
