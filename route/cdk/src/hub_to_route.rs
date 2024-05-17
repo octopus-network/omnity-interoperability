@@ -17,7 +17,7 @@ async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
-           store_tickets(tickets, offset);
+            store_tickets(tickets, offset);
         }
         Err(err) => {
             log::error!("[process tickets] failed to query tickets, err: {}", err);
@@ -25,16 +25,16 @@ async fn process_tickets() {
     }
 }
 
-pub fn store_tickets(tickets: Vec<(Seq,Ticket)>, offset: u64) {
+pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
     let mut next_seq = offset;
     for (seq, ticket) in &tickets {
         let _receiver = if let Ok(receiver) = EvmAddress::from_str(&ticket.receiver) {
             receiver
         } else {
             log::error!(
-                        "[process tickets] failed to parse ticket receiver: {}",
-                        ticket.receiver
-                    );
+                "[process tickets] failed to parse ticket receiver: {}",
+                ticket.receiver
+            );
             next_seq = seq + 1;
             continue;
         };
@@ -42,9 +42,9 @@ pub fn store_tickets(tickets: Vec<(Seq,Ticket)>, offset: u64) {
             amount
         } else {
             log::error!(
-                        "[process tickets] failed to parse ticket amount: {}",
-                        ticket.amount
-                    );
+                "[process tickets] failed to parse ticket amount: {}",
+                ticket.amount
+            );
             next_seq = seq + 1;
             continue;
         };
@@ -58,7 +58,6 @@ async fn process_directives() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
     match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(directives) => {
-
             for (seq, directive) in &directives {
                 match directive.clone() {
                     Directive::AddChain(chain) => {
@@ -118,10 +117,5 @@ pub fn fetch_hub_periodic_task() {
     });
 }
 
-
 #[test]
-pub fn test_store_tickets() {
-
-
-
-}
+pub fn test_store_tickets() {}

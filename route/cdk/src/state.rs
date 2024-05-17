@@ -7,17 +7,17 @@ use crate::types::{
 };
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
+use ethers_core::abi::ethereum_types;
+use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::EcdsaKeyId;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
+use itertools::Itertools;
+use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
-use ethers_core::abi::ethereum_types;
-use ethers_core::utils::keccak256;
-use itertools::Itertools;
-use k256::PublicKey;
 
 thread_local! {
     static STATE: RefCell<Option<CdkRouteState>> = RefCell::new(None);
@@ -89,7 +89,7 @@ impl CdkRouteState {
             key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()], //TODO
             nonce: 0,
             pubkey: vec![],
-            rpc_privders: vec![RpcApi{
+            rpc_privders: vec![RpcApi {
                 url: args.rpc_url.clone(),
                 headers: None,
             }],
@@ -214,7 +214,7 @@ impl From<&CdkRouteState> for StateProfile {
     }
 }
 
-#[derive( Deserialize, Serialize, CandidType)]
+#[derive(Deserialize, Serialize, CandidType)]
 pub struct StateProfile {
     pub admin: Principal,
     pub hub_principal: Principal,
@@ -234,8 +234,8 @@ pub struct StateProfile {
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
-    pub tickets: Vec<(u64,Ticket)>,
-    pub rpc_providers: Vec<RpcApi>
+    pub tickets: Vec<(u64, Ticket)>,
+    pub rpc_providers: Vec<RpcApi>,
 }
 
 pub fn is_active() -> bool {
@@ -250,9 +250,8 @@ pub fn rpc_addr() -> Principal {
     read_state(|s| s.evm_rpc_addr.clone())
 }
 
-pub fn minter_addr() ->String {
+pub fn minter_addr() -> String {
     let key = public_key();
-    let key_str = format!("0x{}", hex::encode(key.as_slice()));
     use k256::elliptic_curve::sec1::ToEncodedPoint;
     let key =
         PublicKey::from_sec1_bytes(key.as_slice()).expect("failed to parse the public key as SEC1");
@@ -261,7 +260,8 @@ pub fn minter_addr() ->String {
     let point_bytes = point.as_bytes();
     assert_eq!(point_bytes[0], 0x04);
     let hash = keccak256(&point_bytes[1..]);
-    let addr = ethers_core::utils::to_checksum(&ethereum_types::Address::from_slice(&hash[12..32]), None);
+    let addr =
+        ethers_core::utils::to_checksum(&ethereum_types::Address::from_slice(&hash[12..32]), None);
     addr
 }
 pub fn rpc_providers() -> Vec<RpcApi> {

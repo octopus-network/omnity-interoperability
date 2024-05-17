@@ -169,7 +169,7 @@ impl DecodeLog for DirectiveExecuted {
 #[cfg(test)]
 mod test {
     use ethers_contract::abigen;
-    use ethers_core::abi::{AbiEncode, ethereum_types};
+    use ethers_core::abi::{ethereum_types, AbiEncode};
     use ethers_core::types::{Bytes, U256};
     abigen!(
         OmnityPortContract,
@@ -197,7 +197,7 @@ mod test {
 
         let call2 = crate::contract_types::PrivilegedMintTokenCall {
             token_id: "122".to_string(),
-            receiver: ethereum_types::Address::from([1u8; 20]),
+            receiver: ethereum_types::Address::from([0u8; 20]),
             amount: U256::from(10),
             ticket_id: U256::from(1000),
             memo: "".to_string(),
