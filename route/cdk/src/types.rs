@@ -2,14 +2,20 @@ use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
 };
+use std::borrow::Cow;
 
 use candid::CandidType;
-use ic_stable_structures::storable::Bound;
+use candid::Principal;
+use cketh_common::eth_rpc::LogEntry;
+use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
 use ic_stable_structures::Storable;
+use ic_stable_structures::storable::Bound;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use std::borrow::Cow;
 use thiserror::Error;
+
+use crate::contract_types::{TokenBurned, TokenTransportRequested};
+use crate::state::read_state;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
@@ -604,11 +610,6 @@ pub struct TxCondition {
     pub time_range: Option<(u64, u64)>,
 }
 
-use crate::contract_types::{TokenBurned, TokenTransportRequested};
-use crate::state::read_state;
-use candid::Principal;
-use cketh_common::eth_rpc::LogEntry;
-use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
 //use crate::contracts::{TokenBurned, TokenTransportRequested};
 
 pub type CanisterId = Principal;

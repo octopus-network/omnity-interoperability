@@ -14,7 +14,10 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
+use ethers_core::abi::ethereum_types;
+use ethers_core::utils::keccak256;
 use itertools::Itertools;
+use k256::PublicKey;
 
 thread_local! {
     static STATE: RefCell<Option<CdkRouteState>> = RefCell::new(None);
@@ -247,6 +250,20 @@ pub fn rpc_addr() -> Principal {
     read_state(|s| s.evm_rpc_addr.clone())
 }
 
+pub fn minter_addr() ->String {
+    let key = public_key();
+    let key_str = format!("0x{}", hex::encode(key.as_slice()));
+    use k256::elliptic_curve::sec1::ToEncodedPoint;
+    let key =
+        PublicKey::from_sec1_bytes(key.as_slice()).expect("failed to parse the public key as SEC1");
+    let point = key.to_encoded_point(false);
+    // we re-encode the key to the decompressed representation.
+    let point_bytes = point.as_bytes();
+    assert_eq!(point_bytes[0], 0x04);
+    let hash = keccak256(&point_bytes[1..]);
+    let addr = ethers_core::utils::to_checksum(&ethereum_types::Address::from_slice(&hash[12..32]), None);
+    addr
+}
 pub fn rpc_providers() -> Vec<RpcApi> {
     read_state(|s| s.rpc_privders.clone())
 }
@@ -255,8 +272,8 @@ pub fn evm_chain_id() -> u64 {
     read_state(|s| s.evm_chain_id)
 }
 
-pub fn try_public_key() -> crate::Result<Vec<u8>> {
-    Ok(read_state(|s| s.pubkey.clone()))
+pub fn public_key() -> Vec<u8> {
+    read_state(|s| s.pubkey.clone())
 }
 
 pub fn key_id() -> EcdsaKeyId {
