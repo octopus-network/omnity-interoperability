@@ -1,14 +1,13 @@
-use std::env::args;
-use anyhow::anyhow;
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, TokenBurned, TokenMinted, TokenTransportRequested,
 };
 use crate::state::{mutate_state, read_state};
 use crate::types::Ticket;
 use crate::*;
-use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
+use anyhow::anyhow;
 use cketh_common::eth_rpc::RpcError;
 use cketh_common::eth_rpc_client::providers::RpcService;
+use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use ethers_core::abi::{AbiEncode, RawLog};
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
@@ -19,6 +18,7 @@ use evm_rpc::{
 use itertools::Itertools;
 use log::{error, info};
 use serde_derive::{Deserialize, Serialize};
+use std::env::args;
 
 const MAX_SCAN_BLOCKS: u64 = 20;
 
@@ -128,18 +128,20 @@ pub async fn get_cdk_finalized_height() -> anyhow::Result<u64> {
     struct BlockNumberResult {
         pub id: u32,
         pub jsonrpc: String,
-        pub result: String
+        pub result: String,
     }
     let r = result.map_err(|e| {
-        error!("[cdk route]query block number error: {:?}",&e);
-        Error::Custom(anyhow!(format!("[cdk route]query block number error: {:?}",&e)))
+        error!("[cdk route]query block number error: {:?}", &e);
+        Error::Custom(anyhow!(format!(
+            "[cdk route]query block number error: {:?}",
+            &e
+        )))
     })?;
     let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
     let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
     let r = u64::from_str_radix(r, 16)?;
     Ok(r - 12)
 }
-
 
 pub async fn fetch_logs(
     from_height: u64,
@@ -171,7 +173,7 @@ pub async fn fetch_logs(
                 ]),
             },
         ),
-        cycles
+        cycles,
     )
     .await
     .map_err(|err| Error::IcCallError(err.0, err.1))?;
@@ -186,8 +188,6 @@ pub async fn fetch_logs(
         }
     }
 }
-
-
 
 pub async fn get_gasprice() -> anyhow::Result<U256> {
     // Define request parameters
@@ -212,15 +212,17 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
     struct BlockNumberResult {
         pub id: u32,
         pub jsonrpc: String,
-        pub result: String
+        pub result: String,
     }
     let r = result.map_err(|e| {
-        error!("[cdk route]query block number error: {:?}",&e);
-        Error::Custom(anyhow!(format!("[cdk route]query block number error: {:?}",&e)))
+        error!("[cdk route]query block number error: {:?}", &e);
+        Error::Custom(anyhow!(format!(
+            "[cdk route]query block number error: {:?}",
+            &e
+        )))
     })?;
     let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
     let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
     let r = u64::from_str_radix(r, 16)?;
-    Ok(U256::from(r*13/10))
+    Ok(U256::from(r * 13 / 10))
 }
-

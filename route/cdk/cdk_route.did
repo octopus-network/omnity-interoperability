@@ -94,4 +94,5 @@ service : (InitArgs) -> {
   set_omnity_port_contract_addr : (text) -> ();
   test_get_finalized_height : () -> (nat64);
   test_send_directive_to_cdk : (Directive, nat64) -> (text);
+  test_send_ticket_to_cdk : (Ticket, nat64) -> (text);
 }
