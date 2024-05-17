@@ -1,15 +1,15 @@
+use std::borrow::Cow;
 use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
 };
-use std::borrow::Cow;
 
 use candid::CandidType;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
-use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
+use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use thiserror::Error;

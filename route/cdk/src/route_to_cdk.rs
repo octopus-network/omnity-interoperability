@@ -1,11 +1,10 @@
-use cketh_common::state::minter_address;
 use ethers_core::types::U256;
-use crate::cdk_scan::get_gasprice;
 
+use crate::cdk_scan::get_gasprice;
 use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, sign_transaction};
 use crate::state::{minter_addr, mutate_state, read_state};
-use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq};
+use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
 
 pub fn to_cdk_task() {
     ic_cdk::spawn(async {
@@ -30,7 +29,7 @@ pub async fn send_directives_to_cdk() {
             Some(d) => {
                 let data = gen_execute_directive_data(&d, U256::from(seq));
                 let nonce = get_account_nonce(minter_addr()).await.unwrap_or_default();
-                let tx = gen_eip1559_tx(data,get_gasprice().await.ok(), nonce);
+                let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce);
                 let raw = sign_transaction(tx).await;
                 let mut pending_directive = PendingDirectiveStatus {
                     evm_tx_hash: None,
@@ -60,7 +59,6 @@ pub async fn send_directives_to_cdk() {
     mutate_state(|s| s.next_consume_directive_seq = to);
 }
 
-
 pub async fn send_tickets_to_cdk() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
@@ -73,7 +71,7 @@ pub async fn send_tickets_to_cdk() {
             Some(t) => {
                 let data = gen_mint_token_data(&t);
                 let nonce = get_account_nonce(minter_addr()).await.unwrap_or_default();
-                let tx = gen_eip1559_tx(data,get_gasprice().await.ok(), nonce);
+                let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce);
                 let raw = sign_transaction(tx).await;
                 let mut pending_ticket = PendingTicketStatus {
                     evm_tx_hash: None,
