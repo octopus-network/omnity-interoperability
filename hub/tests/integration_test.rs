@@ -113,13 +113,8 @@ fn test_add_token() {
     }
 
     for canister_id in canister_ids() {
-        let result = hub.query_directives(
-            &Some(canister_id),
-            &None,
-            &Some(Topic::AddToken),
-            &0,
-            &5,
-        );
+        let result =
+            hub.query_directives(&Some(canister_id), &None, &Some(Topic::AddToken), &0, &5);
         println!("query_directives for {:} dires: {:#?}", canister_id, result);
         assert!(result.is_ok());
     }
@@ -383,8 +378,8 @@ fn test_a_b_tx() {
 #[test]
 fn test_a_b_c_tx() {
     let hub = OmnityHub::new();
-     // sub topic
-     for chain in chain_ids() {
+    // sub topic
+    for chain in chain_ids() {
         let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
         println!("sub_directives({}) result: {:#?}", chain, ret);
     }
@@ -561,8 +556,8 @@ fn test_a_b_c_tx() {
 #[test]
 fn test_upgrade() {
     let hub = OmnityHub::new();
-     // sub topic
-     for chain in chain_ids() {
+    // sub topic
+    for chain in chain_ids() {
         let ret = hub.sub_directives(&Some(chain.to_string()), &default_topic());
         println!("sub_directives({}) result: {:#?}", chain, ret);
     }
@@ -665,7 +660,6 @@ fn test_upgrade() {
     println!("get_txs result: {:#?}", result);
     assert!(result.is_ok());
 
-
     // redeem
     // C->B: `redeem` ticket
     let src_chain = "EVM-Starknet";
@@ -731,7 +725,6 @@ fn test_upgrade() {
     let result = hub.get_chain_tokens(&None, &None, &0, &5);
     println!("get_chain_tokens result: {:#?}", result);
     assert!(result.is_ok());
-
 
     // update fee
     //  chain factor
