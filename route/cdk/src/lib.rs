@@ -17,8 +17,6 @@ pub mod state;
 pub mod types;
 pub mod updates;
 
-type Result<T = ()> = std::result::Result<T, Error>;
-
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Hub error: {0}")]

@@ -116,6 +116,3 @@ pub fn fetch_hub_periodic_task() {
         process_tickets().await;
     });
 }
-
-#[test]
-pub fn test_store_tickets() {}

@@ -34,6 +34,17 @@ type InitArgs = record {
   evm_rpc_canister_addr : principal;
   scan_start_height : nat64;
 };
+type LogEntry = record {
+  transactionHash : opt text;
+  blockNumber : opt nat;
+  data : text;
+  blockHash : opt text;
+  transactionIndex : opt nat;
+  topics : vec text;
+  address : text;
+  logIndex : opt nat;
+  removed : bool;
+};
 type Network = variant { mainnet; local; testnet };
 type RpcApi = record { url : text; headers : opt vec HttpHeader };
 type StateProfile = record {
@@ -48,6 +59,7 @@ type StateProfile = record {
   next_directive_seq : nat64;
   finalized_mint_token_requests : vec record { text; nat64 };
   pubkey : vec nat8;
+  start_scan_height : nat64;
   key_derivation_path : vec vec nat8;
   omnity_chain_id : text;
   tokens : vec record { text; Token };
@@ -93,6 +105,7 @@ service : (InitArgs) -> {
   route_state : () -> (StateProfile) query;
   set_omnity_port_contract_addr : (text) -> ();
   test_get_finalized_height : () -> (nat64);
+  test_scan_blocks : (nat64, nat64) -> (vec LogEntry);
   test_send_directive_to_cdk : (Directive, nat64) -> (text);
   test_send_ticket_to_cdk : (Ticket, nat64) -> (text);
 }
