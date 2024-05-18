@@ -19,7 +19,7 @@ use std::str::FromStr;
 // the utxos with height 1 in the customs.
 const DEFAULT_TIP_HEIGHT: u32 = 12;
 const MAX_FINALIZED_REQUESTS: usize = 10000;
-
+const TOKEN_ID: &str = "Bitcoin-runes-HOPE•YOU•GET•RICH";
 #[derive(CandidType, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Txid([u8; 32]);
 
@@ -518,9 +518,9 @@ fn reset_mempool() {
 
 #[update]
 pub fn generate_ticket(args: GenerateTicketArgs) {
-    println!("received generate_ticket: {:?}",args);
+    println!("received generate_ticket: {:?}", args);
     let rune_id = RuneId::from_str(&args.rune_id).unwrap();
-    let token_id = args.rune_id.clone();
+    let token_id = TOKEN_ID.to_owned();
     let txid = Txid::from_str(&args.txid).unwrap();
 
     let request = GenTicketRequest {

@@ -89,13 +89,11 @@ type Result_13 = variant {
   Err : Error;
 };
 type Result_14 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
-type Result_15 = variant { Ok : vec record { nat64; Chain }; Err : Error };
-type Result_16 = variant { Ok : vec record { nat64; TokenMeta }; Err : Error };
-type Result_17 = variant { Ok : vec text; Err : Error };
+type Result_15 = variant { Ok : vec text; Err : Error };
 type Result_2 = variant { Ok : vec Chain; Err : Error };
-type Result_3 = variant { Ok : vec TokenOnChain; Err : Error };
-type Result_4 = variant { Ok : vec Chain; Err : Error };
-type Result_5 = variant { Ok : nat64; Err : Error };
+type Result_3 = variant { Ok : nat64; Err : Error };
+type Result_4 = variant { Ok : vec TokenOnChain; Err : Error };
+type Result_5 = variant { Ok : vec Chain; Err : Error };
 type Result_6 = variant { Ok : vec Directive; Err : Error };
 type Result_7 = variant { Ok : vec record { text; text; nat }; Err : Error };
 type Result_8 = variant { Ok : vec TokenMeta; Err : Error };
@@ -164,19 +162,20 @@ service : (HubArg) -> {
   execute_proposal : (vec Proposal) -> (Result);
   get_chain : (text) -> (Result_1) query;
   get_chain_metas : (nat64, nat64) -> (Result_2) query;
-  get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_3) query;
+  get_chain_size : () -> (Result_3) query;
+  get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_4) query;
   get_chains : (opt ChainType, opt ChainState, nat64, nat64) -> (
-      Result_4,
+      Result_5,
     ) query;
-  get_directive_size : () -> (Result_5) query;
+  get_directive_size : () -> (Result_3) query;
   get_directives : (nat64, nat64) -> (Result_6) query;
   get_events : (GetEventsArg) -> (vec Event) query;
   get_fees : (opt text, opt text, nat64, nat64) -> (Result_7) query;
   get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
   get_token_metas : (nat64, nat64) -> (Result_8) query;
-  get_token_size : () -> (Result_5) query;
+  get_token_size : () -> (Result_3) query;
   get_tokens : (opt text, opt text, nat64, nat64) -> (Result_9) query;
-  get_total_tx : () -> (Result_5) query;
+  get_total_tx : () -> (Result_3) query;
   get_tx : (text) -> (Result_10) query;
   get_txs : (nat64, nat64) -> (Result_11) query;
   get_txs_with_account : (
@@ -202,13 +201,9 @@ service : (HubArg) -> {
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
   sub_directives : (opt text, vec Topic) -> (Result);
-  sync_chain_size : () -> (Result_5) query;
-  sync_chains : (nat64, nat64) -> (Result_15) query;
-  sync_ticket_size : () -> (Result_5) query;
+  sync_ticket_size : () -> (Result_3) query;
   sync_tickets : (nat64, nat64) -> (Result_14) query;
-  sync_token_size : () -> (Result_5) query;
-  sync_tokens : (nat64, nat64) -> (Result_16) query;
   unsub_directives : (opt text, vec Topic) -> (Result);
   update_fee : (vec Factor) -> (Result);
-  validate_proposal : (vec Proposal) -> (Result_17) query;
+  validate_proposal : (vec Proposal) -> (Result_15) query;
 }

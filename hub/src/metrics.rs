@@ -13,9 +13,7 @@ use omnity_types::{
 use serde::Serialize;
 use std::cell::RefCell;
 
-const CHAIN_META_KEY: &[u8] = b"chain_meta";
-const TOKEN_META_KEY: &[u8] = b"token_meta";
-const TICKET_KEY: &[u8] = b"ticket_meta";
+const LEDGER_SEQ_KEY: &[u8] = b"ledger_seq";
 
 thread_local! {
     static METRICS: RefCell<Metrics> = RefCell::new(Metrics::default());
@@ -23,12 +21,9 @@ thread_local! {
 
 #[derive(Serialize)]
 pub struct Metrics {
-    #[serde(skip, default = "memory::init_chain_metric")]
-    pub chain_metas: StableBTreeMap<u64, ChainMeta, Memory>,
-    #[serde(skip, default = "memory::init_token_metric")]
-    pub token_metas: StableBTreeMap<u64, TokenMeta, Memory>,
+    
     #[serde(skip, default = "memory::init_ledger_metric")]
-    pub ticket_metric: StableBTreeMap<u64, Ticket, Memory>,
+    pub tickets_metric: StableBTreeMap<u64, Ticket, Memory>,
     #[serde(skip, default = "memory::init_metric_seqs")]
     pub metric_seqs: StableBTreeMap<Vec<u8>, u64, Memory>,
 }
@@ -36,9 +31,7 @@ pub struct Metrics {
 impl Default for Metrics {
     fn default() -> Self {
         Self {
-            chain_metas: StableBTreeMap::init(memory::get_chain_metric()),
-            token_metas: StableBTreeMap::init(memory::get_token_metric()),
-            ticket_metric: StableBTreeMap::init(memory::get_ledger_metric()),
+            tickets_metric: StableBTreeMap::init(memory::get_ticket_metric()),
             metric_seqs: StableBTreeMap::init(memory::get_metric_seqs()),
         }
     }
@@ -57,84 +50,19 @@ pub fn set_metrics(metrics: Metrics) {
 }
 
 impl Metrics {
-    pub fn update_chain_metric(&mut self, chain_meta: ChainMeta) {
-        let mut latest_chain_seq = self
-            .metric_seqs
-            .get(&CHAIN_META_KEY.to_vec())
-            .unwrap_or_default();
-        self.chain_metas.insert(latest_chain_seq, chain_meta);
-        latest_chain_seq += 1;
-        self.metric_seqs
-            .insert(CHAIN_META_KEY.to_vec(), latest_chain_seq);
-    }
-    pub fn sync_chain_size(&self) -> Result<u64, Error> {
-        let total_num = self.chain_metas.len();
-        Ok(total_num)
-    }
-
-    pub fn sync_chains(
-        &self,
-        from_seq: usize,
-        limit: usize,
-    ) -> Result<Vec<(u64, ChainMeta)>, Error> {
-        info!("sync_chains  from: {}, limit: {}", from_seq, limit);
-        let from_seq = from_seq as u64;
-        let chains = self
-            .chain_metas
-            .iter()
-            .filter(|(seq, _)| *seq >= from_seq)
-            .take(limit)
-            .map(|(seq, chain)| (seq, chain))
-            .collect::<Vec<_>>();
-
-        Ok(chains)
-    }
-
-    pub fn update_token_metric(&mut self, token_meta: TokenMeta) {
-        let mut latest_token_seq = self
-            .metric_seqs
-            .get(&TOKEN_META_KEY.to_vec())
-            .unwrap_or_default();
-        self.token_metas.insert(latest_token_seq, token_meta);
-        latest_token_seq += 1;
-        self.metric_seqs
-            .insert(TOKEN_META_KEY.to_vec(), latest_token_seq);
-    }
-    pub fn sync_token_size(&self) -> Result<u64, Error> {
-        let total_num = self.token_metas.len();
-        Ok(total_num)
-    }
-
-    pub fn sync_tokens(
-        &self,
-        from_seq: usize,
-        limit: usize,
-    ) -> Result<Vec<(u64, TokenMeta)>, Error> {
-        info!("sync_tokens  from: {}, limit: {}", from_seq, limit);
-        let from_seq = from_seq as u64;
-        let tokens = self
-            .token_metas
-            .iter()
-            .filter(|(seq, _)| *seq >= from_seq)
-            .take(limit)
-            .map(|(seq, token)| (seq, token))
-            .collect::<Vec<_>>();
-
-        Ok(tokens)
-    }
-
+ 
     pub fn update_ticket_metric(&mut self, ticket: Ticket) {
         let latest_ticket_seq = self
             .metric_seqs
-            .get(&TICKET_KEY.to_vec())
+            .get(&LEDGER_SEQ_KEY.to_vec())
             .unwrap_or_default();
-        self.ticket_metric.insert(latest_ticket_seq, ticket.clone());
+        self.tickets_metric.insert(latest_ticket_seq, ticket.clone());
         let latest_ticket_seq = latest_ticket_seq + 1;
         self.metric_seqs
-            .insert(TICKET_KEY.to_vec(), latest_ticket_seq);
+            .insert(LEDGER_SEQ_KEY.to_vec(), latest_ticket_seq);
     }
     pub fn sync_ticket_size(&self) -> Result<u64, Error> {
-        let total_num = self.ticket_metric.len();
+        let total_num = self.tickets_metric.len();
         Ok(total_num)
     }
 
@@ -142,7 +70,7 @@ impl Metrics {
         info!("get_tickets  from: {}, limit: {}", from_seq, limit);
         let from_seq = from_seq as u64;
         let tickets = self
-            .ticket_metric
+            .tickets_metric
             .iter()
             .filter(|(seq, _)| *seq >= from_seq)
             .take(limit)

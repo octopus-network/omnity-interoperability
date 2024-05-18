@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 use std::num::ParseIntError;
-
 const HOUR: u64 = 3_600_000_000_000;
 
 thread_local! {
@@ -45,7 +44,6 @@ pub struct HubState {
     pub token_position: StableBTreeMap<TokenKey, Amount, Memory>,
     #[serde(skip, default = "memory::init_ledger")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
-
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
     pub admin: Principal,
@@ -179,11 +177,6 @@ impl HubState {
         self.authorized_caller
             .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
         record_event(&Event::AddedChain(chain.clone()));
-        // add chain for metric
-        with_metrics_mut(|metrics| {
-            metrics.update_chain_metric(chain.clone());
-        });
-
         // update counterparties
         if let Some(counterparties) = chain.counterparties {
             counterparties.iter().try_for_each(|counterparty| {
@@ -219,11 +212,6 @@ impl HubState {
                 self.chains
                     .insert(chain.chain_id.to_string(), chain.clone());
                 record_event(&Event::UpdatedChainCounterparties(chain.clone()));
-                // update chain metric
-                with_metrics_mut(|metrics| {
-                   
-                    metrics.update_chain_metric(chain.clone());
-                })
             }
         });
         Ok(())
@@ -295,10 +283,7 @@ impl HubState {
                         chain: chain.clone(),
                         state: toggle_state.clone(),
                     });
-                    // update chain metric
-                    with_metrics_mut(|metrics| {
-                        metrics.update_chain_metric(chain);
-                    });
+                 
                     Ok(())
                 },
             )
@@ -308,10 +293,7 @@ impl HubState {
         self.tokens
             .insert(token_meata.token_id.to_string(), token_meata.clone());
         record_event(&Event::AddedToken(token_meata.clone()));
-        // add chain for metric
-        with_metrics_mut(|metrics| {
-            metrics.update_token_metric(token_meata);
-        });
+      
         Ok(())
     }
 

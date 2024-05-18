@@ -284,24 +284,7 @@ pub async fn get_directive_size() -> Result<u64, Error> {
 pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
     metrics::get_directives(offset, limit).await
 }
-#[query]
-pub async fn sync_chain_size() -> Result<u64, Error> {
-    with_metrics(|metrics| metrics.sync_chain_size())
-}
-#[query]
-pub async fn sync_chains(offset: usize, limit: usize) -> Result<Vec<(u64, ChainMeta)>, Error> {
-    with_metrics(|metrics| metrics.sync_chains(offset, limit))
-}
 
-#[query]
-pub async fn sync_token_size() -> Result<u64, Error> {
-    with_metrics(|metrics| metrics.sync_token_size())
-}
-
-#[query]
-pub async fn sync_tokens(offset: usize, limit: usize) -> Result<Vec<(u64, TokenMeta)>, Error> {
-    with_metrics(|metrics| metrics.sync_tokens(offset, limit))
-}
 
 #[query]
 pub async fn sync_ticket_size() -> Result<u64, Error> {
