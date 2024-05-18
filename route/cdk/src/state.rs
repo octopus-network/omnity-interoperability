@@ -151,7 +151,7 @@ pub struct CdkRouteState {
 
 impl From<&CdkRouteState> for StateProfile {
     fn from(v: &CdkRouteState) -> Self {
-        let t = v.tickets_queue.iter().map(|v| v.clone()).collect_vec();
+        let t = v.tickets_queue.iter().collect_vec();
         StateProfile {
             admin: v.admin,
             hub_principal: v.hub_principal,
@@ -161,7 +161,7 @@ impl From<&CdkRouteState> for StateProfile {
             counterparties: v.counterparties.clone(),
             finalized_mint_token_requests: v.finalized_mint_token_requests.clone(),
             chain_state: v.chain_state.clone(),
-            evm_rpc_addr: v.evm_rpc_addr.clone(),
+            evm_rpc_addr: v.evm_rpc_addr,
             key_id: v.key_id.clone(),
             key_derivation_path: v.key_derivation_path.clone(),
             nonce: v.nonce,
@@ -173,6 +173,7 @@ impl From<&CdkRouteState> for StateProfile {
             next_consume_directive_seq: v.next_consume_directive_seq,
             rpc_providers: v.rpc_privders.clone(),
             tickets: t,
+            start_scan_height: v.scan_start_height,
         }
     }
 }
@@ -199,6 +200,7 @@ pub struct StateProfile {
     pub next_consume_directive_seq: u64,
     pub tickets: Vec<(u64, Ticket)>,
     pub rpc_providers: Vec<RpcApi>,
+    pub start_scan_height: u64,
 }
 
 pub fn is_active() -> bool {
