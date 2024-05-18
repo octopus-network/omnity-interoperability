@@ -236,9 +236,9 @@ impl Ticket {
                 .clone()
         });
         let dst_chain = token.token_id_info()[0].to_string();
-        let ticket = Ticket {
-            ticket_id: log_entry.transaction_hash.clone().unwrap().to_string()
-                + log_entry.log_index.clone().unwrap().to_string().as_str(),
+        Ticket {
+            ticket_id: format!("{}-{}",hex::encode(log_entry.transaction_hash.unwrap().0)
+                , log_entry.log_index.unwrap()),
             ticket_time: log_entry.block_number.clone().unwrap().as_f64() as u64,
             ticket_type: TicketType::Normal,
             src_chain,
@@ -249,8 +249,7 @@ impl Ticket {
             sender: None, //TODO
             receiver: token_burned.receiver,
             memo: None,
-        };
-        ticket
+        }
     }
 
     pub fn from_transport_event(
@@ -259,21 +258,20 @@ impl Ticket {
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let dst_chain = token_transport_requested.dst_chain_id;
-        let ticket = Ticket {
-            ticket_id: log_entry.transaction_hash.clone().unwrap().to_string()
-                + log_entry.log_index.clone().unwrap().to_string().as_str(),
-            ticket_time: log_entry.block_number.clone().unwrap().as_f64() as u64,
+        Ticket {
+            ticket_id: format!("{}-{}",hex::encode(log_entry.transaction_hash.unwrap().0)
+                               , log_entry.log_index.unwrap().to_string()),
+            ticket_time: log_entry.block_number.unwrap().as_f64() as u64,
             ticket_type: TicketType::Normal,
             src_chain,
             dst_chain,
             action: TxAction::Transfer,
             token: token_transport_requested.token_id.to_string(),
             amount: token_transport_requested.amount.to_string(),
-            sender: None, //TODO
+            sender: None,
             receiver: token_transport_requested.receiver,
             memo: Some(token_transport_requested.memo.into_bytes()),
-        };
-        ticket
+        }
     }
 }
 

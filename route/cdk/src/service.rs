@@ -1,24 +1,21 @@
-use candid::Principal;
-use ethers_core::abi::ethereum_types;
-use ethers_core::types::spoof::nonce;
-use ethers_core::types::U256;
-use ethers_core::utils::keccak256;
-use ic_cdk::api::management_canister::ecdsa::{ecdsa_public_key, EcdsaPublicKeyArgument};
-use ic_cdk::api::management_canister::main::CanisterId;
-use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
-use k256::PublicKey;
 use std::str::FromStr;
 
-use crate::cdk_scan::{get_cdk_finalized_height, get_gasprice};
+use candid::Principal;
+use ethers_core::abi::ethereum_types;
+use ethers_core::types::U256;
+use ethers_core::utils::keccak256;
+use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_cdk::api::management_canister::ecdsa::{ecdsa_public_key, EcdsaPublicKeyArgument};
+use k256::PublicKey;
+
 use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
-use crate::eth_common::{broadcast, get_account_nonce, sign_transaction, EvmAddress};
-use crate::hub_to_route::store_tickets;
+use crate::Error;
+use crate::eth_common::{broadcast, EvmAddress, get_account_nonce, get_cdk_finalized_height, get_gasprice, sign_transaction};
 use crate::state::{
-    key_derivation_path, key_id, minter_addr, mutate_state, read_state, replace_state,
-    CdkRouteState, InitArgs, StateProfile,
+    CdkRouteState, InitArgs, key_derivation_path, key_id, minter_addr, mutate_state,
+    read_state, replace_state, StateProfile,
 };
 use crate::types::{Directive, Seq, Ticket};
-use crate::Error;
 
 #[init]
 fn init(args: InitArgs) {
@@ -117,8 +114,13 @@ pub async fn test_send_ticket_to_cdk(t: Ticket, seq: Seq) -> String {
 }
 #[update]
 pub async fn test_get_finalized_height() -> u64 {
-    let r = get_cdk_finalized_height().await.unwrap();
-    r
+    get_cdk_finalized_height().await.unwrap()
+}
+
+pub async fn test_scan() {
+
+
+
 }
 
 ic_cdk::export_candid!();
