@@ -75,7 +75,7 @@ pub struct TokenMinted {
 
 impl DecodeLog for TokenMinted {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> {
-        let (token_id, receiver, amount, ticket_id, memo) = AbiDecode::decode(log.data.to_vec())?;
+        let (token_id, receiver, amount, ticket_id, memo) = AbiDecode::decode(&log.data)?;
         Ok(Self {
             token_id,
             receiver,
@@ -105,7 +105,7 @@ pub struct TokenTransportRequested {
 impl DecodeLog for TokenTransportRequested {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> {
         let (dst_chain_id, token_id, receiver, amount, channel_id, memo) =
-            AbiDecode::decode(log.data.to_vec())?;
+            AbiDecode::decode(&log.data)?;
         Ok(Self {
             dst_chain_id,
             token_id,
@@ -161,7 +161,7 @@ impl AbiSignature for DirectiveExecuted {
 
 impl DecodeLog for DirectiveExecuted {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> {
-        let u = U256::decode(log.data.to_vec())?;
+        let u = U256::decode(&log.data)?;
         Ok(Self { seq: u })
     }
 }
