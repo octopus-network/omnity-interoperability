@@ -1,24 +1,20 @@
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, TokenBurned, TokenMinted, TokenTransportRequested,
 };
+use crate::eth_common::get_cdk_finalized_height;
 use crate::state::{mutate_state, read_state};
 use crate::types::Ticket;
 use crate::*;
 use anyhow::anyhow;
-use cketh_common::eth_rpc::RpcError;
-use cketh_common::eth_rpc_client::providers::RpcService;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use ethers_core::abi::{AbiEncode, RawLog};
-use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
 use evm_rpc::{
     candid_types::{self, BlockTag},
     MultiRpcResult, RpcServices,
 };
 use itertools::Itertools;
-use log::{error};
-use serde_derive::{Deserialize, Serialize};
-use crate::eth_common::get_cdk_finalized_height;
+use log::error;
 
 const MAX_SCAN_BLOCKS: u64 = 20;
 
@@ -34,7 +30,7 @@ pub fn scan_cdk_task() {
 
 pub async fn handle_port_events() -> anyhow::Result<()> {
     let (from, to) = determine_from_to().await?;
-    let contract_addr = read_state(|s| s.omnity_port_contract.0.encode_hex());
+    let contract_addr = read_state(|s| s.omnity_port_contract.to_hex());
     let logs = fetch_logs(from, to, contract_addr).await?;
     for l in logs {
         if l.removed {
@@ -43,26 +39,34 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
         let block = l.block_number.ok_or(anyhow!("block is pending"))?;
         let log_index = l.log_index.ok_or(anyhow!("log is pending"))?;
         let log_key = std::format!("{}-{}", block, log_index);
-        if read_state(|s| s.handled_cdk_event.contains(&log_key)) {
-            continue;
-        }
-        let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.clone();
+        let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0;
         let raw_log: RawLog = RawLog {
             topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
             data: l.data.0.clone(),
         };
-        if topic1 == keccak256(TokenBurned::abi_signature().as_bytes()) {
+
+        if topic1 == TokenBurned::signature_hash() {
+            if read_state(|s| s.handled_cdk_event.contains(&log_key)) {
+                continue;
+            }
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             handle_token_burn(&l, token_burned).await?;
-        } else if topic1 == keccak256(TokenMinted::abi_signature().as_bytes()) {
+        } else if topic1 == TokenMinted::signature_hash() {
             let token_mint = TokenMinted::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-            handle_token_mint(token_mint);
-        } else if topic1 == keccak256(TokenTransportRequested::abi_signature().as_bytes()) {
+            mutate_state(|s| s.pending_tickets_map.remove(&token_mint.ticket_id));
+        } else if topic1 == TokenTransportRequested::signature_hash() {
+            if read_state(|s| s.handled_cdk_event.contains(&log_key)) {
+                continue;
+            }
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             handle_token_transport(&l, token_transport).await?;
+        } else if topic1 == DirectiveExecuted::signature_hash() {
+            let directive_executed = DirectiveExecuted::decode_log(&raw_log)
+                .map_err(|e| Error::ParseEventError(e.to_string()))?;
+            mutate_state(|s| s.pending_directive_map.remove(&directive_executed.seq.0[0]));
         }
         mutate_state(|s| s.handled_cdk_event.insert(log_key));
     }
@@ -75,13 +79,7 @@ pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyh
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket,))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
-
     Ok(())
-}
-
-pub fn handle_token_mint(event: TokenMinted) {
-    let tid = event.ticket_id.to_string();
-    mutate_state(|s| s.pending_tickets_map.remove(&tid));
 }
 
 pub async fn handle_token_transport(
@@ -109,7 +107,7 @@ pub async fn fetch_logs(
     to_height: u64,
     address: String,
 ) -> std::result::Result<Vec<LogEntry>, Error> {
-    let cycles = 100_000_000_000; //TODO
+    let cycles = 1_000_000_000;
     let (rpc_result,): (MultiRpcResult<Vec<LogEntry>>,) = ic_cdk::api::call::call_with_payment128(
         crate::state::rpc_addr(),
         "eth_getLogs",
@@ -123,15 +121,12 @@ pub async fn fetch_logs(
                 from_block: Some(BlockTag::Number(BlockNumber::from(from_height))),
                 to_block: Some(BlockTag::Number(BlockNumber::from(to_height))),
                 addresses: vec![address],
-                // todo check if correct
-                topics: Some(vec![
-                    vec![keccak256(TokenBurned::abi_signature().as_bytes()).encode_hex()],
-                    vec![keccak256(TokenMinted::abi_signature().as_bytes()).encode_hex()],
-                    vec![
-                        keccak256(TokenTransportRequested::abi_signature().as_bytes()).encode_hex(),
-                    ],
-                    vec![keccak256(DirectiveExecuted::abi_signature().as_bytes()).encode_hex()],
-                ]),
+                topics: Some(vec![vec![
+                    keccak256(TokenBurned::abi_signature().as_bytes()).encode_hex(),
+                    keccak256(TokenMinted::abi_signature().as_bytes()).encode_hex(),
+                    keccak256(TokenTransportRequested::abi_signature().as_bytes()).encode_hex(),
+                    keccak256(DirectiveExecuted::abi_signature().as_bytes()).encode_hex(),
+                ]]),
             },
         ),
         cycles,

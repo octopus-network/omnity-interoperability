@@ -1,21 +1,31 @@
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use candid::Principal;
-use ethers_core::abi::ethereum_types;
+use cketh_common::eth_rpc::LogEntry;
+use ethers_core::abi::{ethereum_types, RawLog};
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
-use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk::api::management_canister::ecdsa::{ecdsa_public_key, EcdsaPublicKeyArgument};
+use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use itertools::Itertools;
 use k256::PublicKey;
 
+use crate::cdk_scan::{fetch_logs, handle_token_burn, handle_token_transport};
+use crate::contract_types::{
+    AbiSignature, DecodeLog, DirectiveExecuted, TokenBurned, TokenMinted, TokenTransportRequested,
+};
 use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
-use crate::Error;
-use crate::eth_common::{broadcast, EvmAddress, get_account_nonce, get_cdk_finalized_height, get_gasprice, sign_transaction};
+use crate::eth_common::{
+    broadcast, get_account_nonce, get_cdk_finalized_height, get_gasprice, sign_transaction,
+    EvmAddress,
+};
 use crate::state::{
-    CdkRouteState, InitArgs, key_derivation_path, key_id, minter_addr, mutate_state,
-    read_state, replace_state, StateProfile,
+    key_derivation_path, key_id, minter_addr, mutate_state, read_state, replace_state,
+    CdkRouteState, InitArgs, StateProfile,
 };
 use crate::types::{Directive, Seq, Ticket};
+use crate::Error;
 
 #[init]
 fn init(args: InitArgs) {
@@ -99,28 +109,68 @@ pub async fn test_send_directive_to_cdk(d: Directive, seq: Seq) -> String {
     let nonce = get_account_nonce(minter_addr()).await.unwrap();
     let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce);
     let raw = sign_transaction(tx).await.unwrap();
-    let hash = broadcast(raw).await.unwrap();
-    hash
+    broadcast(raw).await.unwrap()
 }
 
 #[update]
-pub async fn test_send_ticket_to_cdk(t: Ticket, seq: Seq) -> String {
+pub async fn test_send_ticket_to_cdk(t: Ticket) -> String {
     let data = gen_mint_token_data(&t);
     let nonce = get_account_nonce(minter_addr()).await.unwrap();
     let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce);
     let raw = sign_transaction(tx).await.unwrap();
-    let hash = broadcast(raw).await.unwrap();
-    hash
+    broadcast(raw).await.unwrap()
 }
 #[update]
 pub async fn test_get_finalized_height() -> u64 {
     get_cdk_finalized_height().await.unwrap()
 }
 
-pub async fn test_scan() {
+pub async fn test_scan(from: u64, to: u64) -> anyhow::Result<Vec<LogEntry>> {
+    let contract_addr = read_state(|s| s.omnity_port_contract.to_hex());
+    let logs = fetch_logs(from, to, contract_addr).await?;
 
+    for l in logs.clone() {
+        if l.removed {
+            return Err(anyhow!("log is removed"));
+        }
+        let block = l.block_number.ok_or(anyhow!("block is pending"))?;
+        let log_index = l.log_index.ok_or(anyhow!("log is pending"))?;
+        let log_key = std::format!("{}-{}", block, log_index);
+        let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0;
+        let raw_log: RawLog = RawLog {
+            topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
+            data: l.data.0.clone(),
+        };
+        if topic1 == TokenBurned::signature_hash() {
+            if read_state(|s| s.handled_cdk_event.contains(&log_key)) {
+                continue;
+            }
+            let token_burned = TokenBurned::decode_log(&raw_log)
+                .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
+            handle_token_burn(&l, token_burned).await?;
+        } else if topic1 == TokenMinted::signature_hash() {
+            let token_mint = TokenMinted::decode_log(&raw_log)
+                .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
+            mutate_state(|s| s.pending_tickets_map.remove(&token_mint.ticket_id));
+        } else if topic1 == TokenTransportRequested::signature_hash() {
+            if read_state(|s| s.handled_cdk_event.contains(&log_key)) {
+                continue;
+            }
+            let token_transport = TokenTransportRequested::decode_log(&raw_log)
+                .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
+            handle_token_transport(&l, token_transport).await?;
+        } else if topic1 == DirectiveExecuted::signature_hash() {
+        }
 
+        mutate_state(|s| s.handled_cdk_event.insert(log_key));
+    }
+    mutate_state(|s| s.scan_start_height = to);
+    Ok(logs)
+}
 
+#[update]
+async fn test_scan_blocks(from: u64, to: u64) -> Vec<LogEntry> {
+    test_scan(from, to).await.unwrap()
 }
 
 ic_cdk::export_candid!();

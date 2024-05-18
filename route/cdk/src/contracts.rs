@@ -13,41 +13,25 @@ pub type PortContractCommandIndex = u8;
 pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     let index: PortContractCommandIndex = directive.clone().into();
     let data = match directive {
-        Directive::AddChain(c) => (index, seq, Bytes::from(c.chain_id.clone().encode())).encode(),
-        Directive::AddToken(t) => {
-            let token = t.clone();
-            let t_info = token.token_id_info();
-            let settlement_chain_id = t_info[0].to_string();
-            let token_id = token.token_id;
-            let contract_addr = ethereum_types::Address::from([0u8; 20]);
-            let name = token.name;
-            let symbol = token.symbol;
-            let decimal = token.decimals;
+        Directive::AddChain(c) => Bytes::from(c.chain_id.clone().encode()),
+        Directive::AddToken(token) => Bytes::from(
             (
-                index,
-                seq,
-                Bytes::from(
-                    (
-                        settlement_chain_id,
-                        token_id,
-                        contract_addr,
-                        name,
-                        symbol,
-                        decimal,
-                    )
-                        .encode(),
-                ),
+                token.token_id_info()[0].to_string(),
+                token.token_id.clone(),
+                ethereum_types::Address::from([0u8; 20]),
+                token.name.clone(),
+                token.symbol.clone(),
+                token.decimals,
             )
-                .encode()
-        }
-        Directive::ToggleChainState(t) => {
-            (index, seq, Bytes::from(t.chain_id.clone().encode())).encode()
-        }
+                .encode(),
+        ),
+        Directive::ToggleChainState(t) => Bytes::from(t.chain_id.clone().encode()),
         Directive::UpdateFee(f) => {
             //TODO
-            vec![]
+            Bytes::from(vec![])
         }
     };
+    let data = (index, seq, data).encode();
     let call = PrivilegedExecuteDirectiveCall {
         directive_bytes: Bytes::from(data),
     };
@@ -62,14 +46,14 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> Vec<u8> {
             .as_slice(),
     );
     let amount: u128 = ticket.amount.parse().unwrap();
-    let call = PrivilegedMintTokenCall {
+    PrivilegedMintTokenCall {
         token_id: ticket.token.clone(),
         receiver,
         amount: U256::from(amount),
-        ticket_id: U256::from_str_radix(ticket.ticket_id.as_str(), 16).unwrap(),
+        ticket_id: ticket.ticket_id.clone(),
         memo: String::from_utf8(ticket.memo.clone().unwrap_or_default()).unwrap_or_default(),
-    };
-    call.encode()
+    }
+    .encode()
 }
 
 impl Into<PortContractCommandIndex> for Directive {

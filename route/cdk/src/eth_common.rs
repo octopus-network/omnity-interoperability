@@ -6,7 +6,7 @@ use cketh_common::eth_rpc::{Hash, RpcError};
 use cketh_common::eth_rpc_client::providers::RpcService;
 use cketh_common::eth_rpc_client::RpcConfig;
 use ethereum_types::Address;
-use ethers_core::abi::{ethereum_types, AbiEncode};
+use ethers_core::abi::{ethereum_types};
 use ethers_core::types::{Eip1559TransactionRequest, U256};
 use ethers_core::utils::keccak256;
 use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
@@ -17,7 +17,7 @@ use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::eth_common::EvmAddressError::LengthError;
-use crate::{Error, state};
+use crate::{state, Error};
 
 const EVM_ADDR_BYTES_LEN: usize = 20;
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
@@ -31,6 +31,11 @@ pub enum EvmAddressError {
     FormatError,
 }
 
+impl EvmAddress {
+    pub fn to_hex(&self) -> String {
+        format!("0x{}", hex::encode(self.0))
+    }
+}
 impl Into<Address> for EvmAddress {
     fn into(self) -> Address {
         Address::from(self.0)
@@ -129,7 +134,7 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
             },
             Err(r) => Err(Error::EvmRpcError(format!("{:?}", r))),
         },
-        MultiRpcResult::Inconsistent(r) => {
+        MultiRpcResult::Inconsistent(_r) => {
             Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
         }
     }
@@ -186,8 +191,6 @@ pub async fn get_account_nonce(addr: String) -> Result<u64, super::Error> {
     }
 }
 
-
-
 pub async fn get_gasprice() -> anyhow::Result<U256> {
     // Define request parameters
     let params = (
@@ -225,7 +228,6 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
     let r = u64::from_str_radix(r, 16)?;
     Ok(U256::from(r * 11 / 10))
 }
-
 
 pub async fn get_cdk_finalized_height() -> anyhow::Result<u64> {
     // Define request parameters

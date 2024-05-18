@@ -5,6 +5,9 @@ use serde_derive::{Deserialize, Serialize};
 
 pub trait AbiSignature {
     fn abi_signature() -> String;
+    fn signature_hash() -> [u8; 32] {
+        keccak256(Self::abi_signature().as_bytes())
+    }
 }
 pub trait DecodeLog {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self>
@@ -37,7 +40,7 @@ pub struct PrivilegedMintTokenCall {
     pub token_id: ::std::string::String,
     pub receiver: ::ethers_core::types::Address,
     pub amount: ::ethers_core::types::U256,
-    pub ticket_id: ::ethers_core::types::U256,
+    pub ticket_id: String,
     pub memo: ::std::string::String,
 }
 impl AbiEncode for PrivilegedMintTokenCall {
@@ -60,7 +63,7 @@ impl AbiEncode for PrivilegedMintTokenCall {
 
 impl AbiSignature for PrivilegedMintTokenCall {
     fn abi_signature() -> String {
-        "privilegedMintToken(string,address,uint256,uint256,string)".into()
+        "privilegedMintToken(string,address,uint256,string,string)".into()
     }
 }
 
@@ -69,7 +72,7 @@ pub struct TokenMinted {
     pub token_id: String,
     pub receiver: ethereum_types::Address,
     pub amount: U256,
-    pub ticket_id: U256,
+    pub ticket_id: String,
     pub memo: String,
 }
 
@@ -88,7 +91,7 @@ impl DecodeLog for TokenMinted {
 
 impl AbiSignature for TokenMinted {
     fn abi_signature() -> String {
-        "TokenMinted(string,address,uint256,uint256,string)".into()
+        "TokenMinted(string,address,uint256,string,string)".into()
     }
 }
 
@@ -138,7 +141,7 @@ impl AbiSignature for TokenBurned {
 
 impl DecodeLog for TokenBurned {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> {
-        let (token_id, receiver, amount, channel_id) = AbiDecode::decode(log.data.to_vec())?;
+        let (token_id, receiver, amount, channel_id) = AbiDecode::decode(&log.data)?;
         Ok(Self {
             token_id,
             receiver,
@@ -174,7 +177,7 @@ mod test {
     abigen!(
         OmnityPortContract,
         r#"[
-        function privilegedMintToken(string tokenId,address receiver,uint256 amount,uint256 ticketId, string memory memo) external
+        function privilegedMintToken(string tokenId,address receiver,uint256 amount,string memory ticketId, string memory memo) external
         function privilegedExecuteDirective(bytes memory directiveBytes) external
         event TokenMinted(string tokenId,address receiver,uint256 amount,uint256 ticketId,string memo)
         event TokenTransportRequested(string dstChainId,string tokenId,string receiver,uint256 amount,string channelId,string memo)
@@ -191,7 +194,7 @@ mod test {
             token_id: "122".to_string(),
             receiver: ethereum_types::Address::from([1u8; 20]),
             amount: U256::from(10),
-            ticket_id: U256::from(1000),
+            ticket_id: "U256::from(1000)".to_string(),
             memo: "".to_string(),
         };
 
@@ -199,7 +202,7 @@ mod test {
             token_id: "122".to_string(),
             receiver: ethereum_types::Address::from([0u8; 20]),
             amount: U256::from(10),
-            ticket_id: U256::from(1000),
+            ticket_id: "U256::from(1000)".to_string(),
             memo: "".to_string(),
         };
 
