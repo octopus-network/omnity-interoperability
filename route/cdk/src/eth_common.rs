@@ -2,7 +2,8 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use candid::{CandidType, Nat};
-use cketh_common::eth_rpc::Hash;
+use cketh_common::eth_rpc::{Hash, RpcError};
+use cketh_common::eth_rpc_client::providers::RpcService;
 use cketh_common::eth_rpc_client::RpcConfig;
 use ethereum_types::Address;
 use ethers_core::abi::{ethereum_types, AbiEncode};
@@ -16,7 +17,7 @@ use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::eth_common::EvmAddressError::LengthError;
-use crate::Error;
+use crate::{Error, state};
 
 const EVM_ADDR_BYTES_LEN: usize = 20;
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
@@ -129,7 +130,7 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
             Err(r) => Err(Error::EvmRpcError(format!("{:?}", r))),
         },
         MultiRpcResult::Inconsistent(r) => {
-            return Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
+            Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
         }
     }
 }
@@ -180,7 +181,86 @@ pub async fn get_account_nonce(addr: String) -> Result<u64, super::Error> {
             Err(r) => Err(Error::EvmRpcError(format!("{:?}", r))),
         },
         MultiRpcResult::Inconsistent(_) => {
-            return Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
+            Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
         }
     }
+}
+
+
+
+pub async fn get_gasprice() -> anyhow::Result<U256> {
+    // Define request parameters
+    let params = (
+        RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
+        r#"{"method":"eth_gasPrice","params":[],"id":1,"jsonrpc":"2.0"}"#.to_string(),
+        1000u64,
+    );
+    // Get cycles cost
+    let (cycles_result,): (std::result::Result<u128, RpcError>,) =
+        ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
+            .await
+            .unwrap();
+    let cycles = cycles_result
+        .unwrap_or_else(|e| ic_cdk::trap(&format!("error in `request_cost`: {:?}", e)));
+    // Call with expected number of cycles
+    let (result,): (std::result::Result<String, RpcError>,) =
+        ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
+            .await
+            .map_err(|err| Error::IcCallError(err.0, err.1))?;
+    #[derive(Serialize, Deserialize, Debug)]
+    struct BlockNumberResult {
+        pub id: u32,
+        pub jsonrpc: String,
+        pub result: String,
+    }
+    let r = result.map_err(|e| {
+        error!("[cdk route]query gas price error: {:?}", &e);
+        Error::Custom(anyhow!(format!(
+            "[cdk route]query gas price error: {:?}",
+            &e
+        )))
+    })?;
+    let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
+    let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
+    let r = u64::from_str_radix(r, 16)?;
+    Ok(U256::from(r * 11 / 10))
+}
+
+
+pub async fn get_cdk_finalized_height() -> anyhow::Result<u64> {
+    // Define request parameters
+    let params = (
+        RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
+        r#"{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}"#.to_string(),
+        1000u64,
+    );
+    // Get cycles cost
+    let (cycles_result,): (std::result::Result<u128, RpcError>,) =
+        ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
+            .await
+            .unwrap();
+    let cycles = cycles_result
+        .unwrap_or_else(|e| ic_cdk::trap(&format!("error in `request_cost`: {:?}", e)));
+    // Call with expected number of cycles
+    let (result,): (std::result::Result<String, RpcError>,) =
+        ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
+            .await
+            .map_err(|err| Error::IcCallError(err.0, err.1))?;
+    #[derive(Serialize, Deserialize, Debug)]
+    struct BlockNumberResult {
+        pub id: u32,
+        pub jsonrpc: String,
+        pub result: String,
+    }
+    let r = result.map_err(|e| {
+        error!("[cdk route]query block number error: {:?}", &e);
+        Error::Custom(anyhow!(format!(
+            "[cdk route]query block number error: {:?}",
+            &e
+        )))
+    })?;
+    let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
+    let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
+    let r = u64::from_str_radix(r, 16)?;
+    Ok(r - 12)
 }

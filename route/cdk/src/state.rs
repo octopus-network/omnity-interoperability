@@ -37,43 +37,6 @@ pub struct InitArgs {
 }
 
 impl CdkRouteState {
-    pub fn default() -> Self {
-        CdkRouteState {
-            admin: Principal::anonymous(),
-            hub_principal: Principal::anonymous(),
-            omnity_chain_id: "cdk".to_string(),
-            evm_chain_id: 4200,
-            tokens: Default::default(),
-            counterparties: Default::default(),
-            finalized_mint_token_requests: Default::default(),
-            chain_state: ChainState::Active,
-            evm_rpc_addr: Principal::anonymous(),
-            key_id: Network::Local.key_id(),
-            key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()], //TODO
-            nonce: 0,
-            pubkey: vec![],
-            rpc_privders: vec![],
-            omnity_port_contract: EvmAddress::try_from([0u8; 20].to_vec())
-                .expect("omnity port contract address error"),
-            next_ticket_seq: 0,
-            next_directive_seq: 0,
-            next_consume_ticket_seq: 0,
-            next_consume_directive_seq: 0,
-            handled_cdk_event: Default::default(),
-            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_tickets_memory()),
-            directives_queue: StableBTreeMap::init(
-                crate::stable_memory::get_to_cdk_directives_memory(),
-            ),
-            pending_tickets_map: StableBTreeMap::init(
-                crate::stable_memory::get_pending_ticket_map_memory(),
-            ),
-            pending_directive_map: StableBTreeMap::init(
-                crate::stable_memory::get_pending_directive_map_memory(),
-            ),
-            scan_start_height: 1000,
-            is_timer_running: false,
-        }
-    }
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
         let ret = CdkRouteState {
             admin: args.admin,
@@ -190,8 +153,8 @@ impl From<&CdkRouteState> for StateProfile {
     fn from(v: &CdkRouteState) -> Self {
         let t = v.tickets_queue.iter().map(|v| v.clone()).collect_vec();
         StateProfile {
-            admin: v.admin.clone(),
-            hub_principal: v.hub_principal.clone(),
+            admin: v.admin,
+            hub_principal: v.hub_principal,
             omnity_chain_id: v.omnity_chain_id.clone(),
             evm_chain_id: v.evm_chain_id,
             tokens: v.tokens.clone(),
@@ -243,11 +206,11 @@ pub fn is_active() -> bool {
 }
 
 pub fn hub_addr() -> Principal {
-    read_state(|s| s.hub_principal.clone())
+    read_state(|s| s.hub_principal)
 }
 
 pub fn rpc_addr() -> Principal {
-    read_state(|s| s.evm_rpc_addr.clone())
+    read_state(|s| s.evm_rpc_addr)
 }
 
 pub fn minter_addr() -> String {
@@ -260,9 +223,7 @@ pub fn minter_addr() -> String {
     let point_bytes = point.as_bytes();
     assert_eq!(point_bytes[0], 0x04);
     let hash = keccak256(&point_bytes[1..]);
-    let addr =
-        ethers_core::utils::to_checksum(&ethereum_types::Address::from_slice(&hash[12..32]), None);
-    addr
+    ethers_core::utils::to_checksum(&ethereum_types::Address::from_slice(&hash[12..32]), None)
 }
 pub fn rpc_providers() -> Vec<RpcApi> {
     read_state(|s| s.rpc_privders.clone())
