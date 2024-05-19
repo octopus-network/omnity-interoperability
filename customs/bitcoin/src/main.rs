@@ -143,11 +143,11 @@ fn get_pending_gen_ticket_size() -> u64 {
 }
 
 #[query]
-fn get_pending_gen_tickets(from_seq: usize, limit: usize) -> Vec<GenTicketRequest> {
+fn get_pending_gen_tickets(offset: usize, limit: usize) -> Vec<GenTicketRequest> {
     read_state(|s| {
         s.pending_gen_ticket_requests
             .iter()
-            .skip(from_seq)
+            .skip(offset)
             .take(limit)
             .map(|(_, req)| req.to_owned())
             .collect::<Vec<_>>()

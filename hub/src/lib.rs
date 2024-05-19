@@ -6,3 +6,4 @@ pub mod metrics;
 pub mod proposal;
 pub mod state;
 pub mod types;
+pub mod migration;

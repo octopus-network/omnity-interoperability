@@ -275,7 +275,6 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
 }
 
-
 #[query]
 pub async fn get_directive_size() -> Result<u64, Error> {
     metrics::get_directive_size().await
@@ -284,7 +283,6 @@ pub async fn get_directive_size() -> Result<u64, Error> {
 pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
     metrics::get_directives(offset, limit).await
 }
-
 
 #[query]
 pub async fn sync_ticket_size() -> Result<u64, Error> {

@@ -3,6 +3,7 @@ use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
+use crate::migration;
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
@@ -42,7 +43,7 @@ pub struct HubState {
     pub ticket_queue: StableBTreeMap<SeqKey, Ticket, Memory>,
     #[serde(skip, default = "memory::init_token_position")]
     pub token_position: StableBTreeMap<TokenKey, Amount, Memory>,
-    #[serde(skip, default = "memory::init_ledger")]
+    #[serde(skip, default = "memory::init_ledger_v2")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
@@ -59,7 +60,7 @@ impl From<InitArgs> for HubState {
             target_chain_factors: StableBTreeMap::init(memory::get_chain_factor_memory()),
             fee_token_factors: StableBTreeMap::init(memory::get_token_factor_memory()),
             token_position: StableBTreeMap::init(memory::get_token_position_memory()),
-            cross_ledger: StableBTreeMap::init(memory::get_ledger_memory()),
+            cross_ledger: StableBTreeMap::init(memory::get_ledger_v2_memory()),
             directives: StableBTreeMap::init(memory::get_directive_memory()),
             dire_queue: StableBTreeMap::init(memory::get_dire_queue_memory()),
             topic_subscribers: StableBTreeMap::init(memory::get_subs_memory()),
@@ -127,7 +128,7 @@ impl HubState {
         memory.read(4, &mut state_bytes);
 
         // Deserialize and set the state.
-        let mut state: HubState =
+        let mut pre_state: migration::PreHubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
         if let Some(args) = args {
@@ -135,7 +136,7 @@ impl HubState {
                 HubArg::Upgrade(upgrade_args) => {
                     if let Some(args) = upgrade_args {
                         if let Some(admin) = args.admin {
-                            state.admin = admin;
+                            pre_state.admin = admin;
                         }
                         record_event(&Event::Upgrade(args));
                     }
@@ -143,8 +144,9 @@ impl HubState {
                 HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
             };
         }
-
-        set_state(state)
+          // migration old ledger to new ledger
+        migration::migrate(pre_state);
+        
     }
 
     pub fn upgrade(&mut self, args: UpgradeArgs) {
@@ -283,7 +285,7 @@ impl HubState {
                         chain: chain.clone(),
                         state: toggle_state.clone(),
                     });
-                 
+
                     Ok(())
                 },
             )
@@ -293,7 +295,7 @@ impl HubState {
         self.tokens
             .insert(token_meata.token_id.to_string(), token_meata.clone());
         record_event(&Event::AddedToken(token_meata.clone()));
-      
+
         Ok(())
     }
 
