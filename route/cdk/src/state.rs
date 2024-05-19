@@ -20,7 +20,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
 thread_local! {
-    static STATE: RefCell<Option<CdkRouteState>> = RefCell::new(None);
+    static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
 }
 
 #[derive(CandidType, Deserialize)]
@@ -34,15 +34,17 @@ pub struct InitArgs {
     pub scan_start_height: u64,
     pub chain_id: String,
     pub rpc_url: String,
+    pub fee_token_id: String,
 }
 
-impl CdkRouteState {
+impl EvmRouteState {
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
-        let ret = CdkRouteState {
+        let ret = EvmRouteState {
             admin: args.admin,
             hub_principal: args.hub_principal,
             omnity_chain_id: args.chain_id,
             evm_chain_id: args.evm_chain_id,
+            fee_token_id: args.fee_token_id,
             tokens: Default::default(),
             counterparties: Default::default(),
             finalized_mint_token_requests: Default::default(),
@@ -61,10 +63,10 @@ impl CdkRouteState {
             next_directive_seq: 0,
             next_consume_ticket_seq: 0,
             next_consume_directive_seq: 0,
-            handled_cdk_event: Default::default(),
-            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_cdk_tickets_memory()),
+            handled_evm_event: Default::default(),
+            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_evm_tickets_memory()),
             directives_queue: StableBTreeMap::init(
-                crate::stable_memory::get_to_cdk_directives_memory(),
+                crate::stable_memory::get_to_evm_directives_memory(),
             ),
             pending_tickets_map: StableBTreeMap::init(
                 crate::stable_memory::get_pending_ticket_map_memory(),
@@ -105,7 +107,7 @@ impl CdkRouteState {
         memory.read(4, &mut state_bytes);
 
         // Deserialize and set the state.
-        let state: CdkRouteState =
+        let state: EvmRouteState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
         STATE.with(|s| *s.borrow_mut() = Some(state));
@@ -113,11 +115,12 @@ impl CdkRouteState {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct CdkRouteState {
+pub struct EvmRouteState {
     pub admin: Principal,
     pub hub_principal: Principal,
     pub omnity_chain_id: String,
     pub evm_chain_id: u64,
+    pub fee_token_id: String,
     pub tokens: BTreeMap<TokenId, Token>,
     pub counterparties: BTreeMap<ChainId, Chain>,
     pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
@@ -132,10 +135,10 @@ pub struct CdkRouteState {
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
-    pub handled_cdk_event: BTreeSet<String>,
-    #[serde(skip, default = "crate::stable_memory::init_to_cdk_tickets_queue")]
+    pub handled_evm_event: BTreeSet<String>,
+    #[serde(skip, default = "crate::stable_memory::init_to_evm_tickets_queue")]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
-    #[serde(skip, default = "crate::stable_memory::init_to_cdk_directives_queue")]
+    #[serde(skip, default = "crate::stable_memory::init_to_evm_directives_queue")]
     pub directives_queue: StableBTreeMap<u64, Directive, Memory>,
     #[serde(skip, default = "crate::stable_memory::init_pending_ticket_map")]
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
@@ -147,8 +150,8 @@ pub struct CdkRouteState {
     pub is_timer_running: bool,
 }
 
-impl From<&CdkRouteState> for StateProfile {
-    fn from(v: &CdkRouteState) -> Self {
+impl From<&EvmRouteState> for StateProfile {
+    fn from(v: &EvmRouteState) -> Self {
         let t = v.tickets_queue.iter().collect_vec();
         StateProfile {
             admin: v.admin,
@@ -245,20 +248,20 @@ pub fn key_derivation_path() -> Vec<Vec<u8>> {
 
 pub fn mutate_state<F, R>(f: F) -> R
 where
-    F: FnOnce(&mut CdkRouteState) -> R,
+    F: FnOnce(&mut EvmRouteState) -> R,
 {
     STATE.with(|s| f(s.borrow_mut().as_mut().expect("State not initialized!")))
 }
 
 pub fn read_state<F, R>(f: F) -> R
 where
-    F: FnOnce(&CdkRouteState) -> R,
+    F: FnOnce(&EvmRouteState) -> R,
 {
     STATE.with(|s| f(s.borrow().as_ref().expect("State not initialized!")))
 }
 
 /// Replaces the current state.
-pub fn replace_state(state: CdkRouteState) {
+pub fn replace_state(state: EvmRouteState) {
     STATE.with(|s| {
         *s.borrow_mut() = Some(state);
     });
@@ -266,7 +269,7 @@ pub fn replace_state(state: CdkRouteState) {
 
 pub fn take_state<F, R>(f: F) -> R
 where
-    F: FnOnce(CdkRouteState) -> R,
+    F: FnOnce(EvmRouteState) -> R,
 {
     STATE.with(|s| f(s.take().expect("State not initialized!")))
 }

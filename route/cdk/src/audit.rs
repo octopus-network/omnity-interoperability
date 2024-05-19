@@ -1,13 +1,13 @@
 //use super::eventlog::Event;
-use crate::state::CdkRouteState;
+use crate::state::EvmRouteState;
 use crate::types::{Chain, Factor, ToggleState, Token};
 
-pub fn add_chain(state: &mut CdkRouteState, chain: Chain) {
+pub fn add_chain(state: &mut EvmRouteState, chain: Chain) {
     // record_event(&Event::AddedChain(chain.clone()));
     state.counterparties.insert(chain.chain_id.clone(), chain);
 }
 
-pub fn add_token(state: &mut CdkRouteState, token: Token) {
+pub fn add_token(state: &mut EvmRouteState, token: Token) {
     //TODO
     /*    record_event(&Event::AddedToken {
         ledger_id,
@@ -17,7 +17,7 @@ pub fn add_token(state: &mut CdkRouteState, token: Token) {
     state.tokens.insert(token_id.clone(), token);
 }
 
-pub fn toggle_chain_state(state: &mut CdkRouteState, toggle: ToggleState) {
+pub fn toggle_chain_state(state: &mut EvmRouteState, toggle: ToggleState) {
     if toggle.chain_id == state.omnity_chain_id {
         state.chain_state = toggle.action.into();
     } else if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
@@ -27,7 +27,7 @@ pub fn toggle_chain_state(state: &mut CdkRouteState, toggle: ToggleState) {
 }
 
 pub fn finalize_mint_token_req(
-    state: &mut CdkRouteState,
+    state: &mut EvmRouteState,
     ticket_id: String,
     finalized_block_index: u64,
 ) {
@@ -44,7 +44,7 @@ pub fn finalize_mint_token_req(
 /*pub fn finalize_gen_ticket(ticket_id: String, request: GenerateTicketReq) {
    // record_event(&Event::FinalizedGenTicket { ticket_id, request })
 }*/
-pub fn update_fee(state: &mut CdkRouteState, fee: Factor) {
+pub fn update_fee(state: &mut EvmRouteState, fee: Factor) {
     // record_event(&Event::UpdatedFee { fee: fee.clone() });
     /*  match fee {
         Factor::UpdateTargetChainFactor(factor) => {

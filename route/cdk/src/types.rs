@@ -15,6 +15,7 @@ use sha2::Digest;
 use thiserror::Error;
 
 use crate::contract_types::{TokenBurned, TokenTransportRequested};
+use crate::contracts::PortContractFactorTypeIndex;
 use crate::state::read_state;
 
 pub type Signature = Vec<u8>;
@@ -422,6 +423,15 @@ pub enum TxAction {
 pub enum Factor {
     UpdateTargetChainFactor(TargetChainFactor),
     UpdateFeeTokenFactor(FeeTokenFactor),
+}
+
+impl Into<PortContractFactorTypeIndex> for Factor {
+    fn into(self) -> PortContractFactorTypeIndex {
+        match self {
+            Factor::UpdateTargetChainFactor(_) => 0,
+            Factor::UpdateFeeTokenFactor(_) => 1,
+        }
+    }
 }
 
 impl Storable for Factor {

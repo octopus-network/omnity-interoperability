@@ -3,14 +3,14 @@ use thiserror::Error;
 
 pub mod audit;
 pub mod call_error;
-pub mod cdk_scan;
 pub mod contract_types;
 pub mod contracts;
 pub mod eth_common;
+pub mod evm_scan;
 pub mod guard;
 pub mod hub;
 pub mod hub_to_route;
-pub mod route_to_cdk;
+pub mod route_to_evm;
 pub mod service;
 pub mod stable_memory;
 pub mod state;

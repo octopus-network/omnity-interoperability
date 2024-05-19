@@ -1,7 +1,7 @@
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, TokenBurned, TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::get_cdk_finalized_height;
+use crate::eth_common::get_evm_finalized_height;
 use crate::state::{mutate_state, read_state};
 use crate::types::Ticket;
 use crate::*;
@@ -18,7 +18,7 @@ use log::error;
 
 const MAX_SCAN_BLOCKS: u64 = 20;
 
-pub fn scan_cdk_task() {
+pub fn scan_evm_task() {
     ic_cdk::spawn(async {
         let _guard = match crate::guard::TimerLogicGuard::new() {
             Some(guard) => guard,
@@ -46,7 +46,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
         };
 
         if topic1 == TokenBurned::signature_hash() {
-            if read_state(|s| s.handled_cdk_event.contains(&log_key)) {
+            if read_state(|s| s.handled_evm_event.contains(&log_key)) {
                 continue;
             }
             let token_burned = TokenBurned::decode_log(&raw_log)
@@ -57,7 +57,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             mutate_state(|s| s.pending_tickets_map.remove(&token_mint.ticket_id));
         } else if topic1 == TokenTransportRequested::signature_hash() {
-            if read_state(|s| s.handled_cdk_event.contains(&log_key)) {
+            if read_state(|s| s.handled_evm_event.contains(&log_key)) {
                 continue;
             }
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
@@ -68,7 +68,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
             mutate_state(|s| s.pending_directive_map.remove(&directive_executed.seq.0[0]));
         }
-        mutate_state(|s| s.handled_cdk_event.insert(log_key));
+        mutate_state(|s| s.handled_evm_event.insert(log_key));
     }
     mutate_state(|s| s.scan_start_height = to);
     Ok(())
@@ -95,8 +95,8 @@ pub async fn handle_token_transport(
 
 async fn determine_from_to() -> anyhow::Result<(u64, u64)> {
     let from_height = read_state(|s| s.scan_start_height);
-    let to_height = get_cdk_finalized_height().await.map_err(|e| {
-        error!("query cdk block height error: {:?}", e.to_string());
+    let to_height = get_evm_finalized_height().await.map_err(|e| {
+        error!("query evm block height error: {:?}", e.to_string());
         e
     })?;
     Ok((from_height, to_height.min(from_height + MAX_SCAN_BLOCKS)))
