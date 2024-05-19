@@ -49,8 +49,7 @@ impl CdkRouteState {
             chain_state: ChainState::Active,
             evm_rpc_addr: args.evm_rpc_canister_addr,
             key_id: args.network.key_id(),
-            key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()], //TODO
-            nonce: 0,
+            key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()],
             pubkey: vec![],
             rpc_privders: vec![RpcApi {
                 url: args.rpc_url.clone(),
@@ -126,7 +125,6 @@ pub struct CdkRouteState {
     pub evm_rpc_addr: Principal,
     pub key_id: EcdsaKeyId,
     pub key_derivation_path: Vec<Vec<u8>>,
-    pub nonce: u64,
     pub pubkey: Vec<u8>,
     pub rpc_privders: Vec<RpcApi>,
     pub omnity_port_contract: EvmAddress,
@@ -164,7 +162,6 @@ impl From<&CdkRouteState> for StateProfile {
             evm_rpc_addr: v.evm_rpc_addr,
             key_id: v.key_id.clone(),
             key_derivation_path: v.key_derivation_path.clone(),
-            nonce: v.nonce,
             pubkey: v.pubkey.clone(),
             omnity_port_contract: v.omnity_port_contract.clone(),
             next_ticket_seq: v.next_ticket_seq,
@@ -191,7 +188,6 @@ pub struct StateProfile {
     pub evm_rpc_addr: Principal,
     pub key_id: EcdsaKeyId,
     pub key_derivation_path: Vec<Vec<u8>>,
-    pub nonce: u64,
     pub pubkey: Vec<u8>,
     pub omnity_port_contract: EvmAddress,
     pub next_ticket_seq: u64,
