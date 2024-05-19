@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use crate::memory::{self, Memory};
 
+use crate::metrics::with_metrics_mut;
 use crate::state::{set_state, HubState};
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use candid::Principal;
@@ -104,7 +105,9 @@ pub fn migrate(pre_state: PreHubState) {
             status: TicketStatus::WaitingForConfirmByDest,
         };
         info!("the ticket after migration: {:?} ", new_ticket);
-        new_ledger.insert(k, new_ticket);
+        new_ledger.insert(k, new_ticket.clone());
+        //update ticket meric
+        with_metrics_mut(|metrics| metrics.update_ticket_metric(new_ticket));
     }
     let new_stat = HubState {
         chains: pre_state.chains,
@@ -124,6 +127,7 @@ pub fn migrate(pre_state: PreHubState) {
         last_resubmit_ticket_time: pre_state.last_resubmit_ticket_time,
     };
     set_state(new_stat);
+
     info!(" Migration Done!");
 
     //TODO: remove pre ledger

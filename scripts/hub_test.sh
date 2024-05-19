@@ -16,6 +16,9 @@ dfx canister create omnity_hub
 # dfx identity --identity default get-principal
 # output: rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe
 dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
+# upgrade canister
+#dfx canister install --mode upgrade --argument '(variant { Upgrade = null })' --yes omnity_hub 
+
 # sub topic
 dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {AddToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
 dfx canister call omnity_hub sub_directives '(opt "Ethereum", vec {variant {AddChain};variant {AddToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
