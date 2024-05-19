@@ -6,7 +6,7 @@ use cketh_common::eth_rpc::{Hash, RpcError};
 use cketh_common::eth_rpc_client::providers::RpcService;
 use cketh_common::eth_rpc_client::RpcConfig;
 use ethereum_types::Address;
-use ethers_core::abi::{ethereum_types};
+use ethers_core::abi::ethereum_types;
 use ethers_core::types::{Eip1559TransactionRequest, U256};
 use ethers_core::utils::keccak256;
 use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};

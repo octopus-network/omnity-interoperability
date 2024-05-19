@@ -15,11 +15,10 @@ pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(),
                 method: "send_ticket".to_string(),
                 reason: Reason::from_reject(code, message),
             })?;
-    let data = resp.0.map_err(|err| CallError {
+    resp.0.map_err(|err| CallError {
         method: "send_ticket".to_string(),
         reason: Reason::CanisterError(err.to_string()),
-    })?;
-    Ok(data)
+    })
 }
 
 pub async fn query_tickets(
