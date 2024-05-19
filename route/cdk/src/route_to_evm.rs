@@ -5,18 +5,18 @@ use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transac
 use crate::state::{minter_addr, mutate_state, read_state};
 use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus};
 
-pub fn to_cdk_task() {
+pub fn to_evm_task() {
     ic_cdk::spawn(async {
         let _guard = match crate::guard::TimerLogicGuard::new() {
             Some(guard) => guard,
             None => return,
         };
-        send_directives_to_cdk().await;
-        send_tickets_to_cdk().await;
+        send_directives_to_evm().await;
+        send_tickets_to_evm().await;
     });
 }
 
-pub async fn send_directives_to_cdk() {
+pub async fn send_directives_to_evm() {
     let from = read_state(|s| s.next_consume_directive_seq);
     let to = read_state(|s| s.next_directive_seq);
     for seq in from..to {
@@ -62,7 +62,7 @@ pub async fn send_directives_to_cdk() {
     mutate_state(|s| s.next_consume_directive_seq = to);
 }
 
-pub async fn send_tickets_to_cdk() {
+pub async fn send_tickets_to_evm() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     for seq in from..to {

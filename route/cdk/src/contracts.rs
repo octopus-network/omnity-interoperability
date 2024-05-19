@@ -6,9 +6,10 @@ use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
 use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
 use crate::eth_common::EvmAddress;
 use crate::state::read_state;
-use crate::types::{Directive, Ticket, ToggleAction};
+use crate::types::{Directive, Factor, Ticket, ToggleAction};
 
 pub type PortContractCommandIndex = u8;
+pub type PortContractFactorTypeIndex = u8;
 
 pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     let index: PortContractCommandIndex = directive.clone().into();
@@ -27,8 +28,22 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
         ),
         Directive::ToggleChainState(t) => Bytes::from(t.chain_id.clone().encode()),
         Directive::UpdateFee(f) => {
-            //TODO
-            Bytes::from(vec![])
+            let factor_index: PortContractFactorTypeIndex = f.clone().into();
+            let data = match f {
+                Factor::UpdateTargetChainFactor(factor) => (
+                    factor_index,
+                    factor.target_chain_id.clone(),
+                    factor.target_chain_factor,
+                )
+                    .encode(),
+                Factor::UpdateFeeTokenFactor(factor) => (
+                    factor_index,
+                    factor.fee_token.clone(),
+                    factor.fee_token_factor,
+                )
+                    .encode(),
+            };
+            Bytes::from(data)
         }
     };
     let data = (index, seq, data).encode();

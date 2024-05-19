@@ -12,28 +12,28 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use itertools::Itertools;
 use k256::PublicKey;
 
-use crate::cdk_scan::{fetch_logs, handle_token_burn, handle_token_transport};
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, TokenBurned, TokenMinted, TokenTransportRequested,
 };
 use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{
-    broadcast, get_account_nonce, get_cdk_finalized_height, get_gasprice, sign_transaction,
+    broadcast, get_account_nonce, get_evm_finalized_height, get_gasprice, sign_transaction,
     EvmAddress,
 };
+use crate::evm_scan::{fetch_logs, handle_token_burn, handle_token_transport};
 use crate::state::{
     key_derivation_path, key_id, minter_addr, mutate_state, read_state, replace_state,
-    CdkRouteState, InitArgs, StateProfile,
+    EvmRouteState, InitArgs, StateProfile,
 };
 use crate::types::{Directive, Seq, Ticket};
 use crate::Error;
 
 #[init]
 fn init(args: InitArgs) {
-    replace_state(CdkRouteState::init(args).expect("params error"));
+    replace_state(EvmRouteState::init(args).expect("params error"));
     /*  set_timer_interval(Duration::from_secs(10), fetch_hub_periodic_task);
-    set_timer_interval(Duration::from_secs(20), to_cdk_task);
-    set_timer_interval(Duration::from_secs(30), scan_cdk_task);*/
+    set_timer_interval(Duration::from_secs(20), to_evm_task);
+    set_timer_interval(Duration::from_secs(30), scan_evm_task);*/
 }
 
 #[pre_upgrade]
@@ -43,11 +43,11 @@ fn pre_upgrade() {
 
 #[post_upgrade]
 fn post_upgrade() {
-    CdkRouteState::post_upgrade();
+    EvmRouteState::post_upgrade();
     /*
     set_timer_interval(Duration::from_secs(10), fetch_hub_periodic_task);
-    set_timer_interval(Duration::from_secs(20), to_cdk_task);
-    set_timer_interval(Duration::from_secs(30), scan_cdk_task);*/
+    set_timer_interval(Duration::from_secs(20), to_evm_task);
+    set_timer_interval(Duration::from_secs(30), scan_evm_task);*/
 }
 
 #[update]
@@ -110,7 +110,7 @@ fn is_admin() -> Result<(), String> {
 }
 
 #[update]
-pub async fn test_send_directive_to_cdk(d: Directive, seq: Seq) -> String {
+pub async fn test_send_directive_to_evm(d: Directive, seq: Seq) -> String {
     let data = gen_execute_directive_data(&d, U256::from(seq));
     let nonce = get_account_nonce(minter_addr()).await.unwrap();
     let fee = match d {
@@ -123,7 +123,7 @@ pub async fn test_send_directive_to_cdk(d: Directive, seq: Seq) -> String {
 }
 
 #[update]
-pub async fn test_send_ticket_to_cdk(t: Ticket) -> String {
+pub async fn test_send_ticket_to_evm(t: Ticket) -> String {
     let data = gen_mint_token_data(&t);
     let nonce = get_account_nonce(minter_addr()).await.unwrap();
     let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce, None);
@@ -132,7 +132,7 @@ pub async fn test_send_ticket_to_cdk(t: Ticket) -> String {
 }
 #[update]
 pub async fn test_get_finalized_height() -> u64 {
-    get_cdk_finalized_height().await.unwrap()
+    get_evm_finalized_height().await.unwrap()
 }
 
 #[update]
@@ -159,7 +159,7 @@ pub async fn test_scan(from: u64, to: u64) -> anyhow::Result<Vec<LogEntry>> {
             data: l.data.0.clone(),
         };
         if topic1 == TokenBurned::signature_hash() {
-            if read_state(|s| s.handled_cdk_event.contains(&log_key)) {
+            if read_state(|s| s.handled_evm_event.contains(&log_key)) {
                 continue;
             }
             let token_burned = TokenBurned::decode_log(&raw_log)
@@ -170,7 +170,7 @@ pub async fn test_scan(from: u64, to: u64) -> anyhow::Result<Vec<LogEntry>> {
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             mutate_state(|s| s.pending_tickets_map.remove(&token_mint.ticket_id));
         } else if topic1 == TokenTransportRequested::signature_hash() {
-            if read_state(|s| s.handled_cdk_event.contains(&log_key)) {
+            if read_state(|s| s.handled_evm_event.contains(&log_key)) {
                 continue;
             }
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
@@ -179,7 +179,7 @@ pub async fn test_scan(from: u64, to: u64) -> anyhow::Result<Vec<LogEntry>> {
         } else if topic1 == DirectiveExecuted::signature_hash() {
         }
 
-        mutate_state(|s| s.handled_cdk_event.insert(log_key));
+        mutate_state(|s| s.handled_evm_event.insert(log_key));
     }
     mutate_state(|s| s.scan_start_height = to);
     Ok(logs)

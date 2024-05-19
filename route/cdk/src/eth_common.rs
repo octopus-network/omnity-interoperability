@@ -203,8 +203,7 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
         ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
             .await
             .unwrap();
-    let cycles = cycles_result
-        .unwrap_or_else(|e| ic_cdk::trap(&format!("error in `request_cost`: {:?}", e)));
+    let cycles = cycles_result.map_err(|e| anyhow!(format!("error in `request_cost`: {:?}", e)))?;
     // Call with expected number of cycles
     let (result,): (std::result::Result<String, RpcError>,) =
         ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
@@ -217,9 +216,9 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
         pub result: String,
     }
     let r = result.map_err(|e| {
-        error!("[cdk route]query gas price error: {:?}", &e);
+        error!("[evm route]query gas price error: {:?}", &e);
         Error::Custom(anyhow!(format!(
-            "[cdk route]query gas price error: {:?}",
+            "[evm route]query gas price error: {:?}",
             &e
         )))
     })?;
@@ -229,7 +228,7 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
     Ok(U256::from(r * 11 / 10))
 }
 
-pub async fn get_cdk_finalized_height() -> anyhow::Result<u64> {
+pub async fn get_evm_finalized_height() -> anyhow::Result<u64> {
     // Define request parameters
     let params = (
         RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
@@ -241,8 +240,7 @@ pub async fn get_cdk_finalized_height() -> anyhow::Result<u64> {
         ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
             .await
             .unwrap();
-    let cycles = cycles_result
-        .unwrap_or_else(|e| ic_cdk::trap(&format!("error in `request_cost`: {:?}", e)));
+    let cycles = cycles_result.map_err(|e| anyhow!(format!("error in `request_cost`: {:?}", e)))?;
     // Call with expected number of cycles
     let (result,): (std::result::Result<String, RpcError>,) =
         ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
@@ -255,9 +253,9 @@ pub async fn get_cdk_finalized_height() -> anyhow::Result<u64> {
         pub result: String,
     }
     let r = result.map_err(|e| {
-        error!("[cdk route]query block number error: {:?}", &e);
+        error!("[evm route]query block number error: {:?}", &e);
         Error::Custom(anyhow!(format!(
-            "[cdk route]query block number error: {:?}",
+            "[evm route]query block number error: {:?}",
             &e
         )))
     })?;
