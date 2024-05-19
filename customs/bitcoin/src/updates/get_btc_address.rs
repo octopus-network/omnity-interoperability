@@ -2,7 +2,7 @@ use crate::{
     address::main_bitcoin_address,
     destination::Destination,
     logs::P1,
-    state::{mutate_state, read_state, CustomsState},
+    state::{mutate_state, read_state, CustomsState, PROD_KEY, RUNES_TOKEN},
     ECDSAPublicKey,
 };
 use candid::{CandidType, Deserialize};
@@ -18,6 +18,19 @@ pub struct GetBtcAddressArgs {
 
 /// PRECONDITION: s.ecdsa_public_key.is_some()
 pub fn destination_to_p2wpkh_address_from_state(
+    s: &CustomsState,
+    destination: &Destination,
+) -> String {
+    crate::address::destination_to_p2wpkh_address(
+        s.btc_network,
+        s.prod_ecdsa_public_key
+            .as_ref()
+            .expect("bug: the ECDSA public key must be initialized"),
+        destination,
+    )
+}
+
+pub fn destination_to_p2wpkh_address_from_state_v0(
     s: &CustomsState,
     destination: &Destination,
 ) -> String {
@@ -39,7 +52,7 @@ pub async fn get_btc_address(args: GetBtcAddressArgs) -> String {
             &Destination {
                 target_chain_id: args.target_chain_id,
                 receiver: args.receiver,
-                token: None,
+                token: Some(RUNES_TOKEN.into()),
             },
         )
     })
@@ -55,25 +68,40 @@ pub async fn get_main_btc_address(token: String) -> String {
 /// Initializes the Customs ECDSA public key. This function must be called
 /// before any endpoint runs its logic.
 pub async fn init_ecdsa_public_key() -> ECDSAPublicKey {
-    if let Some(key) = read_state(|s| s.ecdsa_public_key.clone()) {
-        return key;
+    if let Some(prod_key) = read_state(|s| s.prod_ecdsa_public_key.clone()) {
+        return prod_key;
     };
     let key_name = read_state(|s| s.ecdsa_key_name.clone());
-    log!(P1, "Fetching the ECDSA public key {}", &key_name);
-    let ecdsa_public_key =
-        crate::management::ecdsa_public_key(key_name, DerivationPath::new(vec![]))
+    let pub_key = crate::management::ecdsa_public_key(key_name, DerivationPath::new(vec![]))
+        .await
+        .unwrap_or_else(|e| ic_cdk::trap(&format!("failed to retrieve ECDSA public key: {e}")));
+
+    let prod_pub_key = if cfg!(feature = "non_prod") {
+        pub_key.clone()
+    } else {
+        crate::management::ecdsa_public_key(PROD_KEY.into(), DerivationPath::new(vec![]))
             .await
-            .unwrap_or_else(|e| ic_cdk::trap(&format!("failed to retrieve ECDSA public key: {e}")));
+            .unwrap_or_else(|e| {
+                ic_cdk::trap(&format!("failed to retrieve Prod ECDSA public key: {e}"))
+            })
+    };
     log!(
         P1,
         "ECDSA public key set to {}, chain code to {}",
-        hex::encode(&ecdsa_public_key.public_key),
-        hex::encode(&ecdsa_public_key.chain_code)
+        hex::encode(&pub_key.public_key),
+        hex::encode(&pub_key.chain_code)
+    );
+    log!(
+        P1,
+        "Prod ECDSA public key set to {}, chain code to {}",
+        hex::encode(&prod_pub_key.public_key),
+        hex::encode(&prod_pub_key.chain_code)
     );
     mutate_state(|s| {
-        s.ecdsa_public_key = Some(ecdsa_public_key.clone());
+        s.ecdsa_public_key = Some(pub_key.clone());
+        s.prod_ecdsa_public_key = Some(prod_pub_key.clone());
     });
-    ecdsa_public_key
+    prod_pub_key
 }
 
 #[cfg(test)]

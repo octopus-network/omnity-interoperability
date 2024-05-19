@@ -33,6 +33,11 @@ use serde::Serialize;
 /// The maximum number of finalized requests that we keep in the
 /// history.
 const MAX_FINALIZED_REQUESTS: usize = 10000;
+const RICH_TOKEN: &str = "840000:846";
+
+pub const BTC_TOKEN: &str = "BTC";
+pub const RUNES_TOKEN: &str = "RUNES";
+pub const PROD_KEY: &str = "key_1";
 
 thread_local! {
     static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
@@ -246,6 +251,8 @@ pub struct CustomsState {
 
     /// The Customs ECDSA public key
     pub ecdsa_public_key: Option<ECDSAPublicKey>,
+
+    pub prod_ecdsa_public_key: Option<ECDSAPublicKey>,
 
     /// The minimum number of confirmations on the Bitcoin chain.
     pub min_confirmations: u32,
@@ -479,6 +486,32 @@ impl CustomsState {
         }
 
         Ok(())
+    }
+
+    pub fn get_ecdsa_key(&self, token: Option<String>) -> (String, ECDSAPublicKey) {
+        let pub_key = self
+            .ecdsa_public_key
+            .clone()
+            .expect("the ECDSA public key must be initialized");
+        if cfg!(feature = "non_prod") {
+            return (self.ecdsa_key_name.clone(), pub_key);
+        }
+        let prod_pub_key = self
+            .prod_ecdsa_public_key
+            .clone()
+            .expect("the ECDSA public key must be initialized");
+        match token {
+            // the token field in the destination of user deposit address are all None in previous version
+            None => (self.ecdsa_key_name.clone(), pub_key),
+            Some(token) => {
+                // main change address in previous version
+                if token == RICH_TOKEN || token == BTC_TOKEN {
+                    (self.ecdsa_key_name.clone(), pub_key)
+                } else {
+                    (PROD_KEY.into(), prod_pub_key)
+                }
+            }
+        }
     }
 
     // public for only for tests
@@ -1057,6 +1090,7 @@ impl From<InitArgs> for CustomsState {
             chain_id: args.chain_id,
             ecdsa_key_name: args.ecdsa_key_name,
             ecdsa_public_key: None,
+            prod_ecdsa_public_key: None,
             min_confirmations: args
                 .min_confirmations
                 .unwrap_or(crate::lifecycle::init::DEFAULT_MIN_CONFIRMATIONS),
