@@ -107,7 +107,11 @@ fn is_admin() -> Result<(), String> {
 pub async fn test_send_directive_to_cdk(d: Directive, seq: Seq) -> String {
     let data = gen_execute_directive_data(&d, U256::from(seq));
     let nonce = get_account_nonce(minter_addr()).await.unwrap();
-    let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce);
+    let fee = match d {
+        Directive::AddToken(_) => Some(2000000u32),
+        _ => None,
+    };
+    let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce, fee);
     let raw = sign_transaction(tx).await.unwrap();
     broadcast(raw).await.unwrap()
 }
@@ -116,7 +120,7 @@ pub async fn test_send_directive_to_cdk(d: Directive, seq: Seq) -> String {
 pub async fn test_send_ticket_to_cdk(t: Ticket) -> String {
     let data = gen_mint_token_data(&t);
     let nonce = get_account_nonce(minter_addr()).await.unwrap();
-    let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce);
+    let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce, None);
     let raw = sign_transaction(tx).await.unwrap();
     broadcast(raw).await.unwrap()
 }
