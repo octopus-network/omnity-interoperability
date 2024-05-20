@@ -14,7 +14,7 @@ pub struct MintTokenRequest {
     pub ticket_id: TicketId,
     pub token_id: String,
     /// The owner of the account on the ledger.
-    pub receiver: Principal,
+    pub receiver: Account,
     pub amount: u128,
 }
 
@@ -47,12 +47,7 @@ pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
         None => Err(MintTokenError::UnsupportedToken(req.token_id.clone())),
     })?;
 
-    let account = Account {
-        owner: req.receiver.clone(),
-        subaccount: None,
-    };
-
-    let block_index = mint(ledger_id, req.amount, account).await?;
+    let block_index = mint(ledger_id, req.amount, req.receiver).await?;
 
     mutate_state(|s| audit::finalize_mint_token_req(s, req.ticket_id.clone(), block_index));
     Ok(())

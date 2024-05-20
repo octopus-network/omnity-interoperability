@@ -1,5 +1,5 @@
 use candid::{CandidType, Principal};
-use icrc_ledger_types::icrc1::account::Subaccount;
+use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use log::{self};
 use omnity_types::{ChainState, Directive, Token, TokenId};
 use serde::{Deserialize, Serialize};
@@ -32,16 +32,30 @@ async fn process_tickets() {
         Ok(tickets) => {
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
-                let receiver = if let Ok(receiver) = Principal::from_str(&ticket.receiver) {
-                    receiver
+                let receiver_parse_result = if ticket.receiver.contains(".") {
+                    Account::from_str(ticket.receiver.as_str()).map_err(|e| e.to_string())
                 } else {
-                    log::error!(
-                        "[process tickets] failed to parse ticket receiver: {}",
-                        ticket.receiver
-                    );
-                    next_seq = seq + 1;
-                    continue;
+                    Principal::from_str(ticket.receiver.as_str())
+                        .map(|owner| Account {
+                            owner,
+                            subaccount: None,
+                        })
+                        .map_err(|e| e.to_string())
                 };
+
+                let receiver = match receiver_parse_result {
+                    Ok(receiver) => receiver,
+                    Err(err) => {
+                        log::error!(
+                            "[process tickets] failed to parse ticket receiver: {}, err: {}",
+                            ticket.receiver,
+                            err
+                        );
+                        next_seq = seq + 1;
+                        continue;
+                    }
+                };
+
                 let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
                     amount
                 } else {

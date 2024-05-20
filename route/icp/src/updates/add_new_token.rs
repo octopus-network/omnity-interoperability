@@ -6,7 +6,9 @@ use ic_cdk::api::management_canister::main::{
     create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CreateCanisterArgument,
     InstallCodeArgument,
 };
-use ic_icrc1_ledger::{ArchiveOptions, InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument, UpgradeArgs};
+use ic_icrc1_ledger::{
+    ArchiveOptions, InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument, UpgradeArgs,
+};
 use icrc_ledger_types::icrc::generic_metadata_value::MetadataValue;
 use icrc_ledger_types::icrc1::account::Account;
 use omnity_types::Token;
@@ -85,13 +87,15 @@ async fn install_icrc2_ledger(
     Ok(canister_id_record)
 }
 
-pub async fn upgrade_icrc2_ledger(canister_id: Principal ,upgrade_args: UpgradeArgs)->Result<(), String> {
+pub async fn upgrade_icrc2_ledger(
+    canister_id: Principal,
+    upgrade_args: UpgradeArgs,
+) -> Result<(), String> {
     let install_code_arg = InstallCodeArgument {
         mode: CanisterInstallMode::Upgrade,
         canister_id: canister_id,
         wasm_module: ICRC2_WASM.to_vec(),
-        arg: Encode!(&LedgerArgument::Upgrade(Some(upgrade_args)))
-        .unwrap(),
+        arg: Encode!(&LedgerArgument::Upgrade(Some(upgrade_args))).unwrap(),
     };
     install_code(install_code_arg)
         .await

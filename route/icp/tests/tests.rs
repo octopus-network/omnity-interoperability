@@ -462,17 +462,17 @@ impl RouteSetup {
         .unwrap()
     }
 
-    pub fn update_icrc_transfer_fee(&self, ledger_id: Principal, transfer_fee: Nat) {
+    pub fn update_icrc_ledger(&self, ledger_id: Principal, transfer_fee: Option<Nat>) {
         let _ = Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
                         self.caller,
                         self.route_id,
-                        "update_icrc_transfer_fee",
+                        "update_icrc_ledger",
                         Encode!(&ledger_id, &transfer_fee).unwrap(),
                     )
-                    .expect("failed to update icrc transfer fee")
+                    .expect("failed to update icrc ledger")
             ),
             Result<(), String>
         )
@@ -594,7 +594,8 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
 
     let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
 
-    route.update_icrc_transfer_fee(ledger_id.into(), 100_u128.into());
+    // route.update_icrc_transfer_fee(ledger_id.into(), 100_u128.into());
+    route.update_icrc_ledger(ledger_id.into(), Some(100_u128.into()));
 }
 
 fn set_fee(route: &RouteSetup) {
@@ -672,6 +673,36 @@ fn test_mint_token() {
     let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
 
     let balance = route.icrc1_balance_of(ledger_id, receiver, None);
+    assert_eq!(balance, Nat::from_str(amount).unwrap());
+}
+
+#[test]
+fn test_mint_token_to_account() {
+    let route = RouteSetup::new();
+    add_chain(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+
+    let amount = "1000000";
+    let receiver =
+        Principal::from_str("hsefg-sb4rm-qb5o2-vzqqa-ugrfq-tpdli-tazi3-3lmja-ur77u-tfncz-jqe")
+            .unwrap();
+    let subaccount: Subaccount =  [1; 32];
+    let receiver_account = Account {
+        owner: receiver,
+        subaccount: Some(subaccount.clone()),
+    };
+
+    mint_token(
+        "test_ticket".into(),
+        &route,
+        TOKEN_ID1.into(),
+        receiver_account.to_string(),
+        amount.into(),
+    );
+
+    let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    let balance = route.icrc1_balance_of(ledger_id, receiver, Some(subaccount));
     assert_eq!(balance, Nat::from_str(amount).unwrap());
 }
 

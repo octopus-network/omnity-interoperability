@@ -100,9 +100,9 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     // In order to prevent the memory from being exhausted,
     // ensure that the user has transferred token to this address.
     let mut new_utxos = fetch_new_utxos(btc_network, min_confirmations, &address, txid).await?;
-    
+
     if new_utxos.len() == 0 {
-        // We have migrated the key. It is possible that some users transferred 
+        // We have migrated the key. It is possible that some users transferred
         // the token to the old address before the migration.
         destination.token = None;
         address = read_state(|s| destination_to_p2wpkh_address_from_state_v0(s, &destination));
