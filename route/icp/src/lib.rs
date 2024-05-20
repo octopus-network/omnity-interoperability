@@ -35,10 +35,12 @@ async fn process_tickets() {
                 let receiver_parse_result = if ticket.receiver.contains(".") {
                     Account::from_str(ticket.receiver.as_str()).map_err(|e| e.to_string())
                 } else {
-                    Principal::from_str(ticket.receiver.as_str()).map(|e| Account {
-                        owner: e,
-                        subaccount: None,
-                    }).map_err(|e| e.to_string())
+                    Principal::from_str(ticket.receiver.as_str())
+                        .map(|owner| Account {
+                            owner,
+                            subaccount: None,
+                        })
+                        .map_err(|e| e.to_string())
                 };
 
                 let receiver = match receiver_parse_result {
