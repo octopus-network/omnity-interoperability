@@ -1,5 +1,5 @@
 [package]
-name = "cdk_route"
+name = "evm_route"
 version = "0.1.0"
 edition = "2021"
 

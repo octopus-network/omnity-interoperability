@@ -1,9 +1,9 @@
 {
   "dfx": "0.17.0",
   "canisters": {
-    "cdk_route": {
-      "candid": "cdk_route.did",
-      "package": "cdk_route",
+    "evm_route": {
+      "candid": "evm_route.did",
+      "package": "evm_route",
       "type": "rust"
     },
 
