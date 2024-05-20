@@ -3,6 +3,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
+use cketh_common::eth_rpc_client::providers::RpcApi;
 use ethers_core::abi::{ethereum_types, RawLog};
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
@@ -95,6 +96,11 @@ fn set_omnity_port_contract_addr(addr: String) {
     mutate_state(|s| s.omnity_port_contract = EvmAddress::from_str(addr.as_str()).unwrap());
 }
 
+#[update]
+fn set_evm_chain_id(chain_id: u64) {
+    mutate_state(|s| s.evm_chain_id = chain_id);
+}
+
 fn is_admin() -> Result<(), String> {
     let c = ic_cdk::caller();
     match read_state(|s| s.admin == c) {
@@ -129,6 +135,13 @@ pub async fn test_get_finalized_height() -> u64 {
     get_cdk_finalized_height().await.unwrap()
 }
 
+#[update]
+pub fn test_set_rpc_url(url: String) {
+    mutate_state(|s| s.rpc_privders = vec![RpcApi {
+        url,
+        headers: None,
+    }])
+}
 pub async fn test_scan(from: u64, to: u64) -> anyhow::Result<Vec<LogEntry>> {
     let contract_addr = read_state(|s| s.omnity_port_contract.to_hex());
     let logs = fetch_logs(from, to, contract_addr).await?;

@@ -563,7 +563,6 @@ pub struct Token {
     pub token_id: TokenId,
     pub name: String,
     pub symbol: String,
-
     pub decimals: u8,
     pub icon: Option<String>,
     pub metadata: HashMap<String, String>,
