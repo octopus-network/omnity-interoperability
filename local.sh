@@ -1,12 +1,12 @@
 
 # https://internetcomputer.org/docs/current/developer-docs/integrations/bitcoin/local-development#setting-up-a-local-bitcoin-network
 $ bitcoind -conf=$(pwd)/bitcoin.conf -datadir=$(pwd)/data --port=18444
+$ cd omnity
 $ dfx stop
 $ dfx start --clean
-$ cd omnity
 $ cargo clean
-# https://internetcomputer.org/docs/current/developer-docs/defi/icp-tokens/ledger-local-setup
 
+# https://internetcomputer.org/docs/current/developer-docs/defi/icp-tokens/ledger-local-setup
 $ dfx identity new minter
 $ dfx identity use minter
 $ export MINTER_ACCOUNT_ID=$(dfx ledger account-id)
@@ -36,11 +36,11 @@ $ dfx deploy --specified-id ryjl3-tyaaa-aaaaa-aaaba-cai icp_ledger_canister --ar
 $ dfx ledger balance $DEFAULT_ACCOUNT_ID
 100.00000000 ICP
 
-$ dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "cu4zh-2c4it-54irp-xgtxc-gajvr-h6gle-c5n7r-hwpeg-spkye-z4ta7-iae"} })'
 $ dfx identity --identity default get-principal
 o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe
-$ dfx deploy bitcoin_customs --argument '(variant { Init = record { mode = variant { GeneralAvailability }; btc_network = variant { Regtest }; hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; ecdsa_key_name = "dfx_test_key"; min_confirmations = opt 1; max_time_in_queue_nanos = 1_000_000_000; runes_oracle_principal = principal "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe"; chain_id = "Bitcoin" } })'
-$ dfx deploy icp_route --argument '(variant { Init = record { hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; chain_id = "eICP" } })'
+$ dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe"} })'
+$ dfx deploy bitcoin_customs --argument '(variant { Init = record { mode = variant { GeneralAvailability }; btc_network = variant { Regtest }; hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; ecdsa_key_name = "dfx_test_key"; min_confirmations = opt 1; max_time_in_queue_nanos = 1_000_000_000; runes_oracle_principal = principal "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe"; chain_id = "Bitcoin"; chain_state = variant { Active } } })'
+$ dfx deploy icp_route --argument '(variant { Init = record { hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; chain_id = "eICP"; chain_state = variant { Active } } })'
 
 # https://github.com/lesterli/ord/blob/docs/runes/docs/src/guides/runes.md
 $ git clone https://github.com/octopus-network/ord.git
@@ -53,7 +53,7 @@ $ export DATABASE_URL=postgres://postgres:mysecretpassword@127.0.0.1:5432/runesc
 $ cargo build
 $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet create
 {
-  "mnemonic": "whisper canvas boss remove report ivory pill satoshi direct choose museum spread",
+  "mnemonic": "duty eight antique know airport provide rapid panda tennis town useless claim",
   "passphrase": ""
 }
 
@@ -63,11 +63,11 @@ $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-user
 $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 receive
 {
   "addresses": [
-    "bcrt1psgwf8p9p45xeycm49jlkq5dqcmlc4y2xmwgyyla0ccz67rjaa5wqkkw7ts"
+    "bcrt1p38mc9erwfmkmssvs5w55fknq8x3wkq972j72ue5mv8hy35pfc4pssanhuf"
   ]
 }
 
-$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 101 bcrt1psgwf8p9p45xeycm49jlkq5dqcmlc4y2xmwgyyla0ccz67rjaa5wqkkw7ts
+$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 101 bcrt1p38mc9erwfmkmssvs5w55fknq8x3wkq972j72ue5mv8hy35pfc4pssanhuf
 
 $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 balance
 {
@@ -86,74 +86,60 @@ reinscribe: false
 etching:
   rune: UNCOMMON•GOODS
   divisibility: 2
-  premine: 1000.00
-  supply: 10000.00
+  premine: 1000000.00
+  supply: 1000000.00
   symbol: $
-  terms:
-    amount: 100.00
-    cap: 90
-    height:
-      start: 840000
-      end: 850000
-    offset:
-      start: 1000
-      end: 9000
+  turbo: true
 
 inscriptions:
-- file: /tmp/inscription.txt
-  delegate: null
-  destination: null
-  metadata: null
-
-$ cat /tmp/inscription.txt
-FOO
+- file: /tmp/batch.yaml
 
 $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= --index-runes wallet --server-url http://127.0.0.1:23456 batch --fee-rate 1 --batch /tmp/batch.yaml
-Waiting for rune commitment 33853b36b89697209a45a6d961ee6b3abab7f1a148d92f38c52e24d15d61016a to mature…
+Waiting for rune UNCOMMONGOODS commitment 138eeaa503808b174becbf6f5c346c0c4dca98406e07b8d85431d8ce7b8496f4 to mature…
 
-$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 6 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
-
+$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 5 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
+Maturing in...[0s]   [████████████████████████████████████████] 6/6
 {
-  "commit": "33853b36b89697209a45a6d961ee6b3abab7f1a148d92f38c52e24d15d61016a",
+  "commit": "138eeaa503808b174becbf6f5c346c0c4dca98406e07b8d85431d8ce7b8496f4",
   "commit_psbt": null,
   "inscriptions": [
     {
-      "destination": "bcrt1pey0f6dxwvjpu2z7ndxt8wat98rt5ke9ys3hcms9dqpc7s4wnyckqfaalvx",
-      "id": "a355fb48f0d3ef781d8fc63fdd04b72e9847a3d41095cb02008175843b5f32c8i0",
-      "location": "a355fb48f0d3ef781d8fc63fdd04b72e9847a3d41095cb02008175843b5f32c8:0:0"
+      "destination": "bcrt1p4l7lfcncfe8egn6hrh57kppchzksvt2muhnyxkqgzrv5209u8jjqzlewyd",
+      "id": "5bdea4a4dafef3eb00dd36c6f4d90ab4c47b306b353583d52184fac8090bf0afi0",
+      "location": "5bdea4a4dafef3eb00dd36c6f4d90ab4c47b306b353583d52184fac8090bf0af:0:0"
     }
   ],
   "parent": null,
-  "reveal": "a355fb48f0d3ef781d8fc63fdd04b72e9847a3d41095cb02008175843b5f32c8",
+  "reveal": "5bdea4a4dafef3eb00dd36c6f4d90ab4c47b306b353583d52184fac8090bf0af",
   "reveal_broadcast": true,
   "reveal_psbt": null,
   "rune": {
-    "destination": "bcrt1p0mvu63whr40pmwcfxg84pxmhrrddc2whljdqy5u0v228zgmsv9yspznwz5",
-    "location": "a355fb48f0d3ef781d8fc63fdd04b72e9847a3d41095cb02008175843b5f32c8:1",
+    "destination": "bcrt1p8wdtay82az6wkdlx9gpl48e5qrre6a6563zsudaknzksda2uctwsydhwqr",
+    "location": "5bdea4a4dafef3eb00dd36c6f4d90ab4c47b306b353583d52184fac8090bf0af:1",
     "rune": "UNCOMMON•GOODS"
   },
-  "total_fees": 395
+  "total_fees": 432
 }
 
 $ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 1 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
 
 $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 balance
 {
-  "cardinal": 39999979605,
+  "cardinal": 34999979568,
   "ordinal": 10000,
   "runes": {
-    "UNCOMMON•GOODS": 100000
+    "UNCOMMON•GOODS": "1000000"
   },
   "runic": 10000,
-  "total": 39999999605
+  "total": 34999999568
 }
 
-http://192.168.1.105:23456/rune/UNCOMMON%E2%80%A2GOODS
-rune_id: 108:1
+http://192.168.0.111:23456/rune/UNCOMMON%E2%80%A2GOODS
+rune_id: 107:1
 
 # sub hub topic
-dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {AddToken};variant {UpdateFee};variant {ToggleChainState}})'
-dfx canister call omnity_hub sub_directives '(opt "eICP", vec {variant {AddChain};variant {AddToken};variant {UpdateFee};variant {ToggleChainState}})'
+$ dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {AddToken};variant {UpdateFee};variant {ToggleChainState}})'
+$ dfx canister call omnity_hub sub_directives '(opt "eICP", vec {variant {AddChain};variant {AddToken};variant {UpdateFee};variant {ToggleChainState}})'
 
 # Note: replace the canister id to Bitcoin customs canister id
 $ dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "Bitcoin"; chain_type=variant { SettlementChain };canister_id="be2us-64aaa-aaaaa-qaabq-cai"; contract_address=null;counterparties=opt vec {"eICP"}; fee_token=null}}})'
@@ -163,8 +149,8 @@ $ dfx canister call omnity_hub execute_proposal '(vec {variant { AddChain = reco
 $ dfx canister call omnity_hub validate_proposal '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "eICP"; chain_type=variant { ExecutionChain };canister_id="br5f7-7uaaa-aaaaa-qaaca-cai";  contract_address=null; counterparties= opt vec {"Bitcoin"}; fee_token=opt "LICP"}}})'
 $ dfx canister call omnity_hub execute_proposal  '(vec {variant { AddChain = record { chain_state=variant { Active };chain_id = "eICP"; chain_type=variant { ExecutionChain };canister_id="br5f7-7uaaa-aaaaa-qaaca-cai";  contract_address=null; counterparties= opt vec {"Bitcoin"}; fee_token=opt "LICP"}}})'
 
-$ dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 2 : nat8; icon = opt "rune.logo.url"; token_id = "Bitcoin-runes-UNCOMMON•GOODS"; name = "UNCOMMON•GOODS";issue_chain = "Bitcoin"; symbol = "UNCOMMON•GOODS"; metadata =  vec{ record {"rune_id"; "108:1"}}; dst_chains = vec {"Bitcoin";"eICP";}}}})'
-$ dfx canister call omnity_hub execute_proposal '( vec {variant { AddToken = record { decimals = 2 : nat8; icon = opt "rune.logo.url"; token_id = "Bitcoin-runes-UNCOMMON•GOODS"; name = "UNCOMMON•GOODS";issue_chain = "Bitcoin"; symbol = "UNCOMMON•GOODS"; metadata =  vec{ record {"rune_id"; "108:1"}}; dst_chains = vec {"Bitcoin";"eICP";}}}})'
+$ dfx canister call omnity_hub validate_proposal '( vec {variant { AddToken = record { decimals = 2 : nat8; icon = opt "rune.logo.url"; token_id = "Bitcoin-runes-UNCOMMON•GOODS"; name = "UNCOMMON•GOODS";issue_chain = "Bitcoin"; symbol = "UNCOMMON•GOODS"; metadata =  vec{ record {"rune_id"; "107:1"}}; dst_chains = vec {"Bitcoin";"eICP";}}}})'
+$ dfx canister call omnity_hub execute_proposal '( vec {variant { AddToken = record { decimals = 2 : nat8; icon = opt "rune.logo.url"; token_id = "Bitcoin-runes-UNCOMMON•GOODS"; name = "UNCOMMON•GOODS";issue_chain = "Bitcoin"; symbol = "UNCOMMON•GOODS"; metadata =  vec{ record {"rune_id"; "107:1"}}; dst_chains = vec {"Bitcoin";"eICP";}}}})'
 
 # update fee
 $ dfx canister call omnity_hub update_fee 'vec {variant { UpdateTargetChainFactor = record {target_chain_id="Bitcoin"; target_chain_factor=10000 : nat}}; variant { UpdateFeeTokenFactor = record { fee_token="LICP"; fee_token_factor=1 : nat}}}'
@@ -172,7 +158,7 @@ $ dfx canister call omnity_hub update_fee 'vec {variant { UpdateTargetChainFacto
 $ dfx canister call icp_route get_redeem_fee '("Bitcoin")'
 (opt (20_000 : nat64))
 # query update fee directive
-$ dfx canister call omnity_hub query_directives '(opt "eICP",opt variant {UpdateFee=opt "LICP"},0:nat64,5:nat64)'
+$ dfx canister call omnity_hub query_directives '(opt "eICP",null,0:nat64,5:nat64)'
 $ dfx canister call omnity_hub query_directives '(opt "Bitcoin",null,0:nat64,5:nat64)'
 
 $ dfx canister call icp_route get_token_list
@@ -181,9 +167,8 @@ $ dfx canister call icp_route get_token_list
     record {
       decimals = 2 : nat8;
       token_id = "Bitcoin-runes-UNCOMMON•GOODS";
-      metadata = opt vec { record { "rune_id"; "108:1" } };
       icon = opt "rune.logo.url";
-      issue_chain = "Bitcoin";
+      rune_id = opt "107:1";
       symbol = "UNCOMMON•GOODS";
     };
   },
@@ -199,10 +184,11 @@ $ dfx canister call bw4dl-smaaa-aaaaa-qaacq-cai icrc1_symbol '()'
 $ dfx canister call bw4dl-smaaa-aaaaa-qaacq-cai icrc1_metadata '()'
 (
   vec {
+    record { "icrc1:logo"; variant { Text = "rune.logo.url" } };
     record { "icrc1:decimals"; variant { Nat = 2 : nat } };
-    record { "icrc1:name"; variant { Text = "Bitcoin-runes-UNCOMMON•GOODS" } };
+    record { "icrc1:name"; variant { Text = "UNCOMMON•GOODS" } };
     record { "icrc1:symbol"; variant { Text = "UNCOMMON•GOODS" } };
-    record { "icrc1:fee"; variant { Nat = 0 : nat } };
+    record { "icrc1:fee"; variant { Nat = 10_000 : nat } };
     record { "icrc1:max_memo_length"; variant { Nat = 32 : nat } };
   },
 )
@@ -211,32 +197,32 @@ $ dfx canister call bw4dl-smaaa-aaaaa-qaacq-cai icrc1_balance_of "(record {owner
 (0 : nat)
 
 $ dfx canister call bitcoin_customs get_btc_address '(record {target_chain_id = "eICP"; receiver = "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe"})'
-("bcrt1qrunh3ypertlpw5ufa0j5l3pq8tj0hppu7urzg4")
+("bcrt1qxy0yjfmty99e3p3rqgt9rrrmv6kqe4u9v4zcca")
 
-$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= --index-runes wallet --server-url http://127.0.0.1:23456 send --fee-rate 1 bcrt1qrunh3ypertlpw5ufa0j5l3pq8tj0hppu7urzg4 7:UNCOMMON•GOODS
+$ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= --index-runes wallet --server-url http://127.0.0.1:23456 send --fee-rate 1 bcrt1qxy0yjfmty99e3p3rqgt9rrrmv6kqe4u9v4zcca 70000:UNCOMMON•GOODS
 {
-  "txid": "3ac371053f8306ff43b13a7321f06db5e38f0b35b303c555791d84cd9e850aab",
-  "psbt": "cHNidP8BAOMCAAAAAsgyXzuEdYEAAsuVENSjR5gutwTdP8aPHXjv0/BI+1WjAQAAAAD/////agFhXdEkLsU4L9lIofG3ujpr7mHZpkWaIJeWuDY7hTMBAAAAAP3///8EAAAAAAAAAAAJal0GAGwBvAUCECcAAAAAAAAiUSC8a0sWT7OqycWNpT4SLjgh0/n+rcScRAsEU9r9vlTflBAnAAAAAAAAFgAUHyd4kDka/hdTievlT8QgOuT7hDxAegUqAQAAACJRICjLEB/kuNka/iCa9Sf2E+baJ0FY5Lc/huVtJ4HehpRJAAAAAAABASsQJwAAAAAAACJRIH7ZzUXXHV4duwkyD1Cbdxja3CnX/JoCU49ilHEjcGFJAQhCAUDkWz5AST6xDe4/Voqyc5fYvtcwMK6L7uLVLSjjoUjMBcAfjqyRWa1r6PqWp1t8kWfnpNZF9gOiAhLm/xtmfDEFAAEBK1WiBSoBAAAAIlEgYKNmBiJZ2DagIaAdhfPPHz5De2GlYChnPcYyFkpzJ2oBCEIBQMwvIGhvzvOiZ0ugkyuPzfnCdu+JS9wrdCJdGNiszTviUFAGH/XlAhG6bPViYIpsTTbgSbVX23DjR8eemKepP6QAAAEFIPtTnY+2hehuR48FdPDpNdSg5f0JVfPMNmphHG2+82QeIQf7U52PtoXobkePBXTw6TXUoOX9CVXzzDZqYRxtvvNkHhkAeY20XVYAAIABAACAAAAAgAEAAAAEAAAAAAABBSCNf63lqs6BZ6cv5LSFoaznH5eXrU6WO/3C+rfQ8njA2iEHjX+t5arOgWenL+S0haGs5x+Xl61Oljv9wvq30PJ4wNoZAHmNtF1WAACAAQAAgAAAAIABAAAABQAAAAA=",
-  "outgoing": "7:UNCOMMON•GOODS",
-  "fee": 261
+  "txid": "7780097b00e974f146c27cba5fdae16f52f6be5053c4c8bad9fccc72466a118b",
+  "psbt": "cHNidP8BAOUCAAAAAq/wCwnI+oQh1YM1NWswe8S0Ctn0xjbdAOvz/tqkpN5bAQAAAAD/////9JaEe87YMVTYuAduQJjKTQxsNFxvv+xLF4uAA6XqjhMBAAAAAP3///8EAAAAAAAAAAALal0IAGsBwJ+rAwIQJwAAAAAAACJRIPjxy0vYeiBrPFpcRAkW7SwnI+Uce8PpJmL6kzEGPNxRECcAAAAAAAAWABQxHkknayFLmIYjAhZRjHtmrAzXhRl6BSoBAAAAIlEgag7Dl0p/O5MBJT3I4hDYXAu/U8FsE3FBAdEGo8ZWhN4AAAAAAAEBKxAnAAAAAAAAIlEgO5q+kOrotOs35ioD+p80AMedd1TURQ43tpitBvVcwt0BCEIBQGouraqlmJrpPTWbybEyxaCwVxcrM24S6aAFOmlrOq+6Jzj8b4tmnsHwafBSkaBSTOrosl5brjJgkTrtuhpghlwAAQErMKIFKgEAAAAiUSCOno4/5leCJIjjJGj4Zngmd5N1e/jXQdX4ldeNzb6kiwEIQgFAk0zBwwoOthLr1ETKlCplpiOaFEzkv/cnAmu9ft4FHpRy2sYSlCb3HxYyvvtvZnEw8vhAWhT7F2MlImv4IIjdygAAAQUgRJlZBkXAnlMzGRkgzMPUVCSEml2RxFswGRhm7ZqFUCUhB0SZWQZFwJ5TMxkZIMzD1FQkhJpdkcRbMBkYZu2ahVAlGQCr/H6pVgAAgAEAAIAAAACAAQAAAAQAAAAAAAEFIDoOPAnznFwRmbEpa0/eYjMZFeyYbkR1A7fl3GoWdOkhIQc6DjwJ85xcEZmxKWtP3mIzGRXsmG5EdQO35dxqFnTpIRkAq/x+qVYAAIABAACAAAAAgAEAAAAFAAAAAA==",
+  "outgoing": "70000:UNCOMMON•GOODS",
+  "fee": 263
 }
 
-$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 6 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
+$ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 1 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
 
-$ dfx canister call bitcoin_customs generate_ticket '(record {target_chain_id = "eICP"; receiver = "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe"; rune_id = "108:1"; amount = 700; txid = "3ac371053f8306ff43b13a7321f06db5e38f0b35b303c555791d84cd9e850aab"})'
+$ dfx canister call bitcoin_customs generate_ticket '(record {target_chain_id = "eICP"; receiver = "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe"; rune_id = "107:1"; amount = 7000000; txid = "7780097b00e974f146c27cba5fdae16f52f6be5053c4c8bad9fccc72466a118b"})'
 
 $ dfx canister call bitcoin_customs get_pending_gen_ticket_requests '(record {max_count = 3; start_txid = null})'
 (
   vec {
     record {
-      received_at = 1_712_656_596_433_950_685 : nat64;
+      received_at = 1_715_887_108_893_675_145 : nat64;
       token_id = "Bitcoin-runes-UNCOMMON•GOODS";
-      txid = blob "\ab\0a\85\9e\cd\84\1d\79\55\c5\03\b3\35\0b\8f\e3\b5\6d\f0\21\73\3a\b1\43\ff\06\83\3f\05\71\c3\3a";
+      txid = blob "\8b\11\6a\46\72\cc\fc\d9\ba\c8\c4\53\50\be\f6\52\6f\e1\da\5f\ba\7c\c2\46\f1\74\e9\00\7b\09\80\77";
       target_chain_id = "eICP";
-      address = "bcrt1qrunh3ypertlpw5ufa0j5l3pq8tj0hppu7urzg4";
-      amount = 700 : nat;
+      address = "bcrt1qxy0yjfmty99e3p3rqgt9rrrmv6kqe4u9v4zcca";
+      amount = 7_000_000 : nat;
       receiver = "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe";
-      rune_id = record { tx = 1 : nat32; block = 108 : nat32 };
+      rune_id = record { tx = 1 : nat32; block = 107 : nat64 };
     };
   },
 )
@@ -259,11 +245,12 @@ $ dfx canister call omnity_hub query_tickets '(opt "eICP", 0, 10)'
           action = variant { Transfer };
           dst_chain = "eICP";
           memo = null;
-          ticket_id = "3ac371053f8306ff43b13a7321f06db5e38f0b35b303c555791d84cd9e850aab";
+          ticket_id = "7780097b00e974f146c27cba5fdae16f52f6be5053c4c8bad9fccc72466a118b";
           sender = null;
-          ticket_time = 1_712_656_790_557_746_044 : nat64;
+          ticket_time = 1_715_887_353_183_737_735 : nat64;
+          ticket_type = variant { Normal };
           src_chain = "Bitcoin";
-          amount = "700";
+          amount = "7000000";
           receiver = "o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe";
         };
       };
@@ -272,13 +259,13 @@ $ dfx canister call omnity_hub query_tickets '(opt "eICP", 0, 10)'
 )
 
 $ dfx canister call bw4dl-smaaa-aaaaa-qaacq-cai icrc1_balance_of "(record {owner = principal \"o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe\"; })"
-(700 : nat)
+(7_000_000 : nat)
 
 
-$ dfx canister call bw4dl-smaaa-aaaaa-qaacq-cai icrc2_approve "(record { amount = 100; spender = record{owner = principal \"br5f7-7uaaa-aaaaa-qaaca-cai\";} })"
+$ dfx canister call bw4dl-smaaa-aaaaa-qaacq-cai icrc2_approve "(record { amount = 20000; spender = record{owner = principal \"br5f7-7uaaa-aaaaa-qaaca-cai\";} })"
 (variant { Ok = 1 : nat })
 $ dfx canister call bw4dl-smaaa-aaaaa-qaacq-cai icrc2_allowance "(record { account = record{owner = principal \"o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe\";}; spender = record{owner = principal \"br5f7-7uaaa-aaaaa-qaaca-cai\";} })"
-(record { allowance = 100 : nat; expires_at = null })
+(record { allowance = 20_000 : nat; expires_at = null })
 
 $ dfx canister call icp_route get_fee_account '(null)'
 (
@@ -290,25 +277,27 @@ Transfer sent at block height 1
 $ dfx ledger balance 003b7ddf13afeba216bb7d13ebd963ca58a1beaf0a07ce785ce8351ceac374c5
 2.00000000 ICP
 
-$ dfx canister call icp_route generate_ticket '(record {target_chain_id = "Bitcoin"; receiver = "bcrt1psgwf8p9p45xeycm49jlkq5dqcmlc4y2xmwgyyla0ccz67rjaa5wqkkw7ts"; token_id = "Bitcoin-runes-UNCOMMON•GOODS"; amount = 100})'
+$ dfx canister call icp_route generate_ticket '(record {target_chain_id = "Bitcoin"; receiver = "bcrt1p38mc9erwfmkmssvs5w55fknq8x3wkq972j72ue5mv8hy35pfc4pssanhuf"; token_id = "Bitcoin-runes-UNCOMMON•GOODS"; amount = 20000})'
+(variant { Ok = record { ticket_id = "bw4dl-smaaa-aaaaa-qaacq-cai_2" } })
 
 $ dfx canister call omnity_hub query_tickets '(opt "Bitcoin", 0, 10)'
 (
   variant {
     Ok = vec {
       record {
-        1 : nat64;
+        0 : nat64;
         record {
           token = "Bitcoin-runes-UNCOMMON•GOODS";
           action = variant { Redeem };
           dst_chain = "Bitcoin";
           memo = null;
-          ticket_id = "2";
+          ticket_id = "bw4dl-smaaa-aaaaa-qaacq-cai_2";
           sender = null;
-          ticket_time = 1_712_656_910_883_921_827 : nat64;
+          ticket_time = 1_715_887_496_186_488_321 : nat64;
+          ticket_type = variant { Normal };
           src_chain = "eICP";
-          amount = "100";
-          receiver = "bcrt1psgwf8p9p45xeycm49jlkq5dqcmlc4y2xmwgyyla0ccz67rjaa5wqkkw7ts";
+          amount = "20000";
+          receiver = "bcrt1p38mc9erwfmkmssvs5w55fknq8x3wkq972j72ue5mv8hy35pfc4pssanhuf";
         };
       };
     }
@@ -316,18 +305,21 @@ $ dfx canister call omnity_hub query_tickets '(opt "Bitcoin", 0, 10)'
 )
 
 $ bitcoin-cli -conf=$(pwd)/bitcoin.conf generatetoaddress 1 bcrt1p0lj28skrcfnanufwdmll75338gk75rzh3ejkv9dvy3e0cdrsuh5qwq8pww
-$ dfx canister call bitcoin_customs update_btc_utxos
+# $ dfx canister call bitcoin_customs update_btc_utxos
 $ dfx canister call bitcoin_customs get_events '(record {start = 0; length = 100})'
 $ ./target/debug/ord -r --bitcoin-data-dir ~/dev/bitcoin/data --bitcoin-rpc-username ic-btc-integration --bitcoin-rpc-password QPQiNaph19FqUsCrBRN0FII7lyM26B51fAMeBQzCb-E= wallet --server-url http://127.0.0.1:23456 balance
 {
-  "cardinal": 74999969344,
+  "cardinal": 44999969305,
   "ordinal": 10000,
   "runes": {
-    "UNCOMMON•GOODS": 99400
+    "UNCOMMON•GOODS": "930200"
   },
   "runic": 10546,
-  "total": 74999989890
+  "total": 44999989851
 }
+
+$ dfx canister call bw4dl-smaaa-aaaaa-qaacq-cai icrc1_balance_of "(record {owner = principal \"o3dmw-dhvlv-7rh3g-eput4-g2pxm-linuy-4yh7a-n2pd4-7lhgk-4c4aq-bqe\"; })"
+(6_970_000 : nat)
 
 # -------------------redeem token script--------------------------------
 # deploy the hub_mock canister instead of omnity_hub

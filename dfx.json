@@ -15,7 +15,9 @@
       "gzip": true,
       "candid": "customs/bitcoin/bitcoin_customs.did",
       "package": "bitcoin_customs",
-      "type": "rust"
+      "type": "custom",
+      "wasm": "bitcoin_customs.wasm",
+      "build": "./build_script.sh"
     },
     "omnity_hub": {
       "gzip": true,
