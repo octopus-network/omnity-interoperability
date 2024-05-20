@@ -15,8 +15,7 @@ use omnity_hub::types::{
 use omnity_hub::{lifecycle, memory};
 use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
 use omnity_types::{
-    Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
-    TokenId, TokenOnChain, Topic,
+    Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId, TokenId, TokenOnChain, Topic
 };
 
 use omnity_hub::state::HubState;
@@ -61,6 +60,17 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
 pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
     proposal::execute_proposal(proposals).await
 }
+
+#[update(guard = "auth")]
+pub async fn add_token(tokens: Vec<TokenMeta>) -> Result<(), Error> {
+    let proposals: Vec<Proposal> = tokens.into_iter().map(Proposal::AddToken).collect();
+
+    // validate proposal
+    proposal::validate_proposal(&proposals).await?;
+    // exection proposal and generate directives
+    proposal::execute_proposal(proposals).await
+}
+
 /// check and build update fee directive and push it to the directive queue
 #[update(guard = "auth")]
 pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {

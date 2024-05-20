@@ -159,6 +159,7 @@ type Topic = variant { UpdateFee; AddToken; AddChain; ToggleChainState };
 type TxAction = variant { Redeem; Transfer };
 type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
+  add_token : (vec TokenMeta) -> (Result);
   execute_proposal : (vec Proposal) -> (Result);
   get_chain : (text) -> (Result_1) query;
   get_chain_metas : (nat64, nat64) -> (Result_2) query;
