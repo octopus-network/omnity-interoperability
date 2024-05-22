@@ -15,7 +15,8 @@ use omnity_hub::types::{
 use omnity_hub::{lifecycle, memory};
 use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
 use omnity_types::{
-    Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId, TokenId, TokenOnChain, Topic
+    Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
+    TokenId, TokenOnChain, Topic,
 };
 
 use omnity_hub::state::HubState;
@@ -169,16 +170,6 @@ pub async fn get_chains(
 }
 
 #[query]
-pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
-    metrics::get_chain_metas(offset, limit).await
-}
-
-#[query]
-pub async fn get_chain_size() -> Result<u64, Error> {
-    metrics::get_chain_size().await
-}
-
-#[query]
 pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     metrics::get_chain(chain_id).await
 }
@@ -193,16 +184,6 @@ pub async fn get_tokens(
     metrics::get_tokens(chain_id, token_id, offset, limit)
         .await
         .map(|tokens| tokens.iter().map(|t| t.clone().into()).collect())
-}
-
-#[query]
-pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
-    metrics::get_token_metas(offset, limit).await
-}
-
-#[query]
-pub async fn get_token_size() -> Result<u64, Error> {
-    metrics::get_token_size().await
 }
 
 #[query]
@@ -269,37 +250,57 @@ pub async fn set_logger_filter(filter: String) {
     LoggerConfigService::default().set_logger_filter(&filter);
 }
 
-#[query]
-pub async fn get_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
-    let max_skip_timestamp = time.unwrap_or(0);
-    StableLogWriter::get_logs(max_skip_timestamp, offset, limit)
-}
-
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
     StableLogWriter::http_request(req)
 }
 
-#[query]
+#[query(guard = "auth")]
+pub async fn get_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
+    let max_skip_timestamp = time.unwrap_or(0);
+    StableLogWriter::get_logs(max_skip_timestamp, offset, limit)
+}
+
+#[query(guard = "auth")]
 fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
 }
 
-#[query]
+#[query(guard = "auth")]
+pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
+    metrics::get_chain_metas(offset, limit).await
+}
+
+#[query(guard = "auth")]
+pub async fn get_chain_size() -> Result<u64, Error> {
+    metrics::get_chain_size().await
+}
+
+#[query(guard = "auth")]
+pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
+    metrics::get_token_metas(offset, limit).await
+}
+
+#[query(guard = "auth")]
+pub async fn get_token_size() -> Result<u64, Error> {
+    metrics::get_token_size().await
+}
+
+#[query(guard = "auth")]
 pub async fn get_directive_size() -> Result<u64, Error> {
     metrics::get_directive_size().await
 }
-#[query]
+#[query(guard = "auth")]
 pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
     metrics::get_directives(offset, limit).await
 }
 
-#[query]
+#[query(guard = "auth")]
 pub async fn sync_ticket_size() -> Result<u64, Error> {
     with_metrics(|metrics| metrics.sync_ticket_size())
 }
 
-#[query]
+#[query(guard = "auth")]
 pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
     with_metrics(|metrics| metrics.sync_tickets(offset, limit))
 }
@@ -319,8 +320,8 @@ mod tests {
         types::{ChainMeta, TokenMeta},
     };
     use omnity_types::{
-        ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket,  TicketType,
-        ToggleAction, ToggleState, TxAction,
+        ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketType, ToggleAction,
+        ToggleState, TxAction,
     };
 
     // use env_logger;
@@ -1114,7 +1115,6 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            
         };
 
         println!(
@@ -1171,7 +1171,6 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            
         };
 
         println!(
@@ -1262,7 +1261,6 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            
         };
 
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, a_2_b_ticket);
@@ -1310,7 +1308,6 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            
         };
 
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_c_ticket);
@@ -1359,7 +1356,6 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            
         };
 
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, c_2_b_ticket);
@@ -1402,7 +1398,6 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            
         };
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_a_ticket);
 
@@ -1480,7 +1475,6 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            
         };
 
         // Serialize the ticket.
