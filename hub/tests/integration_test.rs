@@ -1,8 +1,6 @@
 use ic_base_types::PrincipalId;
 use omnity_hub::types::Proposal;
-use omnity_types::{
-    ChainState, ChainType, Factor, FeeTokenFactor, Ticket, TicketStatus, TicketType, TxAction,
-};
+use omnity_types::{ChainState, ChainType, Factor, FeeTokenFactor, Ticket, TicketType, TxAction};
 use omnity_types::{ToggleAction, ToggleState, Topic};
 mod common;
 
@@ -312,7 +310,6 @@ fn test_a_b_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     println!(
@@ -355,7 +352,6 @@ fn test_a_b_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     println!(
@@ -421,7 +417,6 @@ fn test_a_b_c_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, a_2_b_ticket);
@@ -460,7 +455,6 @@ fn test_a_b_c_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_c_ticket);
@@ -501,7 +495,6 @@ fn test_a_b_c_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, c_2_b_ticket);
@@ -536,7 +529,6 @@ fn test_a_b_c_tx() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_a_ticket);
@@ -603,7 +595,6 @@ fn test_upgrade() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     let caller = Some(PrincipalId::new_user_test_id(3));
@@ -638,7 +629,6 @@ fn test_upgrade() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     assert!(result.is_ok());
@@ -689,7 +679,6 @@ fn test_upgrade() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     let caller = Some(PrincipalId::new_user_test_id(5));
@@ -722,7 +711,6 @@ fn test_upgrade() {
         sender: Some(sender.to_string()),
         receiver: receiver.to_string(),
         memo: None,
-        status: TicketStatus::Finalized,
     };
 
     let result = hub.send_ticket(&caller, &b_2_a_ticket);

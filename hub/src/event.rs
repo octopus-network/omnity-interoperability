@@ -375,7 +375,6 @@ mod tests {
                     sender: None,
                     receiver: Principal::anonymous().to_string(),
                     memo: None,
-                    status: omnity_types::TicketStatus::Finalized,
                 },
             },
         ];

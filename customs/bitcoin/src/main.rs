@@ -137,24 +137,6 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
 }
 
 #[query]
-fn get_pending_gen_ticket_size() -> u64 {
-    let size = read_state(|s| s.pending_gen_ticket_requests.len() as u64);
-    size
-}
-
-#[query]
-fn get_pending_gen_tickets(offset: usize, limit: usize) -> Vec<GenTicketRequest> {
-    read_state(|s| {
-        s.pending_gen_ticket_requests
-            .iter()
-            .skip(offset)
-            .take(limit)
-            .map(|(_, req)| req.to_owned())
-            .collect::<Vec<_>>()
-    })
-}
-
-#[query]
 fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequest> {
     let start = args.start_txid.map_or(Unbounded, |txid| Excluded(txid));
     let count = max(50, args.max_count) as usize;

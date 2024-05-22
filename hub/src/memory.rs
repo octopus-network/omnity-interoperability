@@ -10,7 +10,6 @@ use std::cell::RefCell;
 
 use omnity_types::{ChainId, Directive, SeqKey, Ticket, TicketId, TokenId, Topic};
 
-use crate::migration::PreTicket;
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 
 const UPGRADES: MemoryId = MemoryId::new(0);
@@ -29,7 +28,6 @@ const EVENT_INDEX_MEMORY_ID: MemoryId = MemoryId::new(12);
 const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(13);
 const METRIC_SEQS: MemoryId = MemoryId::new(14);
 const TICKET_METRIC: MemoryId = MemoryId::new(15);
-const LEDGER_V2: MemoryId = MemoryId::new(16);
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
 
@@ -97,10 +95,6 @@ pub fn get_ledger_memory() -> Memory {
     with_memory_manager(|m| m.get(LEDGER))
 }
 
-pub fn get_ledger_v2_memory() -> Memory {
-    with_memory_manager(|m| m.get(LEDGER_V2))
-}
-
 pub fn get_directive_memory() -> Memory {
     with_memory_manager(|m| m.get(DIRECTIVE))
 }
@@ -136,11 +130,8 @@ pub fn init_token_factor() -> StableBTreeMap<TokenKey, ChainTokenFactor, Memory>
 pub fn init_token_position() -> StableBTreeMap<TokenKey, Amount, Memory> {
     StableBTreeMap::init(get_token_position_memory())
 }
-pub fn init_ledger() -> StableBTreeMap<TicketId, PreTicket, Memory> {
+pub fn init_ledger() -> StableBTreeMap<TicketId, Ticket, Memory> {
     StableBTreeMap::init(get_ledger_memory())
-}
-pub fn init_ledger_v2() -> StableBTreeMap<TicketId, Ticket, Memory> {
-    StableBTreeMap::init(get_ledger_v2_memory())
 }
 
 pub fn init_directive() -> StableBTreeMap<String, Directive, Memory> {

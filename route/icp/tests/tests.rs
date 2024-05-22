@@ -20,7 +20,8 @@ use icrc_ledger_types::{
     icrc2::approve::{ApproveArgs, ApproveError},
 };
 use omnity_types::{
-    Chain, ChainState, ChainType, Directive, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketStatus, Token, TxAction
+    Chain, ChainState, ChainType, Directive, Factor, FeeTokenFactor, TargetChainFactor, Ticket,
+    Token, TxAction,
 };
 use std::{collections::HashMap, path::PathBuf, str::FromStr, time::Duration};
 
@@ -644,7 +645,6 @@ fn mint_token(
         sender: None,
         receiver: receiver,
         memo: None,
-        status: TicketStatus::Finalized,
     });
     route.env.advance_time(Duration::from_secs(5));
     route.await_finalization(ticket_id, 10);

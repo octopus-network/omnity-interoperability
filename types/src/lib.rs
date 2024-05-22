@@ -162,17 +162,6 @@ pub enum TicketType {
 #[derive(
     CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
-pub enum TicketStatus {
-    #[default]
-    Unknown,
-    WaitingForConfirmBySrc,
-    WaitingForConfirmByDest,
-    Finalized,
-}
-
-#[derive(
-    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
-)]
 pub struct Ticket {
     pub ticket_id: TicketId,
     pub ticket_type: TicketType,
@@ -185,7 +174,7 @@ pub struct Ticket {
     pub sender: Option<Account>,
     pub receiver: Account,
     pub memo: Option<Vec<u8>>,
-    pub status: TicketStatus,
+ 
 }
 
 impl Storable for Ticket {
@@ -207,7 +196,7 @@ impl core::fmt::Display for Ticket {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
-            "\nticket id:{} \nticket type:{:?} \ncreated time:{} \nsrc chain:{} \ndst_chain:{} \naction:{:?} \ntoken:{} \namount:{} \nsender:{:?} \nrecevier:{} \nmemo:{:?} \nstatus:{:?}",
+            "\nticket id:{} \nticket type:{:?} \ncreated time:{} \nsrc chain:{} \ndst_chain:{} \naction:{:?} \ntoken:{} \namount:{} \nsender:{:?} \nrecevier:{} \nmemo:{:?}",
             self.ticket_id,
             self.ticket_type,
             self.ticket_time,
@@ -219,7 +208,7 @@ impl core::fmt::Display for Ticket {
             self.sender,
             self.receiver,
             self.memo,
-            self.status,
+          
         )
     }
 }

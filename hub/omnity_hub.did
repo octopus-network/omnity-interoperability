@@ -105,7 +105,6 @@ type TargetChainFactor = record {
   target_chain_factor : nat;
 };
 type Ticket = record {
-  status : TicketStatus;
   token : text;
   action : TxAction;
   dst_chain : text;
@@ -117,12 +116,6 @@ type Ticket = record {
   src_chain : text;
   amount : text;
   receiver : text;
-};
-type TicketStatus = variant {
-  WaitingForConfirmBySrc;
-  Finalized;
-  WaitingForConfirmByDest;
-  Unknown;
 };
 type TicketType = variant { Resubmit; Normal };
 type ToggleAction = variant { Deactivate; Activate };

@@ -319,7 +319,7 @@ mod tests {
         types::{ChainMeta, TokenMeta},
     };
     use omnity_types::{
-        ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketStatus, TicketType,
+        ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket,  TicketType,
         ToggleAction, ToggleState, TxAction,
     };
 
@@ -1114,7 +1114,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            status: TicketStatus::Finalized,
+            
         };
 
         println!(
@@ -1171,7 +1171,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            status: TicketStatus::Finalized,
+            
         };
 
         println!(
@@ -1262,7 +1262,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            status: TicketStatus::Finalized,
+            
         };
 
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, a_2_b_ticket);
@@ -1310,7 +1310,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            status: TicketStatus::Finalized,
+            
         };
 
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_c_ticket);
@@ -1359,7 +1359,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            status: TicketStatus::Finalized,
+            
         };
 
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, c_2_b_ticket);
@@ -1402,7 +1402,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            status: TicketStatus::Finalized,
+            
         };
         println!(" {} -> {} ticket:{:#?}", src_chain, dst_chain, b_2_a_ticket);
 
@@ -1480,7 +1480,7 @@ mod tests {
             sender: Some(sender.to_string()),
             receiver: receiver.to_string(),
             memo: None,
-            status: TicketStatus::Finalized,
+            
         };
 
         // Serialize the ticket.
