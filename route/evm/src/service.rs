@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use candid::Principal;
@@ -9,6 +10,7 @@ use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{ecdsa_public_key, EcdsaPublicKeyArgument};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_cdk_timers::set_timer_interval;
 use itertools::Itertools;
 use k256::PublicKey;
 
@@ -20,20 +22,22 @@ use crate::eth_common::{
     broadcast, get_account_nonce, get_evm_finalized_height, get_gasprice, sign_transaction,
     EvmAddress,
 };
-use crate::evm_scan::{fetch_logs, handle_token_burn, handle_token_transport};
+use crate::evm_scan::{fetch_logs, handle_token_burn, handle_token_transport, scan_evm_task};
 use crate::state::{
     key_derivation_path, key_id, minter_addr, mutate_state, read_state, replace_state,
     EvmRouteState, InitArgs, StateProfile,
 };
 use crate::types::{Directive, Seq, Ticket};
 use crate::Error;
+use crate::hub_to_route::fetch_hub_periodic_task;
+use crate::route_to_evm::to_evm_task;
 
 #[init]
 fn init(args: InitArgs) {
     replace_state(EvmRouteState::init(args).expect("params error"));
-    /*  set_timer_interval(Duration::from_secs(10), fetch_hub_periodic_task);
+    set_timer_interval(Duration::from_secs(10), fetch_hub_periodic_task);
     set_timer_interval(Duration::from_secs(20), to_evm_task);
-    set_timer_interval(Duration::from_secs(30), scan_evm_task);*/
+    set_timer_interval(Duration::from_secs(30), scan_evm_task);
 }
 
 #[pre_upgrade]
@@ -44,16 +48,16 @@ fn pre_upgrade() {
 #[post_upgrade]
 fn post_upgrade() {
     EvmRouteState::post_upgrade();
-    /*
+
     set_timer_interval(Duration::from_secs(10), fetch_hub_periodic_task);
     set_timer_interval(Duration::from_secs(20), to_evm_task);
-    set_timer_interval(Duration::from_secs(30), scan_evm_task);*/
+    set_timer_interval(Duration::from_secs(30), scan_evm_task);
 }
 
 #[update]
-async fn init_chain_pubkey(canister_id: Principal) -> String {
+async fn init_chain_pubkey() -> String {
     let arg = EcdsaPublicKeyArgument {
-        canister_id: Some(canister_id),
+        canister_id: None,
         derivation_path: key_derivation_path(),
         key_id: key_id(),
     };
