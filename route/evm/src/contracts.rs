@@ -36,12 +36,17 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
                     factor.target_chain_factor,
                 )
                     .encode(),
-                Factor::UpdateFeeTokenFactor(factor) => (
-                    factor_index,
-                    factor.fee_token.clone(),
-                    factor.fee_token_factor,
-                )
-                    .encode(),
+                Factor::UpdateFeeTokenFactor(factor) => {
+                    if factor.fee_token != read_state(|s|s.fee_token_id.clone()){
+                        return vec![];
+                    }
+                    (
+                        factor_index,
+                        factor.fee_token.clone(),
+                        factor.fee_token_factor,
+                    )
+                        .encode()
+                },
             };
             Bytes::from(data)
         }
