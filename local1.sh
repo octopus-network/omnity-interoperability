@@ -40,7 +40,11 @@ $ dfx identity --identity default get-principal
 oqqew-3kok2-4ca2v-uwf4q-bykqb-yghly-kwet3-a5vqf-cu4ug-ztg4o-sqe
  dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "oqqew-3kok2-4ca2v-uwf4q-bykqb-yghly-kwet3-a5vqf-cu4ug-ztg4o-sqe"} })'
  dfx deploy bitcoin_customs --argument '(variant { Init = record { mode = variant { GeneralAvailability }; btc_network = variant { Regtest }; hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; ecdsa_key_name = "dfx_test_key"; min_confirmations = opt 1; max_time_in_queue_nanos = 1_000_000_000; runes_oracle_principal = principal "oqqew-3kok2-4ca2v-uwf4q-bykqb-yghly-kwet3-a5vqf-cu4ug-ztg4o-sqe"; chain_id = "Bitcoin"; chain_state = variant { Active } } })'
- dfx deploy icp_route --argument '(variant { Init = record { hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; chain_id = "eICP"; chain_state = variant { Active } } })'
+# dfx deploy icp_route --argument '(variant { Init = record { hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; chain_id = "eICP"; chain_state = variant { Active } } })'
+#deploy evm_rpc
+dfx deploy evm_rpc --argument '(record { nodesInSubnet = 28 })'
+#deploy cdk route
+dfx deploy evm_route --argument '(record { fee_token_id = "BTC" network = variant { local }; omnity_port_contract = "0x765F2c1F334E6479Be5D5F8f2E12128612f47CE3"; scan_start_height = 200000; evm_rpc_canister_addr = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai";  evm_chain_id = 11155111; admin = principal "oqqew-3kok2-4ca2v-uwf4q-bykqb-yghly-kwet3-a5vqf-cu4ug-ztg4o-sqe"; hub_principal = principal "be2us-64aaa-aaaaa-qaabq-cai"; chain_id = "cdk_sepolia"; rpc_url = "https://rpc-sepolia.rockx.com";})'
 
 # https://github.com/lesterli/ord/blob/docs/runes/docs/src/guides/runes.md
 $ git clone https://github.com/octopus-network/ord.git

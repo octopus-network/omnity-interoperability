@@ -27,6 +27,9 @@ pub async fn send_directives_to_evm() {
             }
             Some(d) => {
                 let data = gen_execute_directive_data(&d, U256::from(seq));
+                if data.is_empty() {
+                    continue;
+                }
                 let nonce = get_account_nonce(minter_addr()).await.unwrap_or_default();
                 let fee = match d {
                     Directive::AddToken(_) => Some(2000000u32),
