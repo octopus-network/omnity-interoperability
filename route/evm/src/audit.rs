@@ -41,7 +41,6 @@ pub fn finalize_mint_token_req(
         .insert(ticket_id, finalized_block_index);
 }
 
-
 pub fn update_fee(state: &mut EvmRouteState, fee: Factor) {
     // record_event(&Event::UpdatedFee { fee: fee.clone() });
     match fee {

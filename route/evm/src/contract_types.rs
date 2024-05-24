@@ -106,8 +106,7 @@ pub struct TokenTransportRequested {
 
 impl DecodeLog for TokenTransportRequested {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> {
-        let (dst_chain_id, token_id, receiver, amount, memo) =
-            AbiDecode::decode(&log.data)?;
+        let (dst_chain_id, token_id, receiver, amount, memo) = AbiDecode::decode(&log.data)?;
         Ok(Self {
             dst_chain_id,
             token_id,
@@ -167,10 +166,10 @@ impl DecodeLog for DirectiveExecuted {
 
 #[cfg(test)]
 mod test {
+    use crate::contract_types::{AbiSignature, TokenBurned};
     use ethers_contract::abigen;
     use ethers_core::abi::{ethereum_types, AbiEncode};
     use ethers_core::types::{Bytes, U256};
-    use crate::contract_types::{AbiSignature, TokenBurned};
     abigen!(
         OmnityPortContract,
         r#"[

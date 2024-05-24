@@ -16,7 +16,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     let data = match directive {
         Directive::AddChain(_) => {
             return vec![];
-        },
+        }
         Directive::AddToken(token) => Bytes::from(
             (
                 token.token_id_info()[0].to_string(),
@@ -29,9 +29,9 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
                 .encode(),
         ),
         Directive::ToggleChainState(t) => {
-            if t.chain_id == read_state(|s|s.omnity_chain_id.clone()) {
+            if t.chain_id == read_state(|s| s.omnity_chain_id.clone()) {
                 Bytes::from(t.chain_id.clone().encode())
-            }  else {
+            } else {
                 return vec![];
             }
         }
@@ -45,7 +45,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
                 )
                     .encode(),
                 Factor::UpdateFeeTokenFactor(factor) => {
-                    if factor.fee_token != read_state(|s|s.fee_token_id.clone()){
+                    if factor.fee_token != read_state(|s| s.fee_token_id.clone()) {
                         return vec![];
                     }
                     (
@@ -54,7 +54,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
                         factor.fee_token_factor,
                     )
                         .encode()
-                },
+                }
             };
             Bytes::from(data)
         }

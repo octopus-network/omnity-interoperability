@@ -64,7 +64,7 @@ pub async fn send_directives_to_evm() {
     let from = read_state(|s| s.next_consume_directive_seq);
     let to = read_state(|s| s.next_directive_seq);
     for seq in from..to {
-       send_one_directive(seq).await;
+        send_one_directive(seq).await;
     }
     mutate_state(|s| s.next_consume_directive_seq = to);
 }

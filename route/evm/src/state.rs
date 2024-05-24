@@ -55,7 +55,7 @@ impl EvmRouteState {
                 url: args.rpc_url.clone(),
                 headers: None,
             }],
-            omnity_port_contract: EvmAddress([0u8;20]),
+            omnity_port_contract: EvmAddress([0u8; 20]),
             fee_token_factor: None,
             target_chain_factor: Default::default(),
             next_ticket_seq: 0,

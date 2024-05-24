@@ -3,21 +3,21 @@ use std::time::Duration;
 
 use ethers_core::abi::ethereum_types;
 use ethers_core::utils::keccak256;
-use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk::api::management_canister::ecdsa::{ecdsa_public_key, EcdsaPublicKeyArgument};
+use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use k256::PublicKey;
 
-use crate::Error;
 use crate::eth_common::EvmAddress;
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::fetch_hub_periodic_task;
 use crate::route_to_evm::{send_one_directive, to_evm_task};
 use crate::state::{
-    EvmRouteState, InitArgs, key_derivation_path, key_id, mutate_state,
-    read_state, replace_state, StateProfile,
+    key_derivation_path, key_id, mutate_state, read_state, replace_state, EvmRouteState, InitArgs,
+    StateProfile,
 };
 use crate::types::{Seq, Ticket};
+use crate::Error;
 
 #[init]
 fn init(args: InitArgs) {
@@ -62,12 +62,15 @@ async fn init_chain_pubkey() -> String {
 }
 
 #[query]
-fn get_ticket(ticket_id: String) -> Option<(u64,Ticket)> {
-    let r = read_state(|s| s.tickets_queue.iter().filter(|(_seq, t)|t.ticket_id == ticket_id).collect::<Vec<_>>());
+fn get_ticket(ticket_id: String) -> Option<(u64, Ticket)> {
+    let r = read_state(|s| {
+        s.tickets_queue
+            .iter()
+            .filter(|(_seq, t)| t.ticket_id == ticket_id)
+            .collect::<Vec<_>>()
+    });
     r.first().cloned()
 }
-
-
 
 #[query]
 fn pubkey_and_evm_addr() -> (String, String) {
