@@ -14,7 +14,9 @@ pub type PortContractFactorTypeIndex = u8;
 pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     let index: PortContractCommandIndex = directive.clone().into();
     let data = match directive {
-        Directive::AddChain(c) => Bytes::from(c.chain_id.clone().encode()),
+        Directive::AddChain(_) => {
+            return vec![];
+        },
         Directive::AddToken(token) => Bytes::from(
             (
                 token.token_id_info()[0].to_string(),
@@ -26,7 +28,13 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
             )
                 .encode(),
         ),
-        Directive::ToggleChainState(t) => Bytes::from(t.chain_id.clone().encode()),
+        Directive::ToggleChainState(t) => {
+            if t.chain_id == read_state(|s|s.omnity_chain_id.clone()) {
+                Bytes::from(t.chain_id.clone().encode())
+            }  else {
+                return vec![];
+            }
+        }
         Directive::UpdateFee(f) => {
             let factor_index: PortContractFactorTypeIndex = f.clone().into();
             let data = match f {

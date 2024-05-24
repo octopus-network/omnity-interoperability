@@ -25,9 +25,9 @@ pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
 
 #[derive(Error, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum EvmAddressError {
-    #[error("Bytes is longer than 29 bytes.")]
+    #[error("Bytes isn't 20 bytes.")]
     LengthError,
-    #[error("Bytes is longer than 29 bytes.")]
+    #[error("String is not a hex string.")]
     FormatError,
 }
 

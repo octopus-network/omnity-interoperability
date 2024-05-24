@@ -101,27 +101,25 @@ pub struct TokenTransportRequested {
     pub token_id: String,
     pub receiver: String,
     pub amount: U256,
-    pub channel_id: String,
     pub memo: String,
 }
 
 impl DecodeLog for TokenTransportRequested {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> {
-        let (dst_chain_id, token_id, receiver, amount, channel_id, memo) =
+        let (dst_chain_id, token_id, receiver, amount, memo) =
             AbiDecode::decode(&log.data)?;
         Ok(Self {
             dst_chain_id,
             token_id,
             receiver,
             amount,
-            channel_id,
             memo,
         })
     }
 }
 impl AbiSignature for TokenTransportRequested {
     fn abi_signature() -> String {
-        "TokenTransportRequested(string,string,string,uint256,string,string)".into()
+        "TokenTransportRequested(string,string,string,uint256,string)".into()
     }
 }
 
@@ -130,23 +128,21 @@ pub struct TokenBurned {
     pub token_id: String,
     pub receiver: String,
     pub amount: ethereum_types::U256,
-    pub channel_id: String,
 }
 
 impl AbiSignature for TokenBurned {
     fn abi_signature() -> String {
-        "TokenBurned(string,string,uint256,string)".to_string()
+        "TokenBurned(string,string,uint256)".to_string()
     }
 }
 
 impl DecodeLog for TokenBurned {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> {
-        let (token_id, receiver, amount, channel_id) = AbiDecode::decode(&log.data)?;
+        let (token_id, receiver, amount) = AbiDecode::decode(&log.data)?;
         Ok(Self {
             token_id,
             receiver,
             amount,
-            channel_id,
         })
     }
 }
@@ -174,14 +170,15 @@ mod test {
     use ethers_contract::abigen;
     use ethers_core::abi::{ethereum_types, AbiEncode};
     use ethers_core::types::{Bytes, U256};
+    use crate::contract_types::{AbiSignature, TokenBurned};
     abigen!(
         OmnityPortContract,
         r#"[
         function privilegedMintToken(string tokenId,address receiver,uint256 amount,string memory ticketId, string memory memo) external
         function privilegedExecuteDirective(bytes memory directiveBytes) external
         event TokenMinted(string tokenId,address receiver,uint256 amount,uint256 ticketId,string memo)
-        event TokenTransportRequested(string dstChainId,string tokenId,string receiver,uint256 amount,string channelId,string memo)
-        event TokenBurned(string tokenId,string receiver,uint256 amount,string channelId)
+        event TokenTransportRequested(string dstChainId,string tokenId,string receiver,uint256 amount,string memo)
+        event TokenBurned(string tokenId,string receiver,uint256 amount)
         event DirectiveExecuted(uint256 seq)
         function tsx(string id)
     ]"#,
@@ -200,7 +197,7 @@ mod test {
 
         let call2 = crate::contract_types::PrivilegedMintTokenCall {
             token_id: "122".to_string(),
-            receiver: ethereum_types::Address::from([0u8; 20]),
+            receiver: ethereum_types::Address::from([1u8; 20]),
             amount: U256::from(10),
             ticket_id: "U256::from(1000)".to_string(),
             memo: "".to_string(),
@@ -215,5 +212,6 @@ mod test {
             directive_bytes: Bytes::from("hahah".as_bytes().to_vec()),
         };
         assert_eq!(call1.encode(), call2.encode());
+        println!("{}", hex::encode(TokenBurned::signature_hash()));
     }
 }

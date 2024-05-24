@@ -7,13 +7,11 @@ use std::str::FromStr;
 
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
-pub const ICP_TRANSFER_FEE: u64 = 10_000;
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return;
     }
-
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
