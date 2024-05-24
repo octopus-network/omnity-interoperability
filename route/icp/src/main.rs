@@ -1,4 +1,4 @@
-use candid::{Nat, Principal};
+use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::call::call;
 use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
@@ -17,7 +17,6 @@ use icp_route::updates::generate_ticket::{
 };
 use icp_route::updates::{self};
 use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
-use icrc_ledger_types::icrc::generic_metadata_value::MetadataValue;
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::time::Duration;
@@ -108,28 +107,13 @@ pub async fn controlled_canister_status(
 #[update(guard = "is_controller")]
 pub async fn update_icrc_ledger(
     ledger_id: Principal,
-    transfer_fee: Option<Nat>,
-    metadata: Option<Vec<(String, MetadataValue)>>,
+    upgrade_args: ic_icrc1_ledger::UpgradeArgs,
 ) -> Result<(), String> {
     if !read_state(|s| s.token_ledgers.iter().any(|(_, id)| *id == ledger_id)) {
         return Err("leder id not found!".into());
     }
 
-    upgrade_icrc2_ledger(
-        ledger_id,
-        ic_icrc1_ledger::UpgradeArgs {
-            metadata,
-            token_name: None,
-            token_symbol: None,
-            transfer_fee,
-            change_fee_collector: None,
-            max_memo_length: None,
-            feature_flags: None,
-            maximum_number_of_accounts: None,
-            accounts_overflow_trim_quantity: None,
-        },
-    )
-    .await
+    upgrade_icrc2_ledger(ledger_id, upgrade_args).await
 }
 
 #[query]

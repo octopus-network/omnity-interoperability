@@ -13,6 +13,7 @@ use icp_route::{
     TokenResp, FEE_COLLECTOR_SUB_ACCOUNT,
 };
 use icrc_ledger_types::{
+    icrc::{generic_metadata_value::MetadataValue, generic_value::Value},
     icrc1::{
         account::{Account, Subaccount},
         transfer::{TransferArg, TransferError},
@@ -462,7 +463,23 @@ impl RouteSetup {
         .unwrap()
     }
 
-    pub fn update_icrc_ledger(&self, ledger_id: Principal, transfer_fee: Option<Nat>) {
+    pub fn update_icrc_ledger(
+        &self,
+        ledger_id: Principal,
+        transfer_fee: Option<Nat>,
+        symbol: Option<String>,
+    ) {
+        let upgrade_ars = ic_icrc1_ledger::UpgradeArgs {
+            metadata: None,
+            token_name: None,
+            token_symbol: symbol,
+            transfer_fee,
+            change_fee_collector: None,
+            max_memo_length: None,
+            feature_flags: None,
+            maximum_number_of_accounts: None,
+            accounts_overflow_trim_quantity: None,
+        };
         let _ = Decode!(
             &assert_reply(
                 self.env
@@ -470,7 +487,7 @@ impl RouteSetup {
                         self.caller,
                         self.route_id,
                         "update_icrc_ledger",
-                        Encode!(&ledger_id, &transfer_fee).unwrap(),
+                        Encode!(&ledger_id, &upgrade_ars).unwrap(),
                     )
                     .expect("failed to update icrc ledger")
             ),
@@ -502,6 +519,23 @@ impl RouteSetup {
                     .expect("failed to get token ledger")
             ),
             Nat
+        )
+        .unwrap()
+    }
+
+    pub fn icrc1_metadata(&self, ledger_id: CanisterId) -> Vec<(String, Value)> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        ledger_id,
+                        "icrc1_metadata",
+                        Encode!().unwrap(),
+                    )
+                    .expect("failed to get token ledger")
+            ),
+            Vec<(String, Value)>
         )
         .unwrap()
     }
@@ -595,7 +629,7 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
     let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
 
     // route.update_icrc_transfer_fee(ledger_id.into(), 100_u128.into());
-    route.update_icrc_ledger(ledger_id.into(), Some(100_u128.into()));
+    route.update_icrc_ledger(ledger_id.into(), Some(100_u128.into()), None);
 }
 
 fn set_fee(route: &RouteSetup) {
@@ -610,7 +644,7 @@ fn set_fee(route: &RouteSetup) {
         })),
     ]);
 
-    route.env.advance_time(Duration::from_secs(10));
+    route.env.advance_time(Duration::from_secs(20));
     route.await_fee(10);
 }
 
@@ -686,7 +720,7 @@ fn test_mint_token_to_account() {
     let receiver =
         Principal::from_str("hsefg-sb4rm-qb5o2-vzqqa-ugrfq-tpdli-tazi3-3lmja-ur77u-tfncz-jqe")
             .unwrap();
-    let subaccount: Subaccount =  [1; 32];
+    let subaccount: Subaccount = [1; 32];
     let receiver_account = Account {
         owner: receiver,
         subaccount: Some(subaccount.clone()),
@@ -866,4 +900,25 @@ pub fn test_transfer_fee() {
     assert_eq!(receiver_balance, Nat::from_str("1000000").unwrap());
     assert_eq!(caller_balance, Nat::from_str("0").unwrap());
     assert_eq!(fee_collector_balance, Nat::from_str("100").unwrap());
+}
+
+#[test]
+fn test_update_metadata() {
+    let route = RouteSetup::new();
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    let token_ledger = route.get_token_ledger(TOKEN_ID1.into());
+
+    route.update_icrc_ledger(token_ledger.into(), None, Some("RICH".to_string()));
+
+    let metadata = route.icrc1_metadata(token_ledger.into());
+    assert_eq!(
+        "RICH",
+        metadata
+            .iter()
+            .find(|(k, _)| k == "icrc1:symbol")
+            .unwrap()
+            .1
+            .to_string()
+            .as_str()
+    );
 }

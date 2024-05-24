@@ -100,4 +100,12 @@ pub async fn upgrade_icrc2_ledger(
     install_code(install_code_arg)
         .await
         .map_err(|(_, reason)| reason)
+
+    // upgrade_canister(canister_id, upgrade_args).await
+    // let upgrade_args: Option<LedgerArgument> = Some(LedgerArgument::Upgrade(Some(upgrade_args)));
+    // ic_cdk::api::call::call(
+    //     canister_id.try_into().unwrap(),
+    //     "post_upgrade",
+    //     (upgrade_args,)
+    // ).await.map_err(|(_, reason)| reason)
 }
