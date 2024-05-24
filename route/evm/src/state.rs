@@ -17,7 +17,6 @@ use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
-use std::str::FromStr;
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
@@ -27,7 +26,6 @@ thread_local! {
 pub struct InitArgs {
     pub evm_chain_id: u64,
     pub admin: Principal,
-    pub omnity_port_contract: String,
     pub hub_principal: Principal,
     pub network: Network,
     pub evm_rpc_canister_addr: Principal,
@@ -57,8 +55,9 @@ impl EvmRouteState {
                 url: args.rpc_url.clone(),
                 headers: None,
             }],
-            omnity_port_contract: EvmAddress::from_str(args.omnity_port_contract.as_str())
-                .expect("omnity port contract address error"),
+            omnity_port_contract: EvmAddress([0u8;20]),
+            fee_token_factor: None,
+            target_chain_factor: Default::default(),
             next_ticket_seq: 0,
             next_directive_seq: 0,
             next_consume_ticket_seq: 0,
@@ -101,15 +100,10 @@ impl EvmRouteState {
         let mut state_len_bytes = [0; 4];
         memory.read(0, &mut state_len_bytes);
         let state_len = u32::from_le_bytes(state_len_bytes) as usize;
-
-        // Read the bytes
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
-
-        // Deserialize and set the state.
         let state: EvmRouteState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-
         STATE.with(|s| *s.borrow_mut() = Some(state));
     }
 }
@@ -131,6 +125,8 @@ pub struct EvmRouteState {
     pub pubkey: Vec<u8>,
     pub rpc_privders: Vec<RpcApi>,
     pub omnity_port_contract: EvmAddress,
+    pub fee_token_factor: Option<u128>,
+    pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub next_ticket_seq: u64,
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
@@ -144,7 +140,6 @@ pub struct EvmRouteState {
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
     #[serde(skip, default = "crate::stable_memory::init_pending_directive_map")]
     pub pending_directive_map: StableBTreeMap<Seq, PendingDirectiveStatus, Memory>,
-
     pub scan_start_height: u64,
     #[serde(skip)]
     pub is_timer_running: bool,
@@ -174,6 +169,8 @@ impl From<&EvmRouteState> for StateProfile {
             rpc_providers: v.rpc_privders.clone(),
             tickets: t,
             start_scan_height: v.scan_start_height,
+            fee_token_factor: v.fee_token_factor,
+            target_chain_factor: v.target_chain_factor.clone(),
         }
     }
 }
@@ -200,6 +197,8 @@ pub struct StateProfile {
     pub tickets: Vec<(u64, Ticket)>,
     pub rpc_providers: Vec<RpcApi>,
     pub start_scan_height: u64,
+    pub fee_token_factor: Option<u128>,
+    pub target_chain_factor: BTreeMap<ChainId, u128>,
 }
 
 pub fn is_active() -> bool {

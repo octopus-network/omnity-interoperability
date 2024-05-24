@@ -41,12 +41,10 @@ pub fn finalize_mint_token_req(
         .insert(ticket_id, finalized_block_index);
 }
 
-/*pub fn finalize_gen_ticket(ticket_id: String, request: GenerateTicketReq) {
-   // record_event(&Event::FinalizedGenTicket { ticket_id, request })
-}*/
+
 pub fn update_fee(state: &mut EvmRouteState, fee: Factor) {
     // record_event(&Event::UpdatedFee { fee: fee.clone() });
-    /*  match fee {
+    match fee {
         Factor::UpdateTargetChainFactor(factor) => {
             state
                 .target_chain_factor
@@ -54,9 +52,9 @@ pub fn update_fee(state: &mut EvmRouteState, fee: Factor) {
         }
 
         Factor::UpdateFeeTokenFactor(token_factor) => {
-            if token_factor.fee_token == "LICP" {
+            if token_factor.fee_token == state.fee_token_id.clone() {
                 state.fee_token_factor = Some(token_factor.fee_token_factor);
             }
         }
-    }*/
+    }
 }

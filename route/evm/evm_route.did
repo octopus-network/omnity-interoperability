@@ -9,24 +9,12 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
-type Directive = variant {
-  UpdateFee : Factor;
-  AddToken : Token;
-  AddChain : Chain;
-  ToggleChainState : ToggleState;
-};
 type EcdsaCurve = variant { secp256k1 };
 type EcdsaKeyId = record { name : text; curve : EcdsaCurve };
-type Factor = variant {
-  UpdateFeeTokenFactor : FeeTokenFactor;
-  UpdateTargetChainFactor : TargetChainFactor;
-};
-type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type HttpHeader = record { value : text; name : text };
 type InitArgs = record {
   evm_chain_id : nat64;
   admin : principal;
-  omnity_port_contract : text;
   hub_principal : principal;
   network : Network;
   fee_token_id : text;
@@ -34,17 +22,6 @@ type InitArgs = record {
   rpc_url : text;
   evm_rpc_canister_addr : principal;
   scan_start_height : nat64;
-};
-type LogEntry = record {
-  transactionHash : opt text;
-  blockNumber : opt nat;
-  data : text;
-  blockHash : opt text;
-  transactionIndex : opt nat;
-  topics : vec text;
-  address : text;
-  logIndex : opt nat;
-  removed : bool;
 };
 type Network = variant { mainnet; local; testnet };
 type RpcApi = record { url : text; headers : opt vec HttpHeader };
@@ -64,15 +41,13 @@ type StateProfile = record {
   key_derivation_path : vec vec nat8;
   omnity_chain_id : text;
   tokens : vec record { text; Token };
+  target_chain_factor : vec record { text; nat };
   evm_rpc_addr : principal;
   counterparties : vec record { text; Chain };
   next_ticket_seq : nat64;
   rpc_providers : vec RpcApi;
   chain_state : ChainState;
-};
-type TargetChainFactor = record {
-  target_chain_id : text;
-  target_chain_factor : nat;
+  fee_token_factor : opt nat;
 };
 type Ticket = record {
   token : text;
@@ -88,8 +63,6 @@ type Ticket = record {
   receiver : text;
 };
 type TicketType = variant { Resubmit; Normal };
-type ToggleAction = variant { Deactivate; Activate };
-type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -100,14 +73,12 @@ type Token = record {
 };
 type TxAction = variant { Redeem; Transfer };
 service : (InitArgs) -> {
+  get_ticket : (text) -> (opt record { nat64; Ticket }) query;
   init_chain_pubkey : () -> (text);
   pubkey_and_evm_addr : () -> (text, text) query;
+  resend_directive : (nat64) -> ();
   route_state : () -> (StateProfile) query;
   set_evm_chain_id : (nat64) -> ();
   set_omnity_port_contract_addr : (text) -> ();
-  test_get_finalized_height : () -> (nat64);
-  test_scan_blocks : (nat64, nat64) -> (vec LogEntry);
-  test_send_directive_to_evm : (Directive, nat64) -> (text);
-  test_send_ticket_to_evm : (Ticket) -> (text);
-  test_set_rpc_url : (text) -> ();
+  set_scan_height : (nat64) -> ();
 }
