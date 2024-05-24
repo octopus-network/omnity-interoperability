@@ -2,7 +2,7 @@
 # https://internetcomputer.org/docs/current/developer-docs/integrations/bitcoin/local-development#setting-up-a-local-bitcoin-network
 $ bitcoind -conf=$(pwd)/bitcoin.conf -datadir=$(pwd)/data --port=18444
 $ cd omnity
-git checkout feature/rename-evm
+git checkout feature/route-evm
 $ dfx stop
 $ dfx start --clean
 $ cargo clean
