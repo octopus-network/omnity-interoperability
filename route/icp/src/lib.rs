@@ -21,6 +21,7 @@ pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
 pub const ICP_TRANSFER_FEE: u64 = 10_000;
 pub const FEE_COLLECTOR_SUB_ACCOUNT: &Subaccount = &[1; 32];
+pub const BLOCK_HOLE_ADDRESS: &str = "e3mmv-5qaaa-aaaah-aadma-cai";
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {

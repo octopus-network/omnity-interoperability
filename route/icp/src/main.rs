@@ -1,7 +1,10 @@
-use candid::{Nat, Principal};
+use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::call::call;
-use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
+use ic_cdk::api::management_canister::main::{
+    canister_info, update_settings, CanisterIdRecord, CanisterInfoRequest, CanisterSettings,
+    CanisterStatusResponse, UpdateSettingsArgument,
+};
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
@@ -17,7 +20,6 @@ use icp_route::updates::generate_ticket::{
 };
 use icp_route::updates::{self};
 use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
-use icrc_ledger_types::icrc::generic_metadata_value::MetadataValue;
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::time::Duration;
@@ -106,30 +108,80 @@ pub async fn controlled_canister_status(
 }
 
 #[update(guard = "is_controller")]
+pub async fn add_controller(canister_id: Principal, controller: Principal) -> Result<(), String> {
+    let args = CanisterInfoRequest {
+        canister_id,
+        num_requested_changes: None,
+    };
+
+    let canister_info = canister_info(args).await.map_err(|(_, reason)| reason)?;
+
+    let mut controllers = canister_info.0.controllers;
+
+    if !controllers.contains(&controller) {
+        controllers.push(controller);
+        let args = UpdateSettingsArgument {
+            canister_id,
+            settings: CanisterSettings {
+                controllers: Some(controllers),
+                compute_allocation: None,
+                memory_allocation: None,
+                freezing_threshold: None,
+                reserved_cycles_limit: None,
+            },
+        };
+        return update_settings(args).await.map_err(|(_, reason)| reason);
+    } else {
+        Ok(())
+    }
+}
+
+#[update(guard = "is_controller")]
+pub async fn remove_controller(
+    canister_id: Principal,
+    controller: Principal,
+) -> Result<(), String> {
+    let args = CanisterInfoRequest {
+        canister_id,
+        num_requested_changes: None,
+    };
+
+    let canister_info = canister_info(args).await.map_err(|(_, reason)| reason)?;
+
+    let controllers = canister_info.0.controllers;
+
+    if controllers.contains(&controller) {
+        let args = UpdateSettingsArgument {
+            canister_id,
+            settings: CanisterSettings {
+                controllers: Some(
+                    controllers
+                        .into_iter()
+                        .filter(|c| c.ne(&controller))
+                        .collect(),
+                ),
+                compute_allocation: None,
+                memory_allocation: None,
+                freezing_threshold: None,
+                reserved_cycles_limit: None,
+            },
+        };
+        return update_settings(args).await.map_err(|(_, reason)| reason);
+    } else {
+        Ok(())
+    }
+}
+
+#[update(guard = "is_controller")]
 pub async fn update_icrc_ledger(
     ledger_id: Principal,
-    transfer_fee: Option<Nat>,
-    metadata: Option<Vec<(String, MetadataValue)>>,
+    upgrade_args: ic_icrc1_ledger::UpgradeArgs,
 ) -> Result<(), String> {
     if !read_state(|s| s.token_ledgers.iter().any(|(_, id)| *id == ledger_id)) {
         return Err("leder id not found!".into());
     }
 
-    upgrade_icrc2_ledger(
-        ledger_id,
-        ic_icrc1_ledger::UpgradeArgs {
-            metadata,
-            token_name: None,
-            token_symbol: None,
-            transfer_fee,
-            change_fee_collector: None,
-            max_memo_length: None,
-            feature_flags: None,
-            maximum_number_of_accounts: None,
-            accounts_overflow_trim_quantity: None,
-        },
-    )
-    .await
+    upgrade_icrc2_ledger(ledger_id, upgrade_args).await
 }
 
 #[query]
