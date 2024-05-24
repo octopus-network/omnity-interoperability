@@ -1,10 +1,10 @@
 use crate::state::{audit, mutate_state, read_state};
-use crate::{FEE_COLLECTOR_SUB_ACCOUNT, ICRC2_WASM};
+use crate::{BLOCK_HOLE_ADDRESS, FEE_COLLECTOR_SUB_ACCOUNT, ICRC2_WASM};
 use candid::{CandidType, Deserialize};
 use candid::{Encode, Principal};
 use ic_cdk::api::management_canister::main::{
-    create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CreateCanisterArgument,
-    InstallCodeArgument,
+    create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CanisterSettings,
+    CreateCanisterArgument, InstallCodeArgument,
 };
 use ic_icrc1_ledger::{
     ArchiveOptions, InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument, UpgradeArgs,
@@ -45,7 +45,18 @@ async fn install_icrc2_ledger(
     token_decimal: u8,
     token_icon: Option<String>,
 ) -> Result<CanisterIdRecord, String> {
-    let create_canister_arg = CreateCanisterArgument { settings: None };
+    let create_canister_arg = CreateCanisterArgument {
+        settings: Some(CanisterSettings {
+            controllers: Some(vec![
+                ic_cdk::id(),
+                Principal::from_text(BLOCK_HOLE_ADDRESS).unwrap(),
+            ]),
+            compute_allocation: None,
+            memory_allocation: None,
+            freezing_threshold: None,
+            reserved_cycles_limit: None,
+        }),
+    };
     let (canister_id_record,) = create_canister(create_canister_arg, 500_000_000_000)
         .await
         .map_err(|(_, reason)| reason)?;
@@ -100,12 +111,4 @@ pub async fn upgrade_icrc2_ledger(
     install_code(install_code_arg)
         .await
         .map_err(|(_, reason)| reason)
-
-    // upgrade_canister(canister_id, upgrade_args).await
-    // let upgrade_args: Option<LedgerArgument> = Some(LedgerArgument::Upgrade(Some(upgrade_args)));
-    // ic_cdk::api::call::call(
-    //     canister_id.try_into().unwrap(),
-    //     "post_upgrade",
-    //     (upgrade_args,)
-    // ).await.map_err(|(_, reason)| reason)
 }

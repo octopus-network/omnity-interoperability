@@ -1,6 +1,8 @@
 use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
-use ic_cdk::api::management_canister::main::{CanisterStatusResponse, CanisterStatusType};
+use ic_cdk::api::management_canister::main::{
+    CanisterInfoRequest, CanisterInfoResponse, CanisterStatusResponse, CanisterStatusType,
+};
 use ic_ic00_types::CanisterSettingsArgsBuilder;
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
@@ -408,6 +410,62 @@ impl RouteSetup {
         )
         .unwrap();
         return r;
+    }
+
+    pub fn add_controller(&self, canister_id: Principal, controller: Principal) {
+        let r = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.route_id,
+                        "add_controller",
+                        Encode!(&canister_id, &controller).unwrap(),
+                    )
+                    .expect("Failed to add_controller")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
+    pub fn remove_controller(&self, canister_id: Principal, controller: Principal) {
+        let r = Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.caller,
+                        self.route_id,
+                        "remove_controller",
+                        Encode!(&canister_id, &controller).unwrap(),
+                    )
+                    .expect("Failed to remove_controller")
+            ),
+            Result<(), String>
+        )
+        .unwrap()
+        .unwrap();
+    }
+
+    pub fn canister_info(&self, arg: CanisterInfoRequest) -> CanisterInfoResponse {
+        let management_principal = Principal::management_canister();
+        let canister_id = CanisterId::unchecked_from_principal(management_principal.into());
+        // let route_principle = self.route_id
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        self.route_id.into(),
+                        canister_id,
+                        "canister_info",
+                        Encode!(&arg).unwrap(),
+                    )
+                    .expect("failed to get token ledger")
+            ),
+            CanisterInfoResponse
+        )
+        .unwrap()
     }
 
     pub fn get_token_ledger(&self, token_id: String) -> CanisterId {
@@ -921,4 +979,23 @@ fn test_update_metadata() {
             .to_string()
             .as_str()
     );
+}
+
+#[test]
+pub fn test_add_remove_controller() {
+    let route = RouteSetup::new();
+    add_chain(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    let new_controller = PrincipalId::new_user_test_id(3);
+    route.add_controller(token_canister_id.into(), new_controller.into());
+
+    let r = route.env.canister_status(token_canister_id.into());
+    assert!(format!("{:?}", r).contains(new_controller.to_string().as_str()));
+
+    route.remove_controller(token_canister_id.into(), new_controller.into());
+
+    let r = route.env.canister_status(token_canister_id.into());
+    assert!(!format!("{:?}", r).contains(new_controller.to_string().as_str()));
 }

@@ -1,7 +1,10 @@
 use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::call::call;
-use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
+use ic_cdk::api::management_canister::main::{
+    canister_info, update_settings, CanisterIdRecord, CanisterInfoRequest, CanisterSettings,
+    CanisterStatusResponse, UpdateSettingsArgument,
+};
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
@@ -102,6 +105,71 @@ pub async fn controlled_canister_status(
         .await
         .and_then(|(e,)| Ok(e))
         .map_err(|(_, reason)| reason)
+}
+
+#[update(guard = "is_controller")]
+pub async fn add_controller(canister_id: Principal, controller: Principal) -> Result<(), String> {
+    let args = CanisterInfoRequest {
+        canister_id,
+        num_requested_changes: None,
+    };
+
+    let canister_info = canister_info(args).await.map_err(|(_, reason)| reason)?;
+
+    let mut controllers = canister_info.0.controllers;
+
+    if !controllers.contains(&controller) {
+        controllers.push(controller);
+        let args = UpdateSettingsArgument {
+            canister_id,
+            settings: CanisterSettings {
+                controllers: Some(controllers),
+                compute_allocation: None,
+                memory_allocation: None,
+                freezing_threshold: None,
+                reserved_cycles_limit: None,
+            },
+        };
+        return update_settings(args).await.map_err(|(_, reason)| reason);
+    } else {
+        Ok(())
+    }
+}
+
+#[update(guard = "is_controller")]
+pub async fn remove_controller(
+    canister_id: Principal,
+    controller: Principal,
+) -> Result<(), String> {
+    let args = CanisterInfoRequest {
+        canister_id,
+        num_requested_changes: None,
+    };
+
+    let canister_info = canister_info(args).await.map_err(|(_, reason)| reason)?;
+
+    let controllers = canister_info.0.controllers;
+
+    if controllers.contains(&controller) {
+        let args = UpdateSettingsArgument {
+            canister_id,
+            settings: CanisterSettings {
+                controllers: Some(
+                    controllers
+                        .into_iter()
+                        .filter(|c| c.ne(&controller))
+                        .collect(),
+                ),
+                compute_allocation: None,
+                memory_allocation: None,
+                freezing_threshold: None,
+                reserved_cycles_limit: None,
+            },
+        };
+        return update_settings(args).await.map_err(|(_, reason)| reason);
+    } else {
+        Ok(())
+    }
 }
 
 #[update(guard = "is_controller")]
