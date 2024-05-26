@@ -3,7 +3,7 @@ use crate::contract_types::{
 };
 use crate::eth_common::get_evm_finalized_height;
 use crate::state::{mutate_state, read_state};
-use crate::types::Ticket;
+use crate::types::{Chain, ChainState, Ticket};
 use crate::*;
 use anyhow::anyhow;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
@@ -62,7 +62,16 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             }
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-            handle_token_transport(&l, token_transport).await?;
+            let dst_check_result = read_state(|s| {
+                let r  = s.counterparties.get(&token_transport.dst_chain_id);
+                match r {
+                    None => {false}
+                    Some(c) => {c.chain_state == ChainState::Active}
+                }
+            });
+            if dst_check_result {
+                handle_token_transport(&l, token_transport).await?;
+            }
         } else if topic1 == DirectiveExecuted::signature_hash() {
             let directive_executed = DirectiveExecuted::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
