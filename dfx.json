@@ -19,6 +19,12 @@
       "wasm": "bitcoin_customs.wasm",
       "build": "./build_script.sh"
     },
+    "icp_customs": {
+      "gzip": true,
+      "candid": "customs/icp/icp_customs.did",
+      "package": "icp_customs",
+      "type": "rust"
+    },
     "omnity_hub": {
       "gzip": true,
       "candid": "hub/omnity_hub.did",
@@ -41,7 +47,9 @@
   "defaults": {
     "bitcoin": {
       "enabled": true,
-      "nodes": ["127.0.0.1:18444"],
+      "nodes": [
+        "127.0.0.1:18444"
+      ],
       "log_level": "info"
     },
     "build": {

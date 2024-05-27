@@ -9,6 +9,7 @@ members = [
     "mock/bitcoin",
     "mock/hub",
     "customs/runes_oracle",
+    "customs/icp",
 ]
 resolver = "2"
 
