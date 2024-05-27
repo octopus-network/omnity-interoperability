@@ -16,7 +16,7 @@ use crate::state::{
     key_derivation_path, key_id, mutate_state, read_state, replace_state, EvmRouteState, InitArgs,
     StateProfile,
 };
-use crate::types::{Seq, Ticket};
+use crate::types::{Chain, ChainId, Seq, Ticket, TokenResp};
 use crate::Error;
 
 #[init]
@@ -118,6 +118,41 @@ fn is_admin() -> Result<(), String> {
         true => Ok(()),
         false => Err("permission deny".to_string()),
     }
+}
+
+
+#[query]
+fn get_chain_list() -> Vec<Chain> {
+    read_state(|s| {
+        s.counterparties
+            .iter()
+            .map(|(_, chain)| chain.clone())
+            .collect()
+    })
+}
+
+#[query]
+fn get_token_list() -> Vec<TokenResp> {
+    read_state(|s| {
+        s.tokens
+            .iter()
+            .map(|(_, token)| token.clone().into())
+            .collect()
+    })
+}
+
+#[query]
+fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
+    read_state(|s| {
+        s.target_chain_factor
+            .get(&chain_id)
+            // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
+            .map_or(None, |target_chain_factor| {
+                s.fee_token_factor.map(|fee_token_factor| {
+                    (target_chain_factor * fee_token_factor) as u64
+                })
+            })
+    })
 }
 
 ic_cdk::export_candid!();

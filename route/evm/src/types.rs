@@ -518,6 +518,15 @@ impl core::fmt::Display for FeeTokenFactor {
     }
 }
 
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+pub struct TokenResp {
+    pub token_id: TokenId,
+    pub symbol: String,
+    pub decimals: u8,
+    pub icon: Option<String>,
+    pub rune_id: Option<String>,
+}
+
 /// chain id spec:
 /// for settlement chain, the chain id is: Bitcoin, Ethereum,or ICP
 /// for execution chain, the chain id spec is: type-chain_name,eg: EVM-Base,Cosmos-Gaia, Substrate-Xxx
@@ -704,6 +713,18 @@ impl EcdsaKeyIds {
                 Self::ProductionKey1 => "key_1",
             }
             .to_string(),
+        }
+    }
+}
+
+impl From<Token> for TokenResp {
+    fn from(value: Token) -> Self {
+        TokenResp {
+            token_id: value.token_id,
+            symbol: value.symbol,
+            decimals: value.decimals,
+            icon: value.icon,
+            rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
         }
     }
 }
