@@ -16,7 +16,7 @@ use crate::state::{
     key_derivation_path, key_id, mutate_state, read_state, replace_state, EvmRouteState, InitArgs,
     StateProfile,
 };
-use crate::types::{Chain, ChainId, Seq, Ticket, TokenResp};
+use crate::types::{Chain, ChainId, Seq, Ticket, TokenResp, MintTokenStatus};
 use crate::Error;
 
 #[init]
@@ -142,7 +142,18 @@ fn get_token_list() -> Vec<TokenResp> {
 }
 
 #[query]
-fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
+fn mint_token_status(ticket_id: String) -> MintTokenStatus {
+    read_state(|s| {
+        s.finalized_mint_token_requests
+            .get(&ticket_id)
+            .map_or(MintTokenStatus::Unknown, |&block_index| {
+                MintTokenStatus::Finalized { block_index }
+            })
+    })
+}
+
+#[query]
+fn get_fee(chain_id: ChainId) -> Option<u64> {
     read_state(|s| {
         s.target_chain_factor
             .get(&chain_id)

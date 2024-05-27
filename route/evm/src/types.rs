@@ -717,6 +717,12 @@ impl EcdsaKeyIds {
     }
 }
 
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MintTokenStatus {
+    Finalized { block_index: u64 },
+    Unknown,
+}
+
 impl From<Token> for TokenResp {
     fn from(value: Token) -> Self {
         TokenResp {
