@@ -19,9 +19,7 @@ pub fn to_evm_task() {
 pub async fn send_one_directive(seq: Seq) {
     let dire = read_state(|s| s.directives_queue.get(&seq));
     match dire {
-        None => {
-            return;
-        }
+        None => {}
         Some(d) => {
             let data = gen_execute_directive_data(&d, U256::from(seq));
             if data.is_empty() {

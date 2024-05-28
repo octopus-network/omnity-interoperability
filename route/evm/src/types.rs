@@ -425,9 +425,9 @@ pub enum Factor {
     UpdateFeeTokenFactor(FeeTokenFactor),
 }
 
-impl Into<PortContractFactorTypeIndex> for Factor {
-    fn into(self) -> PortContractFactorTypeIndex {
-        match self {
+impl From<Factor> for PortContractFactorTypeIndex {
+    fn from(value: Factor) -> Self {
+        match value {
             Factor::UpdateTargetChainFactor(_) => 0,
             Factor::UpdateFeeTokenFactor(_) => 1,
         }
@@ -730,7 +730,7 @@ impl From<Token> for TokenResp {
             symbol: value.symbol,
             decimals: value.decimals,
             icon: value.icon,
-            rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
+            rune_id: value.metadata.get("rune_id").cloned(),
         }
     }
 }

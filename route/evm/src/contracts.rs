@@ -115,7 +115,7 @@ pub fn gen_eip1559_tx(
         nonce: Some(U256::from(nonce)),
         data: Some(Bytes::from(tx_data)),
         access_list: Default::default(),
-        max_priority_fee_per_gas: gas_price.clone(),
+        max_priority_fee_per_gas: gas_price,
         max_fee_per_gas: gas_price,
     };
     tx

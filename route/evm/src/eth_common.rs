@@ -36,9 +36,10 @@ impl EvmAddress {
         format!("0x{}", hex::encode(self.0))
     }
 }
-impl Into<Address> for EvmAddress {
-    fn into(self) -> Address {
-        Address::from(self.0)
+
+impl From<EvmAddress> for Address {
+    fn from(value: EvmAddress) -> Self {
+        Address::from(value.0)
     }
 }
 impl AsRef<[u8]> for EvmAddress {

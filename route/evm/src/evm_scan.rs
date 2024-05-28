@@ -3,7 +3,7 @@ use crate::contract_types::{
 };
 use crate::eth_common::get_evm_finalized_height;
 use crate::state::{mutate_state, read_state};
-use crate::types::{Chain, ChainState, Ticket};
+use crate::types::{ChainState, Ticket};
 use crate::*;
 use anyhow::anyhow;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
@@ -96,7 +96,7 @@ pub async fn handle_token_transport(
     log_entry: &LogEntry,
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
-    let ticket = Ticket::from_transport_event(&log_entry, event);
+    let ticket = Ticket::from_transport_event(log_entry, event);
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket,))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
