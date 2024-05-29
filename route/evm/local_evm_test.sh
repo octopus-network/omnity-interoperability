@@ -323,7 +323,9 @@ $ dfx canister call omnity_hub query_tickets '(opt "bevm", 0, 10)'
  tokenId: Bitcoin-runes-UNCOMMON•GOODS
  receiver: bcrt1pdxuujrka3njx08ee0pncvk3eer5zrfs328p7tjpnlh2357k47qxqg07rqv
  amount: 20000
- fee: 10000
+ fee: 0.0000000001
+
+transportToken
 
 #成功之后稍等预计1分钟， 查看ticket
 
