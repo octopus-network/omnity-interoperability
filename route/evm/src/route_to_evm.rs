@@ -1,4 +1,5 @@
 use ethers_core::types::U256;
+use log::{error, log};
 
 use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
@@ -78,8 +79,13 @@ pub async fn send_tickets_to_evm() {
             }
             Some(t) => {
                 let data = gen_mint_token_data(&t);
+                if data.is_err() {
+                    error!("{}", data.err().unwrap().to_string());
+                    continue;
+                }
                 let nonce = get_account_nonce(minter_addr()).await.unwrap_or_default();
-                let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce, None);
+                let tx = gen_eip1559_tx(data.unwrap(), get_gasprice().await.ok(), nonce, None);
+
                 let raw = sign_transaction(tx).await;
                 let mut pending_ticket = PendingTicketStatus {
                     evm_tx_hash: None,

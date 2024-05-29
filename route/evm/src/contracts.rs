@@ -1,4 +1,6 @@
+use std::ops::Mul;
 use std::str::FromStr;
+use anyhow::anyhow;
 
 use ethers_core::abi::{ethereum_types, AbiEncode};
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
@@ -66,7 +68,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     call.encode()
 }
 
-pub fn gen_mint_token_data(ticket: &Ticket) -> Vec<u8> {
+pub fn gen_mint_token_data(ticket: &Ticket) -> anyhow::Result<Vec<u8>> {
     let receiver = ethereum_types::Address::from_slice(
         EvmAddress::from_str(ticket.receiver.as_str())
             .unwrap()
@@ -74,14 +76,18 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> Vec<u8> {
             .as_slice(),
     );
     let amount: u128 = ticket.amount.parse().unwrap();
-    PrivilegedMintTokenCall {
+    let token = read_state(
+        |s|s.tokens.get(&ticket.token).cloned())
+        .ok_or(anyhow!("[evm route]: token not found:{}", ticket.token.clone()))?;
+
+    Ok(PrivilegedMintTokenCall {
         token_id: ticket.token.clone(),
         receiver,
-        amount: U256::from(amount),
+        amount: U256::from(amount).mul(10i32.pow(token.decimals.into())),
         ticket_id: ticket.ticket_id.clone(),
         memo: String::from_utf8(ticket.memo.clone().unwrap_or_default()).unwrap_or_default(),
     }
-    .encode()
+    .encode())
 }
 
 impl Into<PortContractCommandIndex> for Directive {

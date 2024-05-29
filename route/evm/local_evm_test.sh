@@ -245,7 +245,7 @@ dfx canister call omnity_hub execute_proposal  '( vec {variant { AddToken = reco
 
 # update fee
 $ dfx canister call omnity_hub update_fee 'vec {variant { UpdateTargetChainFactor = record {target_chain_id="Bitcoin"; target_chain_factor=10000 : nat}}; variant { UpdateFeeTokenFactor = record { fee_token="bevmBTC"; fee_token_factor=1 : nat}}}'
-
+dfx canister call evm_route get_fee '("Bitcoin")'
 
 # query update fee directive
 $ dfx canister call omnity_hub query_directives '(opt "bevm",null,0:nat64,5:nat64)'
