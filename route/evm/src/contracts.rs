@@ -109,7 +109,7 @@ pub fn gen_eip1559_tx(
     tx_data: Vec<u8>,
     gas_price: Option<U256>,
     nonce: u64,
-    gas: Option<u32>,
+    gas: u32,
 ) -> Eip1559TransactionRequest {
     let chain_id = read_state(|s| s.evm_chain_id);
     let port_contract_addr = read_state(|s| s.omnity_port_contract.clone());
@@ -117,7 +117,7 @@ pub fn gen_eip1559_tx(
         chain_id: Some(chain_id.into()),
         from: None,
         to: Some(NameOrAddress::Address(port_contract_addr.into())),
-        gas: Some(U256::from(gas.unwrap_or(200000u32))),
+        gas: Some(U256::from(gas)),
         value: None,
         nonce: Some(U256::from(nonce)),
         data: Some(Bytes::from(tx_data)),

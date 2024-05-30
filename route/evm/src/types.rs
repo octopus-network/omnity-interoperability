@@ -243,14 +243,14 @@ impl Ticket {
                 hex::encode(log_entry.transaction_hash.unwrap().0),
                 log_entry.log_index.unwrap()
             ),
-            ticket_time: log_entry.block_number.unwrap().as_f64() as u64,
+            ticket_time: ic_cdk::api::time(),
             ticket_type: TicketType::Normal,
             src_chain,
             dst_chain,
             action: TxAction::Redeem,
             token: token_burned.token_id,
             amount: token_burned.amount.to_string(),
-            sender: None, //TODO
+            sender: None,
             receiver: token_burned.receiver,
             memo: None,
         }
@@ -268,7 +268,7 @@ impl Ticket {
                 hex::encode(log_entry.transaction_hash.unwrap().0),
                 log_entry.log_index.unwrap()
             ),
-            ticket_time: log_entry.block_number.unwrap().as_f64() as u64,
+            ticket_time: ic_cdk::api::time(),
             ticket_type: TicketType::Normal,
             src_chain,
             dst_chain,
@@ -348,8 +348,6 @@ impl Storable for SeqKey {
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug)]
 pub struct TicketMap {
-    // pub seq: Seq,
-    // pub ticket: Ticket,
     pub tickets: BTreeMap<Seq, Ticket>,
 }
 

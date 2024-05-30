@@ -15,12 +15,12 @@ use evm_rpc::{
 };
 use itertools::Itertools;
 use log::error;
+use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_TASK_NAME};
 
-const MAX_SCAN_BLOCKS: u64 = 20;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new() {
+        let _guard = match crate::guard::TimerLogicGuard::new(SCAN_EVM_TASK_NAME.to_string()) {
             Some(guard) => guard,
             None => return,
         };

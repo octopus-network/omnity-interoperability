@@ -1,5 +1,5 @@
 use crate::eth_common::EvmAddress;
-use crate::stable_memory;
+use crate::{Error, stable_memory};
 use crate::stable_memory::Memory;
 use crate::types::{Chain, ChainState, Network, Token, TokenId};
 use crate::types::{
@@ -9,7 +9,7 @@ use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
 use ethers_core::abi::ethereum_types;
 use ethers_core::utils::keccak256;
-use ic_cdk::api::management_canister::ecdsa::EcdsaKeyId;
+use ic_cdk::api::management_canister::ecdsa::{ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument};
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
 use itertools::Itertools;
@@ -34,6 +34,12 @@ pub struct InitArgs {
     pub rpc_url: String,
     pub fee_token_id: String,
 }
+
+#[derive(CandidType, Deserialize)]
+pub struct UpgradeArgs {
+
+}
+
 
 impl EvmRouteState {
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
@@ -74,7 +80,7 @@ impl EvmRouteState {
                 crate::stable_memory::get_pending_directive_map_memory(),
             ),
             scan_start_height: args.scan_start_height,
-            is_timer_running: false,
+            is_timer_running: Default::default(),
         };
         Ok(ret)
     }
@@ -126,6 +132,18 @@ impl EvmRouteState {
     }
 }
 
+pub async fn init_chain_pubkey() {
+    let arg = EcdsaPublicKeyArgument {
+        canister_id: None,
+        derivation_path: key_derivation_path(),
+        key_id: key_id(),
+    };
+    let res = ecdsa_public_key(arg)
+        .await
+        .map_err(|(_, e)| Error::ChainKeyError(e)).unwrap();
+    mutate_state(|s| s.pubkey = res.0.public_key.clone());
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct EvmRouteState {
     pub admin: Principal,
@@ -160,7 +178,7 @@ pub struct EvmRouteState {
     pub pending_directive_map: StableBTreeMap<Seq, PendingDirectiveStatus, Memory>,
     pub scan_start_height: u64,
     #[serde(skip)]
-    pub is_timer_running: bool,
+    pub is_timer_running: BTreeMap<String, bool>,
 }
 
 impl From<&EvmRouteState> for StateProfile {

@@ -18,8 +18,8 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::eth_common::EvmAddressError::LengthError;
 use crate::{state, Error};
+use crate::const_args::{EIP1559_TX_ID, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT};
 
-const EVM_ADDR_BYTES_LEN: usize = 20;
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
 pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
 
@@ -77,7 +77,7 @@ impl TryFrom<Vec<u8>> for EvmAddress {
 
 pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<Vec<u8>> {
     use ethers_core::types::Signature;
-    const EIP1559_TX_ID: u8 = 2;
+
     let mut unsigned_tx_bytes = tx.rlp().to_vec();
     unsigned_tx_bytes.insert(0, EIP1559_TX_ID);
     let txhash = keccak256(&unsigned_tx_bytes);
@@ -263,5 +263,5 @@ pub async fn get_evm_finalized_height() -> anyhow::Result<u64> {
     let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
     let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
     let r = u64::from_str_radix(r, 16)?;
-    Ok(r - 12)
+    Ok(r - EVM_FINALIZED_CONFIRM_HEIGHT)
 }

@@ -3,21 +3,17 @@ use std::time::Duration;
 
 use ethers_core::abi::ethereum_types;
 use ethers_core::utils::keccak256;
-use ic_cdk::api::management_canister::ecdsa::{ecdsa_public_key, EcdsaPublicKeyArgument};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use k256::PublicKey;
 
+use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
 use crate::eth_common::EvmAddress;
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::fetch_hub_periodic_task;
-use crate::route_to_evm::{send_one_directive, to_evm_task};
-use crate::state::{
-    key_derivation_path, key_id, mutate_state, read_state, replace_state, EvmRouteState, InitArgs,
-    StateProfile,
-};
+use crate::route_to_evm::to_evm_task;
+use crate::state::{EvmRouteState, init_chain_pubkey, InitArgs, mutate_state, read_state, replace_state, StateProfile};
 use crate::types::{Chain, ChainId, Directive, MintTokenStatus, Seq, Ticket, TokenId, TokenResp};
-use crate::Error;
 
 #[init]
 fn init(args: InitArgs) {
@@ -37,29 +33,11 @@ fn post_upgrade() {
 }
 
 fn start_tasks() {
-    set_timer_interval(Duration::from_secs(10), fetch_hub_periodic_task);
-    set_timer_interval(Duration::from_secs(20), to_evm_task);
-    set_timer_interval(Duration::from_secs(30), scan_evm_task);
+    set_timer_interval(Duration::from_secs(FETCH_HUB_TASK_INTERVAL), fetch_hub_periodic_task);
+    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), to_evm_task);
+    set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);
 }
 
-#[update(guard = "is_admin")]
-async fn init_chain_pubkey() -> String {
-    let arg = EcdsaPublicKeyArgument {
-        canister_id: None,
-        derivation_path: key_derivation_path(),
-        key_id: key_id(),
-    };
-    let res = ecdsa_public_key(arg)
-        .await
-        .map_err(|(_, e)| Error::ChainKeyError(e));
-    match res {
-        Ok((t,)) => {
-            mutate_state(|s| s.pubkey = t.public_key.clone());
-            hex::encode(t.public_key)
-        }
-        Err(e) => e.to_string(),
-    }
-}
 
 #[query]
 fn get_ticket(ticket_id: String) -> Option<(u64, Ticket)> {
@@ -72,19 +50,23 @@ fn get_ticket(ticket_id: String) -> Option<(u64, Ticket)> {
     r.first().cloned()
 }
 
-#[query]
-fn pubkey_and_evm_addr() -> (String, String) {
-    let key = read_state(|s| s.pubkey.clone());
-    let key_str = format!("0x{}", hex::encode(key.as_slice()));
+#[update(guard = "is_admin")]
+async fn pubkey_and_evm_addr() -> (String, String) {
+    use ethers_core::utils::to_checksum;
     use k256::elliptic_curve::sec1::ToEncodedPoint;
-    let key =
-        PublicKey::from_sec1_bytes(key.as_slice()).expect("failed to parse the public key as SEC1");
+    let mut key = read_state(|s| s.pubkey.clone());
+    if key.is_empty(){
+        init_chain_pubkey().await;
+        key = read_state(|s| s.pubkey.clone());
+    }
+    let key_str = format!("0x{}", hex::encode(key.as_slice()));
+    let key = PublicKey::from_sec1_bytes(key.as_slice())
+        .expect("failed to parse the public key as SEC1");
     let point = key.to_encoded_point(false);
     let point_bytes = point.as_bytes();
     assert_eq!(point_bytes[0], 0x04);
     let hash = keccak256(&point_bytes[1..]);
-    let addr =
-        ethers_core::utils::to_checksum(&ethereum_types::Address::from_slice(&hash[12..32]), None);
+    let addr = to_checksum(&ethereum_types::Address::from_slice(&hash[12..32]), None);
     (key_str, addr)
 }
 
@@ -94,30 +76,8 @@ fn route_state() -> StateProfile {
 }
 
 #[update(guard = "is_admin")]
-async fn resend_directive(seq: Seq) {
-    send_one_directive(seq).await;
-}
-
-#[update(guard = "is_admin")]
 fn set_omnity_port_contract_addr(addr: String) {
     mutate_state(|s| s.omnity_port_contract = EvmAddress::from_str(addr.as_str()).unwrap());
-}
-
-#[update(guard = "is_admin")]
-fn set_scan_height(height: u64) {
-    mutate_state(|s| s.scan_start_height = height);
-}
-#[update]
-fn set_evm_chain_id(chain_id: u64) {
-    mutate_state(|s| s.evm_chain_id = chain_id);
-}
-
-fn is_admin() -> Result<(), String> {
-    let c = ic_cdk::caller();
-    match read_state(|s| s.admin == c) {
-        true => Ok(()),
-        false => Err("permission deny".to_string()),
-    }
 }
 
 #[query]
@@ -148,6 +108,7 @@ fn set_token_evm_contract(token: TokenId, addr: String) {
         s.tokens.insert(token, t);
     });
 }
+
 #[query]
 fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     read_state(|s| {
@@ -164,7 +125,6 @@ fn get_fee(chain_id: ChainId) -> Option<u64> {
     read_state(|s| {
         s.target_chain_factor
             .get(&chain_id)
-            // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
             .map_or(None, |target_chain_factor| {
                 s.fee_token_factor
                     .map(|fee_token_factor| (target_chain_factor * fee_token_factor) as u64)
@@ -180,6 +140,15 @@ fn query_tickets(from: usize, to: usize) -> Vec<(Seq, Ticket)> {
 #[query(guard = "is_admin")]
 fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
     read_state(|s|s.pull_directives(from, to))
+}
+
+
+fn is_admin() -> Result<(), String> {
+    let c = ic_cdk::caller();
+    match read_state(|s| s.admin == c) {
+        true => Ok(()),
+        false => Err("permission deny".to_string()),
+    }
 }
 
 ic_cdk::export_candid!();

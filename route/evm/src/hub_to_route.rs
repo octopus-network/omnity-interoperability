@@ -4,9 +4,8 @@ use crate::types::{ChainState, Directive, Seq, Ticket};
 use crate::{audit, hub};
 use log::{self};
 use std::str::FromStr;
+use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_TASK_NAME};
 
-pub const PERIODIC_TASK_INTERVAL: u64 = 5;
-pub const BATCH_QUERY_LIMIT: u64 = 20;
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
@@ -105,11 +104,10 @@ async fn process_directives() {
 
 pub fn fetch_hub_periodic_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new() {
+        let _guard = match crate::guard::TimerLogicGuard::new(FETCH_HUB_TASK_NAME.to_string()) {
             Some(guard) => guard,
             None => return,
         };
-
         process_directives().await;
         process_tickets().await;
     });
