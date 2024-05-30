@@ -75,6 +75,12 @@ pub enum Event {
         balances: Vec<RunesBalance>,
     },
 
+    #[serde(rename = "removed_ticket_request")]
+    RemovedTicketRequest {
+        #[serde(rename = "txid")]
+        txid: Txid,
+    },
+
     /// Indicates that the  sent out a new transaction to the Bitcoin
     /// network.
     #[serde(rename = "sent_transaction")]
@@ -199,6 +205,17 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::AcceptedGenTicketRequest(req) => {
                 state.pending_gen_ticket_requests.insert(req.txid, req);
+            }
+            Event::RemovedTicketRequest { txid } => {
+                state
+                    .pending_gen_ticket_requests
+                    .remove(&txid)
+                    .ok_or_else(|| {
+                        ReplayLogError::InconsistentLog(format!(
+                            "Attempted to remove a non-pending generate ticket request {}",
+                            txid
+                        ))
+                    })?;
             }
             Event::FinalizedTicketRequest { txid, balances } => {
                 let request = state
