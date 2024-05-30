@@ -54,6 +54,7 @@ export const idlFactory = ({ IDL }) => {
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
     'icon' : IDL.Opt(IDL.Text),
+    'evm_contract' : IDL.Opt(IDL.Text),
     'rune_id' : IDL.Opt(IDL.Text),
     'symbol' : IDL.Text,
   });
@@ -61,8 +62,18 @@ export const idlFactory = ({ IDL }) => {
     'Finalized' : IDL.Record({ 'block_index' : IDL.Nat64 }),
     'Unknown' : IDL.Null,
   });
-  const EcdsaCurve = IDL.Variant({ 'secp256k1' : IDL.Null });
-  const EcdsaKeyId = IDL.Record({ 'name' : IDL.Text, 'curve' : EcdsaCurve });
+  const FeeTokenFactor = IDL.Record({
+    'fee_token' : IDL.Text,
+    'fee_token_factor' : IDL.Nat,
+  });
+  const TargetChainFactor = IDL.Record({
+    'target_chain_id' : IDL.Text,
+    'target_chain_factor' : IDL.Nat,
+  });
+  const Factor = IDL.Variant({
+    'UpdateFeeTokenFactor' : FeeTokenFactor,
+    'UpdateTargetChainFactor' : TargetChainFactor,
+  });
   const Token = IDL.Record({
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
@@ -71,6 +82,22 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'symbol' : IDL.Text,
   });
+  const ToggleAction = IDL.Variant({
+    'Deactivate' : IDL.Null,
+    'Activate' : IDL.Null,
+  });
+  const ToggleState = IDL.Record({
+    'action' : ToggleAction,
+    'chain_id' : IDL.Text,
+  });
+  const Directive = IDL.Variant({
+    'UpdateFee' : Factor,
+    'AddToken' : Token,
+    'AddChain' : Chain,
+    'ToggleChainState' : ToggleState,
+  });
+  const EcdsaCurve = IDL.Variant({ 'secp256k1' : IDL.Null });
+  const EcdsaKeyId = IDL.Record({ 'name' : IDL.Text, 'curve' : EcdsaCurve });
   const HttpHeader = IDL.Record({ 'value' : IDL.Text, 'name' : IDL.Text });
   const RpcApi = IDL.Record({
     'url' : IDL.Text,
@@ -112,11 +139,22 @@ export const idlFactory = ({ IDL }) => {
     'init_chain_pubkey' : IDL.Func([], [IDL.Text], []),
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
     'pubkey_and_evm_addr' : IDL.Func([], [IDL.Text, IDL.Text], ['query']),
+    'query_directives' : IDL.Func(
+        [IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(IDL.Tuple(IDL.Nat64, Directive))],
+        ['query'],
+      ),
+    'query_tickets' : IDL.Func(
+        [IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(IDL.Tuple(IDL.Nat64, Ticket))],
+        ['query'],
+      ),
     'resend_directive' : IDL.Func([IDL.Nat64], [], []),
     'route_state' : IDL.Func([], [StateProfile], ['query']),
     'set_evm_chain_id' : IDL.Func([IDL.Nat64], [], []),
     'set_omnity_port_contract_addr' : IDL.Func([IDL.Text], [], []),
     'set_scan_height' : IDL.Func([IDL.Nat64], [], []),
+    'set_token_evm_contract' : IDL.Func([IDL.Text, IDL.Text], [], []),
   });
 };
 export const init = ({ IDL }) => {

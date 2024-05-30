@@ -15,8 +15,18 @@ export type ChainState = { 'Active' : null } |
   { 'Deactive' : null };
 export type ChainType = { 'SettlementChain' : null } |
   { 'ExecutionChain' : null };
+export type Directive = { 'UpdateFee' : Factor } |
+  { 'AddToken' : Token } |
+  { 'AddChain' : Chain } |
+  { 'ToggleChainState' : ToggleState };
 export type EcdsaCurve = { 'secp256k1' : null };
 export interface EcdsaKeyId { 'name' : string, 'curve' : EcdsaCurve }
+export type Factor = { 'UpdateFeeTokenFactor' : FeeTokenFactor } |
+  { 'UpdateTargetChainFactor' : TargetChainFactor };
+export interface FeeTokenFactor {
+  'fee_token' : string,
+  'fee_token_factor' : bigint,
+}
 export interface HttpHeader { 'value' : string, 'name' : string }
 export interface InitArgs {
   'evm_chain_id' : bigint,
@@ -59,6 +69,10 @@ export interface StateProfile {
   'chain_state' : ChainState,
   'fee_token_factor' : [] | [bigint],
 }
+export interface TargetChainFactor {
+  'target_chain_id' : string,
+  'target_chain_factor' : bigint,
+}
 export interface Ticket {
   'token' : string,
   'action' : TxAction,
@@ -74,6 +88,9 @@ export interface Ticket {
 }
 export type TicketType = { 'Resubmit' : null } |
   { 'Normal' : null };
+export type ToggleAction = { 'Deactivate' : null } |
+  { 'Activate' : null };
+export interface ToggleState { 'action' : ToggleAction, 'chain_id' : string }
 export interface Token {
   'decimals' : number,
   'token_id' : string,
@@ -86,6 +103,7 @@ export interface TokenResp {
   'decimals' : number,
   'token_id' : string,
   'icon' : [] | [string],
+  'evm_contract' : [] | [string],
   'rune_id' : [] | [string],
   'symbol' : string,
 }
@@ -99,11 +117,17 @@ export interface _SERVICE {
   'init_chain_pubkey' : ActorMethod<[], string>,
   'mint_token_status' : ActorMethod<[string], MintTokenStatus>,
   'pubkey_and_evm_addr' : ActorMethod<[], [string, string]>,
+  'query_directives' : ActorMethod<
+    [bigint, bigint],
+    Array<[bigint, Directive]>
+  >,
+  'query_tickets' : ActorMethod<[bigint, bigint], Array<[bigint, Ticket]>>,
   'resend_directive' : ActorMethod<[bigint], undefined>,
   'route_state' : ActorMethod<[], StateProfile>,
   'set_evm_chain_id' : ActorMethod<[bigint], undefined>,
   'set_omnity_port_contract_addr' : ActorMethod<[string], undefined>,
   'set_scan_height' : ActorMethod<[bigint], undefined>,
+  'set_token_evm_contract' : ActorMethod<[string, string], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: ({ IDL }: { IDL: IDL }) => IDL.Type[];
