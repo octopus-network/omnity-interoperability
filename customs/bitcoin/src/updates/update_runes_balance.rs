@@ -45,6 +45,7 @@ pub async fn update_runes_balance(
 
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
     if amount != req.amount || args.balances.iter().any(|b| b.rune_id != req.rune_id) {
+        mutate_state(|s| audit::remove_pending_request(s, &req.txid));
         return Err(UpdateRunesBalanceError::MismatchWithGenTicketReq);
     }
 
