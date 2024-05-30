@@ -1,6 +1,6 @@
+use anyhow::anyhow;
 use std::ops::Mul;
 use std::str::FromStr;
-use anyhow::anyhow;
 
 use ethers_core::abi::{ethereum_types, AbiEncode};
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
@@ -76,9 +76,10 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> anyhow::Result<Vec<u8>> {
             .as_slice(),
     );
     let amount: u128 = ticket.amount.parse().unwrap();
-    let token = read_state(
-        |s|s.tokens.get(&ticket.token).cloned())
-        .ok_or(anyhow!("[evm route]: token not found:{}", ticket.token.clone()))?;
+    let token = read_state(|s| s.tokens.get(&ticket.token).cloned()).ok_or(anyhow!(
+        "[evm route]: token not found:{}",
+        ticket.token.clone()
+    ))?;
 
     Ok(PrivilegedMintTokenCall {
         token_id: ticket.token.clone(),

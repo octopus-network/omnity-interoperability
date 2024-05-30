@@ -16,7 +16,7 @@ use crate::state::{
     key_derivation_path, key_id, mutate_state, read_state, replace_state, EvmRouteState, InitArgs,
     StateProfile,
 };
-use crate::types::{Chain, ChainId, Seq, Ticket, TokenResp, MintTokenStatus};
+use crate::types::{Chain, ChainId, Directive, MintTokenStatus, Seq, Ticket, TokenId, TokenResp};
 use crate::Error;
 
 #[init]
@@ -120,7 +120,6 @@ fn is_admin() -> Result<(), String> {
     }
 }
 
-
 #[query]
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
@@ -141,6 +140,14 @@ fn get_token_list() -> Vec<TokenResp> {
     })
 }
 
+#[update(guard = "is_admin")]
+fn set_token_evm_contract(token: TokenId, addr: String) {
+    mutate_state(|s| {
+        let mut t = s.tokens.get(&token).cloned().unwrap();
+        t.metadata.insert("evm_contract".to_string(), addr);
+        s.tokens.insert(token, t);
+    });
+}
 #[query]
 fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     read_state(|s| {
@@ -159,11 +166,20 @@ fn get_fee(chain_id: ChainId) -> Option<u64> {
             .get(&chain_id)
             // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
             .map_or(None, |target_chain_factor| {
-                s.fee_token_factor.map(|fee_token_factor| {
-                    (target_chain_factor * fee_token_factor) as u64
-                })
+                s.fee_token_factor
+                    .map(|fee_token_factor| (target_chain_factor * fee_token_factor) as u64)
             })
     })
+}
+
+#[query(guard = "is_admin")]
+fn query_tickets(from: usize, to: usize) -> Vec<(Seq, Ticket)> {
+    read_state(|s|s.pull_tickets(from, to))
+}
+
+#[query(guard = "is_admin")]
+fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
+    read_state(|s|s.pull_directives(from, to))
 }
 
 ic_cdk::export_candid!();

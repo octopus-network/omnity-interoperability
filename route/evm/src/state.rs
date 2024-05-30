@@ -106,6 +106,24 @@ impl EvmRouteState {
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
         STATE.with(|s| *s.borrow_mut() = Some(state));
     }
+
+    pub fn pull_tickets(&self, from: usize, limit: usize) -> Vec<(Seq, Ticket)> {
+        self.tickets_queue
+            .iter()
+            .skip(from)
+            .take(limit)
+            .map(|(seq, t)| (seq, t.clone()))
+            .collect()
+    }
+
+    pub fn pull_directives(&self, from: usize, limit: usize) -> Vec<(Seq, Directive)> {
+        self.directives_queue
+            .iter()
+            .skip(from)
+            .take(limit)
+            .map(|(seq, d)| (seq, d.clone()))
+            .collect()
+    }
 }
 
 #[derive(Deserialize, Serialize)]

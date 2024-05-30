@@ -1,5 +1,5 @@
 use ethers_core::types::U256;
-use log::{error, log};
+use log::{error};
 
 use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};

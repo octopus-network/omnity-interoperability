@@ -56,7 +56,10 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             let token_mint = TokenMinted::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             mutate_state(|s| s.pending_tickets_map.remove(&token_mint.ticket_id));
-            mutate_state(|s| s.finalized_mint_token_requests.insert(token_mint.ticket_id.clone(), block.into_inner().as_u64()));
+            mutate_state(|s| {
+                s.finalized_mint_token_requests
+                    .insert(token_mint.ticket_id.clone(), block.into_inner().as_u64())
+            });
         } else if topic1 == TokenTransportRequested::signature_hash() {
             if read_state(|s| s.handled_evm_event.contains(&log_key)) {
                 continue;
@@ -64,10 +67,10 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
             let dst_check_result = read_state(|s| {
-                let r  = s.counterparties.get(&token_transport.dst_chain_id);
+                let r = s.counterparties.get(&token_transport.dst_chain_id);
                 match r {
-                    None => {false}
-                    Some(c) => {c.chain_state == ChainState::Active}
+                    None => false,
+                    Some(c) => c.chain_state == ChainState::Active,
                 }
             });
             if dst_check_result {

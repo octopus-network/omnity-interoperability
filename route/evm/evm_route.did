@@ -9,8 +9,19 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
+type Directive = variant {
+  UpdateFee : Factor;
+  AddToken : Token;
+  AddChain : Chain;
+  ToggleChainState : ToggleState;
+};
 type EcdsaCurve = variant { secp256k1 };
 type EcdsaKeyId = record { name : text; curve : EcdsaCurve };
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type HttpHeader = record { value : text; name : text };
 type InitArgs = record {
   evm_chain_id : nat64;
@@ -53,6 +64,10 @@ type StateProfile = record {
   chain_state : ChainState;
   fee_token_factor : opt nat;
 };
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -67,6 +82,8 @@ type Ticket = record {
   receiver : text;
 };
 type TicketType = variant { Resubmit; Normal };
+type ToggleAction = variant { Deactivate; Activate };
+type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -79,6 +96,7 @@ type TokenResp = record {
   decimals : nat8;
   token_id : text;
   icon : opt text;
+  evm_contract : opt text;
   rune_id : opt text;
   symbol : text;
 };
@@ -91,9 +109,12 @@ service : (InitArgs) -> {
   init_chain_pubkey : () -> (text);
   mint_token_status : (text) -> (MintTokenStatus) query;
   pubkey_and_evm_addr : () -> (text, text) query;
+  query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;
+  query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
   resend_directive : (nat64) -> ();
   route_state : () -> (StateProfile) query;
   set_evm_chain_id : (nat64) -> ();
   set_omnity_port_contract_addr : (text) -> ();
   set_scan_height : (nat64) -> ();
+  set_token_evm_contract : (text, text) -> ();
 }

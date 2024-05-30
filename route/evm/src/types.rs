@@ -445,9 +445,9 @@ impl Storable for Factor {
         let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         fee
     }
-
     const BOUND: Bound = Bound::Unbounded;
 }
+
 impl core::fmt::Display for Factor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         match self {
@@ -525,6 +525,7 @@ pub struct TokenResp {
     pub decimals: u8,
     pub icon: Option<String>,
     pub rune_id: Option<String>,
+    pub evm_contract: Option<String>,
 }
 
 /// chain id spec:
@@ -632,7 +633,6 @@ pub struct TxCondition {
     pub time_range: Option<(u64, u64)>,
 }
 
-//use crate::contracts::{TokenBurned, TokenTransportRequested};
 
 pub type CanisterId = Principal;
 
@@ -731,6 +731,7 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").cloned(),
+            evm_contract: value.metadata.get("evm_contract").cloned()
         }
     }
 }
