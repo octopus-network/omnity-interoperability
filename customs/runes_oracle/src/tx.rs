@@ -45,8 +45,23 @@ pub enum Artifact {
 #[derive(Deserialize, Debug)]
 pub struct Cenotaph {
     pub etching: Option<String>,
-    pub flaws: u32,
+    pub flaw: Option<Flaw>,
     pub mint: Option<RuneId>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "kebab-case")]
+pub enum Flaw {
+    EdictOutput,
+    EdictRuneId,
+    InvalidScript,
+    Opcode,
+    SupplyOverflow,
+    TrailingIntegers,
+    TruncatedField,
+    UnrecognizedEvenTag,
+    UnrecognizedFlag,
+    Varint,
 }
 
 #[derive(Deserialize, Debug)]

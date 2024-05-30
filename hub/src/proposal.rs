@@ -36,6 +36,19 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
 
                 proposal_msgs.push(format!("Tne AddChain proposal: {}", chain_meta));
             }
+
+            Proposal::UpdateChain(chain_meta) => {
+                if chain_meta.chain_id.is_empty() {
+                    return Err(Error::ProposalError(
+                        "Chain name can not be empty".to_string(),
+                    ));
+                }
+                // check chain available
+                with_state(|hub_state| hub_state.available_chain(&chain_meta.chain_id))?;
+
+                proposal_msgs.push(format!("Tne UpdateChain proposal: {}", chain_meta));
+            }
+
             Proposal::AddToken(token_meta) => {
                 if token_meta.token_id.is_empty()
                     || token_meta.symbol.is_empty()
@@ -65,6 +78,31 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
 
                 proposal_msgs.push(format!("The AddToken proposal: {}", token_meta));
             }
+            Proposal::UpdateToken(token_meta) => {
+                if token_meta.token_id.is_empty()
+                    || token_meta.symbol.is_empty()
+                    || token_meta.issue_chain.is_empty()
+                {
+                    return Err(Error::ProposalError(
+                        "Token id, token symbol or issue chain can not be empty".to_string(),
+                    ));
+                }
+                with_state(|hub_state| {
+                    //ensure the dst chains must exsits!
+                    if let Some(id) = token_meta
+                        .dst_chains
+                        .iter()
+                        .find(|id| !hub_state.chains.contains_key(&**id))
+                    {
+                        return Err(Error::NotFoundChain(id.to_string()));
+                    }
+
+                    hub_state.available_chain(&token_meta.issue_chain)
+                })?;
+
+                proposal_msgs.push(format!("The UpdateToken proposal: {}", token_meta));
+            }
+
             Proposal::ToggleChainState(toggle_state) => {
                 if toggle_state.chain_id.is_empty() {
                     return Err(Error::ProposalError(
@@ -108,7 +146,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 // save new chain
                 with_state_mut(|hub_state| {
                     info!(" save new chain: {:?}", chain_meta);
-                    hub_state.add_chain(chain_meta.clone())
+                    hub_state.update_chain(chain_meta.clone())
                 })?;
                 // publish directive for the new chain)
                 info!(
@@ -121,7 +159,25 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                         .pub_directive(Some(target_subs), &Directive::AddChain(chain_meta.into()))
                 })?;
             }
-
+            Proposal::UpdateChain(chain_meta) => {
+                // update chain meta
+                with_state_mut(|hub_state| {
+                    info!(" update the chain: {:?}", chain_meta);
+                    hub_state.update_chain(chain_meta.clone())
+                })?;
+                // publish directive for the new chain)
+                info!(
+                    "publish directive for `UpdateChain` proposal :{:?}",
+                    chain_meta.to_string()
+                );
+                with_state_mut(|hub_state| {
+                    let target_subs = chain_meta.counterparties.clone().unwrap_or_default();
+                    hub_state.pub_directive(
+                        Some(target_subs),
+                        &Directive::UpdateChain(chain_meta.into()),
+                    )
+                })?;
+            }
             Proposal::AddToken(token_meata) => {
                 info!(
                     "publish directive for `AddToken` proposal :{:?}",
@@ -130,11 +186,27 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
 
                 with_state_mut(|hub_state| {
                     // save token info
-                    hub_state.add_token(token_meata.clone())?;
+                    hub_state.update_token(token_meata.clone())?;
                     // publish directive
                     hub_state.pub_directive(
                         Some(token_meata.dst_chains.clone()),
                         &Directive::AddToken(token_meata.into()),
+                    )
+                })?
+            }
+            Proposal::UpdateToken(token_meata) => {
+                info!(
+                    "publish directive for `UpdateToken` proposal :{:?}",
+                    token_meata
+                );
+
+                with_state_mut(|hub_state| {
+                    // update token info
+                    hub_state.update_token(token_meata.clone())?;
+                    // publish directive
+                    hub_state.pub_directive(
+                        Some(token_meata.dst_chains.clone()),
+                        &Directive::UpdateToken(token_meata.into()),
                     )
                 })?
             }

@@ -1,0 +1,43 @@
+type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type CustomArg = variant { Init : InitArgs };
+type GenerateTicketError = variant {
+  SendTicketErr : text;
+  TemporarilyUnavailable : text;
+  InsufficientAllowance : record { allowance : nat64 };
+  UnsupportedChainId : text;
+  UnsupportedToken : text;
+  InsufficientFunds : record { balance : nat64 };
+};
+type GenerateTicketOk = record { ticket_id : text };
+type GenerateTicketReq = record {
+  token_id : text;
+  from_subaccount : opt blob;
+  target_chain_id : text;
+  amount : nat;
+  receiver : text;
+};
+type InitArgs = record { hub_principal : principal; chain_id : text };
+type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
+service : (CustomArg) -> {
+  generate_ticket : (GenerateTicketReq) -> (Result);
+  get_chain_list : () -> (vec Chain) query;
+  get_token_list : () -> (vec Token) query;
+}

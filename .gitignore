@@ -30,3 +30,4 @@ route/ethl2/Cargo.lock
 *.out
 
 canister_ids.json
+bitcoin_customs.wasm

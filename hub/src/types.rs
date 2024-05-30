@@ -37,8 +37,8 @@ pub type TicketQueue = StableBTreeMap<SeqKey, Ticket, Memory>;
 pub enum Proposal {
     AddChain(ChainMeta),
     AddToken(TokenMeta),
-    //TODO: UpdateChain(ChainMeta)
-    //TOOD: UpdateToken(TokenMeta)
+    UpdateChain(ChainMeta),
+    UpdateToken(TokenMeta),
     ToggleChainState(ToggleState),
     UpdateFee(Factor),
 }
@@ -52,7 +52,7 @@ impl Storable for Proposal {
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
         let proposal =
-            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Proposal");
         proposal
     }
 
@@ -87,7 +87,7 @@ impl Storable for ChainMeta {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let cm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let cm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode ChainMeta");
         cm
     }
 
@@ -141,7 +141,7 @@ impl Storable for TokenMeta {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenMeta");
         tm
     }
 
@@ -260,7 +260,7 @@ impl Storable for Subscribers {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let subs = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let subs = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Subscribers");
         subs
     }
 

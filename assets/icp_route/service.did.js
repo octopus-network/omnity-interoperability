@@ -17,6 +17,7 @@ export const idlFactory = ({ IDL }) => {
     'Upgrade' : IDL.Opt(UpgradeArgs),
     'Init' : InitArgs,
   });
+  const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
   const CanisterStatusType = IDL.Variant({
     'stopped' : IDL.Null,
     'stopping' : IDL.Null,
@@ -45,11 +46,10 @@ export const idlFactory = ({ IDL }) => {
     'module_hash' : IDL.Opt(IDL.Vec(IDL.Nat8)),
     'reserved_cycles' : IDL.Nat,
   });
-  const Result = IDL.Variant({
+  const Result_1 = IDL.Variant({
     'Ok' : CanisterStatusResponse,
     'Err' : IDL.Text,
   });
-  const Result_1 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
   const GenerateTicketReq = IDL.Record({
     'token_id' : IDL.Text,
     'from_subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
@@ -156,9 +156,36 @@ export const idlFactory = ({ IDL }) => {
     'Finalized' : IDL.Record({ 'block_index' : IDL.Nat64 }),
     'Unknown' : IDL.Null,
   });
+  const MetadataValue = IDL.Variant({
+    'Int' : IDL.Int,
+    'Nat' : IDL.Nat,
+    'Blob' : IDL.Vec(IDL.Nat8),
+    'Text' : IDL.Text,
+  });
+  const Account = IDL.Record({
+    'owner' : IDL.Principal,
+    'subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
+  });
+  const ChangeFeeCollector = IDL.Variant({
+    'SetTo' : Account,
+    'Unset' : IDL.Null,
+  });
+  const FeatureFlags = IDL.Record({ 'icrc2' : IDL.Bool });
+  const UpgradeArgs_1 = IDL.Record({
+    'token_symbol' : IDL.Opt(IDL.Text),
+    'transfer_fee' : IDL.Opt(IDL.Nat),
+    'metadata' : IDL.Opt(IDL.Vec(IDL.Tuple(IDL.Text, MetadataValue))),
+    'maximum_number_of_accounts' : IDL.Opt(IDL.Nat64),
+    'accounts_overflow_trim_quantity' : IDL.Opt(IDL.Nat64),
+    'change_fee_collector' : IDL.Opt(ChangeFeeCollector),
+    'max_memo_length' : IDL.Opt(IDL.Nat16),
+    'token_name' : IDL.Opt(IDL.Text),
+    'feature_flags' : IDL.Opt(FeatureFlags),
+  });
   return IDL.Service({
-    'controlled_canister_status' : IDL.Func([IDL.Principal], [Result], []),
-    'delete_controlled_canister' : IDL.Func([IDL.Principal], [Result_1], []),
+    'add_controller' : IDL.Func([IDL.Principal, IDL.Principal], [Result], []),
+    'controlled_canister_status' : IDL.Func([IDL.Principal], [Result_1], []),
+    'delete_controlled_canister' : IDL.Func([IDL.Principal], [Result], []),
     'generate_ticket' : IDL.Func([GenerateTicketReq], [Result_2], []),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_events' : IDL.Func([GetEventsArg], [IDL.Vec(Event)], ['query']),
@@ -176,11 +203,16 @@ export const idlFactory = ({ IDL }) => {
       ),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
-    'start_controlled_canister' : IDL.Func([IDL.Principal], [Result_1], []),
-    'stop_controlled_canister' : IDL.Func([IDL.Principal], [Result_1], []),
-    'update_icrc_transfer_fee' : IDL.Func(
-        [IDL.Principal, IDL.Nat],
-        [Result_1],
+    'remove_controller' : IDL.Func(
+        [IDL.Principal, IDL.Principal],
+        [Result],
+        [],
+      ),
+    'start_controlled_canister' : IDL.Func([IDL.Principal], [Result], []),
+    'stop_controlled_canister' : IDL.Func([IDL.Principal], [Result], []),
+    'update_icrc_ledger' : IDL.Func(
+        [IDL.Principal, UpgradeArgs_1],
+        [Result],
         [],
       ),
   });
