@@ -374,7 +374,7 @@ impl HubState {
             }
         })?;
 
-        // repub the matched directives from history for new subscriber
+        // repub the subscribed topics from history for new subscriber
         self.repub_2_subscriber(chain_id, &Some(topics.to_vec()))?;
         Ok(())
     }
@@ -469,6 +469,7 @@ impl HubState {
                     .or_insert(0);
 
                 let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
+                //TODO: match! and exclude diretive for  target chain self
                 self.dire_queue.insert(seq_key.clone(), dire.clone());
                 info!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                 record_event(&Event::PubedDirective {

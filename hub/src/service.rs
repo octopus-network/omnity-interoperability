@@ -939,7 +939,7 @@ mod tests {
             println!("topic:{:?},subs:{:?}", topic, subs)
         }
 
-        // add chain
+        // // add chain
         add_chains().await;
         // add token
         add_tokens().await;
@@ -1220,6 +1220,116 @@ mod tests {
             "ICP".to_string(),
             result
         );
+    }
+
+    #[tokio::test]
+    async fn test_new_subscriber() {
+        init_hub();
+        // sub_dires().await;
+        let chains = vec![
+            "Bitcoin".to_string(),
+            "Ethereum".to_string(),
+            // "ICP".to_string(),
+            "EVM-Arbitrum".to_string(),
+            "EVM-Optimistic".to_string(),
+            "EVM-Starknet".to_string(),
+        ];
+        let topics = vec![
+            Topic::AddChain,
+            Topic::UpdateChain,
+            Topic::AddToken,
+            Topic::UpdateToken,
+            Topic::UpdateFee,
+            Topic::ToggleChainState,
+        ];
+        for chain_id in chains.iter() {
+            let result = sub_directives(Some(chain_id.to_string()), topics.to_vec()).await;
+            println!("chain({}) sub topic result: {:?}", chain_id, result)
+        }
+
+        // add chain
+        add_chains().await;
+        // add token
+        add_tokens().await;
+
+        let bevm = ChainMeta {
+            chain_id: "bevm_testnet".to_string(),
+            chain_type: ChainType::ExecutionChain,
+            chain_state: ChainState::Active,
+            canister_id: "bonsh-yiaaa-aaaap-qhlhq-cai".to_string(),
+            contract_address: Some("bevm constract address".to_string()),
+            counterparties: Some(vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "ICP".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Optimistic".to_string(),
+                "EVM-Starknet".to_string(),
+            ]),
+            fee_token: Some("Bitcoin-BRC20-BEVM".to_owned()),
+        };
+
+        let result = handle_chain(vec![Proposal::AddChain(bevm)]).await;
+        println!("handle_chain result:{:#?}", result);
+        assert!(result.is_ok());
+        let chain = get_chain("bevm_testnet".to_string()).await;
+        println!(
+            "get chain for {:} chain: {:#?}",
+            "bevm_testnet".to_string(),
+            chain
+        );
+
+        let icp_token = TokenMeta {
+            token_id: "ICP".to_string(),
+            name: "ICP".to_owned(),
+            symbol: "ICP".to_owned(),
+            issue_chain: "ICP".to_string(),
+            decimals: 18,
+            icon: None,
+            metadata: HashMap::default(),
+            dst_chains: vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Optimistic".to_string(),
+                "EVM-Starknet".to_string(),
+                "bevm_testnet".to_string(),
+            ],
+        };
+        let result = handle_token(vec![Proposal::UpdateToken(icp_token.clone())]).await;
+        println!("handle_token result:{:#?}", result);
+        assert!(result.is_ok());
+
+        for chain_id in chains.iter() {
+            let result = query_directives(Some(chain_id.to_string()), None, 0, 50).await;
+            println!("query_directives for {:} dires: {:#?}", chain_id, result);
+            assert!(result.is_ok());
+        }
+        let result = query_directives(Some("ICP".to_string()), None, 0, 50).await;
+        println!(
+            "query_directives for {:} dires: {:#?}",
+            "ICP".to_string(),
+            result
+        );
+        assert!(result.is_ok());
+
+        // add new subscriber
+        let result = sub_directives(Some("ICP".to_string()), topics.to_vec()).await;
+        println!(
+            "chain({}) sub topic result: {:?}",
+            "ICP".to_string(),
+            result
+        );
+
+        let result = query_directives(Some("ICP".to_string()), None, 0, 50).await;
+        println!(
+            "query_directives for {:} dires: {:#?}",
+            "ICP".to_string(),
+            result
+        );
+        assert!(result.is_ok());
+
+ 
     }
 
     #[tokio::test]

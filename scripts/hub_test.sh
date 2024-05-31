@@ -15,17 +15,17 @@ dfx canister create omnity_hub
 # dfx deploy omnity_hub
 # dfx identity --identity default get-principal
 # output: rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe
-# dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
-dfx canister install --mode install --wasm ./scripts/pre_omnity_hub.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' --yes omnity_hub
+dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
+# dfx canister install --mode install --wasm ./scripts/pre_omnity_hub.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' --yes omnity_hub
 
 
 # sub topic
-dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {AddToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
-dfx canister call omnity_hub sub_directives '(opt "Ethereum", vec {variant {AddChain};variant {AddToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
-dfx canister call omnity_hub sub_directives '(opt "eICP", vec {variant {AddChain};variant {AddToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
-dfx canister call omnity_hub sub_directives '(opt "Arbitrum", vec {variant {AddChain};variant {AddToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
-dfx canister call omnity_hub sub_directives '(opt "Optimistic", vec {variant {AddChain};variant {AddToken}; variant {UpdateFee} ;variant {ToggleChainState}})'
-dfx canister call omnity_hub sub_directives '(opt "Starknet", vec {variant {AddChain};variant {AddToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
+dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
+dfx canister call omnity_hub sub_directives '(opt "Ethereum", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
+dfx canister call omnity_hub sub_directives '(opt "eICP", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
+dfx canister call omnity_hub sub_directives '(opt "Arbitrum", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
+dfx canister call omnity_hub sub_directives '(opt "Optimistic", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
+dfx canister call omnity_hub sub_directives '(opt "Starknet", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
 
 dfx canister call omnity_hub query_subscribers '(null)'
 # add chain
@@ -164,9 +164,9 @@ dfx canister call omnity_hub get_chain_tokens '(opt "Optimistic",null,0:nat64,5:
 dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:nat64)'
 
 # must build 
-dfx build omnity_hub
+# dfx build omnity_hub
 # upgrade canister
-dfx canister install --mode upgrade --argument '(variant { Upgrade = null })' --yes omnity_hub 
+# dfx canister install --mode upgrade --argument '(variant { Upgrade = null })' --yes omnity_hub 
 dfx canister call omnity_hub sync_ticket_size '()'
 dfx canister call omnity_hub sync_tickets '(0:nat64,12:nat64)'
 # dfx stop
