@@ -18,6 +18,11 @@ dfx canister create omnity_hub
 dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
 # dfx canister install --mode install --wasm ./scripts/pre_omnity_hub.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' --yes omnity_hub
 
+# deploy the bitcoin custom canister
+dfx deploy bitcoin_mock --argument '(null)' --mode reinstall -y
+
+# deploy the icp route canister
+dfx deploy icp_mock --mode reinstall -y
 
 # sub topic
 dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
