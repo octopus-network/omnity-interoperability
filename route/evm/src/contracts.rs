@@ -84,7 +84,7 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> anyhow::Result<Vec<u8>> {
     Ok(PrivilegedMintTokenCall {
         token_id: ticket.token.clone(),
         receiver,
-        amount: U256::from(amount).mul(10i32.pow(token.decimals.into())),
+        amount: U256::from(amount),
         ticket_id: ticket.ticket_id.clone(),
         memo: String::from_utf8(ticket.memo.clone().unwrap_or_default()).unwrap_or_default(),
     }
