@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use std::time::Duration;
 
 use ethers_core::abi::ethereum_types;
@@ -8,12 +7,11 @@ use ic_cdk_timers::set_timer_interval;
 use k256::PublicKey;
 
 use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
-use crate::eth_common::EvmAddress;
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::fetch_hub_periodic_task;
 use crate::route_to_evm::to_evm_task;
-use crate::state::{EvmRouteState, init_chain_pubkey, InitArgs, mutate_state, read_state, replace_state, StateProfile};
-use crate::types::{Chain, ChainId, Directive, MintTokenStatus, Seq, Ticket, TokenId, TokenResp};
+use crate::state::{EvmRouteState, init_chain_pubkey, InitArgs, mutate_state, read_state, replace_state, StateProfile, UpgradeArgs};
+use crate::types::{Chain, ChainId, Directive, MintTokenStatus, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenId, TokenResp};
 
 #[init]
 fn init(args: InitArgs) {
@@ -27,8 +25,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
-    EvmRouteState::post_upgrade();
+fn post_upgrade(args: Option<UpgradeArgs>) {
+    EvmRouteState::post_upgrade(args);
     start_tasks();
 }
 
@@ -74,10 +72,14 @@ async fn pubkey_and_evm_addr() -> (String, String) {
 fn route_state() -> StateProfile {
     read_state(|s| StateProfile::from(s))
 }
+#[query(guard = "is_admin")]
+fn query_pending_tickect(from: usize, limit: usize) -> Vec<(TicketId, PendingTicketStatus)> {
+    read_state(|s|s.pending_tickets_map.iter().skip(from).take(limit).map(|kv| kv).collect())
+}
 
-#[update(guard = "is_admin")]
-fn set_omnity_port_contract_addr(addr: String) {
-    mutate_state(|s| s.omnity_port_contract = EvmAddress::from_str(addr.as_str()).unwrap());
+#[query(guard = "is_admin")]
+fn query_pending_directive(from: usize, limit: usize) -> Vec<(Seq, PendingDirectiveStatus)> {
+    read_state(|s|s.pending_directive_map.iter().skip(from).take(limit).map(|kv|kv).collect())
 }
 
 #[query]

@@ -39,6 +39,17 @@ type MintTokenStatus = variant {
   Unknown;
 };
 type Network = variant { mainnet; local; testnet };
+type PendingDirectiveStatus = record {
+  seq : nat64;
+  evm_tx_hash : opt text;
+  error : opt text;
+};
+type PendingTicketStatus = record {
+  seq : nat64;
+  evm_tx_hash : opt text;
+  ticket_id : text;
+  error : opt text;
+};
 type RpcApi = record { url : text; headers : opt vec HttpHeader };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
@@ -106,15 +117,16 @@ service : (InitArgs) -> {
   get_fee : (text) -> (opt nat64) query;
   get_ticket : (text) -> (opt record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
-  init_chain_pubkey : () -> (text);
   mint_token_status : (text) -> (MintTokenStatus) query;
-  pubkey_and_evm_addr : () -> (text, text) query;
+  pubkey_and_evm_addr : () -> (text, text);
   query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;
+  query_pending_directive : (nat64, nat64) -> (
+      vec record { nat64; PendingDirectiveStatus },
+    ) query;
+  query_pending_tickect : (nat64, nat64) -> (
+      vec record { text; PendingTicketStatus },
+    ) query;
   query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
-  resend_directive : (nat64) -> ();
   route_state : () -> (StateProfile) query;
-  set_evm_chain_id : (nat64) -> ();
-  set_omnity_port_contract_addr : (text) -> ();
-  set_scan_height : (nat64) -> ();
   set_token_evm_contract : (text, text) -> ();
 }

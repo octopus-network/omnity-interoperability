@@ -17,7 +17,6 @@ use itertools::Itertools;
 use log::error;
 use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_TASK_NAME};
 
-
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
         let _guard = match crate::guard::TimerLogicGuard::new(SCAN_EVM_TASK_NAME.to_string()) {

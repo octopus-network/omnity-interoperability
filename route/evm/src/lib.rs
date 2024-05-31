@@ -40,7 +40,7 @@ pub enum Error {
 }
 
 pub mod const_args {
-    pub const MAX_SCAN_BLOCKS: u64 = 20;
+    pub const MAX_SCAN_BLOCKS: u64 = 100;
     pub const EVM_ADDR_BYTES_LEN: usize = 20;
     pub const PERIODIC_TASK_INTERVAL: u64 = 5;
     pub const BATCH_QUERY_LIMIT: u64 = 20;

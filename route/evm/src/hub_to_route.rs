@@ -25,9 +25,7 @@ async fn process_tickets() {
 pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
     let mut next_seq = offset;
     for (seq, ticket) in &tickets {
-        let _receiver = if let Ok(receiver) = EvmAddress::from_str(&ticket.receiver) {
-            receiver
-        } else {
+        if let Err(_) = EvmAddress::from_str(&ticket.receiver) {
             log::error!(
                 "[process tickets] failed to parse ticket receiver: {}",
                 ticket.receiver
@@ -35,9 +33,7 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
             next_seq = seq + 1;
             continue;
         };
-        let _amount: u128 = if let Ok(amount) = ticket.amount.parse() {
-            amount
-        } else {
+        if let Err(_) = ticket.amount.parse::<u128>() {
             log::error!(
                 "[process tickets] failed to parse ticket amount: {}",
                 ticket.amount

@@ -17,6 +17,7 @@ use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::str::FromStr;
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
@@ -37,7 +38,7 @@ pub struct InitArgs {
 
 #[derive(CandidType, Deserialize)]
 pub struct UpgradeArgs {
-
+    pub omnity_port_contract_addr: Option<String>
 }
 
 
@@ -99,7 +100,7 @@ impl EvmRouteState {
             .expect("failed to save hub state");
     }
 
-    pub fn post_upgrade() {
+    pub fn post_upgrade(args: Option<UpgradeArgs>) {
         use ic_stable_structures::Memory;
         let memory = stable_memory::get_upgrade_stash_memory();
         // Read the length of the state bytes.
@@ -111,6 +112,13 @@ impl EvmRouteState {
         let state: EvmRouteState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
         STATE.with(|s| *s.borrow_mut() = Some(state));
+        if let Some(arg) = args {
+            if let Some(contract_addr) = arg.omnity_port_contract_addr {
+                mutate_state(|s|s.omnity_port_contract = EvmAddress::from_str(contract_addr.as_str()).unwrap());
+            }
+
+
+        }
     }
 
     pub fn pull_tickets(&self, from: usize, limit: usize) -> Vec<(Seq, Ticket)> {
