@@ -9,7 +9,7 @@ use k256::PublicKey;
 use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::fetch_hub_periodic_task;
-use crate::route_to_evm::to_evm_task;
+use crate::route_to_evm::{send_directive, to_evm_task};
 use crate::state::{EvmRouteState, init_chain_pubkey, InitArgs, mutate_state, read_state, replace_state, StateProfile, UpgradeArgs};
 use crate::types::{Chain, ChainId, Directive, MintTokenStatus, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenId, TokenResp};
 
@@ -30,6 +30,10 @@ fn post_upgrade(args: Option<UpgradeArgs>) {
     start_tasks();
 }
 
+#[update(guard = "is_admin")]
+async fn resend_directive(seq: Seq) {
+    send_directive(seq).await.unwrap();
+}
 fn start_tasks() {
     set_timer_interval(Duration::from_secs(FETCH_HUB_TASK_INTERVAL), fetch_hub_periodic_task);
     set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), to_evm_task);

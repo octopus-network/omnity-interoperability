@@ -1,5 +1,3 @@
-use anyhow::anyhow;
-use std::ops::Mul;
 use std::str::FromStr;
 
 use ethers_core::abi::{ethereum_types, AbiEncode};
@@ -76,11 +74,6 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> anyhow::Result<Vec<u8>> {
             .as_slice(),
     );
     let amount: u128 = ticket.amount.parse().unwrap();
-    let token = read_state(|s| s.tokens.get(&ticket.token).cloned()).ok_or(anyhow!(
-        "[evm route]: token not found:{}",
-        ticket.token.clone()
-    ))?;
-
     Ok(PrivilegedMintTokenCall {
         token_id: ticket.token.clone(),
         receiver,
@@ -94,12 +87,12 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> anyhow::Result<Vec<u8>> {
 impl Into<PortContractCommandIndex> for Directive {
     fn into(self) -> PortContractCommandIndex {
         match self {
-            Directive::AddChain(_) => 0u8,
-            Directive::AddToken(_) => 1u8,
-            Directive::UpdateFee(_) => 2u8,
+            Directive::AddChain(_) => None::<u8>.unwrap(),
+            Directive::AddToken(_) => 0u8,
+            Directive::UpdateFee(_) => 1u8,
             Directive::ToggleChainState(t) => match t.action {
-                ToggleAction::Activate => 4,
-                ToggleAction::Deactivate => 3,
+                ToggleAction::Activate => 3,
+                ToggleAction::Deactivate => 2,
             },
         }
     }

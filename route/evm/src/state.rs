@@ -39,6 +39,7 @@ pub struct InitArgs {
 #[derive(CandidType, Deserialize)]
 pub struct UpgradeArgs {
     pub omnity_port_contract_addr: Option<String>
+
 }
 
 

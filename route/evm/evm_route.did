@@ -127,6 +127,7 @@ service : (InitArgs) -> {
       vec record { text; PendingTicketStatus },
     ) query;
   query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
+  resend_directive : (nat64) -> ();
   route_state : () -> (StateProfile) query;
   set_token_evm_contract : (text, text) -> ();
 }

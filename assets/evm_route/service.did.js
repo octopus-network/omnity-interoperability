@@ -96,6 +96,17 @@ export const idlFactory = ({ IDL }) => {
     'AddChain' : Chain,
     'ToggleChainState' : ToggleState,
   });
+  const PendingDirectiveStatus = IDL.Record({
+    'seq' : IDL.Nat64,
+    'evm_tx_hash' : IDL.Opt(IDL.Text),
+    'error' : IDL.Opt(IDL.Text),
+  });
+  const PendingTicketStatus = IDL.Record({
+    'seq' : IDL.Nat64,
+    'evm_tx_hash' : IDL.Opt(IDL.Text),
+    'ticket_id' : IDL.Text,
+    'error' : IDL.Opt(IDL.Text),
+  });
   const EcdsaCurve = IDL.Variant({ 'secp256k1' : IDL.Null });
   const EcdsaKeyId = IDL.Record({ 'name' : IDL.Text, 'curve' : EcdsaCurve });
   const HttpHeader = IDL.Record({ 'value' : IDL.Text, 'name' : IDL.Text });
@@ -136,12 +147,21 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
-    'init_chain_pubkey' : IDL.Func([], [IDL.Text], []),
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
-    'pubkey_and_evm_addr' : IDL.Func([], [IDL.Text, IDL.Text], ['query']),
+    'pubkey_and_evm_addr' : IDL.Func([], [IDL.Text, IDL.Text], []),
     'query_directives' : IDL.Func(
         [IDL.Nat64, IDL.Nat64],
         [IDL.Vec(IDL.Tuple(IDL.Nat64, Directive))],
+        ['query'],
+      ),
+    'query_pending_directive' : IDL.Func(
+        [IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(IDL.Tuple(IDL.Nat64, PendingDirectiveStatus))],
+        ['query'],
+      ),
+    'query_pending_tickect' : IDL.Func(
+        [IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(IDL.Tuple(IDL.Text, PendingTicketStatus))],
         ['query'],
       ),
     'query_tickets' : IDL.Func(
@@ -151,9 +171,6 @@ export const idlFactory = ({ IDL }) => {
       ),
     'resend_directive' : IDL.Func([IDL.Nat64], [], []),
     'route_state' : IDL.Func([], [StateProfile], ['query']),
-    'set_evm_chain_id' : IDL.Func([IDL.Nat64], [], []),
-    'set_omnity_port_contract_addr' : IDL.Func([IDL.Text], [], []),
-    'set_scan_height' : IDL.Func([IDL.Nat64], [], []),
     'set_token_evm_contract' : IDL.Func([IDL.Text, IDL.Text], [], []),
   });
 };

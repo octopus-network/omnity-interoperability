@@ -44,6 +44,17 @@ export type MintTokenStatus = { 'Finalized' : { 'block_index' : bigint } } |
 export type Network = { 'mainnet' : null } |
   { 'local' : null } |
   { 'testnet' : null };
+export interface PendingDirectiveStatus {
+  'seq' : bigint,
+  'evm_tx_hash' : [] | [string],
+  'error' : [] | [string],
+}
+export interface PendingTicketStatus {
+  'seq' : bigint,
+  'evm_tx_hash' : [] | [string],
+  'ticket_id' : string,
+  'error' : [] | [string],
+}
 export interface RpcApi { 'url' : string, 'headers' : [] | [Array<HttpHeader>] }
 export interface StateProfile {
   'next_consume_ticket_seq' : bigint,
@@ -114,19 +125,23 @@ export interface _SERVICE {
   'get_fee' : ActorMethod<[string], [] | [bigint]>,
   'get_ticket' : ActorMethod<[string], [] | [[bigint, Ticket]]>,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
-  'init_chain_pubkey' : ActorMethod<[], string>,
   'mint_token_status' : ActorMethod<[string], MintTokenStatus>,
   'pubkey_and_evm_addr' : ActorMethod<[], [string, string]>,
   'query_directives' : ActorMethod<
     [bigint, bigint],
     Array<[bigint, Directive]>
   >,
+  'query_pending_directive' : ActorMethod<
+    [bigint, bigint],
+    Array<[bigint, PendingDirectiveStatus]>
+  >,
+  'query_pending_tickect' : ActorMethod<
+    [bigint, bigint],
+    Array<[string, PendingTicketStatus]>
+  >,
   'query_tickets' : ActorMethod<[bigint, bigint], Array<[bigint, Ticket]>>,
   'resend_directive' : ActorMethod<[bigint], undefined>,
   'route_state' : ActorMethod<[], StateProfile>,
-  'set_evm_chain_id' : ActorMethod<[bigint], undefined>,
-  'set_omnity_port_contract_addr' : ActorMethod<[string], undefined>,
-  'set_scan_height' : ActorMethod<[bigint], undefined>,
   'set_token_evm_contract' : ActorMethod<[string, string], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
