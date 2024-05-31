@@ -7,7 +7,7 @@ use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, T
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
-use log::info;
+use log::{error, info};
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, TicketType,
     ToggleAction, ToggleState, TokenId, Topic, TxAction,
@@ -312,9 +312,10 @@ impl HubState {
     }
 
     pub fn token(&self, token_id: &TokenId) -> Result<TokenMeta, Error> {
-        self.tokens
-            .get(token_id)
-            .ok_or(Error::NotFoundToken(token_id.to_string()))
+        self.tokens.get(token_id).ok_or({
+            error!("not found token: (`{}`)", token_id.to_string());
+            Error::NotFoundToken(token_id.to_string())
+        })
     }
 
     pub fn update_fee(&mut self, fee: Factor) -> Result<(), Error> {
@@ -322,11 +323,15 @@ impl HubState {
             Factor::UpdateTargetChainFactor(ref cf) => self
                 .chains
                 .get(&cf.target_chain_id)
-                .ok_or(Error::NotFoundChain(cf.target_chain_id.to_string()))
+                .ok_or({
+                    error!("not found chain: (`{}`)", cf.target_chain_id.to_string());
+                    Error::NotFoundChain(cf.target_chain_id.to_string())
+                })
                 .map_or_else(
                     |e| Err(e),
                     |chain| {
                         if matches!(chain.chain_state, ChainState::Deactive) {
+                            error!("The `{}` is deactive", cf.target_chain_id.to_string());
                             Err(Error::DeactiveChain(cf.target_chain_id.to_string()))
                         } else {
                             self.target_chain_factors
@@ -355,6 +360,10 @@ impl HubState {
     }
 
     pub fn sub_directives(&mut self, chain_id: &ChainId, topics: &[Topic]) -> Result<(), Error> {
+        info!(
+            "sub_directives for chain: {:?}, with topics: {:?} ",
+            chain_id, topics
+        );
         topics.iter().for_each(|topic| {
             let mut subscribers = self.topic_subscribers.get(topic).unwrap_or_default();
             subscribers.subs.insert(chain_id.to_string());
@@ -509,10 +518,17 @@ impl HubState {
         self.token_position
             .get(&position)
             .as_mut()
-            .ok_or(Error::NotFoundChainToken(
-                position.token_id.to_string(),
-                position.chain_id.to_string(),
-            ))
+            .ok_or({
+                error!(
+                    "Not found this token(`{0}`) on chain(`{1}`) ",
+                    position.token_id.to_string(),
+                    position.chain_id.to_string(),
+                );
+                Error::NotFoundChainToken(
+                    position.token_id.to_string(),
+                    position.chain_id.to_string(),
+                )
+            })
             .map_or_else(
                 |e| Err(e),
                 |total_amount| {
@@ -531,6 +547,10 @@ impl HubState {
     pub fn check_and_update(&mut self, ticket: &Ticket) -> Result<(), Error> {
         // check ticket id repetitive
         if self.cross_ledger.contains_key(&ticket.ticket_id) {
+            error!(
+                "The ticket id (`{}`) already exists!`",
+                ticket.ticket_id.to_string()
+            );
             return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
         }
         // check chain and state
@@ -539,6 +559,11 @@ impl HubState {
 
         //parse ticket token amount to unsigned bigint
         let ticket_amount: u128 = ticket.amount.parse().map_err(|e: ParseIntError| {
+            error!(
+                "The ticket amount(`{}`) parse error: `{}`",
+                ticket.amount.to_string(),
+                e.to_string()
+            );
             Error::TicketAmountParseError(ticket.amount.to_string(), e.to_string())
         })?;
 
@@ -571,6 +596,11 @@ impl HubState {
                         |total_amount| {
                             // check src chain token balance
                             if *total_amount < ticket_amount {
+                                error!(
+                                    "Insufficient token (`{}`) on chain (`{}`) !)",
+                                    ticket.token.to_string(),
+                                    ticket.src_chain.to_string(),
+                                );
                                 return Err::<u128, Error>(Error::NotSufficientTokens(
                                     ticket.token.to_string(),
                                     ticket.src_chain.to_string(),
@@ -595,6 +625,11 @@ impl HubState {
                     |total_amount| {
                         // check src chain token balance
                         if *total_amount < ticket_amount {
+                            error!(
+                                "Insufficient token (`{}`) on chain (`{}`) !)",
+                                ticket.token.to_string(),
+                                ticket.src_chain.to_string(),
+                            );
                             return Err::<u128, Error>(Error::NotSufficientTokens(
                                 ticket.token.to_string(),
                                 ticket.src_chain.to_string(),
@@ -647,11 +682,13 @@ impl HubState {
     pub fn resubmit_ticket(&mut self, ticket: Ticket) -> Result<(), Error> {
         let now = ic_cdk::api::time();
         if now - self.last_resubmit_ticket_time < 6 * HOUR {
+            error!("The resumit ticket sent too often");
             return Err(Error::ResubmitTicketSentTooOften);
         }
         match self.cross_ledger.get(&ticket.ticket_id) {
             Some(old_ticket) => {
                 if ticket != old_ticket {
+                    error!("The resubmit ticket must same as the old ticket!");
                     return Err(Error::ResubmitTicketMustSame);
                 }
                 let ticket_id = format!("{}_{}", ticket.ticket_id, now);
@@ -677,7 +714,9 @@ impl HubState {
                 });
                 Ok(())
             }
-            None => Err(Error::ResubmitTicketIdMustExist),
+            None => {
+                error!("The resubmit ticket id must exist!");
+                Err(Error::ResubmitTicketIdMustExist)},
         }
     }
 
@@ -687,6 +726,7 @@ impl HubState {
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
+        info!("pull_tickets: {:?},{offset},{limit}", chain_id);
         let tickets = self
             .ticket_queue
             .iter()

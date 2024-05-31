@@ -23,10 +23,10 @@ use omnity_hub::state::HubState;
 
 #[init]
 fn init(args: HubArg) {
-    info!("hub init args: {:?}", args);
     match args {
         HubArg::Init(args) => {
             init_log(Some(init_stable_log()));
+            info!("hub init args: {:?}", args);
 
             lifecycle::init(args.clone());
             record_event(&Event::Init(args));
@@ -90,6 +90,7 @@ pub async fn sub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Re
         chain_id, topics
     );
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    info!("get_chain_id:{:?}", dst_chain_id);
     with_state_mut(|hub_state| hub_state.sub_directives(&dst_chain_id, &topics))
 }
 
@@ -153,8 +154,6 @@ pub async fn query_tickets(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
-    info!("query_tickets: {:?},{offset},{limit}", chain_id);
-    // let end = from + num;
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
 }
@@ -255,13 +254,13 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     StableLogWriter::http_request(req)
 }
 
-#[query(guard = "auth")]
+#[query]
 pub async fn get_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
     let max_skip_timestamp = time.unwrap_or(0);
     StableLogWriter::get_logs(max_skip_timestamp, offset, limit)
 }
 
-#[query(guard = "auth")]
+#[query]
 fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
 }

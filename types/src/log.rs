@@ -40,7 +40,7 @@ impl Storable for LogEntry {
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
         let log_entry =
-            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode LogEntry");
         log_entry
     }
 

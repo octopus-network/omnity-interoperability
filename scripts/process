@@ -1,0 +1,5 @@
+#!ic-repl
+
+import cid = "bd3sg-teaaa-aaaaa-qaaba-cai";
+let init_cycles = 100_000_000_000_000;
+let init_memory_size = 111_825_018;

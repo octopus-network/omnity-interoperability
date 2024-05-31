@@ -1,4 +1,4 @@
-use log::info;
+use log::{error, info};
 use omnity_types::{ChainState, Directive, Error, Factor};
 
 use crate::{
@@ -8,6 +8,7 @@ use crate::{
 
 pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>, Error> {
     if proposals.is_empty() {
+        error!("Proposal can not be empty");
         return Err(Error::ProposalError(
             "Proposal can not be empty".to_string(),
         ));
@@ -17,12 +18,14 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
         match proposal {
             Proposal::AddChain(chain_meta) => {
                 if chain_meta.chain_id.is_empty() {
+                    error!("Proposal can not be empty");
                     return Err(Error::ProposalError(
                         "Chain name can not be empty".to_string(),
                     ));
                 }
 
                 if matches!(chain_meta.chain_state, ChainState::Deactive) {
+                    error!("The status of the new chain state must be active");
                     return Err(Error::ProposalError(
                         "The status of the new chain state must be active".to_string(),
                     ));
@@ -30,6 +33,10 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
 
                 with_state(|hub_state| {
                     hub_state.chain(&chain_meta.chain_id).map_or(Ok(()), |_| {
+                        error!(
+                            "The chain(`{}`) already exists",
+                            chain_meta.chain_id.to_string()
+                        );
                         Err(Error::ChainAlreadyExisting(chain_meta.chain_id.to_string()))
                     })
                 })?;
@@ -41,6 +48,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     || token_meta.symbol.is_empty()
                     || token_meta.issue_chain.is_empty()
                 {
+                    error!("Token id, token symbol or issue chain can not be empty");
                     return Err(Error::ProposalError(
                         "Token id, token symbol or issue chain can not be empty".to_string(),
                     ));
@@ -48,6 +56,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                 with_state(|hub_state| {
                     // check token repetitive
                     hub_state.token(&token_meta.token_id).map_or(Ok(()), |_| {
+                        error!("The token(`{}`) already exists", token_meta.to_string());
                         Err(Error::TokenAlreadyExisting(token_meta.to_string()))
                     })?;
 
@@ -57,6 +66,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                         .iter()
                         .find(|id| !hub_state.chains.contains_key(&**id))
                     {
+                        error!("not found chain: (`{}`)", id.to_string());
                         return Err(Error::NotFoundChain(id.to_string()));
                     }
 
@@ -67,6 +77,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
             }
             Proposal::ToggleChainState(toggle_state) => {
                 if toggle_state.chain_id.is_empty() {
+                    error!("Chain id can not be empty");
                     return Err(Error::ProposalError(
                         "Chain id can not be empty".to_string(),
                     ));
@@ -88,6 +99,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     }
                     Factor::UpdateFeeTokenFactor(ref tf) => {
                         if tf.fee_token.is_empty() {
+                            error!("The fee token can not be empty");
                             return Err(Error::ProposalError(
                                 "The fee token can not be empty".to_string(),
                             ));

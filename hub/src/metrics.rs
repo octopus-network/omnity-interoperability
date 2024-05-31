@@ -5,7 +5,7 @@ use crate::{
 };
 
 use ic_stable_structures::StableBTreeMap;
-use log::info;
+use log::{error, info};
 use omnity_types::{
     Account, Chain, ChainId, ChainState, ChainType, Directive, Error, Ticket, TicketId, Token,
     TokenId, TokenOnChain,
@@ -21,7 +21,6 @@ thread_local! {
 
 #[derive(Serialize)]
 pub struct Metrics {
-    
     #[serde(skip, default = "memory::init_ledger_metric")]
     pub tickets_metric: StableBTreeMap<u64, Ticket, Memory>,
     #[serde(skip, default = "memory::init_metric_seqs")]
@@ -50,13 +49,13 @@ pub fn set_metrics(metrics: Metrics) {
 }
 
 impl Metrics {
- 
     pub fn update_ticket_metric(&mut self, ticket: Ticket) {
         let latest_ticket_seq = self
             .metric_seqs
             .get(&LEDGER_SEQ_KEY.to_vec())
             .unwrap_or_default();
-        self.tickets_metric.insert(latest_ticket_seq, ticket.clone());
+        self.tickets_metric
+            .insert(latest_ticket_seq, ticket.clone());
         let latest_ticket_seq = latest_ticket_seq + 1;
         self.metric_seqs
             .insert(LEDGER_SEQ_KEY.to_vec(), latest_ticket_seq);
@@ -136,6 +135,7 @@ pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
         if let Some(chain) = hub_state.chains.get(&chain_id) {
             Ok(chain.into())
         } else {
+            error!("not found chain: (`{}`)", chain_id.to_string());
             Err(Error::NotFoundChain(chain_id))
         }
     })
@@ -417,6 +417,7 @@ pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
         if let Some(ticket) = hub_state.cross_ledger.get(&ticket_id) {
             Ok(ticket)
         } else {
+            error!("Not found this ticket: {}", ticket_id);
             Err(Error::CustomError(format!(
                 "Not found this ticket: {}",
                 ticket_id
@@ -437,6 +438,7 @@ pub async fn get_chain_type(chain_id: ChainId) -> Result<ChainType, Error> {
         if let Some(chain) = hub_state.chains.get(&chain_id) {
             Ok(chain.chain_type)
         } else {
+            error!("Not found this chain: {}", chain_id);
             Err(Error::NotFoundChain(chain_id))
         }
     })
@@ -444,6 +446,7 @@ pub async fn get_chain_type(chain_id: ChainId) -> Result<ChainType, Error> {
 
 // get chain id from canister
 pub fn get_chain_id(chain_id: Option<ChainId>) -> Result<ChainId, Error> {
+  
     if let Some(chain_id) = chain_id {
         Ok(chain_id)
     } else {
@@ -452,6 +455,7 @@ pub fn get_chain_id(chain_id: Option<ChainId>) -> Result<ChainId, Error> {
             if let Some(chain_id) = hs.authorized_caller.get(&caller) {
                 Ok(chain_id.to_string())
             } else {
+                error!("not found chain id for caller:{:?}", caller);
                 Err(Error::CustomError(format!(
                     "not found chain id for caller:{:?}",
                     caller
