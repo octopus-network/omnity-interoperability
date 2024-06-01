@@ -8084,6 +8084,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "icp_customs"
+version = "0.1.0"
+dependencies = [
+ "candid 0.10.7",
+ "ciborium",
+ "ic-cdk 0.12.1",
+ "ic-cdk-macros 0.8.4",
+ "ic-cdk-timers 0.6.0",
+ "icrc-ledger-client-cdk",
+ "icrc-ledger-types",
+ "log",
+ "num-traits",
+ "omnity_types",
+ "serde",
+]
+
+[[package]]
 name = "icp_mock"
 version = "0.1.0"
 dependencies = [

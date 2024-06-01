@@ -1,12 +1,14 @@
 use crate::state::{audit, mutate_state, read_state};
-use crate::{FEE_COLLECTOR_SUB_ACCOUNT, ICRC2_WASM};
+use crate::{BLOCK_HOLE_ADDRESS, FEE_COLLECTOR_SUB_ACCOUNT, ICRC2_WASM};
 use candid::{CandidType, Deserialize};
 use candid::{Encode, Principal};
 use ic_cdk::api::management_canister::main::{
-    create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CreateCanisterArgument,
-    InstallCodeArgument,
+    create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CanisterSettings,
+    CreateCanisterArgument, InstallCodeArgument,
 };
-use ic_icrc1_ledger::{ArchiveOptions, InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument, UpgradeArgs};
+use ic_icrc1_ledger::{
+    ArchiveOptions, InitArgsBuilder as LedgerInitArgsBuilder, LedgerArgument, UpgradeArgs,
+};
 use icrc_ledger_types::icrc::generic_metadata_value::MetadataValue;
 use icrc_ledger_types::icrc1::account::Account;
 use omnity_types::Token;
@@ -43,7 +45,18 @@ async fn install_icrc2_ledger(
     token_decimal: u8,
     token_icon: Option<String>,
 ) -> Result<CanisterIdRecord, String> {
-    let create_canister_arg = CreateCanisterArgument { settings: None };
+    let create_canister_arg = CreateCanisterArgument {
+        settings: Some(CanisterSettings {
+            controllers: Some(vec![
+                ic_cdk::id(),
+                Principal::from_text(BLOCK_HOLE_ADDRESS).unwrap(),
+            ]),
+            compute_allocation: None,
+            memory_allocation: None,
+            freezing_threshold: None,
+            reserved_cycles_limit: None,
+        }),
+    };
     let (canister_id_record,) = create_canister(create_canister_arg, 500_000_000_000)
         .await
         .map_err(|(_, reason)| reason)?;
@@ -85,13 +98,15 @@ async fn install_icrc2_ledger(
     Ok(canister_id_record)
 }
 
-pub async fn upgrade_icrc2_ledger(canister_id: Principal ,upgrade_args: UpgradeArgs)->Result<(), String> {
+pub async fn upgrade_icrc2_ledger(
+    canister_id: Principal,
+    upgrade_args: UpgradeArgs,
+) -> Result<(), String> {
     let install_code_arg = InstallCodeArgument {
         mode: CanisterInstallMode::Upgrade,
         canister_id: canister_id,
         wasm_module: ICRC2_WASM.to_vec(),
-        arg: Encode!(&LedgerArgument::Upgrade(Some(upgrade_args)))
-        .unwrap(),
+        arg: Encode!(&LedgerArgument::Upgrade(Some(upgrade_args))).unwrap(),
     };
     install_code(install_code_arg)
         .await

@@ -37,8 +37,8 @@ pub type TicketQueue = StableBTreeMap<SeqKey, Ticket, Memory>;
 pub enum Proposal {
     AddChain(ChainMeta),
     AddToken(TokenMeta),
-    //TODO: UpdateChain(ChainMeta)
-    //TOOD: UpdateToken(TokenMeta)
+    UpdateChain(ChainMeta),
+    UpdateToken(TokenMeta),
     ToggleChainState(ToggleState),
     UpdateFee(Factor),
 }

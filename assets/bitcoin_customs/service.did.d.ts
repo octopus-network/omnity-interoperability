@@ -186,6 +186,8 @@ export type Result = { 'Ok' : null } |
 export type Result_1 = { 'Ok' : Array<Utxo> } |
   { 'Err' : UpdateBtcUtxosErr };
 export type Result_2 = { 'Ok' : null } |
+  { 'Err' : UpdatePendingTicketError };
+export type Result_3 = { 'Ok' : null } |
   { 'Err' : UpdateRunesBalanceError };
 export interface RuneId { 'tx' : number, 'block' : bigint }
 export interface RunesBalance {
@@ -218,6 +220,14 @@ export interface TokenResp {
   'symbol' : string,
 }
 export type UpdateBtcUtxosErr = { 'TemporarilyUnavailable' : string };
+export interface UpdatePendingTicketArgs {
+  'txid' : string,
+  'amount' : [] | [bigint],
+  'rune_id' : [] | [string],
+}
+export type UpdatePendingTicketError = { 'InvalidRuneId' : string } |
+  { 'InvalidTxId' : null } |
+  { 'TicketNotFound' : null };
 export interface UpdateRunesBalanceArgs {
   'txid' : Uint8Array | number[],
   'balances' : Array<RunesBalance>,
@@ -256,7 +266,8 @@ export interface _SERVICE {
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
   'update_btc_utxos' : ActorMethod<[], Result_1>,
-  'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_2>,
+  'update_pending_ticket' : ActorMethod<[UpdatePendingTicketArgs], Result_2>,
+  'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_3>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: ({ IDL }: { IDL: IDL }) => IDL.Type[];

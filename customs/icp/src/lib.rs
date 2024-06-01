@@ -1,33 +1,20 @@
-use candid::{CandidType, Principal};
-use icrc_ledger_types::icrc1::account::{Account, Subaccount};
-use log::{self};
-use omnity_types::{ChainState, Directive, Token, TokenId};
-use serde::{Deserialize, Serialize};
-use state::{audit, mutate_state, read_state};
+use candid::Principal;
+use icrc_ledger_types::icrc1::account::Account;
+use omnity_types::Directive;
+use state::{mutate_state, read_state};
 use std::str::FromStr;
 use updates::mint_token::{MintTokenError, MintTokenRequest};
 
 pub mod call_error;
-pub mod guard;
 pub mod hub;
 pub mod lifecycle;
-pub mod memory;
 pub mod state;
-pub mod storage;
 pub mod updates;
 
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
-pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
-pub const ICP_TRANSFER_FEE: u64 = 10_000;
-pub const FEE_COLLECTOR_SUB_ACCOUNT: &Subaccount = &[1; 32];
-pub const BLOCK_HOLE_ADDRESS: &str = "e3mmv-5qaaa-aaaah-aadma-cai";
 
 async fn process_tickets() {
-    if read_state(|s| s.chain_state == ChainState::Deactive) {
-        return;
-    }
-
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
@@ -114,7 +101,10 @@ async fn process_directives() {
             for (_, directive) in &directives {
                 match directive {
                     Directive::AddChain(chain) => {
-                        mutate_state(|s| audit::add_chain(s, chain.clone()));
+                        mutate_state(|s| {
+                            s.counterparties
+                                .insert(chain.chain_id.clone(), chain.clone())
+                        });
                     }
                     Directive::AddToken(token) => {
                         match updates::add_new_token(token.clone()).await {
@@ -133,15 +123,7 @@ async fn process_directives() {
                             }
                         }
                     }
-                    Directive::ToggleChainState(toggle) => {
-                        mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
-                    }
-                    Directive::UpdateFee(fee) => {
-                        mutate_state(|s| audit::update_fee(s, fee.clone()));
-                        log::info!("[process_directives] success to update fee, fee: {}", fee);
-                    }
-                    Directive::UpdateChain(_) => {},
-                    Directive::UpdateToken(_) => {},
+                    _ => {}
                 }
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
@@ -158,35 +140,36 @@ async fn process_directives() {
     };
 }
 
+#[must_use]
+pub struct TimerLogicGuard(());
+
+impl TimerLogicGuard {
+    pub fn new() -> Option<Self> {
+        mutate_state(|s| {
+            if s.is_timer_running {
+                return None;
+            }
+            s.is_timer_running = true;
+            Some(TimerLogicGuard(()))
+        })
+    }
+}
+
+impl Drop for TimerLogicGuard {
+    fn drop(&mut self) {
+        mutate_state(|s| {
+            s.is_timer_running = false;
+        });
+    }
+}
+
 pub fn periodic_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new() {
+        let _guard = match TimerLogicGuard::new() {
             Some(guard) => guard,
             None => return,
         };
-
         process_directives().await;
         process_tickets().await;
     });
-}
-
-#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
-pub struct TokenResp {
-    pub token_id: TokenId,
-    pub symbol: String,
-    pub decimals: u8,
-    pub icon: Option<String>,
-    pub rune_id: Option<String>,
-}
-
-impl From<Token> for TokenResp {
-    fn from(value: Token) -> Self {
-        TokenResp {
-            token_id: value.token_id,
-            symbol: value.symbol,
-            decimals: value.decimals,
-            icon: value.icon,
-            rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
-        }
-    }
 }

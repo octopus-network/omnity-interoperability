@@ -252,6 +252,20 @@ export const idlFactory = ({ IDL }) => {
     'Ok' : IDL.Vec(Utxo),
     'Err' : UpdateBtcUtxosErr,
   });
+  const UpdatePendingTicketArgs = IDL.Record({
+    'txid' : IDL.Text,
+    'amount' : IDL.Opt(IDL.Nat),
+    'rune_id' : IDL.Opt(IDL.Text),
+  });
+  const UpdatePendingTicketError = IDL.Variant({
+    'InvalidRuneId' : IDL.Text,
+    'InvalidTxId' : IDL.Null,
+    'TicketNotFound' : IDL.Null,
+  });
+  const Result_2 = IDL.Variant({
+    'Ok' : IDL.Null,
+    'Err' : UpdatePendingTicketError,
+  });
   const UpdateRunesBalanceArgs = IDL.Record({
     'txid' : IDL.Vec(IDL.Nat8),
     'balances' : IDL.Vec(RunesBalance),
@@ -263,7 +277,7 @@ export const idlFactory = ({ IDL }) => {
     'AleardyProcessed' : IDL.Null,
     'MismatchWithGenTicketReq' : IDL.Null,
   });
-  const Result_2 = IDL.Variant({
+  const Result_3 = IDL.Variant({
     'Ok' : IDL.Null,
     'Err' : UpdateRunesBalanceError,
   });
@@ -293,7 +307,12 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'update_btc_utxos' : IDL.Func([], [Result_1], []),
-    'update_runes_balance' : IDL.Func([UpdateRunesBalanceArgs], [Result_2], []),
+    'update_pending_ticket' : IDL.Func(
+        [UpdatePendingTicketArgs],
+        [Result_2],
+        [],
+      ),
+    'update_runes_balance' : IDL.Func([UpdateRunesBalanceArgs], [Result_3], []),
   });
 };
 export const init = ({ IDL }) => {

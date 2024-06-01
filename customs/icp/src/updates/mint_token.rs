@@ -1,4 +1,4 @@
-use crate::state::{audit, mutate_state, read_state};
+use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::{
@@ -42,14 +42,17 @@ pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
     }
 
-    let ledger_id = read_state(|s| match s.token_ledgers.get(&req.token_id) {
-        Some(ledger_id) => Ok(ledger_id.clone()),
+    let ledger_id = read_state(|s| match s.tokens.get(&req.token_id) {
+        Some((_, ledger_id)) => Ok(ledger_id.clone()),
         None => Err(MintTokenError::UnsupportedToken(req.token_id.clone())),
     })?;
 
     let block_index = mint(ledger_id, req.amount, req.receiver).await?;
 
-    mutate_state(|s| audit::finalize_mint_token_req(s, req.ticket_id.clone(), block_index));
+    mutate_state(|s| {
+        s.finalized_mint_token_requests
+            .insert(req.ticket_id.clone(), block_index)
+    });
     Ok(())
 }
 

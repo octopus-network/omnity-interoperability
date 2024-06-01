@@ -113,7 +113,7 @@ pub enum Event {
     Upgrade(UpgradeArgs),
 
     #[serde(rename = "added_chain")]
-    AddedChain(ChainMeta),
+    UpdatedChain(ChainMeta),
 
     #[serde(rename = "updated_chain")]
     UpdatedChainCounterparties(ChainMeta),
@@ -186,7 +186,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
             Event::Upgrade(args) => {
                 hub_state.upgrade(args);
             }
-            Event::AddedChain(chain) => {
+            Event::UpdatedChain(chain) => {
                 hub_state
                     .chains
                     .insert(chain.chain_id.to_string(), chain.clone());
@@ -311,7 +311,7 @@ mod tests {
             Event::Init(InitArgs {
                 admin: Principal::anonymous(),
             }),
-            Event::AddedChain(ChainMeta {
+            Event::UpdatedChain(ChainMeta {
                 chain_id: "Bitcoin".to_string(),
                 chain_type: ChainType::SettlementChain,
                 chain_state: ChainState::Active,
