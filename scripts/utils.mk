@@ -8,7 +8,7 @@ define build_on_ic
 	set -e; \
 	cd $(1); \
 	dfx build omnity_hub --network ic ; \
-	$(call ic-wasm,target/wasm32-unknown-unknown/release/); \
+	$(call ic-wasm,.dfx/local/canisters/); \
 	cd ..
 endef
 
@@ -19,6 +19,6 @@ define build
 	dfx canister create omnity_hub; \
 	dfx ledger fabricate-cycles --t 100 --canister $$(dfx identity get-wallet); \
 	dfx build omnity_hub; \
-	$(call ic-wasm,target/wasm32-unknown-unknown/release/); \
+	$(call ic-wasm,.dfx/local/canisters/); \
 	cd ..
 endef

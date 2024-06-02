@@ -6,7 +6,7 @@ let file = "perf.md";
 let process = "process";
 
 // instrument wasm
-let omnity_hub = wasm_profiling("../target/wasm32-unknown-unknown/release/omnity_hub.wasm");
+let omnity_hub = wasm_profiling("../target/wasm32-unknown-unknown/release/omnity_hub.wasm",rs_config);
 let size = omnity_hub.size();
 let init = encode omnity_hub.__init_args(
     variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} }

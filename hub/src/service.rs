@@ -1,10 +1,12 @@
 use crate::memory::init_stable_log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_stable_structures::Memory;
 use log::info;
 use omnity_hub::auth::{auth, is_admin};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
+use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
@@ -23,6 +25,11 @@ use omnity_hub::state::HubState;
 
 #[init]
 fn init(args: HubArg) {
+    // init profiling memory
+    let memory = get_profiling_memory();
+    // Increase the page number if you need larger log space
+    memory.grow(4096);
+
     match args {
         HubArg::Init(args) => {
             init_log(Some(init_stable_log()));
@@ -1327,8 +1334,6 @@ mod tests {
             result
         );
         assert!(result.is_ok());
-
- 
     }
 
     #[tokio::test]

@@ -2,4 +2,7 @@
 
 import cid = "bd3sg-teaaa-aaaaa-qaaba-cai";
 let init_cycles = 100_000_000_000_000;
-let init_memory_size = 111_825_018;
+let init_memory_size = 380_395_468;
+let current_cycles = 100_000_000_000_000;
+let test_cost = 0;
+let current_memory_size = 397_172_684;

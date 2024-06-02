@@ -17,7 +17,6 @@ install_hub_on_local: build
 
 perf_hub_on_local: install_hub_on_local
 	./test_hub_on_local.sh;
-	ic-repl ./perf_hub_on_local.sh;
 
 build_ic: clean
 	cd ../;
