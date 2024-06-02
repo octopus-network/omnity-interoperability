@@ -379,8 +379,6 @@ impl HubState {
             }
         })?;
 
-        // repub the subscribed topics from history for new subscriber
-        self.repub_2_subscriber(chain_id, &Some(topics.to_vec()))?;
         Ok(())
     }
 
@@ -396,8 +394,7 @@ impl HubState {
                 }
             }
         });
-        // delete diretives for unsubscriber
-        self.delete_directives(chain_id, topics)?;
+
         Ok(())
     }
 

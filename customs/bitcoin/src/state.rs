@@ -659,6 +659,7 @@ impl CustomsState {
             {
                 // Put this request back to the queue until we have enough liquid UTXOs.
                 requests.push(req);
+                edicts.pop();
             } else {
                 tx_amount += req.amount;
                 batch.push(req.clone());

@@ -1011,7 +1011,7 @@ fn test_update_runes_balance_invalid() {
     );
 
     let status = customs.generate_ticket_status(txid);
-    assert!(matches!(status, GenTicketStatus::Pending(_)));
+    assert!(matches!(status, GenTicketStatus::Unknown));
 }
 
 #[test]

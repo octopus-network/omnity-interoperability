@@ -54,6 +54,7 @@ type Event = variant {
     destination : Destination;
     utxos : vec Utxo;
   };
+  removed_ticket_request : record { txid : blob };
   sent_transaction : record {
     fee : opt nat64;
     txid : blob;

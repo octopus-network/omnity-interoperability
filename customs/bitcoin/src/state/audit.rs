@@ -86,6 +86,11 @@ pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: Runes
     state.update_runes_balance(txid, balance);
 }
 
+pub fn remove_pending_request(state: &mut CustomsState, txid: &Txid) {
+    record_event(&Event::RemovedTicketRequest { txid: txid.clone() });
+    state.pending_gen_ticket_requests.remove(txid);
+}
+
 pub fn finalize_ticket_request(
     state: &mut CustomsState,
     request: &GenTicketRequest,
