@@ -44,7 +44,14 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     ));
                 }
                 // check chain available
-                with_state(|hub_state| hub_state.available_chain(&chain_meta.chain_id))?;
+                let ori_chain =
+                    with_state(|hub_state| hub_state.available_chain(&chain_meta.chain_id))?;
+
+                if ori_chain.eq(chain_meta) {
+                    return Err(Error::ProposalError(
+                        "The updated chain must be different with origial chain".to_string(),
+                    ));
+                }
 
                 proposal_msgs.push(format!("Tne UpdateChain proposal: {}", chain_meta));
             }
@@ -87,6 +94,14 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                         "Token id, token symbol or issue chain can not be empty".to_string(),
                     ));
                 }
+                let ori_token = with_state(|hub_state| hub_state.token(&token_meta.token_id))?;
+
+                if ori_token.eq(token_meta) {
+                    return Err(Error::ProposalError(
+                        "The updated token must be different with origial token".to_string(),
+                    ));
+                }
+
                 with_state(|hub_state| {
                     //ensure the dst chains must exsits!
                     if let Some(id) = token_meta
