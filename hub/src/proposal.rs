@@ -68,7 +68,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     if let Some(id) = token_meta
                         .dst_chains
                         .iter()
-                        .find(|id| !hub_state.chains.contains_key(&**id))
+                        .find(|id| !hub_state.chains.contains_key(*id))
                     {
                         return Err(Error::NotFoundChain(id.to_string()));
                     }
@@ -92,7 +92,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     if let Some(id) = token_meta
                         .dst_chains
                         .iter()
-                        .find(|id| !hub_state.chains.contains_key(&**id))
+                        .find(|id| !hub_state.chains.contains_key(*id))
                     {
                         return Err(Error::NotFoundChain(id.to_string()));
                     }
