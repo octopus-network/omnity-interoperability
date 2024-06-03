@@ -595,13 +595,13 @@ dependencies = [
  "async-trait",
  "bech32 0.9.1",
  "bitcoin 0.28.2",
+ "bitcoin_mock",
  "bs58",
  "candid 0.10.7",
  "candid_parser",
  "ciborium",
  "hex",
  "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
- "ic-bitcoin-canister-mock",
  "ic-btc-interface",
  "ic-canister-log",
  "ic-canisters-http-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
@@ -649,6 +649,21 @@ checksum = "5d7066118b13d4b20b23645932dfb3a81ce7e29f95726c2036fa33cd7b092501"
 dependencies = [
  "bitcoin-private",
  "serde",
+]
+
+[[package]]
+name = "bitcoin_mock"
+version = "0.1.0"
+dependencies = [
+ "bech32 0.9.1",
+ "candid 0.10.7",
+ "ic-btc-interface",
+ "ic-cdk 0.12.1",
+ "ic-cdk-macros 0.8.4",
+ "omnity_types",
+ "rand 0.8.5",
+ "serde",
+ "serde_bytes",
 ]
 
 [[package]]
@@ -2845,10 +2860,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94b22e06ecb0110981051723910cbf0b5f5e09a2062dd7663334ee79a9d1286c"
 dependencies = [
  "cfg-if 1.0.0",
- "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -3436,21 +3449,6 @@ dependencies = [
  "phantom_newtype 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-03-06_23-01+p2p)",
  "prost 0.12.4",
  "serde",
-]
-
-[[package]]
-name = "ic-bitcoin-canister-mock"
-version = "0.1.0"
-dependencies = [
- "bech32 0.9.1",
- "candid 0.10.7",
- "getrandom 0.2.14",
- "ic-btc-interface",
- "ic-cdk 0.12.1",
- "ic-cdk-macros 0.8.4",
- "rand 0.8.5",
- "serde",
- "serde_bytes",
 ]
 
 [[package]]
@@ -8100,6 +8098,21 @@ dependencies = [
  "num-traits",
  "omnity_types",
  "serde",
+]
+
+[[package]]
+name = "icp_mock"
+version = "0.1.0"
+dependencies = [
+ "bech32 0.9.1",
+ "candid 0.10.7",
+ "ic-btc-interface",
+ "ic-cdk 0.12.1",
+ "ic-cdk-macros 0.8.4",
+ "omnity_types",
+ "rand 0.8.5",
+ "serde",
+ "serde_bytes",
 ]
 
 [[package]]

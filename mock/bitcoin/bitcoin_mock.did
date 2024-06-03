@@ -1,3 +1,22 @@
+type BitcoinNetwork = variant { mainnet; regtest; testnet };
+type FinalizedStatus = variant { Confirmed : blob };
+type GenTicketRequest = record {
+  received_at : nat64;
+  token_id : text;
+  txid : blob;
+  target_chain_id : text;
+  address : text;
+  amount : nat;
+  receiver : text;
+  rune_id : RuneId;
+};
+type GenerateTicketArgs = record {
+  txid : text;
+  target_chain_id : text;
+  amount : nat;
+  receiver : text;
+  rune_id : text;
+};
 type GetCurrentFeePercentilesRequest = record { network : NetworkInRequest };
 type GetUtxosRequest = record {
   network : NetworkInRequest;
@@ -5,11 +24,12 @@ type GetUtxosRequest = record {
   address : text;
 };
 type GetUtxosResponse = record {
-  next_page : opt vec nat8;
+  next_page : opt blob;
   tip_height : nat32;
-  tip_block_hash : vec nat8;
+  tip_block_hash : blob;
   utxos : vec Utxo;
 };
+type Network = variant { mainnet; regtest; testnet };
 type NetworkInRequest = variant {
   Mainnet;
   mainnet;
@@ -18,28 +38,43 @@ type NetworkInRequest = variant {
   Testnet;
   testnet;
 };
-type OutPoint = record { txid : vec nat8; vout : nat32 };
-type PushUtxoToAddress = record { utxo : Utxo; address : text };
+type OutPoint = record { txid : blob; vout : nat32 };
+type PushUtxosToAddress = record { utxos : vec record { text; vec Utxo } };
+type ReleaseTokenStatus = variant {
+  Signing;
+  Confirmed : text;
+  Sending : text;
+  Unknown;
+  Submitted : text;
+  Pending;
+};
+type RuneId = record { tx : nat32; block : nat64 };
 type SendTransactionRequest = record {
-  transaction : vec nat8;
-  network : NetworkInRequest;
+  transaction : blob;
+  network : BitcoinNetwork;
 };
 type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 type UtxosFilterInRequest = variant {
-  Page : vec nat8;
-  page : vec nat8;
+  Page : blob;
+  page : blob;
   min_confirmations : nat32;
   MinConfirmations : nat32;
 };
-service : (network: NetworkInRequest) -> {
+service : (opt Network) -> {
   bitcoin_get_current_fee_percentiles : (GetCurrentFeePercentilesRequest) -> (
       vec nat64,
     );
   bitcoin_get_utxos : (GetUtxosRequest) -> (GetUtxosResponse);
   bitcoin_send_transaction : (SendTransactionRequest) -> ();
   change_availability : (bool) -> ();
-  get_mempool : () -> (vec vec nat8);
-  push_utxo_to_address : (PushUtxoToAddress) -> ();
+  generate_ticket : (GenerateTicketArgs) -> ();
+  get_mempool : () -> (vec blob);
+  get_pending_gen_ticket_size : () -> (nat64) query;
+  get_pending_gen_tickets : (nat64, nat64) -> (vec GenTicketRequest) query;
+  mock_finalized_release_token : (text, FinalizedStatus) -> ();
+  mock_finalized_ticket : (text) -> ();
+  push_utxos_to_address : (PushUtxosToAddress) -> ();
+  release_token_status : (text) -> (ReleaseTokenStatus) query;
   remove_utxo : (Utxo) -> ();
   reset_mempool : () -> ();
   set_fee_percentiles : (vec nat64) -> ();

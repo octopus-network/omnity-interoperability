@@ -1,5 +1,5 @@
 [package]
-name = "bitcoin_mock"
+name = "icp_mock"
 version = "0.1.0"
 edition.workspace = true
 
@@ -12,5 +12,5 @@ ic-cdk-macros = { workspace = true }
 rand = "0.8.5"
 serde = { workspace = true }
 serde_bytes = { workspace = true }
-omnity_types = { path = "../../types" }
 # getrandom = { version = "0.2", features = ["js"] }
+omnity_types = { path = "../../types" }

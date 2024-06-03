@@ -1,9 +1,85 @@
-use crate::{state::with_state, types::TokenKey};
+use crate::memory::{self, Memory};
+use crate::{
+    state::with_state,
+    types::{ChainMeta, TokenKey, TokenMeta},
+};
+
+use ic_stable_structures::StableBTreeMap;
 use log::info;
 use omnity_types::{
-    Account, Chain, ChainId, ChainState, ChainType, Error, Ticket, TicketId, Token, TokenId,
-    TokenOnChain,
+    Account, Chain, ChainId, ChainState, ChainType, Directive, Error, Ticket, TicketId, Token,
+    TokenId, TokenOnChain,
 };
+use serde::Serialize;
+use std::cell::RefCell;
+
+const LEDGER_SEQ_KEY: &[u8] = b"ledger_seq";
+
+thread_local! {
+    static METRICS: RefCell<Metrics> = RefCell::new(Metrics::default());
+}
+
+#[derive(Serialize)]
+pub struct Metrics {
+    
+    #[serde(skip, default = "memory::init_ledger_metric")]
+    pub tickets_metric: StableBTreeMap<u64, Ticket, Memory>,
+    #[serde(skip, default = "memory::init_metric_seqs")]
+    pub metric_seqs: StableBTreeMap<Vec<u8>, u64, Memory>,
+}
+
+impl Default for Metrics {
+    fn default() -> Self {
+        Self {
+            tickets_metric: StableBTreeMap::init(memory::get_ticket_metric()),
+            metric_seqs: StableBTreeMap::init(memory::get_metric_seqs()),
+        }
+    }
+}
+
+pub fn with_metrics<R>(f: impl FnOnce(&Metrics) -> R) -> R {
+    METRICS.with(|cell| f(&cell.borrow()))
+}
+
+pub fn with_metrics_mut<R>(f: impl FnOnce(&mut Metrics) -> R) -> R {
+    METRICS.with(|cell| f(&mut cell.borrow_mut()))
+}
+
+pub fn set_metrics(metrics: Metrics) {
+    METRICS.with(|cell| *cell.borrow_mut() = metrics);
+}
+
+impl Metrics {
+ 
+    pub fn update_ticket_metric(&mut self, ticket: Ticket) {
+        let latest_ticket_seq = self
+            .metric_seqs
+            .get(&LEDGER_SEQ_KEY.to_vec())
+            .unwrap_or_default();
+        self.tickets_metric.insert(latest_ticket_seq, ticket.clone());
+        let latest_ticket_seq = latest_ticket_seq + 1;
+        self.metric_seqs
+            .insert(LEDGER_SEQ_KEY.to_vec(), latest_ticket_seq);
+    }
+    pub fn sync_ticket_size(&self) -> Result<u64, Error> {
+        let total_num = self.tickets_metric.len();
+        Ok(total_num)
+    }
+
+    pub fn sync_tickets(&self, from_seq: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
+        info!("get_tickets  from: {}, limit: {}", from_seq, limit);
+        let from_seq = from_seq as u64;
+        let tickets = self
+            .tickets_metric
+            .iter()
+            .filter(|(seq, _)| *seq >= from_seq)
+            .take(limit)
+            .map(|(seq, ticket)| (seq, ticket))
+            .collect::<Vec<_>>();
+
+        Ok(tickets)
+    }
+}
 
 pub async fn get_chains(
     chain_type: Option<ChainType>,
@@ -38,6 +114,22 @@ pub async fn get_chains(
     Ok(chains)
 }
 
+pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
+    info!("get_chains from {}, limit: {}", offset, limit);
+
+    let chains = with_state(|hub_state| {
+        hub_state
+            .chains
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(_, chain)| chain)
+            .collect::<Vec<_>>()
+    });
+
+    Ok(chains)
+}
+
 pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
     info!("get_chain chain_id: {:?} ", chain_id);
     with_state(|hub_state| {
@@ -46,6 +138,13 @@ pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
         } else {
             Err(Error::NotFoundChain(chain_id))
         }
+    })
+}
+
+pub async fn get_chain_size() -> Result<u64, Error> {
+    with_state(|hub_state| {
+        let total_num = hub_state.chains.len();
+        Ok(total_num)
     })
 }
 
@@ -80,6 +179,29 @@ pub async fn get_tokens(
     });
 
     Ok(tokens)
+}
+
+pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
+    info!("get_token_metas  from: {}, limit: {}", offset, limit);
+
+    let tokens = with_state(|hub_state| {
+        hub_state
+            .tokens
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(_, token_meta)| token_meta)
+            .collect::<Vec<_>>()
+    });
+
+    Ok(tokens)
+}
+
+pub async fn get_token_size() -> Result<u64, Error> {
+    with_state(|hub_state| {
+        let total_num = hub_state.tokens.len();
+        Ok(total_num)
+    })
 }
 
 /// get fees
@@ -118,6 +240,28 @@ pub async fn get_fees(
     });
 
     Ok(fees)
+}
+
+pub async fn get_directive_size() -> Result<u64, Error> {
+    with_state(|hub_state| {
+        let total_num = hub_state.directives.len();
+        Ok(total_num)
+    })
+}
+pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
+    info!("get_directives  from: {}, limit: {}", offset, limit);
+
+    let dires = with_state(|hub_state| {
+        hub_state
+            .directives
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(_, dire)| dire)
+            .collect::<Vec<_>>()
+    });
+
+    Ok(dires)
 }
 
 fn filter_chain_token(
@@ -242,6 +386,22 @@ pub async fn get_txs_with_account(
                 };
                 sender_match && receiver_match && token_id_match && time_range_match
             })
+            .skip(offset)
+            .take(limit)
+            .map(|(_, ticket)| ticket)
+            .collect::<Vec<_>>()
+    });
+
+    Ok(filtered_tickets)
+}
+
+pub async fn get_txs(offset: usize, limit: usize) -> Result<Vec<Ticket>, Error> {
+    info!("get_txs offset: {}, limit: {}", offset, limit);
+
+    let filtered_tickets = with_state(|hub_state| {
+        hub_state
+            .cross_ledger
+            .iter()
             .skip(offset)
             .take(limit)
             .map(|(_, ticket)| ticket)

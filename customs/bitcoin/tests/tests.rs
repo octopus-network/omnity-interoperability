@@ -14,9 +14,9 @@ use bitcoin_customs::updates::update_runes_balance::{
     UpdateRunesBalanceArgs, UpdateRunesBalanceError,
 };
 use bitcoin_customs::{Log, TokenResp, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
+use bitcoin_mock::{OutPoint, PushUtxosToAddress, Utxo};
 use candid::{Decode, Encode};
 use ic_base_types::{CanisterId, PrincipalId};
-use ic_bitcoin_canister_mock::{OutPoint, PushUtxosToAddress, Utxo};
 use ic_btc_interface::{Network, Txid};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_ic00_types::CanisterSettingsArgsBuilder;
@@ -56,7 +56,7 @@ fn bitcoin_mock_wasm() -> Vec<u8> {
             .unwrap()
             .join("mock")
             .join("bitcoin"),
-        "ic-bitcoin-canister-mock",
+        "bitcoin_mock",
         &[],
     )
 }

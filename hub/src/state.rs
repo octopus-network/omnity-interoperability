@@ -2,6 +2,7 @@ use crate::event::{record_event, Event};
 use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
+use crate::metrics::with_metrics_mut;
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
@@ -15,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 use std::num::ParseIntError;
-
 const HOUR: u64 = 3_600_000_000_000;
 
 thread_local! {
@@ -44,7 +44,6 @@ pub struct HubState {
     pub token_position: StableBTreeMap<TokenKey, Amount, Memory>,
     #[serde(skip, default = "memory::init_ledger")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
-
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
     pub admin: Principal,
@@ -145,7 +144,21 @@ impl HubState {
             };
         }
 
-        set_state(state)
+        // Extract the tickets into a Vec
+        let mut tickets: Vec<Ticket> = state
+            .cross_ledger
+            .iter()
+            .map(|(_, v)| v)
+            .collect::<Vec<_>>();
+        // Sort the tickets by ticket_time
+        tickets.sort_by_key(|ticket| ticket.ticket_time);
+        //update ticket meric
+        for ticket in tickets.into_iter() {
+            info!("update ticket metric: {:?} ", ticket);
+            with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket));
+        }
+
+        set_state(state);
     }
 
     pub fn upgrade(&mut self, args: UpgradeArgs) {
@@ -170,15 +183,14 @@ impl HubState {
                 chain_id.to_string(),
             ))
     }
-    pub fn add_chain(&mut self, chain: ChainMeta) -> Result<(), Error> {
+    pub fn update_chain(&mut self, chain: ChainMeta) -> Result<(), Error> {
         // save chain
         self.chains
             .insert(chain.chain_id.to_string(), chain.clone());
         // update auth
         self.authorized_caller
             .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
-        record_event(&Event::AddedChain(chain.clone()));
-
+        record_event(&Event::UpdatedChain(chain.clone()));
         // update counterparties
         if let Some(counterparties) = chain.counterparties {
             counterparties.iter().try_for_each(|counterparty| {
@@ -213,7 +225,7 @@ impl HubState {
                 //update chain info
                 self.chains
                     .insert(chain.chain_id.to_string(), chain.clone());
-                record_event(&Event::UpdatedChainCounterparties(chain))
+                record_event(&Event::UpdatedChainCounterparties(chain.clone()));
             }
         });
         Ok(())
@@ -282,18 +294,20 @@ impl HubState {
                     self.chains
                         .insert(toggle_state.chain_id.to_string(), chain.clone());
                     record_event(&Event::ToggledChainState {
-                        chain,
+                        chain: chain.clone(),
                         state: toggle_state.clone(),
                     });
+
                     Ok(())
                 },
             )
     }
 
-    pub fn add_token(&mut self, token_meata: TokenMeta) -> Result<(), Error> {
+    pub fn update_token(&mut self, token_meata: TokenMeta) -> Result<(), Error> {
         self.tokens
             .insert(token_meata.token_id.to_string(), token_meata.clone());
-        record_event(&Event::AddedToken(token_meata));
+        record_event(&Event::AddedToken(token_meata.clone()));
+
         Ok(())
     }
 
@@ -341,18 +355,24 @@ impl HubState {
     }
 
     pub fn sub_directives(&mut self, chain_id: &ChainId, topics: &[Topic]) -> Result<(), Error> {
-        topics.iter().for_each(|topic| {
+        topics.iter().try_for_each(|topic| {
             let mut subscribers = self.topic_subscribers.get(topic).unwrap_or_default();
-            subscribers.subs.insert(chain_id.to_string());
+            // check: repeat subscription
+            if subscribers.subs.contains(chain_id) {
+                Err(Error::RepeatSubscription(topic.to_string()))
+            } else {
+                subscribers.subs.insert(chain_id.to_string());
 
-            //update subscribers
-            self.topic_subscribers
-                .insert(topic.clone(), subscribers.clone());
-            record_event(&Event::SubDirectives {
-                topic: topic.clone(),
-                subs: subscribers.clone(),
-            })
-        });
+                //update subscribers
+                self.topic_subscribers
+                    .insert(topic.clone(), subscribers.clone());
+                record_event(&Event::SubDirectives {
+                    topic: topic.clone(),
+                    subs: subscribers.clone(),
+                });
+                Ok(())
+            }
+        })?;
 
         Ok(())
     }
@@ -369,6 +389,7 @@ impl HubState {
                 }
             }
         });
+
         Ok(())
     }
 
@@ -404,6 +425,7 @@ impl HubState {
     pub fn save_directive(&mut self, dire: &Directive) -> Result<(), Error> {
         self.directives.insert(dire.hash(), dire.clone());
         record_event(&&Event::SavedDirective(dire.clone()));
+
         Ok(())
     }
 
@@ -444,6 +466,7 @@ impl HubState {
                     .or_insert(0);
 
                 let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
+                //TODO: match! and exclude diretive for  target chain self
                 self.dire_queue.insert(seq_key.clone(), dire.clone());
                 info!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                 record_event(&Event::PubedDirective {
@@ -620,6 +643,8 @@ impl HubState {
         //save ticket
         self.cross_ledger
             .insert(ticket.ticket_id.to_string(), ticket.clone());
+        //update ticket metrice
+        with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket.clone()));
         record_event(&Event::ReceivedTicket {
             seq_key,
             ticket: ticket.clone(),
@@ -681,31 +706,46 @@ impl HubState {
         Ok(tickets)
     }
 
-    pub fn repub_2_subscribers(&mut self, chain_id: &ChainId) -> Result<(), Error> {
-        self.directives
-            .iter()
-            .map(|(_, d)| d.clone())
-            .collect::<Vec<Directive>>()
-            .into_iter()
-            .for_each(|d| {
-                info!(
-                    "republish directives({:?}) for subscribers: {}",
-                    d,
-                    chain_id.to_string()
-                );
-                let _ = self.pub_2_subscribers(Some(vec![chain_id.clone()]), d);
+    pub fn repub_2_subscriber(
+        &mut self,
+        chain_id: &ChainId,
+        topics: &Option<Vec<Topic>>,
+    ) -> Result<(), Error> {
+        // find the directives that need to repub
+        let target_dires = if let Some(topics) = topics {
+            let mut dires = Vec::new();
+            topics.iter().for_each(|topic| {
+                let mut found_dires = self
+                    .directives
+                    .iter()
+                    .filter(|(_, d)| d.to_topic() == *topic)
+                    .map(|(_, d)| d)
+                    .collect::<Vec<_>>();
+                dires.append(&mut found_dires);
             });
+            dires
+        } else {
+            self.directives
+                .iter()
+                .map(|(_, d)| d)
+                .collect::<Vec<Directive>>()
+        };
+
+        target_dires.into_iter().for_each(|d| {
+            info!(
+                "republish directives({:?}) for subscriber: {}",
+                d,
+                chain_id.to_string()
+            );
+            let _ = self.pub_2_subscribers(Some(vec![chain_id.clone()]), d);
+        });
 
         Ok(())
     }
 
-    pub fn delete_directives(
-        &mut self,
-        chain_id: &ChainId,
-        topics: &Vec<Topic>,
-    ) -> Result<(), Error> {
+    pub fn delete_directives(&mut self, chain_id: &ChainId, topics: &[Topic]) -> Result<(), Error> {
         info!(
-            "delete directives with topic ({:?}) for subscribers: {}",
+            "delete directives with topic ({:?}) for subscriber: {}",
             topics,
             chain_id.to_string()
         );

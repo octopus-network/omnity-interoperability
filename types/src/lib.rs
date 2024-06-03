@@ -27,6 +27,8 @@ pub type Account = String;
 pub enum Directive {
     AddChain(Chain),
     AddToken(Token),
+    UpdateChain(Chain),
+    UpdateToken(Token),
     ToggleChainState(ToggleState),
     UpdateFee(Factor),
 }
@@ -38,6 +40,8 @@ impl Directive {
             Self::AddToken(_) => Topic::AddToken,
             Self::ToggleChainState(_) => Topic::ToggleChainState,
             Self::UpdateFee(_) => Topic::UpdateFee,
+            Self::UpdateChain(_) => Topic::UpdateChain,
+            Self::UpdateToken(_) => Topic::UpdateToken,
         }
     }
 }
@@ -50,7 +54,7 @@ impl Storable for Directive {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Directive");
         dire
     }
 
@@ -65,6 +69,8 @@ impl core::fmt::Display for Directive {
                 write!(f, "ToggleChainState({})", toggle_state)
             }
             Directive::UpdateFee(factor) => write!(f, "UpdateFee({})", factor),
+            Directive::UpdateChain(chain) => write!(f, "UpdateChain({})", chain),
+            Directive::UpdateToken(token) => write!(f, "UpdateToken({})", token),
         }
     }
 }
@@ -93,7 +99,7 @@ impl Storable for DireKey {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let dk = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let dk = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode DireKey");
         dk
     }
 
@@ -120,7 +126,7 @@ impl Storable for DireMap {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode DireMap");
         dire
     }
 
@@ -131,6 +137,8 @@ impl Storable for DireMap {
 pub enum Topic {
     AddChain,
     AddToken,
+    UpdateChain,
+    UpdateToken,
     ToggleChainState,
     UpdateFee,
 }
@@ -143,11 +151,25 @@ impl Storable for Topic {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let topic = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let topic = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Topic");
         topic
     }
 
     const BOUND: Bound = Bound::Unbounded;
+}
+impl core::fmt::Display for Topic {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Topic::AddChain => write!(f, "AddChain"),
+            Topic::AddToken => write!(f, "AddToken"),
+            Topic::ToggleChainState => {
+                write!(f, "ToggleChainState", )
+            }
+            Topic::UpdateFee => write!(f, "UpdateFee"),
+            Topic::UpdateChain => write!(f, "UpdateChain"),
+            Topic::UpdateToken => write!(f, "UpdateToken"),
+        }
+    }
 }
 
 #[derive(
@@ -174,6 +196,7 @@ pub struct Ticket {
     pub sender: Option<Account>,
     pub receiver: Account,
     pub memo: Option<Vec<u8>>,
+ 
 }
 
 impl Storable for Ticket {
@@ -184,7 +207,7 @@ impl Storable for Ticket {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let ticket = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let ticket = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Ticket");
         ticket
     }
 
@@ -207,6 +230,7 @@ impl core::fmt::Display for Ticket {
             self.sender,
             self.receiver,
             self.memo,
+          
         )
     }
 }
@@ -233,7 +257,7 @@ impl Storable for SeqKey {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let tk = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let tk = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode SeqKey");
         tk
     }
 
@@ -263,7 +287,7 @@ impl Storable for TicketMap {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let ticket = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let ticket = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TicketMap");
         ticket
     }
 
@@ -327,7 +351,7 @@ impl Storable for Factor {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Factor");
         fee
     }
 
@@ -355,7 +379,7 @@ impl Storable for TargetChainFactor {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TargetChainFactor");
         fee
     }
 
@@ -386,7 +410,7 @@ impl Storable for FeeTokenFactor {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode FeeTokenFactor");
         fee
     }
 
@@ -656,6 +680,10 @@ impl FromStr for Network {
 
 #[derive(CandidType, Deserialize, Debug, Error)]
 pub enum Error {
+
+    #[error("The topic (`{0}`) already Subscribed")]
+    RepeatSubscription(String),
+
     #[error("The chain(`{0}`) already exists")]
     ChainAlreadyExisting(String),
     #[error("The token(`{0}`) already exists")]
@@ -697,7 +725,6 @@ pub enum Error {
     TicketAmountParseError(String, String),
     #[error("ecdsa_public_key failed : (`{0}`)")]
     EcdsaPublicKeyError(String),
-
     #[error("sign_with_ecdsa failed: (`{0}`)")]
     SighWithEcdsaError(String),
     #[error("custom error: (`{0}`)")]

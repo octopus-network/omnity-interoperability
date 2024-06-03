@@ -1,0 +1,8 @@
+type MintTokenStatus = variant {
+  Finalized : record { block_index : nat64 };
+  Unknown;
+};
+service : {
+  mint_token_status : (text) -> (MintTokenStatus) query;
+  mock_finalized_mint_token : (text, nat64) -> ();
+}

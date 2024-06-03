@@ -6,9 +6,10 @@ members = [
     "route/tendermint",
     "route/icp",
     "customs/bitcoin",
-    "mock/bitcoin",
-    "mock/hub",
     "customs/runes_oracle",
+    "mock/bitcoin",
+    "mock/icp",
+    "mock/hub",
     "customs/icp",
 ]
 resolver = "2"
@@ -21,12 +22,13 @@ edition = "2021"
 # Makes flamegraphs more readable.
 # https://doc.rust-lang.org/cargo/reference/manifest.html#the-profile-sections
 debug = true
+lto = true
+opt-level = 'z'
 
 [profile.canister-release]
 inherits = "release"
 debug = false
-lto = true
-opt-level = 'z'
+
 
 [workspace.dependencies]
 candid = { version = "0.10" }
