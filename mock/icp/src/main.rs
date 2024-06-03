@@ -1,7 +1,7 @@
+use candid::CandidType;
 use ic_cdk::{query, update};
 
-use candid::{CandidType, Principal};
-use omnity_types::{Chain, ChainId, ChainState, TicketId, Token, TokenId};
+use omnity_types::TicketId;
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -17,49 +17,17 @@ pub enum MintTokenStatus {
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
 pub struct RouteState {
-    pub chain_id: String,
-
-    pub hub_principal: Principal,
-
-    // Next index of query tickets from hub
-    pub next_ticket_seq: u64,
-
-    // Next index of query directives from hub
-    pub next_directive_seq: u64,
-
-    pub counterparties: BTreeMap<ChainId, Chain>,
-
-    pub tokens: BTreeMap<TokenId, Token>,
-
-    pub token_ledgers: BTreeMap<TokenId, Principal>,
-
+  
     pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
 
-    pub fee_token_factor: Option<u128>,
-
-    pub target_chain_factor: BTreeMap<ChainId, u128>,
-
-    pub chain_state: ChainState,
-
-    #[serde(skip)]
-    pub is_timer_running: bool,
+   
 }
 
 impl Default for RouteState {
     fn default() -> Self {
         Self {
-            chain_id: Default::default(),
-            hub_principal: Principal::anonymous(),
-            token_ledgers: Default::default(),
-            next_ticket_seq: 0,
-            next_directive_seq: 0,
-            counterparties: Default::default(),
-            tokens: Default::default(),
             finalized_mint_token_requests: Default::default(),
-            fee_token_factor: None,
-            target_chain_factor: Default::default(),
-            chain_state: Default::default(),
-            is_timer_running: false,
+          
         }
     }
 }

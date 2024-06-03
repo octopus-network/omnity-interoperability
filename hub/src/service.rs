@@ -520,6 +520,7 @@ mod tests {
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
             fee_token: Some("ICP".to_owned()),
         };
+
         let result = validate_proposal(vec![Proposal::AddChain(icp.clone())]).await;
         assert!(result.is_ok());
         println!(
@@ -896,6 +897,27 @@ mod tests {
         sub_dires().await;
         // add chain
         add_chains().await;
+
+        let icp = ChainMeta {
+            chain_id: "ICP".to_string(),
+            chain_type: ChainType::ExecutionChain,
+            chain_state: ChainState::Active,
+            canister_id: "bkyz2-fmaaa-aaaaa-qadaab-cai".to_string(),
+            contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
+            counterparties: Some(vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Optimistic".to_string(),
+                "EVM-Starknet".to_string(),
+            ]),
+            fee_token: Some("ICP".to_owned()),
+        };
+
+        let result = handle_chain(vec![Proposal::UpdateChain(icp)]).await;
+        println!("handle_chain reuslt : {:#?}", result);
+        assert!(result.is_err());
+
         let chain = get_chain("ICP".to_string()).await;
         println!("before update ,the chain info : {:#?}", chain);
         let icp = ChainMeta {
@@ -915,6 +937,7 @@ mod tests {
         let result = handle_chain(vec![Proposal::UpdateChain(icp)]).await;
         println!("handle_chain reuslt : {:#?}", result);
         assert!(result.is_ok());
+
         // let chain = get_chain("ICP".to_string()).await;
         // println!("after update ,the chain info : {:#?}", chain);
         for chain_id in chain_ids() {
@@ -1009,6 +1032,11 @@ mod tests {
             "bevm_testnet".to_string(),
             chain
         );
+
+        let result = with_state(|hub_state| hub_state.token(&"ICP".to_string()));
+
+        println!("before update,the token info: {:#?}", result);
+        assert!(result.is_ok());
 
         let icp_token = TokenMeta {
             token_id: "ICP".to_string(),
