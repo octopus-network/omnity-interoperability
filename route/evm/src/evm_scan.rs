@@ -14,7 +14,7 @@ use evm_rpc::{
     MultiRpcResult, RpcServices,
 };
 use itertools::Itertools;
-use log::error;
+use log::{error, info};
 use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_TASK_NAME};
 
 pub fn scan_evm_task() {
@@ -61,6 +61,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             });
         } else if topic1 == TokenTransportRequested::signature_hash() {
             if read_state(|s| s.handled_evm_event.contains(&log_key)) {
+                info!("[evm route] duplicated handle evm log, ignore: log_key = {}", &log_key);
                 continue;
             }
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
@@ -78,6 +79,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
         } else if topic1 == DirectiveExecuted::signature_hash() {
             let directive_executed = DirectiveExecuted::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
+
             mutate_state(|s| s.pending_directive_map.remove(&directive_executed.seq.0[0]));
         }
         mutate_state(|s| s.handled_evm_event.insert(log_key));

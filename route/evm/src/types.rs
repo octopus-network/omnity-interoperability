@@ -7,6 +7,7 @@ use std::{
 use candid::CandidType;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
+use ethers_core::types::TxHash;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
@@ -717,7 +718,7 @@ impl EcdsaKeyIds {
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {
-    Finalized { block_index: u64 },
+    Finalized { tx_hash: TxHash },
     Unknown,
 }
 

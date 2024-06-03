@@ -56,7 +56,7 @@ async fn process_directives() {
                     Directive::AddChain(chain) => {
                         mutate_state(|s| audit::add_chain(s, chain.clone()));
                     }
-                    Directive::AddToken(token) => {
+            /*        Directive::AddToken(token) => {
                         match crate::updates::add_new_token(token.clone()).await {
                             Ok(_) => {
                                 log::info!(
@@ -80,6 +80,9 @@ async fn process_directives() {
                     Directive::UpdateFee(fee) => {
                         mutate_state(|s| audit::update_fee(s, fee.clone()));
                         log::info!("[process_directives] success to update fee, fee: {}", fee);
+                    }*/
+                    _ => {
+                        //process after port contract executed
                     }
                 }
                 mutate_state(|s| s.directives_queue.insert(*seq, directive.clone()));
