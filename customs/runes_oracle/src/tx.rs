@@ -5,21 +5,21 @@ type RuneId = String;
 
 #[derive(Deserialize, Debug)]
 pub struct IndexerResponse {
-    pub result: IndexerResult,
+    pub transactions: Vec<IndexerResult>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct IndexerResult {
     pub transaction: Transaction,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Transaction {
     pub inputs: Vec<RsTxIn>,
     pub outputs: Vec<RsTxOut>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct RsTxIn {
     #[serde(with = "bitcoin::amount::serde::as_btc")]
     pub value: Amount,
@@ -27,7 +27,7 @@ pub struct RsTxIn {
     pub runes: Vec<(RuneId, u128)>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct RsTxOut {
     #[serde(with = "bitcoin::amount::serde::as_btc")]
     pub value: Amount,
@@ -36,20 +36,20 @@ pub struct RsTxOut {
     pub runes: Vec<(RuneId, u128)>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub enum Artifact {
     Cenotaph(Cenotaph),
     Runestone(Runestone),
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Cenotaph {
     pub etching: Option<String>,
     pub flaw: Option<Flaw>,
     pub mint: Option<RuneId>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum Flaw {
     EdictOutput,
@@ -64,7 +64,7 @@ pub enum Flaw {
     Varint,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Runestone {
     pub edicts: Vec<Edict>,
     pub etching: Option<Etching>,
@@ -72,14 +72,14 @@ pub struct Runestone {
     pub pointer: Option<u32>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Edict {
     pub id: RuneId,
     pub amount: u128,
     pub output: u32,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Etching {
     pub divisibility: Option<u8>,
     pub premine: Option<u128>,
@@ -90,7 +90,7 @@ pub struct Etching {
     pub turbo: bool,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Terms {
     pub amount: Option<u128>,
     pub cap: Option<u128>,
@@ -109,7 +109,8 @@ pub struct RunesBalance {
 impl Transaction {
     pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
         let response: IndexerResponse = serde_json::from_str(json_str)?;
-        Ok(response.result.transaction)
+        assert!(response.transactions.len() == 1, "Expected 1 transaction");
+        Ok(response.transactions[0].transaction.clone())
     }
 
     pub fn get_runes_balances(&self) -> Vec<RunesBalance> {
@@ -141,7 +142,7 @@ mod tests {
     #[test]
     fn test_deserialize_transaction() {
         let json = json!(
-         {"result" : {
+         {"transactions" : [{
           "transaction":
           {
           "inputs": [
@@ -210,7 +211,7 @@ mod tests {
               "op_return": null
             }
           ]
-        }}});
+        }}]});
 
         let transaction = Transaction::from_json(&json.to_string()).unwrap();
 
