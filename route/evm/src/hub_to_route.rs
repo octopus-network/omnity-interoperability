@@ -1,11 +1,10 @@
+use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_TASK_NAME};
 use crate::eth_common::EvmAddress;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Seq, Ticket};
 use crate::{audit, hub};
 use log::{self};
 use std::str::FromStr;
-use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_TASK_NAME};
-
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
@@ -56,33 +55,16 @@ async fn process_directives() {
                     Directive::AddChain(chain) => {
                         mutate_state(|s| audit::add_chain(s, chain.clone()));
                     }
-            /*        Directive::AddToken(token) => {
-                        match crate::updates::add_new_token(token.clone()).await {
-                            Ok(_) => {
-                                log::info!(
-                                    "[process directives] add token successful, token id: {}",
-                                    token.token_id
-                                );
+                    Directive::ToggleChainState(t) => {
+                        mutate_state(|s| {
+                            if let Some(chain) = s.counterparties.get_mut(&t.chain_id) {
+                                chain.chain_state = t.action.into();
                             }
-                            Err(err) => {
-                                log::error!(
-                                    "[process directives] failed to add token: token id: {}, err: {:?}",
-                                    token.token_id,
-                                    err
-                                );
-                                continue;
-                            }
-                        }
+                            // if toggle self chain, handle after port contract executed
+                        });
                     }
-                    Directive::ToggleChainState(toggle) => {
-                        mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
-                    }
-                    Directive::UpdateFee(fee) => {
-                        mutate_state(|s| audit::update_fee(s, fee.clone()));
-                        log::info!("[process_directives] success to update fee, fee: {}", fee);
-                    }*/
                     _ => {
-                        //process after port contract executed
+                        //process after port contract executed, don't handle it now.
                     }
                 }
                 mutate_state(|s| s.directives_queue.insert(*seq, directive.clone()));

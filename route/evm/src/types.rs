@@ -7,7 +7,6 @@ use std::{
 use candid::CandidType;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
-use ethers_core::types::TxHash;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
@@ -632,7 +631,6 @@ pub struct TxCondition {
     pub time_range: Option<(u64, u64)>,
 }
 
-
 pub type CanisterId = Principal;
 
 #[derive(CandidType, Serialize, Debug)]
@@ -718,7 +716,7 @@ impl EcdsaKeyIds {
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {
-    Finalized { tx_hash: TxHash },
+    Finalized { tx_hash: String },
     Unknown,
 }
 
@@ -730,7 +728,7 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").cloned(),
-            evm_contract: value.metadata.get("evm_contract").cloned()
+            evm_contract: value.metadata.get("evm_contract").cloned(),
         }
     }
 }

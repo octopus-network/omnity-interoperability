@@ -1,15 +1,17 @@
 use crate::eth_common::EvmAddress;
-use crate::{Error, stable_memory};
 use crate::stable_memory::Memory;
 use crate::types::{Chain, ChainState, Network, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
+use crate::{stable_memory, Error};
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
 use ethers_core::abi::ethereum_types;
 use ethers_core::utils::keccak256;
-use ic_cdk::api::management_canister::ecdsa::{ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument};
+use ic_cdk::api::management_canister::ecdsa::{
+    ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument,
+};
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
 use itertools::Itertools;
@@ -38,10 +40,8 @@ pub struct InitArgs {
 
 #[derive(CandidType, Deserialize)]
 pub struct UpgradeArgs {
-    pub omnity_port_contract_addr: Option<String>
-
+    pub omnity_port_contract_addr: Option<String>,
 }
-
 
 impl EvmRouteState {
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
@@ -115,10 +115,10 @@ impl EvmRouteState {
         STATE.with(|s| *s.borrow_mut() = Some(state));
         if let Some(arg) = args {
             if let Some(contract_addr) = arg.omnity_port_contract_addr {
-                mutate_state(|s|s.omnity_port_contract = EvmAddress::from_str(contract_addr.as_str()).unwrap());
+                mutate_state(|s| {
+                    s.omnity_port_contract = EvmAddress::from_str(contract_addr.as_str()).unwrap()
+                });
             }
-
-
         }
     }
 
@@ -149,7 +149,8 @@ pub async fn init_chain_pubkey() {
     };
     let res = ecdsa_public_key(arg)
         .await
-        .map_err(|(_, e)| Error::ChainKeyError(e)).unwrap();
+        .map_err(|(_, e)| Error::ChainKeyError(e))
+        .unwrap();
     mutate_state(|s| s.pubkey = res.0.public_key.clone());
 }
 
@@ -162,7 +163,7 @@ pub struct EvmRouteState {
     pub fee_token_id: String,
     pub tokens: BTreeMap<TokenId, Token>,
     pub counterparties: BTreeMap<ChainId, Chain>,
-    pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
+    pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
     pub chain_state: ChainState,
     pub evm_rpc_addr: Principal,
     pub key_id: EcdsaKeyId,
@@ -228,7 +229,7 @@ pub struct StateProfile {
     pub evm_chain_id: u64,
     pub tokens: BTreeMap<TokenId, Token>,
     pub counterparties: BTreeMap<ChainId, Chain>,
-    pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
+    pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
     pub chain_state: ChainState,
     pub evm_rpc_addr: Principal,
     pub key_id: EcdsaKeyId,

@@ -1,6 +1,6 @@
+use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
 use anyhow::anyhow;
 use ethers_core::types::U256;
-use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
 
 use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
@@ -18,10 +18,12 @@ pub fn to_evm_task() {
     });
 }
 
-pub async fn send_directive(seq: Seq) -> anyhow::Result<()>{
+pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
     let dire = read_state(|s| s.directives_queue.get(&seq));
     match dire {
-        None => {return Ok(());}
+        None => {
+            return Ok(());
+        }
         Some(d) => {
             let data = gen_execute_directive_data(&d, U256::from(seq));
             if data.is_empty() {
@@ -46,18 +48,15 @@ pub async fn send_directive(seq: Seq) -> anyhow::Result<()>{
                     match hash {
                         Ok(h) => {
                             pending_directive.evm_tx_hash = Some(h);
-                            mutate_state(|s|
-                                s.pending_directive_map.insert(seq, pending_directive));
+                            mutate_state(|s| {
+                                s.pending_directive_map.insert(seq, pending_directive)
+                            });
                             Ok(())
                         }
-                        Err(e) => {
-                            Err(anyhow!(e.to_string()))
-                        }
+                        Err(e) => Err(anyhow!(e.to_string())),
                     }
                 }
-                Err(e) => {
-                    Err(anyhow!(e.to_string()))
-                }
+                Err(e) => Err(anyhow!(e.to_string())),
             }
         }
     }
@@ -78,7 +77,6 @@ pub async fn send_directives_to_evm() {
             }
         }
     }
-
 }
 
 pub async fn send_tickets_to_evm() {
@@ -94,7 +92,6 @@ pub async fn send_tickets_to_evm() {
                 log::error!("[evm_route] send ticket to evm error: {}", e.to_string());
                 break;
             }
-
         }
     }
     mutate_state(|s| s.next_consume_ticket_seq = to);
@@ -112,7 +109,12 @@ async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
                 return Err(anyhow!(data_result.err().unwrap().to_string()));
             }
             let nonce = get_account_nonce(minter_addr()).await.unwrap_or_default();
-            let tx = gen_eip1559_tx(data_result.unwrap(), get_gasprice().await.ok(), nonce, DEFAULT_EVM_TX_FEE);
+            let tx = gen_eip1559_tx(
+                data_result.unwrap(),
+                get_gasprice().await.ok(),
+                nonce,
+                DEFAULT_EVM_TX_FEE,
+            );
             let raw = sign_transaction(tx).await;
             let mut pending_ticket = PendingTicketStatus {
                 evm_tx_hash: None,
@@ -126,20 +128,16 @@ async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
                     match hash {
                         Ok(h) => {
                             pending_ticket.evm_tx_hash = Some(h);
-                            mutate_state(|s|
-                                s.pending_tickets_map.insert(t.ticket_id, pending_ticket));
+                            mutate_state(|s| {
+                                s.pending_tickets_map.insert(t.ticket_id, pending_ticket)
+                            });
                             Ok(())
                         }
-                        Err(e) => {
-                            Err(anyhow!(e.to_string()))
-                        }
+                        Err(e) => Err(anyhow!(e.to_string())),
                     }
                 }
-                Err(e) => {
-                    Err(anyhow!(e.to_string()))
-                }
+                Err(e) => Err(anyhow!(e.to_string())),
             }
         }
     }
 }
-

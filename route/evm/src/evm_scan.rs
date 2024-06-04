@@ -1,9 +1,10 @@
+use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_TASK_NAME};
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, TokenBurned, TokenMinted, TokenTransportRequested,
 };
 use crate::eth_common::get_evm_finalized_height;
 use crate::state::{mutate_state, read_state};
-use crate::types::{ChainState, Ticket};
+use crate::types::{ChainState, Directive, Ticket};
 use crate::*;
 use anyhow::anyhow;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
@@ -15,7 +16,6 @@ use evm_rpc::{
 };
 use itertools::Itertools;
 use log::{error, info};
-use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_TASK_NAME};
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -23,7 +23,13 @@ pub fn scan_evm_task() {
             Some(guard) => guard,
             None => return,
         };
-        let _ = handle_port_events().await;
+        let r = handle_port_events().await;
+        match r {
+            Ok(_) => {}
+            Err(e) => {
+                error!("[evm route] handle evm logs error: {}", e.to_string());
+            }
+        }
     });
 }
 
@@ -38,6 +44,10 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
         let block = l.block_number.ok_or(anyhow!("block is pending"))?;
         let log_index = l.log_index.ok_or(anyhow!("log is pending"))?;
         let log_key = std::format!("{}-{}", block, log_index);
+        let tx_hash = l
+            .transaction_hash
+            .unwrap_or(cketh_common::eth_rpc::Hash([0u8; 32]))
+            .to_string();
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0;
         let raw_log: RawLog = RawLog {
             topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
@@ -57,11 +67,14 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             mutate_state(|s| s.pending_tickets_map.remove(&token_mint.ticket_id));
             mutate_state(|s| {
                 s.finalized_mint_token_requests
-                    .insert(token_mint.ticket_id.clone(), block.into_inner().as_u64())
+                    .insert(token_mint.ticket_id.clone(), tx_hash)
             });
         } else if topic1 == TokenTransportRequested::signature_hash() {
             if read_state(|s| s.handled_evm_event.contains(&log_key)) {
-                info!("[evm route] duplicated handle evm log, ignore: log_key = {}", &log_key);
+                info!(
+                    "[evm route] duplicated handle evm log, ignore: log_key = {}",
+                    &log_key
+                );
                 continue;
             }
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
@@ -79,8 +92,40 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
         } else if topic1 == DirectiveExecuted::signature_hash() {
             let directive_executed = DirectiveExecuted::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
-
             mutate_state(|s| s.pending_directive_map.remove(&directive_executed.seq.0[0]));
+            let directive =
+                read_state(|s| s.directives_queue.get(&directive_executed.seq.0[0]).clone())
+                    .expect("directive not found");
+
+            match directive.clone() {
+                Directive::AddChain(_) => {
+                    //the directive need not send to port, it had been processed in fetch hub task.
+                }
+                Directive::AddToken(token) => {
+                    match crate::updates::add_new_token(token.clone()).await {
+                        Ok(_) => {
+                            log::info!(
+                                "[process directives] add token successful, token id: {}",
+                                token.token_id
+                            );
+                        }
+                        Err(err) => {
+                            log::error!(
+                                "[process directives] failed to add token: token id: {}, err: {:?}",
+                                token.token_id,
+                                err
+                            );
+                        }
+                    }
+                }
+                Directive::ToggleChainState(toggle) => {
+                    mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
+                }
+                Directive::UpdateFee(fee) => {
+                    mutate_state(|s| audit::update_fee(s, fee.clone()));
+                    info!("[process_directives] success to update fee, fee: {}", fee);
+                }
+            }
         }
         mutate_state(|s| s.handled_evm_event.insert(log_key));
     }

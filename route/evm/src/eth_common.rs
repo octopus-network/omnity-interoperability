@@ -16,9 +16,9 @@ use log::error;
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
+use crate::const_args::{EIP1559_TX_ID, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT};
 use crate::eth_common::EvmAddressError::LengthError;
 use crate::{state, Error};
-use crate::const_args::{EIP1559_TX_ID, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT};
 
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
 pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
@@ -204,7 +204,10 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
         ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
             .await
             .unwrap();
-    let cycles = cycles_result.map_err(|e| anyhow!(format!("error in `request_cost`: {:?}", e)))?;
+    let cycles = cycles_result.map_err(|e| {
+        error!("[evm route] evm request error: {:?}", e);
+        anyhow!(format!("error in `request_cost`: {:?}", e))
+    })?;
     // Call with expected number of cycles
     let (result,): (std::result::Result<String, RpcError>,) =
         ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
@@ -240,8 +243,11 @@ pub async fn get_evm_finalized_height() -> anyhow::Result<u64> {
     let (cycles_result,): (std::result::Result<u128, RpcError>,) =
         ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
             .await
-            .unwrap();
-    let cycles = cycles_result.map_err(|e| anyhow!(format!("error in `request_cost`: {:?}", e)))?;
+            .map_err(|err| Error::IcCallError(err.0, err.1))?;
+    let cycles = cycles_result.map_err(|e| {
+        error!("[evm route] evm request error: {:?}", e);
+        anyhow!(format!("error in `request_cost`: {:?}", e))
+    })?;
     // Call with expected number of cycles
     let (result,): (std::result::Result<String, RpcError>,) =
         ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)

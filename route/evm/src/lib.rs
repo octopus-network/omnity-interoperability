@@ -12,12 +12,11 @@ pub mod hub;
 pub mod hub_to_route;
 pub mod route_to_evm;
 pub mod service;
+mod stable_log;
 pub mod stable_memory;
 pub mod state;
 pub mod types;
 pub mod updates;
-
-
 
 #[derive(Error, Debug)]
 pub enum Error {
