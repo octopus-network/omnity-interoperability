@@ -1,8 +1,8 @@
-use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
 use anyhow::anyhow;
 use ethers_core::types::U256;
 use log::info;
 
+use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
 use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
 use crate::state::{minter_addr, mutate_state, read_state};
@@ -26,12 +26,9 @@ pub async fn send_directives_to_evm() {
         let ret = send_directive(seq).await;
         //TODO
         match ret {
-            Ok(_) => {
-                //mutate_state(|s| s.next_consume_directive_seq = seq + 1);
-            }
+            Ok(_) => {}
             Err(e) => {
                 log::error!("[evm_route] send directive to evm error: {}", e.to_string());
-                //  break;
             }
         }
     }
@@ -45,12 +42,9 @@ pub async fn send_tickets_to_evm() {
         let ret = send_ticket(seq).await;
         //TODO
         match ret {
-            Ok(_) => {
-                //mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
-            }
+            Ok(_) => {}
             Err(e) => {
                 log::error!("[evm_route] send ticket to evm error: {}", e.to_string());
-                //break;
             }
         }
     }
@@ -62,7 +56,7 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
     match ticket {
         None => Ok(()),
         Some(t) => {
-            let sent = read_state(|s|s.finalized_mint_token_requests.contains_key(&t.ticket_id));
+            let sent = read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id));
             if sent {
                 return Ok(());
             }
@@ -125,7 +119,6 @@ pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
                 return Ok(());
             }
             let nonce = get_account_nonce(minter_addr()).await.unwrap_or_default();
-
             let fee = match d {
                 Directive::AddToken(_) => ADD_TOKEN_EVM_TX_FEE,
                 _ => DEFAULT_EVM_TX_FEE,
@@ -152,7 +145,13 @@ pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
                             });
                             Ok(())
                         }
-                        Err(e) => Err(anyhow!(e.to_string())),
+                        Err(e) => {
+                            pending_directive.error = Some(e.to_string());
+                            mutate_state(|s| {
+                                s.pending_directive_map.insert(seq, pending_directive)
+                            });
+                            Err(anyhow!(e.to_string()))
+                        }
                     }
                 }
                 Err(e) => Err(anyhow!(e.to_string())),

@@ -14,7 +14,6 @@ use ic_cdk::api::management_canister::ecdsa::{
 };
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
-use itertools::Itertools;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -111,16 +110,14 @@ impl EvmRouteState {
         let state_len = u32::from_le_bytes(state_len_bytes) as usize;
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
-        let state: EvmRouteState =
+        let mut state: EvmRouteState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-        STATE.with(|s| *s.borrow_mut() = Some(state));
         if let Some(arg) = args {
             if let Some(contract_addr) = arg.omnity_port_contract_addr {
-                mutate_state(|s| {
-                    s.omnity_port_contract = EvmAddress::from_str(contract_addr.as_str()).unwrap()
-                });
+                state.omnity_port_contract = EvmAddress::from_str(contract_addr.as_str()).unwrap();
             }
         }
+        replace_state(state);
     }
 
     pub fn pull_tickets(&self, from: usize, limit: usize) -> Vec<(Seq, Ticket)> {
@@ -195,7 +192,6 @@ pub struct EvmRouteState {
 
 impl From<&EvmRouteState> for StateProfile {
     fn from(v: &EvmRouteState) -> Self {
-        let t = v.tickets_queue.iter().collect_vec();
         StateProfile {
             admin: v.admin,
             hub_principal: v.hub_principal,
@@ -204,7 +200,6 @@ impl From<&EvmRouteState> for StateProfile {
             tokens: v.tokens.clone(),
             token_contracts: v.token_contracts.clone(),
             counterparties: v.counterparties.clone(),
-            finalized_mint_token_requests: v.finalized_mint_token_requests.clone(),
             chain_state: v.chain_state.clone(),
             evm_rpc_addr: v.evm_rpc_addr,
             key_id: v.key_id.clone(),
@@ -216,7 +211,6 @@ impl From<&EvmRouteState> for StateProfile {
             next_consume_ticket_seq: v.next_consume_ticket_seq,
             next_consume_directive_seq: v.next_consume_directive_seq,
             rpc_providers: v.rpc_providers.clone(),
-            tickets: t,
             start_scan_height: v.scan_start_height,
             fee_token_factor: v.fee_token_factor,
             target_chain_factor: v.target_chain_factor.clone(),
@@ -233,7 +227,6 @@ pub struct StateProfile {
     pub tokens: BTreeMap<TokenId, Token>,
     pub token_contracts: BTreeMap<TokenId, String>,
     pub counterparties: BTreeMap<ChainId, Chain>,
-    pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
     pub chain_state: ChainState,
     pub evm_rpc_addr: Principal,
     pub key_id: EcdsaKeyId,
@@ -244,7 +237,6 @@ pub struct StateProfile {
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
-    pub tickets: Vec<(u64, Ticket)>,
     pub rpc_providers: Vec<RpcApi>,
     pub start_scan_height: u64,
     pub fee_token_factor: Option<u128>,

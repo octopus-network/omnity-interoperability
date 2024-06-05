@@ -16,7 +16,10 @@ use log::{error, info};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::const_args::{EIP1559_TX_ID, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT};
+use crate::const_args::{
+    BROADCAST_TX_CYCLES, EIP1559_TX_ID, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT,
+    GET_ACCOUNT_NONCE_CYCLES,
+};
 use crate::eth_common::EvmAddressError::LengthError;
 use crate::{state, Error};
 
@@ -77,7 +80,6 @@ impl TryFrom<Vec<u8>> for EvmAddress {
 
 pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<Vec<u8>> {
     use ethers_core::types::Signature;
-
     let mut unsigned_tx_bytes = tx.rlp().to_vec();
     unsigned_tx_bytes.insert(0, EIP1559_TX_ID);
     let txhash = keccak256(&unsigned_tx_bytes);
@@ -103,7 +105,6 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<V
 pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
     let raw = format!("0x{}", hex::encode(tx));
     info!("[evm route] preparing to send tx: {}", raw);
-    let cycles = 3_000_000_000;
     let (r,): (MultiRpcResult<SendRawTransactionStatus>,) =
         ic_cdk::api::call::call_with_payment128(
             crate::state::rpc_addr(),
@@ -116,7 +117,7 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
                 None::<RpcConfig>,
                 raw,
             ),
-            cycles,
+            BROADCAST_TX_CYCLES,
         )
         .await
         .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
@@ -135,7 +136,14 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
                     Err(Error::Custom(anyhow!("NonceToohigh")))
                 }
             },
-            Err(r) => Err(Error::EvmRpcError(format!("{:?}", r))),
+            Err(r) => {
+                if let RpcError::JsonRpcError(ref jerr) = r {
+                    if jerr.code == -32603 && jerr.message == "already known" {
+                        return Ok(hex::encode([1u8; 32]));
+                    }
+                }
+                Err(Error::EvmRpcError(format!("{:?}", r)))
+            }
         },
         MultiRpcResult::Inconsistent(_r) => {
             Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
@@ -164,7 +172,6 @@ fn y_parity(prehash: &[u8], sig: &[u8], pubkey: &[u8]) -> u64 {
 }
 
 pub async fn get_account_nonce(addr: String) -> Result<u64, super::Error> {
-    let cycles = 1_000_000_000;
     let (r,): (MultiRpcResult<Nat>,) = ic_cdk::api::call::call_with_payment128(
         crate::state::rpc_addr(),
         "eth_getTransactionCount",
@@ -179,7 +186,7 @@ pub async fn get_account_nonce(addr: String) -> Result<u64, super::Error> {
                 block: BlockTag::Pending,
             },
         ),
-        cycles,
+        GET_ACCOUNT_NONCE_CYCLES,
     )
     .await
     .map_err(|(_, e)| super::Error::EvmRpcError(e))?;

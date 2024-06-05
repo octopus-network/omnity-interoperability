@@ -39,7 +39,7 @@ pub enum Error {
 }
 
 pub mod const_args {
-    pub const MAX_SCAN_BLOCKS: u64 = 100;
+    pub const MAX_SCAN_BLOCKS: u64 = 200;
     pub const EVM_ADDR_BYTES_LEN: usize = 20;
     pub const PERIODIC_TASK_INTERVAL: u64 = 5;
     pub const BATCH_QUERY_LIMIT: u64 = 20;
@@ -51,6 +51,9 @@ pub mod const_args {
     pub const SCAN_EVM_TASK_NAME: &str = "SCAN_EVM";
     pub const EIP1559_TX_ID: u8 = 2;
     pub const EVM_FINALIZED_CONFIRM_HEIGHT: u64 = 12;
-    pub const DEFAULT_EVM_TX_FEE: u32 = 200000u32;
-    pub const ADD_TOKEN_EVM_TX_FEE: u32 = 3000000u32;
+    pub const DEFAULT_EVM_TX_FEE: u32 = 200_000u32;
+    pub const ADD_TOKEN_EVM_TX_FEE: u32 = 3_000_000u32;
+    pub const SCAN_EVM_CYCLES: u128 = 3_000_000_000;
+    pub const BROADCAST_TX_CYCLES: u128 = 3_000_000_000;
+    pub const GET_ACCOUNT_NONCE_CYCLES: u128 = 1_000_000_000;
 }
