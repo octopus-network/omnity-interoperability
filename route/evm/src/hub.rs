@@ -8,7 +8,6 @@ use candid::Principal;
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     // TODO determine how many cycle it will cost.
     let cost_cycles = 4_000_000_000_u64;
-
     let resp: (Result<(), crate::types::Error>,) =
         ic_cdk::api::call::call_with_payment(hub_principal, "send_ticket", (ticket,), cost_cycles)
             .await

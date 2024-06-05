@@ -7,8 +7,8 @@ use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
 use crate::*;
 use anyhow::anyhow;
-use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use cketh_common::eth_rpc::Hash;
+use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use ethers_core::abi::{AbiEncode, RawLog};
 use ethers_core::utils::keccak256;
 use evm_rpc::{
@@ -81,8 +81,12 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             });
             if dst_check_result {
                 handle_token_transport(&l, token_transport).await?;
-            }else {
-                let tx_hash = l.transaction_hash.clone().unwrap_or(Hash([0u8;32])).to_string();
+            } else {
+                let tx_hash = l
+                    .transaction_hash
+                    .clone()
+                    .unwrap_or(Hash([0u8; 32]))
+                    .to_string();
                 info!("[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash );
             }
         } else if topic1 == DirectiveExecuted::signature_hash() {
@@ -117,9 +121,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
                     mutate_state(|s| audit::update_fee(s, fee.clone()));
                     info!("[process_directives] success to update fee, fee: {}", fee);
                 }
-                Directive::UpdateChain(_) |
-                Directive::UpdateToken(_) |
-                Directive::AddChain(_) => {
+                Directive::UpdateChain(_) | Directive::UpdateToken(_) | Directive::AddChain(_) => {
                     //the directive need not send to port, it had been processed in fetch hub task.
                 }
             }

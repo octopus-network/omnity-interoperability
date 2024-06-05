@@ -51,11 +51,12 @@ async fn process_directives() {
     match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(directives) => {
             for (seq, directive) in &directives {
+                let mut final_directive = directive.clone();
                 match directive.clone() {
                     Directive::AddChain(chain) => {
                         mutate_state(|s| audit::add_chain(s, chain.clone()));
-                    },
-                    Directive::UpdateChain(chain ) => {
+                    }
+                    Directive::UpdateChain(chain) => {
                         mutate_state(|s| audit::update_chain(s, chain.clone()));
                     }
                     Directive::ToggleChainState(t) => {
@@ -66,11 +67,21 @@ async fn process_directives() {
                             // if toggle self chain, handle after port contract executed
                         });
                     }
+                    Directive::UpdateToken(token) => {
+                        let is_old_token = read_state(|s| s.tokens.get(&token.token_id).is_some());
+                        if is_old_token {
+                            mutate_state(|s| audit::update_token(s, token.clone()));
+                        } else {
+                            //special condition, when add current chain into token's dst chain,
+                            // updateToken means addtoken for current chain.
+                            final_directive = Directive::AddToken(token.clone());
+                        }
+                    }
                     _ => {
                         //process after port contract executed, don't handle it now.
                     }
                 }
-                mutate_state(|s| s.directives_queue.insert(*seq, directive.clone()));
+                mutate_state(|s| s.directives_queue.insert(*seq, final_directive));
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
             mutate_state(|s| {

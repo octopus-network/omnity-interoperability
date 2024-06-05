@@ -60,9 +60,7 @@ pub async fn send_tickets_to_evm() {
 pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
     let ticket = read_state(|s| s.tickets_queue.get(&seq));
     match ticket {
-        None => {
-            Ok(())
-        }
+        None => Ok(()),
         Some(t) => {
             let data_result = gen_mint_token_data(&t);
             if data_result.is_err() {
@@ -115,9 +113,7 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
 pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
     let dire = read_state(|s| s.directives_queue.get(&seq));
     match dire {
-        None => {
-            Ok(())
-        }
+        None => Ok(()),
         Some(d) => {
             let data = gen_execute_directive_data(&d, U256::from(seq));
             if data.is_empty() {

@@ -1,6 +1,5 @@
-use log::info;
 use crate::const_args::TOKEN_METADATA_CONTRACT_KEY;
-//use super::eventlog::Event;
+use log::info;
 use crate::state::EvmRouteState;
 use crate::types::{Chain, Factor, ToggleState, Token};
 
@@ -21,14 +20,19 @@ pub fn update_token(state: &mut EvmRouteState, token: Token) {
     let old_token = state.tokens.get(&new_token.token_id).cloned();
     match old_token {
         None => {
-            info!("[evm route] update token failed, because don't find old \
-            token info, token_id = {}", new_token.token_id.clone());
+            info!(
+                "[evm route] update token failed, because don't find old \
+            token info, token_id = {}",
+                new_token.token_id.clone()
+            );
             return;
         }
         Some(old) => {
             let contract_addr = old.metadata.get(TOKEN_METADATA_CONTRACT_KEY).cloned();
             if let Some(c) = contract_addr {
-                new_token.metadata.insert(TOKEN_METADATA_CONTRACT_KEY.to_string(), c);
+                new_token
+                    .metadata
+                    .insert(TOKEN_METADATA_CONTRACT_KEY.to_string(), c);
             }
         }
     }

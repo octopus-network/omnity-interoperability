@@ -59,7 +59,7 @@ impl EvmRouteState {
             key_id: args.network.key_id(),
             key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()],
             pubkey: vec![],
-            rpc_privders: vec![RpcApi {
+            rpc_providers: vec![RpcApi {
                 url: args.rpc_url.clone(),
                 headers: None,
             }],
@@ -169,7 +169,7 @@ pub struct EvmRouteState {
     pub key_id: EcdsaKeyId,
     pub key_derivation_path: Vec<Vec<u8>>,
     pub pubkey: Vec<u8>,
-    pub rpc_privders: Vec<RpcApi>,
+    pub rpc_providers: Vec<RpcApi>,
     pub omnity_port_contract: EvmAddress,
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
@@ -212,7 +212,7 @@ impl From<&EvmRouteState> for StateProfile {
             next_directive_seq: v.next_directive_seq,
             next_consume_ticket_seq: v.next_consume_ticket_seq,
             next_consume_directive_seq: v.next_consume_directive_seq,
-            rpc_providers: v.rpc_privders.clone(),
+            rpc_providers: v.rpc_providers.clone(),
             tickets: t,
             start_scan_height: v.scan_start_height,
             fee_token_factor: v.fee_token_factor,
@@ -272,7 +272,7 @@ pub fn minter_addr() -> String {
     ethers_core::utils::to_checksum(&ethereum_types::Address::from_slice(&hash[12..32]), None)
 }
 pub fn rpc_providers() -> Vec<RpcApi> {
-    read_state(|s| s.rpc_privders.clone())
+    read_state(|s| s.rpc_providers.clone())
 }
 
 pub fn evm_chain_id() -> u64 {

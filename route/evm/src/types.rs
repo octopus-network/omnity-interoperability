@@ -4,6 +4,7 @@ use std::{
     str::FromStr,
 };
 
+use crate::const_args::TOKEN_METADATA_CONTRACT_KEY;
 use candid::CandidType;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
@@ -13,7 +14,6 @@ use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use thiserror::Error;
-use crate::const_args::TOKEN_METADATA_CONTRACT_KEY;
 
 use crate::contract_types::{TokenBurned, TokenTransportRequested};
 use crate::contracts::PortContractFactorTypeIndex;
