@@ -7,7 +7,7 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use k256::PublicKey;
 use log::info;
-use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
+use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, TOKEN_METADATA_CONTRACT_KEY};
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::fetch_hub_periodic_task;
 use crate::route_to_evm::{to_evm_task};
@@ -143,7 +143,7 @@ fn get_token_list() -> Vec<TokenResp> {
 fn set_token_evm_contract(token: TokenId, addr: String) {
     mutate_state(|s| {
         let mut t = s.tokens.get(&token).cloned().unwrap();
-        t.metadata.insert("evm_contract".to_string(), addr);
+        t.metadata.insert(TOKEN_METADATA_CONTRACT_KEY.to_string(), addr);
         s.tokens.insert(token, t);
     });
 }

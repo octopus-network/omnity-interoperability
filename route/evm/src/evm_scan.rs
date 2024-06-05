@@ -93,9 +93,6 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
                 read_state(|s| s.directives_queue.get(&directive_executed.seq.0[0]).clone())
                     .expect("directive not found");
             match directive.clone() {
-                Directive::AddChain(_) => {
-                    //the directive need not send to port, it had been processed in fetch hub task.
-                }
                 Directive::AddToken(token) => {
                     match crate::updates::add_new_token(token.clone()).await {
                         Ok(_) => {
@@ -119,6 +116,11 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
                 Directive::UpdateFee(fee) => {
                     mutate_state(|s| audit::update_fee(s, fee.clone()));
                     info!("[process_directives] success to update fee, fee: {}", fee);
+                }
+                Directive::UpdateChain(_) |
+                Directive::UpdateToken(_) |
+                Directive::AddChain(_) => {
+                    //the directive need not send to port, it had been processed in fetch hub task.
                 }
             }
         }

@@ -53,4 +53,5 @@ pub mod const_args {
     pub const EVM_FINALIZED_CONFIRM_HEIGHT: u64 = 12;
     pub const DEFAULT_EVM_TX_FEE: u32 = 200000u32;
     pub const ADD_TOKEN_EVM_TX_FEE: u32 = 3000000u32;
+    pub const TOKEN_METADATA_CONTRACT_KEY: &str = "evm_contract";
 }

@@ -54,13 +54,15 @@ async fn process_directives() {
                 match directive.clone() {
                     Directive::AddChain(chain) => {
                         mutate_state(|s| audit::add_chain(s, chain.clone()));
+                    },
+                    Directive::UpdateChain(chain ) => {
+                        mutate_state(|s| audit::update_chain(s, chain.clone()));
                     }
                     Directive::ToggleChainState(t) => {
                         mutate_state(|s| {
                             if let Some(chain) = s.counterparties.get_mut(&t.chain_id) {
                                 chain.chain_state = t.action.into();
                             }
-
                             // if toggle self chain, handle after port contract executed
                         });
                     }

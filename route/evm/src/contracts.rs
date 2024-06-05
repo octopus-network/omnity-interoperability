@@ -12,7 +12,7 @@ pub type PortContractFactorTypeIndex = u8;
 
 pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     let data = match directive {
-        Directive::AddChain(_) => {
+        Directive::AddChain(_) | Directive::UpdateChain(_) | Directive::UpdateToken(_) => {
             return vec![];
         }
         Directive::AddToken(token) => Bytes::from(
@@ -93,6 +93,8 @@ impl Into<Option<PortContractCommandIndex>> for Directive {
                 ToggleAction::Activate => Some(3u8),
                 ToggleAction::Deactivate => Some(2u8),
             },
+            Directive::UpdateChain(_) => None,
+            Directive::UpdateToken(_) => None,
         }
     }
 }

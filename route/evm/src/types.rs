@@ -13,6 +13,7 @@ use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use thiserror::Error;
+use crate::const_args::TOKEN_METADATA_CONTRACT_KEY;
 
 use crate::contract_types::{TokenBurned, TokenTransportRequested};
 use crate::contracts::PortContractFactorTypeIndex;
@@ -80,6 +81,8 @@ pub enum Directive {
     AddToken(Token),
     ToggleChainState(ToggleState),
     UpdateFee(Factor),
+    UpdateChain(Chain),
+    UpdateToken(Token),
 }
 
 impl Directive {
@@ -89,6 +92,8 @@ impl Directive {
             Self::AddToken(_) => Topic::AddToken,
             Self::ToggleChainState(_) => Topic::ToggleChainState,
             Self::UpdateFee(_) => Topic::UpdateFee,
+            Self::UpdateChain(_) => Topic::UpdateChain,
+            Self::UpdateToken(_) => Topic::UpdateToken,
         }
     }
 }
@@ -112,6 +117,8 @@ impl core::fmt::Display for Directive {
         match self {
             Directive::AddChain(chain) => write!(f, "AddChain({})", chain),
             Directive::AddToken(token) => write!(f, "AddToken({})", token),
+            Directive::UpdateChain(chain) => write!(f, "UpdateChain({})", chain),
+            Directive::UpdateToken(token) => write!(f, "UpdateToken({})", token),
             Directive::ToggleChainState(toggle_state) => {
                 write!(f, "ToggleChainState({})", toggle_state)
             }
@@ -184,6 +191,8 @@ pub enum Topic {
     AddToken,
     ToggleChainState,
     UpdateFee,
+    UpdateChain,
+    UpdateToken,
 }
 
 impl Storable for Topic {
@@ -728,7 +737,7 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").cloned(),
-            evm_contract: value.metadata.get("evm_contract").cloned(),
+            evm_contract: value.metadata.get(TOKEN_METADATA_CONTRACT_KEY).cloned(),
         }
     }
 }
