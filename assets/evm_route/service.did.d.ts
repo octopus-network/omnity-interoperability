@@ -2,147 +2,276 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
-export interface Chain {
-  'fee_token' : [] | [string],
-  'canister_id' : string,
-  'chain_id' : string,
-  'counterparties' : [] | [Array<string>],
-  'chain_state' : ChainState,
-  'chain_type' : ChainType,
-  'contract_address' : [] | [string],
+export type Auth = { 'RegisterProvider' : null } |
+  { 'FreeRpc' : null } |
+  { 'PriorityRpc' : null } |
+  { 'Manage' : null };
+export interface Block {
+  'miner' : string,
+  'totalDifficulty' : bigint,
+  'receiptsRoot' : string,
+  'stateRoot' : string,
+  'hash' : string,
+  'difficulty' : bigint,
+  'size' : bigint,
+  'uncles' : Array<string>,
+  'baseFeePerGas' : bigint,
+  'extraData' : string,
+  'transactionsRoot' : [] | [string],
+  'sha3Uncles' : string,
+  'nonce' : bigint,
+  'number' : bigint,
+  'timestamp' : bigint,
+  'transactions' : Array<string>,
+  'gasLimit' : bigint,
+  'logsBloom' : string,
+  'parentHash' : string,
+  'gasUsed' : bigint,
+  'mixHash' : string,
 }
-export type ChainState = { 'Active' : null } |
-  { 'Deactive' : null };
-export type ChainType = { 'SettlementChain' : null } |
-  { 'ExecutionChain' : null };
-export type Directive = { 'UpdateFee' : Factor } |
-  { 'AddToken' : Token } |
-  { 'AddChain' : Chain } |
-  { 'ToggleChainState' : ToggleState };
-export type EcdsaCurve = { 'secp256k1' : null };
-export interface EcdsaKeyId { 'name' : string, 'curve' : EcdsaCurve }
-export type Factor = { 'UpdateFeeTokenFactor' : FeeTokenFactor } |
-  { 'UpdateTargetChainFactor' : TargetChainFactor };
-export interface FeeTokenFactor {
-  'fee_token' : string,
-  'fee_token_factor' : bigint,
+export type BlockTag = { 'Earliest' : null } |
+  { 'Safe' : null } |
+  { 'Finalized' : null } |
+  { 'Latest' : null } |
+  { 'Number' : bigint } |
+  { 'Pending' : null };
+export type EthMainnetService = { 'Alchemy' : null } |
+  { 'BlockPi' : null } |
+  { 'Cloudflare' : null } |
+  { 'PublicNode' : null } |
+  { 'Ankr' : null };
+export type EthSepoliaService = { 'Alchemy' : null } |
+  { 'BlockPi' : null } |
+  { 'PublicNode' : null } |
+  { 'Ankr' : null };
+export interface FeeHistory {
+  'reward' : Array<Array<bigint>>,
+  'gasUsedRatio' : Array<number>,
+  'oldestBlock' : bigint,
+  'baseFeePerGas' : Array<bigint>,
 }
+export interface FeeHistoryArgs {
+  'blockCount' : bigint,
+  'newestBlock' : BlockTag,
+  'rewardPercentiles' : [] | [Uint8Array | number[]],
+}
+export type FeeHistoryResult = { 'Ok' : [] | [FeeHistory] } |
+  { 'Err' : RpcError };
+export type GetBlockByNumberResult = { 'Ok' : Block } |
+  { 'Err' : RpcError };
+export interface GetLogsArgs {
+  'fromBlock' : [] | [BlockTag],
+  'toBlock' : [] | [BlockTag],
+  'addresses' : Array<string>,
+  'topics' : [] | [Array<Topic>],
+}
+export type GetLogsResult = { 'Ok' : Array<LogEntry> } |
+  { 'Err' : RpcError };
+export interface GetTransactionCountArgs {
+  'address' : string,
+  'block' : BlockTag,
+}
+export type GetTransactionCountResult = { 'Ok' : bigint } |
+  { 'Err' : RpcError };
+export type GetTransactionReceiptResult = { 'Ok' : [] | [TransactionReceipt] } |
+  { 'Err' : RpcError };
 export interface HttpHeader { 'value' : string, 'name' : string }
-export interface InitArgs {
-  'evm_chain_id' : bigint,
-  'admin' : Principal,
-  'hub_principal' : Principal,
-  'network' : Network,
-  'fee_token_id' : string,
-  'chain_id' : string,
-  'rpc_url' : string,
-  'evm_rpc_canister_addr' : Principal,
-  'scan_start_height' : bigint,
+export type HttpOutcallError = {
+    'IcError' : { 'code' : RejectionCode, 'message' : string }
+  } |
+  {
+    'InvalidHttpJsonRpcResponse' : {
+      'status' : number,
+      'body' : string,
+      'parsingError' : [] | [string],
+    }
+  };
+export interface InitArgs { 'nodesInSubnet' : number }
+export interface JsonRpcError { 'code' : bigint, 'message' : string }
+export type L2MainnetService = { 'Alchemy' : null } |
+  { 'BlockPi' : null } |
+  { 'PublicNode' : null } |
+  { 'Ankr' : null };
+export interface LogEntry {
+  'transactionHash' : [] | [string],
+  'blockNumber' : [] | [bigint],
+  'data' : string,
+  'blockHash' : [] | [string],
+  'transactionIndex' : [] | [bigint],
+  'topics' : Array<string>,
+  'address' : string,
+  'logIndex' : [] | [bigint],
+  'removed' : boolean,
 }
-export type MintTokenStatus = { 'Finalized' : { 'block_index' : bigint } } |
-  { 'Unknown' : null };
-export type Network = { 'mainnet' : null } |
-  { 'local' : null } |
-  { 'testnet' : null };
-export interface PendingDirectiveStatus {
-  'seq' : bigint,
-  'evm_tx_hash' : [] | [string],
-  'error' : [] | [string],
+export interface ManageProviderArgs {
+  'service' : [] | [RpcService],
+  'primary' : [] | [boolean],
+  'providerId' : bigint,
 }
-export interface PendingTicketStatus {
-  'seq' : bigint,
-  'evm_tx_hash' : [] | [string],
-  'ticket_id' : string,
-  'error' : [] | [string],
+export interface Metrics {
+  'cyclesWithdrawn' : bigint,
+  'responses' : Array<[[string, string, string], bigint]>,
+  'errNoPermission' : bigint,
+  'inconsistentResponses' : Array<[[string, string], bigint]>,
+  'cyclesCharged' : Array<[[string, string], bigint]>,
+  'requests' : Array<[[string, string], bigint]>,
+  'errHttpOutcall' : Array<[[string, string], bigint]>,
+  'errHostNotAllowed' : Array<[string, bigint]>,
 }
+export type MultiFeeHistoryResult = { 'Consistent' : FeeHistoryResult } |
+  { 'Inconsistent' : Array<[RpcService, FeeHistoryResult]> };
+export type MultiGetBlockByNumberResult = {
+    'Consistent' : GetBlockByNumberResult
+  } |
+  { 'Inconsistent' : Array<[RpcService, GetBlockByNumberResult]> };
+export type MultiGetLogsResult = { 'Consistent' : GetLogsResult } |
+  { 'Inconsistent' : Array<[RpcService, GetLogsResult]> };
+export type MultiGetTransactionCountResult = {
+    'Consistent' : GetTransactionCountResult
+  } |
+  { 'Inconsistent' : Array<[RpcService, GetTransactionCountResult]> };
+export type MultiGetTransactionReceiptResult = {
+    'Consistent' : GetTransactionReceiptResult
+  } |
+  { 'Inconsistent' : Array<[RpcService, GetTransactionReceiptResult]> };
+export type MultiSendRawTransactionResult = {
+    'Consistent' : SendRawTransactionResult
+  } |
+  { 'Inconsistent' : Array<[RpcService, SendRawTransactionResult]> };
+export type ProviderError = {
+    'TooFewCycles' : { 'expected' : bigint, 'received' : bigint }
+  } |
+  { 'MissingRequiredProvider' : null } |
+  { 'ProviderNotFound' : null } |
+  { 'NoPermission' : null };
+export type ProviderId = bigint;
+export interface ProviderView {
+  'cyclesPerCall' : bigint,
+  'owner' : Principal,
+  'hostname' : string,
+  'primary' : boolean,
+  'chainId' : bigint,
+  'cyclesPerMessageByte' : bigint,
+  'providerId' : bigint,
+}
+export interface RegisterProviderArgs {
+  'cyclesPerCall' : bigint,
+  'credentialPath' : string,
+  'hostname' : string,
+  'credentialHeaders' : [] | [Array<HttpHeader>],
+  'chainId' : bigint,
+  'cyclesPerMessageByte' : bigint,
+}
+export type RejectionCode = { 'NoError' : null } |
+  { 'CanisterError' : null } |
+  { 'SysTransient' : null } |
+  { 'DestinationInvalid' : null } |
+  { 'Unknown' : null } |
+  { 'SysFatal' : null } |
+  { 'CanisterReject' : null };
+export type RequestCostResult = { 'Ok' : bigint } |
+  { 'Err' : RpcError };
+export type RequestResult = { 'Ok' : string } |
+  { 'Err' : RpcError };
 export interface RpcApi { 'url' : string, 'headers' : [] | [Array<HttpHeader>] }
-export interface StateProfile {
-  'next_consume_ticket_seq' : bigint,
-  'evm_chain_id' : bigint,
-  'tickets' : Array<[bigint, Ticket]>,
-  'admin' : Principal,
-  'omnity_port_contract' : Uint8Array | number[],
-  'next_consume_directive_seq' : bigint,
-  'hub_principal' : Principal,
-  'key_id' : EcdsaKeyId,
-  'next_directive_seq' : bigint,
-  'finalized_mint_token_requests' : Array<[string, bigint]>,
-  'pubkey' : Uint8Array | number[],
-  'start_scan_height' : bigint,
-  'key_derivation_path' : Array<Uint8Array | number[]>,
-  'omnity_chain_id' : string,
-  'tokens' : Array<[string, Token]>,
-  'target_chain_factor' : Array<[string, bigint]>,
-  'evm_rpc_addr' : Principal,
-  'counterparties' : Array<[string, Chain]>,
-  'next_ticket_seq' : bigint,
-  'rpc_providers' : Array<RpcApi>,
-  'chain_state' : ChainState,
-  'fee_token_factor' : [] | [bigint],
+export interface RpcConfig { 'responseSizeEstimate' : [] | [bigint] }
+export type RpcError = { 'JsonRpcError' : JsonRpcError } |
+  { 'ProviderError' : ProviderError } |
+  { 'ValidationError' : ValidationError } |
+  { 'HttpOutcallError' : HttpOutcallError };
+export type RpcService = { 'EthSepolia' : EthSepoliaService } |
+  { 'BaseMainnet' : L2MainnetService } |
+  { 'Custom' : RpcApi } |
+  { 'OptimismMainnet' : L2MainnetService } |
+  { 'ArbitrumOne' : L2MainnetService } |
+  { 'EthMainnet' : EthMainnetService } |
+  { 'Chain' : bigint } |
+  { 'Provider' : bigint };
+export type RpcServices = { 'EthSepolia' : [] | [Array<EthSepoliaService>] } |
+  { 'BaseMainnet' : [] | [Array<L2MainnetService>] } |
+  { 'Custom' : { 'chainId' : bigint, 'services' : Array<RpcApi> } } |
+  { 'OptimismMainnet' : [] | [Array<L2MainnetService>] } |
+  { 'ArbitrumOne' : [] | [Array<L2MainnetService>] } |
+  { 'EthMainnet' : [] | [Array<EthMainnetService>] };
+export type SendRawTransactionResult = { 'Ok' : SendRawTransactionStatus } |
+  { 'Err' : RpcError };
+export type SendRawTransactionStatus = { 'Ok' : [] | [string] } |
+  { 'NonceTooLow' : null } |
+  { 'NonceTooHigh' : null } |
+  { 'InsufficientFunds' : null };
+export type Topic = Array<string>;
+export interface TransactionReceipt {
+  'to' : string,
+  'status' : bigint,
+  'transactionHash' : string,
+  'blockNumber' : bigint,
+  'from' : string,
+  'logs' : Array<LogEntry>,
+  'blockHash' : string,
+  'type' : string,
+  'transactionIndex' : bigint,
+  'effectiveGasPrice' : bigint,
+  'logsBloom' : string,
+  'contractAddress' : [] | [string],
+  'gasUsed' : bigint,
 }
-export interface TargetChainFactor {
-  'target_chain_id' : string,
-  'target_chain_factor' : bigint,
+export interface UpdateProviderArgs {
+  'cyclesPerCall' : [] | [bigint],
+  'credentialPath' : [] | [string],
+  'hostname' : [] | [string],
+  'credentialHeaders' : [] | [Array<HttpHeader>],
+  'primary' : [] | [boolean],
+  'cyclesPerMessageByte' : [] | [bigint],
+  'providerId' : bigint,
 }
-export interface Ticket {
-  'token' : string,
-  'action' : TxAction,
-  'dst_chain' : string,
-  'memo' : [] | [Uint8Array | number[]],
-  'ticket_id' : string,
-  'sender' : [] | [string],
-  'ticket_time' : bigint,
-  'ticket_type' : TicketType,
-  'src_chain' : string,
-  'amount' : string,
-  'receiver' : string,
-}
-export type TicketType = { 'Resubmit' : null } |
-  { 'Normal' : null };
-export type ToggleAction = { 'Deactivate' : null } |
-  { 'Activate' : null };
-export interface ToggleState { 'action' : ToggleAction, 'chain_id' : string }
-export interface Token {
-  'decimals' : number,
-  'token_id' : string,
-  'metadata' : Array<[string, string]>,
-  'icon' : [] | [string],
-  'name' : string,
-  'symbol' : string,
-}
-export interface TokenResp {
-  'decimals' : number,
-  'token_id' : string,
-  'icon' : [] | [string],
-  'evm_contract' : [] | [string],
-  'rune_id' : [] | [string],
-  'symbol' : string,
-}
-export type TxAction = { 'Redeem' : null } |
-  { 'Transfer' : null };
+export type ValidationError = { 'CredentialPathNotAllowed' : null } |
+  { 'HostNotAllowed' : string } |
+  { 'CredentialHeaderNotAllowed' : null } |
+  { 'UrlParseError' : string } |
+  { 'Custom' : string } |
+  { 'InvalidHex' : string };
 export interface _SERVICE {
-  'get_chain_list' : ActorMethod<[], Array<Chain>>,
-  'get_fee' : ActorMethod<[string], [] | [bigint]>,
-  'get_ticket' : ActorMethod<[string], [] | [[bigint, Ticket]]>,
-  'get_token_list' : ActorMethod<[], Array<TokenResp>>,
-  'mint_token_status' : ActorMethod<[string], MintTokenStatus>,
-  'pubkey_and_evm_addr' : ActorMethod<[], [string, string]>,
-  'query_directives' : ActorMethod<
-    [bigint, bigint],
-    Array<[bigint, Directive]>
+  'authorize' : ActorMethod<[Principal, Auth], boolean>,
+  'deauthorize' : ActorMethod<[Principal, Auth], boolean>,
+  'eth_feeHistory' : ActorMethod<
+    [RpcServices, [] | [RpcConfig], FeeHistoryArgs],
+    MultiFeeHistoryResult
   >,
-  'query_pending_directive' : ActorMethod<
-    [bigint, bigint],
-    Array<[bigint, PendingDirectiveStatus]>
+  'eth_getBlockByNumber' : ActorMethod<
+    [RpcServices, [] | [RpcConfig], BlockTag],
+    MultiGetBlockByNumberResult
   >,
-  'query_pending_tickect' : ActorMethod<
-    [bigint, bigint],
-    Array<[string, PendingTicketStatus]>
+  'eth_getLogs' : ActorMethod<
+    [RpcServices, [] | [RpcConfig], GetLogsArgs],
+    MultiGetLogsResult
   >,
-  'query_tickets' : ActorMethod<[bigint, bigint], Array<[bigint, Ticket]>>,
-  'resend_directive' : ActorMethod<[bigint], undefined>,
-  'route_state' : ActorMethod<[], StateProfile>,
-  'set_token_evm_contract' : ActorMethod<[string, string], undefined>,
+  'eth_getTransactionCount' : ActorMethod<
+    [RpcServices, [] | [RpcConfig], GetTransactionCountArgs],
+    MultiGetTransactionCountResult
+  >,
+  'eth_getTransactionReceipt' : ActorMethod<
+    [RpcServices, [] | [RpcConfig], string],
+    MultiGetTransactionReceiptResult
+  >,
+  'eth_sendRawTransaction' : ActorMethod<
+    [RpcServices, [] | [RpcConfig], string],
+    MultiSendRawTransactionResult
+  >,
+  'getAccumulatedCycleCount' : ActorMethod<[ProviderId], bigint>,
+  'getAuthorized' : ActorMethod<[Auth], Array<Principal>>,
+  'getMetrics' : ActorMethod<[], Metrics>,
+  'getNodesInSubnet' : ActorMethod<[], number>,
+  'getOpenRpcAccess' : ActorMethod<[], boolean>,
+  'getProviders' : ActorMethod<[], Array<ProviderView>>,
+  'getServiceProviderMap' : ActorMethod<[], Array<[RpcService, bigint]>>,
+  'manageProvider' : ActorMethod<[ManageProviderArgs], undefined>,
+  'registerProvider' : ActorMethod<[RegisterProviderArgs], bigint>,
+  'request' : ActorMethod<[RpcService, string, bigint], RequestResult>,
+  'requestCost' : ActorMethod<[RpcService, string, bigint], RequestCostResult>,
+  'setOpenRpcAccess' : ActorMethod<[boolean], undefined>,
+  'unregisterProvider' : ActorMethod<[ProviderId], boolean>,
+  'updateProvider' : ActorMethod<[UpdateProviderArgs], undefined>,
+  'withdrawAccumulatedCycles' : ActorMethod<[ProviderId, Principal], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: ({ IDL }: { IDL: IDL }) => IDL.Type[];

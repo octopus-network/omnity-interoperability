@@ -1,19 +1,5 @@
 use std::time::Duration;
 
-use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
-use crate::evm_scan::scan_evm_task;
-use crate::hub_to_route::fetch_hub_periodic_task;
-use crate::route_to_evm::to_evm_task;
-use crate::stable_log::{init_log, StableLogWriter};
-use crate::stable_memory::init_stable_log;
-use crate::state::{
-    init_chain_pubkey, mutate_state, read_state, replace_state, EvmRouteState, InitArgs,
-    StateProfile, UpgradeArgs,
-};
-use crate::types::{
-    Chain, ChainId, Directive, MintTokenStatus, PendingDirectiveStatus, PendingTicketStatus, Seq,
-    Ticket, TicketId, TokenId, TokenResp,
-};
 use ethers_core::abi::ethereum_types;
 use ethers_core::utils::keccak256;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
@@ -21,6 +7,21 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use k256::PublicKey;
 use log::info;
+
+use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
+use crate::evm_scan::scan_evm_task;
+use crate::hub_to_route::fetch_hub_periodic_task;
+use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
+use crate::stable_log::{init_log, StableLogWriter};
+use crate::stable_memory::init_stable_log;
+use crate::state::{
+    EvmRouteState, init_chain_pubkey, InitArgs, mutate_state, read_state, replace_state,
+    StateProfile, UpgradeArgs,
+};
+use crate::types::{
+    Chain, ChainId, Directive, MintTokenStatus, PendingDirectiveStatus, PendingTicketStatus, Seq,
+    Ticket, TicketId, TokenId, TokenResp,
+};
 
 #[init]
 fn init(args: InitArgs) {
@@ -117,6 +118,16 @@ fn query_pending_directive(from: usize, limit: usize) -> Vec<(Seq, PendingDirect
             .map(|kv| kv)
             .collect()
     })
+}
+
+#[update(guard = "is_admin")]
+async fn resend_ticket(seq: Seq) {
+    send_ticket(seq).await.unwrap();
+}
+
+#[update(guard = "is_admin")]
+async fn resend_directive(seq: Seq) {
+    send_directive(seq).await.unwrap();
 }
 
 #[query]
