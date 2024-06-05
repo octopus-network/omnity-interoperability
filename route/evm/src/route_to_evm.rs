@@ -62,6 +62,10 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
     match ticket {
         None => Ok(()),
         Some(t) => {
+            let sent = read_state(|s|s.finalized_mint_token_requests.contains_key(&t.ticket_id));
+            if sent {
+                return Ok(());
+            }
             let data_result = gen_mint_token_data(&t);
             if data_result.is_err() {
                 return Err(anyhow!(data_result.err().unwrap().to_string()));
