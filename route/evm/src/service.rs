@@ -1,9 +1,6 @@
 use std::time::Duration;
 
-use crate::const_args::{
-    FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
-    TOKEN_METADATA_CONTRACT_KEY,
-};
+use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::fetch_hub_periodic_task;
 use crate::route_to_evm::to_evm_task;
@@ -137,7 +134,11 @@ fn get_token_list() -> Vec<TokenResp> {
     read_state(|s| {
         s.tokens
             .iter()
-            .map(|(_, token)| token.clone().into())
+            .map(|(token_id, token)| {
+                let mut resp: TokenResp = token.clone().into();
+                resp.evm_contract = s.token_contracts.get(token_id).cloned();
+                resp
+            })
             .collect()
     })
 }
@@ -145,10 +146,7 @@ fn get_token_list() -> Vec<TokenResp> {
 #[update(guard = "is_admin")]
 fn set_token_evm_contract(token: TokenId, addr: String) {
     mutate_state(|s| {
-        let mut t = s.tokens.get(&token).cloned().unwrap();
-        t.metadata
-            .insert(TOKEN_METADATA_CONTRACT_KEY.to_string(), addr);
-        s.tokens.insert(token, t);
+        s.token_contracts.insert(token, addr);
     });
 }
 

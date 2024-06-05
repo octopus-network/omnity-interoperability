@@ -67,7 +67,7 @@ async fn process_directives() {
                     Directive::UpdateToken(token) => {
                         let is_old_token = read_state(|s| s.tokens.get(&token.token_id).is_some());
                         if is_old_token {
-                            mutate_state(|s| audit::update_token(s, token.clone()));
+                            mutate_state(|s| audit::add_token(s, token.clone()));
                         } else {
                             //special condition, when add current chain into token's dst chain,
                             // updateToken means addtoken for current chain.

@@ -4,7 +4,6 @@ use std::{
     str::FromStr,
 };
 
-use crate::const_args::TOKEN_METADATA_CONTRACT_KEY;
 use candid::CandidType;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
@@ -737,7 +736,7 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").cloned(),
-            evm_contract: value.metadata.get(TOKEN_METADATA_CONTRACT_KEY).cloned(),
+            evm_contract: None,
         }
     }
 }
