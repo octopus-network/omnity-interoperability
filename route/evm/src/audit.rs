@@ -7,10 +7,6 @@ pub fn add_chain(state: &mut EvmRouteState, chain: Chain) {
     state.counterparties.insert(chain.chain_id.clone(), chain);
 }
 
-pub fn update_chain(state: &mut EvmRouteState, chain: Chain) {
-    state.counterparties.insert(chain.chain_id.clone(), chain);
-}
-
 pub fn add_token(state: &mut EvmRouteState, token: Token) {
     state.tokens.insert(token.token_id.clone(), token);
 }

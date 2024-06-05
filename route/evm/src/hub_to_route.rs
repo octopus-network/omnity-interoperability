@@ -53,11 +53,8 @@ async fn process_directives() {
             for (seq, directive) in &directives {
                 let mut final_directive = directive.clone();
                 match directive.clone() {
-                    Directive::AddChain(chain) => {
+                    Directive::AddChain(chain) | Directive::UpdateChain(chain)  => {
                         mutate_state(|s| audit::add_chain(s, chain.clone()));
-                    }
-                    Directive::UpdateChain(chain) => {
-                        mutate_state(|s| audit::update_chain(s, chain.clone()));
                     }
                     Directive::ToggleChainState(t) => {
                         mutate_state(|s| {
