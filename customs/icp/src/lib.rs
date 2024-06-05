@@ -100,13 +100,13 @@ async fn process_directives() {
         Ok(directives) => {
             for (_, directive) in &directives {
                 match directive {
-                    Directive::AddChain(chain) => {
+                    Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
                         mutate_state(|s| {
                             s.counterparties
                                 .insert(chain.chain_id.clone(), chain.clone())
                         });
                     }
-                    Directive::AddToken(token) => {
+                    Directive::AddToken(token) | Directive::UpdateToken(token) => {
                         match updates::add_new_token(token.clone()).await {
                             Ok(_) => {
                                 log::info!(

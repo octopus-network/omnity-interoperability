@@ -113,10 +113,10 @@ async fn process_directives() {
         Ok(directives) => {
             for (_, directive) in &directives {
                 match directive {
-                    Directive::AddChain(chain) => {
+                    Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
                         mutate_state(|s| audit::add_chain(s, chain.clone()));
                     }
-                    Directive::AddToken(token) => {
+                    Directive::AddToken(token) | Directive::UpdateToken(token) => {
                         match updates::add_new_token(token.clone()).await {
                             Ok(_) => {
                                 log::info!(
@@ -140,8 +140,6 @@ async fn process_directives() {
                         mutate_state(|s| audit::update_fee(s, fee.clone()));
                         log::info!("[process_directives] success to update fee, fee: {}", fee);
                     }
-                    Directive::UpdateChain(_) => {},
-                    Directive::UpdateToken(_) => {},
                 }
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
