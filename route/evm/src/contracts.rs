@@ -7,6 +7,7 @@ use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenC
 use crate::eth_common::EvmAddress;
 use crate::state::read_state;
 use crate::types::{Directive, Factor, Ticket, ToggleAction};
+
 pub type PortContractCommandIndex = u8;
 pub type PortContractFactorTypeIndex = u8;
 
@@ -59,10 +60,10 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     };
     let index: Option<PortContractCommandIndex> = directive.clone().into();
     let data = (index.unwrap(), seq, data).encode();
-    let call = PrivilegedExecuteDirectiveCall {
+    PrivilegedExecuteDirectiveCall {
         directive_bytes: Bytes::from(data),
-    };
-    call.encode()
+    }
+    .encode()
 }
 
 pub fn gen_mint_token_data(ticket: &Ticket) -> anyhow::Result<Vec<u8>> {
@@ -107,7 +108,7 @@ pub fn gen_eip1559_tx(
 ) -> Eip1559TransactionRequest {
     let chain_id = read_state(|s| s.evm_chain_id);
     let port_contract_addr = read_state(|s| s.omnity_port_contract.clone());
-    let tx = Eip1559TransactionRequest {
+    Eip1559TransactionRequest {
         chain_id: Some(chain_id.into()),
         from: None,
         to: Some(NameOrAddress::Address(port_contract_addr.into())),
@@ -118,6 +119,5 @@ pub fn gen_eip1559_tx(
         access_list: Default::default(),
         max_priority_fee_per_gas: gas_price,
         max_fee_per_gas: gas_price,
-    };
-    tx
+    }
 }

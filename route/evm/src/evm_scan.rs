@@ -1,11 +1,3 @@
-use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_TASK_NAME};
-use crate::contract_types::{
-    AbiSignature, DecodeLog, DirectiveExecuted, TokenBurned, TokenMinted, TokenTransportRequested,
-};
-use crate::eth_common::get_evm_finalized_height;
-use crate::state::{mutate_state, read_state};
-use crate::types::{ChainState, Directive, Ticket};
-use crate::*;
 use anyhow::anyhow;
 use cketh_common::eth_rpc::Hash;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
@@ -17,6 +9,15 @@ use evm_rpc::{
 };
 use itertools::Itertools;
 use log::{error, info};
+
+use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
+use crate::contract_types::{
+    AbiSignature, DecodeLog, DirectiveExecuted, TokenBurned, TokenMinted, TokenTransportRequested,
+};
+use crate::eth_common::get_evm_finalized_height;
+use crate::state::{mutate_state, read_state};
+use crate::types::{ChainState, Directive, Ticket};
+use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -165,7 +166,6 @@ pub async fn fetch_logs(
     to_height: u64,
     address: String,
 ) -> std::result::Result<Vec<LogEntry>, Error> {
-    let cycles = 1_000_000_000;
     let (rpc_result,): (MultiRpcResult<Vec<LogEntry>>,) = ic_cdk::api::call::call_with_payment128(
         crate::state::rpc_addr(),
         "eth_getLogs",
@@ -187,11 +187,10 @@ pub async fn fetch_logs(
                 ]]),
             },
         ),
-        cycles,
+        SCAN_EVM_CYCLES,
     )
     .await
     .map_err(|err| Error::IcCallError(err.0, err.1))?;
-
     match rpc_result {
         MultiRpcResult::Consistent(result) => result.map_err(|e| {
             error!("fetch logs rpc error: {:?}", e.clone());

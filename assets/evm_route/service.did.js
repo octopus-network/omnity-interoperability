@@ -58,8 +58,19 @@ export const idlFactory = ({ IDL }) => {
     'rune_id' : IDL.Opt(IDL.Text),
     'symbol' : IDL.Text,
   });
+  const HttpRequest = IDL.Record({
+    'url' : IDL.Text,
+    'method' : IDL.Text,
+    'body' : IDL.Vec(IDL.Nat8),
+    'headers' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
+  });
+  const HttpResponse = IDL.Record({
+    'body' : IDL.Vec(IDL.Nat8),
+    'headers' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
+    'status_code' : IDL.Nat16,
+  });
   const MintTokenStatus = IDL.Variant({
-    'Finalized' : IDL.Record({ 'block_index' : IDL.Nat64 }),
+    'Finalized' : IDL.Record({ 'tx_hash' : IDL.Text }),
     'Unknown' : IDL.Null,
   });
   const FeeTokenFactor = IDL.Record({
@@ -91,10 +102,12 @@ export const idlFactory = ({ IDL }) => {
     'chain_id' : IDL.Text,
   });
   const Directive = IDL.Variant({
+    'UpdateChain' : Chain,
     'UpdateFee' : Factor,
     'AddToken' : Token,
     'AddChain' : Chain,
     'ToggleChainState' : ToggleState,
+    'UpdateToken' : Token,
   });
   const PendingDirectiveStatus = IDL.Record({
     'seq' : IDL.Nat64,
@@ -117,14 +130,13 @@ export const idlFactory = ({ IDL }) => {
   const StateProfile = IDL.Record({
     'next_consume_ticket_seq' : IDL.Nat64,
     'evm_chain_id' : IDL.Nat64,
-    'tickets' : IDL.Vec(IDL.Tuple(IDL.Nat64, Ticket)),
     'admin' : IDL.Principal,
     'omnity_port_contract' : IDL.Vec(IDL.Nat8),
     'next_consume_directive_seq' : IDL.Nat64,
     'hub_principal' : IDL.Principal,
     'key_id' : EcdsaKeyId,
+    'token_contracts' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
     'next_directive_seq' : IDL.Nat64,
-    'finalized_mint_token_requests' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat64)),
     'pubkey' : IDL.Vec(IDL.Nat8),
     'start_scan_height' : IDL.Nat64,
     'key_derivation_path' : IDL.Vec(IDL.Vec(IDL.Nat8)),
@@ -147,6 +159,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
+    'http_request' : IDL.Func([HttpRequest], [HttpResponse], ['query']),
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
     'pubkey_and_evm_addr' : IDL.Func([], [IDL.Text, IDL.Text], []),
     'query_directives' : IDL.Func(
@@ -169,9 +182,9 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Tuple(IDL.Nat64, Ticket))],
         ['query'],
       ),
-    'resend_directive' : IDL.Func([IDL.Nat64], [], []),
     'route_state' : IDL.Func([], [StateProfile], ['query']),
     'set_token_evm_contract' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'update_consume_directive_seq' : IDL.Func([IDL.Nat64], [], []),
   });
 };
 export const init = ({ IDL }) => {
