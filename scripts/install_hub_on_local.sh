@@ -1,12 +1,12 @@
 #!ic-repl
 
 load "./prelude.sh";
-// identity private "identity.pem";
+identity private "identity.pem";
 let file = "perf.md";
 let process = "process";
 
 // instrument wasm
-let omnity_hub = wasm_profiling("../target/wasm32-unknown-unknown/release/omnity_hub.wasm",rs_config);
+let omnity_hub = wasm_profiling("../.dfx/local/canisters/omnity_hub/omnity_hub.wasm",rs_config);
 let size = omnity_hub.size();
 let init = encode omnity_hub.__init_args(
     variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} }
@@ -14,8 +14,13 @@ let init = encode omnity_hub.__init_args(
 
 // install wasm
 let cid = install(omnity_hub, init, null);
+
+// let hub_wasm = file("../.dfx/local/canisters/omnity_hub/omnity_hub.wasm");
+// call hub_wasm.query_tickets(opt "Bitcoin" ,0 ,12);
+
 // let init_cycles = call cid.__get_cycles();
 let status = call ic.canister_status(record { canister_id = cid });
+//let init_cycles = status.cycles;
 let init_cycles = status.cycles;
 let init_memory_size = status.memory_size;
 // output canister info
@@ -27,7 +32,7 @@ output(file, "\n## The omnity_hub init status info: \n");
 output(file, stringify("> *  canister id: ",cid, "\n"));
 output(file, stringify("> *  wasm size: ",size, "\n"));
 output(file, stringify("> *  cid.__get_cycles: ",call cid.__get_cycles(), "\n"));
-//output(file, stringify("> *  status: ",status, "\n"));
+output(file, stringify("> *  status: ",status, "\n"));
 output(file, stringify("> *  canister status: ",status.status, "\n"));
 output(file, stringify("> *  memory size: ",init_memory_size, "\n"));
 output(file, stringify("> *  canister cycles: ",status.cycles, "\n"));
@@ -40,8 +45,6 @@ output(file, stringify("> *  module_hash : ",status.module_hash, "\n"));
 
 // disable tracing
 // call cid.__toggle_tracing();
-// let update_prefix = call cid.update_commitment_prefix("ibc");
-// output(file, stringify("\n## The cost of update_commitment_prefix : ",__cost_update_prefix, "\n"));
 
 // enable tracing
 //call cid.__toggle_tracing();

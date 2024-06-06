@@ -203,7 +203,7 @@ service : (HubArg) -> {
   handle_token : (vec Proposal) -> (Result);
   query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_12) query;
   query_subscribers : (opt Topic) -> (Result_13) query;
-  query_tickets : (opt text, nat64, nat64) -> (Result_14) query;
+  query_tickets : (opt text, nat64, nat64) -> (Result_14);
   resubmit_ticket : (Ticket) -> (Result);
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();

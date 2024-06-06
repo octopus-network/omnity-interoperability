@@ -312,21 +312,17 @@ impl HubState {
     }
 
     pub fn token(&self, token_id: &TokenId) -> Result<TokenMeta, Error> {
-        self.tokens.get(token_id).ok_or({
-            error!("not found token: (`{}`)", token_id.to_string());
-            Error::NotFoundToken(token_id.to_string())
-        })
+        self.tokens
+            .get(token_id)
+            .ok_or(Error::NotFoundToken(token_id.to_string()))
     }
 
     pub fn update_fee(&mut self, fee: Factor) -> Result<(), Error> {
         match fee {
             Factor::UpdateTargetChainFactor(ref cf) => self
                 .chains
-                .get(&cf.target_chain_id)
-                .ok_or({
-                    error!("not found chain: (`{}`)", cf.target_chain_id.to_string());
-                    Error::NotFoundChain(cf.target_chain_id.to_string())
-                })
+                .get(&cf.target_chain_id.to_string())
+                .ok_or(Error::NotFoundChain(cf.target_chain_id.to_string()))
                 .map_or_else(
                     |e| Err(e),
                     |chain| {
@@ -522,17 +518,10 @@ impl HubState {
         self.token_position
             .get(&position)
             .as_mut()
-            .ok_or({
-                error!(
-                    "Not found this token(`{0}`) on chain(`{1}`) ",
-                    position.token_id.to_string(),
-                    position.chain_id.to_string(),
-                );
-                Error::NotFoundChainToken(
-                    position.token_id.to_string(),
-                    position.chain_id.to_string(),
-                )
-            })
+            .ok_or(Error::NotFoundChainToken(
+                position.token_id.to_string(),
+                position.chain_id.to_string(),
+            ))
             .map_or_else(
                 |e| Err(e),
                 |total_amount| {
@@ -720,7 +709,8 @@ impl HubState {
             }
             None => {
                 error!("The resubmit ticket id must exist!");
-                Err(Error::ResubmitTicketIdMustExist)},
+                Err(Error::ResubmitTicketIdMustExist)
+            }
         }
     }
 

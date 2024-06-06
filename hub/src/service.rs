@@ -181,7 +181,7 @@ pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
 }
 
 /// query tickets for chain id,this method will be called by route and custom
-#[query(guard = "auth")]
+#[update(guard = "auth")]
 pub async fn query_tickets(
     chain_id: Option<ChainId>,
     offset: usize,

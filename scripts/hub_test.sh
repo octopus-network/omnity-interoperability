@@ -18,6 +18,10 @@ dfx canister create omnity_hub
 dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
 # dfx canister install --mode install --wasm ./scripts/pre_omnity_hub.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' --yes omnity_hub
 
+INIT_BALANCE="$(dfx canister status omnity_hub 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
+echo "canister current balance: $INIT_BALANCE cycles "
+
+
 # deploy the bitcoin custom canister
 dfx deploy bitcoin_mock --argument '(null)' --mode reinstall -y
 
@@ -175,3 +179,6 @@ dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:na
 dfx canister call omnity_hub sync_ticket_size '()'
 dfx canister call omnity_hub sync_tickets '(0:nat64,12:nat64)'
 # dfx stop
+
+CURRENT_BALANCE="$(dfx canister status omnity_hub 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
+echo "canister current balance: $CURRENT_BALANCE cycles"
