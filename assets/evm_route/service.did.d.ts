@@ -153,8 +153,9 @@ export interface _SERVICE {
     Array<[string, PendingTicketStatus]>
   >,
   'query_tickets' : ActorMethod<[bigint, bigint], Array<[bigint, Ticket]>>,
+  'resend_directive' : ActorMethod<[bigint], undefined>,
+  'resend_ticket' : ActorMethod<[bigint], undefined>,
   'route_state' : ActorMethod<[], StateProfile>,
-  'set_token_evm_contract' : ActorMethod<[string, string], undefined>,
   'update_consume_directive_seq' : ActorMethod<[bigint], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
