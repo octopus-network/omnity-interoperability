@@ -1,4 +1,4 @@
-use ethers_core::abi::{ethereum_types, AbiDecode, AbiEncode, RawLog};
+use ethers_core::abi::{AbiDecode, AbiEncode, ethereum_types, RawLog};
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
 use serde_derive::{Deserialize, Serialize};
@@ -7,6 +7,9 @@ pub trait AbiSignature {
     fn abi_signature() -> String;
     fn signature_hash() -> [u8; 32] {
         keccak256(Self::abi_signature().as_bytes())
+    }
+    fn signature_hex() -> String {
+        Self::signature_hash().encode_hex()
     }
 }
 pub trait DecodeLog {
@@ -164,12 +167,36 @@ impl DecodeLog for DirectiveExecuted {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenAdded {
+    pub token_id: String,
+    pub token_address: ethereum_types::Address,
+}
+
+impl AbiSignature for TokenAdded {
+    fn abi_signature() -> String {
+        "TokenAdded(string,address)".into()
+    }
+}
+
+impl DecodeLog for TokenAdded {
+    fn decode_log(log: &RawLog) -> anyhow::Result<Self> where Self: Sized {
+        let (token_id, token_address) = AbiDecode::decode(&log.data)?;
+        Ok(Self {
+            token_id,
+            token_address,
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::contract_types::{AbiSignature, TokenBurned};
     use ethers_contract::abigen;
-    use ethers_core::abi::{ethereum_types, AbiEncode};
+    use ethers_core::abi::{AbiEncode, ethereum_types};
     use ethers_core::types::{Bytes, U256};
+
+    use crate::contract_types::{AbiSignature, TokenBurned};
+
     abigen!(
         OmnityPortContract,
         r#"[

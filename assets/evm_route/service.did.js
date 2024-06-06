@@ -182,8 +182,9 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Tuple(IDL.Nat64, Ticket))],
         ['query'],
       ),
+    'resend_directive' : IDL.Func([IDL.Nat64], [], []),
+    'resend_ticket' : IDL.Func([IDL.Nat64], [], []),
     'route_state' : IDL.Func([], [StateProfile], ['query']),
-    'set_token_evm_contract' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'update_consume_directive_seq' : IDL.Func([IDL.Nat64], [], []),
   });
 };

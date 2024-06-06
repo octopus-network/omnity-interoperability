@@ -15,12 +15,12 @@ use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    init_chain_pubkey, mutate_state, read_state, replace_state, EvmRouteState, InitArgs,
+    EvmRouteState, init_chain_pubkey, InitArgs, mutate_state, read_state, replace_state,
     StateProfile, UpgradeArgs,
 };
 use crate::types::{
     Chain, ChainId, Directive, MintTokenStatus, PendingDirectiveStatus, PendingTicketStatus, Seq,
-    Ticket, TicketId, TokenId, TokenResp,
+    Ticket, TicketId, TokenResp,
 };
 
 #[init]
@@ -152,13 +152,6 @@ fn get_token_list() -> Vec<TokenResp> {
             })
             .collect()
     })
-}
-
-#[update(guard = "is_admin")]
-fn set_token_evm_contract(token: TokenId, addr: String) {
-    mutate_state(|s| {
-        s.token_contracts.insert(token, addr);
-    });
 }
 
 #[query]

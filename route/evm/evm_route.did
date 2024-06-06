@@ -140,7 +140,8 @@ service : (InitArgs) -> {
       vec record { text; PendingTicketStatus },
     ) query;
   query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
+  resend_directive : (nat64) -> ();
+  resend_ticket : (nat64) -> ();
   route_state : () -> (StateProfile) query;
-  set_token_evm_contract : (text, text) -> ();
   update_consume_directive_seq : (nat64) -> ();
 }
