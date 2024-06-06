@@ -15,7 +15,7 @@ use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    EvmRouteState, init_chain_pubkey, InitArgs, mutate_state, read_state, replace_state,
+    init_chain_pubkey, mutate_state, read_state, replace_state, EvmRouteState, InitArgs,
     StateProfile, UpgradeArgs,
 };
 use crate::types::{

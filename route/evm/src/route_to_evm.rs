@@ -24,7 +24,6 @@ pub async fn send_directives_to_evm() {
     let to = read_state(|s| s.next_directive_seq);
     for seq in from..to {
         let ret = send_directive(seq).await;
-        //TODO
         match ret {
             Ok(_) => {}
             Err(e) => {
@@ -39,9 +38,7 @@ pub async fn send_tickets_to_evm() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     for seq in from..to {
-        let ret = send_ticket(seq).await;
-        //TODO
-        match ret {
+        match send_ticket(seq).await {
             Ok(_) => {}
             Err(e) => {
                 log::error!("[evm_route] send ticket to evm error: {}", e.to_string());
@@ -52,12 +49,10 @@ pub async fn send_tickets_to_evm() {
 }
 
 pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
-    let ticket = read_state(|s| s.tickets_queue.get(&seq));
-    match ticket {
+    match read_state(|s| s.tickets_queue.get(&seq)) {
         None => Ok(()),
         Some(t) => {
-            let sent = read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id));
-            if sent {
+            if read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id)) {
                 return Ok(());
             }
             let data_result = gen_mint_token_data(&t);
@@ -75,14 +70,13 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
                 "[evm route] send directive eip1559tx content: {:?}",
                 serde_json::to_string(&tx)
             );
-            let raw = sign_transaction(tx).await;
             let mut pending_ticket = PendingTicketStatus {
                 evm_tx_hash: None,
                 ticket_id: t.ticket_id.clone(),
                 seq,
                 error: None,
             };
-            match raw {
+            match sign_transaction(tx).await {
                 Ok(data) => {
                     let hash = broadcast(data).await;
                     match hash {
@@ -109,8 +103,7 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
 }
 
 pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
-    let dire = read_state(|s| s.directives_queue.get(&seq));
-    match dire {
+    match read_state(|s| s.directives_queue.get(&seq)) {
         None => Ok(()),
         Some(d) => {
             let data = gen_execute_directive_data(&d, U256::from(seq));
@@ -128,13 +121,12 @@ pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
                 "[evm route] send directive eip1559tx content: {:?}",
                 serde_json::to_string(&tx)
             );
-            let raw = sign_transaction(tx).await;
             let mut pending_directive = PendingDirectiveStatus {
                 evm_tx_hash: None,
                 seq,
                 error: None,
             };
-            match raw {
+            match sign_transaction(tx).await {
                 Ok(data) => {
                     let hash = broadcast(data).await;
                     match hash {

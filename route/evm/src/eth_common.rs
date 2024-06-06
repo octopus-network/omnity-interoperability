@@ -163,7 +163,6 @@ fn y_parity(prehash: &[u8], sig: &[u8], pubkey: &[u8]) -> u64 {
             return parity as u64;
         }
     }
-
     panic!(
         "failed to recover the parity bit from a signature; sig: {}, pubkey: {}",
         hex::encode(sig),
