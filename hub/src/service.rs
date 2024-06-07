@@ -1,16 +1,19 @@
 use crate::memory::init_stable_log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+#[cfg(feature = "profiling")]
 use ic_stable_structures::Memory;
 use log::debug;
 use omnity_hub::auth::{auth, is_admin};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
+#[cfg(feature = "profiling")]
 use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta};
+
 use omnity_hub::types::{
     TokenResp, {Proposal, Subscribers},
 };
@@ -26,8 +29,10 @@ use omnity_hub::state::HubState;
 #[init]
 fn init(args: HubArg) {
     // init profiling memory
+    #[cfg(feature = "profiling")]
     let memory = get_profiling_memory();
     // Increase the page number if you need larger log space
+    #[cfg(feature = "profiling")]
     memory.grow(4096);
 
     match args {
@@ -109,10 +114,7 @@ pub async fn handle_token(proposals: Vec<Proposal>) -> Result<(), Error> {
 #[update(guard = "auth")]
 pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
     let proposals: Vec<Proposal> = factors.into_iter().map(Proposal::UpdateFee).collect();
-
-    // validate proposal
     proposal::validate_proposal(&proposals).await?;
-    // exection proposal and generate directives
     proposal::execute_proposal(proposals).await
 }
 

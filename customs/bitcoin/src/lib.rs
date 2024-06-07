@@ -302,8 +302,10 @@ async fn process_directive() {
         Ok(directives) => mutate_state(|s| {
             for (_, directive) in &directives {
                 match directive {
-                    Directive::AddChain(chain) => audit::add_chain(s, chain.clone()),
-                    Directive::AddToken(token) => {
+                    Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
+                        audit::add_chain(s, chain.clone())
+                    }
+                    Directive::AddToken(token) | Directive::UpdateToken(token) => {
                         if let Some(rune_id) = token.metadata.clone().get("rune_id") {
                             match RuneId::from_str(rune_id) {
                                 Err(err) => {

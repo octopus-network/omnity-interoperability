@@ -183,6 +183,7 @@ impl HubState {
                 chain_id.to_string(),
             ))
     }
+
     pub fn update_chain(&mut self, chain: ChainMeta) -> Result<(), Error> {
         // save chain
         self.chains
