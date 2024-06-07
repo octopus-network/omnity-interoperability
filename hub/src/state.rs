@@ -7,7 +7,7 @@ use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, T
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
-use log::{error, info};
+use log::{debug, error};
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, TicketType,
     ToggleAction, ToggleState, TokenId, Topic, TxAction,
@@ -154,7 +154,7 @@ impl HubState {
         tickets.sort_by_key(|ticket| ticket.ticket_time);
         //update ticket meric
         for ticket in tickets.into_iter() {
-            info!("update ticket metric: {:?} ", ticket);
+            debug!("update ticket metric: {:?} ", ticket);
             with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket));
         }
 
@@ -210,7 +210,7 @@ impl HubState {
         self.chains.get(dst_chain_id).map(|mut chain| {
             // excluds the deactive state
             if matches!(chain.chain_state, ChainState::Deactive) {
-                info!(
+                debug!(
                     "dst chain {} is deactive, donn`t update counterparties for it! ",
                     chain.chain_id.to_string()
                 );
@@ -312,10 +312,9 @@ impl HubState {
     }
 
     pub fn token(&self, token_id: &TokenId) -> Result<TokenMeta, Error> {
-        self.tokens.get(token_id).ok_or({
-         
-            Error::NotFoundToken(token_id.to_string())
-        })
+        self.tokens
+            .get(token_id)
+            .ok_or(Error::NotFoundToken(token_id.to_string()))
     }
 
     pub fn update_fee(&mut self, fee: Factor) -> Result<(), Error> {
@@ -323,10 +322,7 @@ impl HubState {
             Factor::UpdateTargetChainFactor(ref cf) => self
                 .chains
                 .get(&cf.target_chain_id)
-                .ok_or({
-
-                    Error::NotFoundChain(cf.target_chain_id.to_string())
-                })
+                .ok_or(Error::NotFoundChain(cf.target_chain_id.to_string()))
                 .map_or_else(
                     |e| Err(e),
                     |chain| {
@@ -473,7 +469,7 @@ impl HubState {
                 let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
                 //TODO: match! and exclude diretive for  target chain self
                 self.dire_queue.insert(seq_key.clone(), dire.clone());
-                info!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
+                debug!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                 record_event(&Event::PubedDirective {
                     seq_key,
                     dire: dire.clone(),
@@ -523,7 +519,6 @@ impl HubState {
             .get(&position)
             .as_mut()
             .ok_or({
-
                 Error::NotFoundChainToken(
                     position.token_id.to_string(),
                     position.chain_id.to_string(),
@@ -572,7 +567,7 @@ impl HubState {
             TxAction::Transfer => {
                 // ticket from issue chain
                 if self.is_origin(&ticket.src_chain, &ticket.token)? {
-                    info!(
+                    debug!(
                         "ticket token({}) from issue chain({}).",
                         ticket.token, ticket.src_chain,
                     );
@@ -585,7 +580,7 @@ impl HubState {
 
                 // not from issue chain
                 } else {
-                    info!(
+                    debug!(
                         "ticket token({}) from a not issue chain({}).",
                         ticket.token, ticket.src_chain,
                     );
@@ -716,7 +711,8 @@ impl HubState {
             }
             None => {
                 error!("The resubmit ticket id must exist!");
-                Err(Error::ResubmitTicketIdMustExist)},
+                Err(Error::ResubmitTicketIdMustExist)
+            }
         }
     }
 
@@ -726,7 +722,7 @@ impl HubState {
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
-        info!("pull_tickets: {:?},{offset},{limit}", chain_id);
+        debug!("pull_tickets: {:?},{offset},{limit}", chain_id);
         let tickets = self
             .ticket_queue
             .iter()
@@ -764,7 +760,7 @@ impl HubState {
         };
 
         target_dires.into_iter().for_each(|d| {
-            info!(
+            debug!(
                 "republish directives({:?}) for subscriber: {}",
                 d,
                 chain_id.to_string()
@@ -776,7 +772,7 @@ impl HubState {
     }
 
     pub fn delete_directives(&mut self, chain_id: &ChainId, topics: &[Topic]) -> Result<(), Error> {
-        info!(
+        debug!(
             "delete directives with topic ({:?}) for subscriber: {}",
             topics,
             chain_id.to_string()

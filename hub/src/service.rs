@@ -2,7 +2,7 @@ use crate::memory::init_stable_log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_stable_structures::Memory;
-use log::info;
+use log::debug;
 use omnity_hub::auth::{auth, is_admin};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
@@ -33,7 +33,7 @@ fn init(args: HubArg) {
     match args {
         HubArg::Init(args) => {
             init_log(Some(init_stable_log()));
-            info!("hub init args: {:?}", args);
+            debug!("hub init args: {:?}", args);
 
             lifecycle::init(args.clone());
             record_event(&Event::Init(args));
@@ -46,17 +46,17 @@ fn init(args: HubArg) {
 
 #[pre_upgrade]
 fn pre_upgrade() {
-    info!("begin to execute pre_upgrade ...");
+    debug!("begin to execute pre_upgrade ...");
     with_state(|hub_state| hub_state.pre_upgrade())
 }
 
 #[post_upgrade]
 fn post_upgrade(args: Option<HubArg>) {
-    info!("begin to execute post_upgrade with :{:?}", args);
+    debug!("begin to execute post_upgrade with :{:?}", args);
     // init log
     init_log(Some(init_stable_log()));
     HubState::post_upgrade(args);
-    info!("upgrade successfully!");
+    debug!("upgrade successfully!");
 }
 
 /// validate directive ,this method will be called by sns
@@ -118,18 +118,18 @@ pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
 
 #[update(guard = "auth")]
 pub async fn sub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
-    info!(
+    debug!(
         "sub_topics for chain: {:?}, with topics: {:?} ",
         chain_id, topics
     );
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
-    info!("get_chain_id:{:?}", dst_chain_id);
+    debug!("get_chain_id:{:?}", dst_chain_id);
     with_state_mut(|hub_state| hub_state.sub_directives(&dst_chain_id, &topics))
 }
 
 #[update(guard = "auth")]
 pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
-    info!(
+    debug!(
         "unsub_topics for chain: {:?}, with topics: {:?} ",
         chain_id, topics
     );
@@ -139,7 +139,7 @@ pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> 
 
 #[query(guard = "auth")]
 pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subscribers)>, Error> {
-    info!("query_subscribers for topic: {:?} ", topic);
+    debug!("query_subscribers for topic: {:?} ", topic);
     with_state(|hub_state| hub_state.query_subscribers(topic))
 }
 
@@ -151,7 +151,7 @@ pub async fn query_directives(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
-    info!(
+    debug!(
         "query directive for chain: {:?}, with topic: {:?} ",
         chain_id, topic
     );
@@ -163,7 +163,7 @@ pub async fn query_directives(
 /// check and push ticket into queue
 #[update(guard = "auth")]
 pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
-    info!("send_ticket: {:?}", ticket);
+    debug!("send_ticket: {:?}", ticket);
 
     with_state_mut(|hub_state| {
         // checke ticket and update token on chain
@@ -175,7 +175,7 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
 
 #[update(guard = "auth")]
 pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
-    info!("received resubmit ticket: {:?}", ticket);
+    debug!("received resubmit ticket: {:?}", ticket);
     // No need to update the token since the old ticket has already added
     with_state_mut(|hub_state| hub_state.resubmit_ticket(ticket))
 }
