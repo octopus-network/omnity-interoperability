@@ -172,7 +172,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Tuple(IDL.Nat64, PendingDirectiveStatus))],
         ['query'],
       ),
-    'query_pending_tickect' : IDL.Func(
+    'query_pending_ticket' : IDL.Func(
         [IDL.Nat64, IDL.Nat64],
         [IDL.Vec(IDL.Tuple(IDL.Text, PendingTicketStatus))],
         ['query'],

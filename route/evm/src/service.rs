@@ -97,7 +97,7 @@ fn route_state() -> StateProfile {
     read_state(|s| StateProfile::from(s))
 }
 #[query(guard = "is_admin")]
-fn query_pending_tickect(from: usize, limit: usize) -> Vec<(TicketId, PendingTicketStatus)> {
+fn query_pending_ticket(from: usize, limit: usize) -> Vec<(TicketId, PendingTicketStatus)> {
     read_state(|s| {
         s.pending_tickets_map
             .iter()

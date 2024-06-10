@@ -23,12 +23,8 @@ pub fn scan_evm_task() {
             Some(guard) => guard,
             None => return,
         };
-        let r = handle_port_events().await;
-        match r {
-            Ok(_) => {}
-            Err(e) => {
-                error!("[evm route] handle evm logs error: {}", e.to_string());
-            }
+        if let Err(e) = handle_port_events().await {
+            error!("[evm route] handle evm logs error: {}", e.to_string());
         }
     });
 }

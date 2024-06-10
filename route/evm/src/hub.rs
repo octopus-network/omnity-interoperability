@@ -1,9 +1,10 @@
+use candid::Principal;
+
 use crate::call_error::{CallError, Reason};
 use crate::state::read_state;
+use crate::types::{Seq, Ticket};
 use crate::types::Directive;
 use crate::types::Topic;
-use crate::types::{ChainId, Seq, Ticket};
-use candid::Principal;
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     // TODO determine how many cycle it will cost.
@@ -56,7 +57,7 @@ pub async fn query_directives(
         hub_principal,
         "query_directives",
         (
-            None::<Option<ChainId>>,
+            Some(read_state(|s| s.omnity_chain_id.clone())),
             None::<Option<Topic>>,
             offset,
             limit,
