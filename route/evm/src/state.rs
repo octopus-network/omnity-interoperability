@@ -9,13 +9,12 @@ use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{
     ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument,
 };
-use ic_stable_structures::StableBTreeMap;
 use ic_stable_structures::writer::Writer;
+use ic_stable_structures::StableBTreeMap;
 use k256::PublicKey;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, stable_memory};
 use crate::eth_common::EvmAddress;
 use crate::service::{InitArgs, UpgradeArgs};
 use crate::stable_memory::Memory;
@@ -23,6 +22,7 @@ use crate::types::{Chain, ChainState, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
+use crate::{stable_memory, Error};
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);

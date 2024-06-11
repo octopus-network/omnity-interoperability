@@ -2,9 +2,9 @@ use candid::Principal;
 
 use crate::call_error::{CallError, Reason};
 use crate::state::read_state;
-use crate::types::{Seq, Ticket};
 use crate::types::Directive;
 use crate::types::Topic;
+use crate::types::{Seq, Ticket};
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     // TODO determine how many cycle it will cost.
