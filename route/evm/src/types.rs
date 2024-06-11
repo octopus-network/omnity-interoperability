@@ -1,15 +1,15 @@
-use std::borrow::Cow;
 use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
 };
+use std::borrow::Cow;
 
 use candid::CandidType;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
-use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
+use ic_stable_structures::storable::Bound;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use thiserror::Error;
@@ -247,10 +247,8 @@ impl Ticket {
         let dst_chain = token.token_id_info()[0].to_string();
         Ticket {
             ticket_id: format!(
-                "{}-{}",
-                hex::encode(log_entry.transaction_hash.unwrap().0),
-                log_entry.log_index.unwrap()
-            ),
+                "0x{}",
+                hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),
             ticket_type: TicketType::Normal,
             src_chain,
@@ -272,10 +270,8 @@ impl Ticket {
         let dst_chain = token_transport_requested.dst_chain_id;
         Ticket {
             ticket_id: format!(
-                "{}-{}",
-                hex::encode(log_entry.transaction_hash.unwrap().0),
-                log_entry.log_index.unwrap()
-            ),
+                "0x{}",
+                hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),
             ticket_type: TicketType::Normal,
             src_chain,
