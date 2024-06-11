@@ -1,10 +1,7 @@
-use crate::eth_common::EvmAddress;
-use crate::stable_memory::Memory;
-use crate::types::{Chain, ChainState, Network, Token, TokenId};
-use crate::types::{
-    ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
-};
-use crate::{stable_memory, Error};
+use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet};
+use std::str::FromStr;
+
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
 use ethers_core::abi::ethereum_types;
@@ -12,13 +9,18 @@ use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{
     ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument,
 };
-use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
+use ic_stable_structures::writer::Writer;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
-use std::str::FromStr;
+
+use crate::{Error, stable_memory};
+use crate::eth_common::EvmAddress;
+use crate::stable_memory::Memory;
+use crate::types::{Chain, ChainState, Network, Token, TokenId};
+use crate::types::{
+    ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
+};
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
@@ -40,6 +42,7 @@ pub struct InitArgs {
 #[derive(CandidType, Deserialize)]
 pub struct UpgradeArgs {
     pub omnity_port_contract_addr: Option<String>,
+    pub rpc_services: Option<Vec<RpcApi>>,
 }
 
 impl EvmRouteState {
@@ -115,6 +118,9 @@ impl EvmRouteState {
         if let Some(arg) = args {
             if let Some(contract_addr) = arg.omnity_port_contract_addr {
                 state.omnity_port_contract = EvmAddress::from_str(contract_addr.as_str()).unwrap();
+            }
+            if let Some(rpcs) = arg.rpc_services {
+                state.rpc_providers = rpcs;
             }
         }
         replace_state(state);

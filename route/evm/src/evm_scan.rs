@@ -164,6 +164,7 @@ pub async fn fetch_logs(
     to_height: u64,
     address: String,
 ) -> std::result::Result<Vec<LogEntry>, Error> {
+    let rpc_size = read_state(|s| s.rpc_providers.len() as u128);
     let (rpc_result,): (MultiRpcResult<Vec<LogEntry>>,) = ic_cdk::api::call::call_with_payment128(
         crate::state::rpc_addr(),
         "eth_getLogs",
@@ -186,7 +187,7 @@ pub async fn fetch_logs(
                 ]]),
             },
         ),
-        SCAN_EVM_CYCLES,
+        SCAN_EVM_CYCLES * rpc_size,
     )
     .await
     .map_err(|err| Error::IcCallError(err.0, err.1))?;
