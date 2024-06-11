@@ -55,7 +55,13 @@
       "package": "icp_mock",
       "type": "rust"
     },
-    "evm_route": {
+    "evm_route_bevm": {
+      "candid": "route/evm/evm_route.did",
+      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
+      "package": "evm_route",
+      "type": "custom"
+    },
+    "evm_route_bitlayer": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
       "package": "evm_route",

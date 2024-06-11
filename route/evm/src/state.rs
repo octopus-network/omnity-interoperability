@@ -12,37 +12,20 @@ use ic_cdk::api::management_canister::ecdsa::{
 use ic_stable_structures::StableBTreeMap;
 use ic_stable_structures::writer::Writer;
 use k256::PublicKey;
+use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, stable_memory};
 use crate::eth_common::EvmAddress;
+use crate::service::{InitArgs, UpgradeArgs};
 use crate::stable_memory::Memory;
-use crate::types::{Chain, ChainState, Network, Token, TokenId};
+use crate::types::{Chain, ChainState, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
-}
-
-#[derive(CandidType, Deserialize)]
-pub struct InitArgs {
-    pub evm_chain_id: u64,
-    pub admin: Principal,
-    pub hub_principal: Principal,
-    pub network: Network,
-    pub evm_rpc_canister_addr: Principal,
-    pub scan_start_height: u64,
-    pub chain_id: String,
-    pub rpc_url: String,
-    pub fee_token_id: String,
-}
-
-#[derive(CandidType, Deserialize)]
-pub struct UpgradeArgs {
-    pub omnity_port_contract_addr: Option<String>,
-    pub rpc_services: Option<Vec<RpcApi>>,
 }
 
 impl EvmRouteState {
@@ -120,6 +103,7 @@ impl EvmRouteState {
                 state.omnity_port_contract = EvmAddress::from_str(contract_addr.as_str()).unwrap();
             }
             if let Some(rpcs) = arg.rpc_services {
+                info!("upgrade rpc_provides: {:?}", serde_json::to_string(&rpcs));
                 state.rpc_providers = rpcs;
             }
         }

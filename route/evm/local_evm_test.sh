@@ -58,11 +58,11 @@ cd ../..
 
 #scan_start_height 为扫链起始高度， 部署时先到bevm 测试网浏览器查询一下。 https://scan-testnet.bevm.io
 
-dfx deploy evm_route --argument '(record { fee_token_id = "bevmBTC"; network = variant { local }; scan_start_height = 1266000; evm_rpc_canister_addr = principal "br5f7-7uaaa-aaaaa-qaaca-cai";  evm_chain_id = 11503; admin = principal "oqqew-3kok2-4ca2v-uwf4q-bykqb-yghly-kwet3-a5vqf-cu4ug-ztg4o-sqe"; hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; chain_id = "bevm"; rpc_url = "https://testnet.bevm.io";})'
+dfx deploy evm_route_bevm --argument '(record { fee_token_id = "bevmBTC"; network = variant { local }; scan_start_height = 1266000; evm_rpc_canister_addr = principal "br5f7-7uaaa-aaaaa-qaaca-cai";  evm_chain_id = 11503; admin = principal "oqqew-3kok2-4ca2v-uwf4q-bykqb-yghly-kwet3-a5vqf-cu4ug-ztg4o-sqe"; hub_principal = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; chain_id = "bevm"; rpc_url = "https://testnet.bevm.io";})'
 
 
 #get chainkey ecdsa address
-dfx canister call evm_route pubkey_and_evm_addr
+dfx canister call evm_route_bevm pubkey_and_evm_addr
 (
   "0x03be1d526db5a3b6aab52a177171e133c37044750fb50d861af5bbf9ecba932a10",
   "0x44b2f53aA07A14aD186a3fCB44b53E0d7F398812",
@@ -137,9 +137,9 @@ npx hardhat ignition deploy ./ignition/modules/omnity_port.js --network bevm_tes
     PortModule#OmnityPortContract - 0x8609B30e6E44Fd7823bfe731E0Bf305e1246F0DB
 ```
 
-#set port address into evm_route via upgrade
+#set port address into evm_route_bevm via upgrade
 
-dfx canister install evm_route --argument '(opt record {omnity_port_contract_addr = opt "0x8609B30e6E44Fd7823bfe731E0Bf305e1246F0DB"})'  --wasm ./route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm --mode upgrade
+dfx canister install evm_route_bevm --argument '(opt record {omnity_port_contract_addr = opt "0x8609B30e6E44Fd7823bfe731E0Bf305e1246F0DB"; rpc_services = opt null})'  --wasm ./route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm --mode upgrade
 
 
 # https://github.com/lesterli/ord/blob/docs/runes/docs/src/guides/runes.md
@@ -251,7 +251,7 @@ dfx canister call omnity_hub execute_proposal  '( vec {variant { AddToken = reco
 
 # update fee
 $ dfx canister call omnity_hub update_fee 'vec {variant { UpdateTargetChainFactor = record {target_chain_id="Bitcoin"; target_chain_factor=1000 : nat}}; variant { UpdateFeeTokenFactor = record { fee_token="bevmBTC"; fee_token_factor=10 : nat}}}'
-dfx canister call evm_route get_fee '("Bitcoin")'
+dfx canister call evm_route_bevm get_fee '("Bitcoin")'
 
 # query update fee directive
 $ dfx canister call omnity_hub query_directives '(opt "bevm",null,0:nat64,5:nat64)'
