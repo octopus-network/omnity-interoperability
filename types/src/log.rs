@@ -7,7 +7,7 @@ use ic_log::{
 };
 use ic_stable_structures::{memory_manager::VirtualMemory, DefaultMemoryImpl, StableLog as IcLog};
 use ic_stable_structures::{storable::Bound, StableBTreeMap, Storable};
-use log::info;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use std::{borrow::Cow, cell::RefCell};
@@ -40,7 +40,7 @@ impl Storable for LogEntry {
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
         let log_entry =
-            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode LogEntry");
         log_entry
     }
 
@@ -107,7 +107,7 @@ impl StableLogWriter {
                 Ok(value) => value,
                 Err(err) => return err,
             };
-            info!(
+            debug!(
                 "request params: max_skip_timestamp: {}, offset: {}, limit: {}",
                 max_skip_timestamp, offset, limit
             );

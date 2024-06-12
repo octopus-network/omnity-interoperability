@@ -31,3 +31,4 @@ route/ethl2/Cargo.lock
 
 canister_ids.json
 bitcoin_customs.wasm
+**/*.svg

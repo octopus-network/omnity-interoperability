@@ -329,6 +329,7 @@ async fn process_directive() {
                         audit::toggle_chain_state(s, toggle.clone())
                     }
                     Directive::UpdateFee(_) => {}
+              
                 }
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);

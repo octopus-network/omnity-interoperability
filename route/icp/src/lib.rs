@@ -140,6 +140,7 @@ async fn process_directives() {
                         mutate_state(|s| audit::update_fee(s, fee.clone()));
                         log::info!("[process_directives] success to update fee, fee: {}", fee);
                     }
+  
                 }
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
