@@ -101,7 +101,6 @@ type GenTicketRequest = record {
   rune_id : RuneId;
 };
 type GenTicketStatus = variant {
-  Invalid;
   Finalized;
   Unknown;
   Pending : GenTicketRequest;
@@ -115,10 +114,10 @@ type GenerateTicketArgs = record {
 };
 type GenerateTicketError = variant {
   TemporarilyUnavailable : text;
+  AlreadyProcessed;
   InvalidRuneId : text;
   AlreadySubmitted;
   InvalidTxId;
-  AleardyProcessed;
   NoNewUtxos;
   UnsupportedChainId : text;
   UnsupportedToken : text;

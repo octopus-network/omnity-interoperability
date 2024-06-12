@@ -168,7 +168,7 @@ async fn fetch_main_utxos(
                     main_address.display(btc_network),
                     e
                 );
-                return BTreeMap::default();
+                continue;
             }
         };
 
@@ -666,8 +666,6 @@ async fn finalize_requests() {
         // There are no transactions eligible for replacement.
         return;
     }
-
-    let btc_network = state::read_state(|s| s.btc_network);
 
     // There are transactions that should have been finalized by now. Let's check whether the
     // Bitcoin network knows about them or they got lost in the meantime. Note that the Bitcoin
@@ -1170,7 +1168,7 @@ pub fn build_unsigned_transaction(
         (tx_outputs.len() + 1) as u64,
     );
     let fee: u64 = (tx_vsize as u64 * fee_per_vbyte) / 1000;
-    // Additional MIN_OUTPUT_AMOUNT are used as the value of the outputs(two chagne output + multiple dest runes outputs).
+    // Additional MIN_OUTPUT_AMOUNT are used as the value of the outputs(two change output + multiple dest runes outputs).
     let non_op_return_outputs_sz = (outputs.len() + 2) as u64;
     // Select twise the fee to handle resubmissions.
     let select_fee = fee * 2 + MIN_OUTPUT_AMOUNT * non_op_return_outputs_sz;
