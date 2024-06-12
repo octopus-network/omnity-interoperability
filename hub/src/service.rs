@@ -1366,7 +1366,7 @@ mod tests {
         add_chains().await;
         // add token
         add_tokens().await;
-        //
+        
         // A->B: `transfer` ticket
         let src_chain = "Bitcoin";
         // let dst_chain = "Bitcoin";

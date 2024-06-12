@@ -184,6 +184,13 @@ impl HubState {
             ))
     }
 
+    pub fn issue_chain(&self, token_id: &TokenId) -> Result<String, Error> {
+        self.tokens
+            .get(token_id)
+            .map(|v| v.issue_chain)
+            .ok_or(Error::NotFoundToken(token_id.to_string()))
+    }
+
     pub fn update_chain(&mut self, chain: ChainMeta) -> Result<(), Error> {
         // save chain
         self.chains
@@ -550,12 +557,6 @@ impl HubState {
             return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
         }
 
-        // esure dst chain != src chain
-        if ticket.dst_chain.eq(&ticket.src_chain) {
-            return Err(Error::CustomError(
-                "The dst chain and src chain must be different!".to_string(),
-            ));
-        }
         // check chain and state
         self.available_chain(&ticket.src_chain)?;
         self.available_chain(&ticket.dst_chain)?;
@@ -573,8 +574,9 @@ impl HubState {
         // check token on chain availability
         match ticket.action {
             TxAction::Transfer => {
+                let issue_chain = self.issue_chain(&ticket.token)?;
                 // ticket from issue chain
-                if self.is_origin(&ticket.src_chain, &ticket.token)? {
+                if ticket.src_chain.eq(&issue_chain) && ticket.dst_chain.ne(&issue_chain) {
                     debug!(
                         "ticket token({}) from issue chain({}).",
                         ticket.token, ticket.src_chain,
