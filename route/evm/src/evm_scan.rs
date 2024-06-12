@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use cketh_common::eth_rpc::Hash;
+use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use evm_rpc::{
@@ -10,12 +10,15 @@ use evm_rpc::{
 use itertools::Itertools;
 use log::{error, info};
 
-use crate::*;
 use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
-use crate::contract_types::{AbiSignature, DecodeLog, DirectiveExecuted, TokenAdded, TokenBurned, TokenMinted, TokenTransportRequested};
+use crate::contract_types::{
+    AbiSignature, DecodeLog, DirectiveExecuted, TokenAdded, TokenBurned, TokenMinted,
+    TokenTransportRequested,
+};
 use crate::eth_common::get_evm_finalized_height;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
+use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -23,12 +26,8 @@ pub fn scan_evm_task() {
             Some(guard) => guard,
             None => return,
         };
-        let r = handle_port_events().await;
-        match r {
-            Ok(_) => {}
-            Err(e) => {
-                error!("[evm route] handle evm logs error: {}", e.to_string());
-            }
+        if let Err(e) = handle_port_events().await {
+            error!("[evm route] handle evm logs error: {}", e.to_string());
         }
     });
 }
@@ -127,7 +126,12 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
         } else if topic1 == TokenAdded::signature_hash() {
             let token_added = TokenAdded::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
-            mutate_state(|s| s.token_contracts.insert(token_added.token_id, token_added.token_address.encode_hex_with_prefix()));
+            mutate_state(|s| {
+                s.token_contracts.insert(
+                    token_added.token_id,
+                    token_added.token_address.encode_hex_with_prefix(),
+                )
+            });
         }
         mutate_state(|s| s.handled_evm_event.insert(log_key));
     }
@@ -168,6 +172,7 @@ pub async fn fetch_logs(
     to_height: u64,
     address: String,
 ) -> std::result::Result<Vec<LogEntry>, Error> {
+    let rpc_size = read_state(|s| s.rpc_providers.len() as u128);
     let (rpc_result,): (MultiRpcResult<Vec<LogEntry>>,) = ic_cdk::api::call::call_with_payment128(
         crate::state::rpc_addr(),
         "eth_getLogs",
@@ -186,11 +191,11 @@ pub async fn fetch_logs(
                     TokenMinted::signature_hex(),
                     TokenTransportRequested::signature_hex(),
                     DirectiveExecuted::signature_hex(),
-                    TokenAdded::signature_hex()
+                    TokenAdded::signature_hex(),
                 ]]),
             },
         ),
-        SCAN_EVM_CYCLES,
+        SCAN_EVM_CYCLES * rpc_size,
     )
     .await
     .map_err(|err| Error::IcCallError(err.0, err.1))?;

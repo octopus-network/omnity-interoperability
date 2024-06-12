@@ -1,9 +1,9 @@
-use crate::call_error::{CallError, Reason};
-use crate::state::read_state;
-use crate::types::Directive;
-use crate::types::Topic;
-use crate::types::{ChainId, Seq, Ticket};
 use candid::Principal;
+
+use crate::call_error::{CallError, Reason};
+use crate::types::{ChainId, Directive};
+use crate::types::{Seq, Ticket};
+use crate::types::Topic;
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     // TODO determine how many cycle it will cost.
@@ -30,7 +30,7 @@ pub async fn query_tickets(
         hub_principal,
         "query_tickets",
         (
-            Some(read_state(|s| s.omnity_chain_id.clone())),
+            None::<Option<ChainId>>,
             offset,
             limit,
         ),

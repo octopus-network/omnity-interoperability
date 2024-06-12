@@ -1,4 +1,4 @@
-use ethers_core::abi::{AbiDecode, AbiEncode, ethereum_types, RawLog};
+use ethers_core::abi::{ethereum_types, AbiDecode, AbiEncode, RawLog};
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
 use serde_derive::{Deserialize, Serialize};
@@ -180,7 +180,10 @@ impl AbiSignature for TokenAdded {
 }
 
 impl DecodeLog for TokenAdded {
-    fn decode_log(log: &RawLog) -> anyhow::Result<Self> where Self: Sized {
+    fn decode_log(log: &RawLog) -> anyhow::Result<Self>
+    where
+        Self: Sized,
+    {
         let (token_id, token_address) = AbiDecode::decode(&log.data)?;
         Ok(Self {
             token_id,
@@ -192,7 +195,7 @@ impl DecodeLog for TokenAdded {
 #[cfg(test)]
 mod test {
     use ethers_contract::abigen;
-    use ethers_core::abi::{AbiEncode, ethereum_types};
+    use ethers_core::abi::{ethereum_types, AbiEncode};
     use ethers_core::types::{Bytes, U256};
 
     use crate::contract_types::{AbiSignature, TokenBurned};

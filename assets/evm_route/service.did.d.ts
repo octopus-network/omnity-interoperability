@@ -148,7 +148,7 @@ export interface _SERVICE {
     [bigint, bigint],
     Array<[bigint, PendingDirectiveStatus]>
   >,
-  'query_pending_tickect' : ActorMethod<
+  'query_pending_ticket' : ActorMethod<
     [bigint, bigint],
     Array<[string, PendingTicketStatus]>
   >,

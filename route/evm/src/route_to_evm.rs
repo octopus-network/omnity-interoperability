@@ -67,7 +67,7 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
                 DEFAULT_EVM_TX_FEE,
             );
             info!(
-                "[evm route] send directive eip1559tx content: {:?}",
+                "[evm route] send ticket eip1559tx content: {:?}",
                 serde_json::to_string(&tx)
             );
             let mut pending_ticket = PendingTicketStatus {

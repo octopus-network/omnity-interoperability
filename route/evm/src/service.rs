@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use candid::{CandidType, Principal};
+use cketh_common::eth_rpc_client::providers::RpcApi;
 use ethers_core::abi::ethereum_types;
 use ethers_core::utils::keccak256;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
@@ -7,6 +9,7 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use k256::PublicKey;
 use log::info;
+use serde_derive::{Deserialize, Serialize};
 
 use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
 use crate::evm_scan::scan_evm_task;
@@ -15,12 +18,11 @@ use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    EvmRouteState, init_chain_pubkey, InitArgs, mutate_state, read_state, replace_state,
-    StateProfile, UpgradeArgs,
+    init_chain_pubkey, mutate_state, read_state, replace_state, EvmRouteState, StateProfile,
 };
 use crate::types::{
-    Chain, ChainId, Directive, MintTokenStatus, PendingDirectiveStatus, PendingTicketStatus, Seq,
-    Ticket, TicketId, TokenResp,
+    Chain, ChainId, Directive, MintTokenStatus, Network, PendingDirectiveStatus,
+    PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
 };
 
 #[init]
@@ -97,7 +99,7 @@ fn route_state() -> StateProfile {
     read_state(|s| StateProfile::from(s))
 }
 #[query(guard = "is_admin")]
-fn query_pending_tickect(from: usize, limit: usize) -> Vec<(TicketId, PendingTicketStatus)> {
+fn query_pending_ticket(from: usize, limit: usize) -> Vec<(TicketId, PendingTicketStatus)> {
     read_state(|s| {
         s.pending_tickets_map
             .iter()
@@ -194,6 +196,25 @@ fn is_admin() -> Result<(), String> {
         true => Ok(()),
         false => Err("permission deny".to_string()),
     }
+}
+
+#[derive(CandidType, Deserialize)]
+pub struct InitArgs {
+    pub evm_chain_id: u64,
+    pub admin: Principal,
+    pub hub_principal: Principal,
+    pub network: Network,
+    pub evm_rpc_canister_addr: Principal,
+    pub scan_start_height: u64,
+    pub chain_id: String,
+    pub rpc_url: String,
+    pub fee_token_id: String,
+}
+
+#[derive(Clone, CandidType, Deserialize, Serialize)]
+pub struct UpgradeArgs {
+    pub omnity_port_contract_addr: Option<String>,
+    pub rpc_services: Option<Vec<RpcApi>>,
 }
 
 ic_cdk::export_candid!();

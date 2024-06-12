@@ -136,7 +136,7 @@ service : (InitArgs) -> {
   query_pending_directive : (nat64, nat64) -> (
       vec record { nat64; PendingDirectiveStatus },
     ) query;
-  query_pending_tickect : (nat64, nat64) -> (
+  query_pending_ticket : (nat64, nat64) -> (
       vec record { text; PendingTicketStatus },
     ) query;
   query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
