@@ -193,6 +193,11 @@ pub async fn query_tickets(
     with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
 }
 
+#[update(guard = "is_admin")]
+pub async fn set_logger_filter(filter: String) {
+    LoggerConfigService::default().set_logger_filter(&filter);
+}
+
 #[query]
 pub async fn get_chains(
     chain_type: Option<ChainType>,
@@ -279,11 +284,6 @@ pub async fn get_total_tx() -> Result<u64, Error> {
     metrics::get_total_tx().await
 }
 
-#[update(guard = "is_admin")]
-pub async fn set_logger_filter(filter: String) {
-    LoggerConfigService::default().set_logger_filter(&filter);
-}
-
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
     StableLogWriter::http_request(req)
@@ -300,41 +300,40 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
     metrics::get_chain_metas(offset, limit).await
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_chain_size() -> Result<u64, Error> {
     metrics::get_chain_size().await
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
     metrics::get_token_metas(offset, limit).await
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_token_size() -> Result<u64, Error> {
     metrics::get_token_size().await
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_directive_size() -> Result<u64, Error> {
     metrics::get_directive_size().await
 }
-#[query(guard = "auth")]
+
 pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
     metrics::get_directives(offset, limit).await
 }
 
-#[query(guard = "auth")]
 pub async fn sync_ticket_size() -> Result<u64, Error> {
     with_metrics(|metrics| metrics.sync_ticket_size())
 }
 
-#[query(guard = "auth")]
+
 pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
     with_metrics(|metrics| metrics.sync_tickets(offset, limit))
 }
@@ -1377,6 +1376,7 @@ mod tests {
         //
         // A->B: `transfer` ticket
         let src_chain = "Bitcoin";
+        // let dst_chain = "Bitcoin";
         let dst_chain = "EVM-Arbitrum";
         let sender = "address_on_Bitcoin";
         let receiver = "address_on_Arbitrum";
@@ -1405,6 +1405,7 @@ mod tests {
             "{} -> {} transfer result:{:?}",
             src_chain, dst_chain, result
         );
+        assert!(result.is_ok());
 
         with_state(|hus_state| {
             hus_state.ticket_queue.iter().for_each(|(seq_key, ticket)| {
@@ -1412,7 +1413,6 @@ mod tests {
             })
         });
 
-        assert!(result.is_ok());
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
         println!("query tickets for {:} tickets: {:#?}", dst_chain, result);

@@ -549,6 +549,13 @@ impl HubState {
             );
             return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
         }
+
+        // esure dst chain != src chain
+        if ticket.dst_chain.eq(&ticket.src_chain) {
+            return Err(Error::CustomError(
+                "The dst chain and src chain must be different!".to_string(),
+            ));
+        }
         // check chain and state
         self.available_chain(&ticket.src_chain)?;
         self.available_chain(&ticket.dst_chain)?;
