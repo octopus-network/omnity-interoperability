@@ -28,13 +28,6 @@ use omnity_hub::state::HubState;
 
 #[init]
 fn init(args: HubArg) {
-    // init profiling memory
-    #[cfg(feature = "profiling")]
-    let memory = get_profiling_memory();
-    // Increase the page number if you need larger log space
-    #[cfg(feature = "profiling")]
-    memory.grow(4096);
-
     match args {
         HubArg::Init(args) => {
             init_log(Some(init_stable_log()));

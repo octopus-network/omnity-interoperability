@@ -28,8 +28,6 @@ const EVENT_INDEX_MEMORY_ID: MemoryId = MemoryId::new(12);
 const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(13);
 const METRIC_SEQS: MemoryId = MemoryId::new(14);
 const TICKET_METRIC: MemoryId = MemoryId::new(15);
-#[cfg(feature = "profiling")]
-const PROFILING: MemoryId = MemoryId::new(16);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
@@ -61,12 +59,6 @@ fn with_memory_manager<R>(f: impl FnOnce(&MemoryManager<InnerMemory>) -> R) -> R
             .as_ref()
             .expect("memory manager not initialized"))
     })
-}
-
-// profiling stable memory
-#[cfg(feature = "profiling")]
-pub fn get_profiling_memory() -> Memory {
-    with_memory_manager(|m| m.get(PROFILING))
 }
 
 // upgrade stable memory
