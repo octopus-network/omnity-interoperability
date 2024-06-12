@@ -28,7 +28,7 @@ pub struct GenerateTicketArgs {
 pub enum GenerateTicketError {
     TemporarilyUnavailable(String),
     AlreadySubmitted,
-    AleardyProcessed,
+    AlreadyProcessed,
     NoNewUtxos,
     InvalidRuneId(String),
     InvalidTxId,
@@ -81,8 +81,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     read_state(|s| match s.generate_ticket_status(txid) {
         GenTicketStatus::Pending(_) => Err(GenerateTicketError::AlreadySubmitted),
-        GenTicketStatus::Invalid | GenTicketStatus::Finalized => {
-            Err(GenerateTicketError::AleardyProcessed)
+        GenTicketStatus::Finalized => {
+            Err(GenerateTicketError::AlreadyProcessed)
         }
         GenTicketStatus::Unknown => Ok(()),
     })?;

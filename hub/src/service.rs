@@ -76,7 +76,7 @@ pub async fn handle_chain(proposals: Vec<Proposal>) -> Result<(), Error> {
     })?;
     // validate proposal
     proposal::validate_proposal(&proposals).await?;
-    // exection proposal and generate directives
+    // execution proposal and generate directives
     proposal::execute_proposal(proposals).await
 }
 
@@ -155,7 +155,7 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
     info!("send_ticket: {:?}", ticket);
 
     with_state_mut(|hub_state| {
-        // checke ticket and update token on chain
+        // check ticket and update token on chain
         hub_state.check_and_update(&ticket)?;
         // push ticket into queue
         hub_state.push_ticket(ticket)

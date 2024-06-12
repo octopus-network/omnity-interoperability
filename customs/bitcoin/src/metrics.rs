@@ -17,18 +17,6 @@ pub fn encode_metrics(
         "Size of the stable memory allocated by this canister.",
     )?;
 
-    let cycle_balance = ic_cdk::api::canister_balance128() as f64;
-
-    metrics.encode_gauge(
-        "bitcoin_customs_cycle_balance",
-        cycle_balance,
-        "Cycle balance on this canister.",
-    )?;
-
-    metrics
-        .gauge_vec("cycle_balance", "Cycle balance on this canister.")?
-        .value(&[("canister", "bitcoin_customs")], cycle_balance)?;
-
     metrics
         .gauge_vec(
             "bitcioin_customs_generate_ticket_request_count",

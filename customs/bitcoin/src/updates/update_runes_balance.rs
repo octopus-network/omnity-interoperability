@@ -36,9 +36,7 @@ pub async fn update_runes_balance(
     }
 
     let req = read_state(|s| match s.generate_ticket_status(args.txid) {
-        GenTicketStatus::Invalid | GenTicketStatus::Finalized => {
-            Err(UpdateRunesBalanceError::AleardyProcessed)
-        }
+        GenTicketStatus::Finalized => Err(UpdateRunesBalanceError::AleardyProcessed),
         GenTicketStatus::Unknown => Err(UpdateRunesBalanceError::RequestNotFound),
         GenTicketStatus::Pending(req) => Ok(req),
     })?;
