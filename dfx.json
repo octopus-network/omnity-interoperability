@@ -26,6 +26,7 @@
       "type": "rust"
     },
     "omnity_hub": {
+      "gzip": true,
       "candid": "hub/omnity_hub.did",
       "package": "omnity_hub",
       "type": "rust"
@@ -72,6 +73,13 @@
     }
   },
   "defaults": {
+    "bitcoin": {
+      "enabled": true,
+      "nodes": [
+        "127.0.0.1:18444"
+      ],
+      "log_level": "info"
+    },
     "build": {
       "packtool": "",
       "args": ""
@@ -86,11 +94,6 @@
       }
     }
   },
-  "metadata": [
-    {
-      "name": "candid:service"
-    }
-  ],
   "output_env_file": ".env",
   "version": 1
 }
