@@ -1,8 +1,6 @@
 use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
-use ic_cdk::api::management_canister::main::{
-    CanisterInfoRequest, CanisterInfoResponse, CanisterStatusResponse, CanisterStatusType,
-};
+use ic_cdk::api::management_canister::main::{CanisterStatusResponse, CanisterStatusType};
 use ic_ic00_types::CanisterSettingsArgsBuilder;
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
@@ -15,7 +13,7 @@ use icp_route::{
     TokenResp, FEE_COLLECTOR_SUB_ACCOUNT,
 };
 use icrc_ledger_types::{
-    icrc::{generic_metadata_value::MetadataValue, generic_value::Value},
+    icrc::generic_value::Value,
     icrc1::{
         account::{Account, Subaccount},
         transfer::{TransferArg, TransferError},
@@ -395,7 +393,7 @@ impl RouteSetup {
         icrc_canister_id: Principal,
         caller: Option<PrincipalId>,
     ) -> Result<CanisterStatusResponse, String> {
-        let r = Decode!(
+        Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
@@ -408,12 +406,11 @@ impl RouteSetup {
             ),
             Result<CanisterStatusResponse, String>
         )
-        .unwrap();
-        return r;
+        .unwrap()
     }
 
     pub fn add_controller(&self, canister_id: Principal, controller: Principal) {
-        let r = Decode!(
+        Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
@@ -431,7 +428,7 @@ impl RouteSetup {
     }
 
     pub fn remove_controller(&self, canister_id: Principal, controller: Principal) {
-        let r = Decode!(
+        Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
@@ -446,26 +443,6 @@ impl RouteSetup {
         )
         .unwrap()
         .unwrap();
-    }
-
-    pub fn canister_info(&self, arg: CanisterInfoRequest) -> CanisterInfoResponse {
-        let management_principal = Principal::management_canister();
-        let canister_id = CanisterId::unchecked_from_principal(management_principal.into());
-        // let route_principle = self.route_id
-        Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        self.route_id.into(),
-                        canister_id,
-                        "canister_info",
-                        Encode!(&arg).unwrap(),
-                    )
-                    .expect("failed to get token ledger")
-            ),
-            CanisterInfoResponse
-        )
-        .unwrap()
     }
 
     pub fn get_token_ledger(&self, token_id: String) -> CanisterId {
