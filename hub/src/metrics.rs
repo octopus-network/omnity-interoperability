@@ -5,7 +5,7 @@ use crate::{
 };
 
 use ic_stable_structures::StableBTreeMap;
-use log::info;
+use log::{error, debug};
 use omnity_types::{
     Account, Chain, ChainId, ChainState, ChainType, Directive, Error, Ticket, TicketId, Token,
     TokenId, TokenOnChain,
@@ -21,7 +21,6 @@ thread_local! {
 
 #[derive(Serialize)]
 pub struct Metrics {
-    
     #[serde(skip, default = "memory::init_ledger_metric")]
     pub tickets_metric: StableBTreeMap<u64, Ticket, Memory>,
     #[serde(skip, default = "memory::init_metric_seqs")]
@@ -50,13 +49,13 @@ pub fn set_metrics(metrics: Metrics) {
 }
 
 impl Metrics {
- 
     pub fn update_ticket_metric(&mut self, ticket: Ticket) {
         let latest_ticket_seq = self
             .metric_seqs
             .get(&LEDGER_SEQ_KEY.to_vec())
             .unwrap_or_default();
-        self.tickets_metric.insert(latest_ticket_seq, ticket.clone());
+        self.tickets_metric
+            .insert(latest_ticket_seq, ticket.clone());
         let latest_ticket_seq = latest_ticket_seq + 1;
         self.metric_seqs
             .insert(LEDGER_SEQ_KEY.to_vec(), latest_ticket_seq);
@@ -67,7 +66,7 @@ impl Metrics {
     }
 
     pub fn sync_tickets(&self, from_seq: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
-        info!("get_tickets  from: {}, limit: {}", from_seq, limit);
+        debug!("get_tickets  from: {}, limit: {}", from_seq, limit);
         let from_seq = from_seq as u64;
         let tickets = self
             .tickets_metric
@@ -88,7 +87,7 @@ pub async fn get_chains(
     limit: usize,
 ) -> Result<Vec<Chain>, Error> {
     let condition = (chain_type, chain_state);
-    info!(
+    debug!(
         "get_chains condition: {:?}, from: {}, offset: {}",
         condition, offset, offset
     );
@@ -115,7 +114,7 @@ pub async fn get_chains(
 }
 
 pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
-    info!("get_chains from {}, limit: {}", offset, limit);
+    debug!("get_chains from {}, limit: {}", offset, limit);
 
     let chains = with_state(|hub_state| {
         hub_state
@@ -131,11 +130,12 @@ pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMet
 }
 
 pub async fn get_chain(chain_id: String) -> Result<Chain, Error> {
-    info!("get_chain chain_id: {:?} ", chain_id);
+    debug!("get_chain chain_id: {:?} ", chain_id);
     with_state(|hub_state| {
         if let Some(chain) = hub_state.chains.get(&chain_id) {
             Ok(chain.into())
         } else {
+            error!("not found chain: (`{}`)", chain_id.to_string());
             Err(Error::NotFoundChain(chain_id))
         }
     })
@@ -155,7 +155,7 @@ pub async fn get_tokens(
     limit: usize,
 ) -> Result<Vec<Token>, Error> {
     let condition = (chain_id, token_id);
-    info!(
+    debug!(
         "get_tokens condition: {:?}, from: {}, offset: {}",
         condition, offset, limit
     );
@@ -182,7 +182,7 @@ pub async fn get_tokens(
 }
 
 pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
-    info!("get_token_metas  from: {}, limit: {}", offset, limit);
+    debug!("get_token_metas  from: {}, limit: {}", offset, limit);
 
     let tokens = with_state(|hub_state| {
         hub_state
@@ -212,7 +212,7 @@ pub async fn get_fees(
     limit: usize,
 ) -> Result<Vec<(ChainId, TokenId, u128)>, Error> {
     let condition = (chain_id, token_id);
-    info!(
+    debug!(
         "get_fees condition: {:?}, from: {}, offset: {}",
         condition, offset, limit
     );
@@ -249,7 +249,7 @@ pub async fn get_directive_size() -> Result<u64, Error> {
     })
 }
 pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
-    info!("get_directives  from: {}, limit: {}", offset, limit);
+    debug!("get_directives  from: {}, limit: {}", offset, limit);
 
     let dires = with_state(|hub_state| {
         hub_state
@@ -286,7 +286,7 @@ pub async fn get_chain_tokens(
     limit: usize,
 ) -> Result<Vec<TokenOnChain>, Error> {
     let condition = (chain_id, token_id);
-    info!(
+    debug!(
         "get_chain_tokens condition: {:?}, from: {}, offset: {}",
         condition, offset, limit
     );
@@ -317,7 +317,7 @@ pub async fn get_txs_with_chain(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<Ticket>, Error> {
-    info!(
+    debug!(
         "get_txs_with_chain condition: src chain:{:?},  dst chain:{:?},  token id:{:?}, time range:{:?}, offset: {}, limit: {}",
         src_chain, dst_chain, token_id, time_range, offset, limit
     );
@@ -360,7 +360,7 @@ pub async fn get_txs_with_account(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<Ticket>, Error> {
-    info!(
+    debug!(
         "get_txs_with_account condition: sender:{:?}, receiver:{:?},  token id:{:?}, time range:{:?}, offset: {}, limit: {}",
         sender, receiver, token_id, time_range, offset, limit
     );
@@ -396,7 +396,7 @@ pub async fn get_txs_with_account(
 }
 
 pub async fn get_txs(offset: usize, limit: usize) -> Result<Vec<Ticket>, Error> {
-    info!("get_txs offset: {}, limit: {}", offset, limit);
+    debug!("get_txs offset: {}, limit: {}", offset, limit);
 
     let filtered_tickets = with_state(|hub_state| {
         hub_state
@@ -412,11 +412,12 @@ pub async fn get_txs(offset: usize, limit: usize) -> Result<Vec<Ticket>, Error> 
 }
 
 pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
-    info!("get_tx ticket_id: {:?} ", ticket_id);
+    debug!("get_tx ticket_id: {:?} ", ticket_id);
     with_state(|hub_state| {
         if let Some(ticket) = hub_state.cross_ledger.get(&ticket_id) {
             Ok(ticket)
         } else {
+            error!("Not found this ticket: {}", ticket_id);
             Err(Error::CustomError(format!(
                 "Not found this ticket: {}",
                 ticket_id
@@ -437,6 +438,7 @@ pub async fn get_chain_type(chain_id: ChainId) -> Result<ChainType, Error> {
         if let Some(chain) = hub_state.chains.get(&chain_id) {
             Ok(chain.chain_type)
         } else {
+            error!("Not found this chain: {}", chain_id);
             Err(Error::NotFoundChain(chain_id))
         }
     })
@@ -452,6 +454,7 @@ pub fn get_chain_id(chain_id: Option<ChainId>) -> Result<ChainId, Error> {
             if let Some(chain_id) = hs.authorized_caller.get(&caller) {
                 Ok(chain_id.to_string())
             } else {
+                error!("not found chain id for caller:{:?}", caller);
                 Err(Error::CustomError(format!(
                     "not found chain id for caller:{:?}",
                     caller

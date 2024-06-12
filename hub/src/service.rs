@@ -1,14 +1,19 @@
 use crate::memory::init_stable_log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
-use log::info;
+#[cfg(feature = "profiling")]
+use ic_stable_structures::Memory;
+use log::debug;
 use omnity_hub::auth::{auth, is_admin};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
+#[cfg(feature = "profiling")]
+use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta};
+
 use omnity_hub::types::{
     TokenResp, {Proposal, Subscribers},
 };
@@ -23,10 +28,10 @@ use omnity_hub::state::HubState;
 
 #[init]
 fn init(args: HubArg) {
-    info!("hub init args: {:?}", args);
     match args {
         HubArg::Init(args) => {
             init_log(Some(init_stable_log()));
+            debug!("hub init args: {:?}", args);
 
             lifecycle::init(args.clone());
             record_event(&Event::Init(args));
@@ -39,17 +44,17 @@ fn init(args: HubArg) {
 
 #[pre_upgrade]
 fn pre_upgrade() {
-    info!("begin to execute pre_upgrade ...");
+    debug!("begin to execute pre_upgrade ...");
     with_state(|hub_state| hub_state.pre_upgrade())
 }
 
 #[post_upgrade]
 fn post_upgrade(args: Option<HubArg>) {
-    info!("begin to execute post_upgrade with :{:?}", args);
+    debug!("begin to execute post_upgrade with :{:?}", args);
     // init log
     init_log(Some(init_stable_log()));
     HubState::post_upgrade(args);
-    info!("upgrade successfully!");
+    debug!("upgrade successfully!");
 }
 
 /// validate directive ,this method will be called by sns
@@ -108,17 +113,18 @@ pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
 
 #[update(guard = "auth")]
 pub async fn sub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
-    info!(
+    debug!(
         "sub_topics for chain: {:?}, with topics: {:?} ",
         chain_id, topics
     );
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    debug!("get_chain_id:{:?}", dst_chain_id);
     with_state_mut(|hub_state| hub_state.sub_directives(&dst_chain_id, &topics))
 }
 
 #[update(guard = "auth")]
 pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
-    info!(
+    debug!(
         "unsub_topics for chain: {:?}, with topics: {:?} ",
         chain_id, topics
     );
@@ -128,7 +134,7 @@ pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> 
 
 #[query(guard = "auth")]
 pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subscribers)>, Error> {
-    info!("query_subscribers for topic: {:?} ", topic);
+    debug!("query_subscribers for topic: {:?} ", topic);
     with_state(|hub_state| hub_state.query_subscribers(topic))
 }
 
@@ -140,7 +146,7 @@ pub async fn query_directives(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
-    info!(
+    debug!(
         "query directive for chain: {:?}, with topic: {:?} ",
         chain_id, topic
     );
@@ -152,7 +158,7 @@ pub async fn query_directives(
 /// check and push ticket into queue
 #[update(guard = "auth")]
 pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
-    info!("send_ticket: {:?}", ticket);
+    debug!("send_ticket: {:?}", ticket);
 
     with_state_mut(|hub_state| {
         // check ticket and update token on chain
@@ -164,7 +170,7 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
 
 #[update(guard = "auth")]
 pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
-    info!("received resubmit ticket: {:?}", ticket);
+    debug!("received resubmit ticket: {:?}", ticket);
     // No need to update the token since the old ticket has already added
     with_state_mut(|hub_state| hub_state.resubmit_ticket(ticket))
 }
@@ -176,10 +182,13 @@ pub async fn query_tickets(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
-    info!("query_tickets: {:?},{offset},{limit}", chain_id);
-    // let end = from + num;
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
+}
+
+#[update(guard = "is_admin")]
+pub async fn set_logger_filter(filter: String) {
+    LoggerConfigService::default().set_logger_filter(&filter);
 }
 
 #[query]
@@ -268,11 +277,6 @@ pub async fn get_total_tx() -> Result<u64, Error> {
     metrics::get_total_tx().await
 }
 
-#[update(guard = "is_admin")]
-pub async fn set_logger_filter(filter: String) {
-    LoggerConfigService::default().set_logger_filter(&filter);
-}
-
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
     StableLogWriter::http_request(req)
@@ -289,41 +293,40 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
     metrics::get_chain_metas(offset, limit).await
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_chain_size() -> Result<u64, Error> {
     metrics::get_chain_size().await
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
     metrics::get_token_metas(offset, limit).await
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_token_size() -> Result<u64, Error> {
     metrics::get_token_size().await
 }
 
-#[query(guard = "auth")]
+
 pub async fn get_directive_size() -> Result<u64, Error> {
     metrics::get_directive_size().await
 }
-#[query(guard = "auth")]
+
 pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
     metrics::get_directives(offset, limit).await
 }
 
-#[query(guard = "auth")]
 pub async fn sync_ticket_size() -> Result<u64, Error> {
     with_metrics(|metrics| metrics.sync_ticket_size())
 }
 
-#[query(guard = "auth")]
+
 pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
     with_metrics(|metrics| metrics.sync_tickets(offset, limit))
 }
@@ -511,6 +514,7 @@ mod tests {
             counterparties: Some(vec!["Bitcoin".to_string(), "Ethereum".to_string()]),
             fee_token: Some("ICP".to_owned()),
         };
+
         let result = validate_proposal(vec![Proposal::AddChain(icp.clone())]).await;
         assert!(result.is_ok());
         println!(
@@ -887,6 +891,27 @@ mod tests {
         sub_dires().await;
         // add chain
         add_chains().await;
+
+        let icp = ChainMeta {
+            chain_id: "ICP".to_string(),
+            chain_type: ChainType::ExecutionChain,
+            chain_state: ChainState::Active,
+            canister_id: "bkyz2-fmaaa-aaaaa-qadaab-cai".to_string(),
+            contract_address: Some("bkyz2-fmaaa-aaafa-qadaab-cai".to_string()),
+            counterparties: Some(vec![
+                "Bitcoin".to_string(),
+                "Ethereum".to_string(),
+                "EVM-Arbitrum".to_string(),
+                "EVM-Optimistic".to_string(),
+                "EVM-Starknet".to_string(),
+            ]),
+            fee_token: Some("ICP".to_owned()),
+        };
+
+        let result = handle_chain(vec![Proposal::UpdateChain(icp)]).await;
+        println!("handle_chain reuslt : {:#?}", result);
+        assert!(result.is_err());
+
         let chain = get_chain("ICP".to_string()).await;
         println!("before update ,the chain info : {:#?}", chain);
         let icp = ChainMeta {
@@ -906,6 +931,7 @@ mod tests {
         let result = handle_chain(vec![Proposal::UpdateChain(icp)]).await;
         println!("handle_chain reuslt : {:#?}", result);
         assert!(result.is_ok());
+
         // let chain = get_chain("ICP".to_string()).await;
         // println!("after update ,the chain info : {:#?}", chain);
         for chain_id in chain_ids() {
@@ -1000,6 +1026,11 @@ mod tests {
             "bevm_testnet".to_string(),
             chain
         );
+
+        let result = with_state(|hub_state| hub_state.token(&"ICP".to_string()));
+
+        println!("before update,the token info: {:#?}", result);
+        assert!(result.is_ok());
 
         let icp_token = TokenMeta {
             token_id: "ICP".to_string(),
@@ -1325,8 +1356,6 @@ mod tests {
             result
         );
         assert!(result.is_ok());
-
- 
     }
 
     #[tokio::test]
@@ -1337,9 +1366,10 @@ mod tests {
         add_chains().await;
         // add token
         add_tokens().await;
-        //
+        
         // A->B: `transfer` ticket
         let src_chain = "Bitcoin";
+        // let dst_chain = "Bitcoin";
         let dst_chain = "EVM-Arbitrum";
         let sender = "address_on_Bitcoin";
         let receiver = "address_on_Arbitrum";
@@ -1368,6 +1398,7 @@ mod tests {
             "{} -> {} transfer result:{:?}",
             src_chain, dst_chain, result
         );
+        assert!(result.is_ok());
 
         with_state(|hus_state| {
             hus_state.ticket_queue.iter().for_each(|(seq_key, ticket)| {
@@ -1375,7 +1406,6 @@ mod tests {
             })
         });
 
-        assert!(result.is_ok());
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
         println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
