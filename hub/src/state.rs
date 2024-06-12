@@ -574,9 +574,8 @@ impl HubState {
         // check token on chain availability
         match ticket.action {
             TxAction::Transfer => {
-                let issue_chain = self.issue_chain(&ticket.token)?;
                 // ticket from issue chain
-                if ticket.src_chain.eq(&issue_chain) && ticket.dst_chain.ne(&issue_chain) {
+                if self.is_origin(&ticket.src_chain, &ticket.token)? {
                     debug!(
                         "ticket token({}) from issue chain({}).",
                         ticket.token, ticket.src_chain,
@@ -594,6 +593,14 @@ impl HubState {
                         "ticket token({}) from a not issue chain({}).",
                         ticket.token, ticket.src_chain,
                     );
+
+                    // esure dst chain != token`s issue chain
+                    if self.is_origin(&ticket.dst_chain, &ticket.token)? {
+                        error!(
+                            "For a transfer ticket, the dst chain cannot be the token`s issue chain",
+                        );
+                        return Err(Error::CustomError("For a transfer ticket, the dst chain cannot be the token`s issue chain".to_string()));
+                    }
 
                     // update token amount on src chain
                     self.update_token_position(
