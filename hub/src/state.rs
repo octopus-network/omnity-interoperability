@@ -144,20 +144,6 @@ impl HubState {
             };
         }
 
-        // Extract the tickets into a Vec
-        let mut tickets: Vec<Ticket> = state
-            .cross_ledger
-            .iter()
-            .map(|(_, v)| v)
-            .collect::<Vec<_>>();
-        // Sort the tickets by ticket_time
-        tickets.sort_by_key(|ticket| ticket.ticket_time);
-        //update ticket meric
-        for ticket in tickets.into_iter() {
-            debug!("update ticket metric: {:?} ", ticket);
-            with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket));
-        }
-
         set_state(state);
     }
 
