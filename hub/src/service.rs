@@ -293,40 +293,42 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
 }
 
-
+#[query]
 pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
     metrics::get_chain_metas(offset, limit).await
 }
 
-
+#[query]
 pub async fn get_chain_size() -> Result<u64, Error> {
     metrics::get_chain_size().await
 }
 
-
+#[query]
 pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
     metrics::get_token_metas(offset, limit).await
 }
 
-
+#[query]
 pub async fn get_token_size() -> Result<u64, Error> {
     metrics::get_token_size().await
 }
 
-
+#[query]
 pub async fn get_directive_size() -> Result<u64, Error> {
     metrics::get_directive_size().await
 }
 
+#[query]
 pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
     metrics::get_directives(offset, limit).await
 }
 
+#[query]
 pub async fn sync_ticket_size() -> Result<u64, Error> {
     with_metrics(|metrics| metrics.sync_ticket_size())
 }
 
-
+#[query]
 pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
     with_metrics(|metrics| metrics.sync_tickets(offset, limit))
 }
