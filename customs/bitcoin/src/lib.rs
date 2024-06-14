@@ -257,6 +257,7 @@ async fn process_tickets() {
                 let args = ReleaseTokenArgs {
                     ticket_id: ticket.ticket_id,
                     token_id: ticket.token,
+                    action: ticket.action,
                     amount,
                     address: ticket.receiver,
                 };
@@ -264,26 +265,15 @@ async fn process_tickets() {
                     Err(ReleaseTokenError::AlreadyProcessing)
                     | Err(ReleaseTokenError::AlreadyProcessed)
                     | Ok(_) => {}
-                    Err(ReleaseTokenError::UnsupportedToken(err)) => {
-                        log!(
-                            P0,
-                            "[submit_release_token_requests] unsupported token: {}",
-                            err
-                        );
-                    }
-                    Err(ReleaseTokenError::MalformedAddress(err)) => {
-                        log!(
-                            P0,
-                            "[submit_release_token_requests] malformed address: {}",
-                            err
-                        );
-                    }
                     Err(ReleaseTokenError::TemporarilyUnavailable(_)) => {
                         log!(
                             P0,
                             "[submit_release_token_requests] temporarily unavailable"
                         );
                         break;
+                    }
+                    Err(err) => {
+                        log!(P0, "[submit_release_token_requests] err: {:?}", err);
                     }
                 }
                 next_seq = seq + 1;
@@ -329,7 +319,6 @@ async fn process_directive() {
                         audit::toggle_chain_state(s, toggle.clone())
                     }
                     Directive::UpdateFee(_) => {}
-              
                 }
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
