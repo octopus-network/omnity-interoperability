@@ -1,3 +1,4 @@
+use crate::auth::Permission;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::HubState;
@@ -181,6 +182,10 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
     for event in events {
         match event {
             Event::Init(args) => {
+                hub_state.caller_perms.insert(
+                    args.admin.to_string(),
+                    vec![Permission::Update, Permission::Query],
+                );
                 hub_state.admin = args.admin;
             }
             Event::Upgrade(args) => {
@@ -192,8 +197,13 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     .insert(chain.chain_id.to_string(), chain.clone());
                 // update auth
                 hub_state
-                    .authorized_caller
+                    .caller_chain_map
                     .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
+
+                hub_state.caller_perms.insert(
+                    chain.canister_id.to_string(),
+                    vec![Permission::Update, Permission::Query],
+                );
             }
             Event::UpdatedChainCounterparties(chain) => {
                 hub_state
