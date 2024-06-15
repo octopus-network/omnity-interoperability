@@ -15,8 +15,8 @@ dfx canister create omnity_hub
 # dfx deploy omnity_hub
 # dfx identity --identity default get-principal
 # output: rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe
-# dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
-dfx canister install --mode install --wasm ./scripts/pre_omnity_hub.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' --yes omnity_hub
+dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
+# dfx canister install --mode install --wasm ./scripts/pre_omnity_hub.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' --yes omnity_hub
 
 # deploy the bitcoin custom canister
 dfx deploy bitcoin_mock --argument '(null)' --mode reinstall -y
