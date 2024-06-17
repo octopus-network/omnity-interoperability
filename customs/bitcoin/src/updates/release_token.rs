@@ -5,7 +5,7 @@ use crate::{
     state::{mutate_state, read_state, ReleaseTokenRequest},
 };
 use candid::{CandidType, Deserialize};
-use omnity_types::{TicketId, TokenId};
+use omnity_types::{TicketId, TokenId, TxAction};
 
 const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 
@@ -14,6 +14,7 @@ const MAX_CONCURRENT_PENDING_REQUESTS: usize = 1000;
 pub struct ReleaseTokenArgs {
     pub ticket_id: TicketId,
     pub token_id: TokenId,
+    pub action: TxAction,
     // amount to retrieve
     pub amount: u128,
     // address where to send tokens
@@ -31,6 +32,8 @@ pub enum ReleaseTokenError {
 
     /// The bitcoin address is not valid.
     MalformedAddress(String),
+
+    InvalidTxAction,
 
     /// There are too many concurrent requests, retry later.
     TemporarilyUnavailable(String),
@@ -65,7 +68,14 @@ pub async fn release_token(args: ReleaseTokenArgs) -> Result<(), ReleaseTokenErr
 
     let btc_network = read_state(|s| s.btc_network);
 
-    let parsed_address = BitcoinAddress::parse(&args.address, btc_network)?;
+    let parsed_address = match args.action {
+        TxAction::Redeem => BitcoinAddress::parse(&args.address, btc_network)?,
+        TxAction::Burn => BitcoinAddress::OpReturn(vec![]),
+        TxAction::Transfer => {
+            return Err(ReleaseTokenError::InvalidTxAction);
+        }
+    };
+
     if read_state(|s| {
         s.count_incomplete_release_token_requests() >= MAX_CONCURRENT_PENDING_REQUESTS
     }) {
