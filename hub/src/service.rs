@@ -59,16 +59,16 @@ fn post_upgrade(args: Option<HubArg>) {
 }
 
 /// validate directive ,this method will be called by sns
-#[query(guard = "auth_query")]
+#[query(guard = "is_admin")]
 pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, Error> {
     proposal::validate_proposal(&proposals).await
 }
-#[update(guard = "auth_update")]
+#[update(guard = "is_admin")]
 pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
     proposal::execute_proposal(proposals).await
 }
 
-#[update(guard = "auth_update")]
+#[update(guard = "is_admin")]
 pub async fn handle_chain(proposals: Vec<Proposal>) -> Result<(), Error> {
     // The proposals must be AddToken or UpdateToken
     proposals.iter().try_for_each(|p| {
@@ -86,7 +86,7 @@ pub async fn handle_chain(proposals: Vec<Proposal>) -> Result<(), Error> {
     proposal::execute_proposal(proposals).await
 }
 
-#[update(guard = "auth_update")]
+#[update(guard = "is_admin")]
 pub async fn handle_token(proposals: Vec<Proposal>) -> Result<(), Error> {
     // The proposals must be AddToken or UpdateToken
     proposals.iter().try_for_each(|p| {
@@ -105,7 +105,7 @@ pub async fn handle_token(proposals: Vec<Proposal>) -> Result<(), Error> {
 }
 
 /// check and build update fee directive and push it to the directive queue
-#[update(guard = "auth_update")]
+#[update(guard = "is_admin")]
 pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
     let proposals: Vec<Proposal> = factors.into_iter().map(Proposal::UpdateFee).collect();
     proposal::validate_proposal(&proposals).await?;
