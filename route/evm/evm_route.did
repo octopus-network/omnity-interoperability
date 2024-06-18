@@ -131,7 +131,6 @@ service : (InitArgs) -> {
   get_token_list : () -> (vec TokenResp) query;
   http_request : (HttpRequest) -> (HttpResponse) query;
   mint_token_status : (text) -> (MintTokenStatus) query;
-  move_admin : (principal) -> ();
   pubkey_and_evm_addr : () -> (text, text);
   query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;
   query_pending_directive : (nat64, nat64) -> (
@@ -145,6 +144,7 @@ service : (InitArgs) -> {
   resend_ticket : (nat64) -> ();
   route_state : () -> (StateProfile) query;
   set_scan_height : (nat64) -> (opt nat64);
+  update_admin : (principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
   update_rpcs : (vec RpcApi) -> ();
 }

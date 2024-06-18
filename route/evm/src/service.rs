@@ -201,7 +201,7 @@ fn set_scan_height(height: u64) -> Option<u64> {
 }
 
 #[update(guard = "is_admin")]
-fn move_admin(admin: Principal) {
+fn update_admin(admin: Principal) {
     mutate_state(|s| s.admin = admin);
 }
 
