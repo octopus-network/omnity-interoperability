@@ -11,14 +11,14 @@ use k256::PublicKey;
 use log::info;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
+use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL};
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::fetch_hub_periodic_task;
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    init_chain_pubkey, mutate_state, read_state, replace_state, EvmRouteState, StateProfile,
+    EvmRouteState, init_chain_pubkey, mutate_state, read_state, replace_state, StateProfile,
 };
 use crate::types::{
     Chain, ChainId, Directive, MintTokenStatus, Network, PendingDirectiveStatus,
@@ -188,6 +188,26 @@ fn query_tickets(from: usize, to: usize) -> Vec<(Seq, Ticket)> {
 #[query(guard = "is_admin")]
 fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
     read_state(|s| s.pull_directives(from, to))
+}
+
+#[update(guard = "is_admin")]
+fn set_scan_height(height: u64) -> Option<u64> {
+    let _guard = match crate::guard::TimerLogicGuard::new(SCAN_EVM_TASK_NAME.to_string()) {
+        Some(guard) => guard,
+        None => return None,
+    };
+    mutate_state(|s| s.scan_start_height = height);
+    Some(height)
+}
+
+#[update(guard = "is_admin")]
+fn move_admin(admin: Principal) {
+    mutate_state(|s| s.admin = admin);
+}
+
+#[update(guard = "is_admin")]
+fn update_rpcs(rpcs: Vec<RpcApi>) {
+    mutate_state(|s| s.rpc_providers = rpcs);
 }
 
 fn is_admin() -> Result<(), String> {
