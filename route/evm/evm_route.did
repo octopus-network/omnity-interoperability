@@ -143,5 +143,8 @@ service : (InitArgs) -> {
   resend_directive : (nat64) -> ();
   resend_ticket : (nat64) -> ();
   route_state : () -> (StateProfile) query;
+  set_scan_height : (nat64) -> (opt nat64);
+  update_admin : (principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
+  update_rpcs : (vec RpcApi) -> ();
 }
