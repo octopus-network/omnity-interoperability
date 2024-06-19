@@ -62,6 +62,7 @@ type GenerateTicketError = variant {
 type GenerateTicketOk = record { ticket_id : text };
 type GenerateTicketReq = record {
   token_id : text;
+  burn : opt bool;
   from_subaccount : opt blob;
   target_chain_id : text;
   amount : nat;

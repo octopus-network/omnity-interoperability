@@ -44,10 +44,10 @@ export const idlFactory = ({ IDL }) => {
   });
   const GenerateTicketError = IDL.Variant({
     'TemporarilyUnavailable' : IDL.Text,
+    'AlreadyProcessed' : IDL.Null,
     'InvalidRuneId' : IDL.Text,
     'AlreadySubmitted' : IDL.Null,
     'InvalidTxId' : IDL.Null,
-    'AleardyProcessed' : IDL.Null,
     'NoNewUtxos' : IDL.Null,
     'UnsupportedChainId' : IDL.Text,
     'UnsupportedToken' : IDL.Text,
@@ -64,7 +64,6 @@ export const idlFactory = ({ IDL }) => {
     'rune_id' : RuneId,
   });
   const GenTicketStatus = IDL.Variant({
-    'Invalid' : IDL.Null,
     'Finalized' : IDL.Null,
     'Unknown' : IDL.Null,
     'Pending' : GenTicketRequest,
@@ -188,6 +187,7 @@ export const idlFactory = ({ IDL }) => {
       'destination' : Destination,
       'utxos' : IDL.Vec(Utxo),
     }),
+    'removed_ticket_request' : IDL.Record({ 'txid' : IDL.Vec(IDL.Nat8) }),
     'sent_transaction' : IDL.Record({
       'fee' : IDL.Opt(IDL.Nat64),
       'txid' : IDL.Vec(IDL.Nat8),

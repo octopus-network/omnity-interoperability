@@ -24,10 +24,12 @@ export type ChainState = { 'Active' : null } |
   { 'Deactive' : null };
 export type ChainType = { 'SettlementChain' : null } |
   { 'ExecutionChain' : null };
-export type Directive = { 'UpdateFee' : Factor } |
+export type Directive = { 'UpdateChain' : Chain } |
+  { 'UpdateFee' : Factor } |
   { 'AddToken' : Token } |
   { 'AddChain' : Chain } |
-  { 'ToggleChainState' : ToggleState };
+  { 'ToggleChainState' : ToggleState } |
+  { 'UpdateToken' : Token };
 export type Error = { 'AlreadyExistingTicketId' : string } |
   { 'MalformedMessageBytes' : null } |
   { 'NotFoundChain' : string } |
@@ -46,6 +48,7 @@ export type Error = { 'AlreadyExistingTicketId' : string } |
   { 'ResubmitTicketSentTooOften' : null } |
   { 'GenerateDirectiveError' : string } |
   { 'EcdsaPublicKeyError' : string } |
+  { 'RepeatSubscription' : string } |
   { 'NotFoundToken' : string } |
   { 'CustomError' : string } |
   { 'NotSufficientTokens' : [string, string] };
@@ -77,35 +80,43 @@ export interface GetEventsArg { 'start' : bigint, 'length' : bigint }
 export type HubArg = { 'Upgrade' : [] | [UpgradeArgs] } |
   { 'Init' : InitArgs };
 export interface InitArgs { 'admin' : Principal }
-export type Proposal = { 'UpdateFee' : Factor } |
+export type Proposal = { 'UpdateChain' : Chain } |
+  { 'UpdateFee' : Factor } |
   { 'AddToken' : TokenMeta } |
   { 'AddChain' : Chain } |
-  { 'ToggleChainState' : ToggleState };
+  { 'ToggleChainState' : ToggleState } |
+  { 'UpdateToken' : TokenMeta };
 export type Result = { 'Ok' : null } |
   { 'Err' : Error };
 export type Result_1 = { 'Ok' : Chain } |
   { 'Err' : Error };
-export type Result_10 = { 'Ok' : Array<[Topic, Subscribers]> } |
+export type Result_10 = { 'Ok' : Ticket } |
   { 'Err' : Error };
-export type Result_11 = { 'Ok' : Array<[bigint, Ticket]> } |
+export type Result_11 = { 'Ok' : Array<Ticket> } |
   { 'Err' : Error };
-export type Result_12 = { 'Ok' : Array<string> } |
+export type Result_12 = { 'Ok' : Array<[bigint, Directive]> } |
   { 'Err' : Error };
-export type Result_2 = { 'Ok' : Array<TokenOnChain> } |
+export type Result_13 = { 'Ok' : Array<[Topic, Subscribers]> } |
   { 'Err' : Error };
-export type Result_3 = { 'Ok' : Array<Chain> } |
+export type Result_14 = { 'Ok' : Array<[bigint, Ticket]> } |
   { 'Err' : Error };
-export type Result_4 = { 'Ok' : Array<[string, string, bigint]> } |
+export type Result_15 = { 'Ok' : Array<string> } |
   { 'Err' : Error };
-export type Result_5 = { 'Ok' : Array<TokenResp> } |
+export type Result_2 = { 'Ok' : Array<Chain> } |
   { 'Err' : Error };
-export type Result_6 = { 'Ok' : bigint } |
+export type Result_3 = { 'Ok' : bigint } |
   { 'Err' : Error };
-export type Result_7 = { 'Ok' : Ticket } |
+export type Result_4 = { 'Ok' : Array<TokenOnChain> } |
   { 'Err' : Error };
-export type Result_8 = { 'Ok' : Array<Ticket> } |
+export type Result_5 = { 'Ok' : Array<Chain> } |
   { 'Err' : Error };
-export type Result_9 = { 'Ok' : Array<[bigint, Directive]> } |
+export type Result_6 = { 'Ok' : Array<Directive> } |
+  { 'Err' : Error };
+export type Result_7 = { 'Ok' : Array<[string, string, bigint]> } |
+  { 'Err' : Error };
+export type Result_8 = { 'Ok' : Array<TokenMeta> } |
+  { 'Err' : Error };
+export type Result_9 = { 'Ok' : Array<TokenResp> } |
   { 'Err' : Error };
 export interface SeqKey { 'seq' : bigint, 'chain_id' : string }
 export interface Subscribers { 'subs' : Array<string> }
@@ -163,36 +174,46 @@ export interface TokenResp {
   'rune_id' : [] | [string],
   'symbol' : string,
 }
-export type Topic = { 'UpdateFee' : null } |
+export type Topic = { 'UpdateChain' : null } |
+  { 'UpdateFee' : null } |
   { 'AddToken' : null } |
   { 'AddChain' : null } |
-  { 'ToggleChainState' : null };
-export type TxAction = { 'Redeem' : null } |
+  { 'ToggleChainState' : null } |
+  { 'UpdateToken' : null };
+export type TxAction = { 'Burn' : null } |
+  { 'Redeem' : null } |
   { 'Transfer' : null };
 export interface UpgradeArgs { 'admin' : [] | [Principal] }
 export interface _SERVICE {
   'execute_proposal' : ActorMethod<[Array<Proposal>], Result>,
   'get_chain' : ActorMethod<[string], Result_1>,
+  'get_chain_metas' : ActorMethod<[bigint, bigint], Result_2>,
+  'get_chain_size' : ActorMethod<[], Result_3>,
   'get_chain_tokens' : ActorMethod<
-    [[] | [string], [] | [string], bigint, bigint],
-    Result_2
-  >,
-  'get_chains' : ActorMethod<
-    [[] | [ChainType], [] | [ChainState], bigint, bigint],
-    Result_3
-  >,
-  'get_events' : ActorMethod<[GetEventsArg], Array<Event>>,
-  'get_fees' : ActorMethod<
     [[] | [string], [] | [string], bigint, bigint],
     Result_4
   >,
-  'get_logs' : ActorMethod<[[] | [bigint], bigint, bigint], Array<string>>,
-  'get_tokens' : ActorMethod<
-    [[] | [string], [] | [string], bigint, bigint],
+  'get_chains' : ActorMethod<
+    [[] | [ChainType], [] | [ChainState], bigint, bigint],
     Result_5
   >,
-  'get_total_tx' : ActorMethod<[], Result_6>,
-  'get_tx' : ActorMethod<[string], Result_7>,
+  'get_directive_size' : ActorMethod<[], Result_3>,
+  'get_directives' : ActorMethod<[bigint, bigint], Result_6>,
+  'get_events' : ActorMethod<[GetEventsArg], Array<Event>>,
+  'get_fees' : ActorMethod<
+    [[] | [string], [] | [string], bigint, bigint],
+    Result_7
+  >,
+  'get_logs' : ActorMethod<[[] | [bigint], bigint, bigint], Array<string>>,
+  'get_token_metas' : ActorMethod<[bigint, bigint], Result_8>,
+  'get_token_size' : ActorMethod<[], Result_3>,
+  'get_tokens' : ActorMethod<
+    [[] | [string], [] | [string], bigint, bigint],
+    Result_9
+  >,
+  'get_total_tx' : ActorMethod<[], Result_3>,
+  'get_tx' : ActorMethod<[string], Result_10>,
+  'get_txs' : ActorMethod<[bigint, bigint], Result_11>,
   'get_txs_with_account' : ActorMethod<
     [
       [] | [string],
@@ -202,7 +223,7 @@ export interface _SERVICE {
       bigint,
       bigint,
     ],
-    Result_8
+    Result_11
   >,
   'get_txs_with_chain' : ActorMethod<
     [
@@ -213,21 +234,25 @@ export interface _SERVICE {
       bigint,
       bigint,
     ],
-    Result_8
+    Result_11
   >,
+  'handle_chain' : ActorMethod<[Array<Proposal>], Result>,
+  'handle_token' : ActorMethod<[Array<Proposal>], Result>,
   'query_directives' : ActorMethod<
     [[] | [string], [] | [Topic], bigint, bigint],
-    Result_9
+    Result_12
   >,
-  'query_subscribers' : ActorMethod<[[] | [Topic]], Result_10>,
-  'query_tickets' : ActorMethod<[[] | [string], bigint, bigint], Result_11>,
+  'query_subscribers' : ActorMethod<[[] | [Topic]], Result_13>,
+  'query_tickets' : ActorMethod<[[] | [string], bigint, bigint], Result_14>,
   'resubmit_ticket' : ActorMethod<[Ticket], Result>,
   'send_ticket' : ActorMethod<[Ticket], Result>,
   'set_logger_filter' : ActorMethod<[string], undefined>,
   'sub_directives' : ActorMethod<[[] | [string], Array<Topic>], Result>,
+  'sync_ticket_size' : ActorMethod<[], Result_3>,
+  'sync_tickets' : ActorMethod<[bigint, bigint], Result_14>,
   'unsub_directives' : ActorMethod<[[] | [string], Array<Topic>], Result>,
   'update_fee' : ActorMethod<[Array<Factor>], Result>,
-  'validate_proposal' : ActorMethod<[Array<Proposal>], Result_12>,
+  'validate_proposal' : ActorMethod<[Array<Proposal>], Result_15>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: ({ IDL }: { IDL: IDL }) => IDL.Type[];

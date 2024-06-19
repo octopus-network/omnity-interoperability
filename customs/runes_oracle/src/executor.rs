@@ -46,6 +46,7 @@ impl Executor {
             while !self.pending_requests.is_empty() {
                 let request = self.pending_requests.front().unwrap();
                 if self.invalid_requests.contains(&request.txid) {
+                    self.pending_requests.pop_front();
                     continue;
                 }
 

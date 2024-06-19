@@ -172,10 +172,11 @@ dfx canister call omnity_hub query_tickets '(opt "Ethereum",0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(opt "Optimistic",null,0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:nat64)'
 
+
 # must build 
-# dfx build omnity_hub
+dfx build omnity_hub
 # upgrade canister
-# dfx canister install --mode upgrade --argument '(variant { Upgrade = null })' --yes omnity_hub 
+dfx canister install --mode upgrade --argument '(variant { Upgrade = null })' --yes omnity_hub 
 dfx canister call omnity_hub sync_ticket_size '()'
 dfx canister call omnity_hub sync_tickets '(0:nat64,12:nat64)'
 # dfx stop

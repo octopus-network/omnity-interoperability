@@ -231,7 +231,6 @@ pub enum GenTicketStatus {
     Unknown,
     /// The request is in the queue.
     Pending(GenTicketRequest),
-    Invalid,
     Finalized,
 }
 

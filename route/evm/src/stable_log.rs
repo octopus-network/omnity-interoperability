@@ -5,9 +5,9 @@ use ic_log::{
     writer::{self, ConsoleWriter, InMemoryWriter, Writer},
     Builder, LogSettings, LoggerConfig,
 };
-use ic_stable_structures::{memory_manager::VirtualMemory, DefaultMemoryImpl, StableLog as IcLog};
+use ic_stable_structures::{memory_manager::VirtualMemory, DefaultMemoryImpl};
 use ic_stable_structures::{storable::Bound, StableBTreeMap, Storable};
-use log::{debug, info};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use std::{borrow::Cow, cell::RefCell};
@@ -15,11 +15,9 @@ use std::{marker::PhantomData, str::FromStr};
 
 use humantime::parse_rfc3339;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use serde_json;
 use std::time::UNIX_EPOCH;
 
 type VMem = VirtualMemory<DefaultMemoryImpl>;
-pub type IcStableLog = IcLog<Vec<LogEntry>, VMem, VMem>;
 
 thread_local! {
     static STABLE_LOGS: RefCell<Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>> =RefCell::new(None);
@@ -40,7 +38,7 @@ impl Storable for LogEntry {
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
         let log_entry =
-            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode LogEntry");
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenKey");
         log_entry
     }
 
@@ -48,7 +46,7 @@ impl Storable for LogEntry {
 }
 
 fn parse_timestamp(time_str: &Vec<u8>) -> u64 {
-    let datetime = parse_rfc3339(&String::from_utf8_lossy(time_str).as_ref())
+    let datetime = parse_rfc3339(String::from_utf8_lossy(time_str).as_ref())
         .expect("Failed to parse timestamp");
     datetime
         .duration_since(UNIX_EPOCH)
@@ -107,7 +105,7 @@ impl StableLogWriter {
                 Ok(value) => value,
                 Err(err) => return err,
             };
-            debug!(
+            info!(
                 "request params: max_skip_timestamp: {}, offset: {}, limit: {}",
                 max_skip_timestamp, offset, limit
             );
@@ -154,16 +152,6 @@ impl LoggerConfigService {
     pub fn init(&self, logger_config: LoggerConfig) {
         LOGGER_CONFIG.with(|config| config.borrow_mut().replace(logger_config));
     }
-
-    /// Changes the logger filter at runtime
-    pub fn set_logger_filter(&self, filter: &str) {
-        LOGGER_CONFIG.with(|config| match *config.borrow_mut() {
-            Some(ref logger_config) => {
-                logger_config.update_filters(filter);
-            }
-            None => panic!("LoggerConfig not initialized"),
-        });
-    }
 }
 
 pub fn init_log(stable_log: Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>) {
@@ -197,134 +185,4 @@ pub fn init_log(stable_log: Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>) {
         }
     }
     info!("Logger initialized");
-}
-
-#[cfg(test)]
-mod tests {
-
-    use ic_log::take_memory_records;
-    use ic_stable_structures::memory_manager::{MemoryId, MemoryManager};
-    use log::*;
-    use rand::Rng;
-
-    use super::*;
-
-    #[test]
-    fn test_timestamp() {
-        // string format: 2018-02-13T23:08:32.123000000Z
-        let time_str = format!("{}", Rfc3339Timestamp::now());
-        println!("{}", time_str);
-        let datetime = parse_rfc3339(&time_str).expect("Failed to parse timestamp");
-        println!("{:?}", datetime);
-
-        let timestamp = datetime
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs();
-        println!("{}", timestamp);
-
-        let input = "2024-04-17T01:12:04.000000000Z";
-        println!("{}", input);
-        let (head, tail) = input.split_at(input.find('.').unwrap() + 1);
-        let (zeros, z) = tail.split_at(tail.find('Z').unwrap());
-        if zeros.chars().all(|c| c == '0') && zeros.len() == 9 {
-            let random_number: u64 = rand::thread_rng().gen_range(100000000..1000000000);
-            println!("{}{}{}", head, random_number, z);
-        } else {
-            println!("{}", input);
-        }
-
-        let time_str = "2024-04-17T02:34:52.297978721Z";
-        let datetime = parse_rfc3339(&time_str).expect("Failed to parse timestamp");
-        let timestamp = datetime
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs();
-        println!(
-            "from time_str: {} parsed to timestamp: {}",
-            time_str, timestamp
-        );
-    }
-
-    #[test]
-    fn update_filter_at_runtime() {
-        // log level: debug < info < error
-
-        //default log level: info
-        init_log(None);
-        info!("This info should be printed");
-        debug!("This debug should NOT be printed");
-        error!("This error should be printed");
-
-        //
-        // debug level
-        LoggerConfigService::default().set_logger_filter("debug");
-        info!("This info should be printed");
-        debug!("This debug should be printed");
-        error!("This error should be printed");
-
-        // error
-        LoggerConfigService::default().set_logger_filter("error");
-        info!("This info should NOT be printed");
-        debug!("This debug should NOT be printed");
-        error!("This error should be printed");
-
-        LoggerConfigService::default().set_logger_filter("info");
-        info!("This info should be printed");
-        debug!("This debug should NOT be printed");
-        error!("This error should be printed");
-
-        let log_records = take_memory_records(5, 0);
-        for r in log_records.logs.iter() {
-            print!("log_record: {:#?}", r)
-        }
-    }
-
-    #[test]
-    fn test_stable_log() {
-        const LOG_MEMORY_ID: MemoryId = MemoryId::new(0);
-        type InnerMemory = DefaultMemoryImpl;
-
-        thread_local! {
-            static MEMORY: RefCell<Option<InnerMemory>> = RefCell::new(Some(InnerMemory::default()));
-
-            static MEMORY_MANAGER: RefCell<Option<MemoryManager<InnerMemory>>> =
-                RefCell::new(Some(MemoryManager::init(MEMORY.with(|m| m.borrow().clone().unwrap()))));
-        }
-        let log_memory = MEMORY_MANAGER.with(|m| {
-            m.borrow()
-                .as_ref()
-                .expect("memory manager not initialized")
-                .get(LOG_MEMORY_ID)
-        });
-
-        let stable_log = StableBTreeMap::init(log_memory);
-        //default log level: info
-        init_log(Some(stable_log));
-        info!("This info should be printed");
-        debug!("This debug should NOT be printed");
-        error!("This error should be printed");
-
-        // debug level
-        LoggerConfigService::default().set_logger_filter("debug");
-        info!("This info should be printed");
-        debug!("This debug should be printed");
-        error!("This error should be printed");
-
-        // error
-        LoggerConfigService::default().set_logger_filter("error");
-        info!("This info should NOT be printed");
-        debug!("This debug should NOT be printed");
-        error!("This error should be printed");
-
-        LoggerConfigService::default().set_logger_filter("info");
-        info!("This info should be printed");
-        debug!("This debug should NOT be printed");
-        error!("This error should be printed");
-
-        let logs = StableLogWriter::get_logs(0, 0, 12);
-        for r in logs.iter() {
-            print!("stable log: {}", r)
-        }
-    }
 }
