@@ -805,7 +805,7 @@ fn test_generate_ticket() {
             token_id: TOKEN_ID1.into(),
             amount: redeem_amount,
             from_subaccount: None,
-            is_burn: None,
+            burn: None,
         })
         .expect("should generate ticket success");
 

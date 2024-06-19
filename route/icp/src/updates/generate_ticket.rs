@@ -21,7 +21,7 @@ pub struct GenerateTicketReq {
     pub amount: u128,
     // The subaccount to burn token from.
     pub from_subaccount: Option<Subaccount>,
-    pub is_burn: Option<bool>,
+    pub burn: Option<bool>,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -87,7 +87,7 @@ pub async fn generate_ticket(
     let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
-    let action = if req.is_burn.is_some_and(|burn| burn) {
+    let action = if req.burn.is_some_and(|burn| burn) {
         TxAction::Burn
     } else {
         TxAction::Redeem
