@@ -3,7 +3,7 @@ use ethers_core::types::U256;
 use log::info;
 
 use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
-use crate::contracts::{gen_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
+use crate::contracts::{gen_evm_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
 use crate::state::{minter_addr, mutate_state, read_state};
 use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq};
@@ -60,14 +60,14 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
                 return Err(anyhow!(data_result.err().unwrap().to_string()));
             }
             let nonce = get_account_nonce(minter_addr()).await.unwrap_or_default();
-            let tx = gen_eip1559_tx(
+            let tx = gen_evm_tx(
                 data_result.unwrap(),
                 get_gasprice().await.ok(),
                 nonce,
                 DEFAULT_EVM_TX_FEE,
             );
             info!(
-                "[evm route] send ticket eip1559tx content: {:?}",
+                "[evm route] send ticket tx content: {:?}",
                 serde_json::to_string(&tx)
             );
             let mut pending_ticket = PendingTicketStatus {
@@ -102,6 +102,7 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
     }
 }
 
+
 pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
     match read_state(|s| s.directives_queue.get(&seq)) {
         None => Ok(()),
@@ -116,9 +117,10 @@ pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
                 Directive::AddToken(_) => ADD_TOKEN_EVM_TX_FEE,
                 _ => DEFAULT_EVM_TX_FEE,
             };
-            let tx = gen_eip1559_tx(data, get_gasprice().await.ok(), nonce, fee);
+            let tx = gen_evm_tx(data, get_gasprice().await.ok(), nonce, fee);
             info!(
-                "[evm route] send directive eip1559tx content: {:?}",
+                "[evm route] send directive tx content: {:?} {:?}",
+                tx.chain_id,
                 serde_json::to_string(&tx)
             );
             let mut pending_directive = PendingDirectiveStatus {
