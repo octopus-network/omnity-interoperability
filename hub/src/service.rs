@@ -193,8 +193,8 @@ pub async fn set_logger_filter(filter: String) {
 }
 
 #[update(guard = "is_admin")]
-pub async fn set_permissions(caller: Principal, perms: Vec<Permission>) {
-    set_perms(caller.to_string(), perms)
+pub async fn set_permissions(caller: Principal, perm: Permission) {
+    set_perms(caller.to_string(), perm)
 }
 
 #[query]

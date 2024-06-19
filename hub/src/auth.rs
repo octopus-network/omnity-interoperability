@@ -3,7 +3,7 @@ use candid::CandidType;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 
-#[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(CandidType, Copy, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub enum Permission {
     Query,
     Update,
@@ -27,19 +27,15 @@ pub fn auth_update() -> Result<(), String> {
     with_state(|s| {
         if s.admin != caller
             && !ic_cdk::api::is_controller(&caller)
-            && !s.caller_perms.contains_key(&caller.to_string())
+            && !s
+                .caller_perms
+                .get(&caller.to_string())
+                .is_some_and(|perm| *perm == Permission::Update)
         {
             error!("{:?} Unauthorized!", caller.to_string());
             Err("Unauthorized!".into())
         } else {
-            s.caller_perms
-                .get(&caller.to_string())
-                .map_or(Err("Unauthorized!".into()), |perms| {
-                    if perms.iter().any(|perm| perm == &Permission::Update) {
-                        return Ok(());
-                    }
-                    Err("Unauthorized Update!".into())
-                })
+            Ok(())
         }
     })
 }
@@ -55,20 +51,13 @@ pub fn auth_query() -> Result<(), String> {
             error!("{:?} Unauthorized!", caller.to_string());
             Err("Unauthorized!".into())
         } else {
-            s.caller_perms
-                .get(&caller.to_string())
-                .map_or(Err("Unauthorized!".into()), |perms| {
-                    if perms.iter().any(|perm| perm == &Permission::Query) {
-                        return Ok(());
-                    }
-                    Err("Unauthorized Query!".into())
-                })
+            Ok(())
         }
     })
 }
 
-pub fn set_perms(caller: String, perms: Vec<Permission>) {
+pub fn set_perms(caller: String, perm: Permission) {
     with_state_mut(|s| {
-        s.caller_perms.insert(caller.to_string(), perms);
+        s.caller_perms.insert(caller.to_string(), perm);
     })
 }

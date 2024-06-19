@@ -51,7 +51,7 @@ pub struct HubState {
     pub ticket_seq: HashMap<String, Seq>,
     pub admin: Principal,
     pub caller_chain_map: HashMap<String, ChainId>,
-    pub caller_perms: HashMap<String, Vec<Permission>>,
+    pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
 }
 
@@ -72,10 +72,7 @@ impl From<InitArgs> for HubState {
             ticket_seq: HashMap::default(),
             admin: args.admin,
             caller_chain_map: HashMap::default(),
-            caller_perms: HashMap::from([(
-                args.admin.to_string(),
-                vec![Permission::Update, Permission::Query],
-            )]),
+            caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             last_resubmit_ticket_time: 0,
         }
     }
@@ -146,10 +143,9 @@ impl HubState {
                 HubArg::Upgrade(upgrade_args) => {
                     if let Some(args) = upgrade_args {
                         if let Some(admin) = args.admin {
-                            cur_state.caller_perms.insert(
-                                admin.to_string(),
-                                vec![Permission::Update, Permission::Query],
-                            );
+                            cur_state
+                                .caller_perms
+                                .insert(admin.to_string(), Permission::Update);
                             cur_state.admin = admin;
                         }
                         record_event(&Event::Upgrade(args));
@@ -164,10 +160,8 @@ impl HubState {
 
     pub fn upgrade(&mut self, args: UpgradeArgs) {
         if let Some(admin) = args.admin {
-            self.caller_perms.insert(
-                admin.to_string(),
-                vec![Permission::Update, Permission::Query],
-            );
+            self.caller_perms
+                .insert(admin.to_string(), Permission::Update);
             self.admin = admin;
         }
     }
@@ -201,10 +195,8 @@ impl HubState {
         self.chains
             .insert(chain.chain_id.to_string(), chain.clone());
         // update auth
-        self.caller_perms.insert(
-            chain.canister_id.to_string(),
-            vec![Permission::Update, Permission::Query],
-        );
+        self.caller_perms
+            .insert(chain.canister_id.to_string(), Permission::Update);
         self.caller_chain_map
             .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
 
