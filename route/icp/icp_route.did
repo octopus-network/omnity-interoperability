@@ -142,6 +142,7 @@ service : (RouteArg) -> {
   get_token_list : () -> (vec TokenResp) query;
   mint_token_status : (text) -> (MintTokenStatus) query;
   remove_controller : (principal, principal) -> (Result);
+  retry_send_ticket : () -> (Result);
   start_controlled_canister : (principal) -> (Result);
   stop_controlled_canister : (principal) -> (Result);
   update_icrc_ledger : (principal, UpgradeArgs_1) -> (Result);

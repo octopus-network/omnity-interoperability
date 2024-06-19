@@ -13,13 +13,13 @@ use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
 use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
-use icp_route::state::{read_state, take_state, MintTokenStatus};
+use icp_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
 use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
 use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
+use icp_route::{hub, periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::time::Duration;
@@ -178,10 +178,34 @@ pub async fn update_icrc_ledger(
     upgrade_args: ic_icrc1_ledger::UpgradeArgs,
 ) -> Result<(), String> {
     if !read_state(|s| s.token_ledgers.iter().any(|(_, id)| *id == ledger_id)) {
-        return Err("leder id not found!".into());
+        return Err("Ledger id not found!".into());
     }
 
     upgrade_icrc2_ledger(ledger_id, upgrade_args).await
+}
+
+#[update(guard = "is_controller")]
+pub async fn retry_send_ticket() -> Result<(), String> {
+    let opt_ticket = mutate_state(|rs| rs.failed_tickets.pop());
+
+    if let Some(ticket) = opt_ticket {
+        let hub_principal = read_state(|s| (s.hub_principal));
+        let result = hub::send_ticket(hub_principal, ticket.clone())
+            .await
+            .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))
+            .map_err(|err| format!("{:?}", err));
+
+        if let Err(err) = result {
+            mutate_state(|state| {
+                state.failed_tickets.push(ticket.clone());
+            });
+            return Err(err);
+        }
+
+        Ok(())
+    } else {
+        Err("No failed ticket".into())
+    }
 }
 
 #[query]

@@ -1,4 +1,4 @@
-use crate::state::{audit, read_state};
+use crate::state::{audit, mutate_state, read_state};
 use crate::{hub, ICP_TRANSFER_FEE};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use ic_cdk::caller;
@@ -92,24 +92,29 @@ pub async fn generate_ticket(
     } else {
         TxAction::Redeem
     };
-    hub::send_ticket(
-        hub_principal,
-        Ticket {
-            ticket_id: ticket_id.clone(),
-            ticket_type: omnity_types::TicketType::Normal,
-            ticket_time: ic_cdk::api::time(),
-            src_chain: chain_id,
-            dst_chain: req.target_chain_id.clone(),
-            action,
-            token: req.token_id.clone(),
-            amount: req.amount.to_string(),
-            sender: None,
-            receiver: req.receiver.clone(),
-            memo: None,
-        },
-    )
-    .await
-    .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
+    let ticket = Ticket {
+        ticket_id: ticket_id.clone(),
+        ticket_type: omnity_types::TicketType::Normal,
+        ticket_time: ic_cdk::api::time(),
+        src_chain: chain_id,
+        dst_chain: req.target_chain_id.clone(),
+        action,
+        token: req.token_id.clone(),
+        amount: req.amount.to_string(),
+        sender: None,
+        receiver: req.receiver.clone(),
+        memo: None,
+    };
+    let result = hub::send_ticket(hub_principal, ticket.clone())
+        .await
+        .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)));
+
+    if let Err(err) = result {
+        mutate_state(|state| {
+            state.failed_tickets.push(ticket.clone());
+        });
+        return Err(err);
+    }
 
     audit::finalize_gen_ticket(ticket_id.clone(), req);
     Ok(GenerateTicketOk { ticket_id })
