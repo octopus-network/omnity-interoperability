@@ -1,9 +1,9 @@
 use candid::Principal;
 
 use crate::call_error::{CallError, Reason};
+use crate::types::Topic;
 use crate::types::{ChainId, Directive};
 use crate::types::{Seq, Ticket};
-use crate::types::Topic;
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     // TODO determine how many cycle it will cost.
@@ -29,11 +29,7 @@ pub async fn query_tickets(
     let resp: (Result<Vec<(Seq, Ticket)>, crate::types::Error>,) = ic_cdk::api::call::call(
         hub_principal,
         "query_tickets",
-        (
-            None::<Option<ChainId>>,
-            offset,
-            limit,
-        ),
+        (None::<Option<ChainId>>, offset, limit),
     )
     .await
     .map_err(|(code, message)| CallError {

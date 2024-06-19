@@ -67,6 +67,12 @@
       "package": "evm_route",
       "type": "custom"
     },
+    "evm_route_xlayer": {
+      "candid": "route/evm/evm_route.did",
+      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
+      "package": "evm_route",
+      "type": "custom"
+    },
     "evm_rpc": {
       "type": "custom",
       "candid": "https://github.com/internet-computer-protocol/evm-rpc-canister/releases/download/release-2024-05-23/evm_rpc.did",
