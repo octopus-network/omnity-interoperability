@@ -77,6 +77,7 @@ export type GenerateTicketError = {
 export interface GenerateTicketOk { 'ticket_id' : string }
 export interface GenerateTicketReq {
   'token_id' : string,
+  'burn' : [] | [boolean],
   'from_subaccount' : [] | [Uint8Array | number[]],
   'target_chain_id' : string,
   'amount' : bigint,

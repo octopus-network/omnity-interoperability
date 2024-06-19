@@ -1099,8 +1099,29 @@ pub fn build_unsigned_transaction(
         .sum::<u128>();
     debug_assert!(inputs_value >= amount);
 
-    let stone = Runestone {
-        edicts: outputs
+    let burn_amount = outputs
+        .iter()
+        .filter(|(address, _)| matches!(address, BitcoinAddress::OpReturn(_)))
+        .map(|(_, amount)| amount)
+        .sum::<u128>();
+
+    let outputs = outputs
+        .iter()
+        .filter(|(address, _)| !matches!(address, BitcoinAddress::OpReturn(_)))
+        .map(|(address, amount)| (address.clone(), *amount))
+        .collect::<Vec<(BitcoinAddress, u128)>>();
+
+    let mut edicts = vec![];
+    if burn_amount > 0 {
+        edicts.push(Edict {
+            id: rune_id.into(),
+            amount: burn_amount,
+            output: 0,
+        });
+    }
+
+    edicts.append(
+        &mut outputs
             .iter()
             .enumerate()
             .map(|(idx, (_, amount))| Edict {
@@ -1109,7 +1130,9 @@ pub fn build_unsigned_transaction(
                 output: (idx + 2) as u32,
             })
             .collect::<Vec<Edict>>(),
-    };
+    );
+
+    let stone = Runestone { edicts };
 
     let runes_change = inputs_value - amount;
     let change_output = state::RunesChangeOutput {
