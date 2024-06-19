@@ -1,6 +1,8 @@
 use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
-use ic_cdk::api::management_canister::main::{CanisterStatusResponse, CanisterStatusType};
+use ic_cdk::api::management_canister::main::{
+    CanisterInfoRequest, CanisterInfoResponse
+};
 use ic_ic00_types::CanisterSettingsArgsBuilder;
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
@@ -322,127 +324,24 @@ impl RouteSetup {
         .unwrap();
     }
 
-    pub fn stop_controlled_canister(
-        &self,
-        icrc_canister_id: Principal,
-        caller: Option<PrincipalId>,
-    ) {
-        let _ = Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        caller.unwrap_or(self.caller),
-                        self.route_id,
-                        "stop_controlled_canister",
-                        Encode!(&icrc_canister_id).unwrap(),
-                    )
-                    .expect("failed to stop controlled canister")
-            ),
-            Result<(), String>
-        )
-        .unwrap()
-        .unwrap();
-    }
-
-    pub fn start_controlled_canister(
-        &self,
-        icrc_canister_id: Principal,
-        caller: Option<PrincipalId>,
-    ) {
-        let _ = Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        caller.unwrap_or(self.caller),
-                        self.route_id,
-                        "start_controlled_canister",
-                        Encode!(&icrc_canister_id).unwrap(),
-                    )
-                    .expect("failed to start controlled canister")
-            ),
-            Result<(), String>
-        )
-        .unwrap()
-        .unwrap();
-    }
-
-    pub fn delete_controlled_canister(
-        &self,
-        icrc_canister_id: Principal,
-        caller: Option<PrincipalId>,
-    ) {
-        let _ = Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        caller.unwrap_or(self.caller),
-                        self.route_id,
-                        "delete_controlled_canister",
-                        Encode!(&icrc_canister_id).unwrap(),
-                    )
-                    .expect("failed to delete controlled canister")
-            ),
-            Result<(), String>
-        )
-        .unwrap()
-        .unwrap();
-    }
-
-    pub fn controlled_canister_status(
-        &self,
-        icrc_canister_id: Principal,
-        caller: Option<PrincipalId>,
-    ) -> Result<CanisterStatusResponse, String> {
+    pub fn canister_info(&self, arg: CanisterInfoRequest) -> CanisterInfoResponse {
+        let management_principal = Principal::management_canister();
+        let canister_id = CanisterId::unchecked_from_principal(management_principal.into());
+        // let route_principle = self.route_id
         Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
-                        caller.unwrap_or(self.caller),
-                        self.route_id,
-                        "controlled_canister_status",
-                        Encode!(&icrc_canister_id).unwrap(),
+                        self.route_id.into(),
+                        canister_id,
+                        "canister_info",
+                        Encode!(&arg).unwrap(),
                     )
-                    .expect("failed to get canister status")
+                    .expect("failed to get token ledger")
             ),
-            Result<CanisterStatusResponse, String>
+            CanisterInfoResponse
         )
         .unwrap()
-    }
-
-    pub fn add_controller(&self, canister_id: Principal, controller: Principal) {
-        Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        self.caller,
-                        self.route_id,
-                        "add_controller",
-                        Encode!(&canister_id, &controller).unwrap(),
-                    )
-                    .expect("Failed to add_controller")
-            ),
-            Result<(), String>
-        )
-        .unwrap()
-        .unwrap();
-    }
-
-    pub fn remove_controller(&self, canister_id: Principal, controller: Principal) {
-        Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        self.caller,
-                        self.route_id,
-                        "remove_controller",
-                        Encode!(&canister_id, &controller).unwrap(),
-                    )
-                    .expect("Failed to remove_controller")
-            ),
-            Result<(), String>
-        )
-        .unwrap()
-        .unwrap();
     }
 
     pub fn get_token_ledger(&self, token_id: String) -> CanisterId {
@@ -496,40 +395,6 @@ impl RouteSetup {
             Option<u64>
         )
         .unwrap()
-    }
-
-    pub fn update_icrc_ledger(
-        &self,
-        ledger_id: Principal,
-        transfer_fee: Option<Nat>,
-        symbol: Option<String>,
-    ) {
-        let upgrade_ars = ic_icrc1_ledger::UpgradeArgs {
-            metadata: None,
-            token_name: None,
-            token_symbol: symbol,
-            transfer_fee,
-            change_fee_collector: None,
-            max_memo_length: None,
-            feature_flags: None,
-            maximum_number_of_accounts: None,
-            accounts_overflow_trim_quantity: None,
-        };
-        let _ = Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        self.caller,
-                        self.route_id,
-                        "update_icrc_ledger",
-                        Encode!(&ledger_id, &upgrade_ars).unwrap(),
-                    )
-                    .expect("failed to update icrc ledger")
-            ),
-            Result<(), String>
-        )
-        .unwrap()
-        .unwrap();
     }
 
     pub fn icrc1_balance_of(
@@ -663,8 +528,6 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
 
     let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
 
-    // route.update_icrc_transfer_fee(ledger_id.into(), 100_u128.into());
-    route.update_icrc_ledger(ledger_id.into(), Some(100_u128.into()), None);
 }
 
 fn set_fee(route: &RouteSetup) {
@@ -847,54 +710,6 @@ fn test_mint_multi_tokens() {
 }
 
 #[test]
-#[should_panic(expected = "caller is not controller")]
-fn test_icrc_control_auth_and_check() {
-    let route = RouteSetup::new();
-    add_chain(&route);
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
-    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
-
-    route
-        .controlled_canister_status(token_canister_id.into(), Some(route.hub_id.into()))
-        .unwrap();
-
-    route
-        .controlled_canister_status(token_canister_id.into(), Some(route.caller))
-        .unwrap();
-
-    route
-        .controlled_canister_status(token_canister_id.into(), Some(route.route_id.into()))
-        .unwrap();
-}
-
-#[test]
-fn test_icrc_control() -> Result<(), String> {
-    let route = RouteSetup::new();
-    add_chain(&route);
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
-    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
-
-    route.stop_controlled_canister(token_canister_id.into(), None);
-    let status = route.controlled_canister_status(token_canister_id.into(), None)?;
-    assert!(matches!(status.status, CanisterStatusType::Stopped));
-
-    route.start_controlled_canister(token_canister_id.into(), None);
-    let status = route.controlled_canister_status(token_canister_id.into(), None)?;
-    assert!(matches!(status.status, CanisterStatusType::Running));
-
-    // must be stopped before it is deleted
-    route.stop_controlled_canister(token_canister_id.into(), None);
-    route.delete_controlled_canister(token_canister_id.into(), None);
-    let result = route.controlled_canister_status(token_canister_id.into(), None);
-    assert!(result.err().unwrap().contains(&format!(
-        "Canister {} not found.",
-        token_canister_id.to_string()
-    )));
-
-    Result::Ok(())
-}
-
-#[test]
 pub fn test_transfer_fee() {
     let route = RouteSetup::new();
     add_chain(&route);
@@ -936,44 +751,4 @@ pub fn test_transfer_fee() {
     assert_eq!(receiver_balance, Nat::from_str("1000000").unwrap());
     assert_eq!(caller_balance, Nat::from_str("0").unwrap());
     assert_eq!(fee_collector_balance, Nat::from_str("100").unwrap());
-}
-
-#[test]
-fn test_update_metadata() {
-    let route = RouteSetup::new();
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
-    let token_ledger = route.get_token_ledger(TOKEN_ID1.into());
-
-    route.update_icrc_ledger(token_ledger.into(), None, Some("RICH".to_string()));
-
-    let metadata = route.icrc1_metadata(token_ledger.into());
-    assert_eq!(
-        "RICH",
-        metadata
-            .iter()
-            .find(|(k, _)| k == "icrc1:symbol")
-            .unwrap()
-            .1
-            .to_string()
-            .as_str()
-    );
-}
-
-#[test]
-pub fn test_add_remove_controller() {
-    let route = RouteSetup::new();
-    add_chain(&route);
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
-    let token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
-
-    let new_controller = PrincipalId::new_user_test_id(3);
-    route.add_controller(token_canister_id.into(), new_controller.into());
-
-    let r = route.env.canister_status(token_canister_id.into());
-    assert!(format!("{:?}", r).contains(new_controller.to_string().as_str()));
-
-    route.remove_controller(token_canister_id.into(), new_controller.into());
-
-    let r = route.env.canister_status(token_canister_id.into());
-    assert!(!format!("{:?}", r).contains(new_controller.to_string().as_str()));
 }
