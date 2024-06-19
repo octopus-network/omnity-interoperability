@@ -1111,11 +1111,14 @@ pub fn build_unsigned_transaction(
         .map(|(address, amount)| (address.clone(), *amount))
         .collect::<Vec<(BitcoinAddress, u128)>>();
 
-    let mut edicts = vec![Edict {
-        id: rune_id.into(),
-        amount: burn_amount,
-        output: 0,
-    }];
+    let mut edicts = vec![];
+    if burn_amount > 0 {
+        edicts.push(Edict {
+            id: rune_id.into(),
+            amount: burn_amount,
+            output: 0,
+        });
+    }
 
     edicts.append(
         &mut outputs
