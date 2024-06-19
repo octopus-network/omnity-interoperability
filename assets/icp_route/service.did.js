@@ -52,6 +52,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const GenerateTicketReq = IDL.Record({
     'token_id' : IDL.Text,
+    'burn' : IDL.Opt(IDL.Bool),
     'from_subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
     'target_chain_id' : IDL.Text,
     'amount' : IDL.Nat,

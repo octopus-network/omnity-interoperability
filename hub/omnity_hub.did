@@ -161,7 +161,7 @@ type Topic = variant {
   ToggleChainState;
   UpdateToken;
 };
-type TxAction = variant { Redeem; Transfer };
+type TxAction = variant { Burn; Redeem; Transfer };
 type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
   execute_proposal : (vec Proposal) -> (Result);
