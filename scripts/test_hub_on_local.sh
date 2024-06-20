@@ -11,6 +11,10 @@ HUB_CANISTER_ID="$(bat process | grep cid | cut -d'"' -f 2)"
 INIT_BALANCE="$(dfx canister status $HUB_CANISTER_ID 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
 echo "canister current balance: $INIT_BALANCE cycles "
 
+# change log level
+echo "change log level to debug!"
+dfx canister call  $HUB_CANISTER_ID set_logger_filter '("debug")'
+
 # sub topic
 dfx canister call  $HUB_CANISTER_ID sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
 dfx canister call  $HUB_CANISTER_ID sub_directives '(opt "Ethereum", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
@@ -109,7 +113,12 @@ dfx canister call  $HUB_CANISTER_ID query_directives '(opt "Starknet",opt varian
 dfx canister call  $HUB_CANISTER_ID update_fee 'vec {variant { UpdateTargetChainFactor = record {target_chain_id="Bitcoin"; target_chain_factor=1000 : nat}}; variant { UpdateFeeTokenFactor = record { fee_token="LICP"; fee_token_factor=60000000000 : nat}}}'
 
 # dfx canister call  $HUB_CANISTER_ID query_directives '(opt "ICP",opt variant {UpdateFee=opt "ICP"},0:nat64,5:nat64)' 
-dfx canister call  $HUB_CANISTER_ID query_directives '(opt "eICP",null,0:nat64,12:nat64)' 
+# dfx canister call  $HUB_CANISTER_ID query_directives '(opt "eICP",null,0:nat64,12:nat64)' 
+
+# profile the perf_query_directive_on_local
+export timestamp=$(date -u +%s)
+ic-repl ./perf_query_directive_on_local.sh;
+
 
 # A-B tansfer/redeem
 # transfer from Bitcoin to Arbitrum
@@ -127,8 +136,8 @@ ic-repl ./perf_query_ticket_on_local.sh;
 
 
 # change log level
-echo "change log level to error!"
-dfx canister call  $HUB_CANISTER_ID set_logger_filter '("error")'
+echo "change log level to info!"
+dfx canister call  $HUB_CANISTER_ID set_logger_filter '("info")'
 
 # redeem from  Arbitrum to Bitcoin
 dfx canister call  $HUB_CANISTER_ID send_ticket '(record { ticket_id = "f8aee1cc-db7a-40ea-80c2-4cf5e6c84c21";  ticket_type = variant { Normal };  ticket_time = 1715654809737051179 : nat64; token = "Bitcoin-runes-HOPE•YOU•GET•RICH"; amount = "88888"; src_chain = "Arbitrum"; dst_chain = "Bitcoin"; action = variant { Redeem }; sender = opt "address_on_Arbitrum"; receiver = "address_on_Bitcoin"; memo = null;})'
@@ -140,6 +149,11 @@ ic-repl ./perf_send_ticket_on_local.sh;
 # profile the query_ticket
 export timestamp=$(date -u +%s)
 ic-repl ./perf_query_ticket_on_local.sh;
+
+# profile the perf_query_directive_on_local
+export timestamp=$(date -u +%s)
+ic-repl ./perf_query_directive_on_local.sh;
+
 
 # dfx canister call  $HUB_CANISTER_ID query_tickets '(opt "Arbitrum",0:nat64,5:nat64)'
 # dfx canister call  $HUB_CANISTER_ID get_chain_tokens '(opt "Arbitrum",null,0:nat64,5:nat64)'

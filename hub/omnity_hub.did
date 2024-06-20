@@ -176,7 +176,7 @@ service : (HubArg) -> {
   get_directives : (nat64, nat64) -> (Result_6) query;
   get_events : (GetEventsArg) -> (vec Event) query;
   get_fees : (opt text, opt text, nat64, nat64) -> (Result_7) query;
-  get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
+  get_stable_logs : (opt nat64, nat64, nat64) -> (vec text) query;
   get_token_metas : (nat64, nat64) -> (Result_8) query;
   get_token_size : () -> (Result_3) query;
   get_tokens : (opt text, opt text, nat64, nat64) -> (Result_9) query;
@@ -201,15 +201,16 @@ service : (HubArg) -> {
     ) -> (Result_11) query;
   handle_chain : (vec Proposal) -> (Result);
   handle_token : (vec Proposal) -> (Result);
-  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_12) query;
+  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_12);
   query_subscribers : (opt Topic) -> (Result_13) query;
-  query_tickets : (opt text, nat64, nat64) -> (Result_14) query;
+  query_tickets : (opt text, nat64, nat64) -> (Result_14);
   resubmit_ticket : (Ticket) -> (Result);
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
   sub_directives : (opt text, vec Topic) -> (Result);
   sync_ticket_size : () -> (Result_3) query;
   sync_tickets : (nat64, nat64) -> (Result_14) query;
+  take_memory_logs : (nat64, nat64) -> (vec text) query;
   unsub_directives : (opt text, vec Topic) -> (Result);
   update_fee : (vec Factor) -> (Result);
   validate_proposal : (vec Proposal) -> (Result_15) query;

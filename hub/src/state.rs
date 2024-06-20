@@ -480,15 +480,25 @@ impl HubState {
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Directive)>, Error> {
-        Ok(self
-            .dire_queue
-            .iter()
-            .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
-            .filter(|(_, dire)| topic.clone().map_or(true, |t| dire.to_topic() == t))
-            .skip(offset)
-            .take(limit)
-            .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
-            .collect::<Vec<_>>())
+        match topic {
+            Some(topic) => Ok(self
+                .dire_queue
+                .iter()
+                .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
+                .filter(|(_, dire)| dire.to_topic() == topic)
+                .skip(offset)
+                .take(limit)
+                .map(|(seq_key, dire)| (seq_key.seq, dire))
+                .collect::<Vec<_>>()),
+            None => Ok(self
+                .dire_queue
+                .iter()
+                .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
+                .skip(offset)
+                .take(limit)
+                .map(|(seq_key, dire)| (seq_key.seq, dire))
+                .collect::<Vec<_>>()),
+        }
     }
 
     pub fn add_token_position(&mut self, position: TokenKey, amount: u128) -> Result<(), Error> {

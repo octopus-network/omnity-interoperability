@@ -168,7 +168,7 @@ impl LoggerConfigService {
 
 pub fn init_log(stable_log: Option<StableBTreeMap<Vec<u8>, Vec<u8>, VMem>>) {
     let settings = LogSettings {
-        in_memory_records: None,
+        in_memory_records: Some(1024),
         log_filter: Some("info".to_string()),
         enable_console: true,
     };

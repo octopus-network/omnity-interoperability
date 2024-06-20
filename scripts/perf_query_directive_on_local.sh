@@ -4,11 +4,11 @@ load "./process";
 identity private "identity.pem";
 let file = "perf.md";
 
-call cid.query_tickets(opt "Bitcoin" ,0 ,12);
-output(file, stringify("\n## The cost of query_ticket: ",__cost__, "\n"));
-let svg = stringify("The query_ticket Profiling-", $timestamp,".svg");
-let query_ticket_cost = flamegraph(cid, "The query_ticket Profiling", svg);
-output(file, stringify("\n## The cost of latest update call for query_ticket: ",query_ticket_cost, "\n"));
+call cid.query_directives(opt "eICP",null,0,12);
+output(file, stringify("\n## The cost of query_directives: ",__cost__, "\n"));
+let svg = stringify("The query_directives Profiling-", $timestamp,".svg");
+let query_directives_cost = flamegraph(cid, "The query_directives Profiling", svg);
+output(file, stringify("\n## The cost of latest update call for query_directives: ",query_directives_cost, "\n"));
 
 
 

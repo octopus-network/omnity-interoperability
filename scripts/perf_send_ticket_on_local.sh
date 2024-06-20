@@ -3,7 +3,16 @@
 load "./process";
 identity private "identity.pem";
 let file = "perf.md";
-// call cid.__toggle_tracing();
+
+//call cid.send_ticket(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc0247828f"; ticket_type = variant { Normal }; ticket_time = 1715654809737051178 : nat64; token = "Bitcoin-runes-HOPE•YOU•GET•RICH"; amount = "88888"; src_chain = "Bitcoin"; dst_chain = "Arbitrum"; action = variant { Transfer }; sender = opt "address_on_Bitcoin"; receiver = "address_on_Arbitrum"; memo = null; });
+//output(file, stringify("\n## The cost of send_ticket: ",__cost__, "\n"));
+
+let svg = stringify("The send_ticket Profiling-", $timestamp,".svg");
+let send_ticket_cost = flamegraph(cid, "The send_ticket Profiling", svg);
+output(file, stringify("\n## The cost of latest update call for send_ticket: ",send_ticket_cost, "\n"));
+
+
+
 let process = "process";
 let status = call ic.canister_status(record { canister_id = cid });
 let current_cycles = status.cycles;
@@ -30,20 +39,4 @@ output(file, stringify("> *  settings.memory_allocation : ",status.settings.memo
 output(file, stringify("> *  settings.compute_allocation : ",status.settings.compute_allocation, "\n"));
 output(file, stringify("> *  idle_cycles_burned_per_day : ",status.idle_cycles_burned_per_day, "\n"));
 output(file, stringify("> *  module_hash : ",status.module_hash, "\n"));
-
-//call cid.__get_cycles();
-let svg = stringify("The send_ticket Profiling-", $timestamp,".svg");
-let send_ticket_cost = flamegraph(cid, "The send_ticket Profiling", svg);
-output(file, stringify("\n## The cost of latest update call for send_ticket: ",send_ticket_cost, "\n"));
-
-
-// enable tracing clear 
-//call cid.__toggle_entry();
-// disable tracing
-//call cid.__toggle_tracing();
-// enable tracing
-//call cid.__toggle_tracing();
-// disable tracing clear
-//call cid.__toggle_entry();
-
 

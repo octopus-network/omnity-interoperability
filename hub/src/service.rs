@@ -1,14 +1,13 @@
 use crate::memory::init_stable_log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
-#[cfg(feature = "profiling")]
 use ic_stable_structures::Memory;
 use log::debug;
 use omnity_hub::auth::{auth, is_admin};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
-#[cfg(feature = "profiling")]
 use omnity_hub::memory::get_profiling_memory;
+
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::proposal;
 use omnity_hub::state::{with_state, with_state_mut};
@@ -29,10 +28,8 @@ use omnity_hub::state::HubState;
 #[init]
 fn init(args: HubArg) {
     // init profiling memory
-    #[cfg(feature = "profiling")]
     let memory = get_profiling_memory();
-    // Increase the page number if you need larger log space
-    #[cfg(feature = "profiling")]
+    // Increase the page number if you need larger log space\
     memory.grow(4096);
 
     match args {
@@ -183,7 +180,7 @@ pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
 }
 
 /// query tickets for chain id,this method will be called by route and custom
-#[update(guard = "auth")]
+#[query(guard = "auth")]
 pub async fn query_tickets(
     chain_id: Option<ChainId>,
     offset: usize,
@@ -290,9 +287,18 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 }
 
 #[query]
-pub async fn get_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
+pub async fn get_stable_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
     let max_skip_timestamp = time.unwrap_or(0);
     StableLogWriter::get_logs(max_skip_timestamp, offset, limit)
+}
+
+#[query]
+pub async fn take_memory_logs(max_count: usize, limit: usize) -> Vec<String> {
+    ic_log::take_memory_records(max_count, limit)
+        .logs
+        .iter()
+        .map(|log| log.log.to_string())
+        .collect()
 }
 
 #[query]
@@ -1375,7 +1381,7 @@ mod tests {
         add_chains().await;
         // add token
         add_tokens().await;
-        
+
         // A->B: `transfer` ticket
         let src_chain = "Bitcoin";
         // let dst_chain = "Bitcoin";
