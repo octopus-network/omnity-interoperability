@@ -1,8 +1,10 @@
+use crate::auth::Permission;
 use crate::event::{record_event, Event};
 use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
+use crate::migration::{migrate, PreHubState};
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
@@ -44,10 +46,12 @@ pub struct HubState {
     pub token_position: StableBTreeMap<TokenKey, Amount, Memory>,
     #[serde(skip, default = "memory::init_ledger")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
+
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
     pub admin: Principal,
-    pub authorized_caller: HashMap<String, ChainId>,
+    pub caller_chain_map: HashMap<String, ChainId>,
+    pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
 }
 
@@ -67,7 +71,8 @@ impl From<InitArgs> for HubState {
             directive_seq: HashMap::default(),
             ticket_seq: HashMap::default(),
             admin: args.admin,
-            authorized_caller: HashMap::default(),
+            caller_chain_map: HashMap::default(),
+            caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             last_resubmit_ticket_time: 0,
         }
     }
@@ -126,16 +131,22 @@ impl HubState {
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
 
-        // Deserialize and set the state.
-        let mut state: HubState =
+        // Deserialize pre state
+        let pre_state: PreHubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+
+        // migrate pre state to current state
+        let mut cur_state = migrate(pre_state);
 
         if let Some(args) = args {
             match args {
                 HubArg::Upgrade(upgrade_args) => {
                     if let Some(args) = upgrade_args {
                         if let Some(admin) = args.admin {
-                            state.admin = admin;
+                            cur_state
+                                .caller_perms
+                                .insert(admin.to_string(), Permission::Update);
+                            cur_state.admin = admin;
                         }
                         record_event(&Event::Upgrade(args));
                     }
@@ -144,11 +155,13 @@ impl HubState {
             };
         }
 
-        set_state(state);
+        set_state(cur_state);
     }
 
     pub fn upgrade(&mut self, args: UpgradeArgs) {
         if let Some(admin) = args.admin {
+            self.caller_perms
+                .insert(admin.to_string(), Permission::Update);
             self.admin = admin;
         }
     }
@@ -182,8 +195,11 @@ impl HubState {
         self.chains
             .insert(chain.chain_id.to_string(), chain.clone());
         // update auth
-        self.authorized_caller
+        self.caller_perms
+            .insert(chain.canister_id.to_string(), Permission::Update);
+        self.caller_chain_map
             .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
+
         record_event(&Event::UpdatedChain(chain.clone()));
         // update counterparties
         if let Some(counterparties) = chain.counterparties {

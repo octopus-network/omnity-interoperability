@@ -76,6 +76,7 @@ type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type GetEventsArg = record { start : nat64; length : nat64 };
 type HubArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type InitArgs = record { admin : principal };
+type Permission = variant { Update; Query };
 type Proposal = variant {
   UpdateChain : Chain;
   UpdateFee : Factor;
@@ -207,6 +208,7 @@ service : (HubArg) -> {
   resubmit_ticket : (Ticket) -> (Result);
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
+  set_permissions : (principal, vec Permission) -> ();
   sub_directives : (opt text, vec Topic) -> (Result);
   sync_ticket_size : () -> (Result_3) query;
   sync_tickets : (nat64, nat64) -> (Result_14) query;

@@ -5,7 +5,7 @@ use crate::{
 };
 
 use ic_stable_structures::StableBTreeMap;
-use log::{error, debug};
+use log::{debug, error};
 use omnity_types::{
     Account, Chain, ChainId, ChainState, ChainType, Directive, Error, Ticket, TicketId, Token,
     TokenId, TokenOnChain,
@@ -451,7 +451,7 @@ pub fn get_chain_id(chain_id: Option<ChainId>) -> Result<ChainId, Error> {
     } else {
         let chain_id = with_state(|hs| {
             let caller = ic_cdk::api::caller().to_string();
-            if let Some(chain_id) = hs.authorized_caller.get(&caller) {
+            if let Some(chain_id) = hs.caller_chain_map.get(&caller) {
                 Ok(chain_id.to_string())
             } else {
                 error!("not found chain id for caller:{:?}", caller);
