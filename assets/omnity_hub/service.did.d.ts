@@ -168,7 +168,8 @@ export type Topic = { 'UpdateFee' : null } |
   { 'AddChain' : null } |
   { 'ToggleChainState' : null };
 export type TxAction = { 'Redeem' : null } |
-  { 'Transfer' : null };
+  { 'Transfer' : null}|
+    { 'Burn' : null };
 export interface UpgradeArgs { 'admin' : [] | [Principal] }
 export interface _SERVICE {
   'execute_proposal' : ActorMethod<[Array<Proposal>], Result>,

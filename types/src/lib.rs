@@ -335,6 +335,7 @@ pub enum TxAction {
     #[default]
     Transfer,
     Redeem,
+    Burn,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]

@@ -131,7 +131,7 @@ dfx canister call omnity_hub query_directives '(opt "eICP",null,0:nat64,12:nat64
 
 # A-B tansfer/redeem
 # transfer from Bitcoin to Arbitrum
-dfx canister call omnity_hub send_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc0247828f"; ticket_type = variant { Normal }; ticket_time = 1715654809737051178 : nat64; token = "Bitcoin-runes-HOPE•YOU•GET•RICH"; amount = "88888"; src_chain = "Bitcoin"; dst_chain = "Arbitrum"; action = variant { Transfer }; sender = opt "address_on_Bitcoin"; receiver = "address_on_Arbitrum"; memo = null; })'
+dfx canister call omnity_hub send_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc0247828f"; ticket_type = variant { Burn }; ticket_time = 1715654809737051178 : nat64; token = "Bitcoin-runes-HOPE•YOU•GET•RICH"; amount = "88888"; src_chain = "Bitcoin"; dst_chain = "Arbitrum"; action = variant { Transfer }; sender = opt "address_on_Bitcoin"; receiver = "address_on_Arbitrum"; memo = null; })'
 dfx canister call omnity_hub query_tickets '(opt "Arbitrum",0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(null,null,0:nat64,5:nat64)'
 
@@ -144,7 +144,7 @@ dfx canister call omnity_hub get_chain_tokens '(opt "Bitcoin",null,0:nat64,5:nat
 
 # A-B-C tansfer/redeem
 # transfer from Ethereum to Optimistic
-dfx canister call omnity_hub send_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc024782e8f";  ticket_type = variant { Normal };  ticket_time = 1715654809737051180 : nat64; token = "ETH"; amount = "6666"; src_chain = "Ethereum"; dst_chain = "Optimistic"; action = variant { Transfer }; sender = opt "address_on_Ethereum"; receiver = "address_on_Optimistic"; memo = null;})'
+dfx canister call omnity_hub send_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc024782e8f";  ticket_type = variant { Burn };  ticket_time = 1715654809737051180 : nat64; token = "ETH"; amount = "6666"; src_chain = "Ethereum"; dst_chain = "Optimistic"; action = variant { Transfer }; sender = opt "address_on_Ethereum"; receiver = "address_on_Optimistic"; memo = null;})'
 dfx canister call omnity_hub query_tickets '(opt "Optimistic",0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(opt "Optimistic",null,0:nat64,5:nat64)'
 

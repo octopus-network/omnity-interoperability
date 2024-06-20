@@ -61,7 +61,7 @@ type Topic = variant {
   DeactivateChain;
   AddChain : opt ChainType;
 };
-type TxAction = variant { Redeem; Transfer };
+type TxAction = variant { Redeem; Transfer; Burn };
 service : () -> {
   push_directive : (Directive) -> (Result);
   push_ticket : (Ticket) -> (Result);

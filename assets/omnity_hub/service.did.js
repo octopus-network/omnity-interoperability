@@ -116,7 +116,7 @@ export const idlFactory = ({ IDL }) => {
     'ToggleChainState' : ToggleState,
   });
   const SeqKey = IDL.Record({ 'seq' : IDL.Nat64, 'chain_id' : IDL.Text });
-  const TxAction = IDL.Variant({ 'Redeem' : IDL.Null, 'Transfer' : IDL.Null });
+  const TxAction = IDL.Variant({ 'Redeem' : IDL.Null, 'Transfer' : IDL.Null, 'Burn' : IDL.Null });
   const TicketType = IDL.Variant({
     'Resubmit' : IDL.Null,
     'Normal' : IDL.Null,
