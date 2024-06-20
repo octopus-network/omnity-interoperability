@@ -1,8 +1,5 @@
 use candid::{Decode, Encode, Nat, Principal};
 use ic_base_types::{CanisterId, PrincipalId};
-use ic_cdk::api::management_canister::main::{
-    CanisterInfoRequest, CanisterInfoResponse
-};
 use ic_ic00_types::CanisterSettingsArgsBuilder;
 use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
@@ -15,7 +12,6 @@ use icp_route::{
     TokenResp, FEE_COLLECTOR_SUB_ACCOUNT,
 };
 use icrc_ledger_types::{
-    icrc::generic_value::Value,
     icrc1::{
         account::{Account, Subaccount},
         transfer::{TransferArg, TransferError},
@@ -324,26 +320,6 @@ impl RouteSetup {
         .unwrap();
     }
 
-    pub fn canister_info(&self, arg: CanisterInfoRequest) -> CanisterInfoResponse {
-        let management_principal = Principal::management_canister();
-        let canister_id = CanisterId::unchecked_from_principal(management_principal.into());
-        // let route_principle = self.route_id
-        Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        self.route_id.into(),
-                        canister_id,
-                        "canister_info",
-                        Encode!(&arg).unwrap(),
-                    )
-                    .expect("failed to get token ledger")
-            ),
-            CanisterInfoResponse
-        )
-        .unwrap()
-    }
-
     pub fn get_token_ledger(&self, token_id: String) -> CanisterId {
         let ledger_id = Decode!(
             &assert_reply(
@@ -419,23 +395,6 @@ impl RouteSetup {
                     .expect("failed to get token ledger")
             ),
             Nat
-        )
-        .unwrap()
-    }
-
-    pub fn icrc1_metadata(&self, ledger_id: CanisterId) -> Vec<(String, Value)> {
-        Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        self.caller,
-                        ledger_id,
-                        "icrc1_metadata",
-                        Encode!().unwrap(),
-                    )
-                    .expect("failed to get token ledger")
-            ),
-            Vec<(String, Value)>
         )
         .unwrap()
     }
@@ -526,8 +485,7 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
     route.env.advance_time(Duration::from_secs(10));
     route.await_token(token_id, 10);
 
-    let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
-
+    let _ = route.get_token_ledger(TOKEN_ID1.into());
 }
 
 fn set_fee(route: &RouteSetup) {
