@@ -101,23 +101,23 @@ pub async fn generate_ticket(
         action,
         token: req.token_id.clone(),
         amount: req.amount.to_string(),
-        sender: None,
+        sender: Some(caller.to_string()),
         receiver: req.receiver.clone(),
         memo: None,
     };
-    let result = hub::send_ticket(hub_principal, ticket.clone())
-        .await
-        .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)));
-
-    if let Err(err) = result {
-        mutate_state(|state| {
-            state.failed_tickets.push(ticket.clone());
-        });
-        return Err(err);
+    match hub::send_ticket(hub_principal, ticket.clone()).await {
+        Err(err) => {
+            mutate_state(|s| {
+                s.failed_tickets.push(ticket.clone());
+            });
+            log::error!("failed to send ticket: {}", ticket_id);
+            Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
+        }
+        Ok(()) => {
+            audit::finalize_gen_ticket(ticket_id.clone(), req);
+            Ok(GenerateTicketOk { ticket_id })
+        }
     }
-
-    audit::finalize_gen_ticket(ticket_id.clone(), req);
-    Ok(GenerateTicketOk { ticket_id })
 }
 
 async fn burn_token_icrc2(

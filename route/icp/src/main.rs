@@ -93,27 +93,25 @@ pub async fn remove_controller(
 }
 
 #[update(guard = "is_controller")]
-pub async fn retry_send_ticket() -> Result<(), String> {
-    let opt_ticket = mutate_state(|rs| rs.failed_tickets.pop());
+pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
+    let tickets_sz = read_state(|s| s.failed_tickets.len());
+    while !read_state(|s| s.failed_tickets.is_empty()) {
+        let ticket = mutate_state(|rs| rs.failed_tickets.pop()).unwrap();
 
-    if let Some(ticket) = opt_ticket {
         let hub_principal = read_state(|s| (s.hub_principal));
-        let result = hub::send_ticket(hub_principal, ticket.clone())
+        if let Err(err) = hub::send_ticket(hub_principal, ticket.clone())
             .await
             .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))
-            .map_err(|err| format!("{:?}", err));
-
-        if let Err(err) = result {
+        {
             mutate_state(|state| {
                 state.failed_tickets.push(ticket.clone());
             });
+            log::error!("failed to resend ticket: {}", ticket.ticket_id);
             return Err(err);
         }
-
-        Ok(())
-    } else {
-        Err("No failed ticket".into())
     }
+    log::info!("successfully resend {} tickets", tickets_sz);
+    Ok(())
 }
 
 #[query]
