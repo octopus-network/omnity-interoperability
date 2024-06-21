@@ -245,16 +245,24 @@ impl Ticket {
                 .clone()
         });
         let dst_chain = token.token_id_info()[0].to_string();
+        let tx_action = if token_burned.receiver == "0" {
+            TxAction::Burn
+        } else {
+            TxAction::Redeem
+        };
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),
             ticket_type: TicketType::Normal,
             src_chain,
             dst_chain,
-            action: TxAction::Redeem,
+            action: tx_action,
             token: token_burned.token_id,
             amount: token_burned.amount.to_string(),
-            sender: None,
+            sender: Some(format!(
+                "0x{}",
+                hex::encode(token_burned.sender.0.as_slice())
+            )),
             receiver: token_burned.receiver,
             memo: None,
         }
@@ -275,7 +283,10 @@ impl Ticket {
             action: TxAction::Transfer,
             token: token_transport_requested.token_id.to_string(),
             amount: token_transport_requested.amount.to_string(),
-            sender: None,
+            sender: Some(format!(
+                "0x{}",
+                hex::encode(token_transport_requested.sender.0.as_slice())
+            )),
             receiver: token_transport_requested.receiver,
             memo: Some(token_transport_requested.memo.into_bytes()),
         }
@@ -415,6 +426,7 @@ pub enum TxAction {
     #[default]
     Transfer,
     Redeem,
+    Burn,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]

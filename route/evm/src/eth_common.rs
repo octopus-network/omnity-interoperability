@@ -9,16 +9,18 @@ use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
 use ethers_core::types::{Eip1559TransactionRequest, TransactionRequest, U256};
 use ethers_core::utils::keccak256;
-use evm_rpc::{MultiRpcResult, RpcServices};
 use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
+use evm_rpc::{MultiRpcResult, RpcServices};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use log::{error, info};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{Error, state};
-use crate::const_args::{BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT, GET_ACCOUNT_NONCE_CYCLES};
+use crate::const_args::{
+    BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT, GET_ACCOUNT_NONCE_CYCLES,
+};
 use crate::eth_common::EvmAddressError::LengthError;
+use crate::{state, Error};
 
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
 pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
@@ -77,8 +79,8 @@ impl TryFrom<Vec<u8>> for EvmAddress {
 
 #[cfg(not(feature = "legacy_tx"))]
 pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<Vec<u8>> {
-    use ethers_core::types::Signature;
     use crate::const_args::EIP1559_TX_ID;
+    use ethers_core::types::Signature;
     let mut unsigned_tx_bytes = tx.rlp().to_vec();
     unsigned_tx_bytes.insert(0, EIP1559_TX_ID);
     let txhash = keccak256(&unsigned_tx_bytes);
@@ -88,7 +90,7 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<V
         key_id: crate::state::key_id(),
     };
     // The signatures are encoded as the concatenation of the 32-byte big endian encodings of the two values r and s.
-    let (r, ) = sign_with_ecdsa(arg)
+    let (r,) = sign_with_ecdsa(arg)
         .await
         .map_err(|(_, e)| super::Error::ChainKeyError(e))?;
     let signature = Signature {

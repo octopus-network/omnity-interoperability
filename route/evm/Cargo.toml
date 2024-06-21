@@ -5,9 +5,10 @@ edition = "2021"
 
 [lib]
 crate-type = ["cdylib"]
+
 [features]
-default = []
 legacy_tx = []
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11"
