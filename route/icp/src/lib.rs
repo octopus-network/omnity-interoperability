@@ -10,6 +10,7 @@ use updates::mint_token::{MintTokenError, MintTokenRequest};
 pub mod call_error;
 pub mod guard;
 pub mod hub;
+pub mod legacy;
 pub mod lifecycle;
 pub mod memory;
 pub mod state;

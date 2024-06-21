@@ -1,9 +1,7 @@
 use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
-use ic_cdk::api::call::call;
 use ic_cdk::api::management_canister::main::{
-    canister_info, update_settings, CanisterIdRecord, CanisterInfoRequest, CanisterSettings,
-    CanisterStatusResponse, UpdateSettingsArgument,
+    canister_info, update_settings, CanisterInfoRequest, CanisterSettings, UpdateSettingsArgument,
 };
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
@@ -13,13 +11,12 @@ use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
 use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
-use icp_route::state::{read_state, take_state, MintTokenStatus};
-use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
+use icp_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
 use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
+use icp_route::{hub, periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::time::Duration;
@@ -60,83 +57,6 @@ pub fn is_controller() -> Result<(), String> {
 }
 
 #[update(guard = "is_controller")]
-async fn stop_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
-    let args = CanisterIdRecord {
-        canister_id: icrc_canister_id,
-    };
-
-    call(Principal::management_canister(), "stop_canister", (args,))
-        .await
-        .and_then(|((),)| Ok(()))
-        .map_err(|(_, reason)| reason)
-}
-
-#[update(guard = "is_controller")]
-async fn start_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
-    let args = CanisterIdRecord {
-        canister_id: icrc_canister_id,
-    };
-
-    call(Principal::management_canister(), "start_canister", (args,))
-        .await
-        .and_then(|((),)| Ok(()))
-        .map_err(|(_, reason)| reason)
-}
-
-#[update(guard = "is_controller")]
-async fn delete_controlled_canister(icrc_canister_id: Principal) -> Result<(), String> {
-    let args = CanisterIdRecord {
-        canister_id: icrc_canister_id,
-    };
-    call(Principal::management_canister(), "delete_canister", (args,))
-        .await
-        .and_then(|((),)| Ok(()))
-        .map_err(|(_, reason)| reason)
-}
-
-#[update(guard = "is_controller")]
-pub async fn controlled_canister_status(
-    icrc_canister_id: Principal,
-) -> Result<CanisterStatusResponse, String> {
-    let args = CanisterIdRecord {
-        canister_id: icrc_canister_id,
-    };
-    call(Principal::management_canister(), "canister_status", (args,))
-        .await
-        .and_then(|(e,)| Ok(e))
-        .map_err(|(_, reason)| reason)
-}
-
-#[update(guard = "is_controller")]
-pub async fn add_controller(canister_id: Principal, controller: Principal) -> Result<(), String> {
-    let args = CanisterInfoRequest {
-        canister_id,
-        num_requested_changes: None,
-    };
-
-    let canister_info = canister_info(args).await.map_err(|(_, reason)| reason)?;
-
-    let mut controllers = canister_info.0.controllers;
-
-    if !controllers.contains(&controller) {
-        controllers.push(controller);
-        let args = UpdateSettingsArgument {
-            canister_id,
-            settings: CanisterSettings {
-                controllers: Some(controllers),
-                compute_allocation: None,
-                memory_allocation: None,
-                freezing_threshold: None,
-                reserved_cycles_limit: None,
-            },
-        };
-        return update_settings(args).await.map_err(|(_, reason)| reason);
-    } else {
-        Ok(())
-    }
-}
-
-#[update(guard = "is_controller")]
 pub async fn remove_controller(
     canister_id: Principal,
     controller: Principal,
@@ -173,15 +93,25 @@ pub async fn remove_controller(
 }
 
 #[update(guard = "is_controller")]
-pub async fn update_icrc_ledger(
-    ledger_id: Principal,
-    upgrade_args: ic_icrc1_ledger::UpgradeArgs,
-) -> Result<(), String> {
-    if !read_state(|s| s.token_ledgers.iter().any(|(_, id)| *id == ledger_id)) {
-        return Err("leder id not found!".into());
-    }
+pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
+    let tickets_sz = read_state(|s| s.failed_tickets.len());
+    while !read_state(|s| s.failed_tickets.is_empty()) {
+        let ticket = mutate_state(|rs| rs.failed_tickets.pop()).unwrap();
 
-    upgrade_icrc2_ledger(ledger_id, upgrade_args).await
+        let hub_principal = read_state(|s| (s.hub_principal));
+        if let Err(err) = hub::send_ticket(hub_principal, ticket.clone())
+            .await
+            .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))
+        {
+            mutate_state(|state| {
+                state.failed_tickets.push(ticket.clone());
+            });
+            log::error!("failed to resend ticket: {}", ticket.ticket_id);
+            return Err(err);
+        }
+    }
+    log::info!("successfully resend {} tickets", tickets_sz);
+    Ok(())
 }
 
 #[query]
