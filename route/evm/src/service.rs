@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::time::Duration;
 
 use candid::{CandidType, Principal};
@@ -14,13 +15,14 @@ use serde_derive::{Deserialize, Serialize};
 use crate::const_args::{
     FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL,
 };
+use crate::eth_common::EvmAddress;
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::fetch_hub_periodic_task;
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    init_chain_pubkey, mutate_state, read_state, replace_state, EvmRouteState, StateProfile,
+    EvmRouteState, init_chain_pubkey, mutate_state, read_state, replace_state, StateProfile,
 };
 use crate::types::{
     Chain, ChainId, Directive, MintTokenStatus, Network, PendingDirectiveStatus,
@@ -96,10 +98,16 @@ async fn pubkey_and_evm_addr() -> (String, String) {
     (key_str, addr)
 }
 
-#[query]
+#[update(guard = "is_admin")]
+fn set_port_address(port_addr: String) {
+    mutate_state(|s| s.omnity_port_contract = EvmAddress::from_str(port_addr.as_str()).unwrap())
+}
+
+#[query(guard = "is_admin")]
 fn route_state() -> StateProfile {
     read_state(|s| StateProfile::from(s))
 }
+
 #[query(guard = "is_admin")]
 fn query_pending_ticket(from: usize, limit: usize) -> Vec<(TicketId, PendingTicketStatus)> {
     read_state(|s| {
