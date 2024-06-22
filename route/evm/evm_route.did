@@ -123,7 +123,7 @@ type TokenResp = record {
   rune_id : opt text;
   symbol : text;
 };
-type TxAction = variant { Redeem; Transfer };
+type TxAction = variant { Burn; Redeem; Transfer };
 service : (InitArgs) -> {
   get_chain_list : () -> (vec Chain) query;
   get_fee : (text) -> (opt nat64) query;
@@ -143,6 +143,7 @@ service : (InitArgs) -> {
   resend_directive : (nat64) -> ();
   resend_ticket : (nat64) -> ();
   route_state : () -> (StateProfile) query;
+  set_port_address : (text) -> ();
   set_scan_height : (nat64) -> (opt nat64);
   update_admin : (principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
