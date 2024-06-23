@@ -2,7 +2,7 @@
 
 set -euo pipefail
 trap "echo 'error: Script failed: see failed command above'" ERR
-
+export DFX_WARNING="-mainnet_plaintext_identity"
 ID=vp-test
 
 # deploy hub
@@ -138,3 +138,15 @@ dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:na
 
 CURRENT_BALANCE="$(dfx canister status omnity_hub --ic --identity $ID 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
 echo "canister current balance: $CURRENT_BALANCE cycles"
+
+dfx canister call omnity_hub query_directives_instructions '(opt "eICP",null,0:nat64,12:nat64)' --ic --identity $ID
+dfx canister call omnity_hub query_directives_instructions '(opt "eICP",null,12:nat64,24:nat64)' --ic --identity $ID
+
+# dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,0:nat64,12:nat64)' --ic --identity $ID
+# dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,12:nat64,24:nat64)' --ic --identity $ID
+
+dfx canister call omnity_hub query_tickets_instructions '(opt "Bitcoin",0:nat64,6:nat64)' --ic --identity $ID
+dfx canister call omnity_hub query_tickets_instructions '(opt "Bitcoin",6:nat64,12:nat64)' --ic --identity $ID
+
+# dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",0:nat64,6:nat64)' --ic --identity $ID
+# dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",6:nat64,12:nat64)' --ic --identity $ID

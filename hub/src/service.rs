@@ -25,6 +25,8 @@ use omnity_types::{
 
 use omnity_hub::state::HubState;
 
+use ic_cdk::api::performance_counter;
+
 #[init]
 fn init(args: HubArg) {
     // init profiling memory
@@ -180,7 +182,7 @@ pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
 }
 
 /// query tickets for chain id,this method will be called by route and custom
-#[query(guard = "auth")]
+#[query]
 pub async fn query_tickets(
     chain_id: Option<ChainId>,
     offset: usize,
@@ -344,6 +346,79 @@ pub async fn sync_ticket_size() -> Result<u64, Error> {
 #[query]
 pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
     with_metrics(|metrics| metrics.sync_tickets(offset, limit))
+}
+
+#[query]
+pub async fn query_directives_instructions(
+    chain_id: Option<ChainId>,
+    topic: Option<Topic>,
+    offset: usize,
+    limit: usize,
+) -> u64 {
+    debug!(
+        "query directive instructions for chain: {:?}, with topic: {:?} ",
+        chain_id, topic
+    );
+
+    let dst_chain_id = metrics::get_chain_id(chain_id).unwrap();
+    let result =
+        with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit));
+    debug!("query directive reuslt:{:?} ", result);
+    performance_counter(0)
+}
+
+#[query(composite = true)]
+pub async fn mock_call_query_directives(
+    chain_id: Option<ChainId>,
+    topic: Option<Topic>,
+    offset: usize,
+    limit: usize,
+) -> (u64, u64) {
+    debug!(
+        "mock call query directive for chain: {:?}, with topic: {:?} ",
+        chain_id, topic
+    );
+
+    // let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    // with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit))
+    let result: (Result<Vec<(Seq, Directive)>, Error>,) = ic_cdk::call(
+        ic_cdk::id(),
+        "query_directives",
+        (chain_id, topic, offset, limit),
+    )
+    .await
+    .unwrap();
+
+    debug!("mock call query directive result {:?} ", result.0);
+    (performance_counter(0), performance_counter(1))
+}
+
+#[query]
+pub async fn query_tickets_instructions(
+    chain_id: Option<ChainId>,
+    offset: usize,
+    limit: usize,
+) -> u64 {
+    let dst_chain_id = metrics::get_chain_id(chain_id).unwrap();
+    let result = with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit));
+    debug!("query_tickets instructions result {:?} ", result);
+    performance_counter(0)
+}
+
+#[query(composite = true)]
+pub async fn mock_call_query_tickets(
+    chain_id: Option<ChainId>,
+    offset: usize,
+    limit: usize,
+) -> (u64, u64) {
+    // let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    // with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
+    let result: (Result<Vec<(Seq, Ticket)>, Error>,) =
+        ic_cdk::call(ic_cdk::id(), "query_tickets", (chain_id, offset, limit))
+            .await
+            .unwrap();
+    debug!("mock call query tickets result {:?} ", result.0);
+    (performance_counter(0), performance_counter(1))
 }
 
 fn main() {}

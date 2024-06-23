@@ -201,9 +201,21 @@ service : (HubArg) -> {
     ) -> (Result_11) query;
   handle_chain : (vec Proposal) -> (Result);
   handle_token : (vec Proposal) -> (Result);
-  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_12);
+  mock_call_query_directives : (opt text, opt Topic, nat64, nat64) -> (
+      nat64,
+      nat64,
+    ) composite_query;
+  mock_call_query_tickets : (opt text, nat64, nat64) -> (
+      nat64,
+      nat64,
+    ) composite_query;
+  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_12) query;
+  query_directives_instructions : (opt text, opt Topic, nat64, nat64) -> (
+      nat64,
+    ) query;
   query_subscribers : (opt Topic) -> (Result_13) query;
-  query_tickets : (opt text, nat64, nat64) -> (Result_14);
+  query_tickets : (opt text, nat64, nat64) -> (Result_14) query;
+  query_tickets_instructions : (opt text, nat64, nat64) -> (nat64) query;
   resubmit_ticket : (Ticket) -> (Result);
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();

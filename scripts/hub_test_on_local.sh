@@ -23,10 +23,10 @@ echo "canister current balance: $INIT_BALANCE cycles "
 
 
 # deploy the bitcoin custom canister
-dfx deploy bitcoin_mock --argument '(null)' --mode reinstall -y
+# dfx deploy bitcoin_mock --argument '(null)' --mode reinstall -y
 
 # deploy the icp route canister
-dfx deploy icp_mock --mode reinstall -y
+# dfx deploy icp_mock --mode reinstall -y
 
 # sub topic
 dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
@@ -174,12 +174,24 @@ dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:na
 
 
 # must build 
-dfx build omnity_hub
+# dfx build omnity_hub
 # upgrade canister
-dfx canister install --mode upgrade --argument '(variant { Upgrade = null })' --yes omnity_hub 
+# dfx canister install --mode upgrade --argument '(variant { Upgrade = null })' --yes omnity_hub 
 dfx canister call omnity_hub sync_ticket_size '()'
 dfx canister call omnity_hub sync_tickets '(0:nat64,12:nat64)'
 # dfx stop
 
 CURRENT_BALANCE="$(dfx canister status omnity_hub 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
 echo "canister current balance: $CURRENT_BALANCE cycles"
+
+dfx canister call omnity_hub query_directives_instructions '(opt "eICP",null,0:nat64,12:nat64)'
+dfx canister call omnity_hub query_directives_instructions '(opt "eICP",null,12:nat64,24:nat64)'
+
+dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,0:nat64,12:nat64)'
+dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,12:nat64,24:nat64)'
+
+dfx canister call omnity_hub query_tickets_instructions '(opt "Bitcoin",0:nat64,6:nat64)'
+dfx canister call omnity_hub query_tickets_instructions '(opt "Bitcoin",6:nat64,12:nat64)'
+
+dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",0:nat64,6:nat64)'
+dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",6:nat64,12:nat64)'
