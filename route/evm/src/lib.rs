@@ -43,7 +43,7 @@ pub mod const_args {
     pub const EVM_ADDR_BYTES_LEN: usize = 20;
     pub const PERIODIC_TASK_INTERVAL: u64 = 5;
     pub const BATCH_QUERY_LIMIT: u64 = 20;
-    pub const FETCH_HUB_TASK_INTERVAL: u64 = 10;
+    pub const FETCH_HUB_TASK_INTERVAL: u64 = 60;
     pub const FETCH_HUB_TASK_NAME: &str = "FETCH_HUB";
     pub const SEND_EVM_TASK_INTERVAL: u64 = 20;
     pub const SEND_EVM_TASK_NAME: &str = "SEND_EVM";

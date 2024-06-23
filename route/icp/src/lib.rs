@@ -17,7 +17,7 @@ pub mod state;
 pub mod storage;
 pub mod updates;
 
-pub const PERIODIC_TASK_INTERVAL: u64 = 5;
+pub const PERIODIC_TASK_INTERVAL: u64 = 60;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
 pub const ICP_TRANSFER_FEE: u64 = 10_000;
