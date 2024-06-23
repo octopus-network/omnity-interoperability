@@ -102,7 +102,6 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
     }
 }
 
-
 pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
     match read_state(|s| s.directives_queue.get(&seq)) {
         None => Ok(()),

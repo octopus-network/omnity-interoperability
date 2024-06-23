@@ -1,7 +1,9 @@
 use std::str::FromStr;
 
 use ethers_core::abi::{AbiEncode, ethereum_types};
-use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
+use ethers_core::types::{Bytes, NameOrAddress, U256};
+#[cfg(not(feature = "legacy_tx"))]
+use ethers_core::types::Eip1559TransactionRequest;
 #[cfg(feature = "legacy_tx")]
 use ethers_core::types::TransactionRequest;
 

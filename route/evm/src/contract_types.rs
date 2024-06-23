@@ -102,6 +102,7 @@ impl AbiSignature for TokenMinted {
 pub struct TokenTransportRequested {
     pub dst_chain_id: String,
     pub token_id: String,
+    pub sender: ethereum_types::Address,
     pub receiver: String,
     pub amount: U256,
     pub memo: String,
@@ -109,10 +110,12 @@ pub struct TokenTransportRequested {
 
 impl DecodeLog for TokenTransportRequested {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> {
-        let (dst_chain_id, token_id, receiver, amount, memo) = AbiDecode::decode(&log.data)?;
+        let (dst_chain_id, token_id, sender, receiver, amount, memo) =
+            AbiDecode::decode(&log.data)?;
         Ok(Self {
             dst_chain_id,
             token_id,
+            sender,
             receiver,
             amount,
             memo,
@@ -121,28 +124,30 @@ impl DecodeLog for TokenTransportRequested {
 }
 impl AbiSignature for TokenTransportRequested {
     fn abi_signature() -> String {
-        "TokenTransportRequested(string,string,string,uint256,string)".into()
+        "TokenTransportRequested(string,string,address,string,uint256,string)".into()
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenBurned {
     pub token_id: String,
+    pub sender: ethereum_types::Address,
     pub receiver: String,
     pub amount: ethereum_types::U256,
 }
 
 impl AbiSignature for TokenBurned {
     fn abi_signature() -> String {
-        "TokenBurned(string,string,uint256)".to_string()
+        "TokenBurned(string,address,string,uint256)".to_string()
     }
 }
 
 impl DecodeLog for TokenBurned {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> {
-        let (token_id, receiver, amount) = AbiDecode::decode(&log.data)?;
+        let (token_id, sender, receiver, amount) = AbiDecode::decode(&log.data)?;
         Ok(Self {
             token_id,
+            sender,
             receiver,
             amount,
         })
