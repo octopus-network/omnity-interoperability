@@ -1,5 +1,4 @@
 use crate::{
-    legacy::OldRouteState,
     state::{eventlog::Event, replace_state, RouteState},
     storage::record_event,
 };
@@ -15,10 +14,8 @@ pub struct UpgradeArgs {
 }
 
 pub fn post_upgrade(upgrade_args: Option<UpgradeArgs>) {
-    let (old_stable_state,): (OldRouteState,) =
+    let (mut stable_state,): (RouteState,) =
         ic_cdk::storage::stable_restore().expect("failed to restore state");
-
-    let mut stable_state: RouteState = old_stable_state.into();
 
     if let Some(upgrade_args) = upgrade_args {
         log::info!("[upgrade]: updating configuration with {:?}", upgrade_args);
