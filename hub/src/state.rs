@@ -144,9 +144,6 @@ impl HubState {
                 HubArg::Upgrade(upgrade_args) => {
                     if let Some(args) = upgrade_args {
                         if let Some(admin) = args.admin {
-                            state
-                                .caller_perms
-                                .insert(admin.to_string(), Permission::Update);
                             state.admin = admin;
                         }
                         record_event(&Event::Upgrade(args));
