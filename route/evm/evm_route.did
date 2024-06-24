@@ -40,12 +40,13 @@ type InitArgs = record {
   evm_chain_id : nat64;
   admin : principal;
   hub_principal : principal;
+  rpcs : vec RpcApi;
   network : Network;
   fee_token_id : text;
   chain_id : text;
-  rpc_url : text;
   evm_rpc_canister_addr : principal;
   scan_start_height : nat64;
+  port_addr : opt text;
 };
 type MintTokenStatus = variant {
   Finalized : record { tx_hash : text };
