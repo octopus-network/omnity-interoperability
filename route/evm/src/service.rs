@@ -10,7 +10,7 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use k256::PublicKey;
 use log::info;
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 
 use crate::const_args::{
     FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL,
@@ -42,8 +42,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade(args: Option<UpgradeArgs>) {
-    EvmRouteState::post_upgrade(args);
+fn post_upgrade() {
+    EvmRouteState::post_upgrade();
     init_log(Some(init_stable_log()));
     start_tasks();
     info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
@@ -237,14 +237,9 @@ pub struct InitArgs {
     pub evm_rpc_canister_addr: Principal,
     pub scan_start_height: u64,
     pub chain_id: String,
-    pub rpc_url: String,
+    pub rpcs: Vec<RpcApi>,
     pub fee_token_id: String,
-}
-
-#[derive(Clone, CandidType, Deserialize, Serialize)]
-pub struct UpgradeArgs {
-    pub omnity_port_contract_addr: Option<String>,
-    pub rpc_services: Option<Vec<RpcApi>>,
+    pub port_addr: Option<String>,
 }
 
 ic_cdk::export_candid!();

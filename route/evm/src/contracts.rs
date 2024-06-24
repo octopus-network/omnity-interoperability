@@ -6,6 +6,7 @@ use ethers_core::types::{Bytes, NameOrAddress, U256};
 use ethers_core::types::Eip1559TransactionRequest;
 #[cfg(feature = "legacy_tx")]
 use ethers_core::types::TransactionRequest;
+use log::info;
 
 use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
 use crate::eth_common::EvmAddress;
@@ -20,17 +21,23 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
         Directive::AddChain(_) | Directive::UpdateChain(_) | Directive::UpdateToken(_) => {
             return vec![];
         }
-        Directive::AddToken(token) => Bytes::from(
-            (
-                token.token_id_info()[0].to_string(),
-                token.token_id.clone(),
-                ethereum_types::Address::from([0u8; 20]),
-                token.name.clone(),
-                token.symbol.clone(),
-                token.decimals,
+        Directive::AddToken(token) => {
+            if read_state(|s| s.tokens.get(&token.token_id).is_some()) {
+                info!("duplicate issue token id: {}", token.token_id);
+                return vec![];
+            }
+            Bytes::from(
+                (
+                    token.token_id_info()[0].to_string(),
+                    token.token_id.clone(),
+                    ethereum_types::Address::from([0u8; 20]),
+                    token.name.clone(),
+                    token.symbol.clone(),
+                    token.decimals,
+                )
+                    .encode(),
             )
-                .encode(),
-        ),
+        },
         Directive::ToggleChainState(t) => {
             if t.chain_id == read_state(|s| s.omnity_chain_id.clone()) {
                 Bytes::from(t.chain_id.clone().encode())
