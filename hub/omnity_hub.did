@@ -208,7 +208,7 @@ service : (HubArg) -> {
   resubmit_ticket : (Ticket) -> (Result);
   send_ticket : (Ticket) -> (Result);
   set_logger_filter : (text) -> ();
-  set_permissions : (principal, vec Permission) -> ();
+  set_permissions : (principal, Permission) -> ();
   sub_directives : (opt text, vec Topic) -> (Result);
   sync_ticket_size : () -> (Result_3) query;
   sync_tickets : (nat64, nat64) -> (Result_14) query;
