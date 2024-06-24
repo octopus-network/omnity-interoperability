@@ -1,3 +1,4 @@
+use crate::auth::Permission;
 use crate::event::{record_event, Event};
 use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
@@ -7,7 +8,7 @@ use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, T
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
-use log::{error, info};
+use log::{debug, error};
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, TicketType,
     ToggleAction, ToggleState, TokenId, Topic, TxAction,
@@ -47,7 +48,8 @@ pub struct HubState {
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
     pub admin: Principal,
-    pub authorized_caller: HashMap<String, ChainId>,
+    pub caller_chain_map: HashMap<String, ChainId>,
+    pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
 }
 
@@ -67,7 +69,8 @@ impl From<InitArgs> for HubState {
             directive_seq: HashMap::default(),
             ticket_seq: HashMap::default(),
             admin: args.admin,
-            authorized_caller: HashMap::default(),
+            caller_chain_map: HashMap::default(),
+            caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             last_resubmit_ticket_time: 0,
         }
     }
@@ -126,9 +129,14 @@ impl HubState {
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
 
-        // Deserialize and set the state.
+        // Deserialize pre state
         let mut state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+
+        //migration auth
+        state.caller_chain_map.iter().for_each(|(k, _)| {
+            state.caller_perms.insert(k.to_string(), Permission::Update);
+        });
 
         if let Some(args) = args {
             match args {
@@ -144,25 +152,13 @@ impl HubState {
             };
         }
 
-        // Extract the tickets into a Vec
-        let mut tickets: Vec<Ticket> = state
-            .cross_ledger
-            .iter()
-            .map(|(_, v)| v)
-            .collect::<Vec<_>>();
-        // Sort the tickets by ticket_time
-        tickets.sort_by_key(|ticket| ticket.ticket_time);
-        //update ticket meric
-        for ticket in tickets.into_iter() {
-            info!("update ticket metric: {:?} ", ticket);
-            with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket));
-        }
-
         set_state(state);
     }
 
     pub fn upgrade(&mut self, args: UpgradeArgs) {
         if let Some(admin) = args.admin {
+            self.caller_perms
+                .insert(admin.to_string(), Permission::Update);
             self.admin = admin;
         }
     }
@@ -183,12 +179,22 @@ impl HubState {
                 chain_id.to_string(),
             ))
     }
+
+    pub fn issue_chain(&self, token_id: &TokenId) -> Result<String, Error> {
+        self.tokens
+            .get(token_id)
+            .map(|v| v.issue_chain)
+            .ok_or(Error::NotFoundToken(token_id.to_string()))
+    }
+
     pub fn update_chain(&mut self, chain: ChainMeta) -> Result<(), Error> {
         // save chain
         self.chains
             .insert(chain.chain_id.to_string(), chain.clone());
         // update auth
-        self.authorized_caller
+        self.caller_perms
+            .insert(chain.canister_id.to_string(), Permission::Update);
+        self.caller_chain_map
             .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
         record_event(&Event::UpdatedChain(chain.clone()));
         // update counterparties
@@ -210,7 +216,7 @@ impl HubState {
         self.chains.get(dst_chain_id).map(|mut chain| {
             // excluds the deactive state
             if matches!(chain.chain_state, ChainState::Deactive) {
-                info!(
+                debug!(
                     "dst chain {} is deactive, donn`t update counterparties for it! ",
                     chain.chain_id.to_string()
                 );
@@ -473,7 +479,7 @@ impl HubState {
                 let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
                 //TODO: match! and exclude diretive for  target chain self
                 self.dire_queue.insert(seq_key.clone(), dire.clone());
-                info!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
+                debug!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                 record_event(&Event::PubedDirective {
                     seq_key,
                     dire: dire.clone(),
@@ -523,7 +529,6 @@ impl HubState {
             .get(&position)
             .as_mut()
             .ok_or({
-
                 Error::NotFoundChainToken(
                     position.token_id.to_string(),
                     position.chain_id.to_string(),
@@ -553,6 +558,7 @@ impl HubState {
             );
             return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
         }
+
         // check chain and state
         self.available_chain(&ticket.src_chain)?;
         self.available_chain(&ticket.dst_chain)?;
@@ -572,7 +578,7 @@ impl HubState {
             TxAction::Transfer => {
                 // ticket from issue chain
                 if self.is_origin(&ticket.src_chain, &ticket.token)? {
-                    info!(
+                    debug!(
                         "ticket token({}) from issue chain({}).",
                         ticket.token, ticket.src_chain,
                     );
@@ -585,10 +591,18 @@ impl HubState {
 
                 // not from issue chain
                 } else {
-                    info!(
+                    debug!(
                         "ticket token({}) from a not issue chain({}).",
                         ticket.token, ticket.src_chain,
                     );
+
+                    // esure dst chain != token`s issue chain
+                    if self.is_origin(&ticket.dst_chain, &ticket.token)? {
+                        error!(
+                            "For a transfer ticket, the dst chain cannot be the token`s issue chain",
+                        );
+                        return Err(Error::CustomError("For a transfer ticket, the dst chain cannot be the token`s issue chain".to_string()));
+                    }
 
                     // update token amount on src chain
                     self.update_token_position(
@@ -716,7 +730,8 @@ impl HubState {
             }
             None => {
                 error!("The resubmit ticket id must exist!");
-                Err(Error::ResubmitTicketIdMustExist)},
+                Err(Error::ResubmitTicketIdMustExist)
+            }
         }
     }
 
@@ -726,7 +741,7 @@ impl HubState {
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
-        info!("pull_tickets: {:?},{offset},{limit}", chain_id);
+        debug!("pull_tickets: {:?},{offset},{limit}", chain_id);
         let tickets = self
             .ticket_queue
             .iter()
@@ -764,7 +779,7 @@ impl HubState {
         };
 
         target_dires.into_iter().for_each(|d| {
-            info!(
+            debug!(
                 "republish directives({:?}) for subscriber: {}",
                 d,
                 chain_id.to_string()
@@ -776,7 +791,7 @@ impl HubState {
     }
 
     pub fn delete_directives(&mut self, chain_id: &ChainId, topics: &[Topic]) -> Result<(), Error> {
-        info!(
+        debug!(
             "delete directives with topic ({:?}) for subscriber: {}",
             topics,
             chain_id.to_string()

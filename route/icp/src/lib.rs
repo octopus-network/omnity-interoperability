@@ -16,7 +16,7 @@ pub mod state;
 pub mod storage;
 pub mod updates;
 
-pub const PERIODIC_TASK_INTERVAL: u64 = 5;
+pub const PERIODIC_TASK_INTERVAL: u64 = 60;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
 pub const ICP_TRANSFER_FEE: u64 = 10_000;
@@ -113,10 +113,10 @@ async fn process_directives() {
         Ok(directives) => {
             for (_, directive) in &directives {
                 match directive {
-                    Directive::AddChain(chain) => {
+                    Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
                         mutate_state(|s| audit::add_chain(s, chain.clone()));
                     }
-                    Directive::AddToken(token) => {
+                    Directive::AddToken(token) | Directive::UpdateToken(token) => {
                         match updates::add_new_token(token.clone()).await {
                             Ok(_) => {
                                 log::info!(
@@ -140,8 +140,7 @@ async fn process_directives() {
                         mutate_state(|s| audit::update_fee(s, fee.clone()));
                         log::info!("[process_directives] success to update fee, fee: {}", fee);
                     }
-                    Directive::UpdateChain(_) => {},
-                    Directive::UpdateToken(_) => {},
+  
                 }
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);

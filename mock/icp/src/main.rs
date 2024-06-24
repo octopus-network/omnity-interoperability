@@ -17,17 +17,13 @@ pub enum MintTokenStatus {
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
 pub struct RouteState {
-  
     pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
-
-   
 }
 
 impl Default for RouteState {
     fn default() -> Self {
         Self {
             finalized_mint_token_requests: Default::default(),
-          
         }
     }
 }

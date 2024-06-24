@@ -24,6 +24,9 @@ dfx deploy bitcoin_mock --argument '(null)' --mode reinstall -y
 # deploy the icp route canister
 dfx deploy icp_mock --mode reinstall -y
 
+# change log level for debugging
+dfx canister call omnity_hub set_logger_filter '("debug")'
+
 # sub topic
 dfx canister call omnity_hub sub_directives '(opt "Bitcoin", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
 dfx canister call omnity_hub sub_directives '(opt "Ethereum", vec {variant {AddChain};variant {UpdateChain}; variant {AddToken}; variant {UpdateToken}; variant {UpdateFee} ;variant {ToggleChainState} })'
@@ -168,10 +171,13 @@ dfx canister call omnity_hub query_tickets '(opt "Ethereum",0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(opt "Optimistic",null,0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:nat64)'
 
+
 # must build 
-# dfx build omnity_hub
+dfx build omnity_hub
 # upgrade canister
-# dfx canister install --mode upgrade --argument '(variant { Upgrade = null })' --yes omnity_hub 
+dfx canister install --mode upgrade --argument '(variant { Upgrade = null })'  --upgrade-unchanged --yes omnity_hub 
+dfx canister call omnity_hub set_logger_filter '("debug")'
+dfx canister call omnity_hub handle_chain '(vec {variant { UpdateChain = record { chain_state=variant { Active };chain_id = "Bitcoin"; chain_type=variant { SettlementChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=null;counterparties=null; fee_token= null}}})'
 dfx canister call omnity_hub sync_ticket_size '()'
 dfx canister call omnity_hub sync_tickets '(0:nat64,12:nat64)'
 # dfx stop

@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::{debug, error};
 use omnity_types::{ChainState, Directive, Error, Factor};
 
 use crate::{
@@ -172,11 +172,11 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             Proposal::AddChain(chain_meta) => {
                 // save new chain
                 with_state_mut(|hub_state| {
-                    info!(" save new chain: {:?}", chain_meta);
+                    debug!(" save new chain: {:?}", chain_meta);
                     hub_state.update_chain(chain_meta.clone())
                 })?;
                 // publish directive for the new chain)
-                info!(
+                debug!(
                     "publish directive for `AddChain` proposal :{:?}",
                     chain_meta.to_string()
                 );
@@ -189,11 +189,11 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             Proposal::UpdateChain(chain_meta) => {
                 // update chain meta
                 with_state_mut(|hub_state| {
-                    info!(" update the chain: {:?}", chain_meta);
+                    debug!(" update the chain: {:?}", chain_meta);
                     hub_state.update_chain(chain_meta.clone())
                 })?;
                 // publish directive for the new chain)
-                info!(
+                debug!(
                     "publish directive for `UpdateChain` proposal :{:?}",
                     chain_meta.to_string()
                 );
@@ -206,7 +206,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 })?;
             }
             Proposal::AddToken(token_meata) => {
-                info!(
+                debug!(
                     "publish directive for `AddToken` proposal :{:?}",
                     token_meata
                 );
@@ -222,7 +222,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 })?
             }
             Proposal::UpdateToken(token_meata) => {
-                info!(
+                debug!(
                     "publish directive for `UpdateToken` proposal :{:?}",
                     token_meata
                 );
@@ -239,7 +239,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             }
 
             Proposal::ToggleChainState(toggle_status) => {
-                info!(
+                debug!(
                     "publish directive for `ToggleChainState` proposal :{:?}",
                     toggle_status
                 );
@@ -254,7 +254,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             }
 
             Proposal::UpdateFee(factor) => {
-                info!("publish directive for `UpdateFee` proposal :{:?}", factor);
+                debug!("publish directive for `UpdateFee` proposal :{:?}", factor);
                 with_state_mut(|hub_state| {
                     hub_state.update_fee(factor.clone())?;
                     let target_subs = match &factor {

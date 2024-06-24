@@ -1,4 +1,4 @@
-use crate::state::{audit, read_state};
+use crate::state::{audit, mutate_state, read_state};
 use crate::{hub, ICP_TRANSFER_FEE};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use ic_cdk::caller;
@@ -21,6 +21,7 @@ pub struct GenerateTicketReq {
     pub amount: u128,
     // The subaccount to burn token from.
     pub from_subaccount: Option<Subaccount>,
+    pub burn: Option<bool>,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -86,27 +87,37 @@ pub async fn generate_ticket(
     let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
-    hub::send_ticket(
-        hub_principal,
-        Ticket {
-            ticket_id: ticket_id.clone(),
-            ticket_type: omnity_types::TicketType::Normal,
-            ticket_time: ic_cdk::api::time(),
-            src_chain: chain_id,
-            dst_chain: req.target_chain_id.clone(),
-            action: TxAction::Redeem,
-            token: req.token_id.clone(),
-            amount: req.amount.to_string(),
-            sender: None,
-            receiver: req.receiver.clone(),
-            memo: None,
-        },
-    )
-    .await
-    .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
-
-    audit::finalize_gen_ticket(ticket_id.clone(), req);
-    Ok(GenerateTicketOk { ticket_id })
+    let action = if req.burn.is_some_and(|burn| burn) {
+        TxAction::Burn
+    } else {
+        TxAction::Redeem
+    };
+    let ticket = Ticket {
+        ticket_id: ticket_id.clone(),
+        ticket_type: omnity_types::TicketType::Normal,
+        ticket_time: ic_cdk::api::time(),
+        src_chain: chain_id,
+        dst_chain: req.target_chain_id.clone(),
+        action,
+        token: req.token_id.clone(),
+        amount: req.amount.to_string(),
+        sender: Some(caller.to_string()),
+        receiver: req.receiver.clone(),
+        memo: None,
+    };
+    match hub::send_ticket(hub_principal, ticket.clone()).await {
+        Err(err) => {
+            mutate_state(|s| {
+                s.failed_tickets.push(ticket.clone());
+            });
+            log::error!("failed to send ticket: {}", ticket_id);
+            Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
+        }
+        Ok(()) => {
+            audit::finalize_gen_ticket(ticket_id.clone(), req);
+            Ok(GenerateTicketOk { ticket_id })
+        }
+    }
 }
 
 async fn burn_token_icrc2(

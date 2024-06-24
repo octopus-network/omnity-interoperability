@@ -163,7 +163,7 @@ impl core::fmt::Display for Topic {
             Topic::AddChain => write!(f, "AddChain"),
             Topic::AddToken => write!(f, "AddToken"),
             Topic::ToggleChainState => {
-                write!(f, "ToggleChainState", )
+                write!(f, "ToggleChainState",)
             }
             Topic::UpdateFee => write!(f, "UpdateFee"),
             Topic::UpdateChain => write!(f, "UpdateChain"),
@@ -380,7 +380,8 @@ impl Storable for TargetChainFactor {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TargetChainFactor");
+        let fee =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TargetChainFactor");
         fee
     }
 
@@ -411,7 +412,8 @@ impl Storable for FeeTokenFactor {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode FeeTokenFactor");
+        let fee =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode FeeTokenFactor");
         fee
     }
 
@@ -681,7 +683,6 @@ impl FromStr for Network {
 
 #[derive(CandidType, Deserialize, Debug, Error)]
 pub enum Error {
-
     #[error("The topic (`{0}`) already Subscribed")]
     RepeatSubscription(String),
 

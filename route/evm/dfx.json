@@ -1,0 +1,48 @@
+{
+  "dfx": "0.17.0",
+  "canisters": {
+    "evm_route": {
+      "candid": "evm_route.did",
+      "package": "evm_route",
+      "type": "rust"
+    },
+
+    "evm_rpc": {
+      "type": "custom",
+      "candid": "https://github.com/internet-computer-protocol/evm-rpc-canister/releases/latest/download/evm_rpc.did",
+      "wasm": "https://github.com/internet-computer-protocol/evm-rpc-canister/releases/latest/download/evm_rpc_dev.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "xhcuo-6yaaa-aaaar-qacqq-cai"
+        }
+      }
+    },
+
+    "internet_identity": {
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "frontend": {},
+      "remote": {
+        "id": {
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        }
+      },
+      "type": "custom",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz"
+    }
+  },
+  "defaults": {
+    "bitcoin": {
+      "enabled": true,
+      "log_level": "info",
+      "nodes": [
+        "127.0.0.1:18444"
+      ]
+    },
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}

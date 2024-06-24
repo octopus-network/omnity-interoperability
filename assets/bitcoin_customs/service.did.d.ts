@@ -67,6 +67,7 @@ export type Event = {
       'utxos' : Array<Utxo>,
     }
   } |
+  { 'removed_ticket_request' : { 'txid' : Uint8Array | number[] } } |
   {
     'sent_transaction' : {
       'fee' : [] | [bigint],
@@ -122,8 +123,7 @@ export interface GenTicketRequest {
   'receiver' : string,
   'rune_id' : RuneId,
 }
-export type GenTicketStatus = { 'Invalid' : null } |
-  { 'Finalized' : null } |
+export type GenTicketStatus = { 'Finalized' : null } |
   { 'Unknown' : null } |
   { 'Pending' : GenTicketRequest };
 export interface GenerateTicketArgs {
@@ -134,10 +134,10 @@ export interface GenerateTicketArgs {
   'rune_id' : string,
 }
 export type GenerateTicketError = { 'TemporarilyUnavailable' : string } |
+  { 'AlreadyProcessed' : null } |
   { 'InvalidRuneId' : string } |
   { 'AlreadySubmitted' : null } |
   { 'InvalidTxId' : null } |
-  { 'AleardyProcessed' : null } |
   { 'NoNewUtxos' : null } |
   { 'UnsupportedChainId' : string } |
   { 'UnsupportedToken' : string };

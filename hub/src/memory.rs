@@ -28,7 +28,6 @@ const EVENT_INDEX_MEMORY_ID: MemoryId = MemoryId::new(12);
 const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(13);
 const METRIC_SEQS: MemoryId = MemoryId::new(14);
 const TICKET_METRIC: MemoryId = MemoryId::new(15);
-const PROFILING: MemoryId = MemoryId::new(16);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;

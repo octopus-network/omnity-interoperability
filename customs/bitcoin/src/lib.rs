@@ -53,6 +53,7 @@ pub const MAX_REQUESTS_PER_BATCH: usize = 10;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 
 pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
+pub const INTERVAL_QUERY_HUB: Duration = Duration::from_secs(60);
 pub const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
 
 /// The minimum fee increment for transaction resubmission.
@@ -168,7 +169,7 @@ async fn fetch_main_utxos(
                     main_address.display(btc_network),
                     e
                 );
-                return BTreeMap::default();
+                continue;
             }
         };
 
@@ -257,6 +258,7 @@ async fn process_tickets() {
                 let args = ReleaseTokenArgs {
                     ticket_id: ticket.ticket_id,
                     token_id: ticket.token,
+                    action: ticket.action,
                     amount,
                     address: ticket.receiver,
                 };
@@ -264,26 +266,15 @@ async fn process_tickets() {
                     Err(ReleaseTokenError::AlreadyProcessing)
                     | Err(ReleaseTokenError::AlreadyProcessed)
                     | Ok(_) => {}
-                    Err(ReleaseTokenError::UnsupportedToken(err)) => {
-                        log!(
-                            P0,
-                            "[submit_release_token_requests] unsupported token: {}",
-                            err
-                        );
-                    }
-                    Err(ReleaseTokenError::MalformedAddress(err)) => {
-                        log!(
-                            P0,
-                            "[submit_release_token_requests] malformed address: {}",
-                            err
-                        );
-                    }
                     Err(ReleaseTokenError::TemporarilyUnavailable(_)) => {
                         log!(
                             P0,
                             "[submit_release_token_requests] temporarily unavailable"
                         );
                         break;
+                    }
+                    Err(err) => {
+                        log!(P0, "[submit_release_token_requests] err: {:?}", err);
                     }
                 }
                 next_seq = seq + 1;
@@ -302,8 +293,10 @@ async fn process_directive() {
         Ok(directives) => mutate_state(|s| {
             for (_, directive) in &directives {
                 match directive {
-                    Directive::AddChain(chain) => audit::add_chain(s, chain.clone()),
-                    Directive::AddToken(token) => {
+                    Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
+                        audit::add_chain(s, chain.clone())
+                    }
+                    Directive::AddToken(token) | Directive::UpdateToken(token) => {
                         if let Some(rune_id) = token.metadata.clone().get("rune_id") {
                             match RuneId::from_str(rune_id) {
                                 Err(err) => {
@@ -666,8 +659,6 @@ async fn finalize_requests() {
         // There are no transactions eligible for replacement.
         return;
     }
-
-    let btc_network = state::read_state(|s| s.btc_network);
 
     // There are transactions that should have been finalized by now. Let's check whether the
     // Bitcoin network knows about them or they got lost in the meantime. Note that the Bitcoin
@@ -1111,8 +1102,29 @@ pub fn build_unsigned_transaction(
         .sum::<u128>();
     debug_assert!(inputs_value >= amount);
 
-    let stone = Runestone {
-        edicts: outputs
+    let burn_amount = outputs
+        .iter()
+        .filter(|(address, _)| matches!(address, BitcoinAddress::OpReturn(_)))
+        .map(|(_, amount)| amount)
+        .sum::<u128>();
+
+    let outputs = outputs
+        .iter()
+        .filter(|(address, _)| !matches!(address, BitcoinAddress::OpReturn(_)))
+        .map(|(address, amount)| (address.clone(), *amount))
+        .collect::<Vec<(BitcoinAddress, u128)>>();
+
+    let mut edicts = vec![];
+    if burn_amount > 0 {
+        edicts.push(Edict {
+            id: rune_id.into(),
+            amount: burn_amount,
+            output: 0,
+        });
+    }
+
+    edicts.append(
+        &mut outputs
             .iter()
             .enumerate()
             .map(|(idx, (_, amount))| Edict {
@@ -1121,7 +1133,9 @@ pub fn build_unsigned_transaction(
                 output: (idx + 2) as u32,
             })
             .collect::<Vec<Edict>>(),
-    };
+    );
+
+    let stone = Runestone { edicts };
 
     let runes_change = inputs_value - amount;
     let change_output = state::RunesChangeOutput {
@@ -1170,7 +1184,7 @@ pub fn build_unsigned_transaction(
         (tx_outputs.len() + 1) as u64,
     );
     let fee: u64 = (tx_vsize as u64 * fee_per_vbyte) / 1000;
-    // Additional MIN_OUTPUT_AMOUNT are used as the value of the outputs(two chagne output + multiple dest runes outputs).
+    // Additional MIN_OUTPUT_AMOUNT are used as the value of the outputs(two change output + multiple dest runes outputs).
     let non_op_return_outputs_sz = (outputs.len() + 2) as u64;
     // Select twise the fee to handle resubmissions.
     let select_fee = fee * 2 + MIN_OUTPUT_AMOUNT * non_op_return_outputs_sz;

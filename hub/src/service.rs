@@ -1,11 +1,14 @@
 use crate::memory::init_stable_log;
+use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+#[cfg(feature = "profiling")]
 use ic_stable_structures::Memory;
-use log::info;
-use omnity_hub::auth::{auth, is_admin};
+use log::{debug, info};
+use omnity_hub::auth::{auth_query, auth_update, is_admin, set_perms, Permission};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
+#[cfg(feature = "profiling")]
 use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::proposal;
@@ -25,11 +28,6 @@ use omnity_hub::state::HubState;
 
 #[init]
 fn init(args: HubArg) {
-    // init profiling memory
-    let memory = get_profiling_memory();
-    // Increase the page number if you need larger log space
-    memory.grow(4096);
-
     match args {
         HubArg::Init(args) => {
             init_log(Some(init_stable_log()));
@@ -60,16 +58,16 @@ fn post_upgrade(args: Option<HubArg>) {
 }
 
 /// validate directive ,this method will be called by sns
-#[query(guard = "auth")]
+#[query(guard = "is_admin")]
 pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, Error> {
     proposal::validate_proposal(&proposals).await
 }
-#[update(guard = "auth")]
+#[update(guard = "is_admin")]
 pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
     proposal::execute_proposal(proposals).await
 }
 
-#[update(guard = "auth")]
+#[update(guard = "is_admin")]
 pub async fn handle_chain(proposals: Vec<Proposal>) -> Result<(), Error> {
     // The proposals must be AddToken or UpdateToken
     proposals.iter().try_for_each(|p| {
@@ -83,11 +81,11 @@ pub async fn handle_chain(proposals: Vec<Proposal>) -> Result<(), Error> {
     })?;
     // validate proposal
     proposal::validate_proposal(&proposals).await?;
-    // exection proposal and generate directives
+    // execution proposal and generate directives
     proposal::execute_proposal(proposals).await
 }
 
-#[update(guard = "auth")]
+#[update(guard = "is_admin")]
 pub async fn handle_token(proposals: Vec<Proposal>) -> Result<(), Error> {
     // The proposals must be AddToken or UpdateToken
     proposals.iter().try_for_each(|p| {
@@ -106,30 +104,27 @@ pub async fn handle_token(proposals: Vec<Proposal>) -> Result<(), Error> {
 }
 
 /// check and build update fee directive and push it to the directive queue
-#[update(guard = "auth")]
+#[update(guard = "is_admin")]
 pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
     let proposals: Vec<Proposal> = factors.into_iter().map(Proposal::UpdateFee).collect();
-
-    // validate proposal
     proposal::validate_proposal(&proposals).await?;
-    // exection proposal and generate directives
     proposal::execute_proposal(proposals).await
 }
 
-#[update(guard = "auth")]
+#[update(guard = "auth_update")]
 pub async fn sub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
-    info!(
+    debug!(
         "sub_topics for chain: {:?}, with topics: {:?} ",
         chain_id, topics
     );
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
-    info!("get_chain_id:{:?}", dst_chain_id);
+    debug!("get_chain_id:{:?}", dst_chain_id);
     with_state_mut(|hub_state| hub_state.sub_directives(&dst_chain_id, &topics))
 }
 
-#[update(guard = "auth")]
+#[update(guard = "auth_update")]
 pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
-    info!(
+    debug!(
         "unsub_topics for chain: {:?}, with topics: {:?} ",
         chain_id, topics
     );
@@ -137,21 +132,21 @@ pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> 
     with_state_mut(|hub_state| hub_state.unsub_directives(&dst_chain_id, &topics))
 }
 
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subscribers)>, Error> {
-    info!("query_subscribers for topic: {:?} ", topic);
+    debug!("query_subscribers for topic: {:?} ", topic);
     with_state(|hub_state| hub_state.query_subscribers(topic))
 }
 
 /// query directives for chain id filter by topic,this method will be called by route and custom
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn query_directives(
     chain_id: Option<ChainId>,
     topic: Option<Topic>,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
-    info!(
+    debug!(
         "query directive for chain: {:?}, with topic: {:?} ",
         chain_id, topic
     );
@@ -161,27 +156,27 @@ pub async fn query_directives(
 }
 
 /// check and push ticket into queue
-#[update(guard = "auth")]
+#[update(guard = "auth_update")]
 pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
-    info!("send_ticket: {:?}", ticket);
+    debug!("send_ticket: {:?}", ticket);
 
     with_state_mut(|hub_state| {
-        // checke ticket and update token on chain
+        // check ticket and update token on chain
         hub_state.check_and_update(&ticket)?;
         // push ticket into queue
         hub_state.push_ticket(ticket)
     })
 }
 
-#[update(guard = "auth")]
+#[update(guard = "auth_update")]
 pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
-    info!("received resubmit ticket: {:?}", ticket);
+    debug!("received resubmit ticket: {:?}", ticket);
     // No need to update the token since the old ticket has already added
     with_state_mut(|hub_state| hub_state.resubmit_ticket(ticket))
 }
 
 /// query tickets for chain id,this method will be called by route and custom
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn query_tickets(
     chain_id: Option<ChainId>,
     offset: usize,
@@ -189,6 +184,16 @@ pub async fn query_tickets(
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
+}
+
+#[update(guard = "is_admin")]
+pub async fn set_logger_filter(filter: String) {
+    LoggerConfigService::default().set_logger_filter(&filter);
+}
+
+#[update(guard = "is_admin")]
+pub async fn set_permissions(caller: Principal, perm: Permission) {
+    set_perms(caller.to_string(), perm)
 }
 
 #[query]
@@ -218,7 +223,7 @@ pub async fn get_tokens(
         .map(|tokens| tokens.iter().map(|t| t.clone().into()).collect())
 }
 
-#[query]
+#[query(guard = "auth_query")]
 pub async fn get_fees(
     chain_id: Option<ChainId>,
     token_id: Option<TokenId>,
@@ -277,62 +282,58 @@ pub async fn get_total_tx() -> Result<u64, Error> {
     metrics::get_total_tx().await
 }
 
-#[update(guard = "is_admin")]
-pub async fn set_logger_filter(filter: String) {
-    LoggerConfigService::default().set_logger_filter(&filter);
-}
-
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
     StableLogWriter::http_request(req)
 }
 
-#[query]
+#[query(guard = "auth_query")]
 pub async fn get_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
     let max_skip_timestamp = time.unwrap_or(0);
     StableLogWriter::get_logs(max_skip_timestamp, offset, limit)
 }
 
-#[query]
+#[query(guard = "auth_query")]
 fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
 }
 
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
     metrics::get_chain_metas(offset, limit).await
 }
 
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn get_chain_size() -> Result<u64, Error> {
     metrics::get_chain_size().await
 }
 
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
     metrics::get_token_metas(offset, limit).await
 }
 
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn get_token_size() -> Result<u64, Error> {
     metrics::get_token_size().await
 }
 
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn get_directive_size() -> Result<u64, Error> {
     metrics::get_directive_size().await
 }
-#[query(guard = "auth")]
+
+#[query(guard = "auth_query")]
 pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
     metrics::get_directives(offset, limit).await
 }
 
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn sync_ticket_size() -> Result<u64, Error> {
     with_metrics(|metrics| metrics.sync_ticket_size())
 }
 
-#[query(guard = "auth")]
+#[query(guard = "auth_query")]
 pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
     with_metrics(|metrics| metrics.sync_tickets(offset, limit))
 }
@@ -364,11 +365,12 @@ mod tests {
     };
     use uuid::Uuid;
 
-    fn init_hub() {
+    async fn init_hub() {
         let arg = HubArg::Init(InitArgs {
             admin: PrincipalId::new_user_test_id(1).0,
         });
-        init(arg)
+        init(arg);
+        set_logger_filter("debug".to_string()).await;
     }
     pub fn get_logs(
         max_skip_timestamp: &Option<u64>,
@@ -810,7 +812,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sub_unsub() {
-        init_hub();
+        init_hub().await;
         sub_dires().await;
         let result = query_subscribers(None).await;
         println!("query_subscribers result: {:?}", result);
@@ -821,7 +823,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_chain() {
-        init_hub();
+        init_hub().await;
 
         // sub_dires().await;
         let result = sub_directives(Some("Bitcoin".to_string()), vec![Topic::AddChain]).await;
@@ -893,7 +895,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_chain() {
-        init_hub();
+        init_hub().await;
         sub_dires().await;
         // add chain
         add_chains().await;
@@ -952,7 +954,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_token() {
-        init_hub();
+        init_hub().await;
         sub_dires().await;
 
         // sub special token id
@@ -999,7 +1001,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_token() {
-        init_hub();
+        init_hub().await;
         sub_dires().await;
         // add chain
         add_chains().await;
@@ -1074,7 +1076,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_toggle_chain_state() {
-        init_hub();
+        init_hub().await;
         sub_dires().await;
         // add chain
         add_chains().await;
@@ -1176,7 +1178,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_fee() {
-        init_hub();
+        init_hub().await;
 
         sub_dires().await;
         // add chain
@@ -1258,7 +1260,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_new_subscriber() {
-        init_hub();
+        init_hub().await;
         // sub_dires().await;
         let chains = vec![
             "Bitcoin".to_string(),
@@ -1366,15 +1368,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_tx_ticket() {
-        init_hub();
+        init_hub().await;
         sub_dires().await;
         // add chain
         add_chains().await;
         // add token
         add_tokens().await;
-        //
+
         // A->B: `transfer` ticket
         let src_chain = "Bitcoin";
+        // let dst_chain = "Bitcoin";
         let dst_chain = "EVM-Arbitrum";
         let sender = "address_on_Bitcoin";
         let receiver = "address_on_Arbitrum";
@@ -1403,6 +1406,7 @@ mod tests {
             "{} -> {} transfer result:{:?}",
             src_chain, dst_chain, result
         );
+        assert!(result.is_ok());
 
         with_state(|hus_state| {
             hus_state.ticket_queue.iter().for_each(|(seq_key, ticket)| {
@@ -1410,7 +1414,6 @@ mod tests {
             })
         });
 
-        assert!(result.is_ok());
         // query tickets for chain id
         let result = query_tickets(Some(dst_chain.to_string()), 0, 5).await;
         println!("query tickets for {:} tickets: {:#?}", dst_chain, result);
@@ -1512,7 +1515,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_b_c_tx_ticket() {
-        init_hub();
+        init_hub().await;
         // add chain
         add_chains().await;
         // add token
