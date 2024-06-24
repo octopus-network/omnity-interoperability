@@ -4,7 +4,6 @@ use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
-use crate::migration::{migrate, PreHubState};
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
@@ -132,21 +131,23 @@ impl HubState {
         memory.read(4, &mut state_bytes);
 
         // Deserialize pre state
-        let pre_state: PreHubState =
+        let mut state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
-        // migrate pre state to current state
-        let mut cur_state = migrate(pre_state);
+        //migration auth
+        state.caller_chain_map.iter().for_each(|(k, _)| {
+            state.caller_perms.insert(k.to_string(), Permission::Update);
+        });
 
         if let Some(args) = args {
             match args {
                 HubArg::Upgrade(upgrade_args) => {
                     if let Some(args) = upgrade_args {
                         if let Some(admin) = args.admin {
-                            cur_state
+                            state
                                 .caller_perms
                                 .insert(admin.to_string(), Permission::Update);
-                            cur_state.admin = admin;
+                            state.admin = admin;
                         }
                         record_event(&Event::Upgrade(args));
                     }
@@ -155,7 +156,7 @@ impl HubState {
             };
         }
 
-        set_state(cur_state);
+        set_state(state);
     }
 
     pub fn upgrade(&mut self, args: UpgradeArgs) {
