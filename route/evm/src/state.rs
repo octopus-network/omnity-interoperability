@@ -9,12 +9,11 @@ use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{
     ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument,
 };
-use ic_stable_structures::StableBTreeMap;
 use ic_stable_structures::writer::Writer;
+use ic_stable_structures::StableBTreeMap;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, stable_memory};
 use crate::eth_common::EvmAddress;
 use crate::service::InitArgs;
 use crate::stable_memory::Memory;
@@ -22,6 +21,7 @@ use crate::types::{Chain, ChainState, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
+use crate::{stable_memory, Error};
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
@@ -30,10 +30,8 @@ thread_local! {
 impl EvmRouteState {
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
         let omnity_port_contract = match args.port_addr {
-            None => { EvmAddress([0u8; 20]) }
-            Some(addr) => {
-                EvmAddress::from_str(addr.as_str()).expect("port address is invalid")
-            }
+            None => EvmAddress([0u8; 20]),
+            Some(addr) => EvmAddress::from_str(addr.as_str()).expect("port address is invalid"),
         };
         let ret = EvmRouteState {
             admin: args.admin,

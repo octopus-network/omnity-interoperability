@@ -13,18 +13,18 @@ use ethers_core::types::Eip1559TransactionRequest;
 use ethers_core::types::TransactionRequest;
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
-use evm_rpc::{MultiRpcResult, RpcServices};
 use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
+use evm_rpc::{MultiRpcResult, RpcServices};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use log::{error, info};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{Error, state};
 use crate::const_args::{
     BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT, GET_ACCOUNT_NONCE_CYCLES,
 };
 use crate::eth_common::EvmAddressError::LengthError;
+use crate::{state, Error};
 
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
 pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);

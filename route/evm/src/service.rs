@@ -22,7 +22,7 @@ use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    EvmRouteState, init_chain_pubkey, mutate_state, read_state, replace_state, StateProfile,
+    init_chain_pubkey, mutate_state, read_state, replace_state, EvmRouteState, StateProfile,
 };
 use crate::types::{
     Chain, ChainId, Directive, MintTokenStatus, Network, PendingDirectiveStatus,
