@@ -469,7 +469,7 @@ fn add_chain(route: &RouteSetup) {
         counterparties: None,
         fee_token: None,
     })]);
-    route.env.advance_time(Duration::from_secs(10));
+    route.env.advance_time(Duration::from_secs(65));
     route.await_chain(SETTLEMENT_CHAIN.into(), 10);
 }
 
@@ -482,7 +482,7 @@ fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
         icon: None,
         metadata: HashMap::default(),
     })]);
-    route.env.advance_time(Duration::from_secs(10));
+    route.env.advance_time(Duration::from_secs(65));
     route.await_token(token_id, 10);
 
     let _ = route.get_token_ledger(TOKEN_ID1.into());
