@@ -15,7 +15,7 @@ use bitcoin_customs::updates::{
 };
 use bitcoin_customs::{
     process_hub_msg_task, process_tx_task, refresh_fee_task, CustomsInfo, TokenResp,
-    FEE_ESTIMATE_DELAY, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES,
+    FEE_ESTIMATE_DELAY, INTERVAL_PROCESSING, INTERVAL_QUERY_HUB,
 };
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
@@ -39,7 +39,7 @@ fn init(args: CustomArg) {
             lifecycle::init::init(args);
 
             set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
-            set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_hub_msg_task);
+            set_timer_interval(INTERVAL_QUERY_HUB, process_hub_msg_task);
             set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
 
             #[cfg(feature = "self_check")]
@@ -106,7 +106,7 @@ fn post_upgrade(custom_arg: Option<CustomArg>) {
     lifecycle::upgrade::post_upgrade(upgrade_arg);
 
     set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
-    set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_hub_msg_task);
+    set_timer_interval(INTERVAL_QUERY_HUB, process_hub_msg_task);
     set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
 }
 
