@@ -9420,6 +9420,7 @@ dependencies = [
  "ic-canisters-http-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-03-06_23-01+p2p)",
  "ic-cdk",
  "ic-log",
+ "ic-management-canister-types",
  "ic-stable-structures 0.6.3",
  "k256 0.12.0",
  "lazy_static",
@@ -11495,6 +11496,34 @@ checksum = "05ffd9c0a93b7543e062e759284fcf5f5e3b098501104bfbdde4d404db792871"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "solana_route"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "candid",
+ "ciborium",
+ "dfn_candid",
+ "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
+ "ic-canisters-http-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-03-06_23-01+p2p)",
+ "ic-cdk",
+ "ic-cdk-macros",
+ "ic-cdk-timers",
+ "ic-ic00-types",
+ "ic-log",
+ "ic-stable-structures 0.6.3",
+ "ic-state-machine-tests 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
+ "ic-test-utilities-load-wasm 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
+ "ic0 0.18.11",
+ "icp-ledger",
+ "log",
+ "num-traits",
+ "omnity_types",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

@@ -11,7 +11,7 @@ use omnity_types::Topic;
 
 use std::cell::RefCell;
 
-use crate::memory::{init_event_log, Memory};
+use crate::memory::{init_event, Memory};
 
 use crate::types::ChainMeta;
 use crate::types::ChainTokenFactor;
@@ -25,7 +25,7 @@ type EventLog = Log<Vec<u8>, Memory, Memory>;
 
 thread_local! {
     // The event storage
-    static EVENTS: RefCell<EventLog> =  RefCell::new(init_event_log())
+    static EVENTS: RefCell<EventLog> =  RefCell::new(init_event())
 }
 
 pub struct EventIterator {

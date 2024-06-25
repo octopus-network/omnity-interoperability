@@ -154,7 +154,7 @@ pub fn init_stable_log() -> StableBTreeMap<Vec<u8>, Vec<u8>, Memory> {
     StableBTreeMap::init(with_memory_manager(|m| m.get(LOG_MEMORY_ID)))
 }
 
-pub fn init_event_log() -> IcLog<Vec<u8>, Memory, Memory> {
+pub fn init_event() -> IcLog<Vec<u8>, Memory, Memory> {
     IcLog::init(
         with_memory_manager(|m| m.get(EVENT_DATA_MEMORY_ID)),
         with_memory_manager(|m| m.get(EVENT_INDEX_MEMORY_ID)),
