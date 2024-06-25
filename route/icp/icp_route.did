@@ -1,3 +1,4 @@
+type Account = record { owner : principal; subaccount : opt blob };
 type Chain = record {
   fee_token : opt text;
   canister_id : text;
@@ -9,6 +10,7 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
+type ChangeFeeCollector = variant { SetTo : Account; Unset };
 type Event = variant {
   finalized_gen_ticket : record {
     request : GenerateTicketReq;
@@ -26,6 +28,7 @@ type Factor = variant {
   UpdateFeeTokenFactor : FeeTokenFactor;
   UpdateTargetChainFactor : TargetChainFactor;
 };
+type FeatureFlags = record { icrc2 : bool };
 type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type GenerateTicketError = variant {
   InsufficientRedeemFee : record { provided : nat64; required : nat64 };
@@ -55,6 +58,7 @@ type InitArgs = record {
 };
 type Log = record { log : text; offset : nat64 };
 type Logs = record { logs : vec Log; all_logs_count : nat64 };
+type MetadataValue = variant { Int : int; Nat : nat; Blob : blob; Text : text };
 type MintTokenStatus = variant {
   Finalized : record { block_index : nat64 };
   Unknown;
@@ -89,6 +93,17 @@ type UpgradeArgs = record {
   chain_id : opt text;
   chain_state : opt ChainState;
 };
+type UpgradeArgs_1 = record {
+  token_symbol : opt text;
+  transfer_fee : opt nat;
+  metadata : opt vec record { text; MetadataValue };
+  maximum_number_of_accounts : opt nat64;
+  accounts_overflow_trim_quantity : opt nat64;
+  change_fee_collector : opt ChangeFeeCollector;
+  max_memo_length : opt nat16;
+  token_name : opt text;
+  feature_flags : opt FeatureFlags;
+};
 service : (RouteArg) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
@@ -101,4 +116,5 @@ service : (RouteArg) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   remove_controller : (principal, principal) -> (Result_1);
   resend_tickets : () -> (Result_2);
+  update_icrc_ledger : (principal, UpgradeArgs_1) -> (Result_1);
 }

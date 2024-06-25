@@ -240,7 +240,8 @@ impl Storable for ChainTokenFactor {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let fee = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode ChainTokenFactor");
+        let fee =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode ChainTokenFactor");
         fee
     }
 
