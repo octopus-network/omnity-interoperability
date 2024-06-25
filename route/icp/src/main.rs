@@ -12,6 +12,7 @@ use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
 use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
+use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
 use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
@@ -90,6 +91,17 @@ pub async fn remove_controller(
     } else {
         Ok(())
     }
+}
+
+#[update(guard = "is_controller")]
+pub async fn update_icrc_ledger(
+    ledger_id: Principal,
+    upgrade_args: ic_icrc1_ledger::UpgradeArgs,
+) -> Result<(), String> {
+    if !read_state(|s| s.token_ledgers.iter().any(|(_, id)| *id == ledger_id)) {
+        return Err("ledger id not found!".into());
+    }
+    upgrade_icrc2_ledger(ledger_id, upgrade_args).await
 }
 
 #[update(guard = "is_controller")]
