@@ -17,42 +17,9 @@ export const idlFactory = ({ IDL }) => {
     'Upgrade' : IDL.Opt(UpgradeArgs),
     'Init' : InitArgs,
   });
-  const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
-  const CanisterStatusType = IDL.Variant({
-    'stopped' : IDL.Null,
-    'stopping' : IDL.Null,
-    'running' : IDL.Null,
-  });
-  const DefiniteCanisterSettings = IDL.Record({
-    'freezing_threshold' : IDL.Nat,
-    'controllers' : IDL.Vec(IDL.Principal),
-    'reserved_cycles_limit' : IDL.Nat,
-    'memory_allocation' : IDL.Nat,
-    'compute_allocation' : IDL.Nat,
-  });
-  const QueryStats = IDL.Record({
-    'response_payload_bytes_total' : IDL.Nat,
-    'num_instructions_total' : IDL.Nat,
-    'num_calls_total' : IDL.Nat,
-    'request_payload_bytes_total' : IDL.Nat,
-  });
-  const CanisterStatusResponse = IDL.Record({
-    'status' : CanisterStatusType,
-    'memory_size' : IDL.Nat,
-    'cycles' : IDL.Nat,
-    'settings' : DefiniteCanisterSettings,
-    'query_stats' : QueryStats,
-    'idle_cycles_burned_per_day' : IDL.Nat,
-    'module_hash' : IDL.Opt(IDL.Vec(IDL.Nat8)),
-    'reserved_cycles' : IDL.Nat,
-  });
-  const Result_1 = IDL.Variant({
-    'Ok' : CanisterStatusResponse,
-    'Err' : IDL.Text,
-  });
   const GenerateTicketReq = IDL.Record({
     'token_id' : IDL.Text,
-    'burn' : IDL.Opt(IDL.Bool),
+    'burn' : IDL.Bool,
     'from_subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
     'target_chain_id' : IDL.Text,
     'amount' : IDL.Nat,
@@ -73,7 +40,7 @@ export const idlFactory = ({ IDL }) => {
     'UnsupportedToken' : IDL.Text,
     'InsufficientFunds' : IDL.Record({ 'balance' : IDL.Nat64 }),
   });
-  const Result_2 = IDL.Variant({
+  const Result = IDL.Variant({
     'Ok' : GenerateTicketOk,
     'Err' : GenerateTicketError,
   });
@@ -157,37 +124,13 @@ export const idlFactory = ({ IDL }) => {
     'Finalized' : IDL.Record({ 'block_index' : IDL.Nat64 }),
     'Unknown' : IDL.Null,
   });
-  const MetadataValue = IDL.Variant({
-    'Int' : IDL.Int,
-    'Nat' : IDL.Nat,
-    'Blob' : IDL.Vec(IDL.Nat8),
-    'Text' : IDL.Text,
-  });
-  const Account = IDL.Record({
-    'owner' : IDL.Principal,
-    'subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
-  });
-  const ChangeFeeCollector = IDL.Variant({
-    'SetTo' : Account,
-    'Unset' : IDL.Null,
-  });
-  const FeatureFlags = IDL.Record({ 'icrc2' : IDL.Bool });
-  const UpgradeArgs_1 = IDL.Record({
-    'token_symbol' : IDL.Opt(IDL.Text),
-    'transfer_fee' : IDL.Opt(IDL.Nat),
-    'metadata' : IDL.Opt(IDL.Vec(IDL.Tuple(IDL.Text, MetadataValue))),
-    'maximum_number_of_accounts' : IDL.Opt(IDL.Nat64),
-    'accounts_overflow_trim_quantity' : IDL.Opt(IDL.Nat64),
-    'change_fee_collector' : IDL.Opt(ChangeFeeCollector),
-    'max_memo_length' : IDL.Opt(IDL.Nat16),
-    'token_name' : IDL.Opt(IDL.Text),
-    'feature_flags' : IDL.Opt(FeatureFlags),
+  const Result_1 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
+  const Result_2 = IDL.Variant({
+    'Ok' : IDL.Null,
+    'Err' : GenerateTicketError,
   });
   return IDL.Service({
-    'add_controller' : IDL.Func([IDL.Principal, IDL.Principal], [Result], []),
-    'controlled_canister_status' : IDL.Func([IDL.Principal], [Result_1], []),
-    'delete_controlled_canister' : IDL.Func([IDL.Principal], [Result], []),
-    'generate_ticket' : IDL.Func([GenerateTicketReq], [Result_2], []),
+    'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_events' : IDL.Func([GetEventsArg], [IDL.Vec(Event)], ['query']),
     'get_fee_account' : IDL.Func(
@@ -206,16 +149,10 @@ export const idlFactory = ({ IDL }) => {
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
     'remove_controller' : IDL.Func(
         [IDL.Principal, IDL.Principal],
-        [Result],
+        [Result_1],
         [],
       ),
-    'start_controlled_canister' : IDL.Func([IDL.Principal], [Result], []),
-    'stop_controlled_canister' : IDL.Func([IDL.Principal], [Result], []),
-    'update_icrc_ledger' : IDL.Func(
-        [IDL.Principal, UpgradeArgs_1],
-        [Result],
-        [],
-      ),
+    'resend_tickets' : IDL.Func([], [Result_2], []),
   });
 };
 export const init = ({ IDL }) => {
