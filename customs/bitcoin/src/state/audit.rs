@@ -1,7 +1,7 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomsState, GenTicketRequest, ReleaseTokenRequest, RuneId, RunesBalance,
+    eventlog::Event, CustomsState, GenTicketRequestV2, ReleaseTokenRequest, RuneId, RunesBalance,
     SubmittedBtcTransaction,
 };
 use crate::destination::Destination;
@@ -52,8 +52,8 @@ pub fn accept_release_token_request(state: &mut CustomsState, request: ReleaseTo
     state.push_back_pending_request(request);
 }
 
-pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTicketRequest) {
-    record_event(&&Event::AcceptedGenTicketRequest(request.clone()));
+pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTicketRequestV2) {
+    record_event(&Event::AcceptedGenTicketRequestV2(request.clone()));
     state
         .pending_gen_ticket_requests
         .insert(request.txid, request);
@@ -88,12 +88,15 @@ pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: Runes
 
 pub fn remove_pending_request(state: &mut CustomsState, txid: &Txid) {
     record_event(&Event::RemovedTicketRequest { txid: txid.clone() });
-    state.pending_gen_ticket_requests.remove(txid);
+    state
+        .pending_gen_ticket_requests
+        .remove(txid)
+        .and_then(|req| Some(req.new_utxos.iter().for_each(|u| state.forget_utxo(u))));
 }
 
 pub fn finalize_ticket_request(
     state: &mut CustomsState,
-    request: &GenTicketRequest,
+    request: &GenTicketRequestV2,
     balances: Vec<RunesBalance>,
 ) {
     record_event(&Event::FinalizedTicketRequest {

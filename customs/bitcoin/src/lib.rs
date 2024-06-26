@@ -53,7 +53,7 @@ pub const MAX_REQUESTS_PER_BATCH: usize = 10;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 
 pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
-pub const INTERVAL_QUERY_HUB: Duration = Duration::from_secs(60);
+pub const INTERVAL_QUERY_DIRECTIVES: Duration = Duration::from_secs(60);
 pub const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
 
 /// The minimum fee increment for transaction resubmission.
@@ -1289,14 +1289,23 @@ pub fn process_tx_task() {
     });
 }
 
-pub fn process_hub_msg_task() {
+pub fn process_directive_msg_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::ProcessHubMsgGuard::new() {
+        let _guard = match crate::guard::ProcessDirectiveMsgGuard::new() {
+            Some(guard) => guard,
+            None => return,
+        };
+        process_directive().await;
+    });
+}
+
+pub fn process_ticket_msg_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::ProcessTicketMsgGuard::new() {
             Some(guard) => guard,
             None => return,
         };
         process_tickets().await;
-        process_directive().await;
     });
 }
 

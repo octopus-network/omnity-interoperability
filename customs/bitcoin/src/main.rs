@@ -2,7 +2,7 @@ use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::lifecycle::{self, init::CustomArg};
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
-use bitcoin_customs::state::{read_state, GenTicketRequest, GenTicketStatus, ReleaseTokenStatus};
+use bitcoin_customs::state::{read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
 use bitcoin_customs::updates::update_pending_ticket::{
@@ -14,8 +14,8 @@ use bitcoin_customs::updates::{
     update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
 use bitcoin_customs::{
-    process_hub_msg_task, process_tx_task, refresh_fee_task, CustomsInfo, TokenResp,
-    FEE_ESTIMATE_DELAY, INTERVAL_PROCESSING, INTERVAL_QUERY_HUB,
+    process_directive_msg_task, process_ticket_msg_task, process_tx_task, refresh_fee_task,
+    CustomsInfo, TokenResp, FEE_ESTIMATE_DELAY, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES,
 };
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
@@ -39,7 +39,8 @@ fn init(args: CustomArg) {
             lifecycle::init::init(args);
 
             set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
-            set_timer_interval(INTERVAL_QUERY_HUB, process_hub_msg_task);
+            set_timer_interval(INTERVAL_PROCESSING, process_ticket_msg_task);
+            set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_directive_msg_task);
             set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
 
             #[cfg(feature = "self_check")]
@@ -106,7 +107,8 @@ fn post_upgrade(custom_arg: Option<CustomArg>) {
     lifecycle::upgrade::post_upgrade(upgrade_arg);
 
     set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
-    set_timer_interval(INTERVAL_QUERY_HUB, process_hub_msg_task);
+    set_timer_interval(INTERVAL_PROCESSING, process_ticket_msg_task);
+    set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_directive_msg_task);
     set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
 }
 
@@ -137,7 +139,7 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
 }
 
 #[query]
-fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequest> {
+fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequestV2> {
     let start = args.start_txid.map_or(Unbounded, |txid| Excluded(txid));
     let count = max(50, args.max_count) as usize;
     read_state(|s| {

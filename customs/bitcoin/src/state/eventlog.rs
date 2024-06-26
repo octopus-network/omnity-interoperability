@@ -1,4 +1,6 @@
-use super::{BtcChangeOutput, GenTicketRequest, RuneId, RunesBalance, RunesUtxo};
+use super::{
+    BtcChangeOutput, GenTicketRequest, GenTicketRequestV2, RuneId, RunesBalance, RunesUtxo,
+};
 use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
@@ -61,6 +63,9 @@ pub enum Event {
 
     #[serde(rename = "accepted_generate_ticket_request")]
     AcceptedGenTicketRequest(GenTicketRequest),
+
+    #[serde(rename = "accepted_generate_ticket_request_v2")]
+    AcceptedGenTicketRequestV2(GenTicketRequestV2),
 
     /// Indicates that the customs accepted a new release_token request.
     /// The customs emits this event _after_ it send to hub.
@@ -204,10 +209,15 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.update_runes_balance(txid, balance);
             }
             Event::AcceptedGenTicketRequest(req) => {
+                state
+                    .pending_gen_ticket_requests
+                    .insert(req.txid, req.into());
+            }
+            Event::AcceptedGenTicketRequestV2(req) => {
                 state.pending_gen_ticket_requests.insert(req.txid, req);
             }
             Event::RemovedTicketRequest { txid } => {
-                state
+                let req = state
                     .pending_gen_ticket_requests
                     .remove(&txid)
                     .ok_or_else(|| {
@@ -216,6 +226,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                             txid
                         ))
                     })?;
+                for utxo in &req.new_utxos {
+                    state.forget_utxo(utxo);
+                }
             }
             Event::FinalizedTicketRequest { txid, balances } => {
                 let request = state
