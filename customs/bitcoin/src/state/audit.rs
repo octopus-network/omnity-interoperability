@@ -52,11 +52,18 @@ pub fn accept_release_token_request(state: &mut CustomsState, request: ReleaseTo
     state.push_back_pending_request(request);
 }
 
-pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTicketRequestV2) {
+pub fn accept_generate_ticket_request(
+    state: &mut CustomsState,
+    dest: Destination,
+    request: GenTicketRequestV2,
+) {
     record_event(&Event::AcceptedGenTicketRequestV2(request.clone()));
+    let new_utxos = request.new_utxos.clone();
     state
         .pending_gen_ticket_requests
         .insert(request.txid, request);
+
+    state.add_utxos(dest, new_utxos, true);
 }
 
 pub fn add_utxos(
