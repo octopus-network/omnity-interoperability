@@ -1,5 +1,6 @@
 use super::{
     BtcChangeOutput, GenTicketRequest, GenTicketRequestV2, RuneId, RunesBalance, RunesUtxo,
+    RUNES_TOKEN,
 };
 use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
@@ -209,12 +210,21 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.update_runes_balance(txid, balance);
             }
             Event::AcceptedGenTicketRequest(req) => {
+                // There is no need to add utxos here, because in previous versions, 
+                // A ReceivedUtxos Event will be emitted at the same time.
                 state
                     .pending_gen_ticket_requests
                     .insert(req.txid, req.into());
             }
             Event::AcceptedGenTicketRequestV2(req) => {
+                let new_utxos = req.new_utxos.clone();
+                let dest = Destination {
+                    target_chain_id: req.target_chain_id.clone(),
+                    receiver: req.receiver.clone(),
+                    token: Some(RUNES_TOKEN.into()),
+                };
                 state.pending_gen_ticket_requests.insert(req.txid, req);
+                state.add_utxos(dest, new_utxos, true);
             }
             Event::RemovedTicketRequest { txid } => {
                 let req = state
