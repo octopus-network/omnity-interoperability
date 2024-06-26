@@ -317,7 +317,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     }
 }
 
-#[query]
+#[query(guard = "is_controller")]
 fn get_events(args: GetEventsArg) -> Vec<Event> {
     const MAX_EVENTS_PER_QUERY: usize = 2000;
 
