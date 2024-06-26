@@ -1,4 +1,4 @@
-use candid::Principal;
+use candid::{Nat, Principal};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::main::{
     canister_info, update_settings, CanisterInfoRequest, CanisterSettings, UpdateSettingsArgument,
@@ -17,7 +17,10 @@ use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{hub, periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
+use icp_route::{hub, periodic_task, storage, TokenResp, FEE_COLLECTOR_SUB_ACCOUNT, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
+use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
+use icrc_ledger_types::icrc1::account::Account;
+use icrc_ledger_types::icrc2::transfer_from::TransferFromArgs;
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::time::Duration;
@@ -102,6 +105,50 @@ pub async fn update_icrc_ledger(
         return Err("ledger id not found!".into());
     }
     upgrade_icrc2_ledger(ledger_id, upgrade_args).await
+}
+
+#[update(guard = "is_controller")]
+pub async fn collect_ledger_fee(
+    ledger_id: Principal,
+    amount: Option<Nat>,
+    receiver: Account
+)-> Result<(), String> {
+    let client = ICRC1Client {
+        runtime: CdkRuntime,
+        ledger_canister_id: ledger_id,
+    };
+
+    let collector = Account {
+        owner: ic_cdk::id(),
+        subaccount: Some(FEE_COLLECTOR_SUB_ACCOUNT.clone()),
+    };
+
+    let transfer_amount = if amount.is_none() {
+        client.balance_of(collector).await.map_err(|(code, msg)| {
+            format!("failed to get balance of ledger: {} code: {} msg: {}", ledger_id, code, msg)
+        })?
+    } else {
+        amount.unwrap()
+    };
+
+    client
+    .transfer_from(TransferFromArgs {
+        spender_subaccount: None,
+        from: collector,
+        to: receiver,
+        amount: transfer_amount,
+        fee: None,
+        memo: None,
+        created_at_time: Some(ic_cdk::api::time()),
+    })
+    .await.map_err(|(code, msg)| {
+        format!("failed to transfer from ledger: {:?} code: {:?} msg: {:?}", ledger_id, code, msg)
+    })?.map_err(|err| {
+        format!("failed to transfer from ledger: {:?} error: {:?}", ledger_id, err)
+    })?;
+
+    Ok(())
+    
 }
 
 #[update(guard = "is_controller")]
