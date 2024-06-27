@@ -19,6 +19,7 @@ type Directive = variant {
 };
 type EcdsaCurve = variant { secp256k1 };
 type EcdsaKeyId = record { name : text; curve : EcdsaCurve };
+type EvmTxType = variant { Eip1559; Legacy };
 type Factor = variant {
   UpdateFeeTokenFactor : FeeTokenFactor;
   UpdateTargetChainFactor : TargetChainFactor;
@@ -41,6 +42,7 @@ type InitArgs = record {
   admin : principal;
   hub_principal : principal;
   rpcs : vec RpcApi;
+  evm_tx_type : EvmTxType;
   network : Network;
   fee_token_id : text;
   chain_id : text;
@@ -124,7 +126,7 @@ type TokenResp = record {
   rune_id : opt text;
   symbol : text;
 };
-type TxAction = variant { Burn; Redeem; Transfer };
+type TxAction = variant { Burn; Redeem; Mint; Transfer };
 service : (InitArgs) -> {
   get_chain_list : () -> (vec Chain) query;
   get_fee : (text) -> (opt nat64) query;
