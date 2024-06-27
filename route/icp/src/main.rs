@@ -17,7 +17,10 @@ use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{hub, periodic_task, storage, TokenResp, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
+use icp_route::{
+    hub, process_directive_msg_task, process_ticket_msg_task, storage, TokenResp, ICP_TRANSFER_FEE,
+    INTERVAL_QUERY_DIRECTIVE, INTERVAL_QUERY_TICKET,
+};
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::time::Duration;
@@ -29,7 +32,14 @@ fn init(args: RouteArg) {
             init_log(Some(init_stable_log()));
             storage::record_event(&Event::Init(args.clone()));
             lifecycle::init(args);
-            set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
+            set_timer_interval(
+                Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),
+                process_directive_msg_task,
+            );
+            set_timer_interval(
+                Duration::from_secs(INTERVAL_QUERY_TICKET),
+                process_ticket_msg_task,
+            );
         }
         RouteArg::Upgrade(_) => {
             panic!("expected InitArgs got UpgradeArgs");
@@ -219,7 +229,14 @@ fn post_upgrade(route_arg: Option<RouteArg>) {
     }
     lifecycle::post_upgrade(upgrade_arg);
 
-    set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
+    set_timer_interval(
+        Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),
+        process_directive_msg_task,
+    );
+    set_timer_interval(
+        Duration::from_secs(INTERVAL_QUERY_TICKET),
+        process_ticket_msg_task,
+    );
 }
 
 fn main() {}
