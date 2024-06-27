@@ -46,7 +46,10 @@ pub struct RouteState {
     pub failed_tickets: Vec<Ticket>,
 
     #[serde(skip)]
-    pub is_timer_running: bool,
+    pub is_process_directive_msg: bool,
+
+    #[serde(skip)]
+    pub is_process_ticket_msg: bool,
 }
 
 impl RouteState {
@@ -87,7 +90,8 @@ impl From<InitArgs> for RouteState {
             target_chain_factor: Default::default(),
             chain_state: args.chain_state,
             failed_tickets: Default::default(),
-            is_timer_running: false,
+            is_process_directive_msg: false,
+            is_process_ticket_msg: false,
         }
     }
 }

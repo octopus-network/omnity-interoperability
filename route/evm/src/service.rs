@@ -13,11 +13,12 @@ use log::info;
 use serde_derive::Deserialize;
 
 use crate::const_args::{
-    FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL,
+    FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, SCAN_EVM_TASK_INTERVAL,
+    SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL,
 };
 use crate::eth_common::EvmAddress;
 use crate::evm_scan::scan_evm_task;
-use crate::hub_to_route::fetch_hub_periodic_task;
+use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
@@ -60,8 +61,12 @@ fn update_consume_directive_seq(seq: Seq) {
 }
 fn start_tasks() {
     set_timer_interval(
-        Duration::from_secs(FETCH_HUB_TASK_INTERVAL),
-        fetch_hub_periodic_task,
+        Duration::from_secs(FETCH_HUB_TICKET_INTERVAL),
+        fetch_hub_ticket_task,
+    );
+    set_timer_interval(
+        Duration::from_secs(FETCH_HUB_DIRECTIVE_INTERVAL),
+        fetch_hub_directive_task,
     );
     set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), to_evm_task);
     set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);

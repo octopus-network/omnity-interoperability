@@ -3,7 +3,10 @@ use ic_btc_interface::Txid;
 use serde::Serialize;
 use std::str::FromStr;
 
-use crate::state::{audit, mutate_state, read_state, RuneId};
+use crate::{
+    destination::Destination,
+    state::{audit, mutate_state, read_state, RuneId, RUNES_TOKEN},
+};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UpdatePendingTicketArgs {
@@ -39,6 +42,11 @@ pub async fn update_pending_ticket(
         request.amount = amount;
     }
 
-    mutate_state(|s| audit::accept_generate_ticket_request(s, request));
+    let dest = Destination {
+        target_chain_id: request.target_chain_id.clone(),
+        receiver: request.receiver.clone(),
+        token: Some(RUNES_TOKEN.into()),
+    };
+    mutate_state(|s| audit::accept_generate_ticket_request(s, dest, request));
     Ok(())
 }

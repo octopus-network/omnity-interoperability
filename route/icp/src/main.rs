@@ -17,10 +17,14 @@ use icp_route::updates::generate_ticket::{
     principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use icp_route::updates::{self};
-use icp_route::{hub, periodic_task, storage, TokenResp, FEE_COLLECTOR_SUB_ACCOUNT, ICP_TRANSFER_FEE, PERIODIC_TASK_INTERVAL};
+use icp_route::{
+    hub, process_directive_msg_task, process_ticket_msg_task, storage, TokenResp,
+    FEE_COLLECTOR_SUB_ACCOUNT, ICP_TRANSFER_FEE, INTERVAL_QUERY_DIRECTIVE, INTERVAL_QUERY_TICKET,
+};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc2::transfer_from::TransferFromArgs;
+
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
 use std::time::Duration;
@@ -32,7 +36,14 @@ fn init(args: RouteArg) {
             init_log(Some(init_stable_log()));
             storage::record_event(&Event::Init(args.clone()));
             lifecycle::init(args);
-            set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
+            set_timer_interval(
+                Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),
+                process_directive_msg_task,
+            );
+            set_timer_interval(
+                Duration::from_secs(INTERVAL_QUERY_TICKET),
+                process_ticket_msg_task,
+            );
         }
         RouteArg::Upgrade(_) => {
             panic!("expected InitArgs got UpgradeArgs");
@@ -111,8 +122,8 @@ pub async fn update_icrc_ledger(
 pub async fn collect_ledger_fee(
     ledger_id: Principal,
     amount: Option<Nat>,
-    receiver: Account
-)-> Result<(), String> {
+    receiver: Account,
+) -> Result<(), String> {
     let client = ICRC1Client {
         runtime: CdkRuntime,
         ledger_canister_id: ledger_id,
@@ -125,30 +136,40 @@ pub async fn collect_ledger_fee(
 
     let transfer_amount = if amount.is_none() {
         client.balance_of(collector).await.map_err(|(code, msg)| {
-            format!("failed to get balance of ledger: {} code: {} msg: {}", ledger_id, code, msg)
+            format!(
+                "failed to get balance of ledger: {} code: {} msg: {}",
+                ledger_id, code, msg
+            )
         })?
     } else {
         amount.unwrap()
     };
 
     client
-    .transfer_from(TransferFromArgs {
-        spender_subaccount: None,
-        from: collector,
-        to: receiver,
-        amount: transfer_amount,
-        fee: None,
-        memo: None,
-        created_at_time: Some(ic_cdk::api::time()),
-    })
-    .await.map_err(|(code, msg)| {
-        format!("failed to transfer from ledger: {:?} code: {:?} msg: {:?}", ledger_id, code, msg)
-    })?.map_err(|err| {
-        format!("failed to transfer from ledger: {:?} error: {:?}", ledger_id, err)
-    })?;
+        .transfer_from(TransferFromArgs {
+            spender_subaccount: None,
+            from: collector,
+            to: receiver,
+            amount: transfer_amount,
+            fee: None,
+            memo: None,
+            created_at_time: Some(ic_cdk::api::time()),
+        })
+        .await
+        .map_err(|(code, msg)| {
+            format!(
+                "failed to transfer from ledger: {:?} code: {:?} msg: {:?}",
+                ledger_id, code, msg
+            )
+        })?
+        .map_err(|err| {
+            format!(
+                "failed to transfer from ledger: {:?} error: {:?}",
+                ledger_id, err
+            )
+        })?;
 
     Ok(())
-    
 }
 
 #[update(guard = "is_controller")]
@@ -266,7 +287,14 @@ fn post_upgrade(route_arg: Option<RouteArg>) {
     }
     lifecycle::post_upgrade(upgrade_arg);
 
-    set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
+    set_timer_interval(
+        Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),
+        process_directive_msg_task,
+    );
+    set_timer_interval(
+        Duration::from_secs(INTERVAL_QUERY_TICKET),
+        process_ticket_msg_task,
+    );
 }
 
 fn main() {}

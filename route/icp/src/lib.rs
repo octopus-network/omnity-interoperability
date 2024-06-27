@@ -16,7 +16,8 @@ pub mod state;
 pub mod storage;
 pub mod updates;
 
-pub const PERIODIC_TASK_INTERVAL: u64 = 60;
+pub const INTERVAL_QUERY_DIRECTIVE: u64 = 60;
+pub const INTERVAL_QUERY_TICKET: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICRC2_WASM: &[u8] = include_bytes!("../../../ic-icrc1-ledger.wasm");
 pub const ICP_TRANSFER_FEE: u64 = 10_000;
@@ -156,14 +157,24 @@ async fn process_directives() {
     };
 }
 
-pub fn periodic_task() {
+pub fn process_directive_msg_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new() {
+        let _guard = match crate::guard::ProcessDirectiveMsgGuard::new() {
             Some(guard) => guard,
             None => return,
         };
 
         process_directives().await;
+    });
+}
+
+pub fn process_ticket_msg_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::ProcessTicketMsgGuard::new() {
+            Some(guard) => guard,
+            None => return,
+        };
+
         process_tickets().await;
     });
 }
