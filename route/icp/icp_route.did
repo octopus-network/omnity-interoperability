@@ -63,8 +63,8 @@ type MintTokenStatus = variant {
   Finalized : record { block_index : nat64 };
   Unknown;
 };
-type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-type Result_1 = variant { Ok; Err : text };
+type Result = variant { Ok; Err : text };
+type Result_1 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_2 = variant { Ok; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type TargetChainFactor = record {
@@ -105,7 +105,8 @@ type UpgradeArgs_1 = record {
   feature_flags : opt FeatureFlags;
 };
 service : (RouteArg) -> {
-  generate_ticket : (GenerateTicketReq) -> (Result);
+  collect_ledger_fee : (principal, opt nat, Account) -> (Result);
+  generate_ticket : (GenerateTicketReq) -> (Result_1);
   get_chain_list : () -> (vec Chain) query;
   get_events : (GetEventsArg) -> (vec Event) query;
   get_fee_account : (opt principal) -> (blob) query;
@@ -114,7 +115,7 @@ service : (RouteArg) -> {
   get_token_ledger : (text) -> (opt principal) query;
   get_token_list : () -> (vec TokenResp) query;
   mint_token_status : (text) -> (MintTokenStatus) query;
-  remove_controller : (principal, principal) -> (Result_1);
+  remove_controller : (principal, principal) -> (Result);
   resend_tickets : () -> (Result_2);
-  update_icrc_ledger : (principal, UpgradeArgs_1) -> (Result_1);
+  update_icrc_ledger : (principal, UpgradeArgs_1) -> (Result);
 }
