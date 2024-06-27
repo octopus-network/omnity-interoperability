@@ -159,18 +159,14 @@ async fn process_directives() {
 
 pub fn process_directive_msg_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::ProcessDirectiveMsgGuard::new() {
-            Some(guard) => guard,
-            None => return,
-        };
-
+        // Considering that the directive is queried once a minute, guard protection is not needed.
         process_directives().await;
     });
 }
 
 pub fn process_ticket_msg_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::ProcessTicketMsgGuard::new() {
+        let _guard = match crate::guard::TimerLogicGuard::new() {
             Some(guard) => guard,
             None => return,
         };

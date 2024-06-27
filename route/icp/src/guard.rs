@@ -1,47 +1,24 @@
 use crate::state::mutate_state;
 
 #[must_use]
-pub struct ProcessDirectiveMsgGuard(());
+pub struct TimerLogicGuard(());
 
-impl ProcessDirectiveMsgGuard {
+impl TimerLogicGuard {
     pub fn new() -> Option<Self> {
         mutate_state(|s| {
-            if s.is_process_directive_msg {
+            if s.is_timer_running {
                 return None;
             }
-            s.is_process_directive_msg = true;
-            Some(ProcessDirectiveMsgGuard(()))
+            s.is_timer_running = true;
+            Some(TimerLogicGuard(()))
         })
     }
 }
 
-impl Drop for ProcessDirectiveMsgGuard {
+impl Drop for TimerLogicGuard {
     fn drop(&mut self) {
         mutate_state(|s| {
-            s.is_process_directive_msg = false;
-        });
-    }
-}
-
-#[must_use]
-pub struct ProcessTicketMsgGuard(());
-
-impl ProcessTicketMsgGuard {
-    pub fn new() -> Option<Self> {
-        mutate_state(|s| {
-            if s.is_process_ticket_msg {
-                return None;
-            }
-            s.is_process_ticket_msg = true;
-            Some(ProcessTicketMsgGuard(()))
-        })
-    }
-}
-
-impl Drop for ProcessTicketMsgGuard {
-    fn drop(&mut self) {
-        mutate_state(|s| {
-            s.is_process_ticket_msg = false;
+            s.is_timer_running = false;
         });
     }
 }
