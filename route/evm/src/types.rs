@@ -1,20 +1,20 @@
-use std::borrow::Cow;
 use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
 };
+use std::borrow::Cow;
 
 use candid::CandidType;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
-use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
+use ic_stable_structures::storable::Bound;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use thiserror::Error;
 
-use crate::contract_types::{TokenBurned, TokenTransportRequested};
+use crate::contract_types::{RunesMint, TokenBurned, TokenTransportRequested};
 use crate::contracts::PortContractFactorTypeIndex;
 use crate::state::read_state;
 
@@ -235,7 +235,38 @@ pub struct Ticket {
     pub memo: Option<Vec<u8>>,
 }
 
+
 impl Ticket {
+    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMint) -> Self {
+        let src_chain = read_state(|s| s.omnity_chain_id.clone());
+        let token = read_state(|s| {
+            s.tokens
+                .get(&runes_mint.token_id.to_string())
+                .expect("token not found")
+                .clone()
+        });
+        let dst_chain = token.token_id_info()[0].to_string();
+        Ticket {
+            ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
+            ticket_time: ic_cdk::api::time(),
+            ticket_type: TicketType::Normal,
+            src_chain,
+            dst_chain,
+            action: TxAction::Mint,
+            token: runes_mint.token_id,
+            amount: runes_mint.amount.to_string(),
+            sender: Some(format!(
+                "0x{}",
+                hex::encode(runes_mint.sender.0.as_slice())
+            )),
+            receiver: format!(
+                "0x{}",
+                hex::encode(runes_mint.receiver.0.as_slice())
+            ),
+            memo: None,
+        }
+    }
+
     pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
@@ -427,6 +458,7 @@ pub enum TxAction {
     Transfer,
     Redeem,
     Burn,
+    Mint,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]

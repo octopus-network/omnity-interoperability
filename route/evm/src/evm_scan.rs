@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use cketh_common::eth_rpc::Hash;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
+use cketh_common::eth_rpc::Hash;
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use evm_rpc::{
@@ -10,15 +10,12 @@ use evm_rpc::{
 use itertools::Itertools;
 use log::{error, info};
 
+use crate::*;
 use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
-use crate::contract_types::{
-    AbiSignature, DecodeLog, DirectiveExecuted, TokenAdded, TokenBurned, TokenMinted,
-    TokenTransportRequested,
-};
+use crate::contract_types::{AbiSignature, DecodeLog, DirectiveExecuted, RunesMint, TokenAdded, TokenBurned, TokenMinted, TokenTransportRequested};
 use crate::eth_common::get_evm_finalized_height;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
-use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -132,10 +129,25 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
                     token_added.token_address.encode_hex_with_prefix(),
                 )
             });
+        } else if topic1 == RunesMint::signature_hash() {
+            let runes_mint = RunesMint::decode_log(&raw_log)
+                .map_err(|e| Error::ParseEventError(e.to_string()))?;
+            handle_runes_mint(&l, runes_mint).await?;
         }
         mutate_state(|s| s.handled_evm_event.insert(log_key));
     }
     mutate_state(|s| s.scan_start_height = to);
+    Ok(())
+}
+
+pub async fn handle_runes_mint(
+    log_entry: &LogEntry,
+    event: RunesMint,
+) -> anyhow::Result<()> {
+    let ticket = Ticket::from_runes_mint_event(log_entry, event);
+    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket, ))
+        .await
+        .map_err(|(_, s)| Error::HubError(s))?;
     Ok(())
 }
 
@@ -192,6 +204,7 @@ pub async fn fetch_logs(
                     TokenTransportRequested::signature_hex(),
                     DirectiveExecuted::signature_hex(),
                     TokenAdded::signature_hex(),
+                    RunesMint::signature_hex(),
                 ]]),
             },
         ),

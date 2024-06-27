@@ -1,4 +1,4 @@
-use ethers_core::abi::{ethereum_types, AbiDecode, AbiEncode, RawLog};
+use ethers_core::abi::{AbiDecode, AbiEncode, ethereum_types, RawLog};
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
 use serde_derive::{Deserialize, Serialize};
@@ -197,10 +197,36 @@ impl DecodeLog for TokenAdded {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunesMint {
+    pub token_id: String,
+    pub sender: ethereum_types::Address,
+    pub receiver: ethereum_types::Address,
+    pub amount: ethereum_types::U256,
+}
+
+impl AbiSignature for RunesMint {
+    fn abi_signature() -> String {
+        "RunesMint(string,address,address,uint256)".to_string()
+    }
+}
+
+impl DecodeLog for RunesMint {
+    fn decode_log(log: &RawLog) -> anyhow::Result<Self> where Self: Sized {
+        let (token_id, sender, receiver, amount) = AbiDecode::decode(&log.data)?;
+        Ok(Self {
+            token_id,
+            sender,
+            receiver,
+            amount,
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use ethers_contract::abigen;
-    use ethers_core::abi::{ethereum_types, AbiEncode};
+    use ethers_core::abi::{AbiEncode, ethereum_types};
     use ethers_core::types::{Bytes, U256};
 
     use crate::contract_types::{AbiSignature, TokenBurned};

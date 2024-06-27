@@ -15,19 +15,16 @@ use serde_derive::Deserialize;
 use crate::const_args::{
     FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL,
 };
-use crate::eth_common::EvmAddress;
+use crate::eth_common::{EvmAddress, EvmTxType};
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::fetch_hub_periodic_task;
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    init_chain_pubkey, mutate_state, read_state, replace_state, EvmRouteState, StateProfile,
+    EvmRouteState, init_chain_pubkey, mutate_state, read_state, replace_state, StateProfile,
 };
-use crate::types::{
-    Chain, ChainId, Directive, MintTokenStatus, Network, PendingDirectiveStatus,
-    PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
-};
+use crate::types::{Chain, ChainId, Directive, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
 
 #[init]
 fn init(args: InitArgs) {
@@ -42,8 +39,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
-    EvmRouteState::post_upgrade();
+fn post_upgrade(evm_tx_type: EvmTxType) {
+    EvmRouteState::post_upgrade(evm_tx_type);
     init_log(Some(init_stable_log()));
     start_tasks();
     info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
@@ -240,6 +237,7 @@ pub struct InitArgs {
     pub rpcs: Vec<RpcApi>,
     pub fee_token_id: String,
     pub port_addr: Option<String>,
+    pub evm_tx_type: EvmTxType,
 }
 
 ic_cdk::export_candid!();

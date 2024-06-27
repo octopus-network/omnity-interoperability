@@ -9,19 +9,20 @@ use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{
     ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument,
 };
-use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
+use ic_stable_structures::writer::Writer;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 
-use crate::eth_common::EvmAddress;
+use crate::{Error, stable_memory};
+use crate::eth_common::{EvmAddress, EvmTxType};
 use crate::service::InitArgs;
 use crate::stable_memory::Memory;
 use crate::types::{Chain, ChainState, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
-use crate::{stable_memory, Error};
+use crate::upgrade::OldEvmRouteState;
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
@@ -69,6 +70,7 @@ impl EvmRouteState {
             ),
             scan_start_height: args.scan_start_height,
             is_timer_running: Default::default(),
+            evm_tx_type: args.evm_tx_type,
         };
         Ok(ret)
     }
@@ -87,7 +89,7 @@ impl EvmRouteState {
             .expect("failed to save hub state");
     }
 
-    pub fn post_upgrade() {
+    pub fn post_upgrade(evm_tx_type: EvmTxType) {
         use ic_stable_structures::Memory;
         let memory = stable_memory::get_upgrade_stash_memory();
         // Read the length of the state bytes.
@@ -96,7 +98,9 @@ impl EvmRouteState {
         let state_len = u32::from_le_bytes(state_len_bytes) as usize;
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
-        replace_state(ciborium::de::from_reader(&*state_bytes).expect("failed to decode state"));
+        let old_state: OldEvmRouteState = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+        let new_state = EvmRouteState::from((old_state, evm_tx_type));
+        replace_state(new_state);
     }
 
     pub fn pull_tickets(&self, from: usize, limit: usize) -> Vec<(Seq, Ticket)> {
@@ -167,6 +171,7 @@ pub struct EvmRouteState {
     pub scan_start_height: u64,
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
+    pub evm_tx_type: EvmTxType,
 }
 
 impl From<&EvmRouteState> for StateProfile {
