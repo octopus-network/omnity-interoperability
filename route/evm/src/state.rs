@@ -198,6 +198,7 @@ impl From<&EvmRouteState> for StateProfile {
             start_scan_height: v.scan_start_height,
             fee_token_factor: v.fee_token_factor,
             target_chain_factor: v.target_chain_factor.clone(),
+            evm_tx_type: v.evm_tx_type,
         }
     }
 }
@@ -225,6 +226,7 @@ pub struct StateProfile {
     pub start_scan_height: u64,
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
+    pub evm_tx_type: EvmTxType,
 }
 
 pub fn is_active() -> bool {

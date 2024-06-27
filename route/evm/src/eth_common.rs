@@ -312,7 +312,7 @@ pub async fn get_evm_finalized_height() -> anyhow::Result<u64> {
 }
 
 
-#[derive(CandidType, Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(CandidType, Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EvmTxType {
     Legacy,
     #[default]
