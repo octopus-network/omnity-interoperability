@@ -23,7 +23,7 @@ use icp_route::{
 };
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
-use icrc_ledger_types::icrc2::transfer_from::TransferFromArgs;
+use icrc_ledger_types::icrc1::transfer::TransferArg;
 
 use omnity_types::log::{init_log, StableLogWriter};
 use omnity_types::{Chain, ChainId};
@@ -146,14 +146,13 @@ pub async fn collect_ledger_fee(
     };
 
     client
-        .transfer_from(TransferFromArgs {
-            spender_subaccount: None,
-            from: collector,
+        .transfer(TransferArg {
+            from_subaccount: Some(FEE_COLLECTOR_SUB_ACCOUNT.clone()),
             to: receiver,
-            amount: transfer_amount,
             fee: None,
-            memo: None,
             created_at_time: Some(ic_cdk::api::time()),
+            memo: None,
+            amount: transfer_amount,
         })
         .await
         .map_err(|(code, msg)| {
