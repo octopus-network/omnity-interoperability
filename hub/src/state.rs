@@ -739,7 +739,7 @@ impl HubState {
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
-        debug!("pull_tickets: {:?},{offset},{limit}", chain_id);
+     
         let tickets = self
             .ticket_queue
             .iter()

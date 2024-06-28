@@ -140,18 +140,13 @@ pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subsc
 }
 
 /// query directives for chain id filter by topic,this method will be called by route and custom
-#[query(guard = "auth_query")]
+#[query]
 pub async fn query_directives(
     chain_id: Option<ChainId>,
     topic: Option<Topic>,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
-    debug!(
-        "query directive for chain: {:?}, with topic: {:?} ",
-        chain_id, topic
-    );
-
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit))
 }
@@ -177,7 +172,7 @@ pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
 }
 
 /// query tickets for chain id,this method will be called by route and custom
-#[query(guard = "auth_query")]
+#[query]
 pub async fn query_tickets(
     chain_id: Option<ChainId>,
     offset: usize,
