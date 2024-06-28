@@ -78,6 +78,7 @@ type Event = variant {
   added_chain : Chain;
   update_next_ticket_seq : nat64;
   update_next_directive_seq : nat64;
+  accepted_generate_ticket_request_v2 : GenTicketRequestV2;
   confirmed_transaction : record { txid : blob };
   replaced_transaction : record {
     fee : nat64;
@@ -100,10 +101,21 @@ type GenTicketRequest = record {
   receiver : text;
   rune_id : RuneId;
 };
+type GenTicketRequestV2 = record {
+  received_at : nat64;
+  token_id : text;
+  new_utxos : vec Utxo;
+  txid : blob;
+  target_chain_id : text;
+  address : text;
+  amount : nat;
+  receiver : text;
+  rune_id : RuneId;
+};
 type GenTicketStatus = variant {
   Finalized;
   Unknown;
-  Pending : GenTicketRequest;
+  Pending : GenTicketRequestV2;
 };
 type GenerateTicketArgs = record {
   txid : text;
@@ -224,7 +236,7 @@ service : (CustomArg) -> {
   get_events : (GetEventsArg) -> (vec Event) query;
   get_main_btc_address : (text) -> (text);
   get_pending_gen_ticket_requests : (GetGenTicketReqsArgs) -> (
-      vec GenTicketRequest,
+      vec GenTicketRequestV2,
     ) query;
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;

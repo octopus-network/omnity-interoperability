@@ -1,7 +1,12 @@
 use std::str::FromStr;
 
 use ethers_core::abi::{ethereum_types, AbiEncode};
-use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, U256};
+#[cfg(not(feature = "legacy_tx"))]
+use ethers_core::types::Eip1559TransactionRequest;
+#[cfg(feature = "legacy_tx")]
+use ethers_core::types::TransactionRequest;
+use ethers_core::types::{Bytes, NameOrAddress, U256};
+use log::info;
 
 use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
 use crate::eth_common::EvmAddress;
@@ -16,17 +21,23 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
         Directive::AddChain(_) | Directive::UpdateChain(_) | Directive::UpdateToken(_) => {
             return vec![];
         }
-        Directive::AddToken(token) => Bytes::from(
-            (
-                token.token_id_info()[0].to_string(),
-                token.token_id.clone(),
-                ethereum_types::Address::from([0u8; 20]),
-                token.name.clone(),
-                token.symbol.clone(),
-                token.decimals,
+        Directive::AddToken(token) => {
+            if read_state(|s| s.tokens.get(&token.token_id).is_some()) {
+                info!("duplicate issue token id: {}", token.token_id);
+                return vec![];
+            }
+            Bytes::from(
+                (
+                    token.token_id_info()[0].to_string(),
+                    token.token_id.clone(),
+                    ethereum_types::Address::from([0u8; 20]),
+                    token.name.clone(),
+                    token.symbol.clone(),
+                    token.decimals,
+                )
+                    .encode(),
             )
-                .encode(),
-        ),
+        }
         Directive::ToggleChainState(t) => {
             if t.chain_id == read_state(|s| s.omnity_chain_id.clone()) {
                 Bytes::from(t.chain_id.clone().encode())
@@ -100,7 +111,29 @@ impl Into<Option<PortContractCommandIndex>> for Directive {
     }
 }
 
-pub fn gen_eip1559_tx(
+#[cfg(feature = "legacy_tx")]
+pub fn gen_evm_tx(
+    tx_data: Vec<u8>,
+    gas_price: Option<U256>,
+    nonce: u64,
+    gas: u32,
+) -> TransactionRequest {
+    let chain_id = read_state(|s| s.evm_chain_id);
+    let port_contract_addr = read_state(|s| s.omnity_port_contract.clone());
+    TransactionRequest {
+        chain_id: Some(chain_id.into()),
+        from: None,
+        to: Some(NameOrAddress::Address(port_contract_addr.into())),
+        gas: Some(U256::from(gas)),
+        gas_price,
+        value: None,
+        nonce: Some(U256::from(nonce)),
+        data: Some(Bytes::from(tx_data)),
+    }
+}
+
+#[cfg(not(feature = "legacy_tx"))]
+pub fn gen_evm_tx(
     tx_data: Vec<u8>,
     gas_price: Option<U256>,
     nonce: u64,

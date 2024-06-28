@@ -1,4 +1,4 @@
-use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_TASK_NAME};
+use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME};
 use crate::eth_common::EvmAddress;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Seq, Ticket};
@@ -94,13 +94,23 @@ async fn process_directives() {
     };
 }
 
-pub fn fetch_hub_periodic_task() {
+pub fn fetch_hub_ticket_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(FETCH_HUB_TASK_NAME.to_string()) {
+        let _guard = match crate::guard::TimerLogicGuard::new(FETCH_HUB_TICKET_NAME.to_string()) {
+            Some(guard) => guard,
+            None => return,
+        };
+        process_tickets().await;
+    });
+}
+
+pub fn fetch_hub_directive_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(FETCH_HUB_DIRECTIVE_NAME.to_string())
+        {
             Some(guard) => guard,
             None => return,
         };
         process_directives().await;
-        process_tickets().await;
     });
 }

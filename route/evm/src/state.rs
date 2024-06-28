@@ -12,11 +12,10 @@ use ic_cdk::api::management_canister::ecdsa::{
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
 use k256::PublicKey;
-use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::eth_common::EvmAddress;
-use crate::service::{InitArgs, UpgradeArgs};
+use crate::service::InitArgs;
 use crate::stable_memory::Memory;
 use crate::types::{Chain, ChainState, Token, TokenId};
 use crate::types::{
@@ -30,6 +29,10 @@ thread_local! {
 
 impl EvmRouteState {
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
+        let omnity_port_contract = match args.port_addr {
+            None => EvmAddress([0u8; 20]),
+            Some(addr) => EvmAddress::from_str(addr.as_str()).expect("port address is invalid"),
+        };
         let ret = EvmRouteState {
             admin: args.admin,
             hub_principal: args.hub_principal,
@@ -45,11 +48,8 @@ impl EvmRouteState {
             key_id: args.network.key_id(),
             key_derivation_path: vec![b"m/44'/223'/0'/0/0".to_vec()],
             pubkey: vec![],
-            rpc_providers: vec![RpcApi {
-                url: args.rpc_url.clone(),
-                headers: None,
-            }],
-            omnity_port_contract: EvmAddress([0u8; 20]),
+            rpc_providers: args.rpcs,
+            omnity_port_contract,
             fee_token_factor: None,
             target_chain_factor: Default::default(),
             next_ticket_seq: 0,
@@ -87,7 +87,7 @@ impl EvmRouteState {
             .expect("failed to save hub state");
     }
 
-    pub fn post_upgrade(args: Option<UpgradeArgs>) {
+    pub fn post_upgrade() {
         use ic_stable_structures::Memory;
         let memory = stable_memory::get_upgrade_stash_memory();
         // Read the length of the state bytes.
@@ -96,18 +96,7 @@ impl EvmRouteState {
         let state_len = u32::from_le_bytes(state_len_bytes) as usize;
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
-        let mut state: EvmRouteState =
-            ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-        if let Some(arg) = args {
-            if let Some(contract_addr) = arg.omnity_port_contract_addr {
-                state.omnity_port_contract = EvmAddress::from_str(contract_addr.as_str()).unwrap();
-            }
-            if let Some(rpcs) = arg.rpc_services {
-                info!("upgrade rpc_provides: {:?}", serde_json::to_string(&rpcs));
-                state.rpc_providers = rpcs;
-            }
-        }
-        replace_state(state);
+        replace_state(ciborium::de::from_reader(&*state_bytes).expect("failed to decode state"));
     }
 
     pub fn pull_tickets(&self, from: usize, limit: usize) -> Vec<(Seq, Ticket)> {

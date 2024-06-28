@@ -188,7 +188,8 @@ impl OmnityHub {
     ) -> Result<Vec<(ChainId, TokenId, u128)>, Error> {
         let ret = self
             .sm
-            .query(
+            .query_as(
+                self.admin,
                 self.hub_id,
                 "get_fees",
                 Encode!(chain_id, token_id, offset, limit).unwrap(),
@@ -290,7 +291,12 @@ impl OmnityHub {
         let response = Decode!(
             &assert_reply(
                 self.sm
-                    .query(self.hub_id, "http_request", Encode!(&request).unwrap(),)
+                    .query_as(
+                        self.admin,
+                        self.hub_id,
+                        "http_request",
+                        Encode!(&request).unwrap(),
+                    )
                     .expect("failed to get logs")
             ),
             HttpResponse
@@ -306,7 +312,12 @@ impl OmnityHub {
         };
         let ret = self
             .sm
-            .query(self.hub_id, "get_events", Encode!(&artgs).unwrap())
+            .query_as(
+                self.admin,
+                self.hub_id,
+                "get_events",
+                Encode!(&artgs).unwrap(),
+            )
             .expect("failed to get chain tokens");
         Decode!(&assert_reply(ret), Vec<Event>).unwrap()
     }

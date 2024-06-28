@@ -1,15 +1,4 @@
 type Account = record { owner : principal; subaccount : opt blob };
-type CanisterStatusResponse = record {
-  status : CanisterStatusType;
-  memory_size : nat;
-  cycles : nat;
-  settings : DefiniteCanisterSettings;
-  query_stats : QueryStats;
-  idle_cycles_burned_per_day : nat;
-  module_hash : opt blob;
-  reserved_cycles : nat;
-};
-type CanisterStatusType = variant { stopped; stopping; running };
 type Chain = record {
   fee_token : opt text;
   canister_id : text;
@@ -22,13 +11,6 @@ type Chain = record {
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type ChangeFeeCollector = variant { SetTo : Account; Unset };
-type DefiniteCanisterSettings = record {
-  freezing_threshold : nat;
-  controllers : vec principal;
-  reserved_cycles_limit : nat;
-  memory_allocation : nat;
-  compute_allocation : nat;
-};
 type Event = variant {
   finalized_gen_ticket : record {
     request : GenerateTicketReq;
@@ -62,7 +44,7 @@ type GenerateTicketError = variant {
 type GenerateTicketOk = record { ticket_id : text };
 type GenerateTicketReq = record {
   token_id : text;
-  burn : opt bool;
+  burn : bool;
   from_subaccount : opt blob;
   target_chain_id : text;
   amount : nat;
@@ -81,15 +63,9 @@ type MintTokenStatus = variant {
   Finalized : record { block_index : nat64 };
   Unknown;
 };
-type QueryStats = record {
-  response_payload_bytes_total : nat;
-  num_instructions_total : nat;
-  num_calls_total : nat;
-  request_payload_bytes_total : nat;
-};
 type Result = variant { Ok; Err : text };
-type Result_1 = variant { Ok : CanisterStatusResponse; Err : text };
-type Result_2 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
+type Result_1 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
+type Result_2 = variant { Ok; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type TargetChainFactor = record {
   target_chain_id : text;
@@ -129,10 +105,8 @@ type UpgradeArgs_1 = record {
   feature_flags : opt FeatureFlags;
 };
 service : (RouteArg) -> {
-  add_controller : (principal, principal) -> (Result);
-  controlled_canister_status : (principal) -> (Result_1);
-  delete_controlled_canister : (principal) -> (Result);
-  generate_ticket : (GenerateTicketReq) -> (Result_2);
+  collect_ledger_fee : (principal, opt nat, Account) -> (Result);
+  generate_ticket : (GenerateTicketReq) -> (Result_1);
   get_chain_list : () -> (vec Chain) query;
   get_events : (GetEventsArg) -> (vec Event) query;
   get_fee_account : (opt principal) -> (blob) query;
@@ -142,7 +116,6 @@ service : (RouteArg) -> {
   get_token_list : () -> (vec TokenResp) query;
   mint_token_status : (text) -> (MintTokenStatus) query;
   remove_controller : (principal, principal) -> (Result);
-  start_controlled_canister : (principal) -> (Result);
-  stop_controlled_canister : (principal) -> (Result);
+  resend_tickets : () -> (Result_2);
   update_icrc_ledger : (principal, UpgradeArgs_1) -> (Result);
 }

@@ -134,6 +134,35 @@ pub struct GenTicketRequest {
     pub received_at: u64,
 }
 
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GenTicketRequestV2 {
+    pub address: String,
+    pub target_chain_id: String,
+    pub receiver: String,
+    pub token_id: TokenId,
+    pub rune_id: RuneId,
+    pub amount: u128,
+    pub txid: Txid,
+    pub new_utxos: Vec<Utxo>,
+    pub received_at: u64,
+}
+
+impl From<GenTicketRequest> for GenTicketRequestV2 {
+    fn from(value: GenTicketRequest) -> Self {
+        Self {
+            address: value.address,
+            target_chain_id: value.target_chain_id,
+            receiver: value.receiver,
+            token_id: value.token_id,
+            rune_id: value.rune_id,
+            amount: value.amount,
+            txid: value.txid,
+            new_utxos: Default::default(),
+            received_at: value.received_at,
+        }
+    }
+}
+
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RunesBalance {
     pub rune_id: RuneId,
@@ -230,7 +259,7 @@ pub enum GenTicketStatus {
     /// The request is either invalid or too old.
     Unknown,
     /// The request is in the queue.
-    Pending(GenTicketRequest),
+    Pending(GenTicketRequestV2),
     Finalized,
 }
 
@@ -264,9 +293,9 @@ pub struct CustomsState {
 
     pub release_token_counter: u64,
 
-    pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
+    pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequestV2>,
 
-    pub finalized_gen_ticket_requests: VecDeque<GenTicketRequest>,
+    pub finalized_gen_ticket_requests: VecDeque<GenTicketRequestV2>,
 
     /// Release_token requests that are waiting to be served, sorted by
     /// received_at.
@@ -329,7 +358,10 @@ pub struct CustomsState {
     pub is_timer_running: bool,
 
     #[serde(skip)]
-    pub is_process_hub_msg: bool,
+    pub is_process_directive_msg: bool,
+
+    #[serde(skip)]
+    pub is_process_ticket_msg: bool,
 
     /// The mode in which the customs runs.
     pub chain_state: ChainState,
@@ -519,7 +551,7 @@ impl CustomsState {
             return;
         }
 
-        let bucket = self
+        let bucket: &mut BTreeSet<Utxo> = self
             .utxos_state_destinations
             .entry(destination.clone())
             .or_default();
@@ -915,7 +947,7 @@ impl CustomsState {
             .insert(ticket_id, status);
     }
 
-    fn push_finalized_ticket(&mut self, req: GenTicketRequest) {
+    fn push_finalized_ticket(&mut self, req: GenTicketRequestV2) {
         assert!(!self.pending_gen_ticket_requests.contains_key(&req.txid));
 
         if self.finalized_gen_ticket_requests.len() >= MAX_FINALIZED_REQUESTS {
@@ -1001,7 +1033,7 @@ impl CustomsState {
         ensure_eq!(
             self.outpoint_utxos,
             other.outpoint_utxos,
-            "outpoint_destination do not match"
+            "outpoint_utxos do not match"
         );
         ensure_eq!(
             self.outpoint_destination,
@@ -1117,7 +1149,8 @@ impl From<InitArgs> for CustomsState {
             next_ticket_seq: 0,
             next_directive_seq: 0,
             is_timer_running: false,
-            is_process_hub_msg: false,
+            is_process_directive_msg: false,
+            is_process_ticket_msg: false,
             chain_state: args.chain_state,
             hub_principal: args.hub_principal,
             runes_oracle_principal: args.runes_oracle_principal,

@@ -3,7 +3,6 @@ members = [
     "types",
     "hub",
     "route/near",
-    "route/tendermint",
     "route/icp",
     "customs/bitcoin",
     "customs/runes_oracle",

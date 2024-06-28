@@ -2,7 +2,7 @@ use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
-use bitcoin_customs::state::{GenTicketRequest, ReleaseTokenStatus};
+use bitcoin_customs::state::{GenTicketRequestV2, ReleaseTokenStatus};
 use bitcoin_customs::state::{GenTicketStatus, RuneId, RunesBalance};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
@@ -13,7 +13,7 @@ use bitcoin_customs::updates::update_pending_ticket::{
 use bitcoin_customs::updates::update_runes_balance::{
     UpdateRunesBalanceArgs, UpdateRunesBalanceError,
 };
-use bitcoin_customs::{Log, TokenResp, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
+use bitcoin_customs::{Log, TokenResp, INTERVAL_QUERY_DIRECTIVES, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
 use bitcoin_mock::{OutPoint, PushUtxosToAddress, Utxo};
 use candid::{Decode, Encode};
 use ic_base_types::{CanisterId, PrincipalId};
@@ -283,7 +283,7 @@ impl CustomsSetup {
             }),
         ];
         customs.push_directives(directives);
-        customs.env.advance_time(Duration::from_secs(5));
+        customs.env.advance_time(INTERVAL_QUERY_DIRECTIVES);
         for _ in 0..10 {
             let chains = customs.get_chain_list();
             let tokens = customs.get_token_list();
@@ -848,7 +848,7 @@ fn test_update_pending_ticket() {
 
     assert!(matches!(
         customs.generate_ticket_status(txid),
-        GenTicketStatus::Pending(GenTicketRequest { amount: 9999, .. })
+        GenTicketStatus::Pending(GenTicketRequestV2 { amount: 9999, .. })
     ));
 }
 
@@ -863,7 +863,7 @@ fn test_deactive_chain() {
         action: ToggleAction::Deactivate,
     })]);
 
-    customs.env.advance_time(Duration::from_secs(5));
+    customs.env.advance_time(INTERVAL_QUERY_DIRECTIVES);
     for _ in 0..10 {
         if customs
             .get_chain_list()
@@ -1010,8 +1010,11 @@ fn test_update_runes_balance_invalid() {
         Err(UpdateRunesBalanceError::MismatchWithGenTicketReq)
     );
 
-    let status = customs.generate_ticket_status(txid);
-    assert!(matches!(status, GenTicketStatus::Unknown));
+    assert!(matches!(customs.generate_ticket_status(txid), GenTicketStatus::Unknown));
+
+    // Initiate a new generate_ticket, the previous ticket and corresponding utxos have been removed
+    assert_eq!(customs.generate_ticket(&args), Ok(()));
+    assert!(matches!(customs.generate_ticket_status(txid), GenTicketStatus::Pending(_)));
 }
 
 #[test]

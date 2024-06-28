@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::time::Duration;
 
 use candid::{CandidType, Principal};
@@ -9,16 +10,20 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use k256::PublicKey;
 use log::info;
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 
-use crate::const_args::{FETCH_HUB_TASK_INTERVAL, SCAN_EVM_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL};
+use crate::const_args::{
+    FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, SCAN_EVM_TASK_INTERVAL,
+    SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL,
+};
+use crate::eth_common::EvmAddress;
 use crate::evm_scan::scan_evm_task;
-use crate::hub_to_route::fetch_hub_periodic_task;
+use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    EvmRouteState, init_chain_pubkey, mutate_state, read_state, replace_state, StateProfile,
+    init_chain_pubkey, mutate_state, read_state, replace_state, EvmRouteState, StateProfile,
 };
 use crate::types::{
     Chain, ChainId, Directive, MintTokenStatus, Network, PendingDirectiveStatus,
@@ -38,8 +43,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade(args: Option<UpgradeArgs>) {
-    EvmRouteState::post_upgrade(args);
+fn post_upgrade() {
+    EvmRouteState::post_upgrade();
     init_log(Some(init_stable_log()));
     start_tasks();
     info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
@@ -56,8 +61,12 @@ fn update_consume_directive_seq(seq: Seq) {
 }
 fn start_tasks() {
     set_timer_interval(
-        Duration::from_secs(FETCH_HUB_TASK_INTERVAL),
-        fetch_hub_periodic_task,
+        Duration::from_secs(FETCH_HUB_TICKET_INTERVAL),
+        fetch_hub_ticket_task,
+    );
+    set_timer_interval(
+        Duration::from_secs(FETCH_HUB_DIRECTIVE_INTERVAL),
+        fetch_hub_directive_task,
     );
     set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), to_evm_task);
     set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);
@@ -94,10 +103,16 @@ async fn pubkey_and_evm_addr() -> (String, String) {
     (key_str, addr)
 }
 
-#[query]
+#[update(guard = "is_admin")]
+fn set_port_address(port_addr: String) {
+    mutate_state(|s| s.omnity_port_contract = EvmAddress::from_str(port_addr.as_str()).unwrap())
+}
+
+#[query(guard = "is_admin")]
 fn route_state() -> StateProfile {
     read_state(|s| StateProfile::from(s))
 }
+
 #[query(guard = "is_admin")]
 fn query_pending_ticket(from: usize, limit: usize) -> Vec<(TicketId, PendingTicketStatus)> {
     read_state(|s| {
@@ -227,14 +242,9 @@ pub struct InitArgs {
     pub evm_rpc_canister_addr: Principal,
     pub scan_start_height: u64,
     pub chain_id: String,
-    pub rpc_url: String,
+    pub rpcs: Vec<RpcApi>,
     pub fee_token_id: String,
-}
-
-#[derive(Clone, CandidType, Deserialize, Serialize)]
-pub struct UpgradeArgs {
-    pub omnity_port_contract_addr: Option<String>,
-    pub rpc_services: Option<Vec<RpcApi>>,
+    pub port_addr: Option<String>,
 }
 
 ic_cdk::export_candid!();
