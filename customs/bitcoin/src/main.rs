@@ -2,7 +2,9 @@ use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::lifecycle::{self, init::CustomArg};
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
-use bitcoin_customs::state::{read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus};
+use bitcoin_customs::state::{
+    mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus,
+};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
 use bitcoin_customs::updates::update_pending_ticket::{
@@ -21,6 +23,7 @@ use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage, {Log, LogEntry, Priority},
 };
+use candid::Principal;
 use ic_btc_interface::{Txid, Utxo};
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
@@ -154,7 +157,7 @@ fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketR
 pub fn is_runes_oracle() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
     read_state(|s| {
-        if s.runes_oracle_principal != caller {
+        if !s.runes_oracles.contains(&caller) {
             Err("Not runes principal!".into())
         } else {
             Ok(())
@@ -190,6 +193,11 @@ async fn update_pending_ticket(
     args: UpdatePendingTicketArgs,
 ) -> Result<(), UpdatePendingTicketError> {
     check_postcondition(updates::update_pending_ticket(args).await)
+}
+
+#[update(guard = "is_controller")]
+fn set_runes_oracle(oracle: Principal) {
+    mutate_state(|s| s.runes_oracles.insert(oracle));
 }
 
 #[update]

@@ -351,7 +351,7 @@ pub struct CustomsState {
 
     pub hub_principal: Principal,
 
-    pub runes_oracle_principal: Principal,
+    pub runes_oracles: BTreeSet<Principal>,
 
     /// Process one timer event at a time.
     #[serde(skip)]
@@ -388,7 +388,7 @@ impl CustomsState {
         self.max_time_in_queue_nanos = max_time_in_queue_nanos;
         self.chain_state = chain_state;
         self.hub_principal = hub_principal;
-        self.runes_oracle_principal = runes_oracle_principal;
+        self.runes_oracles = BTreeSet::from_iter(vec![runes_oracle_principal]);
         self.chain_id = chain_id;
         if let Some(min_confirmations) = min_confirmations {
             self.min_confirmations = min_confirmations;
@@ -402,7 +402,6 @@ impl CustomsState {
             min_confirmations,
             chain_state,
             hub_principal,
-            runes_oracle_principal,
         }: UpgradeArgs,
     ) {
         if let Some(max_time_in_queue_nanos) = max_time_in_queue_nanos {
@@ -425,9 +424,6 @@ impl CustomsState {
         }
         if let Some(hub_principal) = hub_principal {
             self.hub_principal = hub_principal;
-        }
-        if let Some(runes_oracle_principal) = runes_oracle_principal {
-            self.runes_oracle_principal = runes_oracle_principal;
         }
     }
 
@@ -1057,9 +1053,9 @@ impl CustomsState {
             "hub_principal does not match"
         );
         ensure_eq!(
-            self.runes_oracle_principal,
-            other.runes_oracle_principal,
-            "runes_oracle_principal does not match"
+            self.runes_oracles,
+            other.runes_oracles,
+            "runes_oracles does not match"
         );
 
         let my_txs = as_sorted_vec(self.submitted_transactions.iter().cloned(), |tx| tx.txid);
@@ -1153,7 +1149,7 @@ impl From<InitArgs> for CustomsState {
             is_process_ticket_msg: false,
             chain_state: args.chain_state,
             hub_principal: args.hub_principal,
-            runes_oracle_principal: args.runes_oracle_principal,
+            runes_oracles: BTreeSet::from_iter(vec![args.runes_oracle_principal]),
             last_fee_per_vbyte: vec![1; 100],
         }
     }

@@ -219,7 +219,6 @@ type UpdateRunesBalanceError = variant {
 };
 type UpgradeArgs = record {
   hub_principal : opt principal;
-  runes_oracle_principal : opt principal;
   max_time_in_queue_nanos : opt nat64;
   chain_state : opt ChainState;
   min_confirmations : opt nat32;
@@ -240,6 +239,7 @@ service : (CustomArg) -> {
     ) query;
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
+  set_runes_oracle : (principal) -> ();
   update_btc_utxos : () -> (Result_1);
   update_pending_ticket : (UpdatePendingTicketArgs) -> (Result_2);
   update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_3);
