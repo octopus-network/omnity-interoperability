@@ -1,0 +1,19 @@
+[package]
+name = "rune-oracle-canister"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = { workspace = true }
+ic-cdk = { workspace = true }
+ic-cdk-macros = { workspace = true }
+ic-cdk-timers = "0.6"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["preserve_order"] }
+anyhow = { workspace = true }
+ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", tag = "v0.12.x" }
+log = { workspace = true }
+ic-btc-interface = { git = "https://github.com/dfinity/bitcoin-canister", rev = "9b239d1d67253eb14a35be6061e3967d5ec9db9d" }

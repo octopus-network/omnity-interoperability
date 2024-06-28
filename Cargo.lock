@@ -4143,6 +4143,14 @@ dependencies = [
 [[package]]
 name = "ic-crypto-getrandom-for-wasm"
 version = "0.13.0"
+source = "git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x#235f406a4a8f21230ecf93610d626e71dbba77ce"
+dependencies = [
+ "getrandom 0.2.14",
+]
+
+[[package]]
+name = "ic-crypto-getrandom-for-wasm"
+version = "0.13.0"
 source = "git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog#ae820df9d166b605b12f1e5f992f09ab892fe145"
 dependencies = [
  "getrandom 0.2.14",
@@ -5853,14 +5861,28 @@ dependencies = [
 [[package]]
 name = "ic-exports"
 version = "0.13.0"
+source = "git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x#235f406a4a8f21230ecf93610d626e71dbba77ce"
+dependencies = [
+ "candid",
+ "ic-cdk",
+ "ic-cdk-macros",
+ "ic-cdk-timers",
+ "ic-crypto-getrandom-for-wasm 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x)",
+ "ic-kit 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x)",
+ "serde",
+]
+
+[[package]]
+name = "ic-exports"
+version = "0.13.0"
 source = "git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog#ae820df9d166b605b12f1e5f992f09ab892fe145"
 dependencies = [
  "candid",
  "ic-cdk",
  "ic-cdk-macros",
  "ic-cdk-timers",
- "ic-crypto-getrandom-for-wasm 0.13.0",
- "ic-kit",
+ "ic-crypto-getrandom-for-wasm 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog)",
+ "ic-kit 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog)",
  "serde",
 ]
 
@@ -6221,6 +6243,19 @@ dependencies = [
 [[package]]
 name = "ic-kit"
 version = "0.13.0"
+source = "git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x#235f406a4a8f21230ecf93610d626e71dbba77ce"
+dependencies = [
+ "candid",
+ "futures",
+ "ic-cdk",
+ "ic-cdk-macros",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
+name = "ic-kit"
+version = "0.13.0"
 source = "git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog#ae820df9d166b605b12f1e5f992f09ab892fe145"
 dependencies = [
  "candid",
@@ -6289,6 +6324,22 @@ dependencies = [
 [[package]]
 name = "ic-log"
 version = "0.13.0"
+source = "git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x#235f406a4a8f21230ecf93610d626e71dbba77ce"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "candid",
+ "env_filter",
+ "humantime",
+ "ic-exports 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x)",
+ "log",
+ "ringbuffer",
+ "serde",
+]
+
+[[package]]
+name = "ic-log"
+version = "0.13.0"
 source = "git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog#ae820df9d166b605b12f1e5f992f09ab892fe145"
 dependencies = [
  "anyhow",
@@ -6296,7 +6347,7 @@ dependencies = [
  "candid",
  "env_filter",
  "humantime",
- "ic-exports",
+ "ic-exports 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog)",
  "log",
  "ringbuffer",
  "serde",
@@ -8037,7 +8088,7 @@ dependencies = [
  "ic-icrc1-ledger",
  "ic-ledger-canister-core",
  "ic-ledger-types",
- "ic-log",
+ "ic-log 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog)",
  "ic-stable-structures 0.6.3",
  "ic-state-machine-tests 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
  "ic-test-utilities-load-wasm 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
@@ -9389,7 +9440,7 @@ dependencies = [
  "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-03-06_23-01+p2p)",
  "ic-canisters-http-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-03-06_23-01+p2p)",
  "ic-cdk",
- "ic-log",
+ "ic-log 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog)",
  "ic-stable-structures 0.6.3",
  "ic-state-machine-tests 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-03-06_23-01+p2p)",
  "ic-test-utilities-load-wasm 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-03-06_23-01+p2p)",
@@ -9419,7 +9470,7 @@ dependencies = [
  "humantime",
  "ic-canisters-http-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-03-06_23-01+p2p)",
  "ic-cdk",
- "ic-log",
+ "ic-log 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog)",
  "ic-stable-structures 0.6.3",
  "k256 0.12.0",
  "lazy_static",
@@ -10769,6 +10820,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rune-oracle-canister"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "candid",
+ "ic-btc-interface",
+ "ic-cdk",
+ "ic-cdk-macros",
+ "ic-cdk-timers",
+ "ic-log 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x)",
+ "log",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "runes_oracle"
 version = "0.1.0"
 dependencies = [
@@ -11173,6 +11240,7 @@ version = "1.0.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e17db7126d17feb94eb3fad46bf1a96b034e8aacbc2e775fe81505f8b0b2813"
 dependencies = [
+ "indexmap 2.2.6",
  "itoa",
  "ryu",
  "serde",
