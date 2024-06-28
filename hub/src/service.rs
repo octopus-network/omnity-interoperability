@@ -295,11 +295,18 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 }
 
 #[query(guard = "auth_query")]
-pub async fn get_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
-#[query]
 pub async fn get_stable_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
     let max_skip_timestamp = time.unwrap_or(0);
     StableLogWriter::get_logs(max_skip_timestamp, offset, limit)
+}
+
+#[query]
+pub async fn take_memory_logs(max_count: usize, limit: usize) -> Vec<String> {
+    ic_log::take_memory_records(max_count, limit)
+        .logs
+        .iter()
+        .map(|log| log.log.to_string())
+        .collect()
 }
 
 #[query]
