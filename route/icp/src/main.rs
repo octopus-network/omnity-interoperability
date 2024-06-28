@@ -135,12 +135,18 @@ pub async fn collect_ledger_fee(
     };
 
     let transfer_amount = if amount.is_none() {
+        let fee = client.fee().await.map_err(|(code, msg)| {
+            format!(
+                "failed to get fee from ledger: {} code: {} msg: {}",
+                ledger_id, code, msg
+            )
+        })?;
         client.balance_of(collector).await.map_err(|(code, msg)| {
             format!(
                 "failed to get balance of ledger: {} code: {} msg: {}",
                 ledger_id, code, msg
             )
-        })?
+        })? - fee
     } else {
         amount.unwrap()
     };
