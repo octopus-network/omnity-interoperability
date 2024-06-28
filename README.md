@@ -4,10 +4,10 @@ Omnity is an omni-chain interoperability protocol built by Octopus Network on th
 
 ## High-level Design
 
-<img width="1500" alt="Omnity" src="./img/omnity.png">
+<img width="500" height="300" alt="Omnity" src="./img/omnity.png">
 
 ### Logical Architecture For Bitcoin Assets
-<img width="1500" alt="BTC" src="./img/btc.png">
+<img width="500" height="300" alt="BTC" src="./img/btc.png">
 
 
 ## Current Support Chains
@@ -26,7 +26,7 @@ Omnity is an omni-chain interoperability protocol built by Octopus Network on th
 * [X](https://twitter.com/OmnityNetwork)
 * [Medium](https://medium.com/omnity)
 * [Dapp](https://bridge.omnity.network/)
-* [Runes Dapp: Red Envelope] (https://oc.app/community/csmnf-nyaaa-aaaar-a2uda-cai/channel/257625026752796078802282812381756979432/?ref=iets5-biaaa-aaaaf-blpfq-cai)
+* [Red Envelope](https://oc.app/community/csmnf-nyaaa-aaaar-a2uda-cai/channel/257625026752796078802282812381756979432/?ref=iets5-biaaa-aaaaf-blpfq-cai)
 * [Technical support](https://oc.app/community/o5uz6-dqaaa-aaaar-bhnia-cai/channel/209373796018851818071085429101874032721/)
 
 ## Audits
