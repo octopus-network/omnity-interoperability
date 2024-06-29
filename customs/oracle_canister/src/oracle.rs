@@ -26,7 +26,7 @@ async fn query_indexer(
     let rune = balances
         .into_iter()
         .filter(|b| b.id == rune_id)
-        .map(|b| RunesBalance::from((vout, b)))
+        .map(|b| b.into_runes_balance(vout))
         .reduce(|a, b| RunesBalance {
             rune_id: a.rune_id,
             vout: a.vout,

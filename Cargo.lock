@@ -10824,6 +10824,7 @@ name = "rune-oracle-canister"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitcoin_customs",
  "candid",
  "ic-btc-interface",
  "ic-cdk",
