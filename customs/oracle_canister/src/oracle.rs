@@ -54,7 +54,7 @@ pub(crate) fn fetch_then_submit(secs: u64) {
         ic_cdk::spawn(async move {
             let pending = query_pending_task(customs).await;
             if pending.is_empty() {
-                fetch_then_submit(300);
+                fetch_then_submit(30);
                 return;
             }
             // for each task
@@ -88,7 +88,7 @@ pub(crate) fn fetch_then_submit(secs: u64) {
                 }
             }
             if pending.len() < 50 {
-                fetch_then_submit(300);
+                fetch_then_submit(30);
             } else {
                 fetch_then_submit(3);
             }
