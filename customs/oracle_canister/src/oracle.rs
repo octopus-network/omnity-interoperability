@@ -2,7 +2,7 @@ use crate::types::*;
 use candid::Principal;
 
 /// this could be empty since even some errors occur, we can't do anything but waiting for the next timer
-async fn query_pending_task(principal: Principal) -> Vec<OutPoint> {
+async fn query_pending_task(principal: Principal) -> Vec<GenTicketRequestV2> {
     let (v,): (Vec<GenTicketRequestV2>,) = ic_cdk::call(
         principal,
         "get_pending_gen_ticket_requests",
@@ -10,37 +10,37 @@ async fn query_pending_task(principal: Principal) -> Vec<OutPoint> {
     )
     .await
     .unwrap_or_default();
-    v.into_iter()
-        .flat_map(|r| r.new_utxos.into_iter())
-        .map(|utxo| utxo.outpoint)
-        .collect()
+    v
 }
 
 /// query rune utxos
 async fn query_indexer(
     principal: Principal,
+    rune_id: RuneId,
     txid: String,
     vout: u32,
-) -> anyhow::Result<Vec<Balance>> {
+) -> anyhow::Result<Option<RunesBalance>> {
     let (balances,): (Vec<Balance>,) = ic_cdk::call(principal, "get_runes_by_utxo", (txid, vout))
         .await
         .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-    Ok(balances)
+    let rune = balances
+        .into_iter()
+        .filter(|b| b.id == rune_id)
+        .map(|b| RunesBalance::from((vout, b)))
+        .reduce(|a, b| RunesBalance {
+            rune_id: a.rune_id,
+            vout: a.vout,
+            amount: a.amount + b.amount,
+        });
+    Ok(rune)
 }
 
 async fn update_runes_balance(
     principal: Principal,
     txid: Txid,
-    vout: u32,
-    balances: Vec<Balance>,
+    balances: Vec<RunesBalance>,
 ) -> anyhow::Result<()> {
-    let args = UpdateRunesBalanceArgs {
-        txid,
-        balances: balances
-            .into_iter()
-            .map(|b| RunesBalance::from((vout, b)))
-            .collect(),
-    };
+    let args = UpdateRunesBalanceArgs { txid, balances };
     let _: () = ic_cdk::call(principal, "update_runes_balance", (args,))
         .await
         .map_err(|e| anyhow::anyhow!("{:?}", e))?;
@@ -57,20 +57,42 @@ pub(crate) fn fetch_then_submit(secs: u64) {
                 fetch_then_submit(300);
                 return;
             }
-            for outpoint in pending.iter() {
-                match query_indexer(indexer, format!("{}", outpoint.txid), outpoint.vout).await {
-                    Ok(balances) => {
-                        match update_runes_balance(customs, outpoint.txid, outpoint.vout, balances)
-                            .await
-                        {
-                            Ok(_) => {}
-                            Err(e) => log::error!("error updating runes balance: {:?}", e),
+            // for each task
+            for task in pending.iter() {
+                let mut balances = vec![];
+                let mut error = false;
+                for utxo in task.new_utxos.iter() {
+                    match query_indexer(
+                        indexer,
+                        task.rune_id,
+                        format!("{}", utxo.outpoint.txid),
+                        utxo.outpoint.vout,
+                    )
+                    .await
+                    {
+                        Ok(Some(balance)) => balances.push(balance),
+                        Ok(None) => log::info!("no rune found for utxo {:?}", utxo.outpoint),
+                        Err(e) => {
+                            // try next task
+                            log::error!("{:?}", e);
+                            error = true;
+                            break;
                         }
                     }
-                    Err(e) => log::error!("error querying indexer: {:?}", e),
+                }
+                // leave the task if any error occurs
+                if error {
+                    continue;
+                }
+                if let Err(e) = update_runes_balance(customs, task.txid, balances).await {
+                    log::error!("{:?}", e);
                 }
             }
-            fetch_then_submit(300);
+            if pending.len() < 50 {
+                fetch_then_submit(300);
+            } else {
+                fetch_then_submit(3);
+            }
         });
     });
 }

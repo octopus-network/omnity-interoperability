@@ -1,7 +1,7 @@
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
-pub use ic_btc_interface::{OutPoint, Txid, Utxo};
+pub use ic_btc_interface::{Txid, Utxo};
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GenTicketRequestV2 {
