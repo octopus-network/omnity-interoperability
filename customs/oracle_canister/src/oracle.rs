@@ -73,14 +73,13 @@ pub(crate) fn fetch_then_submit(secs: u64) {
                         Ok(Some(balance)) => balances.push(balance),
                         Ok(None) => log::info!("no rune found for utxo {:?}", utxo.outpoint),
                         Err(e) => {
-                            // try next task
                             log::error!("{:?}", e);
                             error = true;
                             break;
                         }
                     }
                 }
-                // leave the task if any error occurs
+                // ignore the task if any error occurs
                 if error {
                     continue;
                 }
