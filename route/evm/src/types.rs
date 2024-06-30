@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use thiserror::Error;
 
-use crate::contract_types::{RunesMint, TokenBurned, TokenTransportRequested};
+use crate::contract_types::{RunesMintRequested, TokenBurned, TokenTransportRequested};
 use crate::contracts::PortContractFactorTypeIndex;
 use crate::state::read_state;
 
@@ -237,7 +237,7 @@ pub struct Ticket {
 
 
 impl Ticket {
-    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMint) -> Self {
+    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMintRequested) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens

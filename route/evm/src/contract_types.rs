@@ -198,20 +198,20 @@ impl DecodeLog for TokenAdded {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RunesMint {
+pub struct RunesMintRequested {
     pub token_id: String,
     pub sender: ethereum_types::Address,
     pub receiver: ethereum_types::Address,
     pub amount: ethereum_types::U256,
 }
 
-impl AbiSignature for RunesMint {
+impl AbiSignature for RunesMintRequested {
     fn abi_signature() -> String {
-        "RunesMint(string,address,address,uint256)".to_string()
+        "RunesMintRequested(string,address,address,uint256)".to_string()
     }
 }
 
-impl DecodeLog for RunesMint {
+impl DecodeLog for RunesMintRequested {
     fn decode_log(log: &RawLog) -> anyhow::Result<Self> where Self: Sized {
         let (token_id, sender, receiver, amount) = AbiDecode::decode(&log.data)?;
         Ok(Self {

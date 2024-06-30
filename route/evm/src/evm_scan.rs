@@ -12,7 +12,7 @@ use log::{error, info};
 
 use crate::*;
 use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
-use crate::contract_types::{AbiSignature, DecodeLog, DirectiveExecuted, RunesMint, TokenAdded, TokenBurned, TokenMinted, TokenTransportRequested};
+use crate::contract_types::{AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned, TokenMinted, TokenTransportRequested};
 use crate::eth_common::get_evm_finalized_height;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
@@ -129,8 +129,8 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
                     token_added.token_address.encode_hex_with_prefix(),
                 )
             });
-        } else if topic1 == RunesMint::signature_hash() {
-            let runes_mint = RunesMint::decode_log(&raw_log)
+        } else if topic1 == RunesMintRequested::signature_hash() {
+            let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
             handle_runes_mint(&l, runes_mint).await?;
         }
@@ -142,7 +142,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
 
 pub async fn handle_runes_mint(
     log_entry: &LogEntry,
-    event: RunesMint,
+    event: RunesMintRequested,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_runes_mint_event(log_entry, event);
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket, ))
@@ -204,7 +204,7 @@ pub async fn fetch_logs(
                     TokenTransportRequested::signature_hex(),
                     DirectiveExecuted::signature_hex(),
                     TokenAdded::signature_hex(),
-                    RunesMint::signature_hex(),
+                    RunesMintRequested::signature_hex(),
                 ]]),
             },
         ),
