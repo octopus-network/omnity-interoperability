@@ -1,8 +1,13 @@
+type Args = record {
+  directive_method : text;
+  hub_principal : principal;
+  ticket_method : text;
+};
 type MintTokenStatus = variant {
   Finalized : record { block_index : nat64 };
   Unknown;
 };
-service : {
+service : (Args) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   mock_finalized_mint_token : (text, nat64) -> ();
 }

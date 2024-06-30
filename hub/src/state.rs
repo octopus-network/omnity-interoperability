@@ -15,7 +15,7 @@ use omnity_types::{
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::num::ParseIntError;
 const HOUR: u64 = 3_600_000_000_000;
 
@@ -52,6 +52,12 @@ pub struct HubState {
     pub caller_chain_map: HashMap<String, ChainId>,
     pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
+
+    //test
+    pub dire_map: BTreeMap<SeqKey, Directive>,
+    pub ticket_map: BTreeMap<SeqKey, Ticket>,
+    pub dires_mix: BTreeMap<SeqKey, String>,
+    pub tickets_mix: BTreeMap<SeqKey, String>,
 }
 
 impl From<InitArgs> for HubState {
@@ -73,6 +79,11 @@ impl From<InitArgs> for HubState {
             caller_chain_map: HashMap::default(),
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             last_resubmit_ticket_time: 0,
+
+            dire_map: BTreeMap::default(),
+            ticket_map: BTreeMap::default(),
+            dires_mix: BTreeMap::default(),
+            tickets_mix: BTreeMap::default(),
         }
     }
 }
@@ -477,6 +488,10 @@ impl HubState {
                 let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
                 //TODO: match! and exclude diretive for  target chain self
                 self.dire_queue.insert(seq_key.clone(), dire.clone());
+                // just test
+                self.dire_map.insert(seq_key.clone(), dire.clone());
+                self.dires_mix.insert(seq_key.clone(), dire.hash());
+
                 debug!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                 record_event(&Event::PubedDirective {
                     seq_key,
@@ -522,6 +537,81 @@ impl HubState {
         //     .take(limit)
         //     .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
         //     .collect::<Vec<_>>())
+    }
+
+    pub fn pull_directives_from_map(
+        &self,
+        chain_id: ChainId,
+        topic: Option<Topic>,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<(Seq, Directive)>, Error> {
+        match topic {
+            Some(topic) => Ok(self
+                .dire_map
+                .iter()
+                .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
+                .filter(|(_, dire)| dire.to_topic() == topic)
+                .skip(offset)
+                .take(limit)
+                .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
+                .collect::<Vec<_>>()),
+            None => Ok(self
+                .dire_map
+                .iter()
+                .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
+                .skip(offset)
+                .take(limit)
+                .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
+                .collect::<Vec<_>>()),
+        }
+        // Ok(self
+        //     .dire_queue
+        //     .iter()
+        //     .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
+        //     .filter(|(_, dire)| topic.clone().map_or(true, |t| dire.to_topic() == t))
+        //     .skip(offset)
+        //     .take(limit)
+        //     .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
+        //     .collect::<Vec<_>>())
+    }
+
+    pub fn pull_directives_from_mix(
+        &self,
+        chain_id: ChainId,
+        topic: Option<Topic>,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<(Seq, Directive)>, Error> {
+        let targe_dires = self
+            .dires_mix
+            .iter()
+            .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
+            .skip(offset)
+            .take(limit)
+            .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
+            .collect::<Vec<_>>();
+        let mut results = Vec::new();
+        match topic {
+            Some(topic) => {
+                for (seq, dire_hash) in targe_dires {
+                    if let Some(dire) = self.directives.get(&dire_hash) {
+                        if dire.to_topic() == topic {
+                            results.push((seq, dire))
+                        }
+                    }
+                }
+            }
+
+            None => {
+                for (seq, dire_hash) in targe_dires {
+                    if let Some(dire) = self.directives.get(&dire_hash) {
+                        results.push((seq, dire))
+                    }
+                }
+            }
+        }
+        Ok(results)
     }
 
     pub fn add_token_position(&mut self, position: TokenKey, amount: u128) -> Result<(), Error> {
@@ -698,6 +788,10 @@ impl HubState {
         // add new ticket
         let seq_key = SeqKey::from(ticket.dst_chain.to_string(), *latest_ticket_seq);
         self.ticket_queue.insert(seq_key.clone(), ticket.clone());
+        //just test
+        self.ticket_map.insert(seq_key.clone(), ticket.clone());
+        self.tickets_mix
+            .insert(seq_key.clone(), ticket.ticket_id.to_string());
         //save ticket
         self.cross_ledger
             .insert(ticket.ticket_id.to_string(), ticket.clone());
@@ -758,7 +852,6 @@ impl HubState {
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
-        debug!("pull_tickets: {:?},{offset},{limit}", chain_id);
         let tickets = self
             .ticket_queue
             .iter()
@@ -768,6 +861,47 @@ impl HubState {
             .map(|(tk, ticket)| (tk.seq, ticket.clone()))
             .collect();
         Ok(tickets)
+    }
+
+    pub fn pull_tickets_from_map(
+        &self,
+        chain_id: &ChainId,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<(Seq, Ticket)>, Error> {
+        let tickets = self
+            .ticket_map
+            .iter()
+            .filter(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
+            .skip(offset)
+            .take(limit)
+            .map(|(tk, ticket)| (tk.seq, ticket.clone()))
+            .collect();
+        Ok(tickets)
+    }
+
+    pub fn pull_tickets_from_mix(
+        &self,
+        chain_id: &ChainId,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<(Seq, Ticket)>, Error> {
+        let targe_tickets = self
+            .tickets_mix
+            .iter()
+            .filter(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
+            .skip(offset)
+            .take(limit)
+            .map(|(seq_key, ticket_id)| (seq_key.seq, ticket_id))
+            .collect::<Vec<_>>();
+        let mut results = Vec::new();
+        for (seq, ticket_id) in targe_tickets {
+            if let Some(dire) = self.cross_ledger.get(&ticket_id) {
+                results.push((seq, dire))
+            }
+        }
+
+        Ok(results)
     }
 
     pub fn repub_2_subscriber(

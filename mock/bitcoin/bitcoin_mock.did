@@ -1,3 +1,9 @@
+type Args = record {
+  directive_method : text;
+  hub_principal : principal;
+  network : opt Network;
+  ticket_method : text;
+};
 type BitcoinNetwork = variant { mainnet; regtest; testnet };
 type FinalizedStatus = variant { Confirmed : blob };
 type GenTicketRequest = record {
@@ -60,7 +66,7 @@ type UtxosFilterInRequest = variant {
   min_confirmations : nat32;
   MinConfirmations : nat32;
 };
-service : (opt Network) -> {
+service : (Args) -> {
   bitcoin_get_current_fee_percentiles : (GetCurrentFeePercentilesRequest) -> (
       vec nat64,
     );

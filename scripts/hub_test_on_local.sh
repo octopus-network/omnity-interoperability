@@ -176,8 +176,8 @@ dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:na
 # must build 
 # dfx build omnity_hub
 # upgrade canister
-dfx canister install --mode upgrade --argument '(variant { Upgrade = null })'  --upgrade-unchanged --yes omnity_hub 
-dfx canister call omnity_hub set_logger_filter '("debug")'
+# dfx canister install --mode upgrade --argument '(variant { Upgrade = null })'  --upgrade-unchanged --yes omnity_hub 
+# dfx canister call omnity_hub set_logger_filter '("debug")'
 dfx canister call omnity_hub handle_chain '(vec {variant { UpdateChain = record { chain_state=variant { Active };chain_id = "Bitcoin"; chain_type=variant { SettlementChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=null;counterparties=null; fee_token= null}}})'
 dfx canister call omnity_hub sync_ticket_size '()'
 dfx canister call omnity_hub sync_tickets '(0:nat64,12:nat64)'
@@ -186,14 +186,49 @@ dfx canister call omnity_hub sync_tickets '(0:nat64,12:nat64)'
 CURRENT_BALANCE="$(dfx canister status omnity_hub 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
 echo "canister current balance: $CURRENT_BALANCE cycles"
 
+echo "call omnity_hub query_directives_instructions '(opt "eICP",null,0:nat64,12:nat64)'"
 dfx canister call omnity_hub query_directives_instructions '(opt "eICP",null,0:nat64,12:nat64)'
+echo "call omnity_hub query_directives_from_map_instructions '(opt "eICP",null,0:nat64,12:nat64)'"
+dfx canister call omnity_hub query_directives_from_map_instructions '(opt "eICP",null,0:nat64,12:nat64)'
+echo "call omnity_hub query_directives_from_mix_instructions '(opt "eICP",null,0:nat64,12:nat64)'"
+dfx canister call omnity_hub query_directives_from_mix_instructions '(opt "eICP",null,0:nat64,12:nat64)'
+
+
+echo "call omnity_hub query_directives_instructions '(opt "eICP",null,12:nat64,24:nat64)'"
 dfx canister call omnity_hub query_directives_instructions '(opt "eICP",null,12:nat64,24:nat64)'
+echo "call omnity_hub query_directives_from_map_instructions '(opt "eICP",null,12:nat64,24:nat64)'"
+dfx canister call omnity_hub query_directives_from_map_instructions '(opt "eICP",null,12:nat64,24:nat64)'
+echo "call omnity_hub query_directives_from_mix_instructions '(opt "eICP",null,12:nat64,24:nat64)'"
+dfx canister call omnity_hub query_directives_from_mix_instructions '(opt "eICP",null,12:nat64,24:nat64)'
 
-dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,0:nat64,12:nat64)'
-dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,12:nat64,24:nat64)'
+# echo "call omnity_hub mock_call_query_directives '(opt "eICP",null,0:nat64,12:nat64)'"
+# dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,0:nat64,12:nat64)'
+# echo "call omnity_hub mock_call_query_directives '(opt "eICP",null,12:nat64,24:nat64)'"
+# dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,12:nat64,24:nat64)'
 
+echo "call omnity_hub query_tickets_instructions '(opt "Bitcoin",0:nat64,6:nat64)'"
 dfx canister call omnity_hub query_tickets_instructions '(opt "Bitcoin",0:nat64,6:nat64)'
-dfx canister call omnity_hub query_tickets_instructions '(opt "Bitcoin",6:nat64,12:nat64)'
+echo "call omnity_hub query_tickets_from_map_instructions '(opt "Bitcoin",0:nat64,6:nat64)'"
+dfx canister call omnity_hub query_tickets_from_map_instructions '(opt "Bitcoin",0:nat64,6:nat64)'
+echo "call omnity_hub query_tickets_from_mix_instructions '(opt "Bitcoin",0:nat64,6:nat64)'"
+dfx canister call omnity_hub query_tickets_from_mix_instructions '(opt "Bitcoin",0:nat64,6:nat64)'
 
-dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",0:nat64,6:nat64)'
-dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",6:nat64,12:nat64)'
+echo "call omnity_hub query_tickets_instructions '(opt "Bitcoin",6:nat64,12:nat64)'"
+dfx canister call omnity_hub query_tickets_instructions '(opt "Bitcoin",6:nat64,12:nat64)'
+echo "call omnity_hub query_tickets_from_map_instructions '(opt "Bitcoin",6:nat64,12:nat64)'"
+dfx canister call omnity_hub query_tickets_from_map_instructions '(opt "Bitcoin",6:nat64,12:nat64)'
+echo "call omnity_hub query_tickets_from_mix_instructions '(opt "Bitcoin",6:nat64,12:nat64)'"
+dfx canister call omnity_hub query_tickets_from_mix_instructions '(opt "Bitcoin",6:nat64,12:nat64)'
+
+# echo "call omnity_hub mock_call_query_tickets '(opt "Bitcoin",0:nat64,6:nat64)'"
+# dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",0:nat64,6:nat64)'
+# echo "call omnity_hub mock_call_query_tickets '(opt "Bitcoin",6:nat64,12:nat64)'"
+# dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",6:nat64,12:nat64)'
+
+dfx deploy icp_mock --mode reinstall -y --argument '(record {hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; directive_method="query_directives"; ticket_method="query_tickets"})'
+# dfx deploy icp_mock --mode reinstall -y --argument '(record {hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; directive_method="query_directives_from_map"; ticket_method="query_tickets_from_map"})'
+# dfx deploy icp_mock --mode reinstall -y --argument '(record {hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; directive_method="query_directives_from_mix"; ticket_method="query_tickets_from_mix"})'
+
+dfx deploy bitcoin_mock --mode reinstall -y --argument '(record {hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; directive_method="query_directives"; ticket_method="query_tickets"; network=null})' 
+# dfx deploy bitcoin_mock --mode reinstall -y --argument '(record {hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; directive_method="query_directives_from_map"; ticket_method="query_tickets_from_map"; network=null})' 
+# dfx deploy bitcoin_mock --mode reinstall -y --argument '(record {hub_principal = principal "bkyz2-fmaaa-aaaaa-qaaaq-cai"; directive_method="query_directives_from_mix"; ticket_method="query_tickets_from_mix"; network=null})' 

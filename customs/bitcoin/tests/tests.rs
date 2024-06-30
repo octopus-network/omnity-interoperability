@@ -13,8 +13,10 @@ use bitcoin_customs::updates::update_pending_ticket::{
 use bitcoin_customs::updates::update_runes_balance::{
     UpdateRunesBalanceArgs, UpdateRunesBalanceError,
 };
-use bitcoin_customs::{Log, TokenResp, INTERVAL_QUERY_DIRECTIVES, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY};
-use bitcoin_mock::{OutPoint, PushUtxosToAddress, Utxo};
+use bitcoin_customs::{
+    Log, TokenResp, INTERVAL_QUERY_DIRECTIVES, MIN_RELAY_FEE_PER_VBYTE, MIN_RESUBMISSION_DELAY,
+};
+use bitcoin_mock::types::{OutPoint, PushUtxosToAddress, Utxo};
 use candid::{Decode, Encode};
 use ic_base_types::{CanisterId, PrincipalId};
 use ic_btc_interface::{Network, Txid};
@@ -1010,11 +1012,17 @@ fn test_update_runes_balance_invalid() {
         Err(UpdateRunesBalanceError::MismatchWithGenTicketReq)
     );
 
-    assert!(matches!(customs.generate_ticket_status(txid), GenTicketStatus::Unknown));
+    assert!(matches!(
+        customs.generate_ticket_status(txid),
+        GenTicketStatus::Unknown
+    ));
 
     // Initiate a new generate_ticket, the previous ticket and corresponding utxos have been removed
     assert_eq!(customs.generate_ticket(&args), Ok(()));
-    assert!(matches!(customs.generate_ticket_status(txid), GenTicketStatus::Pending(_)));
+    assert!(matches!(
+        customs.generate_ticket_status(txid),
+        GenTicketStatus::Pending(_)
+    ));
 }
 
 #[test]

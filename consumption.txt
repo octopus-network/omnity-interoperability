@@ -1,0 +1,21 @@
+2024-06-30 14:45:42 omnity_hub current balance: 2819240582487 cycles
+2024-06-30 14:46:15 after 30 seconds,omnity_hub current balance: 2819237384251 cycles
+2024-06-30 14:46:15 the consumption that without query_call is: 3198236 cycles
+deploy bitcoin_mock and icp_mock to query omnity_hub from stable momery 
+2024-06-30 14:47:26 omnity_hub current balance: 2819204164713 cycles
+2024-06-30 14:48:00 after 30 seconds,omnity_hub current balance: 2819161289920 cycles
+2024-06-30 14:48:00 the consumption that query omnity_hub from stable momery is: 42874793 cycles
+deploy bitcoin_mock and icp_mock to query omnity_hub from momery 
+2024-06-30 14:48:31 omnity_hub current balance: 2819123107430 cycles
+2024-06-30 14:49:03 after 30 seconds,omnity_hub current balance: 2819099001849 cycles
+2024-06-30 14:49:03 the consumption that query omnity_hub from momery is: 24105581 cycles
+deploy bitcoin_mock and icp_mock to query omnity_hub from mix momery 
+2024-06-30 14:49:30 omnity_hub current balance: 2819081374548 cycles
+2024-06-30 14:50:02 after 30 seconds,omnity_hub current balance: 2819053335782 cycles
+2024-06-30 14:50:02 the consumption that query omnity_hub from mix momery is: 28038766 cycles
+deploy bitcoin_mock and icp_mock to query omnity_hub from stable momery 
+2024-06-30 14:53:17 omnity_hub current balance: 2818892382624 cycles
+2024-06-30 15:03:21 after 600 seconds,omnity_hub current balance: 2818120550082 cycles
+2024-06-30 15:03:21 the consumption that query omnity_hub from stable momery is: 771832542 cycles
+deploy bitcoin_mock and icp_mock to query omnity_hub from momery 
+2024-06-30 15:03:46 omnity_hub current balance: 2818089747852 cycles

@@ -5,12 +5,21 @@ trap "echo 'error: Script failed: see failed command above'" ERR
 export DFX_WARNING="-mainnet_plaintext_identity"
 ID=vp-test
 
+dfx canister stop bitcoin_mock --ic --identity $ID
+# dfx canister delete bitcoin_mock --ic --identity $ID
+
+dfx canister stop icp_mock --ic --identity $ID
+# dfx canister delete icp_mock --ic --identity $ID
+
+# dfx canister stop omnity_hub --ic --identity $ID
+# dfx canister delete omnity_hub --ic --identity $ID
+
 # deploy hub
 dfx deploy omnity_hub  --mode reinstall --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' --ic --identity $ID --yes
 # dfx canister install --mode install --wasm ./scripts/omnity_hub.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' --yes omnity_hub
 
 INIT_BALANCE="$(dfx canister status omnity_hub --ic --identity $ID  2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
-echo "omnity_hub current balance: $INIT_BALANCE cycles "
+
 
 
 # sub topic
@@ -136,17 +145,61 @@ dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:na
 # dfx canister call omnity_hub sync_tickets '(0:nat64,12:nat64)' --ic --identity $ID
 # dfx stop
 
-CURRENT_BALANCE="$(dfx canister status omnity_hub --ic --identity $ID 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
-echo "canister current balance: $CURRENT_BALANCE cycles"
 
+echo "call omnity_hub query_directives_instructions '(opt "eICP",null,0:nat64,12:nat64)'"
 dfx canister call omnity_hub query_directives_instructions '(opt "eICP",null,0:nat64,12:nat64)' --ic --identity $ID
+echo "call omnity_hub query_directives_from_map_instructions '(opt "eICP",null,0:nat64,12:nat64)'"
+dfx canister call omnity_hub query_directives_from_map_instructions '(opt "eICP",null,0:nat64,12:nat64)' --ic --identity $ID
+echo "call omnity_hub query_directives_from_mix_instructions '(opt "eICP",null,0:nat64,12:nat64)'"
+dfx canister call omnity_hub query_directives_from_mix_instructions '(opt "eICP",null,0:nat64,12:nat64)' --ic --identity $ID
+
+
+echo "call omnity_hub query_directives_instructions '(opt "eICP",null,12:nat64,24:nat64)'"
 dfx canister call omnity_hub query_directives_instructions '(opt "eICP",null,12:nat64,24:nat64)' --ic --identity $ID
+echo "call omnity_hub query_directives_from_map_instructions '(opt "eICP",null,12:nat64,24:nat64)'"
+dfx canister call omnity_hub query_directives_from_map_instructions '(opt "eICP",null,12:nat64,24:nat64)' --ic --identity $ID
+echo "call omnity_hub query_directives_from_mix_instructions '(opt "eICP",null,12:nat64,24:nat64)'"
+dfx canister call omnity_hub query_directives_from_mix_instructions '(opt "eICP",null,12:nat64,24:nat64)' --ic --identity $ID
+
 
 # dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,0:nat64,12:nat64)' --ic --identity $ID
 # dfx canister call omnity_hub mock_call_query_directives '(opt "eICP",null,12:nat64,24:nat64)' --ic --identity $ID
-
+echo "call omnity_hub query_tickets_instructions '(opt "Bitcoin",0:nat64,6:nat64)'"
 dfx canister call omnity_hub query_tickets_instructions '(opt "Bitcoin",0:nat64,6:nat64)' --ic --identity $ID
+echo "call omnity_hub query_tickets_from_map_instructions '(opt "Bitcoin",0:nat64,6:nat64)'"
+dfx canister call omnity_hub query_tickets_from_map_instructions '(opt "Bitcoin",0:nat64,6:nat64)' --ic --identity $ID
+echo "call omnity_hub query_tickets_from_mix_instructions '(opt "Bitcoin",0:nat64,6:nat64)'"
+dfx canister call omnity_hub query_tickets_from_mix_instructions '(opt "Bitcoin",0:nat64,6:nat64)' --ic --identity $ID
+
+echo "call omnity_hub query_tickets_instructions '(opt "Bitcoin",6:nat64,12:nat64)'"
 dfx canister call omnity_hub query_tickets_instructions '(opt "Bitcoin",6:nat64,12:nat64)' --ic --identity $ID
+echo "call omnity_hub query_tickets_from_map_instructions '(opt "Bitcoin",6:nat64,12:nat64)'"
+dfx canister call omnity_hub query_tickets_from_map_instructions '(opt "Bitcoin",6:nat64,12:nat64)' --ic --identity $ID
+echo "call omnity_hub query_tickets_from_mix_instructions '(opt "Bitcoin",6:nat64,12:nat64)'"
+dfx canister call omnity_hub query_tickets_from_mix_instructions '(opt "Bitcoin",6:nat64,12:nat64)' --ic --identity $ID
 
 # dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",0:nat64,6:nat64)' --ic --identity $ID
 # dfx canister call omnity_hub mock_call_query_tickets '(opt "Bitcoin",6:nat64,12:nat64)' --ic --identity $ID
+
+CURRENT_BALANCE="$(dfx canister status omnity_hub --ic --identity $ID 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
+echo "omnity_hub beging balance: $INIT_BALANCE cycles "
+echo "omnity_hub current balance: $CURRENT_BALANCE cycles"
+
+CONSUMPTION=$(bc <<< "$INIT_BALANCE - $CURRENT_BALANCE")
+echo "Util now,the consumption is: $CONSUMPTION cycles"
+
+TIME=30 
+con_record="consumption.txt"
+rm $con_record
+
+PRE_BALANCE="$(dfx canister status omnity_hub --ic --identity $ID 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
+
+echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') omnity_hub current balance: $PRE_BALANCE cycles" >> $con_record
+sleep $TIME 
+CURRENT_BALANCE="$(dfx canister status omnity_hub --ic --identity $ID 2>&1 | grep -i balance | cut -d' ' -f 2 | sed 's/_//g')"
+echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') after $TIME seconds,omnity_hub current balance: $CURRENT_BALANCE cycles" >> $con_record
+CONSUMPTION=$(bc <<< "$PRE_BALANCE - $CURRENT_BALANCE")
+echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') the consumption that without query_call is: $CONSUMPTION cycles" >> $con_record
+
+dfx canister start bitcoin_mock --ic --identity $ID
+dfx canister start icp_mock --ic --identity $ID

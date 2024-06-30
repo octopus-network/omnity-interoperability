@@ -13,4 +13,6 @@ rand = "0.8.5"
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 omnity_types = { path = "../../types" }
+ic-cdk-timers = "0.6"
 # getrandom = { version = "0.2", features = ["js"] }
+log = "0.4"

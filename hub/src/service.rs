@@ -146,20 +146,49 @@ pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subsc
 }
 
 /// query directives for chain id filter by topic,this method will be called by route and custom
-#[query(guard = "auth_query")]
+#[query]
 pub async fn query_directives(
     chain_id: Option<ChainId>,
     topic: Option<Topic>,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
-    debug!(
-        "query directive for chain: {:?}, with topic: {:?} ",
-        chain_id, topic
+    info!(
+        "[query_directives] chain_id: {:?}, topic: {:?}, offset: {:?}, limit: {:?}",
+        chain_id, topic, offset, limit
     );
-
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit))
+}
+
+#[query]
+pub async fn query_directives_from_map(
+    chain_id: Option<ChainId>,
+    topic: Option<Topic>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<(Seq, Directive)>, Error> {
+    info!(
+        "[query_directives_from_map] chain_id: {:?}, topic: {:?}, offset: {:?}, limit: {:?}",
+        chain_id, topic, offset, limit
+    );
+    let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    with_state(|hub_state| hub_state.pull_directives_from_map(dst_chain_id, topic, offset, limit))
+}
+
+#[query]
+pub async fn query_directives_from_mix(
+    chain_id: Option<ChainId>,
+    topic: Option<Topic>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<(Seq, Directive)>, Error> {
+    info!(
+        "[query_directives_from_mix] chain_id: {:?}, topic: {:?}, offset: {:?}, limit: {:?}",
+        chain_id, topic, offset, limit
+    );
+    let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    with_state(|hub_state| hub_state.pull_directives_from_mix(dst_chain_id, topic, offset, limit))
 }
 
 /// check and push ticket into queue
@@ -183,14 +212,46 @@ pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
 }
 
 /// query tickets for chain id,this method will be called by route and custom
-#[query(guard = "auth_query")]
+#[query]
 pub async fn query_tickets(
     chain_id: Option<ChainId>,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
+    info!(
+        "[query_tickets] chain_id: {:?}, offset: {:?}, limit: {:?}",
+        chain_id, offset, limit
+    );
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
+}
+
+#[query]
+pub async fn query_tickets_from_map(
+    chain_id: Option<ChainId>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<(Seq, Ticket)>, Error> {
+    info!(
+        "[query_tickets_from_map] chain_id: {:?}, offset: {:?}, limit: {:?}",
+        chain_id, offset, limit
+    );
+    let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    with_state(|hub_state| hub_state.pull_tickets_from_map(&dst_chain_id, offset, limit))
+}
+
+#[query]
+pub async fn query_tickets_from_mix(
+    chain_id: Option<ChainId>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<(Seq, Ticket)>, Error> {
+    info!(
+        "[query_tickets_from_mix] chain_id: {:?}, offset: {:?}, limit: {:?}",
+        chain_id, offset, limit
+    );
+    let dst_chain_id = metrics::get_chain_id(chain_id)?;
+    with_state(|hub_state| hub_state.pull_tickets_from_mix(&dst_chain_id, offset, limit))
 }
 
 #[update(guard = "is_admin")]
@@ -360,17 +421,12 @@ pub async fn query_directives_instructions(
     topic: Option<Topic>,
     offset: usize,
     limit: usize,
-) -> u64 {
-    debug!(
-        "query directive instructions for chain: {:?}, with topic: {:?} ",
-        chain_id, topic
-    );
-
+) -> (u64, u64) {
     let dst_chain_id = metrics::get_chain_id(chain_id).unwrap();
-    let result =
+    let _result =
         with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit));
-    debug!("query directive reuslt:{:?} ", result);
-    performance_counter(0)
+
+    (performance_counter(0), performance_counter(1))
 }
 
 #[query(composite = true)]
@@ -380,14 +436,9 @@ pub async fn mock_call_query_directives(
     offset: usize,
     limit: usize,
 ) -> (u64, u64) {
-    debug!(
-        "mock call query directive for chain: {:?}, with topic: {:?} ",
-        chain_id, topic
-    );
-
     // let dst_chain_id = metrics::get_chain_id(chain_id)?;
     // with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit))
-    let result: (Result<Vec<(Seq, Directive)>, Error>,) = ic_cdk::call(
+    let _result: (Result<Vec<(Seq, Directive)>, Error>,) = ic_cdk::call(
         ic_cdk::id(),
         "query_directives",
         (chain_id, topic, offset, limit),
@@ -395,7 +446,36 @@ pub async fn mock_call_query_directives(
     .await
     .unwrap();
 
-    debug!("mock call query directive result {:?} ", result.0);
+    (performance_counter(0), performance_counter(1))
+}
+
+#[query]
+pub async fn query_directives_from_map_instructions(
+    chain_id: Option<ChainId>,
+    topic: Option<Topic>,
+    offset: usize,
+    limit: usize,
+) -> (u64, u64) {
+    let dst_chain_id = metrics::get_chain_id(chain_id).unwrap();
+    let _result = with_state(|hub_state| {
+        hub_state.pull_directives_from_map(dst_chain_id, topic, offset, limit)
+    });
+
+    (performance_counter(0), performance_counter(1))
+}
+
+#[query]
+pub async fn query_directives_from_mix_instructions(
+    chain_id: Option<ChainId>,
+    topic: Option<Topic>,
+    offset: usize,
+    limit: usize,
+) -> (u64, u64) {
+    let dst_chain_id = metrics::get_chain_id(chain_id).unwrap();
+    let _result = with_state(|hub_state| {
+        hub_state.pull_directives_from_mix(dst_chain_id, topic, offset, limit)
+    });
+
     (performance_counter(0), performance_counter(1))
 }
 
@@ -404,11 +484,11 @@ pub async fn query_tickets_instructions(
     chain_id: Option<ChainId>,
     offset: usize,
     limit: usize,
-) -> u64 {
+) -> (u64, u64) {
     let dst_chain_id = metrics::get_chain_id(chain_id).unwrap();
-    let result = with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit));
-    debug!("query_tickets instructions result {:?} ", result);
-    performance_counter(0)
+    let _result = with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit));
+
+    (performance_counter(0), performance_counter(1))
 }
 
 #[query(composite = true)]
@@ -419,11 +499,37 @@ pub async fn mock_call_query_tickets(
 ) -> (u64, u64) {
     // let dst_chain_id = metrics::get_chain_id(chain_id)?;
     // with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
-    let result: (Result<Vec<(Seq, Ticket)>, Error>,) =
+    let _result: (Result<Vec<(Seq, Ticket)>, Error>,) =
         ic_cdk::call(ic_cdk::id(), "query_tickets", (chain_id, offset, limit))
             .await
             .unwrap();
-    debug!("mock call query tickets result {:?} ", result.0);
+
+    (performance_counter(0), performance_counter(1))
+}
+
+#[query]
+pub async fn query_tickets_from_map_instructions(
+    chain_id: Option<ChainId>,
+    offset: usize,
+    limit: usize,
+) -> (u64, u64) {
+    let dst_chain_id = metrics::get_chain_id(chain_id).unwrap();
+    let _result =
+        with_state(|hub_state| hub_state.pull_tickets_from_map(&dst_chain_id, offset, limit));
+
+    (performance_counter(0), performance_counter(1))
+}
+
+#[query]
+pub async fn query_tickets_from_mix_instructions(
+    chain_id: Option<ChainId>,
+    offset: usize,
+    limit: usize,
+) -> (u64, u64) {
+    let dst_chain_id = metrics::get_chain_id(chain_id).unwrap();
+    let _result =
+        with_state(|hub_state| hub_state.pull_tickets_from_mix(&dst_chain_id, offset, limit));
+
     (performance_counter(0), performance_counter(1))
 }
 
