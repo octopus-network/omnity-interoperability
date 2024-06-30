@@ -25,9 +25,6 @@ pub struct UpgradeArgs {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hub_principal: Option<Principal>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub runes_oracle_principal: Option<Principal>,
 }
 
 pub fn post_upgrade(upgrade_args: Option<UpgradeArgs>) {
