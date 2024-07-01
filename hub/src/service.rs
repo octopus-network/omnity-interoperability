@@ -51,9 +51,9 @@ fn pre_upgrade() {
 
 #[post_upgrade]
 fn post_upgrade(args: Option<HubArg>) {
+    init_log(Some(init_stable_log()));
     info!("begin to execute post_upgrade with :{:?}", args);
     // init log
-    init_log(Some(init_stable_log()));
     HubState::post_upgrade(args);
     info!("upgrade successfully!");
 }
@@ -140,7 +140,7 @@ pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subsc
 }
 
 /// query directives for chain id filter by topic,this method will be called by route and custom
-#[query]
+#[query(guard = "auth_query")]
 pub async fn query_directives(
     chain_id: Option<ChainId>,
     topic: Option<Topic>,
@@ -148,7 +148,7 @@ pub async fn query_directives(
     limit: usize,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
-    with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit))
+    with_state(|hub_state| hub_state.pull_directives_from_map(dst_chain_id, topic, offset, limit))
 }
 
 /// check and push ticket into queue
@@ -172,14 +172,14 @@ pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
 }
 
 /// query tickets for chain id,this method will be called by route and custom
-#[query]
+#[query(guard = "auth_query")]
 pub async fn query_tickets(
     chain_id: Option<ChainId>,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
-    with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
+    with_state(|hub_state| hub_state.pull_tickets_from_map(&dst_chain_id, offset, limit))
 }
 
 #[update(guard = "is_admin")]
