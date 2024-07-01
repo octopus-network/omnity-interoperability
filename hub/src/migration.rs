@@ -11,8 +11,7 @@ use ic_stable_structures::StableBTreeMap;
 use omnity_types::{ChainId, Directive, Seq, SeqKey, Ticket, TicketId, TokenId, Topic};
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
-
+use std::collections::{BTreeMap, HashMap};
 #[derive(Deserialize, Serialize)]
 pub struct PreHubState {
     #[serde(skip, default = "memory::init_chain")]
@@ -42,6 +41,9 @@ pub struct PreHubState {
     pub caller_chain_map: HashMap<String, ChainId>,
     pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
+
+    pub dire_map: BTreeMap<SeqKey, Directive>,
+    pub ticket_map: BTreeMap<SeqKey, Ticket>,
 }
 
 // migrate pre state to current state
@@ -55,13 +57,13 @@ pub fn migrate(pre_state: PreHubState) -> HubState {
     cur_state.caller_chain_map = pre_state.caller_chain_map;
     cur_state.caller_perms = pre_state.caller_perms;
     cur_state.last_resubmit_ticket_time = pre_state.last_resubmit_ticket_time;
-    // migrate dire_queue
-    pre_state.dire_queue.iter().for_each(|(k, v)| {
-        cur_state.dire_map.insert(k, v);
-    });
-    // migrate ticket_queue
-    pre_state.ticket_queue.iter().for_each(|(k, v)| {
-        cur_state.ticket_map.insert(k, v);
+    cur_state.dire_map = pre_state.dire_map;
+
+    // migrate ticket_map
+    pre_state.ticket_map.iter().for_each(|(k, v)| {
+        cur_state
+            .ticket_map
+            .insert(k.to_owned(), v.ticket_id.to_string());
     });
     cur_state
 }

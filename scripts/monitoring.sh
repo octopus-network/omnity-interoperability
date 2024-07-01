@@ -5,11 +5,11 @@ trap "echo 'error: Script failed: see failed command above'" ERR
 
 export DFX_WARNING="-mainnet_plaintext_identity"
 ID=vp-test
-TIME=5
+TIME=3600
 TC=1000000000000
 log_file="balance.log"
 # hub_id=r6kfs-wqaaa-aaaak-akviq-cai
-SIZE=12
+SIZE=1
 
 for i in $(seq 1 $SIZE)
 do

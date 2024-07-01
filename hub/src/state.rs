@@ -56,7 +56,7 @@ pub struct HubState {
 
     //test
     pub dire_map: BTreeMap<SeqKey, Directive>,
-    pub ticket_map: BTreeMap<SeqKey, Ticket>,
+    pub ticket_map: BTreeMap<SeqKey, String>,
 }
 
 impl From<InitArgs> for HubState {
@@ -469,9 +469,9 @@ impl HubState {
 
         subs.iter().for_each(|sub| {
             if !self
-                .dire_queue
+                .dire_map
                 .iter()
-                .any(|(seq_key, directive)| seq_key.chain_id.eq(sub) && directive == dire)
+                .any(|(seq_key, directive)| seq_key.chain_id.eq(sub) && *directive == dire)
             {
                 let latest_dire_seq = self
                     .directive_seq
@@ -481,38 +481,19 @@ impl HubState {
 
                 let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
                 //TODO: match! and exclude diretive for  target chain self
-                self.dire_queue.insert(seq_key.clone(), dire.clone());
-                // just test
-                self.dire_map.insert(seq_key.clone(), dire.clone());
+                self.dire_map.insert(seq_key.to_owned(), dire.to_owned());
                 debug!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                 record_event(&Event::PubedDirective {
                     seq_key,
-                    dire: dire.clone(),
+                    dire: dire.to_owned(),
                 });
             }
         });
+
         Ok(())
     }
 
     pub fn pull_directives(
-        &self,
-        chain_id: ChainId,
-        topic: Option<Topic>,
-        offset: usize,
-        limit: usize,
-    ) -> Result<Vec<(Seq, Directive)>, Error> {
-        Ok(self
-            .dire_queue
-            .iter()
-            .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
-            .filter(|(_, dire)| topic.clone().map_or(true, |t| dire.to_topic() == t))
-            .skip(offset)
-            .take(limit)
-            .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
-            .collect::<Vec<_>>())
-    }
-
-    pub fn pull_directives_from_map(
         &self,
         chain_id: ChainId,
         topic: Option<Topic>,
@@ -711,11 +692,10 @@ impl HubState {
             .and_modify(|seq| *seq += 1)
             .or_insert(0);
 
-        // add new ticket
+        // create new ticket
         let seq_key = SeqKey::from(ticket.dst_chain.to_string(), *latest_ticket_seq);
-        self.ticket_queue.insert(seq_key.clone(), ticket.clone());
-        //just test
-        self.ticket_map.insert(seq_key.clone(), ticket.clone());
+        self.ticket_map
+            .insert(seq_key.clone(), ticket.ticket_id.to_string());
 
         //save ticket
         self.cross_ledger
@@ -777,31 +757,20 @@ impl HubState {
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
-        let tickets = self
-            .ticket_queue
-            .iter()
-            .filter(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
-            .skip(offset)
-            .take(limit)
-            .map(|(tk, ticket)| (tk.seq, ticket.to_owned()))
-            .collect();
-        Ok(tickets)
-    }
-
-    pub fn pull_tickets_from_map(
-        &self,
-        chain_id: &ChainId,
-        offset: usize,
-        limit: usize,
-    ) -> Result<Vec<(Seq, Ticket)>, Error> {
-        let tickets = self
+        let targets = self
             .ticket_map
             .iter()
             .filter(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
             .skip(offset)
             .take(limit)
-            .map(|(tk, ticket)| (tk.seq, ticket.to_owned()))
-            .collect();
+            .map(|(seq_key, ticket_id)| (seq_key.seq, ticket_id))
+            .collect::<Vec<_>>();
+        let mut tickets = Vec::new();
+        for (seq, ticket_id) in targets {
+            if let Some(dire) = self.cross_ledger.get(&ticket_id) {
+                tickets.push((seq, dire))
+            }
+        }
         Ok(tickets)
     }
 
@@ -849,15 +818,15 @@ impl HubState {
             chain_id.to_string()
         );
         for (seq_key, dir) in self
-            .dire_queue
+            .dire_map
             .iter()
             .filter(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
-            .map(|(seq_key, dire)| (seq_key, dire))
+            .map(|(seq_key, dire)| (seq_key.to_owned(), dire.to_owned()))
             .collect::<Vec<_>>()
         {
             let topics = BTreeSet::from_iter(topics.iter());
             if topics.contains(&dir.to_topic()) {
-                self.dire_queue.remove(&seq_key);
+                self.dire_map.remove(&seq_key);
                 record_event(&Event::DeletedDirective(seq_key.clone()));
             }
         }

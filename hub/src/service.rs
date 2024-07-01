@@ -148,7 +148,7 @@ pub async fn query_directives(
     limit: usize,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
-    with_state(|hub_state| hub_state.pull_directives_from_map(dst_chain_id, topic, offset, limit))
+    with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit))
 }
 
 /// check and push ticket into queue
@@ -179,7 +179,7 @@ pub async fn query_tickets(
     limit: usize,
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
-    with_state(|hub_state| hub_state.pull_tickets_from_map(&dst_chain_id, offset, limit))
+    with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
 }
 
 #[update(guard = "is_admin")]
@@ -1405,7 +1405,7 @@ mod tests {
         assert!(result.is_ok());
 
         with_state(|hus_state| {
-            hus_state.ticket_queue.iter().for_each(|(seq_key, ticket)| {
+            hus_state.ticket_map.iter().for_each(|(seq_key, ticket)| {
                 println!(" seq key: {:?} ticket: {:?}", seq_key, ticket)
             })
         });
@@ -1458,7 +1458,7 @@ mod tests {
         assert!(result.is_ok());
 
         with_state(|hus_state| {
-            hus_state.ticket_queue.iter().for_each(|(seq_key, ticket)| {
+            hus_state.ticket_map.iter().for_each(|(seq_key, ticket)| {
                 println!(" seq key: {:?} ticket: {:?}", seq_key, ticket)
             })
         });
@@ -1756,14 +1756,14 @@ mod tests {
         // Serialize the ticket.
         let mut state_bytes = vec![];
         let _ = ciborium::ser::into_writer(&transfer_ticket, &mut state_bytes);
-        // let ticket_len = state_bytes.len() as u128;
-        let ticket_len = 1024 as u128;
-        let total_storage = 500 * 1024 * 1024 * 1024 as u128;
+        let ticket_len = state_bytes.len() as u128;
+        // let ticket_len = 1024 as u128;
         let daily_ticket_storage = 100000 as u128 * ticket_len;
+        let total_storage = 500 * 1024 * 1024 * 1024 as u128;
         let days = total_storage / daily_ticket_storage;
 
         println!(
-            "Ticket_len:{} \ndaily_ticket_storage:{} MB \nStorable Time: {} days,about {} years ",
+            "Ticket_len:{} bytes \ndaily_ticket_storage:{} MB \nStorable Time: {} days,about {} years ",
             ticket_len,
             daily_ticket_storage / 1024 / 1024,
             days,
