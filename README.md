@@ -4,11 +4,23 @@ Omnity is an omni-chain interoperability protocol built by Octopus Network on th
 
 ## High-level Design
 
-<img width="500" height="300" alt="Omnity" src="./img/omnity.png">
+<img width="300" height="200" alt="Omnity" src="./img/omnity.png">
+
+* E : Settlement chains. Currently we have the Bitcoin chain and ICP as the settlement chains.
+* S : Execution chains. Currently we have the ICP, Bevm, Bitlayer, B² Network, X Layer, and Merlin as the execution chains.
+* Ticket: a transaction message.
+* Hub: A center point for chain and token registration, both settlement chains and execution chains are listed in the hub. AS a relayer gathering the tickets, Hub is based on the publisher/subscriber pattern.
+* Customs: The Customs is where the assets are listed. The Customs generate transfering ticket.
+* Route: Each route represents a execution chain. The Routes generate redeeming ticket.
+* Port: Executes the directives from the Hub, mints tokens for cross-chain assets from settlement chains, processes token transport and token redeem requests from token holders.
 
 ### Logical Architecture For Bitcoin Assets
-<img width="500" height="300" alt="BTC" src="./img/btc.png">
+<img width="300" height="200" alt="BTC" src="./img/btc.png">
 
+* Gate is Customs in this image.
+* Spoke is Route in this image.
+* Bitcoin Token Canister:  A solution for fetching the Runes information detail. We have finished transplanting the ord indexer to ICP. The Bitcoin header API will help the ord canister remove its trust assumption on RPC services.
+* Bitcoin Canister: A native Bitcoin integration on ICP, the gateway where the bitcoin address can fetch its status like balance and make transactions through the provided APIs.
 
 ## Current Support Chains
 
