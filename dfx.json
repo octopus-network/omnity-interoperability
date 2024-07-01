@@ -94,14 +94,18 @@
           "ic": "xhcuo-6yaaa-aaaar-qacqq-cai"
         }
       }
+    },
+    "rune_oracle": {
+      "gzip": true,
+      "candid": "customs/oracle_canister/oracle.did",
+      "package": "rune_oracle_canister",
+      "type": "rust"
     }
   },
   "defaults": {
     "bitcoin": {
       "enabled": true,
-      "nodes": [
-        "127.0.0.1:18444"
-      ],
+      "nodes": ["127.0.0.1:18444"],
       "log_level": "info"
     },
     "build": {
