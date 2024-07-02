@@ -118,8 +118,7 @@ pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
             };
             let tx = gen_evm_tx(data, get_gasprice().await.ok(), nonce, fee);
             info!(
-                "[evm route] send directive tx content: {:?} {:?}",
-                tx.chain_id,
+                "[evm route] send directive tx content: {:?}",
                 serde_json::to_string(&tx)
             );
             let mut pending_directive = PendingDirectiveStatus {
