@@ -10820,7 +10820,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rune-oracle-canister"
+name = "rune_oracle_canister"
 version = "0.1.0"
 dependencies = [
  "anyhow",
