@@ -223,6 +223,16 @@ pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), Self
 }
 
 #[query]
+pub fn get_add_runes_token_requests() -> Vec<AddRunesTokenArgs> {
+    with_state(|s| {
+        s.add_runes_token_requests
+            .iter()
+            .map(|(_, req)| req.clone())
+            .collect()
+    })
+}
+
+#[query]
 pub async fn get_chains(
     chain_type: Option<ChainType>,
     chain_state: Option<ChainState>,
