@@ -11,12 +11,12 @@ use omnity_hub::lifecycle::init::HubArg;
 #[cfg(feature = "profiling")]
 use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
-use omnity_hub::self_service::{
+use omnity_hub::self_help::{
     AddDestChainArgs, AddRunesTokenArgs, FinalizeAddRunesArgs, SelfServiceError,
 };
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta};
-use omnity_hub::{proposal, self_service};
+use omnity_hub::{proposal, self_help};
 
 use omnity_hub::types::{
     TokenResp, {Proposal, Subscribers},
@@ -207,19 +207,19 @@ fn set_runes_oracle(oracle: Principal) {
 
 #[update]
 pub async fn add_runes_token(args: AddRunesTokenArgs) -> Result<(), SelfServiceError> {
-    self_service::add_runes_token(args).await
+    self_help::add_runes_token(args).await
 }
 
 #[update(guard = "is_runes_oracle")]
 pub async fn finalize_add_runes_token_req(
     args: FinalizeAddRunesArgs,
 ) -> Result<(), SelfServiceError> {
-    self_service::finalize_add_runes_token_req(args).await
+    self_help::finalize_add_runes_token_req(args).await
 }
 
 #[update]
 pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), SelfServiceError> {
-    self_service::add_dest_chain_for_token(args).await
+    self_help::add_dest_chain_for_token(args).await
 }
 
 #[query]
