@@ -190,6 +190,7 @@ service : (HubArg) -> {
   add_runes_token : (AddRunesTokenArgs) -> (Result);
   execute_proposal : (vec Proposal) -> (Result_1);
   finalize_add_runes_token_req : (FinalizeAddRunesArgs) -> (Result);
+  get_add_runes_token_requests : () -> (vec AddRunesTokenArgs) query;
   get_chain : (text) -> (Result_2) query;
   get_chain_metas : (nat64, nat64) -> (Result_3) query;
   get_chain_size : () -> (Result_4) query;
