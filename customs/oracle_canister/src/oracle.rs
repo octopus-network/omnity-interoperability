@@ -9,6 +9,7 @@ async fn query_pending_task(principal: Principal) -> Vec<GenTicketRequestV2> {
         (None::<Txid>, 50),
     )
     .await
+    .inspect_err(|e| log::error!("fetch error: {:?}", e))
     .unwrap_or_default();
     v
 }
