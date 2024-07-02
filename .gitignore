@@ -26,7 +26,9 @@ dist/
 # log
 *.log
 *.out
+*.txt
 
 canister_ids.json
 bitcoin_customs.wasm
+*.wasm.gz
 **/*.svg

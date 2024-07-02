@@ -1,30 +1,31 @@
 use candid::{CandidType, Principal};
-
-use log::{self};
+use log::{error, info};
 use omnity_types::{ChainId, ChainState, Seq, Ticket, TicketId};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     call_error::{CallError, Reason},
     state::{mutate_state, read_state},
-    BATCH_QUERY_LIMIT,
+   
 };
 
+pub const TICKET_SIZE: u64 = 20; 
+
 /// handler tickets from customs to solana
-pub async fn handle_tickets() {
+pub async fn query_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return;
     }
 
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
-    match query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+    match inner_query_tickets(hub_principal, offset, TICKET_SIZE).await {
         Ok(tickets) => {
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
                 let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
                     amount
                 } else {
-                    log::error!(
+                    error!(
                         "[process tickets] failed to parse ticket amount: {}",
                         ticket.amount
                     );
@@ -40,24 +41,22 @@ pub async fn handle_tickets() {
                 .await
                 {
                     Ok(_) => {
-                        log::info!(
+                        info!(
                             "[process tickets] process successful for ticket id: {}",
                             ticket.ticket_id
                         );
                     }
                     Err(MintTokenError::TemporarilyUnavailable(desc)) => {
-                        log::error!(
+                        error!(
                             "[process tickets] failed to mint token for ticket id: {}, err: {}",
-                            ticket.ticket_id,
-                            desc
+                            ticket.ticket_id, desc
                         );
                         break;
                     }
                     Err(err) => {
-                        log::error!(
+                        error!(
                             "[process tickets] process failure for ticket id: {}, err: {:?}",
-                            ticket.ticket_id,
-                            err
+                            ticket.ticket_id, err
                         );
                     }
                 }
@@ -66,13 +65,13 @@ pub async fn handle_tickets() {
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
         Err(err) => {
-            log::error!("[process tickets] failed to query tickets, err: {}", err);
+            error!("[process tickets] failed to query tickets, err: {}", err);
         }
     }
 }
 
 /// query ticket from hub
-pub async fn query_tickets(
+pub async fn inner_query_tickets(
     hub_principal: Principal,
     offset: u64,
     limit: u64,

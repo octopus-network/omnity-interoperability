@@ -1,30 +1,29 @@
 use candid::Principal;
-use ic_canisters_http_types::{HttpRequest, HttpResponse};
+// use ic_canisters_http_types::{HttpRequest, HttpResponse};
 
-use ic_cdk::{post_upgrade, pre_upgrade};
-use ic_cdk_macros::{init, query, update};
+use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 
 use ic_log::writer::Logs;
-use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
+use omnity_types::log::{init_log, LoggerConfigService};
 use omnity_types::{Chain, ChainId, Error};
 use solana_route::auth::{is_admin, set_perms, Permission};
 use solana_route::event::{Event, GetEventsArg};
 use solana_route::handler::directive::TokenResp;
 use solana_route::handler::ticket::GenerateTicketError;
-use solana_route::handler::{self, schedule_jobs};
-use solana_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
-use solana_route::memory::init_stable_log;
-use solana_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
+use solana_route::handler::{self, scheduler::schedule_jobs};
 
 use omnity_types::Network;
-use solana_route::{event, ICP_TRANSFER_FEE,};
+use solana_route::event;
+use solana_route::lifecycle::{self, RouteArg, UpgradeArgs};
+use solana_route::memory::init_stable_log;
+use solana_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
 use std::time::Duration;
 
 #[init]
 fn init(args: RouteArg) {
+    init_log(Some(init_stable_log()));
     match args {
         RouteArg::Init(args) => {
-            init_log(Some(init_stable_log()));
             event::record_event(&Event::Init(args.clone()));
             lifecycle::init(args);
         }
@@ -42,6 +41,7 @@ fn pre_upgrade() {
 
 #[post_upgrade]
 fn post_upgrade(route_arg: Option<RouteArg>) {
+    init_log(Some(init_stable_log()));
     let mut upgrade_arg: Option<UpgradeArgs> = None;
     if let Some(route_arg) = route_arg {
         upgrade_arg = match route_arg {
@@ -134,23 +134,24 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
 }
 
 #[query]
-pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
-    read_state(|s| {
-        s.target_chain_factor
-            .get(&chain_id)
-            // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
-            .map_or(None, |target_chain_factor| {
-                s.fee_token_factor.map(|fee_token_factor| {
-                    (target_chain_factor * fee_token_factor) as u64 + ICP_TRANSFER_FEE
-                })
-            })
-    })
+pub fn get_redeem_fee(_chain_id: ChainId) -> Option<u64> {
+    // read_state(|s| {
+    //     s.target_chain_factor
+    //         .get(&chain_id)
+    //         // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
+    //         .map_or(None, |target_chain_factor| {
+    //             s.fee_token_factor.map(|fee_token_factor| {
+    //                 (target_chain_factor * fee_token_factor) as u64 + ICP_TRANSFER_FEE
+    //             })
+    //         })
+    // })
+    None
 }
 
-#[query(hidden = true)]
-fn http_request(req: HttpRequest) -> HttpResponse {
-    StableLogWriter::http_request(req)
-}
+// #[query(hidden = true)]
+// fn http_request(req: HttpRequest) -> HttpResponse {
+//     StableLogWriter::http_request(req)
+// }
 
 #[update(guard = "is_admin")]
 pub async fn set_logger_filter(filter: String) {

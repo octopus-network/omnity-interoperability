@@ -51,9 +51,9 @@ fn pre_upgrade() {
 
 #[post_upgrade]
 fn post_upgrade(args: Option<HubArg>) {
-    info!("begin to execute post_upgrade with :{:?}", args);
     // init log
     init_log(Some(init_stable_log()));
+    info!("begin to execute post_upgrade with :{:?}", args);
     HubState::post_upgrade(args);
     info!("upgrade successfully!");
 }

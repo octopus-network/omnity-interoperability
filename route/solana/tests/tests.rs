@@ -11,7 +11,7 @@ use omnity_types::{
 };
 use solana_route::{
     handler::directive::TokenResp,
-    lifecycle::init::{InitArgs, RouteArg},
+    lifecycle::{InitArgs, RouteArg},
     state::MintTokenStatus,
 };
 use std::{collections::HashMap, path::PathBuf, str::FromStr, time::Duration};

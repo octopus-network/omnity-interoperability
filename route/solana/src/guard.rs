@@ -1,21 +1,21 @@
 use crate::state::mutate_state;
 
 #[must_use]
-pub struct TimerLogicGuard(());
+pub struct TimerGuard(());
 
-impl TimerLogicGuard {
+impl TimerGuard {
     pub fn new() -> Option<Self> {
         mutate_state(|s| {
             if s.is_timer_running {
                 return None;
             }
             s.is_timer_running = true;
-            Some(TimerLogicGuard(()))
+            Some(TimerGuard(()))
         })
     }
 }
 
-impl Drop for TimerLogicGuard {
+impl Drop for TimerGuard {
     fn drop(&mut self) {
         mutate_state(|s| {
             s.is_timer_running = false;

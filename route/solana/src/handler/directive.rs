@@ -1,52 +1,35 @@
 use candid::{CandidType, Principal};
-
-use log::{self};
-use omnity_types::{ChainId, Directive, Seq, Token, TokenId, Topic};
+use log::{error, info};
+use omnity_types::{ChainId, Directive, Error, Seq, Token, TokenId, Topic};
 use serde::{Deserialize, Serialize};
-
 
 // use updates::mint_token::{MintTokenError, MintTokenRequest};
 
 use crate::{
-    audit,
     call_error::{CallError, Reason},
     state::{mutate_state, read_state},
-    BATCH_QUERY_LIMIT,
 };
+pub const DIRECTIVE_SIZE: u64 = 20;
 
-/// handler directives from hub to solana
-pub async fn handle_directives() {
+/// query directives from hub and save to route state
+pub async fn query_directives() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
-    match query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
+    match inner_query_directives(hub_principal, offset, DIRECTIVE_SIZE).await {
         Ok(directives) => {
             for (_, directive) in &directives {
                 match directive {
                     Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
-                        mutate_state(|s| audit::add_chain(s, chain.clone()));
+                        mutate_state(|s| s.add_chain(chain.clone()));
                     }
                     Directive::AddToken(token) | Directive::UpdateToken(token) => {
-                        match add_new_token(token.clone()).await {
-                            Ok(_) => {
-                                log::info!(
-                                    "[process directives] add token successful, token id: {}",
-                                    token.token_id
-                                );
-                            }
-                            Err(err) => {
-                                log::error!(
-                                    "[process directives] failed to add token: token id: {}, err: {:?}",
-                                    token.token_id,
-                                    err
-                                );
-                            }
-                        }
+                        mutate_state(|s| s.add_token(token.clone()));
                     }
                     Directive::ToggleChainState(toggle) => {
-                        mutate_state(|s| audit::toggle_chain_state(s, toggle.clone()));
+                        mutate_state(|s| s.toggle_chain_state(toggle.clone()));
                     }
                     Directive::UpdateFee(fee) => {
-                        mutate_state(|s| audit::update_fee(s, fee.clone()));
-                        log::info!("[process_directives] success to update fee, fee: {}", fee);
+                        mutate_state(|s| s.update_fee(fee.clone()));
+                        info!("[process_directives] success to update fee, fee: {}", fee);
                     }
                 }
             }
@@ -56,7 +39,7 @@ pub async fn handle_directives() {
             });
         }
         Err(err) => {
-            log::error!(
+            error!(
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );
@@ -85,7 +68,7 @@ impl From<Token> for TokenResp {
     }
 }
 
-pub async fn query_directives(
+pub async fn inner_query_directives(
     hub_principal: Principal,
     offset: u64,
     limit: u64,
@@ -112,24 +95,7 @@ pub async fn query_directives(
     Ok(data)
 }
 
-#[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
-pub enum AddNewTokenError {
-    AlreadyAdded(String),
-    CreateLedgerErr(String),
-}
-
-pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
-    if read_state(|s| s.tokens.contains_key(&token.token_id)) {
-        return Err(AddNewTokenError::AlreadyAdded(token.token_id));
-    }
-
-    
-    //TODO: send tx to solana for add token
-
-    //TODO: fetch tx status from solana and update route state
-
-    // mutate_state(|s| {
-    //     audit::add_token(s, token, record.canister_id);
-    // });
+/// call the solana port to execute directives
+pub async fn execute_directives() -> Result<(), Error> {
     Ok(())
 }
