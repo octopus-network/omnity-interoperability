@@ -83,11 +83,6 @@ pub(crate) fn fetch_then_submit(secs: u64) {
                 if error {
                     continue;
                 }
-                log::info!(
-                    "prepare to submit {} rune balances for task {:?}",
-                    balances.len(),
-                    task.txid
-                );
                 if let Err(e) = update_runes_balance(customs, task.txid, balances).await {
                     log::error!("{:?}", e);
                 }
@@ -95,7 +90,7 @@ pub(crate) fn fetch_then_submit(secs: u64) {
             if pending.len() < 50 {
                 fetch_then_submit(30);
             } else {
-                fetch_then_submit(1);
+                fetch_then_submit(3);
             }
         });
     });
