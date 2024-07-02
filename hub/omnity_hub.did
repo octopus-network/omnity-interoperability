@@ -201,6 +201,7 @@ service : (HubArg) -> {
   get_directive_size : () -> (Result_4) query;
   get_directives : (nat64, nat64) -> (Result_7) query;
   get_events : (GetEventsArg) -> (vec Event) query;
+  get_fee_account : (opt principal) -> (blob) query;
   get_fees : (opt text, opt text, nat64, nat64) -> (Result_8) query;
   get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
   get_token_metas : (nat64, nat64) -> (Result_9) query;

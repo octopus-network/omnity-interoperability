@@ -2,6 +2,7 @@ use crate::memory::init_stable_log;
 use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_ledger_types::AccountIdentifier;
 #[cfg(feature = "profiling")]
 use ic_stable_structures::Memory;
 use log::{debug, info};
@@ -12,7 +13,7 @@ use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::self_help::{
-    AddDestChainArgs, AddRunesTokenArgs, FinalizeAddRunesArgs, SelfServiceError,
+    principal_to_subaccount, AddDestChainArgs, AddRunesTokenArgs, FinalizeAddRunesArgs, SelfServiceError
 };
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta};
@@ -230,6 +231,12 @@ pub fn get_add_runes_token_requests() -> Vec<AddRunesTokenArgs> {
             .map(|(_, req)| req.clone())
             .collect()
     })
+}
+
+#[query]
+pub fn get_fee_account(principal: Option<Principal>) -> AccountIdentifier {
+    let principal = principal.unwrap_or(ic_cdk::caller());
+    AccountIdentifier::new(&ic_cdk::api::id(), &principal_to_subaccount(&principal))
 }
 
 #[query]
