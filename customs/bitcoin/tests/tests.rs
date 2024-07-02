@@ -3,7 +3,7 @@ use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
 use bitcoin_customs::state::{GenTicketRequestV2, ReleaseTokenStatus};
-use bitcoin_customs::state::{GenTicketStatus, RuneId, RunesBalance};
+use bitcoin_customs::state::{GenTicketStatus, RunesBalance};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
@@ -22,6 +22,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_ic00_types::CanisterSettingsArgsBuilder;
 use ic_state_machine_tests::{Cycles, StateMachine, StateMachineBuilder, WasmResult};
 use ic_test_utilities_load_wasm::load_wasm;
+use omnity_types::rune_id::RuneId;
 use omnity_types::{
     Chain, ChainState, ChainType, Directive, Ticket, TicketType, ToggleAction, ToggleState, Token,
     TxAction,

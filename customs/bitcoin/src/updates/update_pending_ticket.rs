@@ -1,11 +1,12 @@
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
+use omnity_types::rune_id::RuneId;
 use serde::Serialize;
 use std::str::FromStr;
 
 use crate::{
     destination::Destination,
-    state::{audit, mutate_state, read_state, RuneId, RUNES_TOKEN},
+    state::{audit, mutate_state, read_state, RUNES_TOKEN},
 };
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

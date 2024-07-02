@@ -5,15 +5,18 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 #[cfg(feature = "profiling")]
 use ic_stable_structures::Memory;
 use log::{debug, info};
-use omnity_hub::auth::{auth_query, auth_update, is_admin, set_perms, Permission};
+use omnity_hub::auth::{auth_query, auth_update, is_admin, is_runes_oracle, set_perms, Permission};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
 #[cfg(feature = "profiling")]
 use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
-use omnity_hub::proposal;
+use omnity_hub::self_service::{
+    AddDestChainArgs, AddRunesTokenArgs, FinalizeAddRunesArgs, SelfServiceError,
+};
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta};
+use omnity_hub::{proposal, self_service};
 
 use omnity_hub::types::{
     TokenResp, {Proposal, Subscribers},
@@ -195,6 +198,28 @@ pub async fn set_logger_filter(filter: String) {
 #[update(guard = "is_admin")]
 pub async fn set_permissions(caller: Principal, perm: Permission) {
     set_perms(caller.to_string(), perm)
+}
+
+#[update(guard = "is_admin")]
+fn set_runes_oracle(oracle: Principal) {
+    with_state_mut(|s| s.runes_oracles.insert(oracle));
+}
+
+#[update]
+pub async fn add_runes_token(args: AddRunesTokenArgs) -> Result<(), SelfServiceError> {
+    self_service::add_runes_token(args).await
+}
+
+#[update(guard = "is_runes_oracle")]
+pub async fn finalize_add_runes_token_req(
+    args: FinalizeAddRunesArgs,
+) -> Result<(), SelfServiceError> {
+    self_service::finalize_add_runes_token_req(args).await
+}
+
+#[update]
+pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), SelfServiceError> {
+    self_service::add_dest_chain_for_token(args).await
 }
 
 #[query]

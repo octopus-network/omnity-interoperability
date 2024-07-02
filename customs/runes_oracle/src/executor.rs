@@ -1,10 +1,11 @@
 use crate::{customs::Customs, indexer::Indexer};
 use bitcoin_customs::{
-    state::{self, GenTicketRequest, RuneId},
+    state::{self, GenTicketRequest},
     updates::update_runes_balance::UpdateRunesBalanceError,
 };
 use ic_btc_interface::Txid;
 use log;
+use omnity_types::rune_id::RuneId;
 use std::{
     collections::{BTreeSet, VecDeque},
     str::FromStr,

@@ -4,5 +4,6 @@ pub mod lifecycle;
 pub mod memory;
 pub mod metrics;
 pub mod proposal;
+pub mod self_service;
 pub mod state;
 pub mod types;
