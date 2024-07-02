@@ -15,7 +15,6 @@ use std::{marker::PhantomData, str::FromStr};
 
 use humantime::parse_rfc3339;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use serde_json;
 use std::time::UNIX_EPOCH;
 
 type VMem = VirtualMemory<DefaultMemoryImpl>;
