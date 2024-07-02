@@ -10833,6 +10833,7 @@ dependencies = [
  "ic-cdk-timers",
  "ic-log 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x)",
  "log",
+ "omnity_types",
  "serde",
  "serde_json",
 ]
