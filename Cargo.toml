@@ -6,6 +6,7 @@ members = [
     "route/icp",
     "customs/bitcoin",
     "customs/runes_oracle",
+    "customs/oracle_canister",
     "mock/bitcoin",
     "mock/icp",
     "mock/hub",
