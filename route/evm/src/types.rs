@@ -254,7 +254,7 @@ impl Ticket {
             dst_chain,
             action: TxAction::Mint,
             token: runes_mint.token_id,
-            amount: runes_mint.amount.to_string(),
+            amount: "0".to_string(),
             sender: Some(format!(
                 "0x{}",
                 hex::encode(runes_mint.sender.0.as_slice())
