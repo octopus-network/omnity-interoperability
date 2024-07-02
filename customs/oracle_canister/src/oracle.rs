@@ -3,14 +3,15 @@ use candid::Principal;
 
 /// this could be empty since even some errors occur, we can't do anything but waiting for the next timer
 async fn query_pending_task(principal: Principal) -> Vec<GenTicketRequestV2> {
-    let (v,): (Vec<GenTicketRequestV2>,) = ic_cdk::call(
-        principal,
-        "get_pending_gen_ticket_requests",
-        (None::<Txid>, 50),
-    )
-    .await
-    .inspect_err(|e| log::error!("fetch error: {:?}", e))
-    .unwrap_or_default();
+    let args = GetGenTicketReqsArgs {
+        start_txid: None,
+        max_count: 50,
+    };
+    let (v,): (Vec<GenTicketRequestV2>,) =
+        ic_cdk::call(principal, "get_pending_gen_ticket_requests", (args,))
+            .await
+            .inspect_err(|e| log::error!("fetch error: {:?}", e))
+            .unwrap_or_default();
     v
 }
 
@@ -21,8 +22,13 @@ async fn query_indexer(
     txid: String,
     vout: u32,
 ) -> anyhow::Result<Option<RunesBalance>> {
-    let (balances,): (Vec<Balance>,) = ic_cdk::call(principal, "get_runes_by_utxo", (txid, vout))
-        .await
+    let (balances,): (Result<Vec<Balance>, OrdError>,) =
+        ic_cdk::call(principal, "get_runes_by_utxo", (txid, vout))
+            .await
+            .inspect_err(|e| log::error!("query indexer error {:?}", e))
+            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let balances = balances
+        .inspect_err(|e| log::error!("indexer returns err: {:?}", e))
         .map_err(|e| anyhow::anyhow!("{:?}", e))?;
     let rune = balances
         .into_iter()
@@ -44,6 +50,7 @@ async fn update_runes_balance(
     let args = UpdateRunesBalanceArgs { txid, balances };
     let _: () = ic_cdk::call(principal, "update_runes_balance", (args,))
         .await
+        .inspect_err(|e| log::error!("update error: {:?}", e))
         .map_err(|e| anyhow::anyhow!("{:?}", e))?;
     Ok(())
 }
