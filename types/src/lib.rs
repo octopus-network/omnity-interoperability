@@ -12,6 +12,7 @@ use std::borrow::Cow;
 use thiserror::Error;
 
 pub mod log;
+pub mod rune_id;
 pub mod signer;
 
 pub type Signature = Vec<u8>;

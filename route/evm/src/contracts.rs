@@ -1,15 +1,12 @@
 use std::str::FromStr;
 
-use ethers_core::abi::{ethereum_types, AbiEncode};
-#[cfg(not(feature = "legacy_tx"))]
+use ethers_core::abi::{AbiEncode, ethereum_types};
+use ethers_core::types::{Bytes, NameOrAddress, TransactionRequest, U256};
 use ethers_core::types::Eip1559TransactionRequest;
-#[cfg(feature = "legacy_tx")]
-use ethers_core::types::TransactionRequest;
-use ethers_core::types::{Bytes, NameOrAddress, U256};
 use log::info;
 
 use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
-use crate::eth_common::EvmAddress;
+use crate::eth_common::{EvmAddress, EvmTxRequest, EvmTxType};
 use crate::state::read_state;
 use crate::types::{Directive, Factor, Ticket, ToggleAction};
 
@@ -111,8 +108,23 @@ impl Into<Option<PortContractCommandIndex>> for Directive {
     }
 }
 
-#[cfg(feature = "legacy_tx")]
 pub fn gen_evm_tx(
+    tx_data: Vec<u8>,
+    gas_price: Option<U256>,
+    nonce: u64,
+    gas: u32,
+) -> EvmTxRequest {
+    match read_state(|s| s.evm_tx_type.clone()) {
+        EvmTxType::Legacy => {
+            EvmTxRequest::Legacy(gen_evm_legacy_tx(tx_data, gas_price, nonce, gas))
+        }
+        EvmTxType::Eip1559 => {
+            EvmTxRequest::Eip1559(gen_evm_eip1559_tx(tx_data, gas_price, nonce, gas))
+        }
+    }
+}
+
+pub fn gen_evm_legacy_tx(
     tx_data: Vec<u8>,
     gas_price: Option<U256>,
     nonce: u64,
@@ -132,8 +144,7 @@ pub fn gen_evm_tx(
     }
 }
 
-#[cfg(not(feature = "legacy_tx"))]
-pub fn gen_evm_tx(
+pub fn gen_evm_eip1559_tx(
     tx_data: Vec<u8>,
     gas_price: Option<U256>,
     nonce: u64,

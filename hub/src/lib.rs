@@ -5,5 +5,6 @@ pub mod memory;
 pub mod metrics;
 pub mod migration;
 pub mod proposal;
+pub mod self_help;
 pub mod state;
 pub mod types;

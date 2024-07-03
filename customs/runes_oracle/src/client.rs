@@ -6,14 +6,14 @@ use bitcoin_customs::{
 use candid::{Decode, Encode};
 use ic_agent::{export::Principal, identity::Secp256k1Identity, Agent};
 use ic_btc_interface::Txid;
+use omnity_hub::self_help::{AddRunesTokenReq, FinalizeAddRunesArgs, SelfServiceError};
 
-pub struct Customs {
+pub struct Client {
     agent: Agent,
-    canister_id: Principal,
 }
 
-impl Customs {
-    pub async fn new(url: String, canister_id: Principal, identity: Secp256k1Identity) -> Self {
+impl Client {
+    pub async fn new(url: String, identity: Secp256k1Identity) -> Self {
         let agent = Agent::builder()
             .with_url(&url)
             .with_identity(identity)
@@ -25,11 +25,12 @@ impl Customs {
                 .await
                 .expect("failed to fetch root key");
         }
-        Self { agent, canister_id }
+        Self { agent }
     }
 
     pub async fn get_pending_gen_ticket_requests(
         &self,
+        canister_id: &Principal,
         start_txid: Option<Txid>,
         max_count: u64,
     ) -> Result<Vec<GenTicketRequest>, String> {
@@ -40,7 +41,7 @@ impl Customs {
         .expect("failed to encode args");
         let response = self
             .agent
-            .query(&self.canister_id, "get_pending_gen_ticket_requests")
+            .query(canister_id, "get_pending_gen_ticket_requests")
             .with_arg(arg)
             .call()
             .await
@@ -53,6 +54,7 @@ impl Customs {
 
     pub async fn update_runes_balance(
         &self,
+        canister_id: &Principal,
         txid: Txid,
         balances: Vec<RunesBalance>,
     ) -> Result<Result<(), UpdateRunesBalanceError>, String> {
@@ -61,13 +63,51 @@ impl Customs {
 
         let response = self
             .agent
-            .update(&self.canister_id, "update_runes_balance")
+            .update(canister_id, "update_runes_balance")
             .with_arg(arg)
             .call_and_wait()
             .await
             .map_err(|err| err.to_string())?;
 
         let result = Decode!(response.as_slice(), Result<(), UpdateRunesBalanceError>)
+            .map_err(|err| err.to_string())?;
+
+        Ok(result)
+    }
+
+    pub async fn get_add_runes_token_requests(
+        &self,
+        canister_id: &Principal,
+    ) -> Result<Vec<AddRunesTokenReq>, String> {
+        let response = self
+            .agent
+            .query(canister_id, "get_add_runes_token_requests")
+            .with_arg(Encode!().unwrap())
+            .call()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        let result =
+            Decode!(response.as_slice(), Vec<AddRunesTokenReq>).map_err(|err| err.to_string())?;
+        Ok(result)
+    }
+
+    pub async fn finalize_add_runes_token_req(
+        &self,
+        canister_id: &Principal,
+        args: FinalizeAddRunesArgs,
+    ) -> Result<Result<(), SelfServiceError>, String> {
+        let arg = Encode!(&args).expect("failed to encode args");
+
+        let response = self
+            .agent
+            .update(canister_id, "finalize_add_runes_token_req")
+            .with_arg(arg)
+            .call_and_wait()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        let result = Decode!(response.as_slice(), Result<(), SelfServiceError>)
             .map_err(|err| err.to_string())?;
 
         Ok(result)

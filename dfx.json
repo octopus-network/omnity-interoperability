@@ -85,6 +85,12 @@
       "package": "evm_route",
       "type": "custom"
     },
+    "evm_route_bob": {
+      "candid": "route/evm/evm_route.did",
+      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
+      "package": "evm_route",
+      "type": "custom"
+    },
     "evm_rpc": {
       "type": "custom",
       "candid": "https://github.com/internet-computer-protocol/evm-rpc-canister/releases/download/release-2024-05-23/evm_rpc.did",
@@ -94,14 +100,18 @@
           "ic": "xhcuo-6yaaa-aaaar-qacqq-cai"
         }
       }
+    },
+    "rune_oracle": {
+      "gzip": true,
+      "candid": "customs/oracle_canister/oracle.did",
+      "package": "rune_oracle_canister",
+      "type": "rust"
     }
   },
   "defaults": {
     "bitcoin": {
       "enabled": true,
-      "nodes": [
-        "127.0.0.1:18444"
-      ],
+      "nodes": ["127.0.0.1:18444"],
       "log_level": "info"
     },
     "build": {

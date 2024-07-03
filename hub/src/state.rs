@@ -4,6 +4,7 @@ use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
+use crate::self_help::AddRunesTokenReq;
 use crate::migration::{migrate, PreHubState};
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use candid::Principal;
@@ -54,6 +55,11 @@ pub struct HubState {
     pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
 
+    #[serde(skip_deserializing)]
+    pub add_runes_token_requests: BTreeMap<String, AddRunesTokenReq>,
+    #[serde(skip_deserializing)]
+    pub runes_oracles: BTreeSet<Principal>,
+
     //test
     pub dire_map: BTreeMap<SeqKey, Directive>,
     pub ticket_map: BTreeMap<SeqKey, String>,
@@ -78,6 +84,8 @@ impl From<InitArgs> for HubState {
             caller_chain_map: HashMap::default(),
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             last_resubmit_ticket_time: 0,
+            add_runes_token_requests: Default::default(),
+            runes_oracles: Default::default(),
 
             dire_map: BTreeMap::default(),
             ticket_map: BTreeMap::default(),
