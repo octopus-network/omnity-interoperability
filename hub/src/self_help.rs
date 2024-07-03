@@ -12,7 +12,7 @@ use omnity_types::{rune_id::RuneId, ChainId};
 use serde::Serialize;
 use std::{collections::HashMap, str::FromStr};
 
-const SELF_SERVICE_FEE: u64 = 1_000_000_000_000;
+const SELF_SERVICE_FEE: u64 = 100_000_000;
 const ICP_TRANSFER_FEE: u64 = 10_000;
 const BITCOIN_CHAIN: &str = "Bitcoin";
 
@@ -182,7 +182,7 @@ async fn ic_balance_of(subaccount: &Subaccount) -> Result<Tokens, SelfServiceErr
 async fn transfer_fee(subaccount: &Subaccount, fee_amount: u64) -> Result<(), SelfServiceError> {
     let transfer_args = TransferArgs {
         memo: Memo(0),
-        amount: Tokens::from_e8s(fee_amount),
+        amount: Tokens::from_e8s(fee_amount - ICP_TRANSFER_FEE),
         fee: Tokens::from_e8s(ICP_TRANSFER_FEE),
         from_subaccount: Some(subaccount.clone()),
         to: AccountIdentifier::new(&ic_cdk::api::id(), &DEFAULT_SUBACCOUNT),
