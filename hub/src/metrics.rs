@@ -464,3 +464,10 @@ pub fn get_chain_id(chain_id: Option<ChainId>) -> Result<ChainId, Error> {
         Ok(chain_id)
     }
 }
+
+pub async fn get_token_position_size() -> Result<u64, Error> {
+    with_state(|hub_state| {
+        let total_num = hub_state.token_position.len();
+        Ok(total_num)
+    })
+}
