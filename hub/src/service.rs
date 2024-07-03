@@ -2,18 +2,23 @@ use crate::memory::init_stable_log;
 use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_ledger_types::AccountIdentifier;
 #[cfg(feature = "profiling")]
 use ic_stable_structures::Memory;
 use log::{debug, info};
-use omnity_hub::auth::{auth_query, auth_update, is_admin, set_perms, Permission};
+use omnity_hub::auth::{auth_query, auth_update, is_admin, is_runes_oracle, set_perms, Permission};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
 #[cfg(feature = "profiling")]
 use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
-use omnity_hub::proposal;
+use omnity_hub::self_help::{
+    principal_to_subaccount, AddDestChainArgs, AddRunesTokenReq, FinalizeAddRunesArgs,
+    SelfServiceError,
+};
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta};
+use omnity_hub::{proposal, self_help};
 
 use omnity_hub::types::{
     TokenResp, {Proposal, Subscribers},
@@ -195,6 +200,44 @@ pub async fn set_logger_filter(filter: String) {
 #[update(guard = "is_admin")]
 pub async fn set_permissions(caller: Principal, perm: Permission) {
     set_perms(caller.to_string(), perm)
+}
+
+#[update(guard = "is_admin")]
+fn set_runes_oracle(oracle: Principal) {
+    with_state_mut(|s| s.runes_oracles.insert(oracle));
+}
+
+#[update]
+pub async fn add_runes_token(args: AddRunesTokenReq) -> Result<(), SelfServiceError> {
+    self_help::add_runes_token(args).await
+}
+
+#[update(guard = "is_runes_oracle")]
+pub async fn finalize_add_runes_token_req(
+    args: FinalizeAddRunesArgs,
+) -> Result<(), SelfServiceError> {
+    self_help::finalize_add_runes_token(args).await
+}
+
+#[update]
+pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), SelfServiceError> {
+    self_help::add_dest_chain_for_token(args).await
+}
+
+#[query]
+pub fn get_add_runes_token_requests() -> Vec<AddRunesTokenReq> {
+    with_state(|s| {
+        s.add_runes_token_requests
+            .iter()
+            .map(|(_, req)| req.clone())
+            .collect()
+    })
+}
+
+#[query]
+pub fn get_fee_account(principal: Option<Principal>) -> AccountIdentifier {
+    let principal = principal.unwrap_or(ic_cdk::caller());
+    AccountIdentifier::new(&ic_cdk::api::id(), &principal_to_subaccount(&principal))
 }
 
 #[query]

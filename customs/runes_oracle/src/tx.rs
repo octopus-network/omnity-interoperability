@@ -4,12 +4,12 @@ use serde::Deserialize;
 type RuneId = String;
 
 #[derive(Deserialize, Debug)]
-pub struct IndexerResponse {
-    pub transactions: Vec<IndexerResult>,
+pub struct TxResponse {
+    pub transactions: Vec<TxResult>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct IndexerResult {
+pub struct TxResult {
     pub transaction: Transaction,
 }
 
@@ -108,7 +108,7 @@ pub struct RunesBalance {
 
 impl Transaction {
     pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
-        let response: IndexerResponse = serde_json::from_str(json_str)?;
+        let response: TxResponse = serde_json::from_str(json_str)?;
         assert!(response.transactions.len() == 1, "Expected 1 transaction");
         Ok(response.transactions[0].transaction.clone())
     }

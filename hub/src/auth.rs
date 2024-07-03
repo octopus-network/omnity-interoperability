@@ -21,6 +21,17 @@ pub fn is_admin() -> Result<(), String> {
     })
 }
 
+pub fn is_runes_oracle() -> Result<(), String> {
+    let caller = ic_cdk::api::caller();
+    with_state(|s| {
+        if !s.runes_oracles.contains(&caller) {
+            Err("Not runes principal!".into())
+        } else {
+            Ok(())
+        }
+    })
+}
+
 pub fn auth_update() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
     debug!("auth update for caller: {:?}", caller.to_string());

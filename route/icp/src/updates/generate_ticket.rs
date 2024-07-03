@@ -237,11 +237,11 @@ async fn ic_balance_of(subaccount: &IcSubaccount) -> Result<Tokens, GenerateTick
         .map_err(|(_, reason)| GenerateTicketError::TemporarilyUnavailable(reason))
 }
 
-pub fn principal_to_subaccount(principal_id: &Principal) -> ic_ledger_types::Subaccount {
-    let mut subaccount = [0; std::mem::size_of::<Subaccount>()];
+pub fn principal_to_subaccount(principal_id: &Principal) -> IcSubaccount {
+    let mut subaccount = [0; std::mem::size_of::<IcSubaccount>()];
     let principal_id = principal_id.as_slice();
     subaccount[0] = principal_id.len().try_into().unwrap();
     subaccount[1..1 + principal_id.len()].copy_from_slice(principal_id);
 
-    ic_ledger_types::Subaccount(subaccount)
+    IcSubaccount(subaccount)
 }

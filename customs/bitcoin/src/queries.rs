@@ -1,6 +1,6 @@
-use crate::state::RuneId;
 use candid::CandidType;
 use ic_btc_interface::Txid;
+use omnity_types::rune_id::RuneId;
 use serde::Deserialize;
 
 #[derive(CandidType, Deserialize)]
