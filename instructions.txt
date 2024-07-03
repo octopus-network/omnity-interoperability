@@ -1,0 +1,44 @@
+call omnity_hub query_directives_instructions '(opt eICP,null,0:nat64,12:nat64)'
+(3_556_442 : nat64, 3_556_642 : nat64)
+call omnity_hub query_directives_from_map_instructions '(opt eICP,null,0:nat64,12:nat64)'
+(145_181 : nat64, 145_381 : nat64)
+call omnity_hub query_directives_from_mix_instructions '(opt eICP,null,0:nat64,12:nat64)'
+(882_589 : nat64, 882_789 : nat64)
+call omnity_hub query_directives_instructions '(opt eICP,null,12:nat64,24:nat64)'
+(3_548_258 : nat64, 3_548_458 : nat64)
+call omnity_hub query_directives_from_map_instructions '(opt eICP,null,12:nat64,24:nat64)'
+(119_902 : nat64, 120_102 : nat64)
+call omnity_hub query_directives_from_mix_instructions '(opt eICP,null,12:nat64,24:nat64)'
+(120_007 : nat64, 120_207 : nat64)
+call omnity_hub query_tickets_instructions '(opt Bitcoin,0:nat64,6:nat64)'
+(539_592 : nat64, 539_792 : nat64)
+call omnity_hub query_tickets_from_map_instructions '(opt Bitcoin,0:nat64,6:nat64)'
+(47_536 : nat64, 47_736 : nat64)
+call omnity_hub query_tickets_from_mix_instructions '(opt Bitcoin,0:nat64,6:nat64)'
+(130_206 : nat64, 130_406 : nat64)
+call omnity_hub query_tickets_instructions '(opt Bitcoin,6:nat64,12:nat64)'
+(535_303 : nat64, 535_503 : nat64)
+call omnity_hub query_tickets_from_map_instructions '(opt Bitcoin,6:nat64,12:nat64)'
+(44_022 : nat64, 44_222 : nat64)
+call omnity_hub query_tickets_from_mix_instructions '(opt Bitcoin,6:nat64,12:nat64)'
+(44_070 : nat64, 44_270 : nat64)
+call omnity_hub get_chain_tokens_instructions '(opt Optimistic,null,0:nat64,5:nat64)'
+(140_543 : nat64, 140_743 : nat64)
+call omnity_hub get_chain_tokens_instructions '(null,null,0:nat64,5:nat64)'
+(137_970 : nat64, 138_170 : nat64)
+call omnity_hub get_chain_metas_instructions '(0:nat64,12:nat64)'
+(398_285 : nat64, 398_485 : nat64)
+call omnity_hub get_chain_metas_instructions '(13:nat64,24:nat64)'
+(390_706 : nat64, 390_906 : nat64)
+call omnity_hub get_token_metas_instructions '(0:nat64,12:nat64)'
+(427_877 : nat64, 428_077 : nat64)
+call omnity_hub get_token_metas_instructions '(13:nat64,24:nat64)'
+(414_507 : nat64, 414_707 : nat64)
+call omnity_hub get_directives_instructions '(0:nat64,24:nat64)'
+(809_595 : nat64, 809_795 : nat64)
+call omnity_hub get_directives_instructions '(36:nat64,48:nat64)'
+(776_288 : nat64, 776_488 : nat64)
+call omnity_hub sync_tickets_instructions '(0:nat64,72:nat64)'
+(420_415 : nat64, 420_615 : nat64)
+call omnity_hub sync_tickets_instructions '(73:nat64,86:nat64)'
+(404_135 : nat64, 404_335 : nat64)

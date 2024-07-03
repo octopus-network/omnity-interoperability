@@ -1,0 +1,72 @@
+2024-06-30 19:23:07 omnity_hub current balance: 26498649422965 cycles
+2024-06-30 20:23:15 after 3600 seconds,omnity_hub current balance: 26489423783140 cycles
+2024-06-30 20:23:15 the omnity_hub consumption is: 9225639825 cycles, 0.009225 TC
+2024-06-30 20:23:25 omnity_hub current balance: 26489408044089 cycles
+2024-06-30 21:23:34 after 3600 seconds,omnity_hub current balance: 26480082360825 cycles
+2024-06-30 21:23:34 the omnity_hub consumption is: 9325683264 cycles, 0.009325 TC
+2024-06-30 21:23:44 omnity_hub current balance: 26480056444936 cycles
+2024-06-30 22:23:52 after 3600 seconds,omnity_hub current balance: 26470751326838 cycles
+2024-06-30 22:23:52 the omnity_hub consumption is: 9305118098 cycles, 0.009305 TC
+2024-06-30 22:24:01 omnity_hub current balance: 26470737337588 cycles
+2024-06-30 23:24:09 after 3600 seconds,omnity_hub current balance: 26461470785868 cycles
+2024-06-30 23:24:09 the omnity_hub consumption is: 9266551720 cycles, 0.009266 TC
+2024-06-30 23:24:17 omnity_hub current balance: 26461454821708 cycles
+2024-07-01 00:24:24 after 3600 seconds,omnity_hub current balance: 26452150806389 cycles
+2024-07-01 00:24:24 the omnity_hub consumption is: 9304015319 cycles, 0.009304 TC
+2024-07-01 00:24:34 omnity_hub current balance: 26452136818301 cycles
+2024-07-01 01:24:45 after 3600 seconds,omnity_hub current balance: 26442785162371 cycles
+2024-07-01 01:24:45 the omnity_hub consumption is: 9351655930 cycles, 0.009351 TC
+2024-07-01 01:24:54 omnity_hub current balance: 26442769176298 cycles
+2024-07-01 02:25:03 after 3600 seconds,omnity_hub current balance: 26433450423875 cycles
+2024-07-01 02:25:03 the omnity_hub consumption is: 9318752423 cycles, 0.009318 TC
+2024-07-01 02:25:11 omnity_hub current balance: 26433417161919 cycles
+2024-07-01 03:25:20 after 3600 seconds,omnity_hub current balance: 26424125019994 cycles
+2024-07-01 03:25:20 the omnity_hub consumption is: 9292141925 cycles, 0.009292 TC
+2024-07-01 03:25:29 omnity_hub current balance: 26424109319134 cycles
+2024-07-01 04:25:37 after 3600 seconds,omnity_hub current balance: 26414767950444 cycles
+2024-07-01 04:25:37 the omnity_hub consumption is: 9341368690 cycles, 0.009341 TC
+2024-07-01 04:25:46 omnity_hub current balance: 26414742048805 cycles
+2024-07-01 05:25:54 after 3600 seconds,omnity_hub current balance: 26405419142931 cycles
+2024-07-01 05:25:54 the omnity_hub consumption is: 9322905874 cycles, 0.009322 TC
+2024-07-01 05:26:03 omnity_hub current balance: 26405385266651 cycles
+2024-07-01 06:26:12 after 3600 seconds,omnity_hub current balance: 26396072409476 cycles
+2024-07-01 06:26:12 the omnity_hub consumption is: 9312857175 cycles, 0.009312 TC
+2024-07-01 06:26:19 omnity_hub current balance: 26396058430289 cycles
+2024-07-01 07:26:27 after 3600 seconds,omnity_hub current balance: 26386760934609 cycles
+2024-07-01 07:26:27 the omnity_hub consumption is: 9297495680 cycles, 0.009297 TC
+2024-07-01 09:03:28 omnity_hub current balance: 26371777855016 cycles
+2024-07-01 09:03:41 after 5 seconds,omnity_hub current balance: 26371741434069 cycles
+2024-07-01 09:03:41 the omnity_hub consumption is: 36420947 cycles, 0.000036 TC
+2024-07-01 09:03:49 omnity_hub current balance: 26371716387769 cycles
+2024-07-01 09:04:05 after 5 seconds,omnity_hub current balance: 26371688790343 cycles
+2024-07-01 09:04:05 the omnity_hub consumption is: 27597426 cycles, 0.000027 TC
+2024-07-01 09:04:15 omnity_hub current balance: 26371665099857 cycles
+2024-07-01 09:04:28 after 5 seconds,omnity_hub current balance: 26371625588769 cycles
+2024-07-01 09:04:28 the omnity_hub consumption is: 39511088 cycles, 0.000039 TC
+2024-07-01 09:04:36 omnity_hub current balance: 26371611616149 cycles
+2024-07-01 09:04:49 after 5 seconds,omnity_hub current balance: 26371576035184 cycles
+2024-07-01 09:04:49 the omnity_hub consumption is: 35580965 cycles, 0.000035 TC
+2024-07-01 09:04:57 omnity_hub current balance: 26371550148902 cycles
+2024-07-01 09:05:10 after 5 seconds,omnity_hub current balance: 26371520557381 cycles
+2024-07-01 09:05:10 the omnity_hub consumption is: 29591521 cycles, 0.000029 TC
+2024-07-01 09:05:17 omnity_hub current balance: 26371500606915 cycles
+2024-07-01 09:05:30 after 5 seconds,omnity_hub current balance: 26371473009489 cycles
+2024-07-01 09:05:30 the omnity_hub consumption is: 27597426 cycles, 0.000027 TC
+2024-07-01 09:05:39 omnity_hub current balance: 26371447123207 cycles
+2024-07-01 09:05:52 after 5 seconds,omnity_hub current balance: 26371409831098 cycles
+2024-07-01 09:05:52 the omnity_hub consumption is: 37292109 cycles, 0.000037 TC
+2024-07-01 09:05:59 omnity_hub current balance: 26371395858478 cycles
+2024-07-01 09:06:11 after 5 seconds,omnity_hub current balance: 26371366266957 cycles
+2024-07-01 09:06:11 the omnity_hub consumption is: 29591521 cycles, 0.000029 TC
+2024-07-01 09:06:20 omnity_hub current balance: 26371334402829 cycles
+2024-07-01 09:06:35 after 5 seconds,omnity_hub current balance: 26371306805403 cycles
+2024-07-01 09:06:35 the omnity_hub consumption is: 27597426 cycles, 0.000027 TC
+2024-07-01 09:06:43 omnity_hub current balance: 26371277210466 cycles
+2024-07-01 09:06:56 after 5 seconds,omnity_hub current balance: 26371243627012 cycles
+2024-07-01 09:06:56 the omnity_hub consumption is: 33583454 cycles, 0.000033 TC
+2024-07-01 09:07:05 omnity_hub current balance: 26371217740730 cycles
+2024-07-01 09:07:18 after 5 seconds,omnity_hub current balance: 26371182171363 cycles
+2024-07-01 09:07:18 the omnity_hub consumption is: 35569367 cycles, 0.000035 TC
+2024-07-01 09:07:26 omnity_hub current balance: 26371168198743 cycles
+2024-07-01 09:07:38 after 5 seconds,omnity_hub current balance: 26371140601317 cycles
+2024-07-01 09:07:38 the omnity_hub consumption is: 27597426 cycles, 0.000027 TC

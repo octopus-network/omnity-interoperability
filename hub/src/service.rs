@@ -312,6 +312,17 @@ pub async fn get_chain_tokens(
 }
 
 #[query]
+pub async fn get_chain_tokens_instructions(
+    chain_id: Option<ChainId>,
+    token_id: Option<TokenId>,
+    offset: usize,
+    limit: usize,
+) -> (u64, u64) {
+    let _ = metrics::get_chain_tokens(chain_id, token_id, offset, limit).await;
+    (performance_counter(0), performance_counter(1))
+}
+
+#[query]
 pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
     metrics::get_tx(ticket_id).await
 }
@@ -381,6 +392,12 @@ pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMet
 }
 
 #[query(guard = "auth_query")]
+pub async fn get_chain_metas_instructions(offset: usize, limit: usize) -> (u64, u64) {
+    let _ = metrics::get_chain_metas(offset, limit).await;
+    (performance_counter(0), performance_counter(1))
+}
+
+#[query(guard = "auth_query")]
 pub async fn get_chain_size() -> Result<u64, Error> {
     metrics::get_chain_size().await
 }
@@ -388,6 +405,12 @@ pub async fn get_chain_size() -> Result<u64, Error> {
 #[query(guard = "auth_query")]
 pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
     metrics::get_token_metas(offset, limit).await
+}
+
+#[query(guard = "auth_query")]
+pub async fn get_token_metas_instructions(offset: usize, limit: usize) -> (u64, u64) {
+    let _ = metrics::get_token_metas(offset, limit).await;
+    (performance_counter(0), performance_counter(1))
 }
 
 #[query(guard = "auth_query")]
@@ -406,6 +429,12 @@ pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive
 }
 
 #[query(guard = "auth_query")]
+pub async fn get_directives_instructions(offset: usize, limit: usize) -> (u64, u64) {
+    let _ = metrics::get_directives(offset, limit).await;
+    (performance_counter(0), performance_counter(1))
+}
+
+#[query(guard = "auth_query")]
 pub async fn sync_ticket_size() -> Result<u64, Error> {
     with_metrics(|metrics| metrics.sync_ticket_size())
 }
@@ -413,6 +442,12 @@ pub async fn sync_ticket_size() -> Result<u64, Error> {
 #[query(guard = "auth_query")]
 pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
     with_metrics(|metrics| metrics.sync_tickets(offset, limit))
+}
+
+#[query(guard = "auth_query")]
+pub async fn sync_tickets_instructions(offset: usize, limit: usize) -> (u64, u64) {
+    let _ = with_metrics(|metrics| metrics.sync_tickets(offset, limit));
+    (performance_counter(0), performance_counter(1))
 }
 
 #[query]
