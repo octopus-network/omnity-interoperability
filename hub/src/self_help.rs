@@ -119,10 +119,17 @@ pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), Self
             .map_err(|_| SelfServiceError::TokenNotFound)
     })?;
 
-    with_state(|s| {
-        s.available_chain(&args.dst_chain)
+    let issue_chain = with_state(|s| {
+        s.chain(&token_meta.issue_chain)
             .map_err(|_| SelfServiceError::ChainNotAvailable)
     })?;
+
+    if !issue_chain
+        .counterparties
+        .is_some_and(|c| c.contains(&args.dst_chain))
+    {
+        return Err(SelfServiceError::ChainNotAvailable);
+    }
 
     token_meta.dst_chains.push(args.dst_chain);
 
@@ -136,7 +143,7 @@ pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), Self
     execute_proposal(proposal)
         .await
         .map_err(|err| SelfServiceError::InvalidProposal(err.to_string()))?;
-    
+
     Ok(())
 }
 
