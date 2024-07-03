@@ -1,5 +1,10 @@
 type AddDestChainArgs = record { token_id : text; dst_chain : text };
-type AddRunesTokenArgs = record { icon : text; rune_id : text; symbol : text };
+type AddRunesTokenReq = record {
+  dest_chain : text;
+  icon : text;
+  rune_id : text;
+  symbol : text;
+};
 type Chain = record {
   fee_token : opt text;
   canister_id : text;
@@ -76,7 +81,6 @@ type Factor = variant {
 };
 type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type FinalizeAddRunesArgs = record {
-  dst_chain : text;
   name : text;
   rune_id : text;
   decimal : nat8;
@@ -120,8 +124,8 @@ type SelfServiceError = variant {
   TransferFailure : text;
   InvalidProposal : text;
   InvalidRuneId : text;
-  ChainNotAvailable;
   RequestNotFound;
+  ChainNotFound : text;
   TokenAlreadyExisting;
   EmptyArgument;
 };
@@ -187,10 +191,10 @@ type TxAction = variant { Burn; Redeem; Transfer };
 type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
   add_dest_chain_for_token : (AddDestChainArgs) -> (Result);
-  add_runes_token : (AddRunesTokenArgs) -> (Result);
+  add_runes_token : (AddRunesTokenReq) -> (Result);
   execute_proposal : (vec Proposal) -> (Result_1);
   finalize_add_runes_token_req : (FinalizeAddRunesArgs) -> (Result);
-  get_add_runes_token_requests : () -> (vec AddRunesTokenArgs) query;
+  get_add_runes_token_requests : () -> (vec AddRunesTokenReq) query;
   get_chain : (text) -> (Result_2) query;
   get_chain_metas : (nat64, nat64) -> (Result_3) query;
   get_chain_size : () -> (Result_4) query;
