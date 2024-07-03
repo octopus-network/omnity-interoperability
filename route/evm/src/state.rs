@@ -177,7 +177,7 @@ pub struct EvmRouteState {
 impl From<&EvmRouteState> for StateProfile {
     fn from(v: &EvmRouteState) -> Self {
         StateProfile {
-            admins: v.admins.to_vec(),
+            admins: v.admins.clone(),
             hub_principal: v.hub_principal,
             omnity_chain_id: v.omnity_chain_id.clone(),
             evm_chain_id: v.evm_chain_id,
