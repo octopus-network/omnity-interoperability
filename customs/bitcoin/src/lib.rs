@@ -1143,13 +1143,12 @@ pub fn build_unsigned_transaction(
 
             let stone = Runestone { edicts, mint: None };
 
-            let runes_change = inputs_value - amount;
-            let rune_change = state::RunesChangeOutput {
+            let rune_change_output = state::RunesChangeOutput {
                 rune_id,
                 vout: 1,
-                value: runes_change,
+                value: inputs_value - amount,
             };
-            (stone, rune_change, runes_main_address, rune_utxos, outputs)
+            (stone, rune_change_output, runes_main_address, rune_utxos, outputs)
         }
         BuildTxReq::MintTxReq(receiver) => {
             let stone = Runestone {
@@ -1157,7 +1156,7 @@ pub fn build_unsigned_transaction(
                 edicts: vec![],
             };
 
-            let rune_change = state::RunesChangeOutput {
+            let rune_change_output = state::RunesChangeOutput {
                 rune_id,
                 vout: 1,
                 // Rune change output as output of mint rune receiver.
@@ -1165,7 +1164,7 @@ pub fn build_unsigned_transaction(
                 // and the corresponding rune utxo will be placed in customs at that time.
                 value: 0,
             };
-            (stone, rune_change, receiver, vec![], vec![])
+            (stone, rune_change_output, receiver, vec![], vec![])
         }
     };
 
