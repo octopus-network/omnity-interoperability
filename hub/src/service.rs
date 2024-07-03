@@ -288,6 +288,11 @@ pub async fn get_chain_tokens(
 }
 
 #[query]
+pub async fn get_token_position_size() -> Result<u64, Error> {
+    metrics::get_token_position_size().await
+}
+
+#[query]
 pub async fn get_tx(ticket_id: TicketId) -> Result<Ticket, Error> {
     metrics::get_tx(ticket_id).await
 }
