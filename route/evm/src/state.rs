@@ -35,7 +35,7 @@ impl EvmRouteState {
             Some(addr) => EvmAddress::from_str(addr.as_str()).expect("port address is invalid"),
         };
         let ret = EvmRouteState {
-            admin: args.admin,
+            admins: args.admins,
             hub_principal: args.hub_principal,
             omnity_chain_id: args.chain_id,
             evm_chain_id: args.evm_chain_id,
@@ -137,7 +137,7 @@ pub async fn init_chain_pubkey() {
 
 #[derive(Deserialize, Serialize)]
 pub struct EvmRouteState {
-    pub admin: Principal,
+    pub admins: Vec<Principal>,
     pub hub_principal: Principal,
     pub omnity_chain_id: String,
     pub evm_chain_id: u64,
@@ -177,7 +177,7 @@ pub struct EvmRouteState {
 impl From<&EvmRouteState> for StateProfile {
     fn from(v: &EvmRouteState) -> Self {
         StateProfile {
-            admin: v.admin,
+            admins: v.admins.to_vec(),
             hub_principal: v.hub_principal,
             omnity_chain_id: v.omnity_chain_id.clone(),
             evm_chain_id: v.evm_chain_id,
@@ -205,7 +205,7 @@ impl From<&EvmRouteState> for StateProfile {
 
 #[derive(Deserialize, Serialize, CandidType)]
 pub struct StateProfile {
-    pub admin: Principal,
+    pub admins: Vec<Principal>,
     pub hub_principal: Principal,
     pub omnity_chain_id: String,
     pub evm_chain_id: u64,

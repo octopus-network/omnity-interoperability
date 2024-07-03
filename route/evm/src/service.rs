@@ -213,8 +213,8 @@ fn set_scan_height(height: u64) -> Option<u64> {
 }
 
 #[update(guard = "is_admin")]
-fn update_admin(admin: Principal) {
-    mutate_state(|s| s.admin = admin);
+fn update_admins(admins: Vec<Principal>) {
+    mutate_state(|s| s.admins = admins);
 }
 
 #[update(guard = "is_admin")]
@@ -224,7 +224,7 @@ fn update_rpcs(rpcs: Vec<RpcApi>) {
 
 fn is_admin() -> Result<(), String> {
     let c = ic_cdk::caller();
-    match read_state(|s| s.admin == c) {
+    match read_state(|s| s.admins.contains(&c)) {
         true => Ok(()),
         false => Err("permission deny".to_string()),
     }
@@ -233,7 +233,7 @@ fn is_admin() -> Result<(), String> {
 #[derive(CandidType, Deserialize)]
 pub struct InitArgs {
     pub evm_chain_id: u64,
-    pub admin: Principal,
+    pub admins: Vec<Principal>,
     pub hub_principal: Principal,
     pub network: Network,
     pub evm_rpc_canister_addr: Principal,
