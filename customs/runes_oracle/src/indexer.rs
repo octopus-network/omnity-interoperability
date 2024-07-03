@@ -32,7 +32,7 @@ impl Indexer {
     }
 
     pub async fn get_runes(&self, rune_id: &String) -> Result<Runes, IndexerError> {
-        let resp = reqwest::get(format!("{}/api/runs/tx/{}", self.url, rune_id))
+        let resp = reqwest::get(format!("{}/api/rest/runes/{}", self.url, rune_id))
             .await
             .map_err(IndexerError::RequestErr)?;
         match resp.status() {

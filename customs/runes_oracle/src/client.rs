@@ -82,6 +82,7 @@ impl Client {
         let response = self
             .agent
             .query(canister_id, "get_add_runes_token_requests")
+            .with_arg(Encode!().unwrap())
             .call()
             .await
             .map_err(|err| err.to_string())?;
