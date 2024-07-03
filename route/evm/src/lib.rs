@@ -17,6 +17,7 @@ pub mod stable_memory;
 pub mod state;
 pub mod types;
 pub mod updates;
+pub mod upgrade;
 
 #[derive(Error, Debug)]
 pub enum Error {

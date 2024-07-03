@@ -12,6 +12,7 @@ candid = { workspace = true }
 ciborium = { workspace = true }
 ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
+ic-ledger-types = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
@@ -30,7 +31,6 @@ ic-ledger-canister-core = { git = "https://github.com/dfinity/ic", tag = "releas
 ic-base-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-icrc1-ledger = {git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 omnity_types = { path = "../../types" }
-ic-ledger-types = "0.9.0"
 
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
 ic-ic00-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }

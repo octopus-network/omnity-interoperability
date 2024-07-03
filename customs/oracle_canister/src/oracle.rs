@@ -1,5 +1,6 @@
 use crate::types::*;
 use candid::Principal;
+use omnity_types::rune_id::RuneId;
 
 /// this could be empty since even some errors occur, we can't do anything but waiting for the next timer
 async fn query_pending_task(principal: Principal) -> Vec<GenTicketRequestV2> {
@@ -83,6 +84,11 @@ pub(crate) fn fetch_then_submit(secs: u64) {
                 if error {
                     continue;
                 }
+                log::info!(
+                    "prepare to submit {} rune balances for task {:?}",
+                    balances.len(),
+                    task.txid
+                );
                 if let Err(e) = update_runes_balance(customs, task.txid, balances).await {
                     log::error!("{:?}", e);
                 }
@@ -90,7 +96,7 @@ pub(crate) fn fetch_then_submit(secs: u64) {
             if pending.len() < 50 {
                 fetch_then_submit(30);
             } else {
-                fetch_then_submit(3);
+                fetch_then_submit(1);
             }
         });
     });

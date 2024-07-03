@@ -1,3 +1,10 @@
+type AddDestChainArgs = record { token_id : text; dst_chain : text };
+type AddRunesTokenReq = record {
+  dest_chain : text;
+  icon : text;
+  rune_id : text;
+  symbol : text;
+};
 type Chain = record {
   fee_token : opt text;
   canister_id : text;
@@ -73,6 +80,11 @@ type Factor = variant {
   UpdateTargetChainFactor : TargetChainFactor;
 };
 type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
+type FinalizeAddRunesArgs = record {
+  name : text;
+  rune_id : text;
+  decimal : nat8;
+};
 type GetEventsArg = record { start : nat64; length : nat64 };
 type HubArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type InitArgs = record { admin : principal };
@@ -85,25 +97,38 @@ type Proposal = variant {
   ToggleChainState : ToggleState;
   UpdateToken : TokenMeta;
 };
-type Result = variant { Ok; Err : Error };
-type Result_1 = variant { Ok : Chain; Err : Error };
-type Result_10 = variant { Ok : Ticket; Err : Error };
-type Result_11 = variant { Ok : vec Ticket; Err : Error };
-type Result_12 = variant { Ok : vec record { nat64; Directive }; Err : Error };
-type Result_13 = variant {
+type Result = variant { Ok; Err : SelfServiceError };
+type Result_1 = variant { Ok; Err : Error };
+type Result_10 = variant { Ok : vec TokenResp; Err : Error };
+type Result_11 = variant { Ok : Ticket; Err : Error };
+type Result_12 = variant { Ok : vec Ticket; Err : Error };
+type Result_13 = variant { Ok : vec record { nat64; Directive }; Err : Error };
+type Result_14 = variant {
   Ok : vec record { Topic; Subscribers };
   Err : Error;
 };
-type Result_14 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
-type Result_15 = variant { Ok : vec text; Err : Error };
-type Result_2 = variant { Ok : vec Chain; Err : Error };
-type Result_3 = variant { Ok : nat64; Err : Error };
-type Result_4 = variant { Ok : vec TokenOnChain; Err : Error };
-type Result_5 = variant { Ok : vec Chain; Err : Error };
-type Result_6 = variant { Ok : vec Directive; Err : Error };
-type Result_7 = variant { Ok : vec record { text; text; nat }; Err : Error };
-type Result_8 = variant { Ok : vec TokenMeta; Err : Error };
-type Result_9 = variant { Ok : vec TokenResp; Err : Error };
+type Result_15 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type Result_16 = variant { Ok : vec text; Err : Error };
+type Result_2 = variant { Ok : Chain; Err : Error };
+type Result_3 = variant { Ok : vec Chain; Err : Error };
+type Result_4 = variant { Ok : nat64; Err : Error };
+type Result_5 = variant { Ok : vec TokenOnChain; Err : Error };
+type Result_6 = variant { Ok : vec Chain; Err : Error };
+type Result_7 = variant { Ok : vec Directive; Err : Error };
+type Result_8 = variant { Ok : vec record { text; text; nat }; Err : Error };
+type Result_9 = variant { Ok : vec TokenMeta; Err : Error };
+type SelfServiceError = variant {
+  TemporarilyUnavailable : text;
+  InsufficientFee : record { provided : nat64; required : nat64 };
+  TokenNotFound;
+  TransferFailure : text;
+  InvalidProposal : text;
+  InvalidRuneId : text;
+  RequestNotFound;
+  ChainNotFound : text;
+  TokenAlreadyExisting;
+  EmptyArgument;
+};
 type SeqKey = record { seq : nat64; chain_id : text };
 type Subscribers = record { subs : vec text };
 type TargetChainFactor = record {
@@ -165,25 +190,30 @@ type Topic = variant {
 type TxAction = variant { Burn; Redeem; Transfer };
 type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
-  execute_proposal : (vec Proposal) -> (Result);
-  get_chain : (text) -> (Result_1) query;
-  get_chain_metas : (nat64, nat64) -> (Result_2) query;
-  get_chain_size : () -> (Result_3) query;
-  get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_4) query;
+  add_dest_chain_for_token : (AddDestChainArgs) -> (Result);
+  add_runes_token : (AddRunesTokenReq) -> (Result);
+  execute_proposal : (vec Proposal) -> (Result_1);
+  finalize_add_runes_token_req : (FinalizeAddRunesArgs) -> (Result);
+  get_add_runes_token_requests : () -> (vec AddRunesTokenReq) query;
+  get_chain : (text) -> (Result_2) query;
+  get_chain_metas : (nat64, nat64) -> (Result_3) query;
+  get_chain_size : () -> (Result_4) query;
+  get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_5) query;
   get_chains : (opt ChainType, opt ChainState, nat64, nat64) -> (
-      Result_5,
+      Result_6,
     ) query;
-  get_directive_size : () -> (Result_3) query;
-  get_directives : (nat64, nat64) -> (Result_6) query;
+  get_directive_size : () -> (Result_4) query;
+  get_directives : (nat64, nat64) -> (Result_7) query;
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_fees : (opt text, opt text, nat64, nat64) -> (Result_7) query;
+  get_fee_account : (opt principal) -> (blob) query;
+  get_fees : (opt text, opt text, nat64, nat64) -> (Result_8) query;
   get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
-  get_token_metas : (nat64, nat64) -> (Result_8) query;
-  get_token_size : () -> (Result_3) query;
-  get_tokens : (opt text, opt text, nat64, nat64) -> (Result_9) query;
-  get_total_tx : () -> (Result_3) query;
-  get_tx : (text) -> (Result_10) query;
-  get_txs : (nat64, nat64) -> (Result_11) query;
+  get_token_metas : (nat64, nat64) -> (Result_9) query;
+  get_token_size : () -> (Result_4) query;
+  get_tokens : (opt text, opt text, nat64, nat64) -> (Result_10) query;
+  get_total_tx : () -> (Result_4) query;
+  get_tx : (text) -> (Result_11) query;
+  get_txs : (nat64, nat64) -> (Result_12) query;
   get_txs_with_account : (
       opt text,
       opt text,
@@ -191,7 +221,7 @@ service : (HubArg) -> {
       opt record { nat64; nat64 },
       nat64,
       nat64,
-    ) -> (Result_11) query;
+    ) -> (Result_12) query;
   get_txs_with_chain : (
       opt text,
       opt text,
@@ -199,20 +229,21 @@ service : (HubArg) -> {
       opt record { nat64; nat64 },
       nat64,
       nat64,
-    ) -> (Result_11) query;
-  handle_chain : (vec Proposal) -> (Result);
-  handle_token : (vec Proposal) -> (Result);
-  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_12) query;
-  query_subscribers : (opt Topic) -> (Result_13) query;
-  query_tickets : (opt text, nat64, nat64) -> (Result_14) query;
-  resubmit_ticket : (Ticket) -> (Result);
-  send_ticket : (Ticket) -> (Result);
+    ) -> (Result_12) query;
+  handle_chain : (vec Proposal) -> (Result_1);
+  handle_token : (vec Proposal) -> (Result_1);
+  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_13) query;
+  query_subscribers : (opt Topic) -> (Result_14) query;
+  query_tickets : (opt text, nat64, nat64) -> (Result_15) query;
+  resubmit_ticket : (Ticket) -> (Result_1);
+  send_ticket : (Ticket) -> (Result_1);
   set_logger_filter : (text) -> ();
   set_permissions : (principal, Permission) -> ();
-  sub_directives : (opt text, vec Topic) -> (Result);
-  sync_ticket_size : () -> (Result_3) query;
-  sync_tickets : (nat64, nat64) -> (Result_14) query;
-  unsub_directives : (opt text, vec Topic) -> (Result);
-  update_fee : (vec Factor) -> (Result);
-  validate_proposal : (vec Proposal) -> (Result_15) query;
+  set_runes_oracle : (principal) -> ();
+  sub_directives : (opt text, vec Topic) -> (Result_1);
+  sync_ticket_size : () -> (Result_4) query;
+  sync_tickets : (nat64, nat64) -> (Result_15) query;
+  unsub_directives : (opt text, vec Topic) -> (Result_1);
+  update_fee : (vec Factor) -> (Result_1);
+  validate_proposal : (vec Proposal) -> (Result_16) query;
 }

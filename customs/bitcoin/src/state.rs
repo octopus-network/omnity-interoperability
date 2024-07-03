@@ -6,9 +6,6 @@
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, VecDeque},
-    error::Error,
-    fmt::{self, Display, Formatter},
-    str::FromStr,
 };
 
 pub mod audit;
@@ -27,7 +24,7 @@ pub use ic_btc_interface::Network;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_utils_ensure::{ensure, ensure_eq};
-use omnity_types::{Chain, ChainId, ChainState, TicketId, Token, TokenId};
+use omnity_types::{rune_id::RuneId, Chain, ChainId, ChainState, TicketId, Token, TokenId};
 use serde::Serialize;
 
 /// The maximum number of finalized requests that we keep in the
@@ -41,72 +38,6 @@ pub const PROD_KEY: &str = "key_1";
 
 thread_local! {
     static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParseRuneIdError;
-
-impl fmt::Display for ParseRuneIdError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        "provided rune_id was not valid".fmt(f)
-    }
-}
-
-impl Error for ParseRuneIdError {
-    fn description(&self) -> &str {
-        "failed to parse rune_id"
-    }
-}
-
-#[derive(
-    candid::CandidType,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Copy,
-    Default,
-    Serialize,
-    Deserialize,
-)]
-pub struct RuneId {
-    pub block: u64,
-    pub tx: u32,
-}
-
-impl RuneId {
-    pub(crate) fn delta(self, next: RuneId) -> Option<(u128, u128)> {
-        let block = next.block.checked_sub(self.block)?;
-
-        let tx = if block == 0 {
-            next.tx.checked_sub(self.tx)?
-        } else {
-            next.tx
-        };
-
-        Some((block.into(), tx.into()))
-    }
-}
-
-impl Display for RuneId {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.block, self.tx,)
-    }
-}
-
-impl FromStr for RuneId {
-    type Err = ParseRuneIdError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (height, index) = s.split_once(':').ok_or_else(|| ParseRuneIdError)?;
-
-        Ok(Self {
-            block: height.parse().map_err(|_| ParseRuneIdError)?,
-            tx: index.parse().map_err(|_| ParseRuneIdError)?,
-        })
-    }
 }
 
 // A pending release token request

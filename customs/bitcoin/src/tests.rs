@@ -1,5 +1,5 @@
 use crate::destination::Destination;
-use crate::state::{ReleaseTokenRequest, RuneId, RunesBalance, RunesUtxo, SubmittedBtcTransaction};
+use crate::state::{ReleaseTokenRequest, RunesBalance, RunesUtxo, SubmittedBtcTransaction};
 use crate::{
     address::BitcoinAddress, build_unsigned_transaction, estimate_fee, greedy,
     signature::EncodedSignature, tx, BuildTxError,
@@ -12,6 +12,7 @@ use bitcoin::network::constants::Network as BtcNetwork;
 use bitcoin::util::psbt::serialize::{Deserialize, Serialize};
 use ic_base_types::CanisterId;
 use ic_btc_interface::{Network, OutPoint, Satoshi, Txid, Utxo};
+use omnity_types::rune_id::RuneId;
 use omnity_types::ChainState;
 use proptest::proptest;
 use proptest::{

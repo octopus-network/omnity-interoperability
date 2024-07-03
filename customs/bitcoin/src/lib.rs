@@ -9,13 +9,13 @@ use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
+use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainState, Directive, TokenId};
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
 use state::{
-    read_state, RuneId, RunesBalance, RunesChangeOutput, RunesUtxo, SubmittedBtcTransaction,
-    BTC_TOKEN,
+    read_state, RunesBalance, RunesChangeOutput, RunesUtxo, SubmittedBtcTransaction, BTC_TOKEN,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter::Sum;

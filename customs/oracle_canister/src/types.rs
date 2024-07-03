@@ -1,8 +1,9 @@
 use candid::CandidType;
+use omnity_types::rune_id::RuneId;
 use serde::{Deserialize, Serialize};
 
 pub use bitcoin_customs::{
-    state::{GenTicketRequestV2, RuneId, RunesBalance},
+    state::{GenTicketRequestV2, RunesBalance},
     updates::update_runes_balance::UpdateRunesBalanceArgs,
 };
 pub use ic_btc_interface::Txid;

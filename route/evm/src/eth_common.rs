@@ -7,24 +7,20 @@ use cketh_common::eth_rpc_client::providers::RpcService;
 use cketh_common::eth_rpc_client::RpcConfig;
 use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
-#[cfg(not(feature = "legacy_tx"))]
-use ethers_core::types::Eip1559TransactionRequest;
-#[cfg(feature = "legacy_tx")]
-use ethers_core::types::TransactionRequest;
-use ethers_core::types::U256;
+use ethers_core::types::{Eip1559TransactionRequest, TransactionRequest, U256};
 use ethers_core::utils::keccak256;
-use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use evm_rpc::{MultiRpcResult, RpcServices};
+use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use log::{error, info};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
+use crate::{Error, state};
 use crate::const_args::{
     BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT, GET_ACCOUNT_NONCE_CYCLES,
 };
 use crate::eth_common::EvmAddressError::LengthError;
-use crate::{state, Error};
 
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
 pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
@@ -81,8 +77,14 @@ impl TryFrom<Vec<u8>> for EvmAddress {
     }
 }
 
-#[cfg(not(feature = "legacy_tx"))]
-pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<Vec<u8>> {
+pub async fn sign_transaction(evm_tx_request: EvmTxRequest) -> anyhow::Result<Vec<u8>> {
+    match evm_tx_request {
+        EvmTxRequest::Legacy(tx) => { sign_transaction_legacy(tx).await }
+        EvmTxRequest::Eip1559(tx) => { sign_transaction_eip1559(tx).await }
+    }
+}
+
+pub async fn sign_transaction_eip1559(tx: Eip1559TransactionRequest) -> anyhow::Result<Vec<u8>> {
     use crate::const_args::EIP1559_TX_ID;
     use ethers_core::types::Signature;
     let mut unsigned_tx_bytes = tx.rlp().to_vec();
@@ -107,8 +109,7 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<V
     Ok(signed_tx_bytes)
 }
 
-#[cfg(feature = "legacy_tx")]
-pub async fn sign_transaction(tx: TransactionRequest) -> anyhow::Result<Vec<u8>> {
+pub async fn sign_transaction_legacy(tx: TransactionRequest) -> anyhow::Result<Vec<u8>> {
     use ethers_core::types::Signature;
     let unsigned_tx_bytes = tx.rlp().to_vec();
     let txhash = keccak256(&unsigned_tx_bytes);
@@ -308,4 +309,18 @@ pub async fn get_evm_finalized_height() -> anyhow::Result<u64> {
     let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
     let r = u64::from_str_radix(r, 16)?;
     Ok(r - EVM_FINALIZED_CONFIRM_HEIGHT)
+}
+
+
+#[derive(CandidType, Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum EvmTxType {
+    Legacy,
+    #[default]
+    Eip1559,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum EvmTxRequest {
+    Legacy(TransactionRequest),
+    Eip1559(Eip1559TransactionRequest),
 }

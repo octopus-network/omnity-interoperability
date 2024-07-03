@@ -10,6 +10,7 @@ path = "src/service.rs"
 [dependencies]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
+ic-ledger-types = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
 hex = { workspace = true }

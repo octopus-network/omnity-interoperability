@@ -2,13 +2,14 @@ use crate::destination::Destination;
 use crate::guard::{generate_ticket_guard, GuardError};
 use crate::management::{get_utxos, CallSource};
 use crate::state::{
-    audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, RuneId, RUNES_TOKEN,
+    audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, RUNES_TOKEN,
 };
 use crate::updates::get_btc_address::{
     destination_to_p2wpkh_address_from_state, init_ecdsa_public_key,
 };
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{Network, Txid, Utxo};
+use omnity_types::rune_id::RuneId;
 use omnity_types::ChainState;
 use serde::Serialize;
 use std::str::FromStr;
