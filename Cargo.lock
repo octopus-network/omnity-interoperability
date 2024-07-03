@@ -10850,6 +10850,7 @@ dependencies = [
  "ic-agent",
  "ic-btc-interface",
  "log",
+ "omnity_hub",
  "omnity_types",
  "reqwest",
  "serde",

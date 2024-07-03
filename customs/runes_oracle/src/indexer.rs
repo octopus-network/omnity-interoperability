@@ -1,4 +1,4 @@
-use crate::tx::Transaction;
+use crate::{tx::Transaction, Runes};
 use ic_btc_interface::Txid;
 use reqwest::StatusCode;
 
@@ -26,6 +26,19 @@ impl Indexer {
             StatusCode::OK => {
                 let text = resp.text().await.map_err(IndexerError::RequestErr)?;
                 Ok(Transaction::from_json(text.as_str()).map_err(IndexerError::JsonErr)?)
+            }
+            code => Err(IndexerError::ServerErr(code)),
+        }
+    }
+
+    pub async fn get_runes(&self, rune_id: &String) -> Result<Runes, IndexerError> {
+        let resp = reqwest::get(format!("{}/api/runs/tx/{}", self.url, rune_id))
+            .await
+            .map_err(IndexerError::RequestErr)?;
+        match resp.status() {
+            StatusCode::OK => {
+                let text = resp.text().await.map_err(IndexerError::RequestErr)?;
+                Ok(Runes::from_json(text.as_str()).map_err(IndexerError::JsonErr)?)
             }
             code => Err(IndexerError::ServerErr(code)),
         }

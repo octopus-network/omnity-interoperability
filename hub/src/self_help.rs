@@ -17,10 +17,11 @@ const ICP_TRANSFER_FEE: u64 = 10_000;
 const BITCOIN_CHAIN: &str = "Bitcoin";
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct AddRunesTokenArgs {
+pub struct AddRunesTokenReq {
     pub rune_id: String,
     pub symbol: String,
     pub icon: String,
+    pub dest_chain: ChainId,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -34,10 +35,10 @@ pub enum SelfServiceError {
     RequestNotFound,
     InvalidProposal(String),
     TokenNotFound,
-    ChainNotAvailable,
+    ChainNotFound(String),
 }
 
-pub async fn add_runes_token(args: AddRunesTokenArgs) -> Result<(), SelfServiceError> {
+pub async fn add_runes_token(args: AddRunesTokenReq) -> Result<(), SelfServiceError> {
     let _ = RuneId::from_str(&args.rune_id)
         .map_err(|e| SelfServiceError::InvalidRuneId(e.to_string()))?;
 
@@ -58,6 +59,16 @@ pub async fn add_runes_token(args: AddRunesTokenArgs) -> Result<(), SelfServiceE
         return Err(SelfServiceError::TokenAlreadyExisting);
     }
 
+    let bitcoin = with_state(|s| s.chain(&BITCOIN_CHAIN.to_string()))
+        .map_err(|_| SelfServiceError::ChainNotFound(BITCOIN_CHAIN.to_string()))?;
+
+    if !bitcoin
+        .counterparties
+        .is_some_and(|c| c.contains(&args.dest_chain))
+    {
+        return Err(SelfServiceError::ChainNotFound(args.dest_chain));
+    }
+
     charge_fee().await?;
 
     with_state_mut(|s| {
@@ -73,12 +84,9 @@ pub struct FinalizeAddRunesArgs {
     pub rune_id: String,
     pub name: String,
     pub decimal: u8,
-    pub dst_chain: ChainId,
 }
 
-pub async fn finalize_add_runes_token_req(
-    args: FinalizeAddRunesArgs,
-) -> Result<(), SelfServiceError> {
+pub async fn finalize_add_runes_token(args: FinalizeAddRunesArgs) -> Result<(), SelfServiceError> {
     let request = with_state(|s| match s.add_runes_token_requests.get(&args.rune_id) {
         Some(req) => Ok(req.clone()),
         None => Err(SelfServiceError::RequestNotFound),
@@ -92,7 +100,7 @@ pub async fn finalize_add_runes_token_req(
         decimals: args.decimal,
         icon: Some(request.icon),
         metadata: HashMap::from_iter(vec![("rune_id".to_string(), args.rune_id.clone())]),
-        dst_chains: vec![BITCOIN_CHAIN.into(), args.dst_chain],
+        dst_chains: vec![BITCOIN_CHAIN.into(), request.dest_chain],
     };
 
     let proposal = vec![Proposal::AddToken(token_meta)];
@@ -121,14 +129,14 @@ pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), Self
 
     let issue_chain = with_state(|s| {
         s.chain(&token_meta.issue_chain)
-            .map_err(|_| SelfServiceError::ChainNotAvailable)
+            .map_err(|_| SelfServiceError::ChainNotFound(token_meta.issue_chain.clone()))
     })?;
 
     if !issue_chain
         .counterparties
         .is_some_and(|c| c.contains(&args.dst_chain))
     {
-        return Err(SelfServiceError::ChainNotAvailable);
+        return Err(SelfServiceError::ChainNotFound(args.dst_chain));
     }
 
     token_meta.dst_chains.push(args.dst_chain);

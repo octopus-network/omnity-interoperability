@@ -13,7 +13,8 @@ use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::self_help::{
-    principal_to_subaccount, AddDestChainArgs, AddRunesTokenArgs, FinalizeAddRunesArgs, SelfServiceError
+    principal_to_subaccount, AddDestChainArgs, AddRunesTokenReq, FinalizeAddRunesArgs,
+    SelfServiceError,
 };
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta};
@@ -207,7 +208,7 @@ fn set_runes_oracle(oracle: Principal) {
 }
 
 #[update]
-pub async fn add_runes_token(args: AddRunesTokenArgs) -> Result<(), SelfServiceError> {
+pub async fn add_runes_token(args: AddRunesTokenReq) -> Result<(), SelfServiceError> {
     self_help::add_runes_token(args).await
 }
 
@@ -215,7 +216,7 @@ pub async fn add_runes_token(args: AddRunesTokenArgs) -> Result<(), SelfServiceE
 pub async fn finalize_add_runes_token_req(
     args: FinalizeAddRunesArgs,
 ) -> Result<(), SelfServiceError> {
-    self_help::finalize_add_runes_token_req(args).await
+    self_help::finalize_add_runes_token(args).await
 }
 
 #[update]
@@ -224,7 +225,7 @@ pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), Self
 }
 
 #[query]
-pub fn get_add_runes_token_requests() -> Vec<AddRunesTokenArgs> {
+pub fn get_add_runes_token_requests() -> Vec<AddRunesTokenReq> {
     with_state(|s| {
         s.add_runes_token_requests
             .iter()

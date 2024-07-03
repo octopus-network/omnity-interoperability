@@ -4,7 +4,7 @@ use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
-use crate::self_help::AddRunesTokenArgs;
+use crate::self_help::AddRunesTokenReq;
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
@@ -55,7 +55,7 @@ pub struct HubState {
     pub last_resubmit_ticket_time: u64,
 
     #[serde(skip_deserializing)]
-    pub add_runes_token_requests: BTreeMap<String, AddRunesTokenArgs>,
+    pub add_runes_token_requests: BTreeMap<String, AddRunesTokenReq>,
     #[serde(skip_deserializing)]
     pub runes_oracles: BTreeSet<Principal>,
 }
