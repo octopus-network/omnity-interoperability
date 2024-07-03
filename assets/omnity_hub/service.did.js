@@ -5,6 +5,32 @@ export const idlFactory = ({ IDL }) => {
     'Upgrade' : IDL.Opt(UpgradeArgs),
     'Init' : InitArgs,
   });
+  const AddDestChainArgs = IDL.Record({
+    'token_id' : IDL.Text,
+    'dst_chain' : IDL.Text,
+  });
+  const SelfServiceError = IDL.Variant({
+    'TemporarilyUnavailable' : IDL.Text,
+    'InsufficientFee' : IDL.Record({
+      'provided' : IDL.Nat64,
+      'required' : IDL.Nat64,
+    }),
+    'TokenNotFound' : IDL.Null,
+    'TransferFailure' : IDL.Text,
+    'InvalidProposal' : IDL.Text,
+    'InvalidRuneId' : IDL.Text,
+    'RequestNotFound' : IDL.Null,
+    'ChainNotFound' : IDL.Text,
+    'TokenAlreadyExisting' : IDL.Null,
+    'EmptyArgument' : IDL.Null,
+  });
+  const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : SelfServiceError });
+  const AddRunesTokenReq = IDL.Record({
+    'dest_chain' : IDL.Text,
+    'icon' : IDL.Text,
+    'rune_id' : IDL.Text,
+    'symbol' : IDL.Text,
+  });
   const ChainState = IDL.Variant({
     'Active' : IDL.Null,
     'Deactive' : IDL.Null,
@@ -84,17 +110,22 @@ export const idlFactory = ({ IDL }) => {
     'CustomError' : IDL.Text,
     'NotSufficientTokens' : IDL.Tuple(IDL.Text, IDL.Text),
   });
-  const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
-  const Result_1 = IDL.Variant({ 'Ok' : Chain, 'Err' : Error });
-  const Result_2 = IDL.Variant({ 'Ok' : IDL.Vec(Chain), 'Err' : Error });
-  const Result_3 = IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : Error });
+  const Result_1 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
+  const FinalizeAddRunesArgs = IDL.Record({
+    'name' : IDL.Text,
+    'rune_id' : IDL.Text,
+    'decimal' : IDL.Nat8,
+  });
+  const Result_2 = IDL.Variant({ 'Ok' : Chain, 'Err' : Error });
+  const Result_3 = IDL.Variant({ 'Ok' : IDL.Vec(Chain), 'Err' : Error });
+  const Result_4 = IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : Error });
   const TokenOnChain = IDL.Record({
     'token_id' : IDL.Text,
     'chain_id' : IDL.Text,
     'amount' : IDL.Nat,
   });
-  const Result_4 = IDL.Variant({ 'Ok' : IDL.Vec(TokenOnChain), 'Err' : Error });
-  const Result_5 = IDL.Variant({ 'Ok' : IDL.Vec(Chain), 'Err' : Error });
+  const Result_5 = IDL.Variant({ 'Ok' : IDL.Vec(TokenOnChain), 'Err' : Error });
+  const Result_6 = IDL.Variant({ 'Ok' : IDL.Vec(Chain), 'Err' : Error });
   const Token = IDL.Record({
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
@@ -111,7 +142,7 @@ export const idlFactory = ({ IDL }) => {
     'ToggleChainState' : ToggleState,
     'UpdateToken' : Token,
   });
-  const Result_6 = IDL.Variant({ 'Ok' : IDL.Vec(Directive), 'Err' : Error });
+  const Result_7 = IDL.Variant({ 'Ok' : IDL.Vec(Directive), 'Err' : Error });
   const GetEventsArg = IDL.Record({
     'start' : IDL.Nat64,
     'length' : IDL.Nat64,
@@ -182,11 +213,11 @@ export const idlFactory = ({ IDL }) => {
     'deleted_directive' : SeqKey,
     'Subscribed_topic' : IDL.Record({ 'topic' : Topic, 'subs' : Subscribers }),
   });
-  const Result_7 = IDL.Variant({
+  const Result_8 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text, IDL.Nat)),
     'Err' : Error,
   });
-  const Result_8 = IDL.Variant({ 'Ok' : IDL.Vec(TokenMeta), 'Err' : Error });
+  const Result_9 = IDL.Variant({ 'Ok' : IDL.Vec(TokenMeta), 'Err' : Error });
   const TokenResp = IDL.Record({
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
@@ -195,43 +226,61 @@ export const idlFactory = ({ IDL }) => {
     'rune_id' : IDL.Opt(IDL.Text),
     'symbol' : IDL.Text,
   });
-  const Result_9 = IDL.Variant({ 'Ok' : IDL.Vec(TokenResp), 'Err' : Error });
-  const Result_10 = IDL.Variant({ 'Ok' : Ticket, 'Err' : Error });
-  const Result_11 = IDL.Variant({ 'Ok' : IDL.Vec(Ticket), 'Err' : Error });
-  const Result_12 = IDL.Variant({
+  const Result_10 = IDL.Variant({ 'Ok' : IDL.Vec(TokenResp), 'Err' : Error });
+  const Result_11 = IDL.Variant({ 'Ok' : Ticket, 'Err' : Error });
+  const Result_12 = IDL.Variant({ 'Ok' : IDL.Vec(Ticket), 'Err' : Error });
+  const Result_13 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Tuple(IDL.Nat64, Directive)),
     'Err' : Error,
   });
-  const Result_13 = IDL.Variant({
+  const Result_14 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Tuple(Topic, Subscribers)),
     'Err' : Error,
   });
-  const Result_14 = IDL.Variant({
+  const Result_15 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Tuple(IDL.Nat64, Ticket)),
     'Err' : Error,
   });
-  const Result_15 = IDL.Variant({ 'Ok' : IDL.Vec(IDL.Text), 'Err' : Error });
+  const Permission = IDL.Variant({ 'Update' : IDL.Null, 'Query' : IDL.Null });
+  const Result_16 = IDL.Variant({ 'Ok' : IDL.Vec(IDL.Text), 'Err' : Error });
   return IDL.Service({
-    'execute_proposal' : IDL.Func([IDL.Vec(Proposal)], [Result], []),
-    'get_chain' : IDL.Func([IDL.Text], [Result_1], ['query']),
-    'get_chain_metas' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_2], ['query']),
-    'get_chain_size' : IDL.Func([], [Result_3], ['query']),
+    'add_dest_chain_for_token' : IDL.Func([AddDestChainArgs], [Result], []),
+    'add_runes_token' : IDL.Func([AddRunesTokenReq], [Result], []),
+    'execute_proposal' : IDL.Func([IDL.Vec(Proposal)], [Result_1], []),
+    'finalize_add_runes_token_req' : IDL.Func(
+        [FinalizeAddRunesArgs],
+        [Result],
+        [],
+      ),
+    'get_add_runes_token_requests' : IDL.Func(
+        [],
+        [IDL.Vec(AddRunesTokenReq)],
+        ['query'],
+      ),
+    'get_chain' : IDL.Func([IDL.Text], [Result_2], ['query']),
+    'get_chain_metas' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_3], ['query']),
+    'get_chain_size' : IDL.Func([], [Result_4], ['query']),
     'get_chain_tokens' : IDL.Func(
         [IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Nat64, IDL.Nat64],
-        [Result_4],
+        [Result_5],
         ['query'],
       ),
     'get_chains' : IDL.Func(
         [IDL.Opt(ChainType), IDL.Opt(ChainState), IDL.Nat64, IDL.Nat64],
-        [Result_5],
+        [Result_6],
         ['query'],
       ),
-    'get_directive_size' : IDL.Func([], [Result_3], ['query']),
-    'get_directives' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_6], ['query']),
+    'get_directive_size' : IDL.Func([], [Result_4], ['query']),
+    'get_directives' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_7], ['query']),
     'get_events' : IDL.Func([GetEventsArg], [IDL.Vec(Event)], ['query']),
+    'get_fee_account' : IDL.Func(
+        [IDL.Opt(IDL.Principal)],
+        [IDL.Vec(IDL.Nat8)],
+        ['query'],
+      ),
     'get_fees' : IDL.Func(
         [IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Nat64, IDL.Nat64],
-        [Result_7],
+        [Result_8],
         ['query'],
       ),
     'get_logs' : IDL.Func(
@@ -239,16 +288,16 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Text)],
         ['query'],
       ),
-    'get_token_metas' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_8], ['query']),
-    'get_token_size' : IDL.Func([], [Result_3], ['query']),
+    'get_token_metas' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_9], ['query']),
+    'get_token_size' : IDL.Func([], [Result_4], ['query']),
     'get_tokens' : IDL.Func(
         [IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Nat64, IDL.Nat64],
-        [Result_9],
+        [Result_10],
         ['query'],
       ),
-    'get_total_tx' : IDL.Func([], [Result_3], ['query']),
-    'get_tx' : IDL.Func([IDL.Text], [Result_10], ['query']),
-    'get_txs' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_11], ['query']),
+    'get_total_tx' : IDL.Func([], [Result_4], ['query']),
+    'get_tx' : IDL.Func([IDL.Text], [Result_11], ['query']),
+    'get_txs' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_12], ['query']),
     'get_txs_with_account' : IDL.Func(
         [
           IDL.Opt(IDL.Text),
@@ -258,7 +307,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Nat64,
           IDL.Nat64,
         ],
-        [Result_11],
+        [Result_12],
         ['query'],
       ),
     'get_txs_with_chain' : IDL.Func(
@@ -270,39 +319,41 @@ export const idlFactory = ({ IDL }) => {
           IDL.Nat64,
           IDL.Nat64,
         ],
-        [Result_11],
-        ['query'],
-      ),
-    'handle_chain' : IDL.Func([IDL.Vec(Proposal)], [Result], []),
-    'handle_token' : IDL.Func([IDL.Vec(Proposal)], [Result], []),
-    'query_directives' : IDL.Func(
-        [IDL.Opt(IDL.Text), IDL.Opt(Topic), IDL.Nat64, IDL.Nat64],
         [Result_12],
         ['query'],
       ),
-    'query_subscribers' : IDL.Func([IDL.Opt(Topic)], [Result_13], ['query']),
-    'query_tickets' : IDL.Func(
-        [IDL.Opt(IDL.Text), IDL.Nat64, IDL.Nat64],
-        [Result_14],
+    'handle_chain' : IDL.Func([IDL.Vec(Proposal)], [Result_1], []),
+    'handle_token' : IDL.Func([IDL.Vec(Proposal)], [Result_1], []),
+    'query_directives' : IDL.Func(
+        [IDL.Opt(IDL.Text), IDL.Opt(Topic), IDL.Nat64, IDL.Nat64],
+        [Result_13],
         ['query'],
       ),
-    'resubmit_ticket' : IDL.Func([Ticket], [Result], []),
-    'send_ticket' : IDL.Func([Ticket], [Result], []),
+    'query_subscribers' : IDL.Func([IDL.Opt(Topic)], [Result_14], ['query']),
+    'query_tickets' : IDL.Func(
+        [IDL.Opt(IDL.Text), IDL.Nat64, IDL.Nat64],
+        [Result_15],
+        ['query'],
+      ),
+    'resubmit_ticket' : IDL.Func([Ticket], [Result_1], []),
+    'send_ticket' : IDL.Func([Ticket], [Result_1], []),
     'set_logger_filter' : IDL.Func([IDL.Text], [], []),
+    'set_permissions' : IDL.Func([IDL.Principal, Permission], [], []),
+    'set_runes_oracle' : IDL.Func([IDL.Principal], [], []),
     'sub_directives' : IDL.Func(
         [IDL.Opt(IDL.Text), IDL.Vec(Topic)],
-        [Result],
+        [Result_1],
         [],
       ),
-    'sync_ticket_size' : IDL.Func([], [Result_3], ['query']),
-    'sync_tickets' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_14], ['query']),
+    'sync_ticket_size' : IDL.Func([], [Result_4], ['query']),
+    'sync_tickets' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_15], ['query']),
     'unsub_directives' : IDL.Func(
         [IDL.Opt(IDL.Text), IDL.Vec(Topic)],
-        [Result],
+        [Result_1],
         [],
       ),
-    'update_fee' : IDL.Func([IDL.Vec(Factor)], [Result], []),
-    'validate_proposal' : IDL.Func([IDL.Vec(Proposal)], [Result_15], ['query']),
+    'update_fee' : IDL.Func([IDL.Vec(Factor)], [Result_1], []),
+    'validate_proposal' : IDL.Func([IDL.Vec(Proposal)], [Result_16], ['query']),
   });
 };
 export const init = ({ IDL }) => {
