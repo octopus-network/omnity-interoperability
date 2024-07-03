@@ -1,19 +1,20 @@
 use crate::destination::Destination;
-use crate::state::{ReleaseTokenRequest, RunesBalance, RunesUtxo, SubmittedBtcTransaction};
+use crate::state::{RuneTxRequest, RunesBalance, RunesUtxo, SubmittedBtcTransactionV2};
+use crate::BuildTxReq;
 use crate::{
     address::BitcoinAddress, build_unsigned_transaction, estimate_fee, greedy,
     signature::EncodedSignature, tx, BuildTxError,
 };
 use crate::{
     lifecycle::init::InitArgs,
-    state::{CustomsState, ReleaseTokenStatus},
+    state::{CustomsState, RuneTxStatus},
 };
 use bitcoin::network::constants::Network as BtcNetwork;
 use bitcoin::util::psbt::serialize::{Deserialize, Serialize};
 use ic_base_types::CanisterId;
 use ic_btc_interface::{Network, OutPoint, Satoshi, Txid, Utxo};
 use omnity_types::rune_id::RuneId;
-use omnity_types::ChainState;
+use omnity_types::{ChainState, TxAction};
 use proptest::proptest;
 use proptest::{
     array::uniform20,
@@ -293,7 +294,10 @@ fn should_have_same_input_and_output_count() {
         &mut available_btc_utxos,
         runes_main_addr,
         btc_main_addr,
-        vec![(out1_addr.clone(), 100_000), (out2_addr.clone(), 99_999)],
+        BuildTxReq::EdictTxReq(vec![
+            (out1_addr.clone(), 100_000),
+            (out2_addr.clone(), 99_999),
+        ]),
         fee_per_vbyte,
         false,
     )
@@ -338,7 +342,7 @@ fn test_not_enough_gas() {
             &mut available_btc_utxos,
             runes_main_addr,
             btc_main_addr,
-            vec![(out1_addr.clone(), 99_900), (out2_addr.clone(), 100)],
+            BuildTxReq::EdictTxReq(vec![(out1_addr.clone(), 99_900), (out2_addr.clone(), 100)]),
             fee_per_vbyte,
             false,
         ),
@@ -388,7 +392,7 @@ fn test_btc_change_less_than_546() {
             &mut available_btc_utxos,
             runes_main_addr,
             btc_main_addr,
-            vec![(out1_addr.clone(), 99_900), (out2_addr.clone(), 100)],
+            BuildTxReq::EdictTxReq(vec![(out1_addr.clone(), 99_900), (out2_addr.clone(), 100)]),
             fee_per_vbyte,
             false,
         ),
@@ -498,25 +502,24 @@ fn arb_destination() -> impl Strategy<Value = Destination> {
         })
 }
 
-fn arb_release_token_requests(
+fn arb_rune_tx_requests(
     amount: impl Strategy<Value = u128>,
     num: impl Into<SizeRange>,
-) -> impl Strategy<Value = Vec<ReleaseTokenRequest>> {
+) -> impl Strategy<Value = Vec<RuneTxRequest>> {
     let request_strategy = (
         amount,
         arb_address(),
         any::<String>(),
         1569975147000..2069975147000u64,
     )
-        .prop_map(
-            |(amount, address, ticket_id, received_at)| ReleaseTokenRequest {
-                ticket_id,
-                rune_id: RuneId { block: 100, tx: 1 },
-                amount,
-                address,
-                received_at,
-            },
-        );
+        .prop_map(|(amount, address, ticket_id, received_at)| RuneTxRequest {
+            ticket_id,
+            action: TxAction::Redeem,
+            rune_id: RuneId { block: 100, tx: 1 },
+            amount,
+            address,
+            received_at,
+        });
     pvec(request_strategy, num).prop_map(|mut reqs| {
         reqs.sort_by_key(|req| req.received_at);
 
@@ -693,7 +696,7 @@ proptest! {
             &mut btc_utxos,
             BitcoinAddress::P2wpkhV0(runes_pkhash),
             BitcoinAddress::P2wpkhV0(btc_pkhash),
-            vec![(BitcoinAddress::P2wpkhV0(dst_pkhash), target)],
+            BuildTxReq::EdictTxReq(vec![(BitcoinAddress::P2wpkhV0(dst_pkhash), target)]),
             fee_per_vbyte,
             false
         )
@@ -725,7 +728,7 @@ proptest! {
                 &mut btc_utxos,
                 BitcoinAddress::P2wpkhV0(runes_pkhash),
                 BitcoinAddress::P2wpkhV0(btc_pkhash),
-                vec![(BitcoinAddress::P2wpkhV0(dst_pkhash), total_value * 2)],
+                BuildTxReq::EdictTxReq(vec![(BitcoinAddress::P2wpkhV0(dst_pkhash), total_value * 2)]),
                 fee_per_vbyte,
                 false,
             ).expect_err("build transaction should fail because the amount is too high"),
@@ -760,7 +763,7 @@ proptest! {
     fn batching_preserves_invariants(
         utxos_dest_idx in pvec((arb_runes_utxo(5_000u128..1_000_000_000), 0..5usize), 10..20),
         destinations in pvec(arb_destination(), 5),
-        requests in arb_release_token_requests(5_000u128..1_000_000_000, 1..25),
+        requests in arb_rune_tx_requests(5_000u128..1_000_000_000, 1..25),
         limit in 1..25usize,
     ) {
         let mut state = CustomsState::from(InitArgs {
@@ -782,14 +785,14 @@ proptest! {
         }
         for req in requests {
             state.push_back_pending_request(req.clone());
-            prop_assert_eq!(state.release_token_status(&req.ticket_id), ReleaseTokenStatus::Pending);
+            prop_assert_eq!(state.rune_tx_status(&req.ticket_id), RuneTxStatus::Pending);
         }
 
         let rune_id = RuneId{block: 100, tx: 1};
         let batch = state.build_batch(rune_id, limit);
 
         for req in batch.iter() {
-            prop_assert_eq!(state.release_token_status(&req.ticket_id), ReleaseTokenStatus::Unknown);
+            prop_assert_eq!(state.rune_tx_status(&req.ticket_id), RuneTxStatus::Unknown);
         }
 
         prop_assert!(batch.iter().map(|req| req.amount).sum::<u128>() <= available_amount);
@@ -804,7 +807,7 @@ proptest! {
         btc_main_dest in arb_destination(),
         runes_utxos_dest_idx in pvec((arb_runes_utxo(5_000_000u128..1_000_000_000), 0..5usize), 10..=10),
         btc_utxos in pvec(arb_btc_utxo(5_000_000u64..1_000_000_000), 10..=10),
-        requests in arb_release_token_requests(5_000_000u128..10_000_000, 1..5),
+        requests in arb_rune_tx_requests(5_000_000u128..10_000_000, 1..5),
         runes_pkhash in uniform20(any::<u8>()),
         btc_pkhash in uniform20(any::<u8>()),
         resubmission_chain_length in 1..=5,
@@ -835,7 +838,7 @@ proptest! {
             &mut state.available_fee_utxos,
             BitcoinAddress::P2wpkhV0(runes_pkhash),
             BitcoinAddress::P2wpkhV0(btc_pkhash),
-            requests.iter().map(|r| (r.address.clone(), r.amount)).collect(),
+            BuildTxReq::EdictTxReq(requests.iter().map(|r| (r.address.clone(), r.amount)).collect()),
             fee_per_vbyte,
             false
         )
@@ -843,7 +846,7 @@ proptest! {
         let mut txids = vec![tx.txid()];
         let submitted_at = 1_234_567_890;
 
-        state.push_submitted_transaction(SubmittedBtcTransaction {
+        state.push_submitted_transaction(SubmittedBtcTransactionV2 {
             rune_id,
             requests: requests.clone(),
             txid: txids[0],
@@ -866,7 +869,7 @@ proptest! {
                 &mut btc_utxos.clone().into_iter().collect(),
                 BitcoinAddress::P2wpkhV0(runes_pkhash),
                 BitcoinAddress::P2wpkhV0(btc_pkhash),
-                requests.iter().map(|r| (r.address.clone(), r.amount)).collect(),
+                BuildTxReq::EdictTxReq(requests.iter().map(|r| (r.address.clone(), r.amount)).collect()),
                 fee_per_vbyte + 1000 * i as u64,
                 false
             )
@@ -874,7 +877,7 @@ proptest! {
 
             let new_txid = tx.txid();
 
-            state.replace_transaction(prev_txid, SubmittedBtcTransaction {
+            state.replace_transaction(prev_txid, SubmittedBtcTransactionV2 {
                 rune_id,
                 requests: requests.clone(),
                 txid: new_txid,

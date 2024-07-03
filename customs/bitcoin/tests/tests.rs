@@ -2,7 +2,7 @@ use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
-use bitcoin_customs::state::{GenTicketRequestV2, ReleaseTokenStatus};
+use bitcoin_customs::state::{GenTicketRequestV2, RuneTxStatus};
 use bitcoin_customs::state::{GenTicketStatus, RunesBalance};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
@@ -528,7 +528,7 @@ impl CustomsSetup {
         .unwrap()
     }
 
-    pub fn release_token_status(&self, ticket_id: String) -> ReleaseTokenStatus {
+    pub fn release_token_status(&self, ticket_id: String) -> RuneTxStatus {
         Decode!(
             &assert_reply(
                 self.env
@@ -539,7 +539,7 @@ impl CustomsSetup {
                     )
                     .expect("failed to get release token status")
             ),
-            ReleaseTokenStatus
+            RuneTxStatus
         )
         .unwrap()
     }
@@ -591,7 +591,7 @@ impl CustomsSetup {
             dbg!(self.get_logs());
             let status = self.release_token_status(ticket_id.clone());
             match status {
-                ReleaseTokenStatus::Submitted(txid) => {
+                RuneTxStatus::Submitted(txid) => {
                     return Txid::from_str(&txid).unwrap();
                 }
                 status => {
@@ -643,7 +643,7 @@ impl CustomsSetup {
         for _ in 0..max_ticks {
             let status = self.release_token_status(ticket_id.clone());
             match status {
-                ReleaseTokenStatus::Pending => {
+                RuneTxStatus::Pending => {
                     return;
                 }
                 status => {
@@ -663,7 +663,7 @@ impl CustomsSetup {
         for _ in 0..max_ticks {
             let status = self.release_token_status(ticket_id.clone());
             match status {
-                ReleaseTokenStatus::Confirmed(txid) => {
+                RuneTxStatus::Confirmed(txid) => {
                     return Txid::from_str(&txid).unwrap();
                 }
                 status => {
@@ -1276,7 +1276,7 @@ fn test_finalize_batch_release_token_tx() {
     for i in 1..5 {
         assert_eq!(
             customs.release_token_status(format!("ticket_id{}", i)),
-            ReleaseTokenStatus::Confirmed(txid.to_string())
+            RuneTxStatus::Confirmed(txid.to_string())
         );
     }
     customs.customs_self_check();

@@ -335,6 +335,7 @@ pub enum TxAction {
     Transfer,
     Redeem,
     Burn,
+    Mint,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]

@@ -24,7 +24,9 @@ pub use ic_btc_interface::Network;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_utils_ensure::{ensure, ensure_eq};
-use omnity_types::{rune_id::RuneId, Chain, ChainId, ChainState, TicketId, Token, TokenId};
+use omnity_types::{
+    rune_id::RuneId, Chain, ChainId, ChainState, TicketId, Token, TokenId, TxAction,
+};
 use serde::Serialize;
 
 /// The maximum number of finalized requests that we keep in the
@@ -51,6 +53,36 @@ pub struct ReleaseTokenRequest {
     pub address: BitcoinAddress,
     /// The time at which the customs accepted the request.
     pub received_at: u64,
+}
+
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuneTxRequest {
+    pub ticket_id: TicketId,
+    pub action: TxAction,
+    pub rune_id: RuneId,
+    /// The amount to release token.
+    pub amount: u128,
+    /// The destination BTC address.
+    pub address: BitcoinAddress,
+    /// The time at which the customs accepted the request.
+    pub received_at: u64,
+}
+
+impl From<ReleaseTokenRequest> for RuneTxRequest {
+    fn from(value: ReleaseTokenRequest) -> Self {
+        Self {
+            ticket_id: value.ticket_id,
+            action: if matches!(value.address, BitcoinAddress::OpReturn(_)) {
+                TxAction::Burn
+            } else {
+                TxAction::Redeem
+            },
+            rune_id: value.rune_id,
+            amount: value.amount,
+            address: value.address,
+            received_at: value.received_at,
+        }
+    }
 }
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,6 +182,20 @@ pub struct SubmittedBtcTransaction {
     pub fee_per_vbyte: Option<u64>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubmittedBtcTransactionV2 {
+    pub rune_id: RuneId,
+    pub requests: Vec<RuneTxRequest>,
+    pub txid: Txid,
+    pub runes_utxos: Vec<RunesUtxo>,
+    pub btc_utxos: Vec<Utxo>,
+    pub submitted_at: u64,
+    pub runes_change_output: RunesChangeOutput,
+    pub btc_change_output: BtcChangeOutput,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fee_per_vbyte: Option<u64>,
+}
+
 /// The outcome of a release token request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalizedStatus {
@@ -166,9 +212,9 @@ pub enum InFlightStatus {
     Sending { txid: Txid },
 }
 
-/// The status of a release_token request.
+/// The status of a rune tx request.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
-pub enum ReleaseTokenStatus {
+pub enum RuneTxStatus {
     /// The custom has no data for this request.
     /// The request id is either invalid or too old.
     Unknown,
@@ -228,22 +274,22 @@ pub struct CustomsState {
 
     pub finalized_gen_ticket_requests: VecDeque<GenTicketRequestV2>,
 
-    /// Release_token requests that are waiting to be served, sorted by
+    /// rune tx requests that are waiting to be served, sorted by
     /// received_at.
-    pub pending_release_token_requests: BTreeMap<RuneId, Vec<ReleaseTokenRequest>>,
+    pub pending_rune_tx_requests: BTreeMap<RuneId, Vec<RuneTxRequest>>,
 
-    /// Finalized release_token requests for which we received enough confirmations.
-    pub finalized_release_token_requests: BTreeMap<TicketId, FinalizedStatus>,
+    /// Finalized rune tx requests for which we received enough confirmations.
+    pub finalized_rune_tx_requests: BTreeMap<TicketId, FinalizedStatus>,
 
-    /// The identifiers of release_token requests which we're currently signing a
+    /// The identifiers of rune tx requests which we're currently signing a
     /// transaction or sending to the Bitcoin network.
     pub requests_in_flight: BTreeMap<TicketId, InFlightStatus>,
 
     /// BTC transactions waiting for finalization.
-    pub submitted_transactions: Vec<SubmittedBtcTransaction>,
+    pub submitted_transactions: Vec<SubmittedBtcTransactionV2>,
 
     /// Transactions that likely didn't make it into the mempool.
-    pub stuck_transactions: Vec<SubmittedBtcTransaction>,
+    pub stuck_transactions: Vec<SubmittedBtcTransactionV2>,
 
     /// Maps ID of a stuck transaction to the ID of the corresponding replacement transaction.
     pub replacement_txid: BTreeMap<Txid, Txid>,
@@ -392,11 +438,11 @@ impl CustomsState {
             }
         }
 
-        for (_, requests) in &self.pending_release_token_requests {
+        for (_, requests) in &self.pending_rune_tx_requests {
             for (l, r) in requests.iter().zip(requests.iter().skip(1)) {
                 ensure!(
                     l.received_at <= r.received_at,
-                    "pending release_token requests are not sorted by receive time"
+                    "pending rune tx requests are not sorted by receive time"
                 );
             }
         }
@@ -531,44 +577,44 @@ impl CustomsState {
         }
     }
 
-    /// Returns the status of the release_token request with the specified
+    /// Returns the status of the rune tx request with the specified
     /// identifier.
-    pub fn release_token_status(&self, ticket_id: &TicketId) -> ReleaseTokenStatus {
+    pub fn rune_tx_status(&self, ticket_id: &TicketId) -> RuneTxStatus {
         if self
-            .pending_release_token_requests
+            .pending_rune_tx_requests
             .iter()
             .any(|(_, reqs)| reqs.iter().any(|req| req.ticket_id.eq(ticket_id)))
         {
-            return ReleaseTokenStatus::Pending;
+            return RuneTxStatus::Pending;
         }
 
         if let Some(status) = self.requests_in_flight.get(ticket_id).cloned() {
             return match status {
-                InFlightStatus::Signing => ReleaseTokenStatus::Signing,
-                InFlightStatus::Sending { txid } => ReleaseTokenStatus::Sending(txid.to_string()),
+                InFlightStatus::Signing => RuneTxStatus::Signing,
+                InFlightStatus::Sending { txid } => RuneTxStatus::Sending(txid.to_string()),
             };
         }
 
         if let Some(txid) = self.submitted_transactions.iter().find_map(|tx| {
             (tx.requests.iter().any(|r| r.ticket_id.eq(ticket_id))).then_some(tx.txid)
         }) {
-            return ReleaseTokenStatus::Submitted(txid.to_string());
+            return RuneTxStatus::Submitted(txid.to_string());
         }
 
-        match self.finalized_release_token_requests.get(ticket_id) {
+        match self.finalized_rune_tx_requests.get(ticket_id) {
             Some(FinalizedStatus::Confirmed(txid)) => {
-                return ReleaseTokenStatus::Confirmed(txid.to_string())
+                return RuneTxStatus::Confirmed(txid.to_string())
             }
             None => (),
         }
 
-        ReleaseTokenStatus::Unknown
+        RuneTxStatus::Unknown
     }
 
     /// Returns true if the pending requests queue has enough requests to form a
     /// batch or there are old enough requests to form a batch.
     pub fn can_form_a_batch(&self, rune_id: RuneId, min_pending: usize, now: u64) -> bool {
-        match self.pending_release_token_requests.get(&rune_id) {
+        match self.pending_rune_tx_requests.get(&rune_id) {
             Some(requests) => {
                 if requests.len() >= min_pending {
                     return true;
@@ -582,9 +628,9 @@ impl CustomsState {
         }
     }
 
-    /// Forms a batch of release_token requests that the customs can fulfill.
-    pub fn build_batch(&mut self, rune_id: RuneId, max_size: usize) -> Vec<ReleaseTokenRequest> {
-        assert!(self.pending_release_token_requests.contains_key(&rune_id));
+    /// Forms a batch of rune tx requests that the customs can fulfill.
+    pub fn build_batch(&mut self, rune_id: RuneId, max_size: usize) -> Vec<RuneTxRequest> {
+        assert!(self.pending_rune_tx_requests.contains_key(&rune_id));
 
         let available_utxos_value = self
             .available_runes_utxos
@@ -594,13 +640,22 @@ impl CustomsState {
             .sum::<u128>();
         let mut batch = vec![];
         let mut tx_amount = 0;
-        let requests = self
-            .pending_release_token_requests
-            .entry(rune_id)
-            .or_default();
+        let requests = self.pending_rune_tx_requests.entry(rune_id).or_default();
 
         let mut edicts = vec![];
         for req in std::mem::take(requests) {
+            // If the first one is a mint request, it will be used directly to send the transaction. 
+            // Otherwise, edicts transactions will be sent in batches first.
+            if req.action == TxAction::Mint {
+                if batch.len() == 0 {
+                    batch.push(req.clone());
+                    return batch;
+                } else {
+                    requests.push(req);
+                    continue;
+                }
+            }
+
             edicts.push(Edict {
                 id: req.rune_id.into(),
                 amount: req.amount,
@@ -609,6 +664,7 @@ impl CustomsState {
             // Maybe there is a better optimized version.
             let script = Runestone {
                 edicts: edicts.clone(),
+                mint: None,
             }
             .encipher();
             if script.len() > 82
@@ -627,10 +683,10 @@ impl CustomsState {
         batch
     }
 
-    /// Returns the total number of all release_token requests that we haven't
+    /// Returns the total number of all rune tx requests that we haven't
     /// finalized yet.
-    pub fn count_incomplete_release_token_requests(&self) -> usize {
-        self.pending_release_token_requests.len()
+    pub fn count_incomplete_rune_tx_requests(&self) -> usize {
+        self.pending_rune_tx_requests.len()
             + self.requests_in_flight.len()
             + self
                 .submitted_transactions
@@ -639,10 +695,10 @@ impl CustomsState {
                 .sum::<usize>()
     }
 
-    /// Returns true if there is a pending release_token request with the given
+    /// Returns true if there is a pending rune tx request with the given
     /// identifier.
     fn has_pending_request(&self, ticket_id: &TicketId) -> bool {
-        self.pending_release_token_requests
+        self.pending_rune_tx_requests
             .iter()
             .any(|(_, reqs)| reqs.iter().any(|req| req.ticket_id.eq(ticket_id)))
     }
@@ -691,7 +747,7 @@ impl CustomsState {
         }
         self.finalized_requests_count += finalized_tx.requests.len() as u64;
         for request in finalized_tx.requests {
-            self.push_finalized_release_token(request.ticket_id, FinalizedStatus::Confirmed(*txid));
+            self.push_finalized_rune_tx(request.ticket_id, FinalizedStatus::Confirmed(*txid));
         }
 
         self.cleanup_tx_replacement_chain(txid);
@@ -749,7 +805,11 @@ impl CustomsState {
     }
 
     /// Replaces a stuck transaction with a newly sent transaction.
-    pub(crate) fn replace_transaction(&mut self, old_txid: &Txid, mut tx: SubmittedBtcTransaction) {
+    pub(crate) fn replace_transaction(
+        &mut self,
+        old_txid: &Txid,
+        mut tx: SubmittedBtcTransactionV2,
+    ) {
         assert_ne!(old_txid, &tx.txid);
         assert_eq!(
             self.replacement_txid.get(old_txid),
@@ -787,8 +847,8 @@ impl CustomsState {
     }
 
     /// Removes a pending release_token request with the specified block index.
-    fn remove_pending_request(&mut self, ticket_id: TicketId) -> Option<ReleaseTokenRequest> {
-        for (_, requests) in &mut self.pending_release_token_requests {
+    fn remove_pending_request(&mut self, ticket_id: TicketId) -> Option<RuneTxRequest> {
+        for (_, requests) in &mut self.pending_rune_tx_requests {
             match requests.iter().position(|req| req.ticket_id == ticket_id) {
                 Some(pos) => return Some(requests.remove(pos)),
                 None => {}
@@ -815,13 +875,13 @@ impl CustomsState {
     ///
     /// This function panics if there is a pending release_token request with the
     /// same identifier.
-    pub fn push_from_in_flight_to_pending_requests(&mut self, requests: Vec<ReleaseTokenRequest>) {
+    pub fn push_from_in_flight_to_pending_requests(&mut self, requests: Vec<RuneTxRequest>) {
         for req in requests.iter() {
             assert!(!self.has_pending_request(&req.ticket_id));
             self.requests_in_flight.remove(&req.ticket_id);
 
             let bucket = self
-                .pending_release_token_requests
+                .pending_rune_tx_requests
                 .entry(req.rune_id)
                 .or_default();
             bucket.push(req.clone());
@@ -835,9 +895,9 @@ impl CustomsState {
     ///
     /// This function panics if the new request breaks the request ordering in
     /// the queue.
-    pub fn push_back_pending_request(&mut self, request: ReleaseTokenRequest) {
+    pub fn push_back_pending_request(&mut self, request: RuneTxRequest) {
         let bucket = self
-            .pending_release_token_requests
+            .pending_rune_tx_requests
             .entry(request.rune_id)
             .or_default();
         if let Some(last_req) = bucket.last() {
@@ -853,7 +913,7 @@ impl CustomsState {
     ///
     /// This function panics if there is a pending release_token request with the
     /// same identifier as one of the request used for the transaction.
-    pub fn push_submitted_transaction(&mut self, tx: SubmittedBtcTransaction) {
+    pub fn push_submitted_transaction(&mut self, tx: SubmittedBtcTransactionV2) {
         for req in tx.requests.iter() {
             assert!(!self.has_pending_request(&req.ticket_id));
             self.requests_in_flight.remove(&req.ticket_id);
@@ -867,11 +927,10 @@ impl CustomsState {
     ///
     /// This function panics if there is a pending release_token request with the
     /// same identifier.
-    fn push_finalized_release_token(&mut self, ticket_id: TicketId, status: FinalizedStatus) {
+    fn push_finalized_rune_tx(&mut self, ticket_id: TicketId, status: FinalizedStatus) {
         assert!(!self.has_pending_request(&ticket_id));
 
-        self.finalized_release_token_requests
-            .insert(ticket_id, status);
+        self.finalized_rune_tx_requests.insert(ticket_id, status);
     }
 
     fn push_finalized_ticket(&mut self, req: GenTicketRequestV2) {
@@ -938,8 +997,8 @@ impl CustomsState {
             "next_directive_seq do not match"
         );
         ensure_eq!(
-            self.finalized_release_token_requests,
-            other.finalized_release_token_requests,
+            self.finalized_rune_tx_requests,
+            other.finalized_rune_tx_requests,
             "finalized_requests do not match"
         );
         ensure_eq!(
@@ -1000,13 +1059,13 @@ impl CustomsState {
         );
 
         ensure_eq!(
-            self.pending_release_token_requests.len(),
-            other.pending_release_token_requests.len(),
+            self.pending_rune_tx_requests.len(),
+            other.pending_rune_tx_requests.len(),
             "size of pending_release_token_requests do not match"
         );
-        for (rune_id, requests) in &self.pending_release_token_requests {
+        for (rune_id, requests) in &self.pending_rune_tx_requests {
             let my_requests = as_sorted_vec(requests.iter().cloned(), |r| r.ticket_id.clone());
-            match other.pending_release_token_requests.get(rune_id) {
+            match other.pending_rune_tx_requests.get(rune_id) {
                 Some(requests) => {
                     let other_requests =
                         as_sorted_vec(requests.iter().cloned(), |r| r.ticket_id.clone());
@@ -1057,8 +1116,8 @@ impl From<InitArgs> for CustomsState {
             generate_ticket_counter: 0,
             release_token_counter: 0,
             pending_gen_ticket_requests: Default::default(),
-            pending_release_token_requests: Default::default(),
-            finalized_release_token_requests: BTreeMap::new(),
+            pending_rune_tx_requests: Default::default(),
+            finalized_rune_tx_requests: BTreeMap::new(),
             finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),

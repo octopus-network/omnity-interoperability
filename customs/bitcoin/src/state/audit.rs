@@ -1,8 +1,8 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomsState, GenTicketRequestV2, ReleaseTokenRequest, RuneId, RunesBalance,
-    SubmittedBtcTransaction,
+    eventlog::Event, CustomsState, GenTicketRequestV2, RuneId, RuneTxRequest,
+    RunesBalance, SubmittedBtcTransactionV2,
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
@@ -47,8 +47,8 @@ pub fn update_next_ticket_seq(state: &mut CustomsState, next_seq: u64) {
     }
 }
 
-pub fn accept_release_token_request(state: &mut CustomsState, request: ReleaseTokenRequest) {
-    record_event(&Event::AcceptedReleaseTokenRequest(request.clone()));
+pub fn accept_rune_tx_request(state: &mut CustomsState, request: RuneTxRequest) {
+    record_event(&Event::AcceptedRuneTxRequest(request.clone()));
     state.push_back_pending_request(request);
 }
 
@@ -118,7 +118,7 @@ pub fn finalize_ticket_request(
     state.push_finalized_ticket(request.clone());
 }
 
-pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransaction) {
+pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransactionV2) {
     record_event(&Event::SentBtcTransaction {
         rune_id: tx.rune_id,
         request_release_ids: tx.requests.iter().map(|r| r.ticket_id.clone()).collect(),
@@ -142,7 +142,7 @@ pub fn confirm_transaction(state: &mut CustomsState, txid: &Txid) {
 pub fn replace_transaction(
     state: &mut CustomsState,
     old_txid: Txid,
-    new_tx: SubmittedBtcTransaction,
+    new_tx: SubmittedBtcTransactionV2,
 ) {
     record_event(&Event::ReplacedBtcTransaction {
         old_txid,

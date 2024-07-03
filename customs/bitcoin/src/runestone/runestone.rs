@@ -1,20 +1,11 @@
+use crate::runestone::tag::Tag;
+
 use super::varint;
 use bitcoin::blockdata::{constants, opcodes, script};
 use omnity_types::rune_id::RuneId;
 use serde::Serialize;
 
 const MAGIC_NUMBER: opcodes::All = opcodes::all::OP_PUSHNUM_13;
-
-#[derive(Copy, Clone, Debug)]
-pub(super) enum Tag {
-    Body = 0,
-}
-
-impl From<Tag> for u128 {
-    fn from(tag: Tag) -> Self {
-        tag as u128
-    }
-}
 
 #[derive(Default, Serialize, Debug, PartialEq, Copy, Clone)]
 pub struct Edict {
@@ -23,8 +14,10 @@ pub struct Edict {
     pub output: u32,
 }
 
+#[derive(Default)]
 pub struct Runestone {
     pub edicts: Vec<Edict>,
+    pub mint: Option<RuneId>,
 }
 
 impl Runestone {
@@ -46,6 +39,10 @@ impl Runestone {
             varint::encode_to_vec(edict.amount, &mut payload);
             varint::encode_to_vec(edict.output.into(), &mut payload);
             previous = edict.id;
+        }
+
+        if let Some(RuneId { block, tx }) = self.mint {
+            Tag::Mint.encode([block.into(), tx.into()], &mut payload);
         }
 
         let mut builder = script::Builder::new()
