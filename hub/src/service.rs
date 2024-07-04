@@ -56,9 +56,9 @@ fn pre_upgrade() {
 
 #[post_upgrade]
 fn post_upgrade(args: Option<HubArg>) {
+    init_log(Some(init_stable_log()));
     info!("begin to execute post_upgrade with :{:?}", args);
     // init log
-    init_log(Some(init_stable_log()));
     HubState::post_upgrade(args);
     info!("upgrade successfully!");
 }
@@ -152,11 +152,6 @@ pub async fn query_directives(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<(Seq, Directive)>, Error> {
-    debug!(
-        "query directive for chain: {:?}, with topic: {:?} ",
-        chain_id, topic
-    );
-
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_directives(dst_chain_id, topic, offset, limit))
 }
@@ -1458,7 +1453,7 @@ mod tests {
         assert!(result.is_ok());
 
         with_state(|hus_state| {
-            hus_state.ticket_queue.iter().for_each(|(seq_key, ticket)| {
+            hus_state.ticket_map.iter().for_each(|(seq_key, ticket)| {
                 println!(" seq key: {:?} ticket: {:?}", seq_key, ticket)
             })
         });
@@ -1511,7 +1506,7 @@ mod tests {
         assert!(result.is_ok());
 
         with_state(|hus_state| {
-            hus_state.ticket_queue.iter().for_each(|(seq_key, ticket)| {
+            hus_state.ticket_map.iter().for_each(|(seq_key, ticket)| {
                 println!(" seq key: {:?} ticket: {:?}", seq_key, ticket)
             })
         });
@@ -1809,14 +1804,14 @@ mod tests {
         // Serialize the ticket.
         let mut state_bytes = vec![];
         let _ = ciborium::ser::into_writer(&transfer_ticket, &mut state_bytes);
-        // let ticket_len = state_bytes.len() as u128;
-        let ticket_len = 1024 as u128;
-        let total_storage = 500 * 1024 * 1024 * 1024 as u128;
+        let ticket_len = state_bytes.len() as u128;
+        // let ticket_len = 1024 as u128;
         let daily_ticket_storage = 100000 as u128 * ticket_len;
+        let total_storage = 500 * 1024 * 1024 * 1024 as u128;
         let days = total_storage / daily_ticket_storage;
 
         println!(
-            "Ticket_len:{} \ndaily_ticket_storage:{} MB \nStorable Time: {} days,about {} years ",
+            "Ticket_len:{} bytes \ndaily_ticket_storage:{} MB \nStorable Time: {} days,about {} years ",
             ticket_len,
             daily_ticket_storage / 1024 / 1024,
             days,
