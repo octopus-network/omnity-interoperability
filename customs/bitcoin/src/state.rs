@@ -616,6 +616,9 @@ impl CustomsState {
     pub fn can_form_a_batch(&self, rune_id: RuneId, min_pending: usize, now: u64) -> bool {
         match self.pending_rune_tx_requests.get(&rune_id) {
             Some(requests) => {
+                if requests.iter().any(|req| req.action == TxAction::Mint) {
+                    return true;
+                }
                 if requests.len() >= min_pending {
                     return true;
                 }
@@ -642,20 +645,14 @@ impl CustomsState {
         let mut tx_amount = 0;
         let requests = self.pending_rune_tx_requests.entry(rune_id).or_default();
 
+        if let Some(pos) = requests.iter().position(|req| req.action == TxAction::Mint) {
+            let req = requests.remove(pos);
+            batch.push(req);
+            return batch;
+        }
+
         let mut edicts = vec![];
         for req in std::mem::take(requests) {
-            // If the first one is a mint request, it will be used directly to send the transaction. 
-            // Otherwise, edicts transactions will be sent in batches first.
-            if req.action == TxAction::Mint {
-                if batch.len() == 0 {
-                    batch.push(req.clone());
-                    return batch;
-                } else {
-                    requests.push(req);
-                    continue;
-                }
-            }
-
             edicts.push(Edict {
                 id: req.rune_id.into(),
                 amount: req.amount,

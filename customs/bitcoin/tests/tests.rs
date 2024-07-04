@@ -1255,9 +1255,6 @@ fn test_finalize_mint_rune_tx() {
     customs.push_ticket(ticket);
 
     customs.env.advance_time(Duration::from_secs(5));
-    customs.await_pending(ticket_id.clone(), 10);
-
-    customs.env.advance_time(Duration::from_secs(5));
     let txid = customs.await_btc_transaction(ticket_id.clone(), 10);
 
     let mempool = customs.mempool();
@@ -1267,6 +1264,82 @@ fn test_finalize_mint_rune_tx() {
 
     customs.finalize_transaction(tx);
     assert_eq!(customs.await_finalization(ticket_id, 10), txid);
+    customs.customs_self_check();
+}
+
+#[test]
+fn test_finalize_mint_and_redeem_tx() {
+    let customs = CustomsSetup::new();
+
+    // Step 1: deposit sufficient btc and runes
+
+    deposit_runes_to_main_address(&customs, RUNE_ID_1.into());
+    deposit_btc_to_main_address(&customs);
+    deposit_btc_to_main_address(&customs);
+
+    // Step 2: push mint ticket and redeem ticket
+
+    let first_ticket_id: String = "ticket_id1".into();
+    let first_ticket = Ticket {
+        ticket_id: first_ticket_id.clone(),
+        ticket_type: TicketType::Normal,
+        ticket_time: 1708911143,
+        src_chain: COSMOS_HUB.into(),
+        dst_chain: "BTC".into(),
+        action: TxAction::Redeem,
+        token: TOKEN_ID_1.into(),
+        amount: "1000000".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
+        receiver: "bc1qyhm0eg6ffqw7zrytcc7hw5c85l25l9nnzzx9vr".into(),
+        memo: None,
+    };
+
+    let second_ticket_id: String = "ticket_id2".into();
+    let second_ticket = Ticket {
+        ticket_id: second_ticket_id.clone(),
+        ticket_type: TicketType::Normal,
+        ticket_time: 1708911146,
+        src_chain: COSMOS_HUB.into(),
+        dst_chain: "BTC".into(),
+        action: TxAction::Mint,
+        token: TOKEN_ID_1.into(),
+        amount: "1000000".into(),
+        sender: Some("cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".into()),
+        receiver: "bc1qlnjgjs50tdjlca34aj3tm4fxsy7jd8vzkvy5g5".into(),
+        memo: None,
+    };
+    customs.push_ticket(first_ticket);
+    customs.push_ticket(second_ticket);
+
+    customs.env.advance_time(Duration::from_secs(5));
+    
+    // The mint transaction will be submitted immediately
+    let second_txid = customs.await_btc_transaction(second_ticket_id.clone(), 10);
+    customs.await_pending(first_ticket_id.clone(), 10);
+
+    // Step 3: wait for the first transaction to be submitted
+
+    customs.env.advance_time(Duration::from_secs(5));
+    let first_txid = customs.await_btc_transaction(first_ticket_id.clone(), 10);
+    assert_ne!(first_txid, second_txid);
+
+    let mempool = customs.mempool();
+    let first_tx: &bitcoin::Transaction = mempool
+        .get(&first_txid)
+        .expect("the mempool does not contain the release transaction");
+    let second_tx: &bitcoin::Transaction = mempool
+        .get(&second_txid)
+        .expect("the mempool does not contain the release transaction");
+
+    // Step 4: finalize transactions
+
+    customs.finalize_transaction(first_tx);
+    assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
+    customs.finalize_transaction(second_tx);
+    assert_eq!(
+        customs.await_finalization(second_ticket_id, 10),
+        second_txid
+    );
     customs.customs_self_check();
 }
 

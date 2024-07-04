@@ -613,12 +613,14 @@ async fn finalize_requests() {
         }
         for tx in &confirmed_transactions {
             state::audit::confirm_transaction(s, &tx.txid);
-            let balance = RunesBalance {
-                rune_id: tx.runes_change_output.rune_id.clone(),
-                vout: tx.runes_change_output.vout,
-                amount: tx.runes_change_output.value,
-            };
-            audit::update_runes_balance(s, tx.txid, balance);
+            if tx.runes_change_output.value > 0 {
+                let balance = RunesBalance {
+                    rune_id: tx.runes_change_output.rune_id.clone(),
+                    vout: tx.runes_change_output.vout,
+                    amount: tx.runes_change_output.value,
+                };
+                audit::update_runes_balance(s, tx.txid, balance);
+            }
             maybe_finalized_transactions.remove(&tx.txid);
         }
     });
@@ -639,12 +641,15 @@ async fn finalize_requests() {
                 &tx.txid
             );
             state::audit::confirm_transaction(s, &tx.txid);
-            let balance = RunesBalance {
-                rune_id: tx.runes_change_output.rune_id.clone(),
-                vout: tx.runes_change_output.vout,
-                amount: tx.runes_change_output.value,
-            };
-            audit::update_runes_balance(s, tx.txid, balance);
+            // The change value of mint rune tx is 0.
+            if tx.runes_change_output.value > 0 {
+                let balance = RunesBalance {
+                    rune_id: tx.runes_change_output.rune_id.clone(),
+                    vout: tx.runes_change_output.vout,
+                    amount: tx.runes_change_output.value,
+                };
+                audit::update_runes_balance(s, tx.txid, balance);
+            }
         }
     });
 
