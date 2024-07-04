@@ -55,9 +55,7 @@ pub struct HubState {
     pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
 
-    #[serde(skip_deserializing)]
     pub add_runes_token_requests: BTreeMap<String, AddRunesTokenReq>,
-    #[serde(skip_deserializing)]
     pub runes_oracles: BTreeSet<Principal>,
 
     //test
