@@ -100,6 +100,7 @@ export type Event = {
   { 'added_chain' : Chain } |
   { 'update_next_ticket_seq' : bigint } |
   { 'update_next_directive_seq' : bigint } |
+  { 'accepted_generate_ticket_request_v2' : GenTicketRequestV2 } |
   { 'confirmed_transaction' : { 'txid' : Uint8Array | number[] } } |
   {
     'replaced_transaction' : {
@@ -112,6 +113,7 @@ export type Event = {
     }
   } |
   { 'accepted_generate_ticket_request' : GenTicketRequest } |
+  { 'accepted_rune_tx_request' : RuneTxRequest } |
   { 'toggle_chain_state' : ToggleState };
 export interface GenTicketRequest {
   'received_at' : bigint,
@@ -123,9 +125,20 @@ export interface GenTicketRequest {
   'receiver' : string,
   'rune_id' : RuneId,
 }
+export interface GenTicketRequestV2 {
+  'received_at' : bigint,
+  'token_id' : string,
+  'new_utxos' : Array<Utxo>,
+  'txid' : Uint8Array | number[],
+  'target_chain_id' : string,
+  'address' : string,
+  'amount' : bigint,
+  'receiver' : string,
+  'rune_id' : RuneId,
+}
 export type GenTicketStatus = { 'Finalized' : null } |
   { 'Unknown' : null } |
-  { 'Pending' : GenTicketRequest };
+  { 'Pending' : GenTicketRequestV2 };
 export interface GenerateTicketArgs {
   'txid' : string,
   'target_chain_id' : string,
@@ -175,12 +188,6 @@ export interface ReleaseTokenRequest {
   'amount' : bigint,
   'rune_id' : RuneId,
 }
-export type ReleaseTokenStatus = { 'Signing' : null } |
-  { 'Confirmed' : string } |
-  { 'Sending' : string } |
-  { 'Unknown' : null } |
-  { 'Submitted' : string } |
-  { 'Pending' : null };
 export type Result = { 'Ok' : null } |
   { 'Err' : GenerateTicketError };
 export type Result_1 = { 'Ok' : Array<Utxo> } |
@@ -190,6 +197,20 @@ export type Result_2 = { 'Ok' : null } |
 export type Result_3 = { 'Ok' : null } |
   { 'Err' : UpdateRunesBalanceError };
 export interface RuneId { 'tx' : number, 'block' : bigint }
+export interface RuneTxRequest {
+  'received_at' : bigint,
+  'action' : TxAction,
+  'ticket_id' : string,
+  'address' : BitcoinAddress,
+  'amount' : bigint,
+  'rune_id' : RuneId,
+}
+export type RuneTxStatus = { 'Signing' : null } |
+  { 'Confirmed' : string } |
+  { 'Sending' : string } |
+  { 'Unknown' : null } |
+  { 'Submitted' : string } |
+  { 'Pending' : null };
 export interface RunesBalance {
   'vout' : number,
   'amount' : bigint,
@@ -219,6 +240,10 @@ export interface TokenResp {
   'rune_id' : string,
   'symbol' : string,
 }
+export type TxAction = { 'Burn' : null } |
+  { 'Redeem' : null } |
+  { 'Mint' : null } |
+  { 'Transfer' : null };
 export type UpdateBtcUtxosErr = { 'TemporarilyUnavailable' : string };
 export interface UpdatePendingTicketArgs {
   'txid' : string,
@@ -239,7 +264,6 @@ export type UpdateRunesBalanceError = { 'SendTicketErr' : string } |
   { 'MismatchWithGenTicketReq' : null };
 export interface UpgradeArgs {
   'hub_principal' : [] | [Principal],
-  'runes_oracle_principal' : [] | [Principal],
   'max_time_in_queue_nanos' : [] | [bigint],
   'chain_state' : [] | [ChainState],
   'min_confirmations' : [] | [number],
@@ -261,10 +285,11 @@ export interface _SERVICE {
   'get_main_btc_address' : ActorMethod<[string], string>,
   'get_pending_gen_ticket_requests' : ActorMethod<
     [GetGenTicketReqsArgs],
-    Array<GenTicketRequest>
+    Array<GenTicketRequestV2>
   >,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
-  'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
+  'rune_tx_status' : ActorMethod<[string], RuneTxStatus>,
+  'set_runes_oracle' : ActorMethod<[Principal], undefined>,
   'update_btc_utxos' : ActorMethod<[], Result_1>,
   'update_pending_ticket' : ActorMethod<[UpdatePendingTicketArgs], Result_2>,
   'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_3>,

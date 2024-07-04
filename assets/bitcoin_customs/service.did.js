@@ -5,7 +5,6 @@ export const idlFactory = ({ IDL }) => {
   });
   const UpgradeArgs = IDL.Record({
     'hub_principal' : IDL.Opt(IDL.Principal),
-    'runes_oracle_principal' : IDL.Opt(IDL.Principal),
     'max_time_in_queue_nanos' : IDL.Opt(IDL.Nat64),
     'chain_state' : IDL.Opt(ChainState),
     'min_confirmations' : IDL.Opt(IDL.Nat32),
@@ -53,9 +52,19 @@ export const idlFactory = ({ IDL }) => {
     'UnsupportedToken' : IDL.Text,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : GenerateTicketError });
-  const GenTicketRequest = IDL.Record({
+  const OutPoint = IDL.Record({
+    'txid' : IDL.Vec(IDL.Nat8),
+    'vout' : IDL.Nat32,
+  });
+  const Utxo = IDL.Record({
+    'height' : IDL.Nat32,
+    'value' : IDL.Nat64,
+    'outpoint' : OutPoint,
+  });
+  const GenTicketRequestV2 = IDL.Record({
     'received_at' : IDL.Nat64,
     'token_id' : IDL.Text,
+    'new_utxos' : IDL.Vec(Utxo),
     'txid' : IDL.Vec(IDL.Nat8),
     'target_chain_id' : IDL.Text,
     'address' : IDL.Text,
@@ -66,7 +75,7 @@ export const idlFactory = ({ IDL }) => {
   const GenTicketStatus = IDL.Variant({
     'Finalized' : IDL.Null,
     'Unknown' : IDL.Null,
-    'Pending' : GenTicketRequest,
+    'Pending' : GenTicketRequestV2,
   });
   const GetBtcAddressArgs = IDL.Record({
     'target_chain_id' : IDL.Text,
@@ -126,15 +135,6 @@ export const idlFactory = ({ IDL }) => {
     'target_chain_id' : IDL.Text,
     'receiver' : IDL.Text,
   });
-  const OutPoint = IDL.Record({
-    'txid' : IDL.Vec(IDL.Nat8),
-    'vout' : IDL.Nat32,
-  });
-  const Utxo = IDL.Record({
-    'height' : IDL.Nat32,
-    'value' : IDL.Nat64,
-    'outpoint' : OutPoint,
-  });
   const BtcChangeOutput = IDL.Record({
     'value' : IDL.Nat64,
     'vout' : IDL.Nat32,
@@ -168,6 +168,30 @@ export const idlFactory = ({ IDL }) => {
   });
   const ReleaseTokenRequest = IDL.Record({
     'received_at' : IDL.Nat64,
+    'ticket_id' : IDL.Text,
+    'address' : BitcoinAddress,
+    'amount' : IDL.Nat,
+    'rune_id' : RuneId,
+  });
+  const GenTicketRequest = IDL.Record({
+    'received_at' : IDL.Nat64,
+    'token_id' : IDL.Text,
+    'txid' : IDL.Vec(IDL.Nat8),
+    'target_chain_id' : IDL.Text,
+    'address' : IDL.Text,
+    'amount' : IDL.Nat,
+    'receiver' : IDL.Text,
+    'rune_id' : RuneId,
+  });
+  const TxAction = IDL.Variant({
+    'Burn' : IDL.Null,
+    'Redeem' : IDL.Null,
+    'Mint' : IDL.Null,
+    'Transfer' : IDL.Null,
+  });
+  const RuneTxRequest = IDL.Record({
+    'received_at' : IDL.Nat64,
+    'action' : TxAction,
     'ticket_id' : IDL.Text,
     'address' : BitcoinAddress,
     'amount' : IDL.Nat,
@@ -214,6 +238,7 @@ export const idlFactory = ({ IDL }) => {
     'added_chain' : Chain,
     'update_next_ticket_seq' : IDL.Nat64,
     'update_next_directive_seq' : IDL.Nat64,
+    'accepted_generate_ticket_request_v2' : GenTicketRequestV2,
     'confirmed_transaction' : IDL.Record({ 'txid' : IDL.Vec(IDL.Nat8) }),
     'replaced_transaction' : IDL.Record({
       'fee' : IDL.Nat64,
@@ -224,6 +249,7 @@ export const idlFactory = ({ IDL }) => {
       'submitted_at' : IDL.Nat64,
     }),
     'accepted_generate_ticket_request' : GenTicketRequest,
+    'accepted_rune_tx_request' : RuneTxRequest,
     'toggle_chain_state' : ToggleState,
   });
   const GetGenTicketReqsArgs = IDL.Record({
@@ -237,7 +263,7 @@ export const idlFactory = ({ IDL }) => {
     'rune_id' : IDL.Text,
     'symbol' : IDL.Text,
   });
-  const ReleaseTokenStatus = IDL.Variant({
+  const RuneTxStatus = IDL.Variant({
     'Signing' : IDL.Null,
     'Confirmed' : IDL.Text,
     'Sending' : IDL.Text,
@@ -297,15 +323,12 @@ export const idlFactory = ({ IDL }) => {
     'get_main_btc_address' : IDL.Func([IDL.Text], [IDL.Text], []),
     'get_pending_gen_ticket_requests' : IDL.Func(
         [GetGenTicketReqsArgs],
-        [IDL.Vec(GenTicketRequest)],
+        [IDL.Vec(GenTicketRequestV2)],
         ['query'],
       ),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
-    'release_token_status' : IDL.Func(
-        [IDL.Text],
-        [ReleaseTokenStatus],
-        ['query'],
-      ),
+    'rune_tx_status' : IDL.Func([IDL.Text], [RuneTxStatus], ['query']),
+    'set_runes_oracle' : IDL.Func([IDL.Principal], [], []),
     'update_btc_utxos' : IDL.Func([], [Result_1], []),
     'update_pending_ticket' : IDL.Func(
         [UpdatePendingTicketArgs],
@@ -322,7 +345,6 @@ export const init = ({ IDL }) => {
   });
   const UpgradeArgs = IDL.Record({
     'hub_principal' : IDL.Opt(IDL.Principal),
-    'runes_oracle_principal' : IDL.Opt(IDL.Principal),
     'max_time_in_queue_nanos' : IDL.Opt(IDL.Nat64),
     'chain_state' : IDL.Opt(ChainState),
     'min_confirmations' : IDL.Opt(IDL.Nat32),
