@@ -528,8 +528,7 @@ fn finalized_txs(
             new_utxos
                 .iter()
                 .any(|utxo| {
-                    utxo.outpoint.vout == tx.runes_change_output.vout
-                        && utxo.outpoint.txid == tx.txid
+                    utxo.outpoint.vout == tx.btc_change_output.vout && utxo.outpoint.txid == tx.txid
                 })
                 .then_some(tx.clone())
         })
@@ -560,7 +559,11 @@ async fn finalize_requests() {
     }
 
     let main_chain_id = read_state(|s| s.chain_id.clone());
-    let main_btc_destination = main_destination(main_chain_id.clone(), BTC_TOKEN.into());
+    let main_btc_address = (
+        main_destination(main_chain_id.clone(), BTC_TOKEN.into()),
+        address::main_bitcoin_address(&ecdsa_public_key, main_chain_id.clone(), BTC_TOKEN.into()),
+    );
+
     let main_runes_addresses: Vec<(Destination, BitcoinAddress)> = maybe_finalized_transactions
         .iter()
         .map(|(_, tx)| {
@@ -578,10 +581,12 @@ async fn finalize_requests() {
     let (btc_network, min_confirmations) =
         state::read_state(|s| (s.btc_network, s.min_confirmations));
 
+    let dest_btc_utxos =
+        fetch_main_utxos(vec![main_btc_address], btc_network, min_confirmations).await;
     let dest_runes_utxos =
         fetch_main_utxos(main_runes_addresses.clone(), btc_network, min_confirmations).await;
 
-    let new_runes_utxos = dest_runes_utxos
+    let new_btc_utxos = dest_btc_utxos
         .iter()
         .map(|(_, utxos)| utxos)
         .flatten()
@@ -592,17 +597,17 @@ async fn finalize_requests() {
     // can be finalized. Note that all new customs transactions must have a
     // change output because customs always charges a fee for converting tokens.
     let confirmed_transactions: Vec<_> =
-        state::read_state(|s| finalized_txs(&s.submitted_transactions, &new_runes_utxos));
+        state::read_state(|s| finalized_txs(&s.submitted_transactions, &new_btc_utxos));
 
     // It's possible that some transactions we considered lost or rejected became finalized in the
     // meantime. If that happens, we should stop waiting for replacement transactions to finalize.
     let unstuck_transactions: Vec<_> =
-        state::read_state(|s| finalized_txs(&s.stuck_transactions, &new_runes_utxos));
+        state::read_state(|s| finalized_txs(&s.stuck_transactions, &new_btc_utxos));
 
     state::mutate_state(|s| {
-        let btc_utxos = get_btc_utxos_from_confirmed_tx(&confirmed_transactions);
-        audit::add_utxos(s, main_btc_destination.clone(), btc_utxos, false);
-
+        for (dest, utxos) in dest_btc_utxos {
+            audit::add_utxos(s, dest, utxos, false);
+        }
         for (dest, utxos) in dest_runes_utxos {
             audit::add_utxos(s, dest, utxos, true);
         }
@@ -630,8 +635,6 @@ async fn finalize_requests() {
     }
 
     state::mutate_state(|s| {
-        let btc_utxos = get_btc_utxos_from_confirmed_tx(&unstuck_transactions);
-        audit::add_utxos(s, main_btc_destination, btc_utxos, false);
         for tx in unstuck_transactions {
             log!(
                 P0,
@@ -819,22 +822,6 @@ async fn finalize_requests() {
             }
         }
     }
-}
-
-fn get_btc_utxos_from_confirmed_tx(confirmed_txs: &Vec<SubmittedBtcTransactionV2>) -> Vec<Utxo> {
-    confirmed_txs
-        .iter()
-        .map(|tx| Utxo {
-            outpoint: OutPoint {
-                txid: tx.txid,
-                vout: tx.btc_change_output.vout,
-            },
-            value: tx.btc_change_output.value,
-            // We can get the height of the btc utxos from the corresponding rune change utxo in the same tx,
-            // but now the height is useless.
-            height: 0,
-        })
-        .collect()
 }
 
 fn new_build_tx_req(requests: Vec<RuneTxRequest>) -> BuildTxReq {
@@ -1102,10 +1089,7 @@ pub fn build_unsigned_transaction(
                 return Err(BuildTxError::NotEnoughFunds);
             }
 
-            let inputs_value = rune_utxos
-                .iter()
-                .map(|u| u.runes.amount)
-                .sum::<u128>();
+            let inputs_value = rune_utxos.iter().map(|u| u.runes.amount).sum::<u128>();
             debug_assert!(inputs_value >= amount);
 
             let burn_amount = outputs
@@ -1148,7 +1132,13 @@ pub fn build_unsigned_transaction(
                 vout: 1,
                 value: inputs_value - amount,
             };
-            (stone, rune_change_output, runes_main_address, rune_utxos, outputs)
+            (
+                stone,
+                rune_change_output,
+                runes_main_address,
+                rune_utxos,
+                outputs,
+            )
         }
         BuildTxReq::MintTxReq(receiver) => {
             let stone = Runestone {

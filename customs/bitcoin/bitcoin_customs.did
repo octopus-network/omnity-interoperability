@@ -248,7 +248,7 @@ service : (CustomArg) -> {
       vec GenTicketRequestV2,
     ) query;
   get_token_list : () -> (vec TokenResp) query;
-  release_token_status : (text) -> (RuneTxStatus) query;
+  rune_tx_status : (text) -> (RuneTxStatus) query;
   set_runes_oracle : (principal) -> ();
   update_btc_utxos : () -> (Result_1);
   update_pending_ticket : (UpdatePendingTicketArgs) -> (Result_2);

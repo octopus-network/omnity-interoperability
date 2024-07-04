@@ -22,7 +22,7 @@ pub struct Runestone {
 
 impl Runestone {
     pub fn encipher(&self) -> Vec<u8> {
-        assert!(!self.edicts.is_empty());
+        assert!(!self.edicts.is_empty() || self.mint.is_some());
 
         let mut payload = Vec::new();
         varint::encode_to_vec(Tag::Body.into(), &mut payload);
