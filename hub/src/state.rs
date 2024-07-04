@@ -4,6 +4,7 @@ use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
+use crate::self_help::AddRunesTokenReq;
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
@@ -15,7 +16,7 @@ use omnity_types::{
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::num::ParseIntError;
 const HOUR: u64 = 3_600_000_000_000;
 
@@ -52,6 +53,11 @@ pub struct HubState {
     pub caller_chain_map: HashMap<String, ChainId>,
     pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
+
+    #[serde(skip_deserializing)]
+    pub add_runes_token_requests: BTreeMap<String, AddRunesTokenReq>,
+    #[serde(skip_deserializing)]
+    pub runes_oracles: BTreeSet<Principal>,
 }
 
 impl From<InitArgs> for HubState {
@@ -73,6 +79,8 @@ impl From<InitArgs> for HubState {
             caller_chain_map: HashMap::default(),
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             last_resubmit_ticket_time: 0,
+            add_runes_token_requests: Default::default(),
+            runes_oracles: Default::default(),
         }
     }
 }

@@ -1,4 +1,5 @@
 use candid::CandidType;
+use omnity_types::rune_id::RuneId;
 use serde::{Deserialize, Serialize};
 
 pub use bitcoin_customs::{

@@ -1,7 +1,6 @@
-use crate::state::RuneId;
-
 use super::varint;
 use bitcoin::blockdata::{constants, opcodes, script};
+use omnity_types::rune_id::RuneId;
 use serde::Serialize;
 
 const MAGIC_NUMBER: opcodes::All = opcodes::all::OP_PUSHNUM_13;
