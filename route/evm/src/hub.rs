@@ -1,9 +1,9 @@
 use candid::Principal;
 
 use crate::call_error::{CallError, Reason};
-use crate::types::Topic;
 use crate::types::{ChainId, Directive};
 use crate::types::{Seq, Ticket};
+use crate::types::Topic;
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     // TODO determine how many cycle it will cost.
@@ -69,3 +69,31 @@ pub async fn query_directives(
     })?;
     Ok(data)
 }
+
+pub async fn rewrite_ticket_mint_hash(
+    hub_principal: Principal,
+    offset: u64,
+    limit: u64,
+) -> Result<(), CallError> {
+    let resp: (Result<Vec<(Seq, Directive)>, crate::types::Error>, ) = ic_cdk::api::call::call(
+        hub_principal,
+        "query_directives",
+        (
+            None::<Option<ChainId>>,
+            None::<Option<Topic>>,
+            offset,
+            limit,
+        ),
+    )
+        .await
+        .map_err(|(code, message)| CallError {
+            method: "query_directives".to_string(),
+            reason: Reason::from_reject(code, message),
+        })?;
+    let data = resp.0.map_err(|err| CallError {
+        method: "query_directives".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
+    Ok(data)
+}
+

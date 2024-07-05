@@ -64,6 +64,7 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
                 s.finalized_mint_token_requests
                     .insert(token_mint.ticket_id.clone(), tx_hash)
             });
+            //rewrite tx to hub
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
