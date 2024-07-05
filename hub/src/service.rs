@@ -14,7 +14,7 @@ use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::self_help::{
     principal_to_subaccount, AddDestChainArgs, AddRunesTokenReq, FinalizeAddRunesArgs,
-    SelfServiceError,
+    SelfServiceError, ADD_CHAIN_FEE, ADD_TOKEN_FEE,
 };
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta};
@@ -227,6 +227,20 @@ pub fn get_add_runes_token_requests() -> Vec<AddRunesTokenReq> {
             .map(|(_, req)| req.clone())
             .collect()
     })
+}
+
+#[derive(candid::CandidType, serde::Serialize, Clone)]
+pub struct SelfServiceFee {
+    pub add_token_fee: u64,
+    pub add_chain_fee: u64,
+}
+
+#[query]
+pub fn get_self_service_fee() -> SelfServiceFee {
+    SelfServiceFee {
+        add_token_fee: ADD_TOKEN_FEE,
+        add_chain_fee: ADD_CHAIN_FEE,
+    }
 }
 
 #[query]
