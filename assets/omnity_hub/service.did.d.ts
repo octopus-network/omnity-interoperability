@@ -2,7 +2,7 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
-export interface AddDestChainArgs { 'token_id' : string, 'dst_chain' : string }
+export interface AddDestChainArgs { 'dest_chain' : string, 'token_id' : string }
 export interface AddRunesTokenReq {
   'dest_chain' : string,
   'icon' : string,
@@ -144,6 +144,10 @@ export type SelfServiceError = { 'TemporarilyUnavailable' : string } |
   { 'ChainNotFound' : string } |
   { 'TokenAlreadyExisting' : null } |
   { 'EmptyArgument' : null };
+export interface SelfServiceFee {
+  'add_token_fee' : bigint,
+  'add_chain_fee' : bigint,
+}
 export interface SeqKey { 'seq' : bigint, 'chain_id' : string }
 export interface Subscribers { 'subs' : Array<string> }
 export interface TargetChainFactor {
@@ -236,7 +240,9 @@ export interface _SERVICE {
     Result_8
   >,
   'get_logs' : ActorMethod<[[] | [bigint], bigint, bigint], Array<string>>,
+  'get_self_service_fee' : ActorMethod<[], SelfServiceFee>,
   'get_token_metas' : ActorMethod<[bigint, bigint], Result_9>,
+  'get_token_position_size' : ActorMethod<[], Result_4>,
   'get_token_size' : ActorMethod<[], Result_4>,
   'get_tokens' : ActorMethod<
     [[] | [string], [] | [string], bigint, bigint],

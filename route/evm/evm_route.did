@@ -39,13 +39,13 @@ type HttpResponse = record {
 };
 type InitArgs = record {
   evm_chain_id : nat64;
-  admin : principal;
   hub_principal : principal;
   rpcs : vec RpcApi;
   evm_tx_type : EvmTxType;
   network : Network;
   fee_token_id : text;
   chain_id : text;
+  admins : vec principal;
   evm_rpc_canister_addr : principal;
   scan_start_height : nat64;
   port_addr : opt text;
@@ -70,7 +70,6 @@ type RpcApi = record { url : text; headers : opt vec HttpHeader };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
   evm_chain_id : nat64;
-  admin : principal;
   omnity_port_contract : vec nat8;
   next_consume_directive_seq : nat64;
   hub_principal : principal;
@@ -83,6 +82,7 @@ type StateProfile = record {
   key_derivation_path : vec vec nat8;
   omnity_chain_id : text;
   tokens : vec record { text; Token };
+  admins : vec principal;
   target_chain_factor : vec record { text; nat };
   evm_rpc_addr : principal;
   counterparties : vec record { text; Chain };
@@ -149,7 +149,7 @@ service : (InitArgs) -> {
   route_state : () -> (StateProfile) query;
   set_port_address : (text) -> ();
   set_scan_height : (nat64) -> (opt nat64);
-  update_admin : (principal) -> ();
+  update_admins : (vec principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
   update_rpcs : (vec RpcApi) -> ();
 }

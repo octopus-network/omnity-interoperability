@@ -1,4 +1,4 @@
-type AddDestChainArgs = record { token_id : text; dst_chain : text };
+type AddDestChainArgs = record { dest_chain : text; token_id : text };
 type AddRunesTokenReq = record {
   dest_chain : text;
   icon : text;
@@ -129,6 +129,7 @@ type SelfServiceError = variant {
   TokenAlreadyExisting;
   EmptyArgument;
 };
+type SelfServiceFee = record { add_token_fee : nat64; add_chain_fee : nat64 };
 type SeqKey = record { seq : nat64; chain_id : text };
 type Subscribers = record { subs : vec text };
 type TargetChainFactor = record {
@@ -208,7 +209,9 @@ service : (HubArg) -> {
   get_fee_account : (opt principal) -> (blob) query;
   get_fees : (opt text, opt text, nat64, nat64) -> (Result_8) query;
   get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
+  get_self_service_fee : () -> (SelfServiceFee) query;
   get_token_metas : (nat64, nat64) -> (Result_9) query;
+  get_token_position_size : () -> (Result_4) query;
   get_token_size : () -> (Result_4) query;
   get_tokens : (opt text, opt text, nat64, nat64) -> (Result_10) query;
   get_total_tx : () -> (Result_4) query;

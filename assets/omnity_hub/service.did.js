@@ -6,8 +6,8 @@ export const idlFactory = ({ IDL }) => {
     'Init' : InitArgs,
   });
   const AddDestChainArgs = IDL.Record({
+    'dest_chain' : IDL.Text,
     'token_id' : IDL.Text,
-    'dst_chain' : IDL.Text,
   });
   const SelfServiceError = IDL.Variant({
     'TemporarilyUnavailable' : IDL.Text,
@@ -217,6 +217,10 @@ export const idlFactory = ({ IDL }) => {
     'Ok' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text, IDL.Nat)),
     'Err' : Error,
   });
+  const SelfServiceFee = IDL.Record({
+    'add_token_fee' : IDL.Nat64,
+    'add_chain_fee' : IDL.Nat64,
+  });
   const Result_9 = IDL.Variant({ 'Ok' : IDL.Vec(TokenMeta), 'Err' : Error });
   const TokenResp = IDL.Record({
     'decimals' : IDL.Nat8,
@@ -288,7 +292,9 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Text)],
         ['query'],
       ),
+    'get_self_service_fee' : IDL.Func([], [SelfServiceFee], ['query']),
     'get_token_metas' : IDL.Func([IDL.Nat64, IDL.Nat64], [Result_9], ['query']),
+    'get_token_position_size' : IDL.Func([], [Result_4], ['query']),
     'get_token_size' : IDL.Func([], [Result_4], ['query']),
     'get_tokens' : IDL.Func(
         [IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Nat64, IDL.Nat64],
