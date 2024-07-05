@@ -1,4 +1,4 @@
-use crate::state::{self, ReleaseTokenRequest};
+use crate::state::{self, RuneTxRequest};
 use std::cell::Cell;
 
 thread_local! {
@@ -39,10 +39,10 @@ pub fn encode_metrics(
         .value(
             &[("status", "pending")],
             state::read_state(|s| {
-                s.pending_release_token_requests
+                s.pending_rune_tx_requests
                     .iter()
                     .flat_map(|(_, r)| r.clone())
-                    .collect::<Vec<ReleaseTokenRequest>>()
+                    .collect::<Vec<RuneTxRequest>>()
                     .len()
             }) as f64,
         )?
@@ -96,7 +96,7 @@ pub fn encode_metrics(
 
     metrics.encode_gauge(
         "bitcoin_customs_stored_finalized_requests",
-        state::read_state(|s| s.finalized_release_token_requests.len()) as f64,
+        state::read_state(|s| s.finalized_rune_tx_requests.len()) as f64,
         "Total number of finalized release_token requests the customs keeps in memory.",
     )?;
 
