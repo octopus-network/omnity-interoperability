@@ -25,24 +25,26 @@ impl Runestone {
         assert!(!self.edicts.is_empty() || self.mint.is_some());
 
         let mut payload = Vec::new();
-        varint::encode_to_vec(Tag::Body.into(), &mut payload);
-
-        let mut edicts = self.edicts.clone();
-        edicts.sort_by_key(|edict| edict.id);
-
-        let mut previous = RuneId::default();
-
-        for edict in edicts {
-            let (block, tx) = previous.delta(edict.id).unwrap();
-            varint::encode_to_vec(block, &mut payload);
-            varint::encode_to_vec(tx, &mut payload);
-            varint::encode_to_vec(edict.amount, &mut payload);
-            varint::encode_to_vec(edict.output.into(), &mut payload);
-            previous = edict.id;
-        }
 
         if let Some(RuneId { block, tx }) = self.mint {
             Tag::Mint.encode([block.into(), tx.into()], &mut payload);
+        }
+
+        if !self.edicts.is_empty() {
+            varint::encode_to_vec(Tag::Body.into(), &mut payload);
+
+            let mut edicts = self.edicts.clone();
+            edicts.sort_by_key(|edict| edict.id);
+
+            let mut previous = RuneId::default();
+            for edict in edicts {
+                let (block, tx) = previous.delta(edict.id).unwrap();
+                varint::encode_to_vec(block, &mut payload);
+                varint::encode_to_vec(tx, &mut payload);
+                varint::encode_to_vec(edict.amount, &mut payload);
+                varint::encode_to_vec(edict.output.into(), &mut payload);
+                previous = edict.id;
+            }
         }
 
         let mut builder = script::Builder::new()
