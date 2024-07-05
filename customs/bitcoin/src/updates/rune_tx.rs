@@ -1,7 +1,7 @@
 use crate::address::destination_to_bitcoin_address;
 use crate::destination::Destination;
 use crate::guard::{release_token_guard, GuardError};
-use crate::state::{audit, RuneTxRequest, RuneTxStatus, RUNES_TOKEN};
+use crate::state::{audit, ReleaseTokenStatus, RuneTxRequest, RUNES_TOKEN};
 use crate::updates::get_btc_address::init_ecdsa_public_key;
 use crate::{
     address::{BitcoinAddress, ParseAddressError},
@@ -94,12 +94,12 @@ pub async fn generate_rune_tx_request(args: RuneTxArgs) -> Result<(), GenRuneTxR
     }
 
     read_state(|s| match s.rune_tx_status(&args.ticket_id) {
-        RuneTxStatus::Pending
-        | RuneTxStatus::Signing
-        | RuneTxStatus::Sending(_)
-        | RuneTxStatus::Submitted(_) => Err(GenRuneTxReqError::AlreadyProcessing),
-        RuneTxStatus::Confirmed(_) => Err(GenRuneTxReqError::AlreadyProcessed),
-        RuneTxStatus::Unknown => Ok(()),
+        ReleaseTokenStatus::Pending
+        | ReleaseTokenStatus::Signing
+        | ReleaseTokenStatus::Sending(_)
+        | ReleaseTokenStatus::Submitted(_) => Err(GenRuneTxReqError::AlreadyProcessing),
+        ReleaseTokenStatus::Confirmed(_) => Err(GenRuneTxReqError::AlreadyProcessed),
+        ReleaseTokenStatus::Unknown => Ok(()),
     })?;
 
     let request = RuneTxRequest {
@@ -114,7 +114,7 @@ pub async fn generate_rune_tx_request(args: RuneTxArgs) -> Result<(), GenRuneTxR
     mutate_state(|s| audit::accept_rune_tx_request(s, request));
 
     assert_eq!(
-        crate::state::RuneTxStatus::Pending,
+        crate::state::ReleaseTokenStatus::Pending,
         read_state(|s| s.rune_tx_status(&args.ticket_id))
     );
     Ok(())

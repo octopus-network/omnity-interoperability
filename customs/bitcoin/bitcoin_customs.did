@@ -163,6 +163,14 @@ type ReleaseTokenRequest = record {
   amount : nat;
   rune_id : RuneId;
 };
+type ReleaseTokenStatus = variant {
+  Signing;
+  Confirmed : text;
+  Sending : text;
+  Unknown;
+  Submitted : text;
+  Pending;
+};
 type Result = variant { Ok; Err : GenerateTicketError };
 type Result_1 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
 type Result_2 = variant { Ok; Err : UpdatePendingTicketError };
@@ -175,14 +183,6 @@ type RuneTxRequest = record {
   address : BitcoinAddress;
   amount : nat;
   rune_id : RuneId;
-};
-type RuneTxStatus = variant {
-  Signing;
-  Confirmed : text;
-  Sending : text;
-  Unknown;
-  Submitted : text;
-  Pending;
 };
 type RunesBalance = record { vout : nat32; amount : nat; rune_id : RuneId };
 type RunesChangeOutput = record { value : nat; vout : nat32; rune_id : RuneId };
@@ -248,7 +248,7 @@ service : (CustomArg) -> {
       vec GenTicketRequestV2,
     ) query;
   get_token_list : () -> (vec TokenResp) query;
-  rune_tx_status : (text) -> (RuneTxStatus) query;
+  release_token_status : (text) -> (ReleaseTokenStatus) query;
   set_runes_oracle : (principal) -> ();
   update_btc_utxos : () -> (Result_1);
   update_pending_ticket : (UpdatePendingTicketArgs) -> (Result_2);

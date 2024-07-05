@@ -2,7 +2,7 @@ use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
-use bitcoin_customs::state::{GenTicketRequestV2, RuneTxStatus};
+use bitcoin_customs::state::{GenTicketRequestV2, ReleaseTokenStatus};
 use bitcoin_customs::state::{GenTicketStatus, RunesBalance};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
@@ -530,18 +530,18 @@ impl CustomsSetup {
         .unwrap()
     }
 
-    pub fn rune_tx_status(&self, ticket_id: String) -> RuneTxStatus {
+    pub fn release_token_status(&self, ticket_id: String) -> ReleaseTokenStatus {
         Decode!(
             &assert_reply(
                 self.env
                     .query(
                         self.customs_id,
-                        "rune_tx_status",
+                        "release_token_status",
                         Encode!(&ticket_id).unwrap()
                     )
                     .expect("failed to get release token status")
             ),
-            RuneTxStatus
+            ReleaseTokenStatus
         )
         .unwrap()
     }
@@ -591,9 +591,9 @@ impl CustomsSetup {
         let mut last_status = None;
         for _ in 0..max_ticks {
             dbg!(self.get_logs());
-            let status = self.rune_tx_status(ticket_id.clone());
+            let status = self.release_token_status(ticket_id.clone());
             match status {
-                RuneTxStatus::Submitted(txid) => {
+                ReleaseTokenStatus::Submitted(txid) => {
                     return Txid::from_str(&txid).unwrap();
                 }
                 status => {
@@ -643,9 +643,9 @@ impl CustomsSetup {
     pub fn await_pending(&self, ticket_id: String, max_ticks: usize) {
         let mut last_status = None;
         for _ in 0..max_ticks {
-            let status = self.rune_tx_status(ticket_id.clone());
+            let status = self.release_token_status(ticket_id.clone());
             match status {
-                RuneTxStatus::Pending => {
+                ReleaseTokenStatus::Pending => {
                     return;
                 }
                 status => {
@@ -663,9 +663,9 @@ impl CustomsSetup {
     pub fn await_finalization(&self, ticket_id: String, max_ticks: usize) -> Txid {
         let mut last_status = None;
         for _ in 0..max_ticks {
-            let status = self.rune_tx_status(ticket_id.clone());
+            let status = self.release_token_status(ticket_id.clone());
             match status {
-                RuneTxStatus::Confirmed(txid) => {
+                ReleaseTokenStatus::Confirmed(txid) => {
                     return Txid::from_str(&txid).unwrap();
                 }
                 status => {
@@ -1312,7 +1312,7 @@ fn test_finalize_mint_and_redeem_tx() {
     customs.push_ticket(second_ticket);
 
     customs.env.advance_time(Duration::from_secs(5));
-    
+
     // The mint transaction will be submitted immediately
     let second_txid = customs.await_btc_transaction(second_ticket_id.clone(), 10);
     customs.await_pending(first_ticket_id.clone(), 10);
@@ -1390,8 +1390,8 @@ fn test_finalize_batch_release_token_tx() {
 
     for i in 1..5 {
         assert_eq!(
-            customs.rune_tx_status(format!("ticket_id{}", i)),
-            RuneTxStatus::Confirmed(txid.to_string())
+            customs.release_token_status(format!("ticket_id{}", i)),
+            ReleaseTokenStatus::Confirmed(txid.to_string())
         );
     }
     customs.customs_self_check();

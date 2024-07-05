@@ -3,7 +3,7 @@ use bitcoin_customs::lifecycle::{self, init::CustomArg};
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
 use bitcoin_customs::state::{
-    mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, RuneTxStatus,
+    mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus,
 };
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
@@ -126,7 +126,7 @@ async fn get_main_btc_address(token: String) -> String {
 }
 
 #[query]
-fn rune_tx_status(ticket_id: String) -> RuneTxStatus {
+fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
     read_state(|s| s.rune_tx_status(&ticket_id))
 }
 

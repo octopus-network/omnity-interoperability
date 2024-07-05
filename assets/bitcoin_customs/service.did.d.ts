@@ -188,6 +188,12 @@ export interface ReleaseTokenRequest {
   'amount' : bigint,
   'rune_id' : RuneId,
 }
+export type ReleaseTokenStatus = { 'Signing' : null } |
+  { 'Confirmed' : string } |
+  { 'Sending' : string } |
+  { 'Unknown' : null } |
+  { 'Submitted' : string } |
+  { 'Pending' : null };
 export type Result = { 'Ok' : null } |
   { 'Err' : GenerateTicketError };
 export type Result_1 = { 'Ok' : Array<Utxo> } |
@@ -205,12 +211,6 @@ export interface RuneTxRequest {
   'amount' : bigint,
   'rune_id' : RuneId,
 }
-export type RuneTxStatus = { 'Signing' : null } |
-  { 'Confirmed' : string } |
-  { 'Sending' : string } |
-  { 'Unknown' : null } |
-  { 'Submitted' : string } |
-  { 'Pending' : null };
 export interface RunesBalance {
   'vout' : number,
   'amount' : bigint,
@@ -288,7 +288,7 @@ export interface _SERVICE {
     Array<GenTicketRequestV2>
   >,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
-  'rune_tx_status' : ActorMethod<[string], RuneTxStatus>,
+  'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
   'set_runes_oracle' : ActorMethod<[Principal], undefined>,
   'update_btc_utxos' : ActorMethod<[], Result_1>,
   'update_pending_ticket' : ActorMethod<[UpdatePendingTicketArgs], Result_2>,

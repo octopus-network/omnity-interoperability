@@ -214,7 +214,7 @@ pub enum InFlightStatus {
 
 /// The status of a rune tx request.
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
-pub enum RuneTxStatus {
+pub enum ReleaseTokenStatus {
     /// The custom has no data for this request.
     /// The request id is either invalid or too old.
     Unknown,
@@ -579,36 +579,36 @@ impl CustomsState {
 
     /// Returns the status of the rune tx request with the specified
     /// identifier.
-    pub fn rune_tx_status(&self, ticket_id: &TicketId) -> RuneTxStatus {
+    pub fn rune_tx_status(&self, ticket_id: &TicketId) -> ReleaseTokenStatus {
         if self
             .pending_rune_tx_requests
             .iter()
             .any(|(_, reqs)| reqs.iter().any(|req| req.ticket_id.eq(ticket_id)))
         {
-            return RuneTxStatus::Pending;
+            return ReleaseTokenStatus::Pending;
         }
 
         if let Some(status) = self.requests_in_flight.get(ticket_id).cloned() {
             return match status {
-                InFlightStatus::Signing => RuneTxStatus::Signing,
-                InFlightStatus::Sending { txid } => RuneTxStatus::Sending(txid.to_string()),
+                InFlightStatus::Signing => ReleaseTokenStatus::Signing,
+                InFlightStatus::Sending { txid } => ReleaseTokenStatus::Sending(txid.to_string()),
             };
         }
 
         if let Some(txid) = self.submitted_transactions.iter().find_map(|tx| {
             (tx.requests.iter().any(|r| r.ticket_id.eq(ticket_id))).then_some(tx.txid)
         }) {
-            return RuneTxStatus::Submitted(txid.to_string());
+            return ReleaseTokenStatus::Submitted(txid.to_string());
         }
 
         match self.finalized_rune_tx_requests.get(ticket_id) {
             Some(FinalizedStatus::Confirmed(txid)) => {
-                return RuneTxStatus::Confirmed(txid.to_string())
+                return ReleaseTokenStatus::Confirmed(txid.to_string())
             }
             None => (),
         }
 
-        RuneTxStatus::Unknown
+        ReleaseTokenStatus::Unknown
     }
 
     /// Returns true if the pending requests queue has enough requests to form a

@@ -263,7 +263,7 @@ export const idlFactory = ({ IDL }) => {
     'rune_id' : IDL.Text,
     'symbol' : IDL.Text,
   });
-  const RuneTxStatus = IDL.Variant({
+  const ReleaseTokenStatus = IDL.Variant({
     'Signing' : IDL.Null,
     'Confirmed' : IDL.Text,
     'Sending' : IDL.Text,
@@ -327,7 +327,11 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
-    'rune_tx_status' : IDL.Func([IDL.Text], [RuneTxStatus], ['query']),
+    'release_token_status' : IDL.Func(
+        [IDL.Text],
+        [ReleaseTokenStatus],
+        ['query'],
+      ),
     'set_runes_oracle' : IDL.Func([IDL.Principal], [], []),
     'update_btc_utxos' : IDL.Func([], [Result_1], []),
     'update_pending_ticket' : IDL.Func(

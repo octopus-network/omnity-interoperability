@@ -7,7 +7,7 @@ use crate::{
 };
 use crate::{
     lifecycle::init::InitArgs,
-    state::{CustomsState, RuneTxStatus},
+    state::{CustomsState, ReleaseTokenStatus},
 };
 use bitcoin::network::constants::Network as BtcNetwork;
 use bitcoin::util::psbt::serialize::{Deserialize, Serialize};
@@ -785,14 +785,14 @@ proptest! {
         }
         for req in requests {
             state.push_back_pending_request(req.clone());
-            prop_assert_eq!(state.rune_tx_status(&req.ticket_id), RuneTxStatus::Pending);
+            prop_assert_eq!(state.rune_tx_status(&req.ticket_id), ReleaseTokenStatus::Pending);
         }
 
         let rune_id = RuneId{block: 100, tx: 1};
         let batch = state.build_batch(rune_id, limit);
 
         for req in batch.iter() {
-            prop_assert_eq!(state.rune_tx_status(&req.ticket_id), RuneTxStatus::Unknown);
+            prop_assert_eq!(state.rune_tx_status(&req.ticket_id), ReleaseTokenStatus::Unknown);
         }
 
         prop_assert!(batch.iter().map(|req| req.amount).sum::<u128>() <= available_amount);
