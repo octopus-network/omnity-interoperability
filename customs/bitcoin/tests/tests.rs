@@ -1312,7 +1312,7 @@ fn test_finalize_mint_and_redeem_tx() {
     customs.push_ticket(second_ticket);
 
     customs.env.advance_time(Duration::from_secs(5));
-    
+
     // The mint transaction will be submitted immediately
     let second_txid = customs.await_btc_transaction(second_ticket_id.clone(), 10);
     customs.await_pending(first_ticket_id.clone(), 10);

@@ -70,7 +70,8 @@ impl Executor {
                     };
                     match self
                         .client
-                        .finalize_add_runes_token_req(&self.hub, finalize_args.clone()).await
+                        .finalize_add_runes_token_req(&self.hub, finalize_args.clone())
+                        .await
                     {
                         Ok(result) => match result {
                             Ok(()) => {
@@ -80,7 +81,11 @@ impl Executor {
                                 );
                             }
                             Err(err) => {
-                                log::error!("failed to finalize add runes token: {}, {:?}", finalize_args.rune_id, err);
+                                log::error!(
+                                    "failed to finalize add runes token: {}, {:?}",
+                                    finalize_args.rune_id,
+                                    err
+                                );
                             }
                         },
                         Err(err) => {

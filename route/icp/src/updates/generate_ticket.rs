@@ -21,7 +21,7 @@ pub struct GenerateTicketReq {
     pub amount: u128,
     // The subaccount to burn token from.
     pub from_subaccount: Option<Subaccount>,
-    pub burn: bool,
+    pub action: TxAction,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -49,6 +49,7 @@ pub enum GenerateTicketError {
     },
     RedeemFeeNotSet,
     TransferFailure(String),
+    UnsupportedAction(String),
 }
 
 pub async fn generate_ticket(
@@ -75,7 +76,7 @@ pub async fn generate_ticket(
         None => Err(GenerateTicketError::UnsupportedToken(req.token_id.clone())),
     })?;
 
-    charge_redeem_fee(caller(), &req.target_chain_id).await?;
+    charge_icp_fee(caller(), &req.target_chain_id).await?;
 
     let caller = ic_cdk::caller();
     let user = Account {
@@ -83,15 +84,25 @@ pub async fn generate_ticket(
         subaccount: req.from_subaccount,
     };
 
-    let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
-    let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
+    let ticket_id = match req.action {
+        TxAction::Mint => {
+            Ok(format!("mint_runes_{}", ic_cdk::api::time()))
+        }
+        TxAction::Burn | TxAction::Redeem => {
+            let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
+            let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
+            Ok(ticket_id)
+        }
+        TxAction::Transfer => {
+            return Err(GenerateTicketError::UnsupportedAction(
+                "Transfer action is not supported".into(),
+            ));
+        }
+    }?;
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
-    let action = if req.burn {
-        TxAction::Burn
-    } else {
-        TxAction::Redeem
-    };
+    let action = req.action.clone();
+
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
         ticket_type: omnity_types::TicketType::Normal,
@@ -191,7 +202,10 @@ async fn burn_token_icrc2(
     }
 }
 
-async fn charge_redeem_fee(from: Principal, chain_id: &ChainId) -> Result<(), GenerateTicketError> {
+pub async fn charge_icp_fee(
+    from: Principal,
+    chain_id: &ChainId,
+) -> Result<(), GenerateTicketError> {
     let redeem_fee = read_state(|s| match s.target_chain_factor.get(chain_id) {
         Some(target_chain_factor) => s.fee_token_factor.map_or(
             Err(GenerateTicketError::RedeemFeeNotSet),

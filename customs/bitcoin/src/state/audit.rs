@@ -1,8 +1,8 @@
 //! State modifications that should end up in the event log.
 
 use super::{
-    eventlog::Event, CustomsState, GenTicketRequestV2, RuneId, RuneTxRequest,
-    RunesBalance, SubmittedBtcTransactionV2,
+    eventlog::Event, CustomsState, GenTicketRequestV2, RuneId, RuneTxRequest, RunesBalance,
+    SubmittedBtcTransactionV2,
 };
 use crate::destination::Destination;
 use crate::storage::record_event;
