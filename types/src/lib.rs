@@ -706,6 +706,8 @@ pub enum Error {
     DeactiveChain(String),
     #[error("The ticket id (`{0}`) already exists!")]
     AlreadyExistingTicketId(String),
+    #[error("Not fount the ticket id (`{0}`) !")]
+    NotFoundTicketId(String),
     #[error("The resubmit ticket id must exist!")]
     ResubmitTicketIdMustExist,
     #[error("The resubmit ticket must same as the old ticket!")]

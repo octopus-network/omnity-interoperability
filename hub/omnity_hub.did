@@ -43,6 +43,7 @@ type Error = variant {
   ProposalError : text;
   ResubmitTicketMustSame;
   NotFoundAccountToken : record { text; text; text };
+  NotFoundTicketId : text;
   NotSupportedProposal;
   SighWithEcdsaError : text;
   Unauthorized;
@@ -58,6 +59,7 @@ type Error = variant {
   NotSufficientTokens : record { text; text };
 };
 type Event = variant {
+  updated_tx_hash : record { ticket_id : text; tx_hash : text };
   toggled_chain_state : record { chain : Chain; state : ToggleState };
   Unsubscribed_topic : record { sub : text; topic : Topic };
   updated_fee : Factor;
@@ -101,14 +103,16 @@ type Result = variant { Ok; Err : SelfServiceError };
 type Result_1 = variant { Ok; Err : Error };
 type Result_10 = variant { Ok : vec TokenResp; Err : Error };
 type Result_11 = variant { Ok : Ticket; Err : Error };
-type Result_12 = variant { Ok : vec Ticket; Err : Error };
-type Result_13 = variant { Ok : vec record { nat64; Directive }; Err : Error };
-type Result_14 = variant {
+type Result_12 = variant { Ok : vec record { text; text }; Err : Error };
+type Result_13 = variant { Ok : vec Ticket; Err : Error };
+type Result_14 = variant { Ok : vec record { nat64; Directive }; Err : Error };
+type Result_15 = variant {
   Ok : vec record { Topic; Subscribers };
   Err : Error;
 };
-type Result_15 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
-type Result_16 = variant { Ok : vec text; Err : Error };
+type Result_16 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type Result_17 = variant { Ok : text; Err : Error };
+type Result_18 = variant { Ok : vec text; Err : Error };
 type Result_2 = variant { Ok : Chain; Err : Error };
 type Result_3 = variant { Ok : vec Chain; Err : Error };
 type Result_4 = variant { Ok : nat64; Err : Error };
@@ -216,7 +220,9 @@ service : (HubArg) -> {
   get_tokens : (opt text, opt text, nat64, nat64) -> (Result_10) query;
   get_total_tx : () -> (Result_4) query;
   get_tx : (text) -> (Result_11) query;
-  get_txs : (nat64, nat64) -> (Result_12) query;
+  get_tx_hash_size : () -> (Result_4) query;
+  get_tx_hashes : (nat64, nat64) -> (Result_12) query;
+  get_txs : (nat64, nat64) -> (Result_13) query;
   get_txs_with_account : (
       opt text,
       opt text,
@@ -224,7 +230,7 @@ service : (HubArg) -> {
       opt record { nat64; nat64 },
       nat64,
       nat64,
-    ) -> (Result_12) query;
+    ) -> (Result_13) query;
   get_txs_with_chain : (
       opt text,
       opt text,
@@ -232,12 +238,13 @@ service : (HubArg) -> {
       opt record { nat64; nat64 },
       nat64,
       nat64,
-    ) -> (Result_12) query;
+    ) -> (Result_13) query;
   handle_chain : (vec Proposal) -> (Result_1);
   handle_token : (vec Proposal) -> (Result_1);
-  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_13) query;
-  query_subscribers : (opt Topic) -> (Result_14) query;
-  query_tickets : (opt text, nat64, nat64) -> (Result_15) query;
+  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_14) query;
+  query_subscribers : (opt Topic) -> (Result_15) query;
+  query_tickets : (opt text, nat64, nat64) -> (Result_16) query;
+  query_tx_hash : (text) -> (Result_17) query;
   resubmit_ticket : (Ticket) -> (Result_1);
   send_ticket : (Ticket) -> (Result_1);
   set_logger_filter : (text) -> ();
@@ -245,8 +252,9 @@ service : (HubArg) -> {
   set_runes_oracle : (principal) -> ();
   sub_directives : (opt text, vec Topic) -> (Result_1);
   sync_ticket_size : () -> (Result_4) query;
-  sync_tickets : (nat64, nat64) -> (Result_15) query;
+  sync_tickets : (nat64, nat64) -> (Result_16) query;
   unsub_directives : (opt text, vec Topic) -> (Result_1);
   update_fee : (vec Factor) -> (Result_1);
-  validate_proposal : (vec Proposal) -> (Result_16) query;
+  update_tx_hash : (text, text) -> (Result_1);
+  validate_proposal : (vec Proposal) -> (Result_18) query;
 }

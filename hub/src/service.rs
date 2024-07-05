@@ -17,7 +17,7 @@ use omnity_hub::self_help::{
     SelfServiceError, ADD_CHAIN_FEE, ADD_TOKEN_FEE,
 };
 use omnity_hub::state::{with_state, with_state_mut};
-use omnity_hub::types::{ChainMeta, TokenMeta};
+use omnity_hub::types::{ChainMeta, TokenMeta, TxHash};
 use omnity_hub::{proposal, self_help};
 
 use omnity_hub::types::{
@@ -185,6 +185,17 @@ pub async fn query_tickets(
 ) -> Result<Vec<(Seq, Ticket)>, Error> {
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state(|hub_state| hub_state.pull_tickets(&dst_chain_id, offset, limit))
+}
+
+#[update(guard = "auth_update")]
+pub async fn update_tx_hash(ticket_id: TicketId, tx_hash: String) -> Result<(), Error> {
+    debug!("update tx({:?}) hash: {:?}", ticket_id, tx_hash);
+    with_state_mut(|hub_state| hub_state.update_tx_hash(ticket_id, tx_hash))
+}
+
+#[query(guard = "auth_query")]
+pub async fn query_tx_hash(ticket_id: TicketId) -> Result<TxHash, Error> {
+    with_state(|hub_state| hub_state.qet_tx_hash(&ticket_id))
 }
 
 #[update(guard = "is_admin")]
@@ -394,6 +405,28 @@ pub async fn sync_ticket_size() -> Result<u64, Error> {
 #[query(guard = "auth_query")]
 pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
     with_metrics(|metrics| metrics.sync_tickets(offset, limit))
+}
+
+#[query(guard = "auth_query")]
+pub async fn get_tx_hash_size() -> Result<u64, Error> {
+    with_state(|hub_state| {
+        let tx_hash_size = hub_state.tx_hashes.len();
+        Ok(tx_hash_size)
+    })
+}
+
+#[query(guard = "auth_query")]
+pub async fn get_tx_hashes(offset: usize, limit: usize) -> Result<Vec<(TicketId, TxHash)>, Error> {
+    let tx_hashes = with_state(|hub_state| {
+        hub_state
+            .tx_hashes
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(ticket_id, tx_hash)| (ticket_id, tx_hash))
+            .collect::<Vec<_>>()
+    });
+    Ok(tx_hashes)
 }
 
 fn main() {}

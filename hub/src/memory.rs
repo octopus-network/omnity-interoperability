@@ -10,7 +10,7 @@ use std::cell::RefCell;
 
 use omnity_types::{ChainId, Directive, SeqKey, Ticket, TicketId, TokenId, Topic};
 
-use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
+use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta, TxHash};
 
 const UPGRADES: MemoryId = MemoryId::new(0);
 const CHAIN: MemoryId = MemoryId::new(1);
@@ -28,6 +28,7 @@ const EVENT_INDEX_MEMORY_ID: MemoryId = MemoryId::new(12);
 const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(13);
 const METRIC_SEQS: MemoryId = MemoryId::new(14);
 const TICKET_METRIC: MemoryId = MemoryId::new(15);
+const TXHASHES: MemoryId = MemoryId::new(16);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
@@ -114,6 +115,10 @@ pub fn get_ticket_queue_memory() -> Memory {
     with_memory_manager(|m| m.get(TICKET_QUEUE))
 }
 
+pub fn get_tx_hashes_memory() -> Memory {
+    with_memory_manager(|m| m.get(TXHASHES))
+}
+
 pub fn init_chain() -> StableBTreeMap<ChainId, ChainMeta, Memory> {
     StableBTreeMap::init(get_chain_memory())
 }
@@ -160,6 +165,10 @@ pub fn init_event_log() -> IcLog<Vec<u8>, Memory, Memory> {
         with_memory_manager(|m| m.get(EVENT_INDEX_MEMORY_ID)),
     )
     .expect("failed to initialize stable log")
+}
+
+pub fn init_tx_hashes() -> StableBTreeMap<TicketId, TxHash, Memory> {
+    StableBTreeMap::init(get_tx_hashes_memory())
 }
 
 pub fn get_ticket_metric() -> Memory {

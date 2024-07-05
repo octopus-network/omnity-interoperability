@@ -4,9 +4,9 @@ use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
+
 use crate::self_help::AddRunesTokenReq;
-use crate::migration::{migrate, PreHubState};
-use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
+use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta, TxHash};
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
@@ -47,6 +47,8 @@ pub struct HubState {
     pub token_position: StableBTreeMap<TokenKey, Amount, Memory>,
     #[serde(skip, default = "memory::init_ledger")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
+    #[serde(skip, default = "memory::init_tx_hashes")]
+    pub tx_hashes: StableBTreeMap<TicketId, TxHash, Memory>,
 
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
@@ -76,6 +78,7 @@ impl From<InitArgs> for HubState {
             dire_queue: StableBTreeMap::init(memory::get_dire_queue_memory()),
             topic_subscribers: StableBTreeMap::init(memory::get_subs_memory()),
             ticket_queue: StableBTreeMap::init(memory::get_ticket_queue_memory()),
+            tx_hashes: StableBTreeMap::init(memory::get_tx_hashes_memory()),
             directive_seq: HashMap::default(),
             ticket_seq: HashMap::default(),
             admin: args.admin,
@@ -145,10 +148,8 @@ impl HubState {
         memory.read(4, &mut state_bytes);
 
         // Deserialize pre state
-        let pre_state: PreHubState =
+        let mut state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-        //migration auth
-        let mut state = migrate(pre_state);
 
         if let Some(args) = args {
             match args {
@@ -757,6 +758,21 @@ impl HubState {
         }
     }
 
+    pub fn update_tx_hash(&mut self, ticket_id: TicketId, tx_hash: TxHash) -> Result<(), Error> {
+        match self.cross_ledger.get(&ticket_id) {
+            Some(_) => {
+                self.tx_hashes
+                    .insert(ticket_id.to_string(), tx_hash.to_string());
+
+                record_event(&&Event::UpdatedTxHash { ticket_id, tx_hash });
+                Ok(())
+            }
+            None => {
+                error!("The ticket id is not exists!");
+                Err(Error::NotFoundTicketId(ticket_id.to_string()))
+            }
+        }
+    }
     pub fn pull_tickets(
         &self,
         chain_id: &ChainId,
@@ -778,6 +794,12 @@ impl HubState {
             }
         }
         Ok(tickets)
+    }
+
+    pub fn qet_tx_hash(&self, ticket_id: &TicketId) -> Result<TxHash, Error> {
+        self.tx_hashes
+            .get(ticket_id)
+            .ok_or(Error::NotFoundTicketId(ticket_id.to_string()))
     }
 
     pub fn repub_2_subscriber(
