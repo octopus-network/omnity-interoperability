@@ -11,7 +11,7 @@ cp .dfx/ic/canisters/omnity_hub/service.did.d.ts assets/omnity_hub/
 cp .dfx/ic/canisters/omnity_hub/service.did.js assets/omnity_hub/
 cp .dfx/ic/canisters/bitcoin_customs/service.did.d.ts assets/bitcoin_customs/
 cp .dfx/ic/canisters/bitcoin_customs/service.did.js assets/bitcoin_customs/
-cp .dfx/ic/canisters/icp_route/service.did.d.ts assets/icp_route/
-cp .dfx/ic/canisters/icp_route/service.did.js assets/icp_route/
+cp .dfx/local/canisters/icp_route/service.did.d.ts assets/icp_route/
+cp .dfx/local/canisters/icp_route/service.did.js assets/icp_route/
 cp .dfx/ic/canisters/icp_customs/service.did.d.ts assets/icp_customs/
 cp .dfx/ic/canisters/icp_customs/service.did.js assets/icp_customs/
