@@ -686,6 +686,7 @@ impl HubState {
                     )?;
                 }
             }
+            TxAction::Mint => {}
         }
 
         Ok(())

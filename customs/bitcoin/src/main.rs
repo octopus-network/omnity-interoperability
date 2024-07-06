@@ -127,7 +127,7 @@ async fn get_main_btc_address(token: String) -> String {
 
 #[query]
 fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
-    read_state(|s| s.release_token_status(&ticket_id))
+    read_state(|s| s.rune_tx_status(&ticket_id))
 }
 
 #[query]
