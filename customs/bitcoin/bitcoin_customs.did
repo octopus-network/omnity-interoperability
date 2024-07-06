@@ -89,6 +89,7 @@ type Event = variant {
     submitted_at : nat64;
   };
   accepted_generate_ticket_request : GenTicketRequest;
+  accepted_rune_tx_request : RuneTxRequest;
   toggle_chain_state : ToggleState;
 };
 type GenTicketRequest = record {
@@ -175,6 +176,14 @@ type Result_1 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
 type Result_2 = variant { Ok; Err : UpdatePendingTicketError };
 type Result_3 = variant { Ok; Err : UpdateRunesBalanceError };
 type RuneId = record { tx : nat32; block : nat64 };
+type RuneTxRequest = record {
+  received_at : nat64;
+  action : TxAction;
+  ticket_id : text;
+  address : BitcoinAddress;
+  amount : nat;
+  rune_id : RuneId;
+};
 type RunesBalance = record { vout : nat32; amount : nat; rune_id : RuneId };
 type RunesChangeOutput = record { value : nat; vout : nat32; rune_id : RuneId };
 type RunesUtxo = record { raw : Utxo; runes : RunesBalance };
@@ -195,6 +204,7 @@ type TokenResp = record {
   rune_id : text;
   symbol : text;
 };
+type TxAction = variant { Burn; Redeem; Mint; Transfer };
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
 type UpdatePendingTicketArgs = record {
   txid : text;

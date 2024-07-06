@@ -53,7 +53,7 @@ impl From<(OldEvmRouteState, EvmTxType)> for EvmRouteState {
     fn from(value: (OldEvmRouteState, EvmTxType)) -> Self {
         let old = value.0;
         Self {
-            admin: old.admin,
+            admins: vec![old.admin],
             hub_principal: old.hub_principal,
             omnity_chain_id: old.omnity_chain_id,
             evm_chain_id: old.evm_chain_id,

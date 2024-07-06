@@ -4,8 +4,9 @@ use crate::lifecycle::init::{HubArg, InitArgs};
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
+
 use crate::self_help::AddRunesTokenReq;
-use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
+use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta, TxHash};
 use candid::Principal;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
@@ -46,6 +47,8 @@ pub struct HubState {
     pub token_position: StableBTreeMap<TokenKey, Amount, Memory>,
     #[serde(skip, default = "memory::init_ledger")]
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
+    #[serde(skip, default = "memory::init_tx_hashes")]
+    pub tx_hashes: StableBTreeMap<TicketId, TxHash, Memory>,
 
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
@@ -54,10 +57,12 @@ pub struct HubState {
     pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
 
-    #[serde(skip_deserializing)]
     pub add_runes_token_requests: BTreeMap<String, AddRunesTokenReq>,
-    #[serde(skip_deserializing)]
     pub runes_oracles: BTreeSet<Principal>,
+
+    //test
+    pub dire_map: BTreeMap<SeqKey, Directive>,
+    pub ticket_map: BTreeMap<SeqKey, String>,
 }
 
 impl From<InitArgs> for HubState {
@@ -73,6 +78,7 @@ impl From<InitArgs> for HubState {
             dire_queue: StableBTreeMap::init(memory::get_dire_queue_memory()),
             topic_subscribers: StableBTreeMap::init(memory::get_subs_memory()),
             ticket_queue: StableBTreeMap::init(memory::get_ticket_queue_memory()),
+            tx_hashes: StableBTreeMap::init(memory::get_tx_hashes_memory()),
             directive_seq: HashMap::default(),
             ticket_seq: HashMap::default(),
             admin: args.admin,
@@ -81,6 +87,9 @@ impl From<InitArgs> for HubState {
             last_resubmit_ticket_time: 0,
             add_runes_token_requests: Default::default(),
             runes_oracles: Default::default(),
+
+            dire_map: BTreeMap::default(),
+            ticket_map: BTreeMap::default(),
         }
     }
 }
@@ -141,11 +150,6 @@ impl HubState {
         // Deserialize pre state
         let mut state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-
-        //migration auth
-        state.caller_chain_map.iter().for_each(|(k, _)| {
-            state.caller_perms.insert(k.to_string(), Permission::Update);
-        });
 
         if let Some(args) = args {
             match args {
@@ -472,9 +476,9 @@ impl HubState {
 
         subs.iter().for_each(|sub| {
             if !self
-                .dire_queue
+                .dire_map
                 .iter()
-                .any(|(seq_key, directive)| seq_key.chain_id.eq(sub) && directive == dire)
+                .any(|(seq_key, directive)| seq_key.chain_id.eq(sub) && *directive == dire)
             {
                 let latest_dire_seq = self
                     .directive_seq
@@ -484,14 +488,15 @@ impl HubState {
 
                 let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
                 //TODO: match! and exclude diretive for  target chain self
-                self.dire_queue.insert(seq_key.clone(), dire.clone());
+                self.dire_map.insert(seq_key.to_owned(), dire.to_owned());
                 debug!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                 record_event(&Event::PubedDirective {
                     seq_key,
-                    dire: dire.clone(),
+                    dire: dire.to_owned(),
                 });
             }
         });
+
         Ok(())
     }
 
@@ -502,15 +507,25 @@ impl HubState {
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Directive)>, Error> {
-        Ok(self
-            .dire_queue
-            .iter()
-            .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
-            .filter(|(_, dire)| topic.clone().map_or(true, |t| dire.to_topic() == t))
-            .skip(offset)
-            .take(limit)
-            .map(|(seq_key, dire)| (seq_key.seq, dire.clone()))
-            .collect::<Vec<_>>())
+        match topic {
+            Some(topic) => Ok(self
+                .dire_map
+                .iter()
+                .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
+                .filter(|(_, dire)| dire.to_topic() == topic)
+                .skip(offset)
+                .take(limit)
+                .map(|(seq_key, dire)| (seq_key.seq, dire.to_owned()))
+                .collect::<Vec<_>>()),
+            None => Ok(self
+                .dire_map
+                .iter()
+                .filter(|(seq_key, _)| seq_key.chain_id.eq(&chain_id))
+                .skip(offset)
+                .take(limit)
+                .map(|(seq_key, dire)| (seq_key.seq, dire.to_owned()))
+                .collect::<Vec<_>>()),
+        }
     }
 
     pub fn add_token_position(&mut self, position: TokenKey, amount: u128) -> Result<(), Error> {
@@ -671,6 +686,7 @@ impl HubState {
                     )?;
                 }
             }
+            TxAction::Mint => {}
         }
 
         Ok(())
@@ -684,9 +700,11 @@ impl HubState {
             .and_modify(|seq| *seq += 1)
             .or_insert(0);
 
-        // add new ticket
+        // create new ticket
         let seq_key = SeqKey::from(ticket.dst_chain.to_string(), *latest_ticket_seq);
-        self.ticket_queue.insert(seq_key.clone(), ticket.clone());
+        self.ticket_map
+            .insert(seq_key.clone(), ticket.ticket_id.to_string());
+
         //save ticket
         self.cross_ledger
             .insert(ticket.ticket_id.to_string(), ticket.clone());
@@ -741,22 +759,48 @@ impl HubState {
         }
     }
 
+    pub fn update_tx_hash(&mut self, ticket_id: TicketId, tx_hash: TxHash) -> Result<(), Error> {
+        match self.cross_ledger.get(&ticket_id) {
+            Some(_) => {
+                self.tx_hashes
+                    .insert(ticket_id.to_string(), tx_hash.to_string());
+
+                record_event(&&Event::UpdatedTxHash { ticket_id, tx_hash });
+                Ok(())
+            }
+            None => {
+                error!("The ticket id is not exists!");
+                Err(Error::NotFoundTicketId(ticket_id.to_string()))
+            }
+        }
+    }
     pub fn pull_tickets(
         &self,
         chain_id: &ChainId,
         offset: usize,
         limit: usize,
     ) -> Result<Vec<(Seq, Ticket)>, Error> {
-        debug!("pull_tickets: {:?},{offset},{limit}", chain_id);
-        let tickets = self
-            .ticket_queue
+        let targets = self
+            .ticket_map
             .iter()
             .filter(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
             .skip(offset)
             .take(limit)
-            .map(|(tk, ticket)| (tk.seq, ticket.clone()))
-            .collect();
+            .map(|(seq_key, ticket_id)| (seq_key.seq, ticket_id))
+            .collect::<Vec<_>>();
+        let mut tickets = Vec::new();
+        for (seq, ticket_id) in targets {
+            if let Some(dire) = self.cross_ledger.get(&ticket_id) {
+                tickets.push((seq, dire))
+            }
+        }
         Ok(tickets)
+    }
+
+    pub fn get_tx_hash(&self, ticket_id: &TicketId) -> Result<TxHash, Error> {
+        self.tx_hashes
+            .get(ticket_id)
+            .ok_or(Error::NotFoundTicketId(ticket_id.to_string()))
     }
 
     pub fn repub_2_subscriber(
@@ -803,15 +847,15 @@ impl HubState {
             chain_id.to_string()
         );
         for (seq_key, dir) in self
-            .dire_queue
+            .dire_map
             .iter()
             .filter(|(seq_key, _)| seq_key.chain_id.eq(chain_id))
-            .map(|(seq_key, dire)| (seq_key, dire))
+            .map(|(seq_key, dire)| (seq_key.to_owned(), dire.to_owned()))
             .collect::<Vec<_>>()
         {
             let topics = BTreeSet::from_iter(topics.iter());
             if topics.contains(&dir.to_topic()) {
-                self.dire_queue.remove(&seq_key);
+                self.dire_map.remove(&seq_key);
                 record_event(&Event::DeletedDirective(seq_key.clone()));
             }
         }

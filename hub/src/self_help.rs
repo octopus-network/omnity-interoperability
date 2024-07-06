@@ -12,7 +12,8 @@ use omnity_types::{rune_id::RuneId, ChainId};
 use serde::Serialize;
 use std::{collections::HashMap, str::FromStr};
 
-const SELF_SERVICE_FEE: u64 = 100_000_000;
+pub const ADD_TOKEN_FEE: u64 = 1_000_000_000;
+pub const ADD_CHAIN_FEE: u64 = 300_000_000;
 const ICP_TRANSFER_FEE: u64 = 10_000;
 const BITCOIN_CHAIN: &str = "Bitcoin";
 
@@ -69,7 +70,7 @@ pub async fn add_runes_token(args: AddRunesTokenReq) -> Result<(), SelfServiceEr
         return Err(SelfServiceError::ChainNotFound(args.dest_chain));
     }
 
-    charge_fee().await?;
+    charge_fee(ADD_TOKEN_FEE).await?;
 
     with_state_mut(|s| {
         s.add_runes_token_requests
@@ -118,7 +119,7 @@ pub async fn finalize_add_runes_token(args: FinalizeAddRunesArgs) -> Result<(), 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct AddDestChainArgs {
     pub token_id: String,
-    pub dst_chain: ChainId,
+    pub dest_chain: ChainId,
 }
 
 pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), SelfServiceError> {
@@ -134,19 +135,19 @@ pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), Self
 
     if !issue_chain
         .counterparties
-        .is_some_and(|c| c.contains(&args.dst_chain))
+        .is_some_and(|c| c.contains(&args.dest_chain))
     {
-        return Err(SelfServiceError::ChainNotFound(args.dst_chain));
+        return Err(SelfServiceError::ChainNotFound(args.dest_chain));
     }
 
-    token_meta.dst_chains.push(args.dst_chain);
+    token_meta.dst_chains.push(args.dest_chain);
 
     let proposal = vec![Proposal::UpdateToken(token_meta)];
     validate_proposal(&proposal)
         .await
         .map_err(|err| SelfServiceError::InvalidProposal(err.to_string()))?;
 
-    charge_fee().await?;
+    charge_fee(ADD_CHAIN_FEE).await?;
 
     execute_proposal(proposal)
         .await
@@ -155,17 +156,17 @@ pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), Self
     Ok(())
 }
 
-async fn charge_fee() -> Result<(), SelfServiceError> {
+async fn charge_fee(fee_amount: u64) -> Result<(), SelfServiceError> {
     let subaccount = principal_to_subaccount(&ic_cdk::caller());
     let balance = ic_balance_of(&subaccount).await?.e8s();
-    if balance < SELF_SERVICE_FEE {
+    if balance < fee_amount {
         return Err(SelfServiceError::InsufficientFee {
-            required: SELF_SERVICE_FEE,
+            required: fee_amount,
             provided: balance,
         });
     }
 
-    transfer_fee(&subaccount, SELF_SERVICE_FEE).await?;
+    transfer_fee(&subaccount, fee_amount).await?;
     Ok(())
 }
 

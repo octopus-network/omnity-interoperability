@@ -1,11 +1,11 @@
 use super::{
-    BtcChangeOutput, GenTicketRequest, GenTicketRequestV2, RuneId, RunesBalance, RunesUtxo,
-    RUNES_TOKEN,
+    BtcChangeOutput, GenTicketRequest, GenTicketRequestV2, RuneId, RuneTxRequest, RunesBalance,
+    RunesUtxo, SubmittedBtcTransactionV2, RUNES_TOKEN,
 };
 use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
-use crate::state::{CustomsState, ReleaseTokenRequest, RunesChangeOutput, SubmittedBtcTransaction};
+use crate::state::{CustomsState, ReleaseTokenRequest, RunesChangeOutput};
 use ic_btc_interface::{Txid, Utxo};
 use omnity_types::{Chain, TicketId, ToggleState, Token};
 use serde::{Deserialize, Serialize};
@@ -72,6 +72,9 @@ pub enum Event {
     /// The customs emits this event _after_ it send to hub.
     #[serde(rename = "accepted_release_token_request")]
     AcceptedReleaseTokenRequest(ReleaseTokenRequest),
+
+    #[serde(rename = "accepted_rune_tx_request")]
+    AcceptedRuneTxRequest(RuneTxRequest),
 
     #[serde(rename = "finalized_ticket_request")]
     FinalizedTicketRequest {
@@ -210,7 +213,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.update_runes_balance(txid, balance);
             }
             Event::AcceptedGenTicketRequest(req) => {
-                // There is no need to add utxos here, because in previous versions, 
+                // There is no need to add utxos here, because in previous versions,
                 // A ReceivedUtxos Event will be emitted at the same time.
                 state
                     .pending_gen_ticket_requests
@@ -256,6 +259,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.push_finalized_ticket(request);
             }
             Event::AcceptedReleaseTokenRequest(req) => {
+                state.push_back_pending_request(req.into());
+            }
+            Event::AcceptedRuneTxRequest(req) => {
                 state.push_back_pending_request(req);
             }
             Event::SentBtcTransaction {
@@ -287,7 +293,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 for utxo in btc_utxos.iter() {
                     state.available_fee_utxos.remove(utxo);
                 }
-                state.push_submitted_transaction(SubmittedBtcTransaction {
+                state.push_submitted_transaction(SubmittedBtcTransactionV2 {
                     rune_id,
                     requests: release_token_requests,
                     txid,
@@ -327,7 +333,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
 
                 state.replace_transaction(
                     &old_txid,
-                    SubmittedBtcTransaction {
+                    SubmittedBtcTransactionV2 {
                         rune_id: runes_change_output.rune_id.clone(),
                         txid: new_txid,
                         requests,

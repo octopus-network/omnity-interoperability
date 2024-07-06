@@ -17,9 +17,20 @@ export const idlFactory = ({ IDL }) => {
     'Upgrade' : IDL.Opt(UpgradeArgs),
     'Init' : InitArgs,
   });
+  const Account = IDL.Record({
+    'owner' : IDL.Principal,
+    'subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
+  });
+  const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
+  const TxAction = IDL.Variant({
+    'Burn' : IDL.Null,
+    'Redeem' : IDL.Null,
+    'Mint' : IDL.Null,
+    'Transfer' : IDL.Null,
+  });
   const GenerateTicketReq = IDL.Record({
+    'action' : TxAction,
     'token_id' : IDL.Text,
-    'burn' : IDL.Bool,
     'from_subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
     'target_chain_id' : IDL.Text,
     'amount' : IDL.Nat,
@@ -40,7 +51,7 @@ export const idlFactory = ({ IDL }) => {
     'UnsupportedToken' : IDL.Text,
     'InsufficientFunds' : IDL.Record({ 'balance' : IDL.Nat64 }),
   });
-  const Result = IDL.Variant({
+  const Result_1 = IDL.Variant({
     'Ok' : GenerateTicketOk,
     'Err' : GenerateTicketError,
   });
@@ -124,13 +135,39 @@ export const idlFactory = ({ IDL }) => {
     'Finalized' : IDL.Record({ 'block_index' : IDL.Nat64 }),
     'Unknown' : IDL.Null,
   });
-  const Result_1 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
   const Result_2 = IDL.Variant({
     'Ok' : IDL.Null,
     'Err' : GenerateTicketError,
   });
+  const MetadataValue = IDL.Variant({
+    'Int' : IDL.Int,
+    'Nat' : IDL.Nat,
+    'Blob' : IDL.Vec(IDL.Nat8),
+    'Text' : IDL.Text,
+  });
+  const ChangeFeeCollector = IDL.Variant({
+    'SetTo' : Account,
+    'Unset' : IDL.Null,
+  });
+  const FeatureFlags = IDL.Record({ 'icrc2' : IDL.Bool });
+  const UpgradeArgs_1 = IDL.Record({
+    'token_symbol' : IDL.Opt(IDL.Text),
+    'transfer_fee' : IDL.Opt(IDL.Nat),
+    'metadata' : IDL.Opt(IDL.Vec(IDL.Tuple(IDL.Text, MetadataValue))),
+    'maximum_number_of_accounts' : IDL.Opt(IDL.Nat64),
+    'accounts_overflow_trim_quantity' : IDL.Opt(IDL.Nat64),
+    'change_fee_collector' : IDL.Opt(ChangeFeeCollector),
+    'max_memo_length' : IDL.Opt(IDL.Nat16),
+    'token_name' : IDL.Opt(IDL.Text),
+    'feature_flags' : IDL.Opt(FeatureFlags),
+  });
   return IDL.Service({
-    'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
+    'collect_ledger_fee' : IDL.Func(
+        [IDL.Principal, IDL.Opt(IDL.Nat), Account],
+        [Result],
+        [],
+      ),
+    'generate_ticket' : IDL.Func([GenerateTicketReq], [Result_1], []),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_events' : IDL.Func([GetEventsArg], [IDL.Vec(Event)], ['query']),
     'get_fee_account' : IDL.Func(
@@ -149,10 +186,15 @@ export const idlFactory = ({ IDL }) => {
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
     'remove_controller' : IDL.Func(
         [IDL.Principal, IDL.Principal],
-        [Result_1],
+        [Result],
         [],
       ),
     'resend_tickets' : IDL.Func([], [Result_2], []),
+    'update_icrc_ledger' : IDL.Func(
+        [IDL.Principal, UpgradeArgs_1],
+        [Result],
+        [],
+      ),
   });
 };
 export const init = ({ IDL }) => {

@@ -25,6 +25,7 @@ pub type Amount = u128;
 pub type ChainId = String;
 pub type DstChain = ChainId;
 pub type TokenId = String;
+pub type TxHash = String;
 
 /// Directive Queue
 /// K: DstChain, V:  BTreeMap<Seq, Directive>
@@ -267,3 +268,5 @@ impl Storable for Subscribers {
 
     const BOUND: Bound = Bound::Unbounded;
 }
+
+

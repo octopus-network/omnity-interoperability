@@ -3,6 +3,7 @@ pub mod event;
 pub mod lifecycle;
 pub mod memory;
 pub mod metrics;
+pub mod migration;
 pub mod proposal;
 pub mod self_help;
 pub mod state;
