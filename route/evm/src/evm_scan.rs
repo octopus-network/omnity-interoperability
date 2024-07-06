@@ -11,9 +11,10 @@ use itertools::Itertools;
 use log::{error, info};
 
 use crate::*;
-use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
+use crate::const_args::{BATCH_QUERY_LIMIT, MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
 use crate::contract_types::{AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned, TokenMinted, TokenTransportRequested};
 use crate::eth_common::get_evm_finalized_height;
+use crate::hub_to_route::store_tickets;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
 
@@ -62,9 +63,16 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             mutate_state(|s| s.pending_tickets_map.remove(&token_mint.ticket_id));
             mutate_state(|s| {
                 s.finalized_mint_token_requests
-                    .insert(token_mint.ticket_id.clone(), tx_hash)
+                    .insert(token_mint.ticket_id.clone(), tx_hash.clone())
             });
             //rewrite tx to hub
+            let hub_principal = read_state(|s| s.hub_principal);
+            match hub::rewrite_ticket_mint_hash(hub_principal, token_mint.ticket_id, tx_hash).await {
+                Err(err) => {
+                    log::error!("[rewrite tx_hash] failed to write mint tx hash, reason: {}", err);
+                }
+                _ => {}
+            }
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;

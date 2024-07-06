@@ -1,7 +1,7 @@
 use candid::Principal;
 
 use crate::call_error::{CallError, Reason};
-use crate::types::{ChainId, Directive};
+use crate::types::{ChainId, Directive, TicketId};
 use crate::types::{Seq, Ticket};
 use crate::types::Topic;
 
@@ -72,28 +72,26 @@ pub async fn query_directives(
 
 pub async fn rewrite_ticket_mint_hash(
     hub_principal: Principal,
-    offset: u64,
-    limit: u64,
+    ticket_id: TicketId,
+    mint_tx_hash: String,
 ) -> Result<(), CallError> {
-    let resp: (Result<Vec<(Seq, Directive)>, crate::types::Error>, ) = ic_cdk::api::call::call(
+    let resp: (Result<(), crate::types::Error>, ) = ic_cdk::api::call::call(
         hub_principal,
-        "query_directives",
+        "update_tx_hash",
         (
-            None::<Option<ChainId>>,
-            None::<Option<Topic>>,
-            offset,
-            limit,
+            ticket_id,
+            mint_tx_hash
         ),
     )
         .await
         .map_err(|(code, message)| CallError {
-            method: "query_directives".to_string(),
+            method: "update_tx_hash".to_string(),
             reason: Reason::from_reject(code, message),
         })?;
-    let data = resp.0.map_err(|err| CallError {
-        method: "query_directives".to_string(),
+    resp.0.map_err(|err| CallError {
+        method: "update_tx_hash".to_string(),
         reason: Reason::CanisterError(err.to_string()),
     })?;
-    Ok(data)
+    Ok(())
 }
 
