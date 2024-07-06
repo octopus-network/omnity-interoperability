@@ -797,7 +797,7 @@ impl HubState {
         Ok(tickets)
     }
 
-    pub fn qet_tx_hash(&self, ticket_id: &TicketId) -> Result<TxHash, Error> {
+    pub fn get_tx_hash(&self, ticket_id: &TicketId) -> Result<TxHash, Error> {
         self.tx_hashes
             .get(ticket_id)
             .ok_or(Error::NotFoundTicketId(ticket_id.to_string()))

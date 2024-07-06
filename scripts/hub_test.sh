@@ -15,8 +15,8 @@ dfx canister create omnity_hub
 # dfx deploy omnity_hub
 # dfx identity --identity default get-principal
 # output: rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe
-dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
-# dfx canister install --mode reinstall --yes --wasm ./scripts/omnity_hub20240701.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' omnity_hub
+# dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
+dfx canister install --mode reinstall --yes --wasm ./scripts/omnity_hub20240705.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' omnity_hub
 # change log level for debugging
 dfx canister call omnity_hub set_logger_filter '("debug")'
 
@@ -170,11 +170,6 @@ dfx canister call omnity_hub query_tickets '(opt "Ethereum",0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(opt "Optimistic",null,0:nat64,5:nat64)'
 dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:nat64)'
 
-# update tx hash
-dfx canister call omnity_hub update_tx_hash '("f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21","f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21")'
-dfx canister call omnity_hub query_tx_hash '("f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21")'
-dfx canister call omnity_hub get_tx_hash_size '()'
-dfx canister call omnity_hub get_tx_hashes '(0:nat64,5:nat64)'
 
 # must build 
 dfx build omnity_hub
@@ -189,6 +184,17 @@ echo "query directive from memory ..."
 dfx canister call omnity_hub query_directives '(opt "eICP",null,0:nat64,12:nat64)' 
 echo "query ticket from memory ..."
 dfx canister call omnity_hub query_tickets '(opt "Optimistic",0:nat64,5:nat64)'
+
+# update tx hash
+echo "canister call omnity_hub update_tx_hash '("f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21","f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21")'"
+dfx canister call omnity_hub update_tx_hash '("f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21","f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21")'
+echo "canister call omnity_hub query_tx_hash '("f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21")'"
+dfx canister call omnity_hub query_tx_hash '("f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21")'
+echo "canister call omnity_hub get_tx_hash_size '()'"
+dfx canister call omnity_hub get_tx_hash_size '()'
+echo "canister call omnity_hub get_tx_hashes '(0:nat64,5:nat64)'"
+dfx canister call omnity_hub get_tx_hashes '(0:nat64,5:nat64)'
+
 # dfx stop
 
 # mainnet 

@@ -195,7 +195,7 @@ pub async fn update_tx_hash(ticket_id: TicketId, tx_hash: String) -> Result<(), 
 
 #[query(guard = "auth_query")]
 pub async fn query_tx_hash(ticket_id: TicketId) -> Result<TxHash, Error> {
-    with_state(|hub_state| hub_state.qet_tx_hash(&ticket_id))
+    with_state(|hub_state| hub_state.get_tx_hash(&ticket_id))
 }
 
 #[update(guard = "is_admin")]
