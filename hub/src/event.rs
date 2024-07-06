@@ -156,6 +156,9 @@ pub enum Event {
 
     #[serde(rename = "resubmit_ticket")]
     ResubmitTicket { ticket_id: String, timestamp: u64 },
+
+    #[serde(rename = "updated_tx_hash")]
+    UpdatedTxHash { ticket_id: String, tx_hash: String },
 }
 
 #[derive(Debug)]
@@ -247,7 +250,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     .ticket_seq
                     .insert(seq_key.chain_id.to_string(), seq_key.seq);
                 // add new ticket to queue
-                hub_state.ticket_map.insert(seq_key, ticket.ticket_id.to_string());
+                hub_state
+                    .ticket_map
+                    .insert(seq_key, ticket.ticket_id.to_string());
                 //save ticket to ledger
                 hub_state
                     .cross_ledger
@@ -281,6 +286,10 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                 ticket_id: _,
                 timestamp,
             } => hub_state.last_resubmit_ticket_time = timestamp,
+
+            Event::UpdatedTxHash { ticket_id, tx_hash } => {
+                hub_state.tx_hashes.insert(ticket_id, tx_hash);
+            }
         }
     }
     Ok(hub_state)
