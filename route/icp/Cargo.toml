@@ -34,6 +34,8 @@ omnity_types = { path = "../../types" }
 
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
 ic-ic00-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-crypto-sha2 = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+hex = "0.4.3"
 
 [dev-dependencies]
 ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
