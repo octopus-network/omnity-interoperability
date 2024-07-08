@@ -16,7 +16,12 @@ dfx canister create omnity_hub
 # dfx identity --identity default get-principal
 # output: rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe
 # dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
-dfx canister install --mode reinstall --yes --wasm ./scripts/omnity_hub20240705.wasm.gz --argument '(variant { Init = record { admin = principal "5a722-ku2e6-5slpj-5llbd-irueh-icccz-ptuqg-fk7xl-6fvfl-gwh3i-7ae"} })' omnity_hub
+
+dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "5a722-ku2e6-5slpj-5llbd-irueh-icccz-ptuqg-fk7xl-6fvfl-gwh3i-7ae"} })'
+dfx deploy bitcoin_mock --argument '(null)' --mode reinstall -y
+dfx deploy icp_mock --mode reinstall -y
+
+# dfx canister install --mode reinstall --yes --wasm ./scripts/omnity_hub20240705.wasm.gz --argument '(variant { Init = record { admin = principal "5a722-ku2e6-5slpj-5llbd-irueh-icccz-ptuqg-fk7xl-6fvfl-gwh3i-7ae"} })' omnity_hub
 # change log level for debugging
 dfx canister call omnity_hub set_logger_filter '("debug")'
 
