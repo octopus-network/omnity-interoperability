@@ -6,6 +6,7 @@ use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::{CustomsState, ReleaseTokenRequest, RunesChangeOutput};
+use candid::Principal;
 use ic_btc_interface::{Txid, Utxo};
 use omnity_types::{Chain, TicketId, ToggleState, Token};
 use serde::{Deserialize, Serialize};
@@ -152,6 +153,9 @@ pub enum Event {
         #[serde(rename = "txid")]
         txid: Txid,
     },
+
+    #[serde(rename = "added_runes_oracle")]
+    AddedRunesOracle { principal: Principal },
 }
 
 #[derive(Debug)]
@@ -348,6 +352,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::ConfirmedBtcTransaction { txid } => {
                 state.finalize_transaction(&txid);
+            }
+            Event::AddedRunesOracle { principal } => {
+                state.runes_oracles.insert(principal);
             }
         }
     }
