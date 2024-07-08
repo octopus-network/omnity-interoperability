@@ -5,6 +5,7 @@ use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee}
 use bitcoin_customs::state::{
     mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus,
 };
+use bitcoin_customs::storage::record_event;
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
 use bitcoin_customs::updates::update_pending_ticket::{
@@ -197,6 +198,7 @@ async fn update_pending_ticket(
 
 #[update(guard = "is_controller")]
 fn set_runes_oracle(oracle: Principal) {
+    record_event(&Event::AddedRunesOracle { principal: oracle });
     mutate_state(|s| s.runes_oracles.insert(oracle));
 }
 

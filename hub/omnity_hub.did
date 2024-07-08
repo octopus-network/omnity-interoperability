@@ -192,7 +192,7 @@ type Topic = variant {
   ToggleChainState;
   UpdateToken;
 };
-type TxAction = variant { Burn; Redeem; Transfer };
+type TxAction = variant { Burn; Redeem; Mint; Transfer };
 type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
   add_dest_chain_for_token : (AddDestChainArgs) -> (Result);

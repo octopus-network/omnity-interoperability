@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 pub use bitcoin_customs::{
     queries::GetGenTicketReqsArgs,
-    state::{GenTicketRequestV2, RuneId, RunesBalance},
+    state::{GenTicketRequestV2, RunesBalance},
     updates::update_runes_balance::UpdateRunesBalanceArgs,
 };
 pub use ic_btc_interface::Txid;
