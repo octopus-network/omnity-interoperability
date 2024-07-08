@@ -2,6 +2,7 @@ use crate::state::{audit, mutate_state, read_state};
 use crate::{hub, ICP_TRANSFER_FEE};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use ic_cdk::caller;
+use ic_crypto_sha2::Sha256;
 use ic_ledger_types::{
     AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT,
     MAINNET_LEDGER_CANISTER_ID,
@@ -86,7 +87,10 @@ pub async fn generate_ticket(
 
     let ticket_id = match req.action {
         TxAction::Mint => {
-            Ok(format!("mint_runes_{}", ic_cdk::api::time()))
+            let ledger_id = ic_cdk::id().to_string();
+            let ticket_id = Sha256::hash(format!("MINT_{}_{}", ledger_id, ic_cdk::api::time()).as_bytes());
+        
+            Ok(hex::encode(&ticket_id))
         }
         TxAction::Burn | TxAction::Redeem => {
             let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
