@@ -18,7 +18,7 @@ use crate::{Error, stable_memory};
 use crate::eth_common::{EvmAddress, EvmTxType};
 use crate::service::InitArgs;
 use crate::stable_memory::Memory;
-use crate::types::{Chain, ChainState, Token, TokenId};
+use crate::types::{Chain, ChainState, Timestamp, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
@@ -71,6 +71,7 @@ impl EvmRouteState {
             scan_start_height: args.scan_start_height,
             is_timer_running: Default::default(),
             evm_tx_type: args.evm_tx_type,
+            latest_scan_height_update_time: ic_cdk::api::time(),
         };
         Ok(ret)
     }
@@ -172,6 +173,8 @@ pub struct EvmRouteState {
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
     pub evm_tx_type: EvmTxType,
+    #[serde(skip)]
+    pub latest_scan_height_update_time: Timestamp,
 }
 
 impl From<&EvmRouteState> for StateProfile {

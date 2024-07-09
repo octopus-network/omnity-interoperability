@@ -59,4 +59,6 @@ pub mod const_args {
     pub const SCAN_EVM_CYCLES: u128 = 10_000_000_000;
     pub const BROADCAST_TX_CYCLES: u128 = 3_000_000_000;
     pub const GET_ACCOUNT_NONCE_CYCLES: u128 = 1_000_000_000;
+    pub const PENDING_TICKET_TIMEOUT_SECONDS: u64 = 600; //10 minutes
+pub const MONITOR_PRINCIPAL: &str = "czv3x-fsad3-m6nvs-z7xxt-dmuk7-kmrni-74pns-fvxet-6dzwi-72kcd-iae";
 }

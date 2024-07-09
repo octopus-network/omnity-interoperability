@@ -75,6 +75,7 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
                 ticket_id: t.ticket_id.clone(),
                 seq,
                 error: None,
+                add_at: ic_cdk::api::time(),
             };
             match sign_transaction(tx).await {
                 Ok(data) => {

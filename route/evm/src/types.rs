@@ -33,6 +33,7 @@ pub struct PendingTicketStatus {
     pub ticket_id: TicketId,
     pub seq: u64,
     pub error: Option<String>,
+    pub add_at: Timestamp,
 }
 
 #[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
@@ -756,6 +757,13 @@ impl EcdsaKeyIds {
             .to_string(),
         }
     }
+}
+
+
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MetricsStatus {
+    pub latest_scan_interval_secs: u64,
+    pub chainkey_addr_balance: u128,
 }
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -83,6 +83,7 @@ impl From<(OldEvmRouteState, EvmTxType)> for EvmRouteState {
             scan_start_height: old.scan_start_height,
             is_timer_running: old.is_timer_running,
             evm_tx_type: value.1,
+            latest_scan_height_update_time: 0,
         }
     }
 }

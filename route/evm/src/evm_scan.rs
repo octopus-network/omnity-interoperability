@@ -145,7 +145,10 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
         }
         mutate_state(|s| s.handled_evm_event.insert(log_key));
     }
-    mutate_state(|s| s.scan_start_height = to);
+    mutate_state(|s| {
+        s.scan_start_height = to;
+        s.latest_scan_height_update_time = ic_cdk::api::time();
+    });
     Ok(())
 }
 
