@@ -33,7 +33,6 @@ pub struct PendingTicketStatus {
     pub ticket_id: TicketId,
     pub seq: u64,
     pub error: Option<String>,
-    pub add_at: Timestamp,
 }
 
 #[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]

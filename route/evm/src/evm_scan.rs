@@ -11,10 +11,9 @@ use itertools::Itertools;
 use log::{error, info};
 
 use crate::*;
-use crate::const_args::{BATCH_QUERY_LIMIT, MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
+use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
 use crate::contract_types::{AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned, TokenMinted, TokenTransportRequested};
 use crate::eth_common::get_evm_finalized_height;
-use crate::hub_to_route::store_tickets;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
 
