@@ -22,7 +22,6 @@ use crate::types::{Chain, ChainState, Timestamp, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
-use crate::upgrade::OldEvmRouteState;
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
@@ -90,7 +89,7 @@ impl EvmRouteState {
             .expect("failed to save hub state");
     }
 
-    pub fn post_upgrade(evm_tx_type: EvmTxType) {
+    pub fn post_upgrade() {
         use ic_stable_structures::Memory;
         let memory = stable_memory::get_upgrade_stash_memory();
         // Read the length of the state bytes.
@@ -99,9 +98,8 @@ impl EvmRouteState {
         let state_len = u32::from_le_bytes(state_len_bytes) as usize;
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
-        let old_state: OldEvmRouteState = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-        let new_state = EvmRouteState::from((old_state, evm_tx_type));
-        replace_state(new_state);
+        let state: EvmRouteState = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+        replace_state(state);
     }
 
     pub fn pull_tickets(&self, from: usize, limit: usize) -> Vec<(Seq, Ticket)> {

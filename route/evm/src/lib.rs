@@ -17,7 +17,6 @@ pub mod stable_memory;
 pub mod state;
 pub mod types;
 pub mod updates;
-pub mod upgrade;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -60,5 +59,5 @@ pub mod const_args {
     pub const BROADCAST_TX_CYCLES: u128 = 3_000_000_000;
     pub const GET_ACCOUNT_NONCE_CYCLES: u128 = 1_000_000_000;
     pub const PENDING_TICKET_TIMEOUT_SECONDS: u64 = 600; //10 minutes
-pub const MONITOR_PRINCIPAL: &str = "czv3x-fsad3-m6nvs-z7xxt-dmuk7-kmrni-74pns-fvxet-6dzwi-72kcd-iae";
+pub const MONITOR_PRINCIPAL: &str = "3edln-ixjzp-oflch-uwhc7-xu5yt-s7t72-rp3rp-25j7a-tu254-h4w3x-jqe";
 }
