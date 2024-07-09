@@ -50,6 +50,10 @@ type InitArgs = record {
   scan_start_height : nat64;
   port_addr : opt text;
 };
+type MetricsStatus = record {
+  chainkey_addr_balance : nat;
+  latest_scan_interval_secs : nat64;
+};
 type MintTokenStatus = variant {
   Finalized : record { tx_hash : text };
   Unknown;
@@ -134,6 +138,7 @@ service : (InitArgs) -> {
   get_ticket : (text) -> (opt record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
   http_request : (HttpRequest) -> (HttpResponse) query;
+  metrics : () -> (MetricsStatus);
   mint_token_status : (text) -> (MintTokenStatus) query;
   pubkey_and_evm_addr : () -> (text, text);
   query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;

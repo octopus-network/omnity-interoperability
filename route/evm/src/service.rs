@@ -3,29 +3,21 @@ use std::time::Duration;
 
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
-use ethers_core::abi::ethereum_types;
-use ethers_core::utils::keccak256;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use k256::PublicKey;
 use log::info;
 use serde_derive::Deserialize;
 
-use crate::const_args::{
-    FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, SCAN_EVM_TASK_INTERVAL,
-    SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL,
-};
-use crate::eth_common::{EvmAddress, EvmTxType};
+use crate::const_args::{FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL};
+use crate::eth_common::{EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::scan_evm_task;
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
-use crate::state::{
-    EvmRouteState, init_chain_pubkey, mutate_state, read_state, replace_state, StateProfile,
-};
-use crate::types::{Chain, ChainId, Directive, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
+use crate::state::{EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, StateProfile};
+use crate::types::{Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
 
 #[init]
 fn init(args: InitArgs) {
@@ -82,21 +74,13 @@ fn get_ticket(ticket_id: String) -> Option<(u64, Ticket)> {
 
 #[update(guard = "is_admin")]
 async fn pubkey_and_evm_addr() -> (String, String) {
-    use ethers_core::utils::to_checksum;
-    use k256::elliptic_curve::sec1::ToEncodedPoint;
     let mut key = read_state(|s| s.pubkey.clone());
     if key.is_empty() {
         init_chain_pubkey().await;
         key = read_state(|s| s.pubkey.clone());
     }
     let key_str = format!("0x{}", hex::encode(key.as_slice()));
-    let key =
-        PublicKey::from_sec1_bytes(key.as_slice()).expect("failed to parse the public key as SEC1");
-    let point = key.to_encoded_point(false);
-    let point_bytes = point.as_bytes();
-    assert_eq!(point_bytes[0], 0x04);
-    let hash = keccak256(&point_bytes[1..]);
-    let addr = to_checksum(&ethereum_types::Address::from_slice(&hash[12..32]), None);
+    let addr = minter_addr();
     (key_str, addr)
 }
 
@@ -227,6 +211,26 @@ fn is_admin() -> Result<(), String> {
     match read_state(|s| s.admins.contains(&c)) {
         true => Ok(()),
         false => Err("permission deny".to_string()),
+    }
+}
+
+fn is_monitor() -> Result<(), String> {
+    let c = ic_cdk::caller();
+    match c == Principal::from_text(MONITOR_PRINCIPAL).unwrap() {
+        true => Ok(()),
+        false => Err("permission deny".to_string()),
+    }
+}
+
+#[update(guard = "is_monitor")]
+async fn metrics() -> MetricsStatus {
+    let latest_scan_time = read_state(|s| s.latest_scan_height_update_time);
+    let interval = (ic_cdk::api::time() - latest_scan_time) / 1000000000;
+    let chainkey_addr = minter_addr();
+    let balance = get_balance(chainkey_addr).await.unwrap_or_default();
+    MetricsStatus {
+        latest_scan_interval_secs: interval,
+        chainkey_addr_balance: balance.as_u128(),
     }
 }
 

@@ -235,7 +235,12 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
     // Define request parameters
     let params = (
         RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
-        r#"{"method":"eth_gasPrice","params":[],"id":1,"jsonrpc":"2.0"}"#.to_string(),
+        serde_json::to_string(&EvmJsonRpcRequest {
+            method: "eth_gasPrice".to_string(),
+            params: vec![],
+            id: 1,
+            jsonrpc: "2.0".to_string(),
+        }).unwrap(),
         1000u64,
     );
     // Get cycles cost
@@ -271,11 +276,61 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
     Ok(U256::from(r * 11 / 10))
 }
 
+
+pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
+    let params = (
+        RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
+        serde_json::to_string(&EvmJsonRpcRequest {
+            method: "eth_getBalance".to_string(),
+            params: vec![addr, "latest".to_string()],
+            id: 1,
+            jsonrpc: "2.0".to_string(),
+        }).unwrap(),
+        1000u64,
+    );
+    // Get cycles cost
+    let (cycles_result, ): (std::result::Result<u128, RpcError>, ) =
+        ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
+            .await
+            .unwrap();
+    let cycles = cycles_result.map_err(|e| {
+        error!("[evm route] evm request error: {:?}", e);
+        anyhow!(format!("error in `request_cost`: {:?}", e))
+    })?;
+    // Call with expected number of cycles
+    let (result, ): (std::result::Result<String, RpcError>, ) =
+        ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
+            .await
+            .map_err(|err| Error::IcCallError(err.0, err.1))?;
+    #[derive(Serialize, Deserialize, Debug)]
+    struct BalanceResult {
+        pub id: u32,
+        pub jsonrpc: String,
+        pub result: String,
+    }
+    let r = result.map_err(|e| {
+        error!("[evm route]query chainkey address evm balance error: {:?}", &e);
+        Error::Custom(anyhow!(format!(
+            "[evm route]query chainkey address evm balance error: {:?}",
+            &e
+        )))
+    })?;
+    let r: BalanceResult = serde_json::from_str(r.as_str())?;
+    let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
+    let r = u64::from_str_radix(r, 16)?;
+    Ok(U256::from(r))
+}
+
 pub async fn get_evm_finalized_height() -> anyhow::Result<u64> {
     // Define request parameters
     let params = (
         RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
-        r#"{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}"#.to_string(),
+        serde_json::to_string(&EvmJsonRpcRequest {
+            method: "eth_blockNumber".to_string(),
+            params: vec![],
+            id: 1,
+            jsonrpc: "2.0".to_string(),
+        }).unwrap(),
         1000u64,
     );
     // Get cycles cost
@@ -323,4 +378,12 @@ pub enum EvmTxType {
 pub enum EvmTxRequest {
     Legacy(TransactionRequest),
     Eip1559(Eip1559TransactionRequest),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct EvmJsonRpcRequest {
+    pub method: String,
+    pub params: Vec<String>,
+    pub id: u64,
+    pub jsonrpc: String,
 }

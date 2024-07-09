@@ -758,6 +758,13 @@ impl EcdsaKeyIds {
     }
 }
 
+
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MetricsStatus {
+    pub latest_scan_interval_secs: u64,
+    pub chainkey_addr_balance: u128,
+}
+
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {
     Finalized { tx_hash: String },
