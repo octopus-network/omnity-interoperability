@@ -303,7 +303,7 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
             .await
             .map_err(|err| Error::IcCallError(err.0, err.1))?;
     #[derive(Serialize, Deserialize, Debug)]
-    struct BlockNumberResult {
+    struct BalanceResult {
         pub id: u32,
         pub jsonrpc: String,
         pub result: String,
@@ -315,7 +315,7 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
             &e
         )))
     })?;
-    let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
+    let r: BalanceResult = serde_json::from_str(r.as_str())?;
     let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
     let r = u64::from_str_radix(r, 16)?;
     Ok(U256::from(r))
