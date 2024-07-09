@@ -32,8 +32,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade(evm_tx_type: EvmTxType) {
-    EvmRouteState::post_upgrade(evm_tx_type);
+fn post_upgrade() {
+    EvmRouteState::post_upgrade();
     init_log(Some(init_stable_log()));
     start_tasks();
     info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
