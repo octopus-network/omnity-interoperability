@@ -292,6 +292,8 @@ fn post_upgrade(route_arg: Option<RouteArg>) {
     }
     lifecycle::post_upgrade(upgrade_arg);
 
+    init_log(Some(init_stable_log()));
+
     set_timer_interval(
         Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),
         process_directive_msg_task,
