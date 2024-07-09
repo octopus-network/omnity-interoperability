@@ -21,7 +21,10 @@ pub enum AddNewTokenError {
 
 pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
     if read_state(|s| s.tokens.contains_key(&token.token_id)) {
-        return Err(AddNewTokenError::AlreadyAdded(token.token_id));
+        mutate_state(|s| {
+            s.tokens.insert(token.token_id.clone(), token);
+        });
+        return Ok(())
     }
 
     let record = install_icrc2_ledger(

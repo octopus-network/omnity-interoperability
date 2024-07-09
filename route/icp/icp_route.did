@@ -36,6 +36,7 @@ type GenerateTicketError = variant {
   TemporarilyUnavailable : text;
   InsufficientAllowance : record { allowance : nat64 };
   TransferFailure : text;
+  UnsupportedAction : text;
   RedeemFeeNotSet;
   UnsupportedChainId : text;
   UnsupportedToken : text;
