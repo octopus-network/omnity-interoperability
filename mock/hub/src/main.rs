@@ -1,7 +1,7 @@
 use candid::candid_method;
 use ic_cdk::query;
 use ic_cdk_macros::{init, update};
-use omnity_types::{self, ChainId, Directive, Seq, Ticket, Topic};
+use omnity_types::{self, ChainId, Directive, Seq, Ticket, TicketId, Topic};
 use std::{cell::RefCell, collections::BTreeMap};
 
 fn main() {}
@@ -115,6 +115,18 @@ pub async fn push_directives(directives: Vec<Directive>) -> Result<(), omnity_ty
         }
         Ok(())
     })
+}
+
+#[candid_method(update)]
+#[update]
+pub async fn update_tx_hash(_: TicketId, _: String) -> Result<(), omnity_types::Error> {
+    Ok(())
+}
+
+#[candid_method(update)]
+#[update]
+pub async fn batch_update_tx_hash(_: Vec<TicketId>, _: String) -> Result<(), omnity_types::Error> {
+    Ok(())
 }
 
 // Enable Candid export

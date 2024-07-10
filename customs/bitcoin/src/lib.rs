@@ -625,7 +625,12 @@ async fn finalize_requests() {
         }
     });
 
+    for tx in &confirmed_transactions {
+        update_tx_hash_to_hub(tx).await;
+    }
+
     for tx in &unstuck_transactions {
+        update_tx_hash_to_hub(tx).await;
         state::read_state(|s| {
             if let Some(replacement_txid) = s.find_last_replacement_tx(&tx.txid) {
                 maybe_finalized_transactions.remove(replacement_txid);
@@ -823,6 +828,16 @@ async fn finalize_requests() {
                 continue;
             }
         }
+    }
+}
+
+async fn update_tx_hash_to_hub(tx: &SubmittedBtcTransactionV2) {
+    let hub_principal = read_state(|s| s.hub_principal);
+    let ticket_ids = tx.requests.iter().map(|r| r.ticket_id.clone()).collect();
+    if let Err(err) =
+        hub::batch_update_tx_hash(hub_principal, ticket_ids, tx.txid.to_string()).await
+    {
+        log!(P0, "failed to update tx hash to hub: {}", err)
     }
 }
 

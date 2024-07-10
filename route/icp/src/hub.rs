@@ -1,6 +1,7 @@
 use crate::call_error::{CallError, Reason};
 use candid::Principal;
 use omnity_types::Directive;
+use omnity_types::TicketId;
 use omnity_types::Topic;
 use omnity_types::{self, ChainId, Seq, Ticket};
 
@@ -69,4 +70,23 @@ pub async fn query_directives(
         reason: Reason::CanisterError(err.to_string()),
     })?;
     Ok(data)
+}
+
+pub async fn update_tx_hash(
+    hub_principal: Principal,
+    ticket_id: TicketId,
+    mint_tx_hash: String,
+) -> Result<(), CallError> {
+    let resp: (Result<(), omnity_types::Error>,) =
+        ic_cdk::api::call::call(hub_principal, "update_tx_hash", (ticket_id, mint_tx_hash))
+            .await
+            .map_err(|(code, message)| CallError {
+                method: "update_tx_hash".to_string(),
+                reason: Reason::from_reject(code, message),
+            })?;
+    resp.0.map_err(|err| CallError {
+        method: "update_tx_hash".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
+    Ok(())
 }
