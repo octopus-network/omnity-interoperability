@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use cketh_common::eth_rpc::Hash;
+use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use evm_rpc::{
@@ -10,12 +10,15 @@ use evm_rpc::{
 use itertools::Itertools;
 use log::{error, info};
 
-use crate::*;
 use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
-use crate::contract_types::{AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned, TokenMinted, TokenTransportRequested};
+use crate::contract_types::{
+    AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
+    TokenMinted, TokenTransportRequested,
+};
 use crate::eth_common::get_evm_finalized_height;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
+use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -66,9 +69,12 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
             });
             //rewrite tx to hub
             let hub_principal = read_state(|s| s.hub_principal);
-            match hub::rewrite_ticket_mint_hash(hub_principal, token_mint.ticket_id, tx_hash).await {
+            match hub::update_tx_hash(hub_principal, token_mint.ticket_id, tx_hash).await {
                 Err(err) => {
-                    log::error!("[rewrite tx_hash] failed to write mint tx hash, reason: {}", err);
+                    log::error!(
+                        "[rewrite tx_hash] failed to write mint tx hash, reason: {}",
+                        err
+                    );
                 }
                 _ => {}
             }
@@ -156,7 +162,7 @@ pub async fn handle_runes_mint(
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_runes_mint_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket, ))
+    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket,))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
     Ok(())

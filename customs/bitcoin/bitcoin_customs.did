@@ -54,6 +54,7 @@ type Event = variant {
     destination : Destination;
     utxos : vec Utxo;
   };
+  added_runes_oracle : record { "principal" : principal };
   removed_ticket_request : record { txid : blob };
   sent_transaction : record {
     fee : opt nat64;

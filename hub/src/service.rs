@@ -193,6 +193,15 @@ pub async fn update_tx_hash(ticket_id: TicketId, tx_hash: String) -> Result<(), 
     with_state_mut(|hub_state| hub_state.update_tx_hash(ticket_id, tx_hash))
 }
 
+#[update(guard = "auth_update")]
+pub async fn batch_update_tx_hash(ticket_ids: Vec<TicketId>, tx_hash: String) -> Result<(), Error> {
+    debug!("batch update tx({:?}) hash: {:?}", ticket_ids, tx_hash);
+    for ticket_id in ticket_ids {
+        with_state_mut(|hub_state| hub_state.update_tx_hash(ticket_id, tx_hash.clone()))?;
+    }
+    Ok(())
+}
+
 #[query(guard = "auth_query")]
 pub async fn query_tx_hash(ticket_id: TicketId) -> Result<TxHash, Error> {
     with_state(|hub_state| hub_state.get_tx_hash(&ticket_id))
