@@ -69,6 +69,14 @@ pub enum Event {
     #[serde(rename = "accepted_generate_ticket_request_v2")]
     AcceptedGenTicketRequestV2(GenTicketRequestV2),
 
+    /// The difference from V2 is that the transaction accepts the request
+    /// when it enters the memory pool and puts it into the init_gen_ticket_requests queue.
+    #[serde(rename = "accepted_generate_ticket_request_v3")]
+    AcceptedGenTicketRequestV3(GenTicketRequestV2),
+
+    #[serde(rename = "confirmed_generate_ticket_request")]
+    ConfirmedGenTicketRequest(Txid),
+
     /// Indicates that the customs accepted a new release_token request.
     /// The customs emits this event _after_ it send to hub.
     #[serde(rename = "accepted_release_token_request")]
@@ -231,6 +239,28 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                     token: Some(RUNES_TOKEN.into()),
                 };
                 state.pending_gen_ticket_requests.insert(req.txid, req);
+                state.add_utxos(dest, new_utxos, true);
+            }
+            Event::AcceptedGenTicketRequestV3(req) => {
+                state.init_gen_ticket_requests.insert(req.txid, req);
+            }
+            Event::ConfirmedGenTicketRequest(txid) => {
+                let req = state
+                    .init_gen_ticket_requests
+                    .remove(&txid)
+                    .ok_or_else(|| {
+                        ReplayLogError::InconsistentLog(format!(
+                            "Attempted to remove a non-init generate ticket request {}",
+                            txid
+                        ))
+                    })?;
+                let new_utxos = req.new_utxos.clone();
+                let dest = Destination {
+                    target_chain_id: req.target_chain_id.clone(),
+                    receiver: req.receiver.clone(),
+                    token: Some(RUNES_TOKEN.into()),
+                };
+                state.pending_gen_ticket_requests.insert(txid, req);
                 state.add_utxos(dest, new_utxos, true);
             }
             Event::RemovedTicketRequest { txid } => {

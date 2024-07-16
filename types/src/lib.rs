@@ -180,6 +180,7 @@ pub enum TicketType {
     #[default]
     Normal,
     Resubmit,
+    Pending,
 }
 
 #[derive(

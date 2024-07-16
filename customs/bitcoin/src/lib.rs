@@ -15,7 +15,7 @@ use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
 use state::{
-    read_state, RuneTxRequest, RunesBalance, RunesChangeOutput, RunesUtxo,
+    read_state, GenTicketRequestV2, RuneTxRequest, RunesBalance, RunesChangeOutput, RunesUtxo,
     SubmittedBtcTransactionV2, BTC_TOKEN,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -332,7 +332,7 @@ async fn process_directive() {
 
 /// Constructs and sends out signed bitcoin transactions for pending retrieve
 /// requests.
-async fn submit_pending_requests() {
+async fn submit_rune_txs() {
     let fee_millisatoshi_per_vbyte = match estimate_fee_per_vbyte().await {
         Some(fee) => fee,
         None => return,
@@ -535,7 +535,7 @@ fn finalized_txs(
         .collect()
 }
 
-async fn finalize_requests() {
+async fn finalize_rune_txs() {
     if state::read_state(|s| s.submitted_transactions.is_empty()) {
         return;
     }
@@ -827,6 +827,50 @@ async fn finalize_requests() {
                 );
                 continue;
             }
+        }
+    }
+}
+
+async fn finalize_gen_ticket_txs() {
+    if state::read_state(|s| s.init_gen_ticket_requests.is_empty()) {
+        return;
+    }
+
+    let now = ic_cdk::api::time();
+    let (network, min_confirmations) = read_state(|s| (s.btc_network, s.min_confirmations));
+
+    let maybe_finalized_transactions: Vec<GenTicketRequestV2> = state::read_state(|s| {
+        let wait_time = finalization_time_estimate(min_confirmations, network);
+        s.init_gen_ticket_requests
+            .iter()
+            .filter(|&(_, req)| (req.received_at + (wait_time.as_nanos() as u64) < now))
+            .map(|(_, req)| req.clone())
+            .collect()
+    });
+
+    for req in maybe_finalized_transactions {
+        if management::get_utxos(
+            network,
+            &req.address,
+            min_confirmations,
+            management::CallSource::Custom,
+        )
+        .await
+        .map_or_else(
+            |err| {
+                log!(
+                    P0,
+                    "failed to call get_utxos in finalize_gen_ticket_txs: {}",
+                    err
+                );
+                return false;
+            },
+            |resp| {
+                // Just include any utxo
+                resp.utxos.contains(&req.new_utxos[0])
+            },
+        ) {
+            mutate_state(|s| audit::confirm_generate_ticket_request(s, req.txid));
         }
     }
 }
@@ -1325,8 +1369,9 @@ pub fn process_tx_task() {
             Some(guard) => guard,
             None => return,
         };
-        submit_pending_requests().await;
-        finalize_requests().await;
+        submit_rune_txs().await;
+        finalize_rune_txs().await;
+        finalize_gen_ticket_txs().await;
     });
 }
 

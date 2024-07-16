@@ -270,6 +270,11 @@ pub struct CustomsState {
 
     pub release_token_counter: u64,
 
+    /// The transaction has just entered the memory pool
+    /// or has not reached sufficient confirmation.
+    pub init_gen_ticket_requests: BTreeMap<Txid, GenTicketRequestV2>,
+
+    /// The transaction needs to wait for runes oracle to update the runes balance.
     pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequestV2>,
 
     pub finalized_gen_ticket_requests: VecDeque<GenTicketRequestV2>,
@@ -564,6 +569,9 @@ impl CustomsState {
     }
 
     pub fn generate_ticket_status(&self, tx_id: Txid) -> GenTicketStatus {
+        if let Some(req) = self.init_gen_ticket_requests.get(&tx_id) {
+            return GenTicketStatus::Pending(req.clone());
+        }
         if let Some(req) = self.pending_gen_ticket_requests.get(&tx_id) {
             return GenTicketStatus::Pending(req.clone());
         }
@@ -1112,10 +1120,11 @@ impl From<InitArgs> for CustomsState {
             max_time_in_queue_nanos: args.max_time_in_queue_nanos,
             generate_ticket_counter: 0,
             release_token_counter: 0,
+            init_gen_ticket_requests: Default::default(),
             pending_gen_ticket_requests: Default::default(),
+            finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             pending_rune_tx_requests: Default::default(),
             finalized_rune_tx_requests: BTreeMap::new(),
-            finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
             replacement_txid: Default::default(),

@@ -4,8 +4,8 @@ use super::{
     eventlog::Event, CustomsState, GenTicketRequestV2, RuneId, RuneTxRequest, RunesBalance,
     SubmittedBtcTransactionV2,
 };
-use crate::destination::Destination;
 use crate::storage::record_event;
+use crate::{destination::Destination, state::RUNES_TOKEN};
 use ic_btc_interface::{Txid, Utxo};
 use omnity_types::{Chain, ToggleState, Token};
 
@@ -52,17 +52,25 @@ pub fn accept_rune_tx_request(state: &mut CustomsState, request: RuneTxRequest) 
     state.push_back_pending_request(request);
 }
 
-pub fn accept_generate_ticket_request(
-    state: &mut CustomsState,
-    dest: Destination,
-    request: GenTicketRequestV2,
-) {
-    record_event(&Event::AcceptedGenTicketRequestV2(request.clone()));
-    let new_utxos = request.new_utxos.clone();
-    state
-        .pending_gen_ticket_requests
-        .insert(request.txid, request);
+pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTicketRequestV2) {
+    record_event(&Event::AcceptedGenTicketRequestV3(request.clone()));
+    state.init_gen_ticket_requests.insert(request.txid, request);
+}
 
+pub fn confirm_generate_ticket_request(state: &mut CustomsState, txid: Txid) {
+    record_event(&Event::ConfirmedBtcTransaction { txid });
+
+    let req = state.init_gen_ticket_requests.remove(&txid);
+    assert!(req.is_some());
+
+    let req = req.unwrap();
+    let new_utxos = req.new_utxos.clone();
+    let dest = Destination {
+        target_chain_id: req.target_chain_id.clone(),
+        receiver: req.receiver.clone(),
+        token: Some(RUNES_TOKEN.into()),
+    };
+    state.pending_gen_ticket_requests.insert(req.txid, req);
     state.add_utxos(dest, new_utxos, true);
 }
 

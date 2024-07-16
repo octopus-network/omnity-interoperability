@@ -2,14 +2,11 @@ use bitcoin::util::psbt::serialize::Deserialize;
 use bitcoin::{Address as BtcAddress, Network as BtcNetwork};
 use bitcoin_customs::destination::Destination;
 use bitcoin_customs::lifecycle::init::{CustomArg, InitArgs};
-use bitcoin_customs::state::{GenTicketRequestV2, ReleaseTokenStatus};
+use bitcoin_customs::state::ReleaseTokenStatus;
 use bitcoin_customs::state::{GenTicketStatus, RunesBalance};
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::get_btc_address::GetBtcAddressArgs;
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
-use bitcoin_customs::updates::update_pending_ticket::{
-    UpdatePendingTicketArgs, UpdatePendingTicketError,
-};
 use bitcoin_customs::updates::update_runes_balance::{
     UpdateRunesBalanceArgs, UpdateRunesBalanceError,
 };
@@ -455,27 +452,6 @@ impl CustomsSetup {
         .unwrap()
     }
 
-    pub fn update_pending_ticket(
-        &self,
-        args: &UpdatePendingTicketArgs,
-    ) -> Result<(), UpdatePendingTicketError> {
-        Decode!(
-            &assert_reply(
-                self.env
-                    .execute_ingress_as(
-                        self.caller,
-                        self.customs_id,
-                        "update_pending_ticket",
-                        Encode!(args)
-                        .unwrap()
-                    )
-                    .expect("failed to update pending ticket")
-            ),
-            Result<(), UpdatePendingTicketError>
-        )
-        .unwrap()
-    }
-
     pub fn generate_ticket_status(&self, txid: Txid) -> GenTicketStatus {
         Decode!(
             &assert_reply(
@@ -803,52 +779,6 @@ fn test_gen_ticket_with_insufficient_confirmations() {
         txid: txid.to_string(),
     });
     assert_eq!(result, Err(GenerateTicketError::NoNewUtxos));
-}
-
-#[test]
-fn test_update_pending_ticket() {
-    let customs = CustomsSetup::new();
-
-    customs.set_tip_height(100);
-
-    let txid = random_txid();
-    let utxo = Utxo {
-        height: 80,
-        outpoint: OutPoint { txid, vout: 1 },
-        value: 546,
-    };
-
-    let target_chain_id = COSMOS_HUB.to_string();
-    let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
-    let deposit_address = customs.get_btc_address(Destination {
-        target_chain_id: target_chain_id.clone(),
-        receiver: receiver.clone(),
-        token: None,
-    });
-
-    customs.push_utxos(vec![(deposit_address, utxo)]);
-    let result = customs.generate_ticket(&GenerateTicketArgs {
-        target_chain_id,
-        receiver,
-        rune_id: RUNE_ID_1.into(),
-        amount: 100_000_000,
-        txid: txid.to_string(),
-    });
-    assert_eq!(result, Ok(()));
-
-    assert_eq!(
-        customs.update_pending_ticket(&UpdatePendingTicketArgs {
-            txid: txid.to_string(),
-            rune_id: None,
-            amount: Some(9999),
-        }),
-        Ok(())
-    );
-
-    assert!(matches!(
-        customs.generate_ticket_status(txid),
-        GenTicketStatus::Pending(GenTicketRequestV2 { amount: 9999, .. })
-    ));
 }
 
 #[test]

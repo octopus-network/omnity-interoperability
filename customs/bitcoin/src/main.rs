@@ -8,9 +8,6 @@ use bitcoin_customs::state::{
 use bitcoin_customs::storage::record_event;
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
-use bitcoin_customs::updates::update_pending_ticket::{
-    UpdatePendingTicketArgs, UpdatePendingTicketError,
-};
 use bitcoin_customs::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
@@ -28,6 +25,7 @@ use candid::Principal;
 use ic_btc_interface::{Txid, Utxo};
 use ic_canister_log::export as export_logs;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_cdk::api::management_canister::http_request::{self, TransformArgs};
 use ic_cdk_macros::{init, post_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use omnity_types::Chain;
@@ -190,13 +188,6 @@ async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketE
 }
 
 #[update(guard = "is_controller")]
-async fn update_pending_ticket(
-    args: UpdatePendingTicketArgs,
-) -> Result<(), UpdatePendingTicketError> {
-    check_postcondition(updates::update_pending_ticket(args).await)
-}
-
-#[update(guard = "is_controller")]
 fn set_runes_oracle(oracle: Principal) {
     record_event(&Event::AddedRunesOracle { principal: oracle });
     mutate_state(|s| s.runes_oracles.insert(oracle));
@@ -337,6 +328,16 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
         .skip(args.start as usize)
         .take(MAX_EVENTS_PER_QUERY.min(args.length as usize))
         .collect()
+}
+
+#[query]
+fn transform(raw: TransformArgs) -> http_request::HttpResponse {
+    http_request::HttpResponse {
+        status: raw.response.status.clone(),
+        body: raw.response.body.clone(),
+        headers: vec![],
+        ..Default::default()
+    }
 }
 
 #[cfg(feature = "self_check")]
