@@ -104,7 +104,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     // In order to prevent the memory from being exhausted,
     // ensure that the user has transferred token to this address.
-    let new_utxos = fetch_new_utxos(&address, txid).await?;
+    let new_utxos = fetch_new_utxos(txid, &address).await?;
     if new_utxos.len() == 0 {
         return Err(GenerateTicketError::NoNewUtxos);
     }
@@ -113,7 +113,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         hub_principal,
         Ticket {
             ticket_id: args.txid.clone(),
-            ticket_type: TicketType::Pending,
+            ticket_type: TicketType::Normal,
             ticket_time: ic_cdk::api::time(),
             src_chain: chain_id,
             dst_chain: args.target_chain_id.clone(),
@@ -146,7 +146,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     Ok(())
 }
 
-async fn fetch_new_utxos(address: &String, txid: Txid) -> Result<Vec<Utxo>, GenerateTicketError> {
+async fn fetch_new_utxos(txid: Txid, address: &String) -> Result<Vec<Utxo>, GenerateTicketError> {
     const MAX_CYCLES: u128 = 1_000_000_000_000;
     const DERAULT_RPC_URL: &str = "https://mempool.space/api/tx";
 
@@ -174,7 +174,7 @@ async fn fetch_new_utxos(address: &String, txid: Txid) -> Result<Vec<Utxo>, Gene
         }],
     };
 
-    let utxos = match http_request(request, MAX_CYCLES).await {
+    match http_request(request, MAX_CYCLES).await {
         Ok((response,)) => {
             let status = response.status;
             if status == Nat::from(200_u32) {
@@ -217,7 +217,5 @@ async fn fetch_new_utxos(address: &String, txid: Txid) -> Result<Vec<Utxo>, Gene
             }
         }
         Err((_, m)) => Err(GenerateTicketError::RpcError(m)),
-    }?;
-
-    Ok(read_state(|s| s.new_utxos(utxos, Some(txid))))
+    }
 }
