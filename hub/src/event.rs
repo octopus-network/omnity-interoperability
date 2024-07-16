@@ -148,6 +148,12 @@ pub enum Event {
     #[serde(rename = "received_ticket")]
     ReceivedTicket { seq_key: SeqKey, ticket: Ticket },
 
+    #[serde(rename = "pending_ticket")]
+    PendingTicket { ticket: Ticket },
+
+    #[serde(rename = "finaize_ticket")]
+    FinalizeTicket { ticket_id: String },
+
     #[serde(rename = "added_token_position")]
     AddedTokenPosition { position: TokenKey, amount: u128 },
 
@@ -244,7 +250,14 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
             | Event::UpdatedTokenPosition { position, amount } => {
                 hub_state.token_position.insert(position, amount);
             }
-
+            Event::PendingTicket { ticket } => {
+                hub_state
+                    .pending_tickets
+                    .insert(ticket.ticket_id.to_string(), ticket.clone());
+            }
+            Event::FinalizeTicket { ticket_id } => {
+                hub_state.pending_tickets.remove(&ticket_id);
+            }
             Event::ReceivedTicket { seq_key, ticket } => {
                 hub_state
                     .ticket_seq
