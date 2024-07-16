@@ -164,6 +164,9 @@ pub enum Event {
 
     #[serde(rename = "added_runes_oracle")]
     AddedRunesOracle { principal: Principal },
+
+    #[serde(rename = "updated_rpc_url")]
+    UpdatedRpcURL { rpc_url: String },
 }
 
 #[derive(Debug)]
@@ -385,6 +388,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::AddedRunesOracle { principal } => {
                 state.runes_oracles.insert(principal);
+            }
+            Event::UpdatedRpcURL { rpc_url } => {
+                state.rpc_url = Some(rpc_url);
             }
         }
     }

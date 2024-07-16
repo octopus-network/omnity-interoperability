@@ -148,8 +148,13 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
 async fn fetch_new_utxos(address: &String, txid: Txid) -> Result<Vec<Utxo>, GenerateTicketError> {
     const MAX_CYCLES: u128 = 1_000_000_000_000;
+    const DERAULT_RPC_URL: &str = "https://mempool.space/api/tx";
 
-    let url = format!("https://mempool.space/api/tx/{}", txid.to_string());
+    let url = format!(
+        "{}/{}",
+        read_state(|s| s.rpc_url.clone().unwrap_or(DERAULT_RPC_URL.to_string())),
+        txid.to_string()
+    );
 
     let request = CanisterHttpRequestArgument {
         url: url.to_string(),

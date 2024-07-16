@@ -193,6 +193,14 @@ fn set_runes_oracle(oracle: Principal) {
     mutate_state(|s| s.runes_oracles.insert(oracle));
 }
 
+#[update(guard = "is_controller")]
+fn update_rpc_url(url: String) {
+    record_event(&Event::UpdatedRpcURL {
+        rpc_url: url.clone(),
+    });
+    mutate_state(|s| s.rpc_url = Some(url));
+}
+
 #[update]
 async fn get_canister_status() -> ic_cdk::api::management_canister::main::CanisterStatusResponse {
     ic_cdk::api::management_canister::main::canister_status(

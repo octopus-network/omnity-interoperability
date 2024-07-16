@@ -335,6 +335,8 @@ pub struct CustomsState {
 
     pub runes_oracles: BTreeSet<Principal>,
 
+    pub rpc_url: Option<String>,
+
     /// Process one timer event at a time.
     #[serde(skip)]
     pub is_timer_running: bool,
@@ -1146,6 +1148,7 @@ impl From<InitArgs> for CustomsState {
             chain_state: args.chain_state,
             hub_principal: args.hub_principal,
             runes_oracles: BTreeSet::from_iter(vec![args.runes_oracle_principal]),
+            rpc_url: None,
             last_fee_per_vbyte: vec![1; 100],
         }
     }
