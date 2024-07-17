@@ -1,8 +1,10 @@
 use crate::hub;
+use crate::logs::P1;
 use crate::state::{audit, GenTicketStatus, RunesBalance};
 use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
+use ic_canister_log::log;
 use omnity_types::{Ticket, TicketType, TxAction};
 use serde::Serialize;
 
@@ -19,20 +21,14 @@ pub enum UpdateRunesBalanceError {
     MismatchWithGenTicketReq,
     UtxoNotFound,
     SendTicketErr(String),
+    BalancesIsEmpty,
 }
 
 pub async fn update_runes_balance(
     args: UpdateRunesBalanceArgs,
 ) -> Result<(), UpdateRunesBalanceError> {
-    for balance in &args.balances {
-        let outpoint = OutPoint {
-            txid: args.txid,
-            vout: balance.vout,
-        };
-        read_state(|s| match s.outpoint_destination.get(&outpoint) {
-            Some(_) => Ok(()),
-            None => Err(UpdateRunesBalanceError::UtxoNotFound),
-        })?;
+    if args.balances.len() == 0 {
+        return Err(UpdateRunesBalanceError::BalancesIsEmpty);
     }
 
     let req = read_state(|s| match s.generate_ticket_status(args.txid) {
@@ -40,6 +36,21 @@ pub async fn update_runes_balance(
         GenTicketStatus::Unknown => Err(UpdateRunesBalanceError::RequestNotFound),
         GenTicketStatus::Pending(req) => Ok(req),
     })?;
+
+    for balance in &args.balances {
+        let outpoint = OutPoint {
+            txid: args.txid,
+            vout: balance.vout,
+        };
+        if req
+            .new_utxos
+            .iter()
+            .find(|u| u.outpoint == outpoint)
+            .is_none()
+        {
+            return Err(UpdateRunesBalanceError::UtxoNotFound);
+        }
+    }
 
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
     if amount != req.amount || args.balances.iter().any(|b| b.rune_id != req.rune_id) {
@@ -58,7 +69,7 @@ pub async fn update_runes_balance(
             dst_chain: req.target_chain_id.clone(),
             action: TxAction::Transfer,
             token: req.token_id.clone(),
-            amount: req.amount.to_string(),
+            amount: amount.to_string(),
             sender: None,
             receiver: req.receiver.clone(),
             memo: None,
@@ -66,6 +77,12 @@ pub async fn update_runes_balance(
     )
     .await
     .map_err(|err| UpdateRunesBalanceError::SendTicketErr(format!("{}", err)))?;
+
+    log!(
+        P1,
+        "[update_runes_balance] send ticket to hub: {}",
+        args.txid.to_string()
+    );
 
     mutate_state(|s| audit::finalize_ticket_request(s, &req, args.balances));
 

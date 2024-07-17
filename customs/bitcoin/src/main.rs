@@ -143,6 +143,22 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
 }
 
 #[query]
+fn get_finalized_ticket(txid: String) -> Option<GenTicketRequestV2> {
+    read_state(|s| {
+        s.finalized_gen_ticket_requests
+            .iter()
+            .find(|t| t.txid.to_string() == txid)
+            .cloned()
+    })
+}
+
+#[update(guard = "is_controller")]
+fn remove_pending_ticket(txid: String) {
+    let txid = Txid::from_str(&txid).unwrap();
+    mutate_state(|s| s.pending_gen_ticket_requests.remove(&txid));
+}
+
+#[query]
 fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequestV2> {
     let start = args.start_txid.map_or(Unbounded, |txid| Excluded(txid));
     let count = max(50, args.max_count) as usize;
