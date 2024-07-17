@@ -75,7 +75,7 @@ pub enum Event {
     AcceptedGenTicketRequestV3(GenTicketRequestV2),
 
     #[serde(rename = "confirmed_generate_ticket_request")]
-    ConfirmedGenTicketRequest(Txid),
+    ConfirmedGenTicketRequest(GenTicketRequestV2),
 
     /// Indicates that the customs accepted a new release_token request.
     /// The customs emits this event _after_ it send to hub.
@@ -247,14 +247,14 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             Event::AcceptedGenTicketRequestV3(req) => {
                 state.pending_gen_ticket_requests.insert(req.txid, req);
             }
-            Event::ConfirmedGenTicketRequest(txid) => {
-                let req = state
+            Event::ConfirmedGenTicketRequest(req) => {
+                state
                     .pending_gen_ticket_requests
-                    .remove(&txid)
+                    .remove(&req.txid)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
                             "Attempted to remove a non-init generate ticket request {}",
-                            txid
+                            req.txid
                         ))
                     })?;
                 let new_utxos = req.new_utxos.clone();
@@ -263,7 +263,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                     receiver: req.receiver.clone(),
                     token: Some(RUNES_TOKEN.into()),
                 };
-                state.confirmed_gen_ticket_requests.insert(txid, req);
+                state.confirmed_gen_ticket_requests.insert(req.txid, req);
                 state.add_utxos(dest, new_utxos, true);
             }
             Event::RemovedTicketRequest { txid } => {

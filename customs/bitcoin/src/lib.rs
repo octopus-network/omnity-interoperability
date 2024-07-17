@@ -882,7 +882,7 @@ async fn finalize_gen_ticket_txs() {
                 }
             },
         ) {
-            mutate_state(|s| audit::confirm_generate_ticket_request(s, req.txid));
+            mutate_state(|s| audit::confirm_generate_ticket_request(s, req.clone()));
         }
     }
 }

@@ -59,13 +59,11 @@ pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTick
         .insert(request.txid, request);
 }
 
-pub fn confirm_generate_ticket_request(state: &mut CustomsState, txid: Txid) {
-    record_event(&Event::ConfirmedBtcTransaction { txid });
+pub fn confirm_generate_ticket_request(state: &mut CustomsState, req: GenTicketRequestV2) {
+    record_event(&Event::ConfirmedGenTicketRequest(req.clone()));
 
-    let req = state.pending_gen_ticket_requests.remove(&txid);
-    assert!(req.is_some());
+    assert!(state.pending_gen_ticket_requests.remove(&req.txid).is_some());
 
-    let req = req.unwrap();
     let new_utxos = req.new_utxos.clone();
     let dest = Destination {
         target_chain_id: req.target_chain_id.clone(),

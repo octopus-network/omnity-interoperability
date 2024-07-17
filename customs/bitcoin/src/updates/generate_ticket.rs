@@ -41,6 +41,7 @@ pub enum GenerateTicketError {
     UnsupportedToken(String),
     SendTicketErr(String),
     RpcError(String),
+    AmountIsZero,
 }
 
 impl From<GuardError> for GenerateTicketError {
@@ -58,6 +59,10 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
         ));
+    }
+    
+    if args.amount == 0 {
+        return Err(GenerateTicketError::AmountIsZero);
     }
 
     init_ecdsa_public_key().await;
@@ -205,7 +210,7 @@ async fn fetch_new_utxos(txid: Txid, address: &String) -> Result<Vec<Utxo>, Gene
                             vout: i as u32,
                         },
                         value: out.value,
-                        // The height is not known at this time 
+                        // The height is not known at this time
                         // as the transaction may not be confirmed yet.
                         // We will update the height when the transaction is confirmed.
                         height: 0,
