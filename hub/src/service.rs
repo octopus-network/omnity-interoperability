@@ -438,6 +438,44 @@ pub async fn get_tx_hashes(offset: usize, limit: usize) -> Result<Vec<(TicketId,
     Ok(tx_hashes)
 }
 
+#[update(guard = "auth_update")]
+pub async fn pending_ticket(ticket: Ticket) -> Result<(), Error> {
+    debug!("pending_ticket: {:?}", ticket);
+    with_state_mut(|hub_state| hub_state.pending_ticket(ticket))
+}
+
+#[update(guard = "auth_update")]
+pub async fn finalize_ticket(ticket_id: String) -> Result<(), Error> {
+    debug!("finaize_ticket: {:?}", ticket_id);
+
+    with_state_mut(|hub_state| hub_state.finalize_ticket(&ticket_id))
+}
+
+#[query(guard = "auth_query")]
+pub async fn get_pending_ticket_size() -> Result<u64, Error> {
+    with_state(|hub_state| {
+        let pending_size = hub_state.pending_tickets.len();
+        Ok(pending_size)
+    })
+}
+
+#[query(guard = "auth_query")]
+pub async fn get_pending_tickets(
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<(TicketId, Ticket)>, Error> {
+    let pending_tickets = with_state(|hub_state| {
+        hub_state
+            .pending_tickets
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(ticket_id, tickets)| (ticket_id, tickets))
+            .collect::<Vec<_>>()
+    });
+    Ok(pending_tickets)
+}
+
 fn main() {}
 
 ic_cdk::export_candid!();

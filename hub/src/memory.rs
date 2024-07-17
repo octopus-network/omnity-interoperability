@@ -29,6 +29,7 @@ const EVENT_DATA_MEMORY_ID: MemoryId = MemoryId::new(13);
 const METRIC_SEQS: MemoryId = MemoryId::new(14);
 const TICKET_METRIC: MemoryId = MemoryId::new(15);
 const TXHASHES: MemoryId = MemoryId::new(16);
+const PENDING_TICKETS: MemoryId = MemoryId::new(17);
 
 #[cfg(feature = "file_memory")]
 type InnerMemory = FileMemory;
@@ -119,6 +120,14 @@ pub fn get_tx_hashes_memory() -> Memory {
     with_memory_manager(|m| m.get(TXHASHES))
 }
 
+pub fn get_pending_tickets_memory() -> Memory {
+    with_memory_manager(|m| m.get(PENDING_TICKETS))
+}
+
+pub fn init_pending_tickets() -> StableBTreeMap<TicketId, Ticket, Memory> {
+    StableBTreeMap::init(get_pending_tickets_memory())
+}
+
 pub fn init_chain() -> StableBTreeMap<ChainId, ChainMeta, Memory> {
     StableBTreeMap::init(get_chain_memory())
 }
@@ -185,3 +194,4 @@ pub fn get_metric_seqs() -> Memory {
 pub fn init_metric_seqs() -> StableBTreeMap<Vec<u8>, u64, Memory> {
     StableBTreeMap::init(get_metric_seqs())
 }
+

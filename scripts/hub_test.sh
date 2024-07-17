@@ -15,8 +15,8 @@ dfx canister create omnity_hub
 # dfx deploy omnity_hub
 # dfx identity --identity default get-principal
 # output: rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe
-# dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
-dfx canister install --mode reinstall --yes --wasm ./scripts/omnity_hub20240705.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' omnity_hub
+dfx deploy omnity_hub --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })'
+# dfx canister install --mode reinstall --yes --wasm ./scripts/omnity_hub20240705.wasm.gz --argument '(variant { Init = record { admin = principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"} })' omnity_hub
 # change log level for debugging
 dfx canister call omnity_hub set_logger_filter '("debug")'
 
@@ -186,6 +186,7 @@ echo "query ticket from memory ..."
 dfx canister call omnity_hub query_tickets '(opt "Optimistic",0:nat64,5:nat64)'
 
 # update tx hash
+echo "update tx hash ..."
 echo "canister call omnity_hub update_tx_hash '("f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21","f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21")'"
 dfx canister call omnity_hub update_tx_hash '("f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21","f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21")'
 echo "canister call omnity_hub query_tx_hash '("f8aee1cc-db7a-40hea-80c2-4cf5e6c84c21")'"
@@ -195,6 +196,15 @@ dfx canister call omnity_hub get_tx_hash_size '()'
 echo "canister call omnity_hub get_tx_hashes '(0:nat64,5:nat64)'"
 dfx canister call omnity_hub get_tx_hashes '(0:nat64,5:nat64)'
 
+# test pending ticket
+echo "dfx canister call omnity_hub pending_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc0247828fdd"; ticket_type = variant { Normal }; ticket_time = 1715654809737051178 : nat64; token = "Bitcoin-runes-HOPE•YOU•GET•RICH"; amount = "88888"; src_chain = "Bitcoin"; dst_chain = "Arbitrum"; action = variant { Transfer }; sender = opt "address_on_Bitcoin"; receiver = "address_on_Arbitrum"; memo = null; })'"
+dfx canister call omnity_hub pending_ticket '(record { ticket_id = "28b47548-55dc-4e89-b41d-76bc0247828fdd"; ticket_type = variant { Normal }; ticket_time = 1715654809737051178 : nat64; token = "Bitcoin-runes-HOPE•YOU•GET•RICH"; amount = "88888"; src_chain = "Bitcoin"; dst_chain = "Arbitrum"; action = variant { Transfer }; sender = opt "address_on_Bitcoin"; receiver = "address_on_Arbitrum"; memo = null; })'
+dfx canister call omnity_hub get_pending_ticket_size '()'
+dfx canister call omnity_hub get_pending_tickets '(0:nat64,5:nat64)'
+echo "dfx canister call omnity_hub finalize_ticket '("28b47548-55dc-4e89-b41d-76bc0247828fdd")'"
+dfx canister call omnity_hub finalize_ticket '("28b47548-55dc-4e89-b41d-76bc0247828fdd")'
+dfx canister call omnity_hub get_pending_ticket_size '()'
+dfx canister call omnity_hub get_pending_tickets '(0:nat64,5:nat64)'
 # dfx stop
 
 # mainnet 
