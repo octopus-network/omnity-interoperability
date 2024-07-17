@@ -93,6 +93,7 @@ type Event = variant {
   };
   accepted_generate_ticket_request : GenTicketRequest;
   accepted_rune_tx_request : RuneTxRequest;
+  updated_rpc_url : record { rpc_url : text };
   toggle_chain_state : ToggleState;
 };
 type GenTicketRequest = record {
@@ -118,6 +119,7 @@ type GenTicketRequestV2 = record {
 };
 type GenTicketStatus = variant {
   Finalized;
+  Confirmed : GenTicketRequestV2;
   Unknown;
   Pending : GenTicketRequestV2;
 };
@@ -223,11 +225,12 @@ type UpdateRunesBalanceArgs = record {
   balances : vec RunesBalance;
 };
 type UpdateRunesBalanceError = variant {
-  SendTicketErr : text;
+  RequestNotConfirmed;
   UtxoNotFound;
   RequestNotFound;
   AleardyProcessed;
   MismatchWithGenTicketReq;
+  FinalizeTicketErr : text;
 };
 type UpgradeArgs = record {
   hub_principal : opt principal;
@@ -254,5 +257,6 @@ service : (CustomArg) -> {
   set_runes_oracle : (principal) -> ();
   transform : (TransformArgs) -> (HttpResponse) query;
   update_btc_utxos : () -> (Result_1);
+  update_rpc_url : (text) -> ();
   update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_2);
 }

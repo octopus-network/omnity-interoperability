@@ -90,3 +90,33 @@ pub async fn batch_update_tx_hash(
     })?;
     Ok(())
 }
+
+pub async fn pending_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
+    let resp: (Result<(), omnity_types::Error>,) =
+        ic_cdk::api::call::call(hub_principal, "pending_ticket", (ticket,))
+            .await
+            .map_err(|(code, message)| CallError {
+                method: "pending_ticket".to_string(),
+                reason: Reason::from_reject(code, message),
+            })?;
+    resp.0.map_err(|err| CallError {
+        method: "pending_ticket".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
+    Ok(())
+}
+
+pub async fn finalize_ticket(hub_principal: Principal, ticket_id: String) -> Result<(), CallError> {
+    let resp: (Result<(), omnity_types::Error>,) =
+        ic_cdk::api::call::call(hub_principal, "finalize_ticket", (ticket_id,))
+            .await
+            .map_err(|(code, message)| CallError {
+                method: "finalize_ticket".to_string(),
+                reason: Reason::from_reject(code, message),
+            })?;
+    resp.0.map_err(|err| CallError {
+        method: "finalize_ticket".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
+    Ok(())
+}

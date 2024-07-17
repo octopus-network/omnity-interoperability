@@ -54,13 +54,15 @@ pub fn accept_rune_tx_request(state: &mut CustomsState, request: RuneTxRequest) 
 
 pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTicketRequestV2) {
     record_event(&Event::AcceptedGenTicketRequestV3(request.clone()));
-    state.init_gen_ticket_requests.insert(request.txid, request);
+    state
+        .pending_gen_ticket_requests
+        .insert(request.txid, request);
 }
 
 pub fn confirm_generate_ticket_request(state: &mut CustomsState, txid: Txid) {
     record_event(&Event::ConfirmedBtcTransaction { txid });
 
-    let req = state.init_gen_ticket_requests.remove(&txid);
+    let req = state.pending_gen_ticket_requests.remove(&txid);
     assert!(req.is_some());
 
     let req = req.unwrap();
@@ -70,7 +72,7 @@ pub fn confirm_generate_ticket_request(state: &mut CustomsState, txid: Txid) {
         receiver: req.receiver.clone(),
         token: Some(RUNES_TOKEN.into()),
     };
-    state.pending_gen_ticket_requests.insert(req.txid, req);
+    state.confirmed_gen_ticket_requests.insert(req.txid, req);
     state.add_utxos(dest, new_utxos, true);
 }
 
@@ -104,7 +106,7 @@ pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: Runes
 pub fn remove_pending_request(state: &mut CustomsState, txid: &Txid) {
     record_event(&Event::RemovedTicketRequest { txid: txid.clone() });
     state
-        .pending_gen_ticket_requests
+        .confirmed_gen_ticket_requests
         .remove(txid)
         .and_then(|req| Some(req.new_utxos.iter().for_each(|u| state.forget_utxo(u))));
 }
@@ -119,7 +121,7 @@ pub fn finalize_ticket_request(
         balances: balances.clone(),
     });
 
-    state.pending_gen_ticket_requests.remove(&request.txid);
+    state.confirmed_gen_ticket_requests.remove(&request.txid);
     for balance in balances {
         state.update_runes_balance(request.txid, balance);
     }

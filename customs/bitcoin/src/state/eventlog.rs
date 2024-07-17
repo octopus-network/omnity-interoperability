@@ -231,7 +231,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 // There is no need to add utxos here, because in previous versions,
                 // A ReceivedUtxos Event will be emitted at the same time.
                 state
-                    .pending_gen_ticket_requests
+                    .confirmed_gen_ticket_requests
                     .insert(req.txid, req.into());
             }
             Event::AcceptedGenTicketRequestV2(req) => {
@@ -241,15 +241,15 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                     receiver: req.receiver.clone(),
                     token: Some(RUNES_TOKEN.into()),
                 };
-                state.pending_gen_ticket_requests.insert(req.txid, req);
+                state.confirmed_gen_ticket_requests.insert(req.txid, req);
                 state.add_utxos(dest, new_utxos, true);
             }
             Event::AcceptedGenTicketRequestV3(req) => {
-                state.init_gen_ticket_requests.insert(req.txid, req);
+                state.pending_gen_ticket_requests.insert(req.txid, req);
             }
             Event::ConfirmedGenTicketRequest(txid) => {
                 let req = state
-                    .init_gen_ticket_requests
+                    .pending_gen_ticket_requests
                     .remove(&txid)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
@@ -263,12 +263,12 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                     receiver: req.receiver.clone(),
                     token: Some(RUNES_TOKEN.into()),
                 };
-                state.pending_gen_ticket_requests.insert(txid, req);
+                state.confirmed_gen_ticket_requests.insert(txid, req);
                 state.add_utxos(dest, new_utxos, true);
             }
             Event::RemovedTicketRequest { txid } => {
                 let req = state
-                    .pending_gen_ticket_requests
+                    .confirmed_gen_ticket_requests
                     .remove(&txid)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
@@ -282,7 +282,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::FinalizedTicketRequest { txid, balances } => {
                 let request = state
-                    .pending_gen_ticket_requests
+                    .confirmed_gen_ticket_requests
                     .remove(&txid)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(

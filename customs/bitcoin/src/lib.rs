@@ -832,7 +832,7 @@ async fn finalize_rune_txs() {
 }
 
 async fn finalize_gen_ticket_txs() {
-    if state::read_state(|s| s.init_gen_ticket_requests.is_empty()) {
+    if state::read_state(|s| s.pending_gen_ticket_requests.is_empty()) {
         return;
     }
 
@@ -841,7 +841,7 @@ async fn finalize_gen_ticket_txs() {
 
     let maybe_finalized_transactions: Vec<GenTicketRequestV2> = state::read_state(|s| {
         let wait_time = finalization_time_estimate(min_confirmations, network);
-        s.init_gen_ticket_requests
+        s.pending_gen_ticket_requests
             .iter()
             .filter(|&(_, req)| (req.received_at + (wait_time.as_nanos() as u64) < now))
             .map(|(_, req)| req.clone())

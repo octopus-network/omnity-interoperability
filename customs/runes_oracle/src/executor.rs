@@ -175,7 +175,7 @@ impl Executor {
                                 // Should never happen.
                                 log::error!("utxo not found for txid:{}", request.txid);
                             }
-                            Err(UpdateRunesBalanceError::SendTicketErr(err)) => {
+                            Err(UpdateRunesBalanceError::FinalizeTicketErr(err)) => {
                                 log::error!("send ticket err({}) for txid:{}", err, request.txid);
                             }
                         },

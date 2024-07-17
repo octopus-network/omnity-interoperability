@@ -24,7 +24,7 @@ pub fn encode_metrics(
         )?
         .value(
             &[("status", "pending")],
-            state::read_state(|s| s.pending_gen_ticket_requests.len()) as f64,
+            state::read_state(|s| s.confirmed_gen_ticket_requests.len()) as f64,
         )?
         .value(
             &[("status", "finalized")],

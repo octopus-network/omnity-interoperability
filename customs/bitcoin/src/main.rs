@@ -145,7 +145,7 @@ fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketR
     let start = args.start_txid.map_or(Unbounded, |txid| Excluded(txid));
     let count = max(50, args.max_count) as usize;
     read_state(|s| {
-        s.pending_gen_ticket_requests
+        s.confirmed_gen_ticket_requests
             .range((start, Unbounded))
             .take(count)
             .map(|(_, req)| req.clone())

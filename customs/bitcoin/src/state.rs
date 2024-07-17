@@ -237,6 +237,7 @@ pub enum GenTicketStatus {
     Unknown,
     /// The request is in the queue.
     Pending(GenTicketRequestV2),
+    Confirmed(GenTicketRequestV2),
     Finalized,
 }
 
@@ -272,10 +273,10 @@ pub struct CustomsState {
 
     /// The transaction has just entered the memory pool
     /// or has not reached sufficient confirmation.
-    pub init_gen_ticket_requests: BTreeMap<Txid, GenTicketRequestV2>,
+    pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequestV2>,
 
     /// The transaction needs to wait for runes oracle to update the runes balance.
-    pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequestV2>,
+    pub confirmed_gen_ticket_requests: BTreeMap<Txid, GenTicketRequestV2>,
 
     pub finalized_gen_ticket_requests: VecDeque<GenTicketRequestV2>,
 
@@ -571,11 +572,11 @@ impl CustomsState {
     }
 
     pub fn generate_ticket_status(&self, tx_id: Txid) -> GenTicketStatus {
-        if let Some(req) = self.init_gen_ticket_requests.get(&tx_id) {
-            return GenTicketStatus::Pending(req.clone());
-        }
         if let Some(req) = self.pending_gen_ticket_requests.get(&tx_id) {
             return GenTicketStatus::Pending(req.clone());
+        }
+        if let Some(req) = self.confirmed_gen_ticket_requests.get(&tx_id) {
+            return GenTicketStatus::Confirmed(req.clone());
         }
         match self
             .finalized_gen_ticket_requests
@@ -941,7 +942,7 @@ impl CustomsState {
     }
 
     fn push_finalized_ticket(&mut self, req: GenTicketRequestV2) {
-        assert!(!self.pending_gen_ticket_requests.contains_key(&req.txid));
+        assert!(!self.confirmed_gen_ticket_requests.contains_key(&req.txid));
 
         if self.finalized_gen_ticket_requests.len() >= MAX_FINALIZED_REQUESTS {
             self.finalized_gen_ticket_requests.pop_front();
@@ -981,8 +982,8 @@ impl CustomsState {
             "max_time_in_queue_nanos does not match"
         );
         ensure_eq!(
-            self.pending_gen_ticket_requests,
-            other.pending_gen_ticket_requests,
+            self.confirmed_gen_ticket_requests,
+            other.confirmed_gen_ticket_requests,
             "pending_gen_ticket_requests do not match"
         );
         ensure_eq!(
@@ -1119,8 +1120,8 @@ impl From<InitArgs> for CustomsState {
             max_time_in_queue_nanos: args.max_time_in_queue_nanos,
             generate_ticket_counter: 0,
             release_token_counter: 0,
-            init_gen_ticket_requests: Default::default(),
             pending_gen_ticket_requests: Default::default(),
+            confirmed_gen_ticket_requests: Default::default(),
             finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             pending_rune_tx_requests: Default::default(),
             finalized_rune_tx_requests: BTreeMap::new(),
