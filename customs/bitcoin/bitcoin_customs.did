@@ -222,6 +222,7 @@ type UpdateRunesBalanceArgs = record {
   balances : vec RunesBalance;
 };
 type UpdateRunesBalanceError = variant {
+  BalancesIsEmpty;
   SendTicketErr : text;
   UtxoNotFound;
   RequestNotFound;
@@ -244,12 +245,14 @@ service : (CustomArg) -> {
   get_chain_list : () -> (vec Chain) query;
   get_customs_info : () -> (CustomsInfo) query;
   get_events : (GetEventsArg) -> (vec Event) query;
+  get_finalized_ticket : (text) -> (opt GenTicketRequestV2) query;
   get_main_btc_address : (text) -> (text);
   get_pending_gen_ticket_requests : (GetGenTicketReqsArgs) -> (
       vec GenTicketRequestV2,
     ) query;
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
+  remove_pending_ticket : (text) -> ();
   set_runes_oracle : (principal) -> ();
   update_btc_utxos : () -> (Result_1);
   update_pending_ticket : (UpdatePendingTicketArgs) -> (Result_2);
