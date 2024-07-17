@@ -66,6 +66,7 @@ type Event = variant {
   added_token_position : record { position : TokenKey; amount : nat };
   added_token : TokenMeta;
   init : InitArgs;
+  pending_ticket : record { ticket : Ticket };
   published_directive : record { dire : Directive; seq_key : SeqKey };
   upgrade : UpgradeArgs;
   added_chain : Chain;
@@ -75,6 +76,7 @@ type Event = variant {
   received_ticket : record { ticket : Ticket; seq_key : SeqKey };
   resubmit_ticket : record { ticket_id : text; timestamp : nat64 };
   deleted_directive : SeqKey;
+  finaize_ticket : record { ticket_id : text };
   Subscribed_topic : record { topic : Topic; subs : Subscribers };
 };
 type Factor = variant {
@@ -101,18 +103,19 @@ type Proposal = variant {
 };
 type Result = variant { Ok; Err : SelfServiceError };
 type Result_1 = variant { Ok; Err : Error };
-type Result_10 = variant { Ok : vec TokenResp; Err : Error };
-type Result_11 = variant { Ok : Ticket; Err : Error };
-type Result_12 = variant { Ok : vec record { text; text }; Err : Error };
-type Result_13 = variant { Ok : vec Ticket; Err : Error };
-type Result_14 = variant { Ok : vec record { nat64; Directive }; Err : Error };
-type Result_15 = variant {
+type Result_10 = variant { Ok : vec TokenMeta; Err : Error };
+type Result_11 = variant { Ok : vec TokenResp; Err : Error };
+type Result_12 = variant { Ok : Ticket; Err : Error };
+type Result_13 = variant { Ok : vec record { text; text }; Err : Error };
+type Result_14 = variant { Ok : vec Ticket; Err : Error };
+type Result_15 = variant { Ok : vec record { nat64; Directive }; Err : Error };
+type Result_16 = variant {
   Ok : vec record { Topic; Subscribers };
   Err : Error;
 };
-type Result_16 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
-type Result_17 = variant { Ok : text; Err : Error };
-type Result_18 = variant { Ok : vec text; Err : Error };
+type Result_17 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type Result_18 = variant { Ok : text; Err : Error };
+type Result_19 = variant { Ok : vec text; Err : Error };
 type Result_2 = variant { Ok : Chain; Err : Error };
 type Result_3 = variant { Ok : vec Chain; Err : Error };
 type Result_4 = variant { Ok : nat64; Err : Error };
@@ -120,7 +123,7 @@ type Result_5 = variant { Ok : vec TokenOnChain; Err : Error };
 type Result_6 = variant { Ok : vec Chain; Err : Error };
 type Result_7 = variant { Ok : vec Directive; Err : Error };
 type Result_8 = variant { Ok : vec record { text; text; nat }; Err : Error };
-type Result_9 = variant { Ok : vec TokenMeta; Err : Error };
+type Result_9 = variant { Ok : vec record { text; Ticket }; Err : Error };
 type SelfServiceError = variant {
   TemporarilyUnavailable : text;
   InsufficientFee : record { provided : nat64; required : nat64 };
@@ -197,8 +200,10 @@ type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
   add_dest_chain_for_token : (AddDestChainArgs) -> (Result);
   add_runes_token : (AddRunesTokenReq) -> (Result);
+  batch_update_tx_hash : (vec text, text) -> (Result_1);
   execute_proposal : (vec Proposal) -> (Result_1);
   finalize_add_runes_token_req : (FinalizeAddRunesArgs) -> (Result);
+  finalize_ticket : (text) -> (Result_1);
   get_add_runes_token_requests : () -> (vec AddRunesTokenReq) query;
   get_chain : (text) -> (Result_2) query;
   get_chain_metas : (nat64, nat64) -> (Result_3) query;
@@ -213,16 +218,18 @@ service : (HubArg) -> {
   get_fee_account : (opt principal) -> (blob) query;
   get_fees : (opt text, opt text, nat64, nat64) -> (Result_8) query;
   get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
+  get_pending_ticket_size : () -> (Result_4) query;
+  get_pending_tickets : (nat64, nat64) -> (Result_9) query;
   get_self_service_fee : () -> (SelfServiceFee) query;
-  get_token_metas : (nat64, nat64) -> (Result_9) query;
+  get_token_metas : (nat64, nat64) -> (Result_10) query;
   get_token_position_size : () -> (Result_4) query;
   get_token_size : () -> (Result_4) query;
-  get_tokens : (opt text, opt text, nat64, nat64) -> (Result_10) query;
+  get_tokens : (opt text, opt text, nat64, nat64) -> (Result_11) query;
   get_total_tx : () -> (Result_4) query;
-  get_tx : (text) -> (Result_11) query;
+  get_tx : (text) -> (Result_12) query;
   get_tx_hash_size : () -> (Result_4) query;
-  get_tx_hashes : (nat64, nat64) -> (Result_12) query;
-  get_txs : (nat64, nat64) -> (Result_13) query;
+  get_tx_hashes : (nat64, nat64) -> (Result_13) query;
+  get_txs : (nat64, nat64) -> (Result_14) query;
   get_txs_with_account : (
       opt text,
       opt text,
@@ -230,7 +237,7 @@ service : (HubArg) -> {
       opt record { nat64; nat64 },
       nat64,
       nat64,
-    ) -> (Result_13) query;
+    ) -> (Result_14) query;
   get_txs_with_chain : (
       opt text,
       opt text,
@@ -238,13 +245,14 @@ service : (HubArg) -> {
       opt record { nat64; nat64 },
       nat64,
       nat64,
-    ) -> (Result_13) query;
+    ) -> (Result_14) query;
   handle_chain : (vec Proposal) -> (Result_1);
   handle_token : (vec Proposal) -> (Result_1);
-  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_14) query;
-  query_subscribers : (opt Topic) -> (Result_15) query;
-  query_tickets : (opt text, nat64, nat64) -> (Result_16) query;
-  query_tx_hash : (text) -> (Result_17) query;
+  pending_ticket : (Ticket) -> (Result_1);
+  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_15) query;
+  query_subscribers : (opt Topic) -> (Result_16) query;
+  query_tickets : (opt text, nat64, nat64) -> (Result_17) query;
+  query_tx_hash : (text) -> (Result_18) query;
   resubmit_ticket : (Ticket) -> (Result_1);
   send_ticket : (Ticket) -> (Result_1);
   set_logger_filter : (text) -> ();
@@ -252,9 +260,9 @@ service : (HubArg) -> {
   set_runes_oracle : (principal) -> ();
   sub_directives : (opt text, vec Topic) -> (Result_1);
   sync_ticket_size : () -> (Result_4) query;
-  sync_tickets : (nat64, nat64) -> (Result_16) query;
+  sync_tickets : (nat64, nat64) -> (Result_17) query;
   unsub_directives : (opt text, vec Topic) -> (Result_1);
   update_fee : (vec Factor) -> (Result_1);
   update_tx_hash : (text, text) -> (Result_1);
-  validate_proposal : (vec Proposal) -> (Result_18) query;
+  validate_proposal : (vec Proposal) -> (Result_19) query;
 }

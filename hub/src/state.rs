@@ -49,18 +49,18 @@ pub struct HubState {
     pub cross_ledger: StableBTreeMap<TicketId, Ticket, Memory>,
     #[serde(skip, default = "memory::init_tx_hashes")]
     pub tx_hashes: StableBTreeMap<TicketId, TxHash, Memory>,
+    #[serde(skip, default = "memory::init_pending_tickets")]
+    pub pending_tickets: StableBTreeMap<TicketId, Ticket, Memory>,
 
+    // memory variable
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
     pub admin: Principal,
     pub caller_chain_map: HashMap<String, ChainId>,
     pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
-
     pub add_runes_token_requests: BTreeMap<String, AddRunesTokenReq>,
     pub runes_oracles: BTreeSet<Principal>,
-
-    //test
     pub dire_map: BTreeMap<SeqKey, Directive>,
     pub ticket_map: BTreeMap<SeqKey, String>,
 }
@@ -79,6 +79,7 @@ impl From<InitArgs> for HubState {
             topic_subscribers: StableBTreeMap::init(memory::get_subs_memory()),
             ticket_queue: StableBTreeMap::init(memory::get_ticket_queue_memory()),
             tx_hashes: StableBTreeMap::init(memory::get_tx_hashes_memory()),
+            pending_tickets: StableBTreeMap::init(memory::get_pending_tickets_memory()),
             directive_seq: HashMap::default(),
             ticket_seq: HashMap::default(),
             admin: args.admin,
@@ -688,6 +689,45 @@ impl HubState {
             }
             TxAction::Mint => {}
         }
+
+        Ok(())
+    }
+
+    pub fn pending_ticket(&mut self, ticket: Ticket) -> Result<(), Error> {
+        // check ticket id repetitive
+        if self.pending_tickets.contains_key(&ticket.ticket_id) {
+            error!(
+                "The ticket id (`{}`) already exists!`",
+                ticket.ticket_id.to_string()
+            );
+            return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
+        }
+        // save pending ticket
+        self.pending_tickets
+            .insert(ticket.ticket_id.to_string(), ticket.clone());
+        record_event(&Event::PendingTicket { ticket });
+
+        Ok(())
+    }
+
+    pub fn finalize_ticket(&mut self, ticket_id: &TicketId) -> Result<(), Error> {
+        let ticket = self
+            .pending_tickets
+            .get(ticket_id)
+            .ok_or(Error::NotFoundTicketId(ticket_id.to_string()))?;
+        // check ticket and update token on chain
+        self.check_and_update(&ticket)?;
+        // push ticket into queue
+        self.push_ticket(ticket)?;
+        // remove pending ticket
+        self.pending_tickets
+            .remove(&ticket_id)
+            .ok_or(Error::CustomError(
+                "Failed to remove ticket from pending_tickets".to_string(),
+            ))?;
+        record_event(&Event::FinalizeTicket {
+            ticket_id: ticket_id.to_string(),
+        });
 
         Ok(())
     }
