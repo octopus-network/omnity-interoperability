@@ -982,6 +982,11 @@ impl CustomsState {
             "max_time_in_queue_nanos does not match"
         );
         ensure_eq!(
+            self.pending_gen_ticket_requests,
+            other.pending_gen_ticket_requests,
+            "pending_gen_ticket_requests do not match"
+        );
+        ensure_eq!(
             self.confirmed_gen_ticket_requests,
             other.confirmed_gen_ticket_requests,
             "pending_gen_ticket_requests do not match"

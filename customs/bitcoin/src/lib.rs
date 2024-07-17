@@ -839,7 +839,7 @@ async fn finalize_gen_ticket_txs() {
     let now = ic_cdk::api::time();
     let (network, min_confirmations) = read_state(|s| (s.btc_network, s.min_confirmations));
 
-    let maybe_finalized_transactions: Vec<GenTicketRequestV2> = state::read_state(|s| {
+    let mut maybe_finalized_transactions: Vec<GenTicketRequestV2> = state::read_state(|s| {
         let wait_time = finalization_time_estimate(min_confirmations, network);
         s.pending_gen_ticket_requests
             .iter()
@@ -848,7 +848,7 @@ async fn finalize_gen_ticket_txs() {
             .collect()
     });
 
-    for req in maybe_finalized_transactions {
+    for req in &mut maybe_finalized_transactions {
         if management::get_utxos(
             network,
             &req.address,
@@ -867,7 +867,19 @@ async fn finalize_gen_ticket_txs() {
             },
             |resp| {
                 // Just include any utxo
-                resp.utxos.contains(&req.new_utxos[0])
+                match resp
+                    .utxos
+                    .iter()
+                    .find(|utxo| utxo.outpoint == req.new_utxos[0].outpoint)
+                {
+                    Some(utxo) => {
+                        req.new_utxos
+                            .iter_mut()
+                            .for_each(|u| u.height = utxo.height);
+                        true
+                    }
+                    None => false,
+                }
             },
         ) {
             mutate_state(|s| audit::confirm_generate_ticket_request(s, req.txid));

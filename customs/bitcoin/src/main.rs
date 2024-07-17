@@ -140,6 +140,8 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
     read_state(|s| s.generate_ticket_status(txid))
 }
 
+/// The function name needs to be changed to get_confirmed_gen_ticket_requests, 
+/// but considering that it will affect runes oracle, it will be retained temporarily.
 #[query]
 fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequestV2> {
     let start = args.start_txid.map_or(Unbounded, |txid| Excluded(txid));

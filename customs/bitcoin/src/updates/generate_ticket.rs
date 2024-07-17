@@ -205,7 +205,10 @@ async fn fetch_new_utxos(txid: Txid, address: &String) -> Result<Vec<Utxo>, Gene
                             vout: i as u32,
                         },
                         value: out.value,
-                        height: tx.status.block_height,
+                        // The height is not known at this time 
+                        // as the transaction may not be confirmed yet.
+                        // We will update the height when the transaction is confirmed.
+                        height: 0,
                     })
                     .collect();
                 Ok(utxos)
