@@ -171,7 +171,8 @@ impl Executor {
                                     request.txid
                                 );
                             }
-                            Err(UpdateRunesBalanceError::UtxoNotFound) => {
+                            Err(UpdateRunesBalanceError::UtxoNotFound)
+                            | Err(UpdateRunesBalanceError::RequestNotConfirmed) => {
                                 // Should never happen.
                                 log::error!("utxo not found for txid:{}", request.txid);
                             }

@@ -14,11 +14,11 @@ pub struct UpdateRunesBalanceArgs {
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum UpdateRunesBalanceError {
     RequestNotFound,
-    RequestNotConfirmed,
     AleardyProcessed,
     MismatchWithGenTicketReq,
     UtxoNotFound,
     FinalizeTicketErr(String),
+    RequestNotConfirmed,
 }
 
 pub async fn update_runes_balance(
