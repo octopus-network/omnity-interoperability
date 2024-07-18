@@ -1011,7 +1011,7 @@ fn test_update_runes_balance_multi_utxos() {
     assert_eq!(result, Ok(()));
 
     let status = customs.generate_ticket_status(txid);
-    assert_eq!(status, GenTicketStatus::Finalized);
+    matches!(status, GenTicketStatus::Finalized(_));
 }
 
 #[test]
@@ -1021,7 +1021,7 @@ fn test_update_runes_balance_success() {
     let args = deposit_runes_to_main_address(&customs, RUNE_ID_1.into());
 
     let status = customs.generate_ticket_status(args.txid);
-    assert_eq!(status, GenTicketStatus::Finalized);
+    matches!(status, GenTicketStatus::Finalized(_));
 }
 
 #[test]
@@ -1031,7 +1031,7 @@ fn test_duplicate_update_runes_balance() {
     let args = deposit_runes_to_main_address(&customs, RUNE_ID_1.into());
 
     let status = customs.generate_ticket_status(args.txid);
-    assert_eq!(status, GenTicketStatus::Finalized);
+    matches!(status, GenTicketStatus::Finalized(_));
 
     let result = customs.update_runes_balance(&args);
     assert_eq!(result, Err(UpdateRunesBalanceError::AleardyProcessed));
