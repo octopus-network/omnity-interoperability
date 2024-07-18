@@ -888,7 +888,7 @@ fn test_update_runes_balance_no_utxo() {
             amount: 100_000_000,
         }],
     });
-    assert_eq!(result, Err(UpdateRunesBalanceError::UtxoNotFound));
+    assert_eq!(result, Err(UpdateRunesBalanceError::RequestNotFound));
 }
 
 #[test]
