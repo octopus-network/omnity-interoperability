@@ -1,11 +1,9 @@
-use crate::guard::{TaskType, TimerGuard};
+use crate::{
+    constants::{QUERY_DERECTIVE_INTERVAL, SIGNATUE_STATUS_INTERVAL, TICKET_INTERVAL},
+    guard::{TaskType, TimerGuard},
+};
 
 use super::{directive, ticket};
-use std::time::Duration;
-pub const QUERY_DERECTIVE_INTERVAL: Duration = Duration::from_secs(60);
-pub const EXE_DERECTIVE_INTERVAL: Duration = Duration::from_secs(5);
-pub const TICKET_INTERVAL: Duration = Duration::from_secs(5);
-pub const SIGNATUE_STATUS_INTERVAL: Duration = Duration::from_secs(5);
 
 pub fn start_schedule() {
     // query_directives task
@@ -46,4 +44,4 @@ pub fn start_schedule() {
 }
 
 //TODO: stop running jobs
-pub fn cannel_schedule() {}
+pub fn cannel_schedule_jobs() {}
