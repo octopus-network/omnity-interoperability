@@ -4,6 +4,7 @@ members = [
     "hub",
     "route/near",
     "route/icp",
+    "route/cosmoswasm",
     "customs/bitcoin",
     "customs/runes_oracle",
     "customs/oracle_canister",

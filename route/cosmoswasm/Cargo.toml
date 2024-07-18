@@ -1,0 +1,51 @@
+[package]
+name = "cosmoswasm_route"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "cosmoswasm_route"
+path = "src/main.rs"
+
+[dependencies]
+candid = { workspace = true }
+ciborium = { workspace = true }
+ic-cdk = { workspace = true }
+ic-cdk-macros = { workspace = true }
+ic-ledger-types = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+ic-stable-structures = { workspace = true }
+ic0 = "0.18.9"
+ic-cdk-timers = "0.7.0"
+num-traits = "0.2.17"
+# ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
+ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.12.x-stablelog" }
+
+icrc-ledger-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+icrc-ledger-client-cdk = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-ledger-canister-core = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-base-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-icrc1-ledger = {git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+omnity_types = { path = "../../types" }
+
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
+ic-ic00-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-crypto-sha2 = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+hex = "0.4.3"
+
+# schnorr_canister = { git = "https://github.com/domwoe/schnorr_canister.git", branch = "main"}
+serde_bytes.workspace = true
+cosmrs = {version = "0.17.0", features = ["cosmwasm"]}
+base64 = "0.22.1"
+rand = "0.8.5"
+uuid = "1.10.0"
+
+[dev-dependencies]
+ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+# icp-ledger = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+# dfn_candid = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
