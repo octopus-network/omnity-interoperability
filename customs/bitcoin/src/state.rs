@@ -951,8 +951,11 @@ impl CustomsState {
     }
 
     /// Filters out known UTXOs from the given UTXO list.
-    pub fn new_utxos(&self, mut utxos: Vec<Utxo>) -> Vec<Utxo> {
-        utxos.retain(|utxo| !self.outpoint_utxos.contains_key(&utxo.outpoint));
+    pub fn new_utxos(&self, mut utxos: Vec<Utxo>, tx_id: Option<Txid>) -> Vec<Utxo> {
+        utxos.retain(|utxo| {
+            !self.outpoint_utxos.contains_key(&utxo.outpoint)
+                && tx_id.map_or(true, |t| utxo.outpoint.txid == t)
+        });
         utxos
     }
 

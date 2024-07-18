@@ -31,7 +31,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
-const MIN_CONFIRMATIONS: u32 = 12;
+const MIN_CONFIRMATIONS: u32 = 4;
 const MAX_TIME_IN_QUEUE: Duration = Duration::from_secs(10);
 const COSMOS_HUB: &str = "cosmoshub";
 const RUNE_ID_1: &str = "150:1";
@@ -630,6 +630,7 @@ impl CustomsSetup {
                 }
             }
         }
+        self.print_customs_events();
         panic!(
             "the customs did not pending the transaction in {} ticks; last status: {:?}",
             max_ticks, last_status
@@ -652,6 +653,28 @@ impl CustomsSetup {
         }
         panic!(
             "the customs did not finalize the transaction in {} ticks; last status: {:?}",
+            max_ticks, last_status
+        )
+    }
+
+    pub fn await_finalize_gen_ticket_tx(&self, txid: Txid, max_ticks: usize) {
+        self.env
+            .advance_time(MIN_CONFIRMATIONS * Duration::from_secs(600) + Duration::from_secs(1));
+        let mut last_status = None;
+        for _ in 0..max_ticks {
+            let status = self.generate_ticket_status(txid);
+            match status {
+                GenTicketStatus::Confirmed(_) => {
+                    return;
+                }
+                status => {
+                    last_status = Some(status);
+                    self.env.tick();
+                }
+            }
+        }
+        panic!(
+            "the customs did not confirme the genrate ticket request in {} ticks; last status: {:?}",
             max_ticks, last_status
         )
     }
@@ -745,38 +768,6 @@ fn test_gen_ticket_no_new_utxos() {
         rune_id: RUNE_ID_1.into(),
         amount: 1000,
         txid: random_txid().to_string(),
-    });
-    assert_eq!(result, Err(GenerateTicketError::NoNewUtxos));
-}
-
-#[test]
-fn test_gen_ticket_with_insufficient_confirmations() {
-    let customs = CustomsSetup::new();
-
-    customs.set_tip_height(100);
-
-    let txid = random_txid();
-    let utxo = Utxo {
-        height: 99,
-        outpoint: OutPoint { txid, vout: 1 },
-        value: 546,
-    };
-
-    let target_chain_id = COSMOS_HUB.to_string();
-    let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
-    let deposit_address = customs.get_btc_address(Destination {
-        target_chain_id: target_chain_id.clone(),
-        receiver: receiver.clone(),
-        token: None,
-    });
-
-    customs.push_utxos(vec![(deposit_address, utxo)]);
-    let result = customs.generate_ticket(&GenerateTicketArgs {
-        target_chain_id,
-        receiver,
-        rune_id: RUNE_ID_1.into(),
-        amount: 100_000_000,
-        txid: txid.to_string(),
     });
     assert_eq!(result, Err(GenerateTicketError::NoNewUtxos));
 }
@@ -892,6 +883,52 @@ fn test_update_runes_balance_no_utxo() {
 }
 
 #[test]
+fn test_update_runes_balance_unconfirmed() {
+    let customs = CustomsSetup::new();
+
+    customs.set_tip_height(100);
+
+    let txid = random_txid();
+    let vout = 1;
+    let utxo = Utxo {
+        height: 80,
+        outpoint: OutPoint { txid, vout },
+        value: 546,
+    };
+
+    let target_chain_id = COSMOS_HUB.to_string();
+    let receiver = "cosmos1fwaeqe84kaymymmqv0wyj75hzsdq4gfqm5xvvv".to_string();
+    let deposit_address = customs.get_btc_address(Destination {
+        target_chain_id: target_chain_id.clone(),
+        receiver: receiver.clone(),
+        token: None,
+    });
+
+    let args = GenerateTicketArgs {
+        target_chain_id,
+        receiver,
+        rune_id: RUNE_ID_1.into(),
+        amount: 100_000_000,
+        txid: txid.to_string(),
+    };
+
+    customs.push_utxos(vec![(deposit_address, utxo)]);
+    let result = customs.generate_ticket(&args);
+    assert_eq!(result, Ok(()));
+
+    let args = UpdateRunesBalanceArgs {
+        txid,
+        balances: vec![RunesBalance {
+            rune_id: RuneId::from_str(RUNE_ID_1).unwrap(),
+            vout,
+            amount: 100_000_000,
+        }],
+    };
+    let result = customs.update_runes_balance(&args);
+    assert_eq!(result, Err(UpdateRunesBalanceError::RequestNotConfirmed));
+}
+
+#[test]
 fn test_update_runes_balance_invalid() {
     let customs = CustomsSetup::new();
 
@@ -924,6 +961,8 @@ fn test_update_runes_balance_invalid() {
     customs.push_utxos(vec![(deposit_address, utxo)]);
     let result = customs.generate_ticket(&args);
     assert_eq!(result, Ok(()));
+
+    customs.await_finalize_gen_ticket_tx(txid, 10);
 
     let result = customs.update_runes_balance(&UpdateRunesBalanceArgs {
         txid,
@@ -992,6 +1031,8 @@ fn test_update_runes_balance_multi_utxos() {
     ]);
     let result = customs.generate_ticket(&args);
     assert_eq!(result, Ok(()));
+
+    customs.await_finalize_gen_ticket_tx(txid, 10);
 
     let result = customs.update_runes_balance(&UpdateRunesBalanceArgs {
         txid,
@@ -1068,6 +1109,8 @@ fn deposit_runes_to_main_address(
         txid: txid.to_string(),
     });
     assert_eq!(result, Ok(()));
+
+    customs.await_finalize_gen_ticket_tx(txid, 10);
 
     let args = UpdateRunesBalanceArgs {
         txid,

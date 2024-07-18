@@ -35,7 +35,7 @@ pub async fn update_btc_utxos() -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
         ))
     })?;
 
-    let new_utxos = read_state(|s| s.new_utxos(resp.utxos.clone()));
+    let new_utxos = read_state(|s| s.new_utxos(resp.utxos.clone(), None));
     if new_utxos.len() == 0 {
         return Ok(vec![]);
     }

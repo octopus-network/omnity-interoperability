@@ -1,6 +1,7 @@
 use crate::destination::Destination;
 use crate::guard::{generate_ticket_guard, GuardError};
 use crate::hub;
+use crate::management::{get_utxos, CallSource};
 use crate::state::{
     audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, RUNES_TOKEN,
 };
@@ -154,6 +155,29 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 }
 
 async fn fetch_new_utxos(txid: Txid, address: &String) -> Result<Vec<Utxo>, GenerateTicketError> {
+    if cfg!(feature = "non_prod") {
+        fetch_new_utxo_from_canister(txid, address).await
+    } else {
+        fetch_new_utxos_outcall(txid, address).await
+    }
+}
+
+async fn fetch_new_utxo_from_canister(txid: Txid, address: &String) -> Result<Vec<Utxo>, GenerateTicketError> {
+    let btc_network = read_state(|s| s.btc_network);
+    let utxos = get_utxos(btc_network, address, 0, CallSource::Client)
+        .await
+        .map_err(|call_err| {
+            GenerateTicketError::TemporarilyUnavailable(format!(
+                "Failed to call bitcoin canister: {}",
+                call_err
+            ))
+        })?
+        .utxos;
+
+    Ok(read_state(|s| s.new_utxos(utxos, Some(txid))))
+}
+
+async fn fetch_new_utxos_outcall(txid: Txid, address: &String) -> Result<Vec<Utxo>, GenerateTicketError> {
     const MAX_CYCLES: u128 = 1_000_000_000_000;
     const DERAULT_RPC_URL: &str = "https://mempool.space/api/tx";
 

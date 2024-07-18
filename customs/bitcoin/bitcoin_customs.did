@@ -118,7 +118,7 @@ type GenTicketRequestV2 = record {
   rune_id : RuneId;
 };
 type GenTicketStatus = variant {
-  Finalized;
+  Finalized : GenTicketRequestV2;
   Confirmed : GenTicketRequestV2;
   Unknown;
   Pending : GenTicketRequestV2;
@@ -250,7 +250,6 @@ service : (CustomArg) -> {
   get_chain_list : () -> (vec Chain) query;
   get_customs_info : () -> (CustomsInfo) query;
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_finalized_ticket : (text) -> (opt GenTicketRequestV2) query;
   get_main_btc_address : (text) -> (text);
   get_pending_gen_ticket_requests : (GetGenTicketReqsArgs) -> (
       vec GenTicketRequestV2,
