@@ -77,7 +77,7 @@ export const idlFactory = ({ IDL }) => {
     'rune_id' : RuneId,
   });
   const GenTicketStatus = IDL.Variant({
-    'Finalized' : IDL.Null,
+    'Finalized' : GenTicketRequestV2,
     'Confirmed' : GenTicketRequestV2,
     'Unknown' : IDL.Null,
     'Pending' : GenTicketRequestV2,
@@ -327,11 +327,6 @@ export const idlFactory = ({ IDL }) => {
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_customs_info' : IDL.Func([], [CustomsInfo], ['query']),
     'get_events' : IDL.Func([GetEventsArg], [IDL.Vec(Event)], ['query']),
-    'get_finalized_ticket' : IDL.Func(
-        [IDL.Text],
-        [IDL.Opt(GenTicketRequestV2)],
-        ['query'],
-      ),
     'get_main_btc_address' : IDL.Func([IDL.Text], [IDL.Text], []),
     'get_pending_gen_ticket_requests' : IDL.Func(
         [GetGenTicketReqsArgs],
