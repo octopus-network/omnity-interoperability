@@ -106,6 +106,34 @@
       "candid": "customs/oracle_canister/oracle.did",
       "package": "rune_oracle_canister",
       "type": "rust"
+    },
+    "schnorr_canister": {
+      "type": "custom",
+      "candid": "https://github.com/domwoe/schnorr_canister/releases/download/v0.4.0//schnorr_canister.did",
+      "wasm": "https://github.com/domwoe/schnorr_canister/releases/download/v0.4.0/schnorr_canister.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "6fwhw-fyaaa-aaaap-qb7ua-cai",
+          "playground": "6fwhw-fyaaa-aaaap-qb7ua-cai"
+        }
+      }
+    },
+    "solana_route": {
+      "gzip": true,
+      "candid": "route/solana/solana_route.did",
+      "package": "solana_route",
+      "type": "rust"
+    },
+    "ic-solana-provider": {
+      "type": "custom",
+      "candid": "https://github.com/octopus-network/ic-solana/releases/latest/download/ic-solana-provider.did",
+      "wasm": "https://github.com/octopus-network/ic-solana/releases/latest/download/ic-solana-provider.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+          "playground": "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+        }
+      }
     }
   },
   "defaults": {

@@ -1,0 +1,118 @@
+type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type Event = variant {
+  finalized_gen_ticket : record {
+    request : GenerateTicketReq;
+    ticket_id : text;
+  };
+  updated_fee : record { fee : Factor };
+  finalized_mint_token : record { block_index : nat64; ticket_id : text };
+  added_token : record { token : Token; ledger_id : principal };
+  init : InitArgs;
+  upgrade : UpgradeArgs;
+  added_chain : Chain;
+  toggle_chain_state : ToggleState;
+};
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
+type GenerateTicketError = variant {
+  InsufficientRedeemFee : record { provided : nat64; required : nat64 };
+  SendTicketErr : text;
+  TemporarilyUnavailable : text;
+  InsufficientAllowance : record { allowance : nat64 };
+  TransferFailure : text;
+  UnsupportedAction : text;
+  RedeemFeeNotSet;
+  UnsupportedChainId : text;
+  UnsupportedToken : text;
+  InsufficientFunds : record { balance : nat64 };
+};
+type GenerateTicketOk = record { ticket_id : text };
+type GenerateTicketReq = record {
+  action : TxAction;
+  token_id : text;
+  memo : opt text;
+  sender : text;
+  target_chain_id : text;
+  tx_signature : text;
+  amount : nat;
+  receiver : text;
+};
+type GetEventsArg = record { start : nat64; length : nat64 };
+type InitArgs = record {
+  admin : principal;
+  hub_principal : principal;
+  chain_id : text;
+  schnorr_canister : principal;
+  schnorr_key_name : opt text;
+  chain_state : ChainState;
+};
+type Log = record { log : text; offset : nat64 };
+type Logs = record { logs : vec Log; all_logs_count : nat64 };
+type MintTokenStatus = variant {
+  Finalized : record { block_index : nat64 };
+  Unknown;
+};
+type Permission = variant { Update; Query };
+type PublicKeyReply = record { public_key_hex : text };
+type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
+type Result_1 = variant { Ok : PublicKeyReply; Err : text };
+type Result_2 = variant { Ok; Err : GenerateTicketError };
+type Result_3 = variant { Ok; Err : text };
+type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type SchnorrAlgorithm = variant { ed25519; bip340secp256k1 };
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
+type ToggleAction = variant { Deactivate; Activate };
+type ToggleState = record { action : ToggleAction; chain_id : text };
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  rune_id : opt text;
+  symbol : text;
+};
+type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type UpgradeArgs = record {
+  hub_principal : opt principal;
+  chain_id : opt text;
+  schnorr_canister : opt principal;
+  schnorr_key_name : opt text;
+  chain_state : opt ChainState;
+};
+service : (RouteArg) -> {
+  generate_ticket : (GenerateTicketReq) -> (Result);
+  get_chain_list : () -> (vec Chain) query;
+  get_events : (GetEventsArg) -> (vec Event) query;
+  get_log_records : (nat64, nat64) -> (Logs) query;
+  get_redeem_fee : (text) -> (opt nat) query;
+  get_token_list : () -> (vec TokenResp) query;
+  mint_token_status : (text) -> (MintTokenStatus) query;
+  public_key : (SchnorrAlgorithm) -> (Result_1);
+  resend_tickets : () -> (Result_2);
+  set_logger_filter : (text) -> ();
+  set_permissions : (principal, Permission) -> ();
+  update_schnorr_canister_id : (principal) -> (Result_3);
+}
