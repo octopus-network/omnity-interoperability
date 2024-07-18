@@ -1,5 +1,5 @@
 use crate::hub;
-use crate::logs::P1;
+use crate::logs::{P0, P1};
 use crate::state::{audit, GenTicketStatus, RunesBalance};
 use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize};
@@ -56,6 +56,14 @@ pub async fn update_runes_balance(
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
     if amount != req.amount || args.balances.iter().any(|b| b.rune_id != req.rune_id) {
         mutate_state(|s| audit::remove_confirmed_request(s, &req.txid));
+        log!(
+            P0,
+            "[update_runes_balance] amount mismatch for ticket_id: {}, request amount: {}, oracle amount: {}, oracle: {}",
+            args.txid.to_string(),
+            req.amount,
+            amount,
+            ic_cdk::caller().to_string(),
+        );
         return Err(UpdateRunesBalanceError::MismatchWithGenTicketReq);
     }
 
