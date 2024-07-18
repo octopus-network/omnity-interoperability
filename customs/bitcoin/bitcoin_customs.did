@@ -257,7 +257,6 @@ service : (CustomArg) -> {
     ) query;
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
-  remove_pending_ticket : (text) -> ();
   set_runes_oracle : (principal) -> ();
   transform : (TransformArgs) -> (HttpResponse) query;
   update_btc_utxos : () -> (Result_1);
