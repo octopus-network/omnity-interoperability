@@ -59,6 +59,12 @@
       "package": "icp_route",
       "type": "custom"
     },
+    "cosmoswasm_route": {
+      "gzip": true,
+      "candid": "route/cosmoswasm/cosmoswasm_route.did",
+      "package": "cosmoswasm_route",
+      "type": "rust"
+    },
     "hub_mock": {
       "gzip": true,
       "candid": "mock/hub/hub_mock.did",

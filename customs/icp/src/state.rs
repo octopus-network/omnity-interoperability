@@ -28,6 +28,8 @@ pub struct CustomsState {
 
     pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
 
+    pub ckbtc_ledger_principal: Principal,
+
     #[serde(skip)]
     pub is_timer_running: bool,
 }
@@ -43,6 +45,7 @@ impl From<InitArgs> for CustomsState {
             counterparties: Default::default(),
             finalized_mint_token_requests: Default::default(),
             is_timer_running: false,
+            ckbtc_ledger_principal: args.ckbtc_ledger_principal,
         }
     }
 }

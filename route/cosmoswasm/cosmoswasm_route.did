@@ -1,0 +1,13 @@
+type InitArgs = record {
+  hub_principal : principal;
+  cw_rpc_url : text;
+  cw_rest_url : text;
+  cosmoswasm_port_contract_address : text;
+  chain_id : text;
+};
+type Result = variant { Ok : text; Err : text };
+service : (InitArgs) -> {
+  cache_public_key_and_start_timer : () -> ();
+  redeem : (text) -> (Result);
+  tendermint_address : () -> (Result);
+}

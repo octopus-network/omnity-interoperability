@@ -1,9 +1,12 @@
 use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
-use icrc_ledger_types::icrc1::{
-    account::Account,
-    transfer::{TransferArg, TransferError},
+use icrc_ledger_types::{
+    icrc1::{
+        account::{Account, Subaccount},
+        transfer::{TransferArg, TransferError},
+    },
+    icrc2::approve::ApproveArgs,
 };
 use num_traits::cast::ToPrimitive;
 use omnity_types::TicketId;
@@ -35,6 +38,67 @@ impl From<TransferError> for MintTokenError {
     fn from(e: TransferError) -> Self {
         Self::TemporarilyUnavailable(format!("failed to mint tokens on the ledger: {:?}", e))
     }
+}
+
+/// The arguments of the [retrieve_btc_with_approval] endpoint.
+#[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct RetrieveBtcWithApprovalArgs {
+    // amount to retrieve in satoshi
+    pub amount: u64,
+
+    // address where to send bitcoins
+    pub address: String,
+
+    // The subaccount to burn ckBTC from.
+    pub from_subaccount: Option<Subaccount>,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct RetrieveBtcOk {
+    // the index of the burn block on the ckbtc ledger
+    pub block_index: u64,
+}
+
+pub async fn retrieve_ckbtc(
+    receiver: String,
+    amount: Nat,
+) -> Result<RetrieveBtcOk, MintTokenError> {
+    let ckbtc_ledger_principal = read_state(|s| s.ckbtc_ledger_principal.clone());
+    let client = ICRC1Client {
+        runtime: CdkRuntime,
+        ledger_canister_id: ckbtc_ledger_principal,
+    };
+    let approve_args = ApproveArgs {
+        from_subaccount: None,
+        spender: Account {
+            owner: ckbtc_ledger_principal,
+            subaccount: None,
+        },
+        amount: amount.clone(),
+        expected_allowance: None,
+        expires_at: None,
+        fee: None,
+        memo: None,
+        created_at_time: None,
+    };
+
+    client
+        .approve(approve_args)
+        .await
+        .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?
+        .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?;
+
+    let arg = RetrieveBtcWithApprovalArgs {
+        amount: amount.to_string().parse().unwrap(),
+        address: receiver,
+        from_subaccount: None,
+    };
+    let result: (RetrieveBtcOk,) =
+        ic_cdk::call(ckbtc_ledger_principal, "retrieve_btc_with_approval", (arg,))
+            .await
+            .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?;
+
+    Ok(result.0)
 }
 
 pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
