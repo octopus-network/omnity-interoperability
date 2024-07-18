@@ -237,7 +237,8 @@ pub enum GenTicketStatus {
     Unknown,
     /// The request is in the queue.
     Pending(GenTicketRequestV2),
-    Finalized,
+    Confirmed(GenTicketRequestV2),
+    Finalized(GenTicketRequestV2),
 }
 
 /// The state of the Bitcoin Customs.
@@ -270,7 +271,12 @@ pub struct CustomsState {
 
     pub release_token_counter: u64,
 
+    /// The transaction has just entered the memory pool
+    /// or has not reached sufficient confirmation.
     pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequestV2>,
+
+    /// The transaction needs to wait for runes oracle to update the runes balance.
+    pub confirmed_gen_ticket_requests: BTreeMap<Txid, GenTicketRequestV2>,
 
     pub finalized_gen_ticket_requests: VecDeque<GenTicketRequestV2>,
 
@@ -329,6 +335,8 @@ pub struct CustomsState {
     pub hub_principal: Principal,
 
     pub runes_oracles: BTreeSet<Principal>,
+
+    pub rpc_url: Option<String>,
 
     /// Process one timer event at a time.
     #[serde(skip)]
@@ -567,12 +575,15 @@ impl CustomsState {
         if let Some(req) = self.pending_gen_ticket_requests.get(&tx_id) {
             return GenTicketStatus::Pending(req.clone());
         }
+        if let Some(req) = self.confirmed_gen_ticket_requests.get(&tx_id) {
+            return GenTicketStatus::Confirmed(req.clone());
+        }
         match self
             .finalized_gen_ticket_requests
             .iter()
             .find(|req| req.txid == tx_id)
         {
-            Some(_) => GenTicketStatus::Finalized,
+            Some(req) => GenTicketStatus::Finalized(req.clone()),
             None => GenTicketStatus::Unknown,
         }
     }
@@ -931,7 +942,7 @@ impl CustomsState {
     }
 
     fn push_finalized_ticket(&mut self, req: GenTicketRequestV2) {
-        assert!(!self.pending_gen_ticket_requests.contains_key(&req.txid));
+        assert!(!self.confirmed_gen_ticket_requests.contains_key(&req.txid));
 
         if self.finalized_gen_ticket_requests.len() >= MAX_FINALIZED_REQUESTS {
             self.finalized_gen_ticket_requests.pop_front();
@@ -976,6 +987,11 @@ impl CustomsState {
         ensure_eq!(
             self.pending_gen_ticket_requests,
             other.pending_gen_ticket_requests,
+            "pending_gen_ticket_requests do not match"
+        );
+        ensure_eq!(
+            self.confirmed_gen_ticket_requests,
+            other.confirmed_gen_ticket_requests,
             "pending_gen_ticket_requests do not match"
         );
         ensure_eq!(
@@ -1113,9 +1129,10 @@ impl From<InitArgs> for CustomsState {
             generate_ticket_counter: 0,
             release_token_counter: 0,
             pending_gen_ticket_requests: Default::default(),
+            confirmed_gen_ticket_requests: Default::default(),
+            finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             pending_rune_tx_requests: Default::default(),
             finalized_rune_tx_requests: BTreeMap::new(),
-            finalized_gen_ticket_requests: VecDeque::with_capacity(MAX_FINALIZED_REQUESTS),
             requests_in_flight: Default::default(),
             submitted_transactions: Default::default(),
             replacement_txid: Default::default(),
@@ -1137,6 +1154,7 @@ impl From<InitArgs> for CustomsState {
             chain_state: args.chain_state,
             hub_principal: args.hub_principal,
             runes_oracles: BTreeSet::from_iter(vec![args.runes_oracle_principal]),
+            rpc_url: None,
             last_fee_per_vbyte: vec![1; 100],
         }
     }

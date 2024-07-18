@@ -61,12 +61,16 @@ export interface EstimateFeeArgs {
   'rune_id' : RuneId,
 }
 export type Event = {
+    'confirmed_generate_ticket_request' : GenTicketRequestV2
+  } |
+  {
     'received_utxos' : {
       'is_runes' : boolean,
       'destination' : Destination,
       'utxos' : Array<Utxo>,
     }
   } |
+  { 'added_runes_oracle' : { 'principal' : Principal } } |
   { 'removed_ticket_request' : { 'txid' : Uint8Array | number[] } } |
   {
     'sent_transaction' : {
@@ -101,6 +105,7 @@ export type Event = {
   { 'update_next_ticket_seq' : bigint } |
   { 'update_next_directive_seq' : bigint } |
   { 'accepted_generate_ticket_request_v2' : GenTicketRequestV2 } |
+  { 'accepted_generate_ticket_request_v3' : GenTicketRequestV2 } |
   { 'confirmed_transaction' : { 'txid' : Uint8Array | number[] } } |
   {
     'replaced_transaction' : {
@@ -114,6 +119,7 @@ export type Event = {
   } |
   { 'accepted_generate_ticket_request' : GenTicketRequest } |
   { 'accepted_rune_tx_request' : RuneTxRequest } |
+  { 'updated_rpc_url' : { 'rpc_url' : string } } |
   { 'toggle_chain_state' : ToggleState };
 export interface GenTicketRequest {
   'received_at' : bigint,
@@ -137,6 +143,7 @@ export interface GenTicketRequestV2 {
   'rune_id' : RuneId,
 }
 export type GenTicketStatus = { 'Finalized' : null } |
+  { 'Confirmed' : GenTicketRequestV2 } |
   { 'Unknown' : null } |
   { 'Pending' : GenTicketRequestV2 };
 export interface GenerateTicketArgs {
@@ -146,11 +153,15 @@ export interface GenerateTicketArgs {
   'receiver' : string,
   'rune_id' : string,
 }
-export type GenerateTicketError = { 'TemporarilyUnavailable' : string } |
+export type GenerateTicketError = { 'SendTicketErr' : string } |
+  { 'RpcError' : string } |
+  { 'TemporarilyUnavailable' : string } |
   { 'AlreadyProcessed' : null } |
+  { 'AmountIsZero' : null } |
   { 'InvalidRuneId' : string } |
   { 'AlreadySubmitted' : null } |
   { 'InvalidTxId' : null } |
+  { 'TxNotFoundInMemPool' : null } |
   { 'NoNewUtxos' : null } |
   { 'UnsupportedChainId' : string } |
   { 'UnsupportedToken' : string };
@@ -162,6 +173,12 @@ export interface GetEventsArg { 'start' : bigint, 'length' : bigint }
 export interface GetGenTicketReqsArgs {
   'max_count' : bigint,
   'start_txid' : [] | [Uint8Array | number[]],
+}
+export interface HttpHeader { 'value' : string, 'name' : string }
+export interface HttpResponse {
+  'status' : bigint,
+  'body' : Uint8Array | number[],
+  'headers' : Array<HttpHeader>,
 }
 export interface InitArgs {
   'hub_principal' : Principal,
@@ -199,8 +216,6 @@ export type Result = { 'Ok' : null } |
 export type Result_1 = { 'Ok' : Array<Utxo> } |
   { 'Err' : UpdateBtcUtxosErr };
 export type Result_2 = { 'Ok' : null } |
-  { 'Err' : UpdatePendingTicketError };
-export type Result_3 = { 'Ok' : null } |
   { 'Err' : UpdateRunesBalanceError };
 export interface RuneId { 'tx' : number, 'block' : bigint }
 export interface RuneTxRequest {
@@ -240,28 +255,26 @@ export interface TokenResp {
   'rune_id' : string,
   'symbol' : string,
 }
+export interface TransformArgs {
+  'context' : Uint8Array | number[],
+  'response' : HttpResponse,
+}
 export type TxAction = { 'Burn' : null } |
   { 'Redeem' : null } |
   { 'Mint' : null } |
   { 'Transfer' : null };
 export type UpdateBtcUtxosErr = { 'TemporarilyUnavailable' : string };
-export interface UpdatePendingTicketArgs {
-  'txid' : string,
-  'amount' : [] | [bigint],
-  'rune_id' : [] | [string],
-}
-export type UpdatePendingTicketError = { 'InvalidRuneId' : string } |
-  { 'InvalidTxId' : null } |
-  { 'TicketNotFound' : null };
 export interface UpdateRunesBalanceArgs {
   'txid' : Uint8Array | number[],
   'balances' : Array<RunesBalance>,
 }
-export type UpdateRunesBalanceError = { 'SendTicketErr' : string } |
+export type UpdateRunesBalanceError = { 'RequestNotConfirmed' : null } |
+  { 'BalancesIsEmpty' : null } |
   { 'UtxoNotFound' : null } |
   { 'RequestNotFound' : null } |
   { 'AleardyProcessed' : null } |
-  { 'MismatchWithGenTicketReq' : null };
+  { 'MismatchWithGenTicketReq' : null } |
+  { 'FinalizeTicketErr' : string };
 export interface UpgradeArgs {
   'hub_principal' : [] | [Principal],
   'max_time_in_queue_nanos' : [] | [bigint],
@@ -282,6 +295,7 @@ export interface _SERVICE {
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
   'get_customs_info' : ActorMethod<[], CustomsInfo>,
   'get_events' : ActorMethod<[GetEventsArg], Array<Event>>,
+  'get_finalized_ticket' : ActorMethod<[string], [] | [GenTicketRequestV2]>,
   'get_main_btc_address' : ActorMethod<[string], string>,
   'get_pending_gen_ticket_requests' : ActorMethod<
     [GetGenTicketReqsArgs],
@@ -290,9 +304,10 @@ export interface _SERVICE {
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
   'set_runes_oracle' : ActorMethod<[Principal], undefined>,
+  'transform' : ActorMethod<[TransformArgs], HttpResponse>,
   'update_btc_utxos' : ActorMethod<[], Result_1>,
-  'update_pending_ticket' : ActorMethod<[UpdatePendingTicketArgs], Result_2>,
-  'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_3>,
+  'update_rpc_url' : ActorMethod<[string], undefined>,
+  'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_2>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: ({ IDL }: { IDL: IDL }) => IDL.Type[];

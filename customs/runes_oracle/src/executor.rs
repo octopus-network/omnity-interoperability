@@ -171,7 +171,8 @@ impl Executor {
                                     request.txid
                                 );
                             }
-                            Err(UpdateRunesBalanceError::UtxoNotFound) => {
+                            Err(UpdateRunesBalanceError::UtxoNotFound)
+                            | Err(UpdateRunesBalanceError::RequestNotConfirmed) => {
                                 // Should never happen.
                                 log::error!("utxo not found for txid:{}", request.txid);
                             }
@@ -179,8 +180,8 @@ impl Executor {
                                 // Should never happen.
                                 log::error!("balances is empty for txid:{}", request.txid);
                             }
-                            Err(UpdateRunesBalanceError::SendTicketErr(err)) => {
-                                log::error!("send ticket err({}) for txid:{}", err, request.txid);
+                            Err(UpdateRunesBalanceError::FinalizeTicketErr(err)) => {
+                                log::error!("finalize ticket err({}) for txid:{}", err, request.txid);
                             }
                         },
                         Err(err) => {

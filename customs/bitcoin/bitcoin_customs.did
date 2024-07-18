@@ -49,6 +49,7 @@ type Destination = record {
 };
 type EstimateFeeArgs = record { amount : opt nat; rune_id : RuneId };
 type Event = variant {
+  confirmed_generate_ticket_request : GenTicketRequestV2;
   received_utxos : record {
     is_runes : bool;
     destination : Destination;
@@ -80,6 +81,7 @@ type Event = variant {
   update_next_ticket_seq : nat64;
   update_next_directive_seq : nat64;
   accepted_generate_ticket_request_v2 : GenTicketRequestV2;
+  accepted_generate_ticket_request_v3 : GenTicketRequestV2;
   confirmed_transaction : record { txid : blob };
   replaced_transaction : record {
     fee : nat64;
@@ -91,6 +93,7 @@ type Event = variant {
   };
   accepted_generate_ticket_request : GenTicketRequest;
   accepted_rune_tx_request : RuneTxRequest;
+  updated_rpc_url : record { rpc_url : text };
   toggle_chain_state : ToggleState;
 };
 type GenTicketRequest = record {
@@ -115,7 +118,8 @@ type GenTicketRequestV2 = record {
   rune_id : RuneId;
 };
 type GenTicketStatus = variant {
-  Finalized;
+  Finalized : GenTicketRequestV2;
+  Confirmed : GenTicketRequestV2;
   Unknown;
   Pending : GenTicketRequestV2;
 };
@@ -127,11 +131,15 @@ type GenerateTicketArgs = record {
   rune_id : text;
 };
 type GenerateTicketError = variant {
+  SendTicketErr : text;
+  RpcError : text;
   TemporarilyUnavailable : text;
   AlreadyProcessed;
+  AmountIsZero;
   InvalidRuneId : text;
   AlreadySubmitted;
   InvalidTxId;
+  TxNotFoundInMemPool;
   NoNewUtxos;
   UnsupportedChainId : text;
   UnsupportedToken : text;
@@ -139,6 +147,12 @@ type GenerateTicketError = variant {
 type GetBtcAddressArgs = record { target_chain_id : text; receiver : text };
 type GetEventsArg = record { start : nat64; length : nat64 };
 type GetGenTicketReqsArgs = record { max_count : nat64; start_txid : opt blob };
+type HttpHeader = record { value : text; name : text };
+type HttpResponse = record {
+  status : nat;
+  body : blob;
+  headers : vec HttpHeader;
+};
 type InitArgs = record {
   hub_principal : principal;
   ecdsa_key_name : text;
@@ -174,8 +188,7 @@ type ReleaseTokenStatus = variant {
 };
 type Result = variant { Ok; Err : GenerateTicketError };
 type Result_1 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
-type Result_2 = variant { Ok; Err : UpdatePendingTicketError };
-type Result_3 = variant { Ok; Err : UpdateRunesBalanceError };
+type Result_2 = variant { Ok; Err : UpdateRunesBalanceError };
 type RuneId = record { tx : nat32; block : nat64 };
 type RuneTxRequest = record {
   received_at : nat64;
@@ -205,29 +218,21 @@ type TokenResp = record {
   rune_id : text;
   symbol : text;
 };
+type TransformArgs = record { context : blob; response : HttpResponse };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
-type UpdatePendingTicketArgs = record {
-  txid : text;
-  amount : opt nat;
-  rune_id : opt text;
-};
-type UpdatePendingTicketError = variant {
-  InvalidRuneId : text;
-  InvalidTxId;
-  TicketNotFound;
-};
 type UpdateRunesBalanceArgs = record {
   txid : blob;
   balances : vec RunesBalance;
 };
 type UpdateRunesBalanceError = variant {
+  RequestNotConfirmed;
   BalancesIsEmpty;
-  SendTicketErr : text;
   UtxoNotFound;
   RequestNotFound;
   AleardyProcessed;
   MismatchWithGenTicketReq;
+  FinalizeTicketErr : text;
 };
 type UpgradeArgs = record {
   hub_principal : opt principal;
@@ -245,16 +250,15 @@ service : (CustomArg) -> {
   get_chain_list : () -> (vec Chain) query;
   get_customs_info : () -> (CustomsInfo) query;
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_finalized_ticket : (text) -> (opt GenTicketRequestV2) query;
   get_main_btc_address : (text) -> (text);
   get_pending_gen_ticket_requests : (GetGenTicketReqsArgs) -> (
       vec GenTicketRequestV2,
     ) query;
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
-  remove_pending_ticket : (text) -> ();
   set_runes_oracle : (principal) -> ();
+  transform : (TransformArgs) -> (HttpResponse) query;
   update_btc_utxos : () -> (Result_1);
-  update_pending_ticket : (UpdatePendingTicketArgs) -> (Result_2);
-  update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_3);
+  update_rpc_url : (text) -> ();
+  update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_2);
 }
