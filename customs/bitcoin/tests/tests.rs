@@ -630,7 +630,6 @@ impl CustomsSetup {
                 }
             }
         }
-        self.print_customs_events();
         panic!(
             "the customs did not pending the transaction in {} ticks; last status: {:?}",
             max_ticks, last_status
@@ -1374,14 +1373,7 @@ fn test_finalize_batch_release_token_tx() {
 fn test_exist_two_submitted_tx() {
     let customs = CustomsSetup::new();
 
-    // Step 1: deposit sufficient btc and runes
-
-    deposit_runes_to_main_address(&customs, RUNE_ID_1.into());
-    deposit_runes_to_main_address(&customs, RUNE_ID_1.into());
-    deposit_btc_to_main_address(&customs);
-    deposit_btc_to_main_address(&customs);
-
-    // Step 2: push the first ticket
+    // Step 1: push tickets
 
     let first_ticket_id: String = "ticket_id1".into();
     let first_ticket = Ticket {
@@ -1398,19 +1390,6 @@ fn test_exist_two_submitted_tx() {
         memo: None,
     };
     customs.push_ticket(first_ticket);
-    customs.env.advance_time(Duration::from_secs(5));
-    customs.await_pending(first_ticket_id.clone(), 10);
-
-    // Step 3: wait for the first transaction to be submitted
-
-    customs.env.advance_time(Duration::from_secs(5));
-    let first_txid = customs.await_btc_transaction(first_ticket_id.clone(), 10);
-    let mempool = customs.mempool();
-    let first_tx: &bitcoin::Transaction = mempool
-        .get(&first_txid)
-        .expect("the mempool does not contain the release transaction");
-
-    // Step 4: push the second ticket
 
     let second_ticket_id: String = "ticket_id2".into();
     let second_ticket = Ticket {
@@ -1427,8 +1406,29 @@ fn test_exist_two_submitted_tx() {
         memo: None,
     };
     customs.push_ticket(second_ticket);
+
+    // Step 2: deposit sufficient btc and runes
+
+    deposit_runes_to_main_address(&customs, RUNE_ID_1.into());
+    deposit_runes_to_main_address(&customs, RUNE_ID_1.into());
+    deposit_btc_to_main_address(&customs);
+    deposit_btc_to_main_address(&customs);
+
+    // Step 3: wait for the transaction to be pending
+
     customs.env.advance_time(Duration::from_secs(5));
+    customs.await_pending(first_ticket_id.clone(), 10);
     customs.await_pending(second_ticket_id.clone(), 10);
+
+    // Step 4: wait for the first transaction to be submitted
+
+    customs.env.advance_time(Duration::from_secs(5));
+    let first_txid = customs.await_btc_transaction(first_ticket_id.clone(), 10);
+    let mempool = customs.mempool();
+    let first_tx: &bitcoin::Transaction = mempool
+        .get(&first_txid)
+        .expect("the mempool does not contain the release transaction");
+
 
     // Step 5: wait for the second transaction to be submitted
 
@@ -1540,14 +1540,7 @@ fn test_transaction_use_prev_change_output() {
 fn test_transaction_multi_runes_id() {
     let customs = CustomsSetup::new();
 
-    // Step 1: deposit sufficient btc and runes
-
-    deposit_runes_to_main_address(&customs, RUNE_ID_1.into());
-    deposit_runes_to_main_address(&customs, RUNE_ID_2.into());
-    deposit_btc_to_main_address(&customs);
-    deposit_btc_to_main_address(&customs);
-
-    // Step 2: push tickets
+    // Step 1: push tickets
 
     let first_ticket_id: String = "ticket_id1".into();
     let first_ticket = Ticket {
@@ -1580,11 +1573,21 @@ fn test_transaction_multi_runes_id() {
     };
     customs.push_ticket(first_ticket);
     customs.push_ticket(second_ticket);
+
+    // Step 2: deposit sufficient btc and runes
+
+    deposit_runes_to_main_address(&customs, RUNE_ID_1.into());
+    deposit_runes_to_main_address(&customs, RUNE_ID_2.into());
+    deposit_btc_to_main_address(&customs);
+    deposit_btc_to_main_address(&customs);
+
+    // Step 3: wait for the transaction to be pending
+    
     customs.env.advance_time(Duration::from_secs(5));
     customs.await_pending(first_ticket_id.clone(), 10);
     customs.await_pending(second_ticket_id.clone(), 10);
 
-    // Step 3: wait for the first transaction to be submitted
+    // Step 4: wait for the first transaction to be submitted
 
     customs.env.advance_time(Duration::from_secs(5));
     let first_txid = customs.await_btc_transaction(first_ticket_id.clone(), 10);
@@ -1599,7 +1602,7 @@ fn test_transaction_multi_runes_id() {
         .get(&second_txid)
         .expect("the mempool does not contain the release transaction");
 
-    // Step 4: finalize transactions
+    // Step 5: finalize transactions
 
     customs.finalize_transaction(first_tx);
     assert_eq!(customs.await_finalization(first_ticket_id, 10), first_txid);
