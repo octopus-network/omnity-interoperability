@@ -142,7 +142,7 @@ export interface GenTicketRequestV2 {
   'receiver' : string,
   'rune_id' : RuneId,
 }
-export type GenTicketStatus = { 'Finalized' : null } |
+export type GenTicketStatus = { 'Finalized' : GenTicketRequestV2 } |
   { 'Confirmed' : GenTicketRequestV2 } |
   { 'Unknown' : null } |
   { 'Pending' : GenTicketRequestV2 };
@@ -295,7 +295,6 @@ export interface _SERVICE {
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
   'get_customs_info' : ActorMethod<[], CustomsInfo>,
   'get_events' : ActorMethod<[GetEventsArg], Array<Event>>,
-  'get_finalized_ticket' : ActorMethod<[string], [] | [GenTicketRequestV2]>,
   'get_main_btc_address' : ActorMethod<[string], string>,
   'get_pending_gen_ticket_requests' : ActorMethod<
     [GetGenTicketReqsArgs],
