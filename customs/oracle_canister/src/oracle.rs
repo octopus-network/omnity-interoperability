@@ -93,9 +93,9 @@ pub(crate) fn fetch_then_submit(secs: u64) {
                     continue;
                 }
                 log::info!(
-                    "prepare to submit {} rune balances for task {:?}",
-                    balances.len(),
-                    task.txid
+                    "prepare to submit {:?} rune balances for task {}",
+                    balances,
+                    task.txid.to_string()
                 );
                 if let Err(e) = update_runes_balance(customs, task.txid, balances).await {
                     log::error!("{:?}", e);
