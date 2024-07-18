@@ -238,7 +238,7 @@ pub enum GenTicketStatus {
     /// The request is in the queue.
     Pending(GenTicketRequestV2),
     Confirmed(GenTicketRequestV2),
-    Finalized,
+    Finalized(GenTicketRequestV2),
 }
 
 /// The state of the Bitcoin Customs.
@@ -583,7 +583,7 @@ impl CustomsState {
             .iter()
             .find(|req| req.txid == tx_id)
         {
-            Some(_) => GenTicketStatus::Finalized,
+            Some(req) => GenTicketStatus::Finalized(req.clone()),
             None => GenTicketStatus::Unknown,
         }
     }

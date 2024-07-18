@@ -62,7 +62,10 @@ pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTick
 pub fn confirm_generate_ticket_request(state: &mut CustomsState, req: GenTicketRequestV2) {
     record_event(&Event::ConfirmedGenTicketRequest(req.clone()));
 
-    assert!(state.pending_gen_ticket_requests.remove(&req.txid).is_some());
+    assert!(state
+        .pending_gen_ticket_requests
+        .remove(&req.txid)
+        .is_some());
 
     let new_utxos = req.new_utxos.clone();
     let dest = Destination {
@@ -101,7 +104,7 @@ pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: Runes
     state.update_runes_balance(txid, balance);
 }
 
-pub fn remove_pending_request(state: &mut CustomsState, txid: &Txid) {
+pub fn remove_confirmed_request(state: &mut CustomsState, txid: &Txid) {
     record_event(&Event::RemovedTicketRequest { txid: txid.clone() });
     state
         .confirmed_gen_ticket_requests

@@ -140,16 +140,6 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
     read_state(|s| s.generate_ticket_status(txid))
 }
 
-#[query]
-fn get_finalized_ticket(txid: String) -> Option<GenTicketRequestV2> {
-    read_state(|s| {
-        s.finalized_gen_ticket_requests
-            .iter()
-            .find(|t| t.txid.to_string() == txid)
-            .cloned()
-    })
-}
-
 /// The function name needs to be changed to get_confirmed_gen_ticket_requests, 
 /// but considering that it will affect runes oracle, it will be retained temporarily.
 #[query]

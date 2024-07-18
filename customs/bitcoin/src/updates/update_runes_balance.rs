@@ -32,7 +32,7 @@ pub async fn update_runes_balance(
     }
 
     let req = read_state(|s| match s.generate_ticket_status(args.txid) {
-        GenTicketStatus::Finalized => Err(UpdateRunesBalanceError::AleardyProcessed),
+        GenTicketStatus::Finalized(_) => Err(UpdateRunesBalanceError::AleardyProcessed),
         GenTicketStatus::Unknown => Err(UpdateRunesBalanceError::RequestNotFound),
         GenTicketStatus::Pending(_) => Err(UpdateRunesBalanceError::RequestNotConfirmed),
         GenTicketStatus::Confirmed(req) => Ok(req),
@@ -55,7 +55,7 @@ pub async fn update_runes_balance(
 
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
     if amount != req.amount || args.balances.iter().any(|b| b.rune_id != req.rune_id) {
-        mutate_state(|s| audit::remove_pending_request(s, &req.txid));
+        mutate_state(|s| audit::remove_confirmed_request(s, &req.txid));
         return Err(UpdateRunesBalanceError::MismatchWithGenTicketReq);
     }
 

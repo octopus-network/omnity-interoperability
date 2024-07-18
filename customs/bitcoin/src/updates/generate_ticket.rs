@@ -95,7 +95,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         GenTicketStatus::Pending(_) | GenTicketStatus::Confirmed(_) => {
             Err(GenerateTicketError::AlreadySubmitted)
         }
-        GenTicketStatus::Finalized => Err(GenerateTicketError::AlreadyProcessed),
+        GenTicketStatus::Finalized(_) => Err(GenerateTicketError::AlreadyProcessed),
         GenTicketStatus::Unknown => Ok(()),
     })?;
 
