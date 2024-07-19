@@ -447,9 +447,9 @@ checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "base64"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9475866fec1451be56a3c2400fd081ff546538961565ccb5b7142cbd22bc7a51"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "base64ct"
@@ -602,7 +602,7 @@ dependencies = [
  "bech32 0.9.1",
  "bitcoin 0.28.2",
  "bitcoin_mock",
- "bs58",
+ "bs58 0.4.0",
  "candid",
  "candid_parser",
  "ciborium",
@@ -828,6 +828,15 @@ name = "bs58"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
+
+[[package]]
+name = "bs58"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "bstr"
@@ -9114,7 +9123,7 @@ checksum = "5bffdcef917385f1ef12c0ec21b3144d2c8788dbea1015d8fed838689dc093e5"
 dependencies = [
  "blake2",
  "borsh 1.4.0",
- "bs58",
+ "bs58 0.4.0",
  "c2-chacha",
  "curve25519-dalek 4.1.2",
  "derive_more 0.99.17",
@@ -9148,7 +9157,7 @@ version = "0.1.0"
 source = "git+https://github.com/octopus-network/near-light-client-rs.git?branch=main#f5dd7b219b4e4e66881aadc672ecd6fb7b38df5e"
 dependencies = [
  "borsh 1.4.0",
- "bs58",
+ "bs58 0.4.0",
  "byteorder",
  "ed25519-dalek 1.0.1",
  "elastic-array",
@@ -9254,7 +9263,7 @@ dependencies = [
  "arbitrary",
  "base64 0.21.7",
  "borsh 1.4.0",
- "bs58",
+ "bs58 0.4.0",
  "derive_more 0.99.17",
  "enum-map",
  "near-account-id",
@@ -10017,7 +10026,7 @@ version = "3.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e459365e590736a54c3fa561947c84837534b8e9af6fc5bf781307e82658fae"
 dependencies = [
- "base64 0.22.0",
+ "base64 0.22.1",
  "serde",
 ]
 
@@ -11003,7 +11012,7 @@ version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7d6d2a27d57148378eb5e111173f4276ad26340ecc5c49a4a2152167a2d6a37"
 dependencies = [
- "base64 0.22.0",
+ "base64 0.22.1",
  "bytes",
  "futures-channel",
  "futures-core",
@@ -11375,7 +11384,7 @@ version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29993a25686778eb88d4189742cd713c9bce943bc54251a33509dc63cbacf73d"
 dependencies = [
- "base64 0.22.0",
+ "base64 0.22.1",
  "rustls-pki-types",
 ]
 
@@ -11630,6 +11639,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d733da87e79faaac25616e33d26299a41143fd4cd42746cbb0e91d8feea243fd"
 dependencies = [
  "byteorder",
+ "serde",
+]
+
+[[package]]
+name = "serde-big-array"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
+dependencies = [
  "serde",
 ]
 
@@ -12033,6 +12051,9 @@ name = "solana_route"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
+ "bincode",
+ "bs58 0.5.1",
  "candid",
  "ciborium",
  "ed25519-dalek 2.1.1",
@@ -12055,11 +12076,14 @@ dependencies = [
  "omnity_types",
  "pocket-ic",
  "serde",
+ "serde-big-array",
+ "serde_bytes",
  "serde_json",
  "sha2 0.10.8",
  "strum 0.25.0",
  "strum_macros 0.25.3",
  "thiserror",
+ "url",
 ]
 
 [[package]]

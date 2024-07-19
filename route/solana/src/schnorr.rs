@@ -1,6 +1,7 @@
 #![allow(unused)]
 use candid::CandidType;
 
+use omnity_types::TokenId;
 use serde::{Deserialize, Serialize};
 
 use std::convert::TryFrom;
@@ -63,8 +64,42 @@ pub struct SignatureVerificationReply {
     pub is_signature_valid: bool,
 }
 
+pub async fn sol_token_address(token_id: TokenId) -> Result<Vec<u8>, String> {
+    let mut derivation_path = ic_cdk::api::caller().as_slice().to_vec();
+    derivation_path.extend_from_slice(token_id.as_bytes());
+    let request = ManagementCanisterSchnorrPublicKeyRequest {
+        canister_id: None,
+        derivation_path: vec![derivation_path],
+        key_id: SchnorrKeyIds::TestKeyLocalDevelopment.to_key_id(SchnorrAlgorithm::Ed25519),
+    };
+
+    let (res,): (ManagementCanisterSchnorrPublicKeyReply,) =
+        ic_cdk::call(management_canister(), "schnorr_public_key", (request,))
+            .await
+            .map_err(|e| format!("schnorr_public_key failed {}", e.1))?;
+
+    Ok(res.public_key)
+}
+
+pub async fn public_key(algorithm: SchnorrAlgorithm) -> Result<PublicKeyReply, String> {
+    let request = ManagementCanisterSchnorrPublicKeyRequest {
+        canister_id: None,
+        derivation_path: vec![ic_cdk::api::caller().as_slice().to_vec()],
+        key_id: SchnorrKeyIds::TestKeyLocalDevelopment.to_key_id(algorithm),
+    };
+
+    let (res,): (ManagementCanisterSchnorrPublicKeyReply,) =
+        ic_cdk::call(management_canister(), "schnorr_public_key", (request,))
+            .await
+            .map_err(|e| format!("schnorr_public_key failed {}", e.1))?;
+
+    Ok(PublicKeyReply {
+        public_key_hex: hex::encode(&res.public_key),
+    })
+}
+
 // #[allow(unused)]
-async fn sign(message: String, algorithm: SchnorrAlgorithm) -> Result<SignatureReply, String> {
+pub async fn sign(message: String, algorithm: SchnorrAlgorithm) -> Result<SignatureReply, String> {
     let internal_request = ManagementCanisterSignatureRequest {
         message: message.as_bytes().to_vec(),
         derivation_path: vec![ic_cdk::api::caller().as_slice().to_vec()],
@@ -87,7 +122,7 @@ async fn sign(message: String, algorithm: SchnorrAlgorithm) -> Result<SignatureR
 }
 
 // #[allow(unused)]
-async fn verify(
+pub async fn verify(
     signature_hex: String,
     message: String,
     public_key_hex: String,
@@ -106,7 +141,7 @@ async fn verify(
 }
 
 // #[allow(unused)]
-fn verify_bip340_secp256k1(
+pub fn verify_bip340_secp256k1(
     sig_bytes: &[u8],
     msg_bytes: &[u8],
     secp1_pk_bytes: &[u8],

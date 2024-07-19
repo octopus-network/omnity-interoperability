@@ -7,9 +7,12 @@ use serde::{Deserialize, Serialize};
 use crate::{
     call_error::{CallError, Reason},
     state::{mutate_state, read_state},
+    types::TransactionConfirmationStatus,
 };
 
-pub const TICKET_SIZE: u64 = 20;
+use super::sol_call::{create_mint_account, get_signature_status, mint_to};
+
+pub const TICKET_LIMIT_SIZE: u64 = 20;
 
 /// handler tickets from customs to solana
 pub async fn query_tickets() {
@@ -18,7 +21,7 @@ pub async fn query_tickets() {
     }
 
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
-    match inner_query_tickets(hub_principal, offset, TICKET_SIZE).await {
+    match inner_query_tickets(hub_principal, offset, TICKET_LIMIT_SIZE).await {
         Ok(tickets) => {
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
@@ -95,6 +98,8 @@ pub async fn inner_query_tickets(
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MintTokenError {
+    NotFoundToken(String),
+
     UnsupportedToken(String),
 
     AlreadyProcessed(TicketId),
@@ -106,24 +111,65 @@ pub enum MintTokenError {
 pub struct MintTokenRequest {
     pub ticket_id: TicketId,
     pub token_id: String,
-    /// The owner of the account on the ledger.
     pub receiver: String,
     pub amount: u128,
 }
 
 /// send tx to solana for mint token
-pub async fn mint_token(_req: &MintTokenRequest) -> Result<(), MintTokenError> {
-    //TODO: check: if token account not exites, create mint token account and init token metadata
-    //TODO: check receiver ata ,create it if not exites
-    //TODO: mint token to receiver ata
-    //TODO: save: tx signature for ticket id, the timer interval query signature status for finalized
+pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
+    if read_state(|s| s.finalized_mint_token_requests.contains_key(&req.ticket_id)) {
+        return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
+    }
+    // if token account not exites, create mint token account and init token metadata
+    let sol_token_address =
+        if let Some(address) = read_state(|s| s.sol_token_address(&req.token_id)) {
+            address
+        } else {
+            // mint token account
+            let token = read_state(|s| s.tokens.get(&req.token_id.to_string()).cloned())
+                .ok_or(MintTokenError::NotFoundToken(req.token_id.to_string()))?;
+            let address = create_mint_account(token.clone())
+                .await
+                .map_err(|e| MintTokenError::TemporarilyUnavailable(e.to_string()))?;
+            // save the address
+            mutate_state(|s| {
+                s.sol_token_address
+                    .insert(req.token_id.to_string(), address.to_string())
+            });
+            address
+        };
+
+    let signuate = mint_to(sol_token_address, req.receiver.to_string(), req.amount)
+        .await
+        .map_err(|e| MintTokenError::TemporarilyUnavailable(e.to_string()))?;
+    //TODO: save: tx signature for ticket id, the timer interval query signature status for finalized？
+    mutate_state(|s| s.finalize_mint_token_req(req.ticket_id.clone(), signuate.to_string()));
+
+    // update txhash to hub
+    let hub_principal = read_state(|s| s.hub_principal);
+
+    if let Err(err) = update_tx_hash(hub_principal, req.ticket_id.to_string(), signuate).await {
+        log::error!("failed to update tx hash after mint token:{}", err);
+    }
     Ok(())
 }
 
-/// query solana tx signature / status and update txhash to hub
-pub async fn get_signaute_status() -> Result<(), omnity_types::Error> {
-    // query solana tx signature status
-    //TODO: update tx hash to hub
+pub async fn update_tx_hash(
+    hub_principal: Principal,
+    ticket_id: TicketId,
+    mint_tx_hash: String,
+) -> Result<(), CallError> {
+    let resp: (Result<(), omnity_types::Error>,) =
+        ic_cdk::api::call::call(hub_principal, "update_tx_hash", (ticket_id, mint_tx_hash))
+            .await
+            .map_err(|(code, message)| CallError {
+                method: "update_tx_hash".to_string(),
+                reason: Reason::from_reject(code, message),
+            })?;
+    resp.0.map_err(|err| CallError {
+        method: "update_tx_hash".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
     Ok(())
 }
 
@@ -198,7 +244,25 @@ pub async fn generate_ticket(
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     let action = req.action.clone();
 
-    //TODO: check solana sigature status
+    // check solana sigature status
+    let signature_status = get_signature_status(vec![req.tx_signature.to_string()])
+        .await
+        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?
+        .first()
+        .cloned()
+        .ok_or(GenerateTicketError::TemporarilyUnavailable(
+            "Not found signature".to_string(),
+        ))?
+        .confirmation_status
+        .ok_or(GenerateTicketError::TemporarilyUnavailable(
+            "Not found confirmation status".to_string(),
+        ))?;
+
+    if !matches!(signature_status, TransactionConfirmationStatus::Finalized) {
+        return Err(GenerateTicketError::TemporarilyUnavailable(
+            "signature status not finalized".to_string(),
+        ));
+    }
 
     let ticket = Ticket {
         ticket_id: req.tx_signature.to_string(),

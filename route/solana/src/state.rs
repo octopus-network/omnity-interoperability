@@ -24,7 +24,7 @@ thread_local! {
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {
-    Finalized { block_index: u64 },
+    Finalized { signature: String },
     Unknown,
 }
 
@@ -65,9 +65,9 @@ pub struct SolanaRouteState {
 
     pub tokens: BTreeMap<TokenId, Token>,
 
-    pub sol_token_account: BTreeMap<TokenId, String>,
+    pub sol_token_address: BTreeMap<TokenId, String>,
 
-    pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
+    pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
 
     pub fee_token_factor: Option<u128>,
 
@@ -80,6 +80,8 @@ pub struct SolanaRouteState {
     pub schnorr_canister: Principal,
     pub schnorr_key_name: String,
 
+    pub sol_canister: Principal,
+
     // Locks preventing concurrent execution timer tasks
     pub active_tasks: HashSet<TaskType>,
     pub admin: Principal,
@@ -91,7 +93,7 @@ impl From<InitArgs> for SolanaRouteState {
         Self {
             chain_id: args.chain_id,
             hub_principal: args.hub_principal,
-            sol_token_account: Default::default(),
+            sol_token_address: Default::default(),
             next_ticket_seq: 0,
             next_directive_seq: 0,
             counterparties: Default::default(),
@@ -105,6 +107,7 @@ impl From<InitArgs> for SolanaRouteState {
             schnorr_key_name: args
                 .schnorr_key_name
                 .unwrap_or(SCHNORR_KEY_NAME.to_string()),
+            sol_canister: args.sol_canister,
             active_tasks: Default::default(),
             admin: args.admin,
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
@@ -133,14 +136,19 @@ impl SolanaRouteState {
         }
     }
 
-    pub fn finalize_mint_token_req(&mut self, ticket_id: String, finalized_block_index: u64) {
+    pub fn sol_token_address(&self, ticket_id: &String) -> Option<String> {
+        self.sol_token_address.get(ticket_id).cloned()
+    }
+
+    pub fn finalize_mint_token_req(&mut self, ticket_id: String, signature: String) {
         record_event(&Event::FinalizedMintToken {
             ticket_id: ticket_id.clone(),
-            block_index: finalized_block_index,
+            signature: signature.to_string(),
         });
         self.finalized_mint_token_requests
-            .insert(ticket_id, finalized_block_index);
+            .insert(ticket_id, signature);
     }
+
     pub fn finalize_gen_ticket(&mut self, ticket_id: String, request: GenerateTicketReq) {
         record_event(&Event::FinalizedGenTicket { ticket_id, request })
     }

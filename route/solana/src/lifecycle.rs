@@ -22,6 +22,7 @@ pub struct InitArgs {
     pub chain_state: ChainState,
     pub schnorr_canister: Principal,
     pub schnorr_key_name: Option<String>,
+    pub sol_canister: Principal,
 }
 
 pub fn init(args: InitArgs) {
@@ -55,6 +56,7 @@ pub struct UpgradeArgs {
     pub chain_state: Option<ChainState>,
     pub schnorr_canister: Option<Principal>,
     pub schnorr_key_name: Option<String>,
+    pub sol_canister: Option<Principal>,
 }
 
 pub fn post_upgrade(args: Option<UpgradeArgs>) {
@@ -89,6 +91,9 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         }
         if let Some(schnorr_key_name) = args.schnorr_key_name {
             state.schnorr_key_name = schnorr_key_name;
+        }
+        if let Some(sol_canister) = args.sol_canister {
+            state.sol_canister = sol_canister;
         }
     }
     replace_state(state);

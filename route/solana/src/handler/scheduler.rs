@@ -1,9 +1,9 @@
 use crate::{
-    constants::{QUERY_DERECTIVE_INTERVAL, SIGNATUE_STATUS_INTERVAL, TICKET_INTERVAL},
+    constants::{QUERY_DERECTIVE_INTERVAL, TICKET_INTERVAL},
     guard::{TaskType, TimerGuard},
 };
 
-use super::{directive, ticket};
+use super::{directive, sol_call, ticket};
 
 pub fn start_schedule() {
     // query_directives task
@@ -14,7 +14,7 @@ pub fn start_schedule() {
                 Err(_) => return,
             };
 
-            let _ = directive::query_directives().await;
+            directive::query_directives().await;
         });
     });
 
@@ -26,21 +26,21 @@ pub fn start_schedule() {
                 Err(_) => return,
             };
 
-            let _ = ticket::query_tickets().await;
+            ticket::query_tickets().await;
         });
     });
 
     // query tx signature status
-    ic_cdk_timers::set_timer_interval(SIGNATUE_STATUS_INTERVAL, || {
-        ic_cdk::spawn(async {
-            let _guard = match TimerGuard::new(TaskType::GetSignatureStatus) {
-                Ok(guard) => guard,
-                Err(_) => return,
-            };
+    // ic_cdk_timers::set_timer_interval(SIGNATUE_STATUS_INTERVAL, || {
+    //     ic_cdk::spawn(async {
+    //         let _guard = match TimerGuard::new(TaskType::GetSignatureStatus) {
+    //             Ok(guard) => guard,
+    //             Err(_) => return,
+    //         };
 
-            let _ = ticket::get_signaute_status().await;
-        });
-    });
+    //         sol_tx::get_signaute_status().await;
+    //     });
+    // });
 }
 
 //TODO: stop running jobs

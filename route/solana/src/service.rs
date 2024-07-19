@@ -17,14 +17,11 @@ use solana_route::handler::{self, scheduler::start_schedule};
 use solana_route::state::TokenResp;
 
 // use omnity_types::Network;
-use solana_route::event;
 use solana_route::lifecycle::{self, RouteArg, UpgradeArgs};
 use solana_route::memory::init_stable_log;
-use solana_route::state::{management_canister, mutate_state, read_state, MintTokenStatus};
-use solana_route::threshold_schnorr::{
-    ManagementCanisterSchnorrPublicKeyReply, ManagementCanisterSchnorrPublicKeyRequest,
-    PublicKeyReply, SchnorrAlgorithm, SchnorrKeyIds,
-};
+use solana_route::schnorr::{PublicKeyReply, SchnorrAlgorithm};
+use solana_route::state::{mutate_state, read_state, MintTokenStatus};
+use solana_route::{event, schnorr};
 
 #[init]
 fn init(args: RouteArg) {
@@ -67,7 +64,7 @@ fn post_upgrade(args: Option<RouteArg>) {
 
 // just for test or dev
 #[update(guard = "is_admin")]
-async fn update_schnorr_canister_id(id: Principal) -> Result<(), String> {
+pub async fn update_schnorr_canister_id(id: Principal) -> Result<(), String> {
     mutate_state(|s| {
         s.schnorr_canister = id;
     });
@@ -76,21 +73,8 @@ async fn update_schnorr_canister_id(id: Principal) -> Result<(), String> {
 
 // TODO: match network for schnorr_key_id
 #[update(guard = "is_admin")]
-async fn public_key(algorithm: SchnorrAlgorithm) -> Result<PublicKeyReply, String> {
-    let request = ManagementCanisterSchnorrPublicKeyRequest {
-        canister_id: None,
-        derivation_path: vec![ic_cdk::api::caller().as_slice().to_vec()],
-        key_id: SchnorrKeyIds::TestKeyLocalDevelopment.to_key_id(algorithm),
-    };
-
-    let (res,): (ManagementCanisterSchnorrPublicKeyReply,) =
-        ic_cdk::call(management_canister(), "schnorr_public_key", (request,))
-            .await
-            .map_err(|e| format!("schnorr_public_key failed {}", e.1))?;
-
-    Ok(PublicKeyReply {
-        public_key_hex: hex::encode(&res.public_key),
-    })
+pub async fn public_key() -> Result<PublicKeyReply, String> {
+    schnorr::public_key(SchnorrAlgorithm::Ed25519).await
 }
 
 #[update(guard = "is_admin")]
@@ -138,11 +122,12 @@ fn get_token_list() -> Vec<TokenResp> {
 #[query]
 fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     read_state(|s| {
-        s.finalized_mint_token_requests
-            .get(&ticket_id)
-            .map_or(MintTokenStatus::Unknown, |&block_index| {
-                MintTokenStatus::Finalized { block_index }
-            })
+        s.finalized_mint_token_requests.get(&ticket_id).map_or(
+            MintTokenStatus::Unknown,
+            |signature| MintTokenStatus::Finalized {
+                signature: signature.to_string(),
+            },
+        )
     })
 }
 

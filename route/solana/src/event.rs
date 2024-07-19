@@ -1,7 +1,7 @@
 use crate::{
-  
-    handler::ticket::GenerateTicketReq, lifecycle::{InitArgs, UpgradeArgs}, memory::{init_event, Memory}
-    // updates::generate_ticket::GenerateTicketReq,
+    handler::ticket::GenerateTicketReq,
+    lifecycle::{InitArgs, UpgradeArgs},
+    memory::{init_event, Memory}, // updates::generate_ticket::GenerateTicketReq,
 };
 use candid::Principal;
 use ic_stable_structures::log::{Log, NoSuchEntry};
@@ -111,7 +111,10 @@ pub enum Event {
     ToggleChainState(ToggleState),
 
     #[serde(rename = "finalized_mint_token")]
-    FinalizedMintToken { ticket_id: String, block_index: u64 },
+    FinalizedMintToken {
+        ticket_id: String,
+        signature: String,
+    },
     #[serde(rename = "finalized_gen_ticket")]
     FinalizedGenTicket {
         ticket_id: String,

@@ -8,12 +8,12 @@ use crate::{
     call_error::{CallError, Reason},
     state::{mutate_state, read_state},
 };
-pub const DIRECTIVE_SIZE: u64 = 20;
+pub const DIRECTIVE_LIMIT_SIZE: u64 = 20;
 
 /// query directives from hub and save to route state
 pub async fn query_directives() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
-    match inner_query_directives(hub_principal, offset, DIRECTIVE_SIZE).await {
+    match inner_query_directives(hub_principal, offset, DIRECTIVE_LIMIT_SIZE).await {
         Ok(directives) => {
             for (_, directive) in &directives {
                 match directive {
