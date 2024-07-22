@@ -253,6 +253,7 @@ service : (HubArg) -> {
   query_subscribers : (opt Topic) -> (Result_16) query;
   query_tickets : (opt text, nat64, nat64) -> (Result_17) query;
   query_tx_hash : (text) -> (Result_18) query;
+  remove_runes_oracle : (principal) -> ();
   resubmit_ticket : (Ticket) -> (Result_1);
   send_ticket : (Ticket) -> (Result_1);
   set_logger_filter : (text) -> ();
