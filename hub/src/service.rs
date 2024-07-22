@@ -222,6 +222,11 @@ fn set_runes_oracle(oracle: Principal) {
     with_state_mut(|s| s.runes_oracles.insert(oracle));
 }
 
+#[update(guard = "is_admin")]
+fn remove_runes_oracle(oracle: Principal) {
+    with_state_mut(|s| s.runes_oracles.remove(&oracle));
+}
+
 #[update]
 pub async fn add_runes_token(args: AddRunesTokenReq) -> Result<(), SelfServiceError> {
     self_help::add_runes_token(args).await
