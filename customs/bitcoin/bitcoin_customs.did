@@ -57,6 +57,7 @@ type Event = variant {
   };
   added_runes_oracle : record { "principal" : principal };
   removed_ticket_request : record { txid : blob };
+  removed_runes_oracle : record { "principal" : principal };
   sent_transaction : record {
     fee : opt nat64;
     txid : blob;
@@ -256,6 +257,7 @@ service : (CustomArg) -> {
     ) query;
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
+  remove_runes_oracle : (principal) -> ();
   set_runes_oracle : (principal) -> ();
   transform : (TransformArgs) -> (HttpResponse) query;
   update_btc_utxos : () -> (Result_1);

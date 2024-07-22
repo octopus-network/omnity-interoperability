@@ -196,6 +196,15 @@ fn set_runes_oracle(oracle: Principal) {
 }
 
 #[update(guard = "is_controller")]
+fn remove_runes_oracle(oracle: Principal) {
+    if !read_state(|s| s.runes_oracles.contains(&oracle)) {
+        return;
+    }
+    record_event(&Event::AddedRunesOracle { principal: oracle });
+    mutate_state(|s| s.runes_oracles.remove(&oracle));
+}
+
+#[update(guard = "is_controller")]
 fn update_rpc_url(url: String) {
     record_event(&Event::UpdatedRpcURL {
         rpc_url: url.clone(),
