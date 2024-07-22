@@ -140,7 +140,7 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
     read_state(|s| s.generate_ticket_status(txid))
 }
 
-/// The function name needs to be changed to get_confirmed_gen_ticket_requests, 
+/// The function name needs to be changed to get_confirmed_gen_ticket_requests,
 /// but considering that it will affect runes oracle, it will be retained temporarily.
 #[query]
 fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequestV2> {
@@ -193,6 +193,15 @@ async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketE
 fn set_runes_oracle(oracle: Principal) {
     record_event(&Event::AddedRunesOracle { principal: oracle });
     mutate_state(|s| s.runes_oracles.insert(oracle));
+}
+
+#[update(guard = "is_controller")]
+fn remove_runes_oracle(oracle: Principal) {
+    if !read_state(|s| s.runes_oracles.contains(&oracle)) {
+        return;
+    }
+    record_event(&Event::RemovedRunesOracle { principal: oracle });
+    mutate_state(|s| s.runes_oracles.remove(&oracle));
 }
 
 #[update(guard = "is_controller")]
