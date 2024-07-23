@@ -8,7 +8,7 @@ use crate::{
 use candid::{CandidType, Principal};
 
 use crate::event::{record_event, Event};
-use omnity_types::{
+use crate::types::{
     Chain, ChainId, ChainState, Factor, Ticket, TicketId, ToggleState, Token, TokenId,
 };
 use serde::{Deserialize, Serialize};

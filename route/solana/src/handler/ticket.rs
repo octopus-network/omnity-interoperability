@@ -1,13 +1,13 @@
+use crate::types::{ChainId, ChainState, Error, Seq, Ticket, TicketId, TicketType, TxAction};
 use candid::{CandidType, Principal};
+use ic_solana::types::TransactionConfirmationStatus;
 use ic_stable_structures::Storable;
-use log::{error, info};
-use omnity_types::{ChainId, ChainState, Seq, Ticket, TicketId, TxAction};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
     call_error::{CallError, Reason},
     state::{mutate_state, read_state},
-    types::TransactionConfirmationStatus,
 };
 
 use super::sol_call::{create_mint_account, get_signature_status, mint_to};
@@ -28,7 +28,7 @@ pub async fn query_tickets() {
                 let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
                     amount
                 } else {
-                    error!(
+                    ic_cdk::eprintln!(
                         "[process tickets] failed to parse ticket amount: {}",
                         ticket.amount
                     );
@@ -44,22 +44,24 @@ pub async fn query_tickets() {
                 .await
                 {
                     Ok(_) => {
-                        info!(
+                        ic_cdk::println!(
                             "[process tickets] process successful for ticket id: {}",
                             ticket.ticket_id
                         );
                     }
                     Err(MintTokenError::TemporarilyUnavailable(desc)) => {
-                        error!(
+                        ic_cdk::eprintln!(
                             "[process tickets] failed to mint token for ticket id: {}, err: {}",
-                            ticket.ticket_id, desc
+                            ticket.ticket_id,
+                            desc
                         );
                         break;
                     }
                     Err(err) => {
-                        error!(
+                        ic_cdk::eprintln!(
                             "[process tickets] process failure for ticket id: {}, err: {:?}",
-                            ticket.ticket_id, err
+                            ticket.ticket_id,
+                            err
                         );
                     }
                 }
@@ -68,7 +70,7 @@ pub async fn query_tickets() {
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
         Err(err) => {
-            error!("[process tickets] failed to query tickets, err: {}", err);
+            ic_cdk::eprintln!("[process tickets] failed to query tickets, err: {}", err);
         }
     }
 }
@@ -79,7 +81,7 @@ pub async fn inner_query_tickets(
     offset: u64,
     limit: u64,
 ) -> Result<Vec<(Seq, Ticket)>, CallError> {
-    let resp: (Result<Vec<(Seq, Ticket)>, omnity_types::Error>,) = ic_cdk::api::call::call(
+    let resp: (Result<Vec<(Seq, Ticket)>, Error>,) = ic_cdk::api::call::call(
         hub_principal,
         "query_tickets",
         (None::<Option<ChainId>>, offset, limit),
@@ -149,7 +151,7 @@ pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
     let hub_principal = read_state(|s| s.hub_principal);
 
     if let Err(err) = update_tx_hash(hub_principal, req.ticket_id.to_string(), signuate).await {
-        log::error!("failed to update tx hash after mint token:{}", err);
+        ic_cdk::eprintln!("failed to update tx hash after mint token:{}", err);
     }
     Ok(())
 }
@@ -159,7 +161,7 @@ pub async fn update_tx_hash(
     ticket_id: TicketId,
     mint_tx_hash: String,
 ) -> Result<(), CallError> {
-    let resp: (Result<(), omnity_types::Error>,) =
+    let resp: (Result<(), Error>,) =
         ic_cdk::api::call::call(hub_principal, "update_tx_hash", (ticket_id, mint_tx_hash))
             .await
             .map_err(|(code, message)| CallError {
@@ -266,7 +268,7 @@ pub async fn generate_ticket(
 
     let ticket = Ticket {
         ticket_id: req.tx_signature.to_string(),
-        ticket_type: omnity_types::TicketType::Normal,
+        ticket_type: TicketType::Normal,
         ticket_time: ic_cdk::api::time(),
         src_chain: chain_id,
         dst_chain: req.target_chain_id.clone(),
@@ -282,7 +284,7 @@ pub async fn generate_ticket(
             mutate_state(|s| {
                 s.failed_tickets.push(ticket.clone());
             });
-            log::error!("failed to send ticket: {}", req.tx_signature.to_string());
+            ic_cdk::eprintln!("failed to send ticket: {}", req.tx_signature.to_string());
             Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
         }
         Ok(()) => {
@@ -300,7 +302,7 @@ pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(),
     // TODO determine how many cycle it will cost.
     let cost_cycles = 4_000_000_000_u64;
 
-    let resp: (Result<(), omnity_types::Error>,) =
+    let resp: (Result<(), Error>,) =
         ic_cdk::api::call::call_with_payment(hub_principal, "send_ticket", (ticket,), cost_cycles)
             .await
             .map_err(|(code, message)| CallError {

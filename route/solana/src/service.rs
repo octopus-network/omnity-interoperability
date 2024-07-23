@@ -4,10 +4,12 @@ use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 
-use ic_log::writer::Logs;
-use log::info;
-use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
-use omnity_types::{Chain, ChainId};
+// use ic_log::writer::Logs;
+// use log::info;
+// use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
+
+use ic_solana::types::Pubkey;
+use serde_bytes::ByteBuf;
 use solana_route::auth::{is_admin, set_perms, Permission};
 use solana_route::event::{Event, GetEventsArg};
 use solana_route::handler::ticket::{
@@ -18,14 +20,15 @@ use solana_route::state::TokenResp;
 
 // use omnity_types::Network;
 use solana_route::lifecycle::{self, RouteArg, UpgradeArgs};
-use solana_route::memory::init_stable_log;
-use solana_route::schnorr::{PublicKeyReply, SchnorrAlgorithm};
+// use solana_route::memory::init_stable_log;
+// use solana_route::schnorr::{PublicKeyReply, SchnorrAlgorithm};
+use solana_route::event;
 use solana_route::state::{mutate_state, read_state, MintTokenStatus};
-use solana_route::{event, schnorr};
+use solana_route::types::{Chain, ChainId};
 
 #[init]
 fn init(args: RouteArg) {
-    init_log(Some(init_stable_log()));
+    // init_log(Some(init_stable_log()));
     match args {
         RouteArg::Init(args) => {
             event::record_event(&Event::Init(args.clone()));
@@ -40,15 +43,15 @@ fn init(args: RouteArg) {
 
 #[pre_upgrade]
 fn pre_upgrade() {
-    info!("begin to execute pre_upgrade ...");
+    ic_cdk::println!("begin to execute pre_upgrade ...");
     lifecycle::pre_upgrade();
-    info!("pre_upgrade end!");
+    ic_cdk::println!("pre_upgrade end!");
 }
 
 #[post_upgrade]
 fn post_upgrade(args: Option<RouteArg>) {
-    init_log(Some(init_stable_log()));
-    info!("begin to execute post_upgrade with :{:?}", args);
+    // init_log(Some(init_stable_log()));
+    ic_cdk::println!("begin to execute post_upgrade with :{:?}", args);
     let mut upgrade_arg: Option<UpgradeArgs> = None;
     if let Some(route_arg) = args {
         upgrade_arg = match route_arg {
@@ -59,7 +62,7 @@ fn post_upgrade(args: Option<RouteArg>) {
     lifecycle::post_upgrade(upgrade_arg);
 
     start_schedule();
-    info!("upgrade successfully!");
+    ic_cdk::println!("upgrade successfully!");
 }
 
 // just for test or dev
@@ -73,8 +76,15 @@ pub async fn update_schnorr_canister_id(id: Principal) -> Result<(), String> {
 
 // TODO: match network for schnorr_key_id
 #[update(guard = "is_admin")]
-pub async fn public_key() -> Result<PublicKeyReply, String> {
-    schnorr::public_key(SchnorrAlgorithm::Ed25519).await
+pub async fn eddsa_public_key() -> Result<String, String> {
+    let cur_canister_id = ic_cdk::api::id();
+    let derived_path = vec![ByteBuf::from(cur_canister_id.as_slice())];
+    let key_name = read_state(|s| s.schnorr_key_name.to_string());
+    let pk = ic_solana::eddsa::eddsa_public_key(key_name, derived_path).await;
+    let pk = Pubkey::try_from(pk.as_slice())
+        .map_err(|e| e.to_string())?
+        .to_string();
+    Ok(pk)
 }
 
 #[update(guard = "is_admin")]
@@ -91,11 +101,11 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
             mutate_state(|state| {
                 state.failed_tickets.push(ticket.clone());
             });
-            log::error!("failed to resend ticket: {}", ticket.ticket_id);
+            ic_cdk::eprintln!("failed to resend ticket: {}", ticket.ticket_id);
             return Err(err);
         }
     }
-    log::info!("successfully resend {} tickets", tickets_sz);
+    ic_cdk::println!("successfully resend {} tickets", tickets_sz);
     Ok(())
 }
 
@@ -149,24 +159,8 @@ async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, Ge
 }
 
 #[update(guard = "is_admin")]
-pub async fn set_logger_filter(filter: String) {
-    LoggerConfigService::default().set_logger_filter(&filter);
-}
-
-#[update(guard = "is_admin")]
 pub async fn set_permissions(caller: Principal, perm: Permission) {
     set_perms(caller.to_string(), perm)
-}
-
-#[query]
-pub fn get_log_records(offset: usize, limit: usize) -> Logs {
-    log::debug!("collecting {limit} log records");
-    ic_log::take_memory_records(limit, offset)
-}
-
-#[query(hidden = true)]
-fn http_request(req: HttpRequest) -> HttpResponse {
-    StableLogWriter::http_request(req)
 }
 
 #[query]

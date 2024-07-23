@@ -5,7 +5,7 @@ use crate::{
 };
 use candid::{CandidType, Principal};
 use ic_stable_structures::{writer::Writer, Memory};
-use omnity_types::ChainState;
+use crate::types::ChainState;
 use serde::{Deserialize, Serialize};
 
 #[derive(CandidType, serde::Deserialize, Clone, Debug)]

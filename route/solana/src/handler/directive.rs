@@ -1,8 +1,5 @@
-use candid::Principal;
-use log::error;
-use omnity_types::{ChainId, Directive, Seq, Topic};
-
-// use updates::mint_token::{MintTokenError, MintTokenRequest};
+use crate::types::{ChainId, Directive, Seq, Topic,Error};
+use candid::{Principal};
 
 use crate::{
     call_error::{CallError, Reason},
@@ -37,10 +34,11 @@ pub async fn query_directives() {
             });
         }
         Err(err) => {
-            error!(
+            ic_cdk::eprintln!(
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );
+            
         }
     };
 }
@@ -50,7 +48,7 @@ pub async fn inner_query_directives(
     offset: u64,
     limit: u64,
 ) -> Result<Vec<(Seq, Directive)>, CallError> {
-    let resp: (Result<Vec<(Seq, Directive)>, omnity_types::Error>,) = ic_cdk::api::call::call(
+    let resp: (Result<Vec<(Seq, Directive)>,Error>,) = ic_cdk::api::call::call(
         hub_principal,
         "query_directives",
         (

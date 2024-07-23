@@ -1,14 +1,11 @@
 use crate::call_error::Reason;
 
-use crate::types::TransactionStatus;
-use crate::{
-    call_error::CallError,
-    schnorr::sol_token_address,
-    state::read_state,
-    types::{Pubkey, RpcResult},
-};
+use crate::types::Token;
+use crate::{call_error::CallError, state::read_state};
 use candid::CandidType;
-use omnity_types::Token;
+
+use ic_solana::rpc_client::RpcResult;
+use ic_solana::types::{Pubkey, TransactionStatus};
 use serde::{Deserialize, Serialize};
 
 #[derive(CandidType, Deserialize, Serialize, Debug)]
@@ -22,12 +19,13 @@ pub async fn create_mint_account(token: Token) -> Result<String, CallError> {
     let sol_canister = read_state(|s| s.sol_canister);
 
     // derive pub key for sol token
-    let pub_key_reply = sol_token_address(token.token_id.to_string())
-        .await
-        .map_err(|message| CallError {
-            method: "sol_token_address".to_string(),
-            reason: Reason::CanisterError(message),
-        })?;
+    // let pub_key_reply = sol_token_address(token.token_id.to_string())
+    //     .await
+    //     .map_err(|message| CallError {
+    //         method: "sol_token_address".to_string(),
+    //         reason: Reason::CanisterError(message),
+    //     })?;
+    let pub_key_reply = vec![0; 32];
     let token_pub_key = Pubkey::try_from(pub_key_reply).expect("Invalid public key");
 
     let req = CreateMintAccountRequest {

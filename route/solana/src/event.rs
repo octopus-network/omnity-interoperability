@@ -1,3 +1,4 @@
+use crate::types::{Chain, Factor, ToggleState, Token};
 use crate::{
     handler::ticket::GenerateTicketReq,
     lifecycle::{InitArgs, UpgradeArgs},
@@ -5,7 +6,6 @@ use crate::{
 };
 use candid::Principal;
 use ic_stable_structures::log::{Log, NoSuchEntry};
-use omnity_types::{Chain, Factor, ToggleState, Token};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 
