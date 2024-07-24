@@ -1,9 +1,12 @@
+
 use std::{
     collections::{BTreeMap, HashMap},
+    fmt::{self, Display, Formatter},
     str::FromStr,
 };
 
 use candid::CandidType;
+use candid::Principal;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
@@ -11,6 +14,7 @@ use sha2::Digest;
 use std::borrow::Cow;
 use thiserror::Error;
 
+pub type CanisterId = Principal;
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
 pub type Timestamp = u64;
@@ -464,7 +468,7 @@ impl core::fmt::Display for Chain {
     }
 }
 
-//TODO: update chain and token info
+
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct ToggleState {
     pub chain_id: ChainId,
@@ -538,8 +542,71 @@ pub struct TxCondition {
     pub time_range: Option<(u64, u64)>,
 }
 
-use candid::Principal;
-pub type CanisterId = Principal;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseRuneIdError;
+
+impl fmt::Display for ParseRuneIdError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        "provided rune_id was not valid".fmt(f)
+    }
+}
+
+impl std::error::Error for ParseRuneIdError {
+    fn description(&self) -> &str {
+        "failed to parse rune_id"
+    }
+}
+
+#[derive(
+    candid::CandidType,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Copy,
+    Default,
+    Serialize,
+    Deserialize,
+)]
+pub struct RuneId {
+    pub block: u64,
+    pub tx: u32,
+}
+
+impl RuneId {
+    pub fn delta(self, next: RuneId) -> Option<(u128, u128)> {
+        let block = next.block.checked_sub(self.block)?;
+
+        let tx = if block == 0 {
+            next.tx.checked_sub(self.tx)?
+        } else {
+            next.tx
+        };
+
+        Some((block.into(), tx.into()))
+    }
+}
+
+impl Display for RuneId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.block, self.tx,)
+    }
+}
+
+impl FromStr for RuneId {
+    type Err = ParseRuneIdError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (height, index) = s.split_once(':').ok_or_else(|| ParseRuneIdError)?;
+
+        Ok(Self {
+            block: height.parse().map_err(|_| ParseRuneIdError)?,
+            tx: index.parse().map_err(|_| ParseRuneIdError)?,
+        })
+    }
+}
 
 #[derive(CandidType, Deserialize, Debug, Error)]
 pub enum Error {

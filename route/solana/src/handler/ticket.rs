@@ -141,11 +141,15 @@ pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
             address
         };
 
-    let signuate = mint_to(sol_token_address, req.receiver.to_string(), req.amount)
-        .await
-        .map_err(|e| MintTokenError::TemporarilyUnavailable(e.to_string()))?;
-    //TODO: save: tx signature for ticket id, the timer interval query signature status for finalized？
+    let signuate = mint_to(
+        sol_token_address,
+        req.receiver.to_string(),
+        req.amount as u64,
+    )
+    .await
+    .map_err(|e| MintTokenError::TemporarilyUnavailable(e.to_string()))?;
     mutate_state(|s| s.finalize_mint_token_req(req.ticket_id.clone(), signuate.to_string()));
+    //TODO: save: tx signature for ticket id, the timer interval query signature status for finalized？
 
     // update txhash to hub
     let hub_principal = read_state(|s| s.hub_principal);
@@ -265,6 +269,8 @@ pub async fn generate_ticket(
             "signature status not finalized".to_string(),
         ));
     }
+
+    //TODO: check tx signature from sender and the burned token and account eq tx info
 
     let ticket = Ticket {
         ticket_id: req.tx_signature.to_string(),

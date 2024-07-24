@@ -1,21 +1,18 @@
 use candid::Principal;
-// use ic_canisters_http_types::{HttpRequest, HttpResponse};
 
-use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 
+// use ic_canisters_http_types::{HttpRequest, HttpResponse};
 // use ic_log::writer::Logs;
 // use log::info;
 // use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
 
-use ic_solana::types::Pubkey;
-use serde_bytes::ByteBuf;
 use solana_route::auth::{is_admin, set_perms, Permission};
 use solana_route::event::{Event, GetEventsArg};
 use solana_route::handler::ticket::{
     self, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
-use solana_route::handler::{self, scheduler::start_schedule};
+use solana_route::handler::{self, scheduler::start_schedule, sol_call};
 use solana_route::state::TokenResp;
 
 // use omnity_types::Network;
@@ -77,14 +74,8 @@ pub async fn update_schnorr_canister_id(id: Principal) -> Result<(), String> {
 // TODO: match network for schnorr_key_id
 #[update(guard = "is_admin")]
 pub async fn eddsa_public_key() -> Result<String, String> {
-    let cur_canister_id = ic_cdk::api::id();
-    let derived_path = vec![ByteBuf::from(cur_canister_id.as_slice())];
-    let key_name = read_state(|s| s.schnorr_key_name.to_string());
-    let pk = ic_solana::eddsa::eddsa_public_key(key_name, derived_path).await;
-    let pk = Pubkey::try_from(pk.as_slice())
-        .map_err(|e| e.to_string())?
-        .to_string();
-    Ok(pk)
+    let pk = sol_call::cur_pub_key().await?;
+    Ok(pk.to_string())
 }
 
 #[update(guard = "is_admin")]
