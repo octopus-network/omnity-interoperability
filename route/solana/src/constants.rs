@@ -12,6 +12,5 @@ pub const SCHNORR_KEY_NAME: &str = "test_key_1";
 pub const FEE_TOKEN: &str = "SOL";
 
 pub const QUERY_DERECTIVE_INTERVAL: Duration = Duration::from_secs(60);
-pub const EXE_DERECTIVE_INTERVAL: Duration = Duration::from_secs(5);
-pub const TICKET_INTERVAL: Duration = Duration::from_secs(5);
-pub const SIGNATUE_STATUS_INTERVAL: Duration = Duration::from_secs(5);
+pub const QUERY_TICKET_INTERVAL: Duration = Duration::from_secs(5);
+pub const HANDLE_TICKET_INTERVAL: Duration = Duration::from_secs(10);

@@ -1,6 +1,6 @@
 use crate::types::{ChainId, ChainState, Error, Seq, Ticket, TicketId, TicketType, TxAction};
 use candid::{CandidType, Principal};
-use ic_solana::types::TransactionConfirmationStatus;
+use ic_solana::types::{Pubkey, TransactionConfirmationStatus};
 use ic_stable_structures::Storable;
 
 use serde::{Deserialize, Serialize};
@@ -25,9 +25,15 @@ pub async fn query_tickets() {
         Ok(tickets) => {
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
-                let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
-                    amount
-                } else {
+                if let Err(_) = Pubkey::try_from(ticket.receiver.as_str()) {
+                    ic_cdk::eprintln!(
+                        "[process tickets] failed to parse ticket receiver: {}",
+                        ticket.receiver
+                    );
+                    next_seq = seq + 1;
+                    continue;
+                };
+                if let Err(_) = ticket.amount.parse::<u64>() {
                     ic_cdk::eprintln!(
                         "[process tickets] failed to parse ticket amount: {}",
                         ticket.amount
@@ -35,36 +41,8 @@ pub async fn query_tickets() {
                     next_seq = seq + 1;
                     continue;
                 };
-                match mint_token(&mut MintTokenRequest {
-                    ticket_id: ticket.ticket_id.clone(),
-                    token_id: ticket.token.clone(),
-                    receiver: ticket.receiver.to_string(),
-                    amount,
-                })
-                .await
-                {
-                    Ok(_) => {
-                        ic_cdk::println!(
-                            "[process tickets] process successful for ticket id: {}",
-                            ticket.ticket_id
-                        );
-                    }
-                    Err(MintTokenError::TemporarilyUnavailable(desc)) => {
-                        ic_cdk::eprintln!(
-                            "[process tickets] failed to mint token for ticket id: {}, err: {}",
-                            ticket.ticket_id,
-                            desc
-                        );
-                        break;
-                    }
-                    Err(err) => {
-                        ic_cdk::eprintln!(
-                            "[process tickets] process failure for ticket id: {}, err: {:?}",
-                            ticket.ticket_id,
-                            err
-                        );
-                    }
-                }
+
+                mutate_state(|s| s.tickets_queue.insert(*seq, ticket.clone()));
                 next_seq = seq + 1;
             }
             mutate_state(|s| s.next_ticket_seq = next_seq)
@@ -109,12 +87,53 @@ pub enum MintTokenError {
     TemporarilyUnavailable(String),
 }
 
+pub async fn handle_tickets() {
+    let from = read_state(|s| s.next_consume_ticket_seq);
+    let to = read_state(|s| s.next_ticket_seq);
+    for seq in from..to {
+        if let Some(ticket) = read_state(|s| s.tickets_queue.get(&seq)) {
+            match mint_token(&mut MintTokenRequest {
+                ticket_id: ticket.ticket_id.to_owned(),
+                token_id: ticket.token.to_owned(),
+                receiver: ticket.receiver.to_owned(),
+                amount: ticket.amount.parse::<u64>().unwrap(),
+            })
+            .await
+            {
+                Ok(_) => {
+                    ic_cdk::println!(
+                        "[process tickets] process successful for ticket id: {}",
+                        ticket.ticket_id
+                    );
+                    // remove the handled ticket from queue
+                    mutate_state(|s| s.tickets_queue.remove(&seq));
+                }
+                Err(MintTokenError::TemporarilyUnavailable(desc)) => {
+                    ic_cdk::eprintln!(
+                        "[process tickets] failed to mint token for ticket id: {}, err: {}",
+                        ticket.ticket_id,
+                        desc
+                    );
+                    break;
+                }
+                Err(err) => {
+                    ic_cdk::eprintln!(
+                        "[process tickets] process failure for ticket id: {}, err: {:?}",
+                        ticket.ticket_id,
+                        err
+                    );
+                }
+            }
+        }
+    }
+    mutate_state(|s| s.next_consume_ticket_seq = to);
+}
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MintTokenRequest {
     pub ticket_id: TicketId,
     pub token_id: String,
     pub receiver: String,
-    pub amount: u128,
+    pub amount: u64,
 }
 
 /// send tx to solana for mint token
@@ -149,11 +168,9 @@ pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
     .await
     .map_err(|e| MintTokenError::TemporarilyUnavailable(e.to_string()))?;
     mutate_state(|s| s.finalize_mint_token_req(req.ticket_id.clone(), signuate.to_string()));
-    //TODO: save: tx signature for ticket id, the timer interval query signature status for finalized？
 
     // update txhash to hub
     let hub_principal = read_state(|s| s.hub_principal);
-
     if let Err(err) = update_tx_hash(hub_principal, req.ticket_id.to_string(), signuate).await {
         ic_cdk::eprintln!("failed to update tx hash after mint token:{}", err);
     }

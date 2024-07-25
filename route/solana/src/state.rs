@@ -1,3 +1,4 @@
+use crate::memory::Memory;
 use crate::{
     auth::Permission,
     constants::{FEE_TOKEN, SCHNORR_KEY_NAME},
@@ -6,6 +7,8 @@ use crate::{
     lifecycle::InitArgs,
 };
 use candid::{CandidType, Principal};
+
+use ic_stable_structures::StableBTreeMap;
 
 use crate::event::{record_event, Event};
 use crate::types::{
@@ -49,7 +52,7 @@ impl From<Token> for TokenResp {
     }
 }
 
-#[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct SolanaRouteState {
     pub chain_id: String,
 
@@ -57,6 +60,7 @@ pub struct SolanaRouteState {
 
     // Next index of query tickets from hub
     pub next_ticket_seq: u64,
+    pub next_consume_ticket_seq: u64,
 
     // Next index of query directives from hub
     pub next_directive_seq: u64,
@@ -86,6 +90,9 @@ pub struct SolanaRouteState {
     pub active_tasks: HashSet<TaskType>,
     pub admin: Principal,
     pub caller_perms: HashMap<String, Permission>,
+
+    #[serde(skip, default = "crate::memory::init_ticket_queue")]
+    pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
 }
 
 impl From<InitArgs> for SolanaRouteState {
@@ -95,6 +102,7 @@ impl From<InitArgs> for SolanaRouteState {
             hub_principal: args.hub_principal,
             sol_token_address: Default::default(),
             next_ticket_seq: 0,
+            next_consume_ticket_seq: 0,
             next_directive_seq: 0,
             counterparties: Default::default(),
             tokens: Default::default(),
@@ -111,6 +119,7 @@ impl From<InitArgs> for SolanaRouteState {
             active_tasks: Default::default(),
             admin: args.admin,
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
+            tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
         }
     }
 }

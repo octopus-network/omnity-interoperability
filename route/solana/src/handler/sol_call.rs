@@ -41,14 +41,17 @@ pub async fn create_mint_account(token: Token) -> Result<String, CallError> {
         uri: token.icon.unwrap_or_default(),
     };
 
-    let token_pub_key = sol_client.create_mint(req).await.map_err(|e| CallError {
-        method: "create_mint".to_string(),
-        reason: Reason::CanisterError(e.to_string()),
-    })?;
+    let token_pub_key = sol_client
+        .create_mint_with_metadata(req)
+        .await
+        .map_err(|e| CallError {
+            method: "create_mint".to_string(),
+            reason: Reason::CanisterError(e.to_string()),
+        })?;
 
     ic_cdk::println!("create_mint result: {}", token_pub_key);
 
-    //TODO: init token metadata
+  
     Ok(token_pub_key.to_string())
 }
 

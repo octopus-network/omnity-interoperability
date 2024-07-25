@@ -12,7 +12,7 @@ use solana_route::event::{Event, GetEventsArg};
 use solana_route::handler::ticket::{
     self, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
-use solana_route::handler::{self, scheduler::start_schedule, sol_call};
+use solana_route::handler::{self, scheduler, sol_call};
 use solana_route::state::TokenResp;
 
 // use omnity_types::Network;
@@ -35,12 +35,13 @@ fn init(args: RouteArg) {
             panic!("expected InitArgs got UpgradeArgs");
         }
     }
-    start_schedule()
+    // start_schedule()
 }
 
 #[pre_upgrade]
 fn pre_upgrade() {
     ic_cdk::println!("begin to execute pre_upgrade ...");
+    scheduler::cannel_schedule();
     lifecycle::pre_upgrade();
     ic_cdk::println!("pre_upgrade end!");
 }
@@ -58,20 +59,32 @@ fn post_upgrade(args: Option<RouteArg>) {
     }
     lifecycle::post_upgrade(upgrade_arg);
 
-    start_schedule();
+    scheduler::start_schedule();
     ic_cdk::println!("upgrade successfully!");
+}
+
+#[update(guard = "is_admin")]
+pub fn start_schedule() -> Result<(), String> {
+    scheduler::start_schedule();
+    Ok(())
+}
+
+#[update(guard = "is_admin")]
+pub fn cannel_schedule() -> Result<(), String> {
+    scheduler::cannel_schedule();
+    Ok(())
 }
 
 // just for test or dev
 #[update(guard = "is_admin")]
-pub async fn update_schnorr_canister_id(id: Principal) -> Result<(), String> {
+pub async fn update_schnorr_info(id: Principal, key_name: String) -> Result<(), String> {
     mutate_state(|s| {
         s.schnorr_canister = id;
+        s.schnorr_key_name = key_name;
     });
     Ok(())
 }
 
-// TODO: match network for schnorr_key_id
 #[update(guard = "is_admin")]
 pub async fn eddsa_public_key() -> Result<String, String> {
     let pk = sol_call::cur_pub_key().await?;
