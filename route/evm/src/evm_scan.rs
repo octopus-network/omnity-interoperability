@@ -1,10 +1,9 @@
 use anyhow::anyhow;
-use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
+use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig};
 use cketh_common::eth_rpc::Hash;
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use evm_rpc::{
-    candid_types::{self, BlockTag},
     MultiRpcResult, RpcServices,
 };
 use evm_rpc::candid_types::TransactionReceipt;
@@ -196,50 +195,6 @@ pub async fn handle_token_transport(
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
     Ok(())
-}
-
-pub async fn fetch_logs(
-    from_height: u64,
-    to_height: u64,
-    address: String,
-) -> std::result::Result<Vec<LogEntry>, Error> {
-    let rpc_size = read_state(|s| s.rpc_providers.len() as u128);
-    let (rpc_result,): (MultiRpcResult<Vec<LogEntry>>,) = ic_cdk::api::call::call_with_payment128(
-        crate::state::rpc_addr(),
-        "eth_getLogs",
-        (
-            RpcServices::Custom {
-                chain_id: crate::state::evm_chain_id(),
-                services: crate::state::rpc_providers(),
-            },
-            None::<RpcConfig>,
-            candid_types::GetLogsArgs {
-                from_block: Some(BlockTag::Number(BlockNumber::from(from_height))),
-                to_block: Some(BlockTag::Number(BlockNumber::from(to_height))),
-                addresses: vec![address],
-                topics: Some(vec![vec![
-                    TokenBurned::signature_hex(),
-                    TokenMinted::signature_hex(),
-                    TokenTransportRequested::signature_hex(),
-                    DirectiveExecuted::signature_hex(),
-                    TokenAdded::signature_hex(),
-                    RunesMintRequested::signature_hex(),
-                ]]),
-            },
-        ),
-        SCAN_EVM_CYCLES * rpc_size,
-    )
-    .await
-    .map_err(|err| Error::IcCallError(err.0, err.1))?;
-    match rpc_result {
-        MultiRpcResult::Consistent(result) => result.map_err(|e| {
-            error!("fetch logs rpc error: {:?}", e.clone());
-            Error::EvmRpcError(format!("{:?}", e))
-        }),
-        MultiRpcResult::Inconsistent(_) => {
-            Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
-        }
-    }
 }
 
 pub async fn get_transaction_receipt(
