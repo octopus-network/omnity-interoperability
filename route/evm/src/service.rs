@@ -248,7 +248,6 @@ async fn generate_ticket(tx_hash: String) -> Result<(), String> {
     if read_state(|s| s.handled_evm_event.contains(&tx_hash.to_lowercase())) {
         return Err("duplicate request".to_string());
     }
-
     let (ticket, _transaction_receipt) = create_ticket_by_tx(&tx_hash).await?;
     let hub_principal = read_state(|s| s.hub_principal);
     hub::pending_ticket(hub_principal, ticket)

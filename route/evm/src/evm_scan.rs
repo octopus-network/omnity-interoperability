@@ -29,6 +29,9 @@ pub fn scan_evm_task() {
         let interval =
             read_state(|s| s.block_interval_secs) * crate::const_args::EVM_FINALIZED_CONFIRM_HEIGHT;
         for (hash, time) in events {
+            if read_state(|s| s.handled_evm_event.contains(&hash.to_lowercase())) {
+                continue;
+            }
             let now = get_time_secs();
             if now - time < interval || now - time > interval * 5 {
                 continue;
@@ -78,9 +81,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
         if read_state(|s| s.handled_evm_event.contains(&log_key)) {
             continue;
         }
-        if read_state(|s| s.handled_evm_event.contains(&tx_hash.to_lowercase())) {
-            continue;
-        }
+        let mut found = true;
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -161,8 +162,13 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
             handle_runes_mint(&l, runes_mint).await?;
+        } else {
+            found = false;
         }
-        mutate_state(|s| s.handled_evm_event.insert(tx_hash.to_lowercase()));
+        if found {
+            mutate_state(|s| s.handled_evm_event.insert(tx_hash.to_lowercase()));
+            break;
+        }
     }
     Ok(())
 }
