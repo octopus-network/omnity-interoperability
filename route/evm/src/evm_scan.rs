@@ -1,16 +1,17 @@
 use anyhow::anyhow;
-use cketh_common::eth_rpc::Hash;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
+use cketh_common::eth_rpc::Hash;
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
-use evm_rpc::candid_types::TransactionReceipt;
 use evm_rpc::{
     candid_types::{self, BlockTag},
     MultiRpcResult, RpcServices,
 };
+use evm_rpc::candid_types::TransactionReceipt;
 use itertools::Itertools;
 use log::{error, info};
 
+use crate::*;
 use crate::const_args::{SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
@@ -18,7 +19,6 @@ use crate::contract_types::{
 };
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
-use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -106,7 +106,6 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
             } else {
                 let tx_hash = l
                     .transaction_hash
-                    .clone()
                     .unwrap_or(Hash([0u8; 32]))
                     .to_string();
                 info!("[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash );
@@ -280,14 +279,14 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
         })?;
     match receipt {
         None => {
-            return Err("not find".to_string());
+            Err("not find".to_string())
         }
         Some(tr) => {
             let return_tr = tr.clone();
             assert_eq!(tr.status, 1, "transaction failed");
             let ticket = generate_ticket_by_logs(tr.logs);
             let t = ticket.map_err(|e| e.to_string())?;
-            return Ok((t, return_tr));
+            Ok((t, return_tr))
         }
     }
 }
@@ -327,7 +326,6 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
             } else {
                 let tx_hash = l
                     .transaction_hash
-                    .clone()
                     .unwrap_or(Hash([0u8; 32]))
                     .to_string();
                 info!("[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
