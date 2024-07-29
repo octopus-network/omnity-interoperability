@@ -48,7 +48,6 @@ type InitArgs = record {
   chain_id : text;
   admins : vec principal;
   evm_rpc_canister_addr : principal;
-  scan_start_height : nat64;
   port_addr : opt text;
 };
 type MetricsStatus = record {
@@ -84,7 +83,6 @@ type StateProfile = record {
   next_directive_seq : nat64;
   evm_tx_type : EvmTxType;
   pubkey : vec nat8;
-  start_scan_height : nat64;
   key_derivation_path : vec vec nat8;
   omnity_chain_id : text;
   tokens : vec record { text; Token };
@@ -156,7 +154,6 @@ service : (InitArgs) -> {
   resend_ticket : (nat64) -> ();
   route_state : () -> (StateProfile) query;
   set_port_address : (text) -> ();
-  set_scan_height : (nat64) -> (opt nat64);
   update_admins : (vec principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
   update_rpcs : (vec RpcApi) -> ();
