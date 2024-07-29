@@ -143,6 +143,7 @@ service : (InitArgs) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   pubkey_and_evm_addr : () -> (text, text);
   query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;
+  query_handled_event : (text) -> (opt text);
   query_pending_directive : (nat64, nat64) -> (
       vec record { nat64; PendingDirectiveStatus },
     ) query;
@@ -152,6 +153,7 @@ service : (InitArgs) -> {
   query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
   resend_directive : (nat64) -> ();
   resend_ticket : (nat64) -> ();
+  resend_ticket_to_hub : (text) -> ();
   route_state : () -> (StateProfile) query;
   set_port_address : (text) -> ();
   update_admins : (vec principal) -> ();

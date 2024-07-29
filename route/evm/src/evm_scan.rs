@@ -84,7 +84,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-            handle_token_burn(&l, token_burned).await?;
+            handle_token_burn(&l, token_burned.clone()).await?;
         } else if topic1 == TokenMinted::signature_hash() {
             let token_mint = TokenMinted::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -172,17 +172,19 @@ pub async fn handle_runes_mint(
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_runes_mint_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket,))
+    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(), ))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
+    info!("[evm_route] rune_mint_ticket sent to hub success: {:?}", ticket);
     Ok(())
 }
 
 pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyhow::Result<()> {
     let ticket = Ticket::from_burn_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket,))
+    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(), ))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
+    info!("[evm_route] burn_ticket sent to hub success: {:?}", ticket);
     Ok(())
 }
 
@@ -191,9 +193,10 @@ pub async fn handle_token_transport(
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_transport_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket,))
+    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(), ))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
+    info!("[evm_route] transport_ticket sent to hub success: {:?}", ticket);
     Ok(())
 }
 
@@ -229,9 +232,6 @@ pub async fn get_transaction_receipt(
 }
 
 pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, TransactionReceipt), String> {
-    if read_state(|s| s.handled_evm_event.contains(&tx_hash.to_lowercase())) {
-        return Err("duplicate request".to_string());
-    }
     let receipt = crate::evm_scan::get_transaction_receipt(tx_hash)
         .await
         .map_err(|e| {
@@ -257,17 +257,11 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
         if l.removed {
             return Err(anyhow!("log is removed"));
         }
-        let block = l.block_number.ok_or(anyhow!("block is pending"))?;
-        let log_index = l.log_index.ok_or(anyhow!("log is pending"))?;
-        let log_key = std::format!("{}-{}", block, log_index);
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0;
         let raw_log: RawLog = RawLog {
             topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
             data: l.data.0.clone(),
         };
-        if read_state(|s| s.handled_evm_event.contains(&log_key)) {
-            continue;
-        }
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
