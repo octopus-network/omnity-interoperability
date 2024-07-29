@@ -114,6 +114,13 @@
     }
   },
   "defaults": {
+    "bitcoin": {
+      "enabled": true,
+      "nodes": [
+        "127.0.0.1:18444"
+      ],
+      "log_level": "info"
+    },
     "build": {
       "packtool": "",
       "args": ""
@@ -121,7 +128,7 @@
   },
   "networks": {
     "local": {
-      "bind": "127.0.0.1:4943",
+      "bind": "localhost:4943",
       "type": "ephemeral",
       "replica": {
         "subnet_type": "system"
