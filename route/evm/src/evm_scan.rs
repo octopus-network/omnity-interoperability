@@ -79,6 +79,9 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
         if read_state(|s| s.handled_evm_event.contains(&log_key)) {
             continue;
         }
+        if read_state(|s| s.handled_evm_event.contains(&tx_hash.to_lowercase())) {
+            continue;
+        }
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -160,7 +163,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
             handle_runes_mint(&l, runes_mint).await?;
         }
-        mutate_state(|s| s.handled_evm_event.insert(log_key));
+        mutate_state(|s| s.handled_evm_event.insert(tx_hash.to_lowercase()));
     }
     Ok(())
 }
@@ -271,6 +274,9 @@ pub async fn get_transaction_receipt(
 }
 
 pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, TransactionReceipt), String> {
+    if read_state(|s| s.handled_evm_event.contains(&tx_hash.to_lowercase())) {
+        return Err("duplicate request".to_string());
+    }
     let receipt = crate::evm_scan::get_transaction_receipt(tx_hash)
         .await
         .map_err(|e| {
