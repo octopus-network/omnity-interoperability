@@ -44,6 +44,7 @@ type InitArgs = record {
   evm_tx_type : EvmTxType;
   network : Network;
   fee_token_id : text;
+  block_interval_secs : nat64;
   chain_id : text;
   admins : vec principal;
   evm_rpc_canister_addr : principal;
@@ -70,6 +71,7 @@ type PendingTicketStatus = record {
   ticket_id : text;
   error : opt text;
 };
+type Result = variant { Ok; Err : text };
 type RpcApi = record { url : text; headers : opt vec HttpHeader };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
@@ -133,6 +135,7 @@ type TokenResp = record {
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
 service : (InitArgs) -> {
+  generate_ticket : (text) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_fee : (text) -> (opt nat64) query;
   get_ticket : (text) -> (opt record { nat64; Ticket }) query;

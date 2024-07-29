@@ -3,6 +3,7 @@ use cketh_common::eth_rpc::Hash;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig, numeric::BlockNumber};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
+use evm_rpc::candid_types::TransactionReceipt;
 use evm_rpc::{
     candid_types::{self, BlockTag},
     MultiRpcResult, RpcServices,
@@ -10,12 +11,11 @@ use evm_rpc::{
 use itertools::Itertools;
 use log::{error, info};
 
-use crate::const_args::{MAX_SCAN_BLOCKS, SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
+use crate::const_args::{SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
     TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::get_evm_finalized_height;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
 use crate::*;
@@ -26,16 +26,40 @@ pub fn scan_evm_task() {
             Some(guard) => guard,
             None => return,
         };
-        if let Err(e) = handle_port_events().await {
-            error!("[evm route] handle evm logs error: {}", e.to_string());
+        let events = read_state(|s| s.pending_events_on_chain.clone());
+        let interval =
+            read_state(|s| s.block_interval_secs) * crate::const_args::EVM_FINALIZED_CONFIRM_HEIGHT;
+        for (hash, time) in events {
+            let now = get_time_secs();
+            if now - time < interval || now - time > interval * 5 {
+                continue;
+            }
+            let receipt = crate::evm_scan::get_transaction_receipt(&hash)
+                .await
+                .map_err(|e| {
+                    log::error!("user query transaction receipt error: {:?}", e);
+                    "rpc".to_string()
+                });
+            if let Ok(Some(tr)) = receipt {
+                if tr.status == 0 {
+                    mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+                    continue;
+                }
+                let res = handle_port_events(tr.logs.clone()).await;
+                match res {
+                    Ok(_) => {
+                        mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+                    }
+                    Err(e) => {
+                        error!("[evm route] handle evm logs error: {}", e.to_string());
+                    }
+                }
+            }
         }
     });
 }
 
-pub async fn handle_port_events() -> anyhow::Result<()> {
-    let (from, to) = determine_from_to().await?;
-    let contract_addr = read_state(|s| s.omnity_port_contract.to_hex());
-    let logs = fetch_logs(from, to, contract_addr).await?;
+pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
     for l in logs {
         if l.removed {
             return Err(anyhow!("log is removed"));
@@ -67,17 +91,6 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
                 s.finalized_mint_token_requests
                     .insert(token_mint.ticket_id.clone(), tx_hash.clone())
             });
-            //rewrite tx to hub
-            let hub_principal = read_state(|s| s.hub_principal);
-            match hub::update_tx_hash(hub_principal, token_mint.ticket_id, tx_hash).await {
-                Err(err) => {
-                    log::error!(
-                        "[rewrite tx_hash] failed to write mint tx hash, reason: {}",
-                        err
-                    );
-                }
-                _ => {}
-            }
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -150,10 +163,6 @@ pub async fn handle_port_events() -> anyhow::Result<()> {
         }
         mutate_state(|s| s.handled_evm_event.insert(log_key));
     }
-    mutate_state(|s| {
-        s.scan_start_height = to;
-        s.latest_scan_height_update_time = ic_cdk::api::time();
-    });
     Ok(())
 }
 
@@ -185,15 +194,6 @@ pub async fn handle_token_transport(
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
     Ok(())
-}
-
-async fn determine_from_to() -> anyhow::Result<(u64, u64)> {
-    let from_height = read_state(|s| s.scan_start_height);
-    let to_height = get_evm_finalized_height().await.map_err(|e| {
-        error!("query evm block height error: {:?}", e.to_string());
-        e
-    })?;
-    Ok((from_height, to_height.min(from_height + MAX_SCAN_BLOCKS)))
 }
 
 pub async fn fetch_logs(
@@ -238,4 +238,105 @@ pub async fn fetch_logs(
             Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
         }
     }
+}
+
+pub async fn get_transaction_receipt(
+    hash: &String,
+) -> std::result::Result<Option<TransactionReceipt>, Error> {
+    let rpc_size = read_state(|s| s.rpc_providers.len() as u128);
+    let (rpc_result,): (MultiRpcResult<Option<TransactionReceipt>>,) =
+        ic_cdk::api::call::call_with_payment128(
+            crate::state::rpc_addr(),
+            "eth_getTransactionReceipt",
+            (
+                RpcServices::Custom {
+                    chain_id: crate::state::evm_chain_id(),
+                    services: crate::state::rpc_providers(),
+                },
+                None::<RpcConfig>,
+                hash,
+            ),
+            SCAN_EVM_CYCLES * rpc_size,
+        )
+        .await
+        .map_err(|err| Error::IcCallError(err.0, err.1))?;
+    match rpc_result {
+        MultiRpcResult::Consistent(result) => result.map_err(|e| {
+            error!("query transaction receipt error: {:?}", e.clone());
+            Error::EvmRpcError(format!("{:?}", e))
+        }),
+        MultiRpcResult::Inconsistent(_) => {
+            Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
+        }
+    }
+}
+
+pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, TransactionReceipt), String> {
+    let receipt = crate::evm_scan::get_transaction_receipt(tx_hash)
+        .await
+        .map_err(|e| {
+            log::error!("user query transaction receipt error: {:?}", e);
+            "rpc".to_string()
+        })?;
+    match receipt {
+        None => {
+            return Err("not find".to_string());
+        }
+        Some(tr) => {
+            let return_tr = tr.clone();
+            assert_eq!(tr.status, 1, "transaction failed");
+            let ticket = generate_ticket_by_logs(tr.logs);
+            let t = ticket.map_err(|e| e.to_string())?;
+            return Ok((t, return_tr));
+        }
+    }
+}
+
+pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
+    for l in logs {
+        if l.removed {
+            return Err(anyhow!("log is removed"));
+        }
+        let block = l.block_number.ok_or(anyhow!("block is pending"))?;
+        let log_index = l.log_index.ok_or(anyhow!("log is pending"))?;
+        let log_key = std::format!("{}-{}", block, log_index);
+        let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0;
+        let raw_log: RawLog = RawLog {
+            topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
+            data: l.data.0.clone(),
+        };
+        if read_state(|s| s.handled_evm_event.contains(&log_key)) {
+            continue;
+        }
+        if topic1 == TokenBurned::signature_hash() {
+            let token_burned = TokenBurned::decode_log(&raw_log)
+                .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
+            return Ok(Ticket::from_burn_event(&l, token_burned));
+        } else if topic1 == TokenTransportRequested::signature_hash() {
+            let token_transport = TokenTransportRequested::decode_log(&raw_log)
+                .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
+            let dst_check_result = read_state(|s| {
+                let r = s.counterparties.get(&token_transport.dst_chain_id);
+                match r {
+                    None => false,
+                    Some(c) => c.chain_state == ChainState::Active,
+                }
+            });
+            if dst_check_result {
+                return Ok(Ticket::from_transport_event(&l, token_transport));
+            } else {
+                let tx_hash = l
+                    .transaction_hash
+                    .clone()
+                    .unwrap_or(Hash([0u8; 32]))
+                    .to_string();
+                info!("[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
+            }
+        } else if topic1 == RunesMintRequested::signature_hash() {
+            let runes_mint = RunesMintRequested::decode_log(&raw_log)
+                .map_err(|e| Error::ParseEventError(e.to_string()))?;
+            return Ok(Ticket::from_runes_mint_event(&l, runes_mint));
+        }
+    }
+    Err(anyhow!("not found ticket"))
 }
