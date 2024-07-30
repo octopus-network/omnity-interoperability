@@ -133,7 +133,6 @@ type TokenResp = record {
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
 service : (InitArgs) -> {
-  add_token : () -> ();
   generate_ticket : (text) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_fee : (text) -> (opt nat64) query;
