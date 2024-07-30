@@ -6,18 +6,28 @@ use cketh_common::eth_rpc_client::providers::RpcApi;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use log::info;
+use log::{error, info};
 use serde_derive::Deserialize;
 
-use crate::const_args::{FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_INTERVAL};
-use crate::eth_common::{EvmAddress, EvmTxType, get_balance};
-use crate::evm_scan::scan_evm_task;
+use crate::const_args::{
+    FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL,
+    SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
+};
+use crate::eth_common::{get_balance, EvmAddress, EvmTxType};
+use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
-use crate::state::{EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, StateProfile};
-use crate::types::{Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
+use crate::state::{
+    init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, EvmRouteState,
+    StateProfile,
+};
+use crate::types::{
+    Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
+    PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
+};
+use crate::{get_time_secs, hub, Error};
 
 #[init]
 fn init(args: InitArgs) {
@@ -32,8 +42,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
-    EvmRouteState::post_upgrade();
+fn post_upgrade(block_interval_sec: u64) {
+    EvmRouteState::post_upgrade(block_interval_sec);
     init_log(Some(init_stable_log()));
     start_tasks();
     info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
@@ -48,6 +58,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 fn update_consume_directive_seq(seq: Seq) {
     mutate_state(|s| s.next_consume_directive_seq = seq);
 }
+
 fn start_tasks() {
     set_timer_interval(
         Duration::from_secs(FETCH_HUB_TICKET_INTERVAL),
@@ -187,16 +198,6 @@ fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
 }
 
 #[update(guard = "is_admin")]
-fn set_scan_height(height: u64) -> Option<u64> {
-    let _guard = match crate::guard::TimerLogicGuard::new(SCAN_EVM_TASK_NAME.to_string()) {
-        Some(guard) => guard,
-        None => return None,
-    };
-    mutate_state(|s| s.scan_start_height = height);
-    Some(height)
-}
-
-#[update(guard = "is_admin")]
 fn update_admins(admins: Vec<Principal>) {
     mutate_state(|s| s.admins = admins);
 }
@@ -224,14 +225,55 @@ fn is_monitor() -> Result<(), String> {
 
 #[update(guard = "is_monitor")]
 async fn metrics() -> MetricsStatus {
-    let latest_scan_time = read_state(|s| s.latest_scan_height_update_time);
-    let interval = (ic_cdk::api::time() - latest_scan_time) / 1000000000;
     let chainkey_addr = minter_addr();
     let balance = get_balance(chainkey_addr).await.unwrap_or_default();
     MetricsStatus {
-        latest_scan_interval_secs: interval,
+        latest_scan_interval_secs: 0,
         chainkey_addr_balance: balance.as_u128(),
     }
+}
+
+#[update]
+async fn generate_ticket(hash: String) -> Result<(), String> {
+    let tx_hash = hash.to_lowercase();
+    if read_state(|s| s.pending_events_on_chain.get(&tx_hash).is_some()) {
+        return Ok(());
+    }
+    assert!(tx_hash.starts_with("0x"));
+    assert_eq!(
+        hex::decode(tx_hash.strip_prefix("0x").unwrap())
+            .unwrap()
+            .len(),
+        32
+    );
+    if read_state(|s| s.handled_evm_event.contains(&tx_hash)) {
+        return Err("duplicate request".to_string());
+    }
+    let (ticket, _transaction_receipt) = create_ticket_by_tx(&tx_hash).await?;
+    let hub_principal = read_state(|s| s.hub_principal);
+    hub::pending_ticket(hub_principal, ticket)
+        .await
+        .map_err(|e| {
+            error!("call hub error:{}", e.to_string());
+            "call hub error".to_string()
+        })?;
+    mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
+    Ok(())
+}
+
+#[update(guard = "is_admin")]
+pub fn query_handled_event(tx_hash: String) -> Option<String> {
+    read_state(|s| s.handled_evm_event.get(&tx_hash).cloned())
+}
+
+#[update(guard = "is_admin")]
+pub async fn resend_ticket_to_hub(tx_hash: String) {
+    let (ticket, _tr) = create_ticket_by_tx(&tx_hash).await.unwrap();
+    let _r: () = ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
+        .await
+        .map_err(|(_, s)| Error::HubError(s))
+        .unwrap();
+    info!("[evm_route] burn_ticket sent to hub success: {:?}", ticket);
 }
 
 #[derive(CandidType, Deserialize)]
@@ -241,12 +283,12 @@ pub struct InitArgs {
     pub hub_principal: Principal,
     pub network: Network,
     pub evm_rpc_canister_addr: Principal,
-    pub scan_start_height: u64,
     pub chain_id: String,
     pub rpcs: Vec<RpcApi>,
     pub fee_token_id: String,
     pub port_addr: Option<String>,
     pub evm_tx_type: EvmTxType,
+    pub block_interval_secs: u64,
 }
 
 ic_cdk::export_candid!();
