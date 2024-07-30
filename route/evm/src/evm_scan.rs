@@ -50,6 +50,7 @@ pub fn scan_evm_task() {
                 let res = handle_port_events(tr.logs.clone()).await;
                 match res {
                     Ok(_) => {
+                        mutate_state(|s| s.handled_evm_event.insert(hash.clone().to_lowercase()));
                         mutate_state(|s| s.pending_events_on_chain.remove(&hash));
                     }
                     Err(e) => {
@@ -81,7 +82,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
         if read_state(|s| s.handled_evm_event.contains(&log_key)) {
             continue;
         }
-        let mut found = true;
+
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -162,12 +163,6 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
             handle_runes_mint(&l, runes_mint).await?;
-        } else {
-            found = false;
-        }
-        if found {
-            mutate_state(|s| s.handled_evm_event.insert(tx_hash.to_lowercase()));
-            break;
         }
     }
     Ok(())
