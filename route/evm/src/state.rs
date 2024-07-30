@@ -9,19 +9,20 @@ use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{
     ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument,
 };
-use ic_stable_structures::StableBTreeMap;
 use ic_stable_structures::writer::Writer;
+use ic_stable_structures::StableBTreeMap;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, stable_memory};
 use crate::eth_common::{EvmAddress, EvmTxType};
 use crate::service::InitArgs;
 use crate::stable_memory::Memory;
-use crate::types::{Chain, ChainState, Timestamp, Token, TokenId};
+use crate::types::{Chain, ChainState, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
+use crate::upgrade::OldEvmRouteState;
+use crate::{stable_memory, Error};
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
@@ -67,10 +68,10 @@ impl EvmRouteState {
             pending_directive_map: StableBTreeMap::init(
                 crate::stable_memory::get_pending_directive_map_memory(),
             ),
-            scan_start_height: args.scan_start_height,
             is_timer_running: Default::default(),
             evm_tx_type: args.evm_tx_type,
-            latest_scan_height_update_time: ic_cdk::api::time(),
+            block_interval_secs: args.block_interval_secs,
+            pending_events_on_chain: Default::default(),
         };
         Ok(ret)
     }
@@ -89,7 +90,7 @@ impl EvmRouteState {
             .expect("failed to save hub state");
     }
 
-    pub fn post_upgrade() {
+    pub fn post_upgrade(bloc_interval_secs: u64) {
         use ic_stable_structures::Memory;
         let memory = stable_memory::get_upgrade_stash_memory();
         // Read the length of the state bytes.
@@ -98,8 +99,10 @@ impl EvmRouteState {
         let state_len = u32::from_le_bytes(state_len_bytes) as usize;
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
-        let state: EvmRouteState = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-        replace_state(state);
+        let state: OldEvmRouteState =
+            ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+        let new_state = EvmRouteState::from((state, bloc_interval_secs));
+        replace_state(new_state);
     }
 
     pub fn pull_tickets(&self, from: usize, limit: usize) -> Vec<(Seq, Ticket)> {
@@ -167,12 +170,11 @@ pub struct EvmRouteState {
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
     #[serde(skip, default = "crate::stable_memory::init_pending_directive_map")]
     pub pending_directive_map: StableBTreeMap<Seq, PendingDirectiveStatus, Memory>,
-    pub scan_start_height: u64,
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
     pub evm_tx_type: EvmTxType,
-    #[serde(skip)]
-    pub latest_scan_height_update_time: Timestamp,
+    pub block_interval_secs: u64,
+    pub pending_events_on_chain: BTreeMap<String, u64>,
 }
 
 impl From<&EvmRouteState> for StateProfile {
@@ -196,7 +198,6 @@ impl From<&EvmRouteState> for StateProfile {
             next_consume_ticket_seq: v.next_consume_ticket_seq,
             next_consume_directive_seq: v.next_consume_directive_seq,
             rpc_providers: v.rpc_providers.clone(),
-            start_scan_height: v.scan_start_height,
             fee_token_factor: v.fee_token_factor,
             target_chain_factor: v.target_chain_factor.clone(),
             evm_tx_type: v.evm_tx_type,
@@ -224,7 +225,6 @@ pub struct StateProfile {
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
     pub rpc_providers: Vec<RpcApi>,
-    pub start_scan_height: u64,
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub evm_tx_type: EvmTxType,

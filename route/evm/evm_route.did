@@ -44,10 +44,10 @@ type InitArgs = record {
   evm_tx_type : EvmTxType;
   network : Network;
   fee_token_id : text;
+  block_interval_secs : nat64;
   chain_id : text;
   admins : vec principal;
   evm_rpc_canister_addr : principal;
-  scan_start_height : nat64;
   port_addr : opt text;
 };
 type MetricsStatus = record {
@@ -70,6 +70,7 @@ type PendingTicketStatus = record {
   ticket_id : text;
   error : opt text;
 };
+type Result = variant { Ok; Err : text };
 type RpcApi = record { url : text; headers : opt vec HttpHeader };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
@@ -82,7 +83,6 @@ type StateProfile = record {
   next_directive_seq : nat64;
   evm_tx_type : EvmTxType;
   pubkey : vec nat8;
-  start_scan_height : nat64;
   key_derivation_path : vec vec nat8;
   omnity_chain_id : text;
   tokens : vec record { text; Token };
@@ -133,6 +133,7 @@ type TokenResp = record {
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
 service : (InitArgs) -> {
+  generate_ticket : (text) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_fee : (text) -> (opt nat64) query;
   get_ticket : (text) -> (opt record { nat64; Ticket }) query;
@@ -142,6 +143,7 @@ service : (InitArgs) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   pubkey_and_evm_addr : () -> (text, text);
   query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;
+  query_handled_event : (text) -> (opt text);
   query_pending_directive : (nat64, nat64) -> (
       vec record { nat64; PendingDirectiveStatus },
     ) query;
@@ -151,9 +153,9 @@ service : (InitArgs) -> {
   query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
   resend_directive : (nat64) -> ();
   resend_ticket : (nat64) -> ();
+  resend_ticket_to_hub : (text) -> ();
   route_state : () -> (StateProfile) query;
   set_port_address : (text) -> ();
-  set_scan_height : (nat64) -> (opt nat64);
   update_admins : (vec principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
   update_rpcs : (vec RpcApi) -> ();
