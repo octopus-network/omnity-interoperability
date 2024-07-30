@@ -1,10 +1,4 @@
 export const idlFactory = ({ IDL }) => {
-  const HttpHeader = IDL.Record({ 'value' : IDL.Text, 'name' : IDL.Text });
-  const RpcApi = IDL.Record({
-    'url' : IDL.Text,
-    'headers' : IDL.Opt(IDL.Vec(HttpHeader)),
-  });
-  const EvmTxType = IDL.Variant({ 'Eip1559' : IDL.Null, 'Legacy' : IDL.Null });
   const Network = IDL.Variant({
     'mainnet' : IDL.Null,
     'local' : IDL.Null,
@@ -12,19 +6,15 @@ export const idlFactory = ({ IDL }) => {
   });
   const InitArgs = IDL.Record({
     'evm_chain_id' : IDL.Nat64,
+    'admin' : IDL.Principal,
     'hub_principal' : IDL.Principal,
-    'rpcs' : IDL.Vec(RpcApi),
-    'evm_tx_type' : EvmTxType,
     'network' : Network,
     'fee_token_id' : IDL.Text,
-    'block_interval_secs' : IDL.Nat64,
     'chain_id' : IDL.Text,
-    'admins' : IDL.Vec(IDL.Principal),
+    'rpc_url' : IDL.Text,
     'evm_rpc_canister_addr' : IDL.Principal,
     'scan_start_height' : IDL.Nat64,
-    'port_addr' : IDL.Opt(IDL.Text),
   });
-  const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
   const ChainState = IDL.Variant({
     'Active' : IDL.Null,
     'Deactive' : IDL.Null,
@@ -42,12 +32,7 @@ export const idlFactory = ({ IDL }) => {
     'chain_type' : ChainType,
     'contract_address' : IDL.Opt(IDL.Text),
   });
-  const TxAction = IDL.Variant({
-    'Burn' : IDL.Null,
-    'Redeem' : IDL.Null,
-    'Mint' : IDL.Null,
-    'Transfer' : IDL.Null,
-  });
+  const TxAction = IDL.Variant({ 'Redeem' : IDL.Null, 'Transfer' : IDL.Null });
   const TicketType = IDL.Variant({
     'Resubmit' : IDL.Null,
     'Normal' : IDL.Null,
@@ -83,10 +68,6 @@ export const idlFactory = ({ IDL }) => {
     'body' : IDL.Vec(IDL.Nat8),
     'headers' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
     'status_code' : IDL.Nat16,
-  });
-  const MetricsStatus = IDL.Record({
-    'chainkey_addr_balance' : IDL.Nat,
-    'latest_scan_interval_secs' : IDL.Nat64,
   });
   const MintTokenStatus = IDL.Variant({
     'Finalized' : IDL.Record({ 'tx_hash' : IDL.Text }),
@@ -141,22 +122,26 @@ export const idlFactory = ({ IDL }) => {
   });
   const EcdsaCurve = IDL.Variant({ 'secp256k1' : IDL.Null });
   const EcdsaKeyId = IDL.Record({ 'name' : IDL.Text, 'curve' : EcdsaCurve });
+  const HttpHeader = IDL.Record({ 'value' : IDL.Text, 'name' : IDL.Text });
+  const RpcApi = IDL.Record({
+    'url' : IDL.Text,
+    'headers' : IDL.Opt(IDL.Vec(HttpHeader)),
+  });
   const StateProfile = IDL.Record({
     'next_consume_ticket_seq' : IDL.Nat64,
     'evm_chain_id' : IDL.Nat64,
+    'admin' : IDL.Principal,
     'omnity_port_contract' : IDL.Vec(IDL.Nat8),
     'next_consume_directive_seq' : IDL.Nat64,
     'hub_principal' : IDL.Principal,
     'key_id' : EcdsaKeyId,
     'token_contracts' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
     'next_directive_seq' : IDL.Nat64,
-    'evm_tx_type' : EvmTxType,
     'pubkey' : IDL.Vec(IDL.Nat8),
     'start_scan_height' : IDL.Nat64,
     'key_derivation_path' : IDL.Vec(IDL.Vec(IDL.Nat8)),
     'omnity_chain_id' : IDL.Text,
     'tokens' : IDL.Vec(IDL.Tuple(IDL.Text, Token)),
-    'admins' : IDL.Vec(IDL.Principal),
     'target_chain_factor' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
     'evm_rpc_addr' : IDL.Principal,
     'counterparties' : IDL.Vec(IDL.Tuple(IDL.Text, Chain)),
@@ -166,7 +151,6 @@ export const idlFactory = ({ IDL }) => {
     'fee_token_factor' : IDL.Opt(IDL.Nat),
   });
   return IDL.Service({
-    'generate_ticket' : IDL.Func([IDL.Text], [Result], []),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_fee' : IDL.Func([IDL.Text], [IDL.Opt(IDL.Nat64)], ['query']),
     'get_ticket' : IDL.Func(
@@ -176,7 +160,6 @@ export const idlFactory = ({ IDL }) => {
       ),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'http_request' : IDL.Func([HttpRequest], [HttpResponse], ['query']),
-    'metrics' : IDL.Func([], [MetricsStatus], []),
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
     'pubkey_and_evm_addr' : IDL.Func([], [IDL.Text, IDL.Text], []),
     'query_directives' : IDL.Func(
@@ -202,20 +185,10 @@ export const idlFactory = ({ IDL }) => {
     'resend_directive' : IDL.Func([IDL.Nat64], [], []),
     'resend_ticket' : IDL.Func([IDL.Nat64], [], []),
     'route_state' : IDL.Func([], [StateProfile], ['query']),
-    'set_port_address' : IDL.Func([IDL.Text], [], []),
-    'set_scan_height' : IDL.Func([IDL.Nat64], [IDL.Opt(IDL.Nat64)], []),
-    'update_admins' : IDL.Func([IDL.Vec(IDL.Principal)], [], []),
     'update_consume_directive_seq' : IDL.Func([IDL.Nat64], [], []),
-    'update_rpcs' : IDL.Func([IDL.Vec(RpcApi)], [], []),
   });
 };
 export const init = ({ IDL }) => {
-  const HttpHeader = IDL.Record({ 'value' : IDL.Text, 'name' : IDL.Text });
-  const RpcApi = IDL.Record({
-    'url' : IDL.Text,
-    'headers' : IDL.Opt(IDL.Vec(HttpHeader)),
-  });
-  const EvmTxType = IDL.Variant({ 'Eip1559' : IDL.Null, 'Legacy' : IDL.Null });
   const Network = IDL.Variant({
     'mainnet' : IDL.Null,
     'local' : IDL.Null,
@@ -223,17 +196,14 @@ export const init = ({ IDL }) => {
   });
   const InitArgs = IDL.Record({
     'evm_chain_id' : IDL.Nat64,
+    'admin' : IDL.Principal,
     'hub_principal' : IDL.Principal,
-    'rpcs' : IDL.Vec(RpcApi),
-    'evm_tx_type' : EvmTxType,
     'network' : Network,
     'fee_token_id' : IDL.Text,
-    'block_interval_secs' : IDL.Nat64,
     'chain_id' : IDL.Text,
-    'admins' : IDL.Vec(IDL.Principal),
+    'rpc_url' : IDL.Text,
     'evm_rpc_canister_addr' : IDL.Principal,
     'scan_start_height' : IDL.Nat64,
-    'port_addr' : IDL.Opt(IDL.Text),
   });
   return [InitArgs];
 };

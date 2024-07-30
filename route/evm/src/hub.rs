@@ -1,5 +1,4 @@
-use candid::utils::ArgumentEncoder;
-use candid::{CandidType, Principal};
+use candid::Principal;
 
 use crate::call_error::{CallError, Reason};
 use crate::types::Topic;
@@ -7,7 +6,19 @@ use crate::types::{ChainId, Directive, TicketId};
 use crate::types::{Seq, Ticket};
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
-    call(hub_principal, "send_ticket".into(), (ticket,)).await
+    // TODO determine how many cycle it will cost.
+    let cost_cycles = 4_000_000_000_u64;
+    let resp: (Result<(), crate::types::Error>,) =
+        ic_cdk::api::call::call_with_payment(hub_principal, "send_ticket", (ticket,), cost_cycles)
+            .await
+            .map_err(|(code, message)| CallError {
+                method: "send_ticket".to_string(),
+                reason: Reason::from_reject(code, message),
+            })?;
+    resp.0.map_err(|err| CallError {
+        method: "send_ticket".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })
 }
 
 pub async fn query_tickets(
@@ -15,12 +26,21 @@ pub async fn query_tickets(
     offset: u64,
     limit: u64,
 ) -> Result<Vec<(Seq, Ticket)>, CallError> {
-    call(
+    let resp: (Result<Vec<(Seq, Ticket)>, crate::types::Error>,) = ic_cdk::api::call::call(
         hub_principal,
-        "query_tickets".into(),
+        "query_tickets",
         (None::<Option<ChainId>>, offset, limit),
     )
     .await
+    .map_err(|(code, message)| CallError {
+        method: "query_tickets".to_string(),
+        reason: Reason::from_reject(code, message),
+    })?;
+    let data = resp.0.map_err(|err| CallError {
+        method: "query_tickets".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
+    Ok(data)
 }
 
 pub async fn query_directives(
@@ -28,9 +48,9 @@ pub async fn query_directives(
     offset: u64,
     limit: u64,
 ) -> Result<Vec<(Seq, Directive)>, CallError> {
-    call(
+    let resp: (Result<Vec<(Seq, Directive)>, crate::types::Error>,) = ic_cdk::api::call::call(
         hub_principal,
-        "query_directives".into(),
+        "query_directives",
         (
             None::<Option<ChainId>>,
             None::<Option<Topic>>,
@@ -39,6 +59,15 @@ pub async fn query_directives(
         ),
     )
     .await
+    .map_err(|(code, message)| CallError {
+        method: "query_directives".to_string(),
+        reason: Reason::from_reject(code, message),
+    })?;
+    let data = resp.0.map_err(|err| CallError {
+        method: "query_directives".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
+    Ok(data)
 }
 
 pub async fn update_tx_hash(
@@ -46,36 +75,16 @@ pub async fn update_tx_hash(
     ticket_id: TicketId,
     mint_tx_hash: String,
 ) -> Result<(), CallError> {
-    call(
-        hub_principal,
-        "update_tx_hash".into(),
-        (ticket_id, mint_tx_hash),
-    )
-    .await
-}
-
-pub async fn pending_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
-    call(hub_principal, "pending_ticket".into(), (ticket,)).await
-}
-
-async fn call<T: ArgumentEncoder, R>(
-    hub_principal: Principal,
-    method: String,
-    args: T,
-) -> Result<R, CallError>
-where
-    R: for<'a> candid::Deserialize<'a> + CandidType,
-{
-    let resp: (Result<R, crate::types::Error>,) =
-        ic_cdk::api::call::call(hub_principal, &method, args)
+    let resp: (Result<(), crate::types::Error>,) =
+        ic_cdk::api::call::call(hub_principal, "update_tx_hash", (ticket_id, mint_tx_hash))
             .await
             .map_err(|(code, message)| CallError {
-                method: method.to_string(),
+                method: "update_tx_hash".to_string(),
                 reason: Reason::from_reject(code, message),
             })?;
-    let data = resp.0.map_err(|err| CallError {
-        method: method.to_string(),
+    resp.0.map_err(|err| CallError {
+        method: "update_tx_hash".to_string(),
         reason: Reason::CanisterError(err.to_string()),
     })?;
-    Ok(data)
+    Ok(())
 }

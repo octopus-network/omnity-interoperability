@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
-use ethers_core::abi::{ethereum_types, AbiEncode};
-use ethers_core::types::Eip1559TransactionRequest;
+use ethers_core::abi::{AbiEncode, ethereum_types};
 use ethers_core::types::{Bytes, NameOrAddress, TransactionRequest, U256};
+use ethers_core::types::Eip1559TransactionRequest;
 use log::info;
 
 use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
@@ -108,8 +108,13 @@ impl Into<Option<PortContractCommandIndex>> for Directive {
     }
 }
 
-pub fn gen_evm_tx(tx_data: Vec<u8>, gas_price: Option<U256>, nonce: u64, gas: u32) -> EvmTxRequest {
-    match read_state(|s| s.evm_tx_type) {
+pub fn gen_evm_tx(
+    tx_data: Vec<u8>,
+    gas_price: Option<U256>,
+    nonce: u64,
+    gas: u32,
+) -> EvmTxRequest {
+    match read_state(|s| s.evm_tx_type.clone()) {
         EvmTxType::Legacy => {
             EvmTxRequest::Legacy(gen_evm_legacy_tx(tx_data, gas_price, nonce, gas))
         }

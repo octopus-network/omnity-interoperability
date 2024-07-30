@@ -9,18 +9,18 @@ use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
 use ethers_core::types::{Eip1559TransactionRequest, TransactionRequest, U256};
 use ethers_core::utils::keccak256;
-use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use evm_rpc::{MultiRpcResult, RpcServices};
+use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use log::{error, info};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
+use crate::{Error, state};
 use crate::const_args::{
     BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT, GET_ACCOUNT_NONCE_CYCLES,
 };
 use crate::eth_common::EvmAddressError::LengthError;
-use crate::{state, Error};
 
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
 pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
@@ -79,8 +79,8 @@ impl TryFrom<Vec<u8>> for EvmAddress {
 
 pub async fn sign_transaction(evm_tx_request: EvmTxRequest) -> anyhow::Result<Vec<u8>> {
     match evm_tx_request {
-        EvmTxRequest::Legacy(tx) => sign_transaction_legacy(tx).await,
-        EvmTxRequest::Eip1559(tx) => sign_transaction_eip1559(tx).await,
+        EvmTxRequest::Legacy(tx) => { sign_transaction_legacy(tx).await }
+        EvmTxRequest::Eip1559(tx) => { sign_transaction_eip1559(tx).await }
     }
 }
 
@@ -240,8 +240,7 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
             params: vec![],
             id: 1,
             jsonrpc: "2.0".to_string(),
-        })
-        .unwrap(),
+        }).unwrap(),
         1000u64,
     );
     // Get cycles cost
@@ -277,6 +276,7 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
     Ok(U256::from(r * 11 / 10))
 }
 
+
 pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
     let params = (
         RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
@@ -285,12 +285,11 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
             params: vec![addr, "latest".to_string()],
             id: 1,
             jsonrpc: "2.0".to_string(),
-        })
-        .unwrap(),
+        }).unwrap(),
         1000u64,
     );
     // Get cycles cost
-    let (cycles_result,): (std::result::Result<u128, RpcError>,) =
+    let (cycles_result, ): (std::result::Result<u128, RpcError>, ) =
         ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
             .await
             .unwrap();
@@ -299,7 +298,7 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
         anyhow!(format!("error in `request_cost`: {:?}", e))
     })?;
     // Call with expected number of cycles
-    let (result,): (std::result::Result<String, RpcError>,) =
+    let (result, ): (std::result::Result<String, RpcError>, ) =
         ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
             .await
             .map_err(|err| Error::IcCallError(err.0, err.1))?;
@@ -310,10 +309,7 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
         pub result: String,
     }
     let r = result.map_err(|e| {
-        error!(
-            "[evm route]query chainkey address evm balance error: {:?}",
-            &e
-        );
+        error!("[evm route]query chainkey address evm balance error: {:?}", &e);
         Error::Custom(anyhow!(format!(
             "[evm route]query chainkey address evm balance error: {:?}",
             &e
@@ -334,8 +330,7 @@ pub async fn get_evm_finalized_height() -> anyhow::Result<u64> {
             params: vec![],
             id: 1,
             jsonrpc: "2.0".to_string(),
-        })
-        .unwrap(),
+        }).unwrap(),
         1000u64,
     );
     // Get cycles cost
@@ -371,9 +366,8 @@ pub async fn get_evm_finalized_height() -> anyhow::Result<u64> {
     Ok(r - EVM_FINALIZED_CONFIRM_HEIGHT)
 }
 
-#[derive(
-    CandidType, Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord,
-)]
+
+#[derive(CandidType, Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EvmTxType {
     Legacy,
     #[default]

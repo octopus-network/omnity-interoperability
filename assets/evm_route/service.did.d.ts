@@ -23,8 +23,6 @@ export type Directive = { 'UpdateChain' : Chain } |
   { 'UpdateToken' : Token };
 export type EcdsaCurve = { 'secp256k1' : null };
 export interface EcdsaKeyId { 'name' : string, 'curve' : EcdsaCurve }
-export type EvmTxType = { 'Eip1559' : null } |
-  { 'Legacy' : null };
 export type Factor = { 'UpdateFeeTokenFactor' : FeeTokenFactor } |
   { 'UpdateTargetChainFactor' : TargetChainFactor };
 export interface FeeTokenFactor {
@@ -45,21 +43,14 @@ export interface HttpResponse {
 }
 export interface InitArgs {
   'evm_chain_id' : bigint,
+  'admin' : Principal,
   'hub_principal' : Principal,
-  'rpcs' : Array<RpcApi>,
-  'evm_tx_type' : EvmTxType,
   'network' : Network,
   'fee_token_id' : string,
-  'block_interval_secs' : bigint,
   'chain_id' : string,
-  'admins' : Array<Principal>,
+  'rpc_url' : string,
   'evm_rpc_canister_addr' : Principal,
   'scan_start_height' : bigint,
-  'port_addr' : [] | [string],
-}
-export interface MetricsStatus {
-  'chainkey_addr_balance' : bigint,
-  'latest_scan_interval_secs' : bigint,
 }
 export type MintTokenStatus = { 'Finalized' : { 'tx_hash' : string } } |
   { 'Unknown' : null };
@@ -77,25 +68,22 @@ export interface PendingTicketStatus {
   'ticket_id' : string,
   'error' : [] | [string],
 }
-export type Result = { 'Ok' : null } |
-  { 'Err' : string };
 export interface RpcApi { 'url' : string, 'headers' : [] | [Array<HttpHeader>] }
 export interface StateProfile {
   'next_consume_ticket_seq' : bigint,
   'evm_chain_id' : bigint,
+  'admin' : Principal,
   'omnity_port_contract' : Uint8Array | number[],
   'next_consume_directive_seq' : bigint,
   'hub_principal' : Principal,
   'key_id' : EcdsaKeyId,
   'token_contracts' : Array<[string, string]>,
   'next_directive_seq' : bigint,
-  'evm_tx_type' : EvmTxType,
   'pubkey' : Uint8Array | number[],
   'start_scan_height' : bigint,
   'key_derivation_path' : Array<Uint8Array | number[]>,
   'omnity_chain_id' : string,
   'tokens' : Array<[string, Token]>,
-  'admins' : Array<Principal>,
   'target_chain_factor' : Array<[string, bigint]>,
   'evm_rpc_addr' : Principal,
   'counterparties' : Array<[string, Chain]>,
@@ -142,18 +130,14 @@ export interface TokenResp {
   'rune_id' : [] | [string],
   'symbol' : string,
 }
-export type TxAction = { 'Burn' : null } |
-  { 'Redeem' : null } |
-  { 'Mint' : null } |
+export type TxAction = { 'Redeem' : null } |
   { 'Transfer' : null };
 export interface _SERVICE {
-  'generate_ticket' : ActorMethod<[string], Result>,
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
   'get_fee' : ActorMethod<[string], [] | [bigint]>,
   'get_ticket' : ActorMethod<[string], [] | [[bigint, Ticket]]>,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'http_request' : ActorMethod<[HttpRequest], HttpResponse>,
-  'metrics' : ActorMethod<[], MetricsStatus>,
   'mint_token_status' : ActorMethod<[string], MintTokenStatus>,
   'pubkey_and_evm_addr' : ActorMethod<[], [string, string]>,
   'query_directives' : ActorMethod<
@@ -172,11 +156,7 @@ export interface _SERVICE {
   'resend_directive' : ActorMethod<[bigint], undefined>,
   'resend_ticket' : ActorMethod<[bigint], undefined>,
   'route_state' : ActorMethod<[], StateProfile>,
-  'set_port_address' : ActorMethod<[string], undefined>,
-  'set_scan_height' : ActorMethod<[bigint], [] | [bigint]>,
-  'update_admins' : ActorMethod<[Array<Principal>], undefined>,
   'update_consume_directive_seq' : ActorMethod<[bigint], undefined>,
-  'update_rpcs' : ActorMethod<[Array<RpcApi>], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: ({ IDL }: { IDL: IDL }) => IDL.Type[];

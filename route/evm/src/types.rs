@@ -1,15 +1,15 @@
-use std::borrow::Cow;
 use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
 };
+use std::borrow::Cow;
 
 use candid::CandidType;
 use candid::Principal;
 use cketh_common::eth_rpc::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
-use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
+use ic_stable_structures::storable::Bound;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use thiserror::Error;
@@ -235,6 +235,7 @@ pub struct Ticket {
     pub memo: Option<Vec<u8>>,
 }
 
+
 impl Ticket {
     pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMintRequested) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
@@ -254,8 +255,14 @@ impl Ticket {
             action: TxAction::Mint,
             token: runes_mint.token_id,
             amount: "0".to_string(),
-            sender: Some(format!("0x{}", hex::encode(runes_mint.sender.0.as_slice()))),
-            receiver: format!("0x{}", hex::encode(runes_mint.receiver.0.as_slice())),
+            sender: Some(format!(
+                "0x{}",
+                hex::encode(runes_mint.sender.0.as_slice())
+            )),
+            receiver: format!(
+                "0x{}",
+                hex::encode(runes_mint.receiver.0.as_slice())
+            ),
             memo: None,
         }
     }
@@ -750,6 +757,7 @@ impl EcdsaKeyIds {
         }
     }
 }
+
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetricsStatus {

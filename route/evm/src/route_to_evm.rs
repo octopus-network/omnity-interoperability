@@ -1,6 +1,5 @@
 use anyhow::anyhow;
 use ethers_core::types::U256;
-use ethers_core::utils::keccak256;
 use log::info;
 
 use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
@@ -8,7 +7,6 @@ use crate::contracts::{gen_evm_tx, gen_execute_directive_data, gen_mint_token_da
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
 use crate::state::{minter_addr, mutate_state, read_state};
 use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq};
-use crate::{get_time_secs, hub};
 
 pub fn to_evm_task() {
     ic_cdk::spawn(async {
@@ -41,22 +39,7 @@ pub async fn send_tickets_to_evm() {
     let to = read_state(|s| s.next_ticket_seq);
     for seq in from..to {
         match send_ticket(seq).await {
-            Ok(h) => match h {
-                None => {}
-                Some(tx_hash) => {
-                    let hub_principal = read_state(|s| s.hub_principal);
-                    let ticket_id = read_state(|s| s.tickets_queue.get(&seq).unwrap().ticket_id);
-                    match hub::update_tx_hash(hub_principal, ticket_id, tx_hash.clone()).await {
-                        Err(err) => {
-                            log::error!(
-                                "[rewrite tx_hash] failed to write mint tx hash, reason: {}",
-                                err
-                            );
-                        }
-                        _ => {}
-                    }
-                }
-            },
+            Ok(_) => {}
             Err(e) => {
                 log::error!("[evm_route] send ticket to evm error: {}", e.to_string());
             }
@@ -65,12 +48,12 @@ pub async fn send_tickets_to_evm() {
     mutate_state(|s| s.next_consume_ticket_seq = to);
 }
 
-pub async fn send_ticket(seq: Seq) -> anyhow::Result<Option<String>> {
+pub async fn send_ticket(seq: Seq) -> anyhow::Result<()> {
     match read_state(|s| s.tickets_queue.get(&seq)) {
-        None => Ok(None),
+        None => Ok(()),
         Some(t) => {
             if read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id)) {
-                return Ok(None);
+                return Ok(());
             }
             let data_result = gen_mint_token_data(&t);
             if data_result.is_err() {
@@ -95,19 +78,14 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<Option<String>> {
             };
             match sign_transaction(tx).await {
                 Ok(data) => {
-                    let hash = broadcast(data.clone()).await;
+                    let hash = broadcast(data).await;
                     match hash {
                         Ok(h) => {
                             pending_ticket.evm_tx_hash = Some(h);
                             mutate_state(|s| {
                                 s.pending_tickets_map.insert(t.ticket_id, pending_ticket)
                             });
-                            let tx_hash = format!("0x{}", hex::encode(keccak256(data)));
-                            mutate_state(|s| {
-                                s.pending_events_on_chain
-                                    .insert(tx_hash.clone(), get_time_secs())
-                            });
-                            Ok(Some(tx_hash))
+                            Ok(())
                         }
                         Err(e) => {
                             pending_ticket.error = Some(e.to_string());
@@ -124,14 +102,14 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<Option<String>> {
     }
 }
 
-pub async fn send_directive(seq: Seq) -> anyhow::Result<Option<String>> {
+pub async fn send_directive(seq: Seq) -> anyhow::Result<()> {
     match read_state(|s| s.directives_queue.get(&seq)) {
-        None => Ok(None),
+        None => Ok(()),
         Some(d) => {
             let data = gen_execute_directive_data(&d, U256::from(seq));
             if data.is_empty() {
                 //the directive needn't send to evm.
-                return Ok(None);
+                return Ok(());
             }
             let nonce = get_account_nonce(minter_addr()).await.unwrap_or_default();
             let fee = match d {
@@ -150,19 +128,14 @@ pub async fn send_directive(seq: Seq) -> anyhow::Result<Option<String>> {
             };
             match sign_transaction(tx).await {
                 Ok(data) => {
-                    let hash = broadcast(data.clone()).await;
+                    let hash = broadcast(data).await;
                     match hash {
                         Ok(h) => {
                             pending_directive.evm_tx_hash = Some(h);
                             mutate_state(|s| {
                                 s.pending_directive_map.insert(seq, pending_directive)
                             });
-                            let tx_hash = format!("0x{}", hex::encode(keccak256(data)));
-                            mutate_state(|s| {
-                                s.pending_events_on_chain
-                                    .insert(tx_hash.clone(), get_time_secs())
-                            });
-                            Ok(Some(tx_hash))
+                            Ok(())
                         }
                         Err(e) => {
                             pending_directive.error = Some(e.to_string());
