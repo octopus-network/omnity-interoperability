@@ -25,7 +25,7 @@ use crate::state::{
 };
 use crate::types::{
     Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
-    PendingTicketStatus, Seq, Ticket, TicketId, Token, TokenResp,
+    PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
 };
 use crate::{get_time_secs, hub, Error};
 
@@ -42,8 +42,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
-    EvmRouteState::post_upgrade();
+fn post_upgrade(block_interval_sec: u64) {
+    EvmRouteState::post_upgrade(block_interval_sec);
     init_log(Some(init_stable_log()));
     start_tasks();
     info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
@@ -58,6 +58,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 fn update_consume_directive_seq(seq: Seq) {
     mutate_state(|s| s.next_consume_directive_seq = seq);
 }
+
 fn start_tasks() {
     set_timer_interval(
         Duration::from_secs(FETCH_HUB_TICKET_INTERVAL),
