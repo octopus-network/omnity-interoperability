@@ -9,22 +9,25 @@ use ic_cdk_timers::set_timer_interval;
 use log::{error, info};
 use serde_derive::Deserialize;
 
-use crate::{Error, get_time_secs, hub};
 use crate::const_args::{
     FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL,
     SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
 };
-use crate::eth_common::{EvmAddress, EvmTxType, get_balance};
+use crate::eth_common::{get_balance, EvmAddress, EvmTxType};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
+    init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, EvmRouteState,
     StateProfile,
 };
-use crate::types::{Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, Token, TokenResp};
+use crate::types::{
+    Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
+    PendingTicketStatus, Seq, Ticket, TicketId, Token, TokenResp,
+};
+use crate::{get_time_secs, hub, Error};
 
 #[init]
 fn init(args: InitArgs) {
@@ -230,7 +233,8 @@ async fn metrics() -> MetricsStatus {
 }
 
 #[update]
-async fn generate_ticket(tx_hash: String) -> Result<(), String> {
+async fn generate_ticket(hash: String) -> Result<(), String> {
+    let tx_hash = hash.to_lowercase();
     if read_state(|s| s.pending_events_on_chain.get(&tx_hash).is_some()) {
         return Ok(());
     }
@@ -241,7 +245,7 @@ async fn generate_ticket(tx_hash: String) -> Result<(), String> {
             .len(),
         32
     );
-    if read_state(|s| s.handled_evm_event.contains(&tx_hash.to_lowercase())) {
+    if read_state(|s| s.handled_evm_event.contains(&tx_hash)) {
         return Err("duplicate request".to_string());
     }
     let (ticket, _transaction_receipt) = create_ticket_by_tx(&tx_hash).await?;
@@ -264,9 +268,10 @@ pub fn query_handled_event(tx_hash: String) -> Option<String> {
 #[update(guard = "is_admin")]
 pub async fn resend_ticket_to_hub(tx_hash: String) {
     let (ticket, _tr) = create_ticket_by_tx(&tx_hash).await.unwrap();
-    let _r: () = ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(), ))
+    let _r: () = ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
-        .map_err(|(_, s)| Error::HubError(s)).unwrap();
+        .map_err(|(_, s)| Error::HubError(s))
+        .unwrap();
     info!("[evm_route] burn_ticket sent to hub success: {:?}", ticket);
 }
 

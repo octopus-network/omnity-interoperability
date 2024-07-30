@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
-use ethers_core::abi::{AbiEncode, ethereum_types};
-use ethers_core::types::{Bytes, NameOrAddress, TransactionRequest, U256};
+use ethers_core::abi::{ethereum_types, AbiEncode};
 use ethers_core::types::Eip1559TransactionRequest;
+use ethers_core::types::{Bytes, NameOrAddress, TransactionRequest, U256};
 use log::info;
 
 use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};

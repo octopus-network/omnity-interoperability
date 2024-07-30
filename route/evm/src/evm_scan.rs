@@ -1,16 +1,13 @@
 use anyhow::anyhow;
-use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig};
 use cketh_common::eth_rpc::Hash;
+use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
-use evm_rpc::{
-    MultiRpcResult, RpcServices,
-};
 use evm_rpc::candid_types::TransactionReceipt;
+use evm_rpc::{MultiRpcResult, RpcServices};
 use itertools::Itertools;
 use log::{error, info};
 
-use crate::*;
 use crate::const_args::{SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
@@ -18,6 +15,7 @@ use crate::contract_types::{
 };
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
+use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -29,7 +27,8 @@ pub fn scan_evm_task() {
         let interval =
             read_state(|s| s.block_interval_secs) * crate::const_args::EVM_FINALIZED_CONFIRM_HEIGHT;
         for (hash, time) in events {
-            if read_state(|s| s.handled_evm_event.contains(&hash.to_lowercase())) {
+            if read_state(|s| s.handled_evm_event.contains(&hash)) {
+                mutate_state(|s| s.pending_events_on_chain.remove(&hash));
                 continue;
             }
             let now = get_time_secs();
@@ -50,8 +49,8 @@ pub fn scan_evm_task() {
                 let res = handle_port_events(tr.logs.clone()).await;
                 match res {
                     Ok(_) => {
-                        mutate_state(|s| s.handled_evm_event.insert(hash.clone().to_lowercase()));
                         mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+                        mutate_state(|s| s.handled_evm_event.insert(hash));
                     }
                     Err(e) => {
                         error!("[evm route] handle evm logs error: {}", e.to_string());
@@ -108,10 +107,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
             if dst_check_result {
                 handle_token_transport(&l, token_transport).await?;
             } else {
-                let tx_hash = l
-                    .transaction_hash
-                    .unwrap_or(Hash([0u8; 32]))
-                    .to_string();
+                let tx_hash = l.transaction_hash.unwrap_or(Hash([0u8; 32])).to_string();
                 info!("[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash );
             }
         } else if topic1 == DirectiveExecuted::signature_hash() {
@@ -173,16 +169,19 @@ pub async fn handle_runes_mint(
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_runes_mint_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(), ))
+    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
-    info!("[evm_route] rune_mint_ticket sent to hub success: {:?}", ticket);
+    info!(
+        "[evm_route] rune_mint_ticket sent to hub success: {:?}",
+        ticket
+    );
     Ok(())
 }
 
 pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyhow::Result<()> {
     let ticket = Ticket::from_burn_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(), ))
+    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
     info!("[evm_route] burn_ticket sent to hub success: {:?}", ticket);
@@ -194,10 +193,13 @@ pub async fn handle_token_transport(
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_transport_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(), ))
+    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
-    info!("[evm_route] transport_ticket sent to hub success: {:?}", ticket);
+    info!(
+        "[evm_route] transport_ticket sent to hub success: {:?}",
+        ticket
+    );
     Ok(())
 }
 
@@ -240,9 +242,7 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
             "rpc".to_string()
         })?;
     match receipt {
-        None => {
-            Err("not find".to_string())
-        }
+        None => Err("not find".to_string()),
         Some(tr) => {
             let return_tr = tr.clone();
             assert_eq!(tr.status, 1, "transaction failed");
@@ -280,10 +280,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
             if dst_check_result {
                 return Ok(Ticket::from_transport_event(&l, token_transport));
             } else {
-                let tx_hash = l
-                    .transaction_hash
-                    .unwrap_or(Hash([0u8; 32]))
-                    .to_string();
+                let tx_hash = l.transaction_hash.unwrap_or(Hash([0u8; 32])).to_string();
                 info!("[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
             }
         } else if topic1 == RunesMintRequested::signature_hash() {
