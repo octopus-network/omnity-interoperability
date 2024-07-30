@@ -193,7 +193,6 @@ fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
     read_state(|s| s.pull_directives(from, to))
 }
 
-
 #[update(guard = "is_admin")]
 fn update_admins(admins: Vec<Principal>) {
     mutate_state(|s| s.admins = admins);
@@ -260,20 +259,6 @@ async fn generate_ticket(tx_hash: String) -> Result<(), String> {
 #[update(guard = "is_admin")]
 pub fn query_handled_event(tx_hash: String) -> Option<String> {
     read_state(|s| s.handled_evm_event.get(&tx_hash).cloned())
-}
-
-#[update(guard = "is_admin")]
-pub fn add_token() {
-    let token = Token {
-        token_id: "ICP-icrc-TEST•RICH".to_string(),
-        name: "TEST•RICH".to_string(),
-        symbol: "RICH".to_string(),
-        decimals: 2,
-        icon: Some("URL".to_string()),
-        metadata: Default::default(),
-    };
-
-    mutate_state(|s| s.tokens.insert("ICP-icrc-TEST•RICH".to_string(), token));
 }
 
 #[update(guard = "is_admin")]
