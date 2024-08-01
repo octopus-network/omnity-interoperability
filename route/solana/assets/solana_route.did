@@ -16,7 +16,7 @@ type Event = variant {
   };
   updated_fee : record { fee : Factor };
   finalized_mint_token : record { signature : text; ticket_id : text };
-  added_token : record { token : Token; ledger_id : principal };
+  added_token : Token;
   init : InitArgs;
   upgrade : UpgradeArgs;
   added_chain : Chain;
@@ -41,13 +41,13 @@ type GenerateTicketError = variant {
 };
 type GenerateTicketOk = record { ticket_id : text };
 type GenerateTicketReq = record {
+  signature : text;
   action : TxAction;
   token_id : text;
   memo : opt text;
   sender : text;
   target_chain_id : text;
-  tx_signature : text;
-  amount : nat;
+  amount : nat64;
   receiver : text;
 };
 type GetEventsArg = record { start : nat64; length : nat64 };
@@ -66,14 +66,29 @@ type MintTokenStatus = variant {
 };
 type Permission = variant { Update; Query };
 type Result = variant { Ok; Err : text };
-type Result_1 = variant { Ok : text; Err : text };
-type Result_2 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-type Result_3 = variant { Ok; Err : GenerateTicketError };
+type Result_1 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
+type Result_2 = variant { Ok; Err : TransactionError };
+type Result_3 = variant { Ok : text; Err : text };
+type Result_4 = variant { Ok; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type TargetChainFactor = record {
   target_chain_id : text;
   target_chain_factor : nat;
 };
+type Ticket = record {
+  token : text;
+  action : TxAction;
+  dst_chain : text;
+  memo : opt blob;
+  ticket_id : text;
+  sender : opt text;
+  ticket_time : nat64;
+  ticket_type : TicketType;
+  src_chain : text;
+  amount : text;
+  receiver : text;
+};
+type TicketType = variant { Resubmit; Normal };
 type ToggleAction = variant { Deactivate; Activate };
 type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
@@ -84,12 +99,69 @@ type Token = record {
   name : text;
   symbol : text;
 };
+type TokenCreateInfo = record {
+  uri : text;
+  decimals : nat8;
+  name : text;
+  symbol : text;
+};
 type TokenResp = record {
   decimals : nat8;
   token_id : text;
   icon : opt text;
   rune_id : opt text;
   symbol : text;
+};
+type TransactionConfirmationStatus = variant {
+  Finalized;
+  Confirmed;
+  Processed;
+};
+type TransactionError = variant {
+  InvalidAccountForFee;
+  AddressLookupTableNotFound;
+  MissingSignatureForFee;
+  WouldExceedAccountDataBlockLimit;
+  AccountInUse;
+  DuplicateInstruction : nat8;
+  AccountNotFound;
+  TooManyAccountLocks;
+  InvalidAccountIndex;
+  AlreadyProcessed;
+  WouldExceedAccountDataTotalLimit;
+  InvalidAddressLookupTableIndex;
+  SanitizeFailure;
+  ResanitizationNeeded;
+  InvalidRentPayingAccount;
+  MaxLoadedAccountsDataSizeExceeded;
+  InvalidAddressLookupTableData;
+  InvalidWritableAccount;
+  WouldExceedMaxAccountCostLimit;
+  InvalidLoadedAccountsDataSizeLimit;
+  InvalidProgramForExecution;
+  InstructionError : record { nat8; text };
+  InsufficientFundsForRent : record { account_index : nat8 };
+  UnsupportedVersion;
+  ClusterMaintenance;
+  WouldExceedMaxVoteCostLimit;
+  SignatureFailure;
+  ProgramAccountNotFound;
+  AccountLoadedTwice;
+  ProgramExecutionTemporarilyRestricted : record { account_index : nat8 };
+  AccountBorrowOutstanding;
+  WouldExceedMaxBlockCostLimit;
+  InvalidAddressLookupTableOwner;
+  InsufficientFundsForFee;
+  CallChainTooDeep;
+  UnbalancedTransaction;
+  BlockhashNotFound;
+};
+type TransactionStatus = record {
+  err : opt TransactionError;
+  confirmations : opt nat64;
+  status : Result_2;
+  slot : nat64;
+  confirmation_status : opt TransactionConfirmationStatus;
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
 type UpgradeArgs = record {
@@ -102,14 +174,26 @@ type UpgradeArgs = record {
 };
 service : (RouteArg) -> {
   cannel_schedule : () -> (Result);
-  eddsa_public_key : () -> (Result_1);
-  generate_ticket : (GenerateTicketReq) -> (Result_2);
+  create_mint : (TokenCreateInfo) -> (text);
+  generate_ticket : (GenerateTicketReq) -> (Result_1);
   get_chain_list : () -> (vec Chain) query;
   get_events : (GetEventsArg) -> (vec Event) query;
+  get_latest_blockhash : () -> (text);
+  get_or_create_aossicated_account : (text, text) -> (text);
   get_redeem_fee : (text) -> (opt nat) query;
+  get_signature_status : (vec text) -> (vec TransactionStatus);
+  get_tickets_from_queue : () -> (vec record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
+  get_transaction : (text) -> (text);
+  handle_mint_token : () -> ();
+  mint_to : (text, nat64, text) -> (text);
   mint_token_status : (text) -> (MintTokenStatus) query;
-  resend_tickets : () -> (Result_3);
+  payer : () -> (Result_3);
+  query_aossicated_account : () -> (
+      vec record { record { text; text }; text },
+    ) query;
+  query_token_mint : () -> (vec record { text; text }) query;
+  resend_tickets : () -> (Result_4);
   set_permissions : (principal, Permission) -> ();
   start_schedule : () -> (Result);
   update_schnorr_info : (principal, text) -> (Result);

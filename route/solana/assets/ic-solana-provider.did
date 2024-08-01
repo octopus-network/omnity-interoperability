@@ -1,0 +1,93 @@
+type InitArgs = record {
+  rpc_url : opt text;
+  schnorr_canister : opt text;
+  schnorr_key_name : opt text;
+  nodes_in_subnet : opt nat32;
+};
+type Result = variant { Ok : text; Err : RpcError };
+type Result_1 = variant { Ok : opt text; Err : RpcError };
+type Result_2 = variant { Ok : nat64; Err : RpcError };
+type Result_3 = variant { Ok; Err : TransactionError };
+type Result_4 = variant { Ok : vec TransactionStatus; Err : RpcError };
+type Result_5 = variant { Ok : UiTokenAmount; Err : RpcError };
+type RpcError = variant {
+  Text : text;
+  ParseError : text;
+  RpcResponseError : record { code : int64; data : opt text; message : text };
+  RpcRequestError : text;
+};
+type SendTransactionRequest = record {
+  instructions : vec text;
+  recent_blockhash : opt text;
+};
+type TransactionConfirmationStatus = variant {
+  Finalized;
+  Confirmed;
+  Processed;
+};
+type TransactionError = variant {
+  InvalidAccountForFee;
+  AddressLookupTableNotFound;
+  MissingSignatureForFee;
+  WouldExceedAccountDataBlockLimit;
+  AccountInUse;
+  DuplicateInstruction : nat8;
+  AccountNotFound;
+  TooManyAccountLocks;
+  InvalidAccountIndex;
+  AlreadyProcessed;
+  WouldExceedAccountDataTotalLimit;
+  InvalidAddressLookupTableIndex;
+  SanitizeFailure;
+  ResanitizationNeeded;
+  InvalidRentPayingAccount;
+  MaxLoadedAccountsDataSizeExceeded;
+  InvalidAddressLookupTableData;
+  InvalidWritableAccount;
+  WouldExceedMaxAccountCostLimit;
+  InvalidLoadedAccountsDataSizeLimit;
+  InvalidProgramForExecution;
+  InstructionError : record { nat8; text };
+  InsufficientFundsForRent : record { account_index : nat8 };
+  UnsupportedVersion;
+  ClusterMaintenance;
+  WouldExceedMaxVoteCostLimit;
+  SignatureFailure;
+  ProgramAccountNotFound;
+  AccountLoadedTwice;
+  ProgramExecutionTemporarilyRestricted : record { account_index : nat8 };
+  AccountBorrowOutstanding;
+  WouldExceedMaxBlockCostLimit;
+  InvalidAddressLookupTableOwner;
+  InsufficientFundsForFee;
+  CallChainTooDeep;
+  UnbalancedTransaction;
+  BlockhashNotFound;
+};
+type TransactionStatus = record {
+  err : opt TransactionError;
+  confirmations : opt nat64;
+  status : Result_3;
+  slot : nat64;
+  confirmation_status : opt TransactionConfirmationStatus;
+};
+type UiTokenAmount = record {
+  decimals : nat8;
+  ui_amount : opt float64;
+  ui_amount_string : text;
+  amount : text;
+};
+service : (InitArgs) -> {
+  get_address : () -> (text);
+  request : (text, text, nat64) -> (Result);
+  requestCost : (text, nat64) -> (nat) query;
+  sol_getAccountInfo : (text) -> (Result_1);
+  sol_getBalance : (text) -> (Result_2);
+  sol_getSignatureStatuses : (vec text) -> (Result_4);
+  sol_getTokenBalance : (text) -> (Result_5);
+  sol_getTransaction : (text) -> (Result);
+  sol_getminimumbalanceforrentexemption : (nat64) -> (Result_2);
+  sol_latestBlockhash : () -> (Result);
+  sol_sendRawTransaction : (text) -> (Result);
+  sol_sendTransaction : (SendTransactionRequest) -> (Result);
+}

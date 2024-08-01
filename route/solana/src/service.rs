@@ -7,21 +7,26 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 // use log::info;
 // use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
 
-use solana_route::auth::{is_admin, set_perms, Permission};
-use solana_route::event::{Event, GetEventsArg};
-use solana_route::handler::ticket::{
-    self, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
-};
-use solana_route::handler::{self, scheduler, sol_call};
-use solana_route::state::TokenResp;
+use crate::auth::{is_admin, set_perms, Permission};
 
+use crate::event::{Event, GetEventsArg};
+
+use crate::handler::ticket::{self, GenerateTicketError, GenerateTicketOk, GenerateTicketReq};
+use crate::handler::{self, scheduler, sol_call};
+use crate::state::TokenResp;
+use ic_solana::token::TokenCreateInfo;
+
+use crate::types::TokenId;
 // use omnity_types::Network;
-use solana_route::lifecycle::{self, RouteArg, UpgradeArgs};
+use crate::lifecycle::{self, RouteArg, UpgradeArgs};
 // use solana_route::memory::init_stable_log;
 // use solana_route::schnorr::{PublicKeyReply, SchnorrAlgorithm};
-use solana_route::event;
-use solana_route::state::{mutate_state, read_state, MintTokenStatus};
-use solana_route::types::{Chain, ChainId};
+use crate::event;
+use crate::state::AssociatedTokenAccount;
+use crate::state::Owner;
+use crate::state::TokenMint;
+use crate::state::{mutate_state, read_state, MintTokenStatus};
+use crate::types::{Chain, ChainId, Ticket};
 
 #[init]
 fn init(args: RouteArg) {
@@ -58,19 +63,21 @@ fn post_upgrade(args: Option<RouteArg>) {
         };
     }
     lifecycle::post_upgrade(upgrade_arg);
-
-    scheduler::start_schedule();
+    // ic_cdk::println!("start schedule task ...");
+    // scheduler::start_schedule();
     ic_cdk::println!("upgrade successfully!");
 }
 
 #[update(guard = "is_admin")]
 pub fn start_schedule() -> Result<(), String> {
+    ic_cdk::println!("start schedule task ...");
     scheduler::start_schedule();
     Ok(())
 }
 
 #[update(guard = "is_admin")]
 pub fn cannel_schedule() -> Result<(), String> {
+    ic_cdk::println!("cannel schedule task ...");
     scheduler::cannel_schedule();
     Ok(())
 }
@@ -86,8 +93,8 @@ pub async fn update_schnorr_info(id: Principal, key_name: String) -> Result<(), 
 }
 
 #[update(guard = "is_admin")]
-pub async fn eddsa_public_key() -> Result<String, String> {
-    let pk = sol_call::cur_pub_key().await?;
+pub async fn payer() -> Result<String, String> {
+    let pk = sol_call::eddsa_public_key().await?;
     Ok(pk.to_string())
 }
 
@@ -134,6 +141,91 @@ fn get_token_list() -> Vec<TokenResp> {
 }
 
 #[query]
+fn get_tickets_from_queue() -> Vec<(u64, Ticket)> {
+    read_state(|s| {
+        s.tickets_queue
+            .iter()
+            .map(|(seq, ticket)| (seq, ticket))
+            .collect()
+    })
+}
+
+#[update]
+async fn get_latest_blockhash() -> String {
+    use crate::service::sol_call::solana_client;
+    let client = solana_client().await;
+    client.get_latest_blockhash().await.unwrap().to_string()
+}
+
+#[update]
+async fn get_transaction(signature: String) -> String {
+    use crate::service::sol_call::solana_client;
+    let client = solana_client().await;
+    client.query_transaction(signature).await.unwrap()
+}
+
+#[update]
+async fn get_signature_status(signatures: Vec<String>) -> Vec<ic_solana::types::TransactionStatus> {
+    let signature_status = sol_call::get_signature_status(signatures).await.unwrap();
+    signature_status
+}
+
+// just for test
+#[update(guard = "is_admin")]
+pub async fn handle_mint_token() {
+    ticket::handle_mint_token().await;
+}
+
+// just for test
+#[update(guard = "is_admin")]
+pub async fn create_mint(req: TokenCreateInfo) -> String {
+    let mint = sol_call::create_mint_account(req).await.unwrap();
+    mint
+}
+
+#[query]
+pub async fn query_token_mint() -> Vec<(TokenId, TokenMint)> {
+    let mints = read_state(|s| {
+        s.token_mint_map
+            .iter()
+            .map(|(token_id, token_mint)| (token_id.to_owned(), token_mint.to_owned()))
+            .collect::<Vec<_>>()
+    });
+    mints
+}
+
+// just for test
+#[update(guard = "is_admin")]
+pub async fn get_or_create_aossicated_account(owner: String, token_mint: String) -> String {
+    let aossicated_account = sol_call::get_or_create_ata(owner, token_mint)
+        .await
+        .unwrap();
+    aossicated_account
+}
+
+#[query]
+pub async fn query_aossicated_account() -> Vec<((Owner, TokenMint), AssociatedTokenAccount)> {
+    let atas = read_state(|s| {
+        s.associated_account
+            .iter()
+            .map(|((owner, token_mint), ata)| {
+                ((owner.to_owned(), token_mint.to_owned()), ata.to_owned())
+            })
+            .collect::<Vec<_>>()
+    });
+    atas
+}
+
+// just for test
+#[update(guard = "is_admin")]
+pub async fn mint_to(aossicated_account: String, amount: u64, token_mint: String) -> String {
+    let signature = sol_call::mint_to(aossicated_account, amount, token_mint)
+        .await
+        .unwrap();
+    signature
+}
+
+#[query]
 fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     read_state(|s| {
         s.finalized_mint_token_requests.get(&ticket_id).map_or(
@@ -177,7 +269,7 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
         .collect()
 }
 
-fn main() {}
+// fn main() {}
 
 // Enable Candid export
 ic_cdk::export_candid!();

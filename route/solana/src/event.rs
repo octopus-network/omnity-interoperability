@@ -2,9 +2,9 @@ use crate::types::{Chain, Factor, ToggleState, Token};
 use crate::{
     handler::ticket::GenerateTicketReq,
     lifecycle::{InitArgs, UpgradeArgs},
-    memory::{init_event, Memory}, // updates::generate_ticket::GenerateTicketReq,
+    memory::{init_event, Memory},
 };
-use candid::Principal;
+
 use ic_stable_structures::log::{Log, NoSuchEntry};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -102,7 +102,7 @@ pub enum Event {
     AddedChain(Chain),
 
     #[serde(rename = "added_token")]
-    AddedToken { ledger_id: Principal, token: Token },
+    AddedToken(Token),
 
     #[serde(rename = "updated_fee")]
     UpdatedFee { fee: Factor },

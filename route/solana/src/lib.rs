@@ -6,5 +6,6 @@ pub mod guard;
 pub mod handler;
 pub mod lifecycle;
 pub mod memory;
-pub mod types;
+pub mod service;
 pub mod state;
+pub mod types;

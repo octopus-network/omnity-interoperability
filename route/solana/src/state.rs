@@ -20,6 +20,9 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
 };
 pub type CanisterId = Principal;
+pub type Owner = String;
+pub type TokenMint = String;
+pub type AssociatedTokenAccount = String;
 
 thread_local! {
     static STATE: RefCell<Option<SolanaRouteState>> = RefCell::default();
@@ -69,7 +72,9 @@ pub struct SolanaRouteState {
 
     pub tokens: BTreeMap<TokenId, Token>,
 
-    pub sol_token_address: BTreeMap<TokenId, String>,
+    pub token_mint_map: BTreeMap<TokenId, TokenMint>,
+
+    pub associated_account: BTreeMap<(Owner, TokenMint), AssociatedTokenAccount>,
 
     pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
 
@@ -100,7 +105,8 @@ impl From<InitArgs> for SolanaRouteState {
         Self {
             chain_id: args.chain_id,
             hub_principal: args.hub_principal,
-            sol_token_address: Default::default(),
+            token_mint_map: Default::default(),
+
             next_ticket_seq: 0,
             next_consume_ticket_seq: 0,
             next_directive_seq: 0,
@@ -120,6 +126,7 @@ impl From<InitArgs> for SolanaRouteState {
             admin: args.admin,
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
+            associated_account: Default::default(),
         }
     }
 }
@@ -128,12 +135,14 @@ impl SolanaRouteState {
     pub fn validate_config(&self) {}
 
     pub fn add_chain(&mut self, chain: Chain) {
-        record_event(&Event::AddedChain(chain.clone()));
-        self.counterparties.insert(chain.chain_id.clone(), chain);
+        self.counterparties
+            .insert(chain.chain_id.clone(), chain.clone());
+        record_event(&Event::AddedChain(chain));
     }
 
     pub fn add_token(&mut self, token: Token) {
-        self.tokens.insert(token.token_id.clone(), token);
+        self.tokens.insert(token.token_id.clone(), token.clone());
+        record_event(&Event::AddedToken(token));
     }
 
     pub fn toggle_chain_state(&mut self, toggle: ToggleState) {
@@ -146,7 +155,7 @@ impl SolanaRouteState {
     }
 
     pub fn sol_token_address(&self, ticket_id: &String) -> Option<String> {
-        self.sol_token_address.get(ticket_id).cloned()
+        self.token_mint_map.get(ticket_id).cloned()
     }
 
     pub fn finalize_mint_token_req(&mut self, ticket_id: String, signature: String) {

@@ -109,8 +109,8 @@
     },
     "schnorr_canister": {
       "type": "custom",
-      "candid": "https://github.com/domwoe/schnorr_canister/releases/download/v0.4.0//schnorr_canister.did",
-      "wasm": "https://github.com/domwoe/schnorr_canister/releases/download/v0.4.0/schnorr_canister.wasm.gz",
+      "candid": "https://github.com/domwoe/schnorr_canister/releases/latest/download/schnorr_canister.did",
+      "wasm": "https://github.com/domwoe/schnorr_canister/releases/latest/download/schnorr_canister.wasm.gz",
       "remote": {
         "id": {
           "ic": "6fwhw-fyaaa-aaaap-qb7ua-cai",
@@ -119,31 +119,19 @@
       }
     },
     "solana_route": {
-      "gzip": true,
-      "candid": "route/solana/solana_route.did",
+      "type": "custom",
+      "candid": "route/solana/assets/solana_route.did",
       "package": "solana_route",
-      "type": "rust"
+      "wasm": "route/solana/assets/solana_route.wasm.gz"
     },
     "ic-solana-provider": {
       "type": "custom",
-      "candid": "https://github.com/octopus-network/ic-solana/releases/latest/download/ic-solana-provider.did",
-      "wasm": "https://github.com/octopus-network/ic-solana/releases/latest/download/ic-solana-provider.wasm.gz",
-      "remote": {
-        "id": {
-          "ic": "bkyz2-fmaaa-aaaaa-qaaaq-cai",
-          "playground": "bkyz2-fmaaa-aaaaa-qaaaq-cai"
-        }
-      }
+      "candid": "route/solana/assets/ic-solana-provider.did",
+      "package": "ic-solana-provider",
+      "wasm": "route/solana/assets/ic-solana-provider.wasm.gz"
     }
   },
   "defaults": {
-    "bitcoin": {
-      "enabled": true,
-      "nodes": [
-        "127.0.0.1:18444"
-      ],
-      "log_level": "info"
-    },
     "build": {
       "packtool": "",
       "args": ""

@@ -1,16 +1,22 @@
 use crate::types::{ChainId, ChainState, Error, Seq, Ticket, TicketId, TicketType, TxAction};
 use candid::{CandidType, Principal};
-use ic_solana::types::{Pubkey, TransactionConfirmationStatus};
+use ic_solana::types::Pubkey;
 use ic_stable_structures::Storable;
 
 use serde::{Deserialize, Serialize};
 
+use super::sol_call::{get_or_create_ata, mint_to};
+use crate::handler::sol_call::solana_client;
+
+use crate::handler::sol_call::ParsedValue;
+use crate::handler::sol_call::TransactionDetail;
+use crate::handler::sol_call::{Burn, ParsedIns, Transfer};
 use crate::{
     call_error::{CallError, Reason},
     state::{mutate_state, read_state},
 };
-
-use super::sol_call::{create_mint_account, get_signature_status, mint_to};
+use ic_solana::rpc_client::JsonRpcResponse;
+use serde_json::from_value;
 
 pub const TICKET_LIMIT_SIZE: u64 = 20;
 
@@ -42,7 +48,7 @@ pub async fn query_tickets() {
                     continue;
                 };
 
-                mutate_state(|s| s.tickets_queue.insert(*seq, ticket.clone()));
+                mutate_state(|s| s.tickets_queue.insert(*seq, ticket.to_owned()));
                 next_seq = seq + 1;
             }
             mutate_state(|s| s.next_ticket_seq = next_seq)
@@ -79,38 +85,147 @@ pub async fn inner_query_tickets(
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MintTokenError {
     NotFoundToken(String),
-
     UnsupportedToken(String),
-
     AlreadyProcessed(TicketId),
-
     TemporarilyUnavailable(String),
 }
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct MintTokenRequest {
+    pub ticket_id: TicketId,
+    pub associated_account: String,
+    pub amount: u64,
+    pub token_mint: String,
+}
 
-pub async fn handle_tickets() {
-    let from = read_state(|s| s.next_consume_ticket_seq);
-    let to = read_state(|s| s.next_ticket_seq);
+pub async fn create_associated_account() {
+    let mut associated_accounts = vec![];
+    read_state(|s| {
+        for (_seq, ticket) in s.tickets_queue.iter() {
+            // ic_cdk::println!(
+            //     "[ticket::create_associated_account] create associated account for {}:{:?}",
+            //     seq,
+            //     ticket
+            // );
+            if let Some(token_mint) = s.token_mint_map.get(&ticket.token) {
+                // ic_cdk::println!(
+                //     "[ticket::create_associated_account] find token mint({}) for {}",
+                //     token_mint,
+                //     ticket.token
+                // );
+                // not exists, to be created
+                if matches!(
+                    s.associated_account
+                        .get(&(ticket.receiver.to_string(), token_mint.to_string())),
+                    None
+                ) {
+                    associated_accounts.push((ticket.receiver.to_owned(), token_mint.to_owned()))
+                }
+            }
+        }
+    });
+    // ic_cdk::println!(
+    //     "[ticket::create_associated_account] need to create associated account :{:?}",
+    //     associated_accounts
+    // );
+    for (owner, token_mint) in associated_accounts.into_iter() {
+        match get_or_create_ata(owner.to_owned(), token_mint.to_owned()).await {
+            Ok(ata) => {
+                ic_cdk::println!(
+                    "[ticket::create_associated_account] new associated_account {:?} based on {:} and {:?} ",
+                    ata,
+                    owner,
+                    token_mint
+                );
+                // save the associated_account
+                mutate_state(|s| s.associated_account.insert((owner, token_mint), ata));
+            }
+            Err(e) => {
+                ic_cdk::eprintln!(
+                    "[ticket::create_associated_account] get_or_create_ata error: {:?}  ",
+                    e
+                );
+                continue;
+            }
+        }
+    }
+}
+
+pub async fn handle_mint_token() {
+    let (from, to) = read_state(|s| (s.next_consume_ticket_seq, s.next_ticket_seq));
     for seq in from..to {
         if let Some(ticket) = read_state(|s| s.tickets_queue.get(&seq)) {
-            match mint_token(&mut MintTokenRequest {
-                ticket_id: ticket.ticket_id.to_owned(),
-                token_id: ticket.token.to_owned(),
-                receiver: ticket.receiver.to_owned(),
-                amount: ticket.amount.parse::<u64>().unwrap(),
-            })
-            .await
-            {
-                Ok(_) => {
+            ic_cdk::println!("[ticket::handle_mint_token] seq:{:} -> {:?}", seq, ticket);
+
+            // first,check token mint
+            let token_mint = read_state(|s| s.token_mint_map.get(&ticket.token).cloned());
+            let token_mint = match token_mint {
+                Some(token_mint) => token_mint,
+                None => {
                     ic_cdk::println!(
-                        "[process tickets] process successful for ticket id: {}",
-                        ticket.ticket_id
+                        "[ticket::mint_to] the token({:}) mint account is not exists,continue waiting !",
+                        ticket.token
                     );
-                    // remove the handled ticket from queue
+                    continue;
+                }
+            };
+            ic_cdk::println!(
+                "[ticket::handle_mint_token] the token({:}) mint account: {:} !",
+                ticket.token,
+                token_mint
+            );
+            // secord,check token mint
+            let associated_account = read_state(|s| {
+                s.associated_account
+                    .get(&(ticket.receiver.to_owned(), token_mint.to_owned()))
+                    .cloned()
+            });
+            let associated_account = match associated_account {
+                Some(associated_account) => associated_account,
+                None => {
+                    ic_cdk::println!(
+                        "[ticket::handle_mint_token] the associated_account based on {} and {} is not exists,continue waiting !",
+                        ticket.receiver.to_string(),token_mint.to_string()
+                    );
+                    continue;
+                }
+            };
+            ic_cdk::println!(
+                "[ticket::handle_mint_token] the associated_account based on {} and {} is {:?} !",
+                ticket.receiver,
+                token_mint,
+                associated_account
+            );
+            let req = MintTokenRequest {
+                ticket_id: ticket.ticket_id.to_owned(),
+                associated_account: associated_account,
+                amount: ticket.amount.parse::<u64>().unwrap(),
+                token_mint: token_mint,
+            };
+
+            match mint_token(req).await {
+                Ok(signature) => {
+                    ic_cdk::println!(
+                        "[ticket::handle_mint_token] process successful for ticket id: {} and tx hash :{}",
+                        ticket.ticket_id,signature
+                    );
+                    // if ok, remove the handled ticket from queue
                     mutate_state(|s| s.tickets_queue.remove(&seq));
+
+                    // update txhash to hub
+                    let hub_principal = read_state(|s| s.hub_principal);
+                    if let Err(err) =
+                        update_tx_hash(hub_principal, ticket.ticket_id.to_string(), signature).await
+                    {
+                        ic_cdk::eprintln!(
+                            "[tickets::handle_mint_token] failed to update tx hash after mint token:{}",
+                            err
+                        );
+                    }
+                    mutate_state(|s| s.next_consume_ticket_seq = to);
                 }
                 Err(MintTokenError::TemporarilyUnavailable(desc)) => {
                     ic_cdk::eprintln!(
-                        "[process tickets] failed to mint token for ticket id: {}, err: {}",
+                        "[ticket::handle_mint_token] failed to mint token for ticket id: {}, err: {}",
                         ticket.ticket_id,
                         desc
                     );
@@ -118,7 +233,7 @@ pub async fn handle_tickets() {
                 }
                 Err(err) => {
                     ic_cdk::eprintln!(
-                        "[process tickets] process failure for ticket id: {}, err: {:?}",
+                        "[ticket::mint_to] process failure for ticket id: {}, err: {:?}",
                         ticket.ticket_id,
                         err
                     );
@@ -126,55 +241,19 @@ pub async fn handle_tickets() {
             }
         }
     }
-    mutate_state(|s| s.next_consume_ticket_seq = to);
-}
-#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct MintTokenRequest {
-    pub ticket_id: TicketId,
-    pub token_id: String,
-    pub receiver: String,
-    pub amount: u64,
 }
 
 /// send tx to solana for mint token
-pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
+pub async fn mint_token(req: MintTokenRequest) -> Result<String, MintTokenError> {
     if read_state(|s| s.finalized_mint_token_requests.contains_key(&req.ticket_id)) {
-        return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
+        return Err(MintTokenError::AlreadyProcessed(req.ticket_id));
     }
-    // if token account not exites, create mint token account and init token metadata
-    let sol_token_address =
-        if let Some(address) = read_state(|s| s.sol_token_address(&req.token_id)) {
-            address
-        } else {
-            // mint token account
-            let token = read_state(|s| s.tokens.get(&req.token_id.to_string()).cloned())
-                .ok_or(MintTokenError::NotFoundToken(req.token_id.to_string()))?;
-            let address = create_mint_account(token.clone())
-                .await
-                .map_err(|e| MintTokenError::TemporarilyUnavailable(e.to_string()))?;
-            // save the address
-            mutate_state(|s| {
-                s.sol_token_address
-                    .insert(req.token_id.to_string(), address.to_string())
-            });
-            address
-        };
-
-    let signuate = mint_to(
-        sol_token_address,
-        req.receiver.to_string(),
-        req.amount as u64,
-    )
-    .await
-    .map_err(|e| MintTokenError::TemporarilyUnavailable(e.to_string()))?;
+    let signuate = mint_to(req.associated_account, req.amount, req.token_mint)
+        .await
+        .map_err(|e| MintTokenError::TemporarilyUnavailable(e.to_string()))?;
     mutate_state(|s| s.finalize_mint_token_req(req.ticket_id.clone(), signuate.to_string()));
 
-    // update txhash to hub
-    let hub_principal = read_state(|s| s.hub_principal);
-    if let Err(err) = update_tx_hash(hub_principal, req.ticket_id.to_string(), signuate).await {
-        ic_cdk::eprintln!("failed to update tx hash after mint token:{}", err);
-    }
-    Ok(())
+    Ok(signuate)
 }
 
 pub async fn update_tx_hash(
@@ -221,12 +300,12 @@ pub enum GenerateTicketError {
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketReq {
-    pub tx_signature: String,
+    pub signature: String,
     pub target_chain_id: String,
     pub sender: String,
     pub receiver: String,
     pub token_id: String,
-    pub amount: u128,
+    pub amount: u64,
     pub action: TxAction,
     pub memo: Option<String>,
 }
@@ -239,6 +318,8 @@ pub struct GenerateTicketOk {
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
+    ic_cdk::println!("generate_ticket req: {:#?}", req);
+
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
@@ -254,7 +335,10 @@ pub async fn generate_ticket(
             req.target_chain_id.clone(),
         ));
     }
-    if !read_state(|s| s.tokens.get(&req.token_id.to_string()).is_none()) {
+    // if !read_state(|s| s.tokens.get(&req.token_id.to_string()).is_none()) {
+    //     return Err(GenerateTicketError::UnsupportedToken(req.token_id.clone()));
+    // }
+    if !read_state(|s| s.tokens.contains_key(&req.token_id.to_string())) {
         return Err(GenerateTicketError::UnsupportedToken(req.token_id.clone()));
     }
 
@@ -268,29 +352,89 @@ pub async fn generate_ticket(
     let action = req.action.clone();
 
     // check solana sigature status
-    let signature_status = get_signature_status(vec![req.tx_signature.to_string()])
-        .await
-        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?
-        .first()
-        .cloned()
-        .ok_or(GenerateTicketError::TemporarilyUnavailable(
-            "Not found signature".to_string(),
-        ))?
-        .confirmation_status
-        .ok_or(GenerateTicketError::TemporarilyUnavailable(
-            "Not found confirmation status".to_string(),
-        ))?;
+    // let signature_status = get_signature_status(vec![req.signature.to_string()])
+    //     .await
+    //     .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?
+    //     .first()
+    //     .cloned()
+    //     .ok_or(GenerateTicketError::TemporarilyUnavailable(
+    //         "Not found signature".to_string(),
+    //     ))?
+    //     .confirmation_status
+    //     .ok_or(GenerateTicketError::TemporarilyUnavailable(
+    //         "Not found confirmation status".to_string(),
+    //     ))?;
 
-    if !matches!(signature_status, TransactionConfirmationStatus::Finalized) {
-        return Err(GenerateTicketError::TemporarilyUnavailable(
-            "signature status not finalized".to_string(),
-        ));
+    // if !matches!(signature_status, TransactionConfirmationStatus::Finalized) {
+    //     return Err(GenerateTicketError::TemporarilyUnavailable(
+    //         "signature status not finalized".to_string(),
+    //     ));
+    // }
+
+    //parsed tx by signature
+    let mut receiver = String::from("");
+    let client = solana_client().await;
+
+    let tx_str = client
+        .query_transaction(req.signature.to_owned())
+        .await
+        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
+
+    let json_response = serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&tx_str)
+        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
+
+    if let Some(e) = json_response.error {
+        return Err(GenerateTicketError::TemporarilyUnavailable(e.message));
+    } else {
+        // parse instruction
+        for instruction in &json_response
+            .result
+            .unwrap()
+            .transaction
+            .message
+            .instructions
+        {
+            if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.to_owned()) {
+                ic_cdk::println!("Parsed Value: {:#?}", parsed_value);
+                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.clone()) {
+                    ic_cdk::println!("Parsed instruction: {:#?}", pi);
+                    if pi.instr_type.eq("transfer") {
+                        let transfer = from_value::<Transfer>(pi.info.clone()).map_err(|e| {
+                            GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                        })?;
+                        ic_cdk::println!("Parsed transfer: {:#?}", transfer);
+                        //TODO: check: transfer.source == req.sender
+                        //TODO: check: transfer.destination == omnity.received.account
+                        //TODO: check: transfer.lamports == omnity.received.amount
+                    }
+                    if pi.instr_type.eq("burnChecked") {
+                        let burn = from_value::<Burn>(pi.info.clone()).map_err(|e| {
+                            GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                        })?;
+                        ic_cdk::println!("Parsed burn: {:#?}", burn);
+                        //TODO: check: burn.amount == req.ammount
+                        //TODO: check: burn.authority == req.sender
+                        //TODO: check: burn.mint == (req.token_id related to token mint address)
+                    }
+                } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.clone()) {
+                    ic_cdk::println!("Parsed memo: {:?}", memo);
+                    //TODO: check req.receiver.eq(memo)
+                    receiver = memo;
+                } else {
+                    ic_cdk::println!("Unknown Parsed instruction: {:#?}", parsed_value.parsed);
+                }
+            } else {
+                ic_cdk::println!("Unknown Parsed Value: {:#?}", instruction.parsed);
+                return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                    "tx parsed error:{}",
+                    tx_str
+                )));
+            }
+        }
     }
 
-    //TODO: check tx signature from sender and the burned token and account eq tx info
-
     let ticket = Ticket {
-        ticket_id: req.tx_signature.to_string(),
+        ticket_id: req.signature.to_string(),
         ticket_type: TicketType::Normal,
         ticket_time: ic_cdk::api::time(),
         src_chain: chain_id,
@@ -299,22 +443,23 @@ pub async fn generate_ticket(
         token: req.token_id.clone(),
         amount: req.amount.to_string(),
         sender: Some(req.sender.clone()),
-        receiver: req.receiver.clone(),
+        receiver: receiver.to_string(),
         memo: req.memo.clone().map(|m| m.to_bytes().to_vec()),
     };
+
     match send_ticket(hub_principal, ticket.clone()).await {
         Err(err) => {
             mutate_state(|s| {
                 s.failed_tickets.push(ticket.clone());
             });
-            ic_cdk::eprintln!("failed to send ticket: {}", req.tx_signature.to_string());
+            ic_cdk::eprintln!("failed to send ticket: {}", req.signature.to_string());
             Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
         }
         Ok(()) => {
-            mutate_state(|s| s.finalize_gen_ticket(req.tx_signature.to_string(), req.clone()));
+            mutate_state(|s| s.finalize_gen_ticket(req.signature.to_string(), req.clone()));
 
             Ok(GenerateTicketOk {
-                ticket_id: req.tx_signature.to_string(),
+                ticket_id: req.signature.to_string(),
             })
         }
     }

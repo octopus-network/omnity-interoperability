@@ -1,0 +1,57 @@
+{
+  "dfx": "0.20.0",
+  "canisters": {
+    "schnorr_canister": {
+      "type": "custom",
+      "candid": "https://github.com/domwoe/schnorr_canister/releases/latest/download/schnorr_canister.did",
+      "wasm": "https://github.com/domwoe/schnorr_canister/releases/latest/download/schnorr_canister.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "6fwhw-fyaaa-aaaap-qb7ua-cai",
+          "playground": "6fwhw-fyaaa-aaaap-qb7ua-cai"
+        }
+      }
+    },
+    "icp_customs": {
+      "package": "icp_customs",
+      "type": "custom",
+      "wasm": "assets/icp_customs.wasm.gz",
+      "candid": "assets/icp_customs.did"
+    },
+    "omnity_hub": {
+      "package": "omnity_hub",
+      "type": "custom",
+      "wasm": "assets/omnity_hub.wasm.gz",
+      "candid": "assets/omnity_hub.did"
+    },
+    "solana_route": {
+      "package": "solana_route",
+      "type": "rust",
+      "gzip": true,
+      "candid": "assets/solana_route.did"
+    },
+    "ic-solana-provider": {
+      "package": "ic-solana-provider",
+      "type": "custom",
+      "wasm": "assets/ic-solana-provider.wasm.gz",
+      "candid": "assets/ic-solana-provider.did"
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "",
+      "args": ""
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "localhost:4943",
+      "type": "ephemeral",
+      "replica": {
+        "subnet_type": "system"
+      }
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}

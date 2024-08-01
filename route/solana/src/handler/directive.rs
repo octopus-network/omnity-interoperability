@@ -1,10 +1,13 @@
-use crate::types::{ChainId, Directive, Seq, Topic,Error};
-use candid::{Principal};
+use crate::types::{ChainId, Directive, Error, Seq, Topic};
+use candid::Principal;
+
+use crate::handler::sol_call::create_mint_account;
 
 use crate::{
     call_error::{CallError, Reason},
     state::{mutate_state, read_state},
 };
+use ic_solana::token::TokenCreateInfo;
 pub const DIRECTIVE_LIMIT_SIZE: u64 = 20;
 
 /// query directives from hub and save to route state
@@ -17,8 +20,13 @@ pub async fn query_directives() {
                     Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
                         mutate_state(|s| s.add_chain(chain.clone()));
                     }
-                    Directive::AddToken(token) | Directive::UpdateToken(token) => {
+
+                    Directive::AddToken(token) => {
                         mutate_state(|s| s.add_token(token.clone()));
+                    }
+                    //TODO: if update_token, need to update solana token metadata
+                    Directive::UpdateToken(_token) => {
+                        todo!()
                     }
                     Directive::ToggleChainState(toggle) => {
                         mutate_state(|s| s.toggle_chain_state(toggle.clone()));
@@ -38,7 +46,6 @@ pub async fn query_directives() {
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );
-            
         }
     };
 }
@@ -48,7 +55,7 @@ pub async fn inner_query_directives(
     offset: u64,
     limit: u64,
 ) -> Result<Vec<(Seq, Directive)>, CallError> {
-    let resp: (Result<Vec<(Seq, Directive)>,Error>,) = ic_cdk::api::call::call(
+    let resp: (Result<Vec<(Seq, Directive)>, Error>,) = ic_cdk::api::call::call(
         hub_principal,
         "query_directives",
         (
@@ -69,3 +76,43 @@ pub async fn inner_query_directives(
     })?;
     Ok(data)
 }
+
+pub async fn create_token_mint() {
+    // TODO: optmize
+    let (tokens, token_mint_map) =
+        read_state(|s| (s.tokens.to_owned(), s.token_mint_map.to_owned()));
+
+    for (token_id, token) in tokens.iter() {
+        if matches!(token_mint_map.get(token_id), None) {
+            let token_create_info = TokenCreateInfo {
+                name: token.name.to_owned(),
+                symbol: token.symbol.to_owned(),
+                decimals: token.decimals,
+                uri: token.icon.to_owned().unwrap_or_default(),
+            };
+            match create_mint_account(token_create_info).await {
+                Ok(token_mint) => {
+                    ic_cdk::println!(
+                        "[directive::create_token_mint] {:?} new mint token address on solana: {:?} ",
+                        token_id.to_string(),
+                        token_mint
+                    );
+                    // save the token mint
+                    mutate_state(|s| {
+                        s.token_mint_map
+                            .insert(token_id.to_string(), token_mint.to_string())
+                    });
+                }
+                Err(e) => {
+                    ic_cdk::eprintln!(
+                        "[directive::create_token_mint]  create token mint error: {:?}  ",
+                        e
+                    );
+                    continue;
+                }
+            }
+        }
+    }
+}
+
+// # TODO: update token_medadata()

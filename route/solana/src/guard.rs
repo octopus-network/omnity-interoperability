@@ -7,7 +7,9 @@ use strum_macros::EnumIter;
 pub enum TaskType {
     GetDirectives,
     GetTickets,
-    HandleTickets,
+    CreateMint,
+    CreateAssoicatedAccount,
+    MintToken,
 }
 
 #[derive(Debug, PartialEq, Eq)]
