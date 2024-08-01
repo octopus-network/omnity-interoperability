@@ -5,6 +5,7 @@ use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
 
+// use crate::migration::{migrate, PreHubState};
 use crate::self_help::AddRunesTokenReq;
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta, TxHash};
 use candid::Principal;
@@ -88,7 +89,6 @@ impl From<InitArgs> for HubState {
             last_resubmit_ticket_time: 0,
             add_runes_token_requests: Default::default(),
             runes_oracles: Default::default(),
-
             dire_map: BTreeMap::default(),
             ticket_map: BTreeMap::default(),
         }
@@ -149,15 +149,18 @@ impl HubState {
         memory.read(4, &mut state_bytes);
 
         // Deserialize pre state
-        let mut state: HubState =
+        let mut hub_state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+
+        // migrate state
+        // let mut cur_state = migrate(pre_state);
 
         if let Some(args) = args {
             match args {
                 HubArg::Upgrade(upgrade_args) => {
                     if let Some(args) = upgrade_args {
                         if let Some(admin) = args.admin {
-                            state.admin = admin;
+                            hub_state.admin = admin;
                         }
                         record_event(&Event::Upgrade(args));
                     }
@@ -165,8 +168,9 @@ impl HubState {
                 HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
             };
         }
+        // update state
+        set_state(hub_state);
 
-        set_state(state);
     }
 
     pub fn upgrade(&mut self, args: UpgradeArgs) {
