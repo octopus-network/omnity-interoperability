@@ -103,7 +103,7 @@ async fn process_tickets() {
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
         Err(err) => {
-            log::error!("[process tickets] failed to query tickets, err: {}", err);
+            log::error!("[process tickets] failed to query tickets, err: {err}");
         }
     }
 }
@@ -139,7 +139,7 @@ async fn process_directives() {
                     }
                     Directive::UpdateFee(fee) => {
                         mutate_state(|s| audit::update_fee(s, fee.clone()));
-                        log::info!("[process_directives] success to update fee, fee: {}", fee);
+                        log::info!("[process_directives] success to update fee, fee: {fee}");
                     }
                 }
             }
