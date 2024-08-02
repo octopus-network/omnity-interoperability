@@ -1,5 +1,5 @@
 {
-  "dfx": "0.17.0",
+  "dfx": "0.20.1",
   "canisters": {
     "icp_ledger_canister": {
       "type": "custom",
@@ -36,6 +36,15 @@
       "candid": "route/icp/icp_route.did",
       "package": "icp_route",
       "type": "rust"
+    },
+    "cosmoswasm_route": {
+      "gzip": true,
+      "candid": "route/cosmoswasm/cosmoswasm_route.did",
+      "package": "cosmoswasm_route",
+      "type": "rust"
+    },
+    "schnorr_canister": {
+      "gzip": true
     },
     "hub_mock": {
       "gzip": true,

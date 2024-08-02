@@ -1,0 +1,1 @@
+pub const BATCH_QUERY_LIMIT: u64 = 20;

@@ -1,9 +1,8 @@
-use candid::{CandidType, Principal};
-use serde::{Deserialize, Serialize};
-// use schnorr_canister::{SchnorrKeyIds, SignWithSchnorrArgs, SignWithSchnorrResult};
-use serde_bytes::ByteBuf;
+use crate::*;
 
+// use schnorr_canister::{SchnorrKeyIds, SignWithSchnorrArgs, SignWithSchnorrResult};
 use crate::state;
+use serde_bytes::ByteBuf;
 
 #[derive(CandidType, Deserialize, Serialize, Debug)]
 pub struct SchnorrPublicKeyArgs {
@@ -83,35 +82,69 @@ impl SchnorrKeyIds {
     }
 }
 
-pub async fn sign_with_test1_key(message: &[u8]) -> Result<SignWithSchnorrResult, String> {
+pub async fn cw_schnorr_public_key() -> Result<SchnorrPublicKeyResult> {
+    let schnorr_canister_principal: candid::Principal =
+        state::read_state(|state| state.schnorr_canister_principal);
+
+    let derivation_path: Vec<ByteBuf> = [vec![1u8; 4]] // Example derivation path for signing
+        .iter()
+        .map(|v| ByteBuf::from(v.clone()))
+        .collect();
+
+    let public_arg = SchnorrPublicKeyArgs {
+        canister_id: Some(ic_cdk::api::id()),
+        derivation_path: derivation_path.clone(),
+        key_id: SchnorrKeyIds::TestKey1.to_key_id(),
+    };
+
+    let res: (SchnorrPublicKeyResult,) = ic_cdk::api::call::call(
+        schnorr_canister_principal,
+        "schnorr_public_key",
+        (public_arg,),
+    )
+    .await
+    .map_err(|(code, message)| {
+        RouteError::CallError(
+            "schnorr_public_key".to_string(),
+            schnorr_canister_principal,
+            format!("{:?}", code).to_string(),
+            message,
+        )
+    })?;
+
+    Ok(res.0)
+}
+
+pub async fn sign_with_schnorr(
+    message: &[u8],
+    key_id: SchnorrKeyId,
+) -> Result<SignWithSchnorrResult> {
     let schnorr_canister_principal = state::read_state(|state| state.schnorr_canister_principal);
 
     let derivation_path: Vec<ByteBuf> = [vec![1u8; 4]] // Example derivation path for signing
-    .iter()
-    .map(|v| ByteBuf::from(v.clone()))
-    .collect();
-
-    let message = b"Test message";
+        .iter()
+        .map(|v| ByteBuf::from(v.clone()))
+        .collect();
 
     let sign_with_schnorr_args = SignWithSchnorrArgs {
         message: ByteBuf::from(message.to_vec()),
         derivation_path,
-        key_id: SchnorrKeyIds::TestKey1.to_key_id(),
+        key_id: key_id,
     };
-    
-    // SignDoc::new(body, auth_info, chain_id, account_number)
 
-    let res: (Result<SignWithSchnorrResult, String>,) = ic_cdk::api::call::call(
-        schnorr_canister_principal, 
-        "sign_with_schnorr", 
-        (sign_with_schnorr_args,), 
+    let res: (SignWithSchnorrResult,) = ic_cdk::api::call::call(
+        schnorr_canister_principal,
+        "sign_with_schnorr",
+        (sign_with_schnorr_args,),
     )
     .await
     .map_err(|(code, message)| {
-        message
-        // ic_cdk::api::trap(format!("Error calling schnorr canister: code: {:?}, message: {:?}", code, message))
+        RouteError::CallError(
+            "sign_with_schnorr".to_string(),
+            schnorr_canister_principal,
+            format!("{:?}", code).to_string(),
+            message,
+        )
     })?;
-    res.0.map_err(|err| {
-        err
-    })
-} 
+    Ok(res.0)
+}

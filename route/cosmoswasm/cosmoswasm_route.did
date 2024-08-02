@@ -1,0 +1,18 @@
+type HttpHeader = record { value : text; name : text };
+type HttpResponse = record {
+  status : nat;
+  body : blob;
+  headers : vec HttpHeader;
+};
+type InitArgs = record {
+  cw_url : text;
+  schnorr_canister_principal : principal;
+  cosmoswasm_port_contract_address : text;
+  chain_id : text;
+};
+type Result = variant { Ok; Err : text };
+type Result_1 = variant { Ok : HttpResponse; Err : text };
+service : (InitArgs) -> {
+  msg_send : () -> (Result);
+  test_add_token : () -> (Result_1);
+}

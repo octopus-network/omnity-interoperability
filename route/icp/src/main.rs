@@ -195,7 +195,7 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
             return Err(err);
         }
     }
-    log::info!("successfully resend {} tickets", tickets_sz);
+    log::info!("successfully resend {tickets_sz} tickets");
     Ok(())
 }
 
