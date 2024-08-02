@@ -5,7 +5,6 @@ ADMIN="rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"
 echo "admin id: $ADMIN"
 echo 
 
-
 # Deploy hub
 # dfx canister create omnity_hub
 dfx deploy omnity_hub --argument "(variant { Init = record { admin = principal \"${ADMIN}\" } })" --mode=reinstall -y

@@ -1,9 +1,10 @@
+use candid::CandidType;
 use ic_cdk::api::call::RejectionCode;
 use std::fmt;
 
 /// Represents an error from a management canister call, such as
 /// `sign_with_ecdsa` or `bitcoin_send_transaction`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, CandidType)]
 pub struct CallError {
     pub method: String,
     pub reason: Reason,
@@ -19,7 +20,7 @@ impl fmt::Display for CallError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, CandidType)]
 /// The reason for the management call failure.
 pub enum Reason {
     /// Failed to send a signature request because the local output queue is

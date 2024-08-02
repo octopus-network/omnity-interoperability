@@ -24,6 +24,7 @@ strum_macros = "0.25.3"
 strum = { version = "0.25.0", features = ["derive"] }
 sha2 = "0.10"
 hex = "0.4"
+ic-canister-log = "0.2"
 ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
 ic-management-canister-types = { git = "https://github.com/dfinity/ic", package = "ic-management-canister-types" }

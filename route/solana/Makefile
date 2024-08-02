@@ -14,8 +14,9 @@ start: ## Start the canisters
 	RUST_BACKTRACE=1 dfx start --clean --background > dfx.out 2>&1
 
 .PHONY: build
-build: ## Build the canisters
-	dfx build solana_route
+build: start ## Build the canisters
+	# dfx canister create solana_route
+	# dfx build solana_route
 	./scripts/build.sh
 
 .PHONY: deploy

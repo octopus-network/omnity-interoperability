@@ -4,13 +4,14 @@ use crate::call_error::Reason;
 
 use crate::{call_error::CallError, state::read_state};
 
+use ic_canister_log::log;
+use ic_solana::logs::{DEBUG, INFO};
 use ic_solana::rpc_client::RpcResult;
 use ic_solana::token::{SolanaClient, TokenCreateInfo};
 use ic_solana::types::{Pubkey, TransactionStatus};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use serde_json::Value;
-
 pub async fn solana_client() -> SolanaClient {
     let (chain_id, schnorr_key_name, schnorr_canister, sol_canister) = read_state(|s| {
         (
@@ -29,7 +30,8 @@ pub async fn solana_client() -> SolanaClient {
         })
         .unwrap();
 
-    ic_cdk::println!(
+    log!(
+        DEBUG,
         "[tickets::solana_client] payer pub key: {:?} ",
         payer.to_string()
     );
@@ -56,7 +58,8 @@ pub async fn create_mint_account(req: TokenCreateInfo) -> Result<String, CallErr
             reason: Reason::CanisterError(e.to_string()),
         })?;
 
-    ic_cdk::println!(
+    log!(
+        INFO,
         "[sol_call::create_mint_account] mint account : {:?}",
         token_pub_key.to_string()
     );
@@ -69,8 +72,8 @@ pub async fn get_or_create_ata(
     to_account: String,
     token_mint: String,
 ) -> Result<String, CallError> {
-    let to_account = Pubkey::from_str(to_account.as_str()).unwrap();
-    let token_mint = Pubkey::from_str(token_mint.as_str()).unwrap();
+    let to_account = Pubkey::from_str(to_account.as_str()).expect("Invalid to_account address");
+    let token_mint = Pubkey::from_str(token_mint.as_str()).expect("Invalid token_mint address");
 
     let sol_client = solana_client().await;
     let associated_token_account = sol_client
@@ -81,7 +84,7 @@ pub async fn get_or_create_ata(
             reason: Reason::CanisterError(e.to_string()),
         })?;
 
-    ic_cdk::println!(
+    log!(INFO,
         "[solana_client::get_or_create_ata] wallet address: {:?}, token_mint: {:?}, and the associated token account: {:?} ",
         to_account.to_string(),
         token_mint.to_string(),
@@ -107,14 +110,15 @@ pub async fn mint_to(
             reason: Reason::CanisterError(e.to_string()),
         })?;
 
-    ic_cdk::println!(
+    log!(
+        INFO,
         "[tickets::mint_to] mint successful and the signature is : {}",
         signature
     );
     Ok(signature)
 }
 
-// query solana tx signature status and update txhash to hub
+// query solana tx signature status
 pub async fn get_signature_status(
     signatures: Vec<String>,
 ) -> Result<Vec<TransactionStatus>, CallError> {
@@ -134,8 +138,8 @@ pub async fn get_signature_status(
             reason: Reason::CanisterError(rpc_error.to_string()),
         })?;
 
-    ic_cdk::println!("sol_getSignatureStatuses result: {:?}", tx_status);
-    // mutate_state(|s| s.sol_token_address.inser)t(token.token_id, token_pub_key));
+    log!(INFO, "sol_getSignatureStatuses result: {:?}", tx_status);
+
     Ok(tx_status)
 }
 
@@ -552,7 +556,6 @@ mod test {
 
         let transaction_response =
             serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(json_data).unwrap();
-        // let transaction_response: JsonRpcResponse = serde_json::from_str(json_data).unwrap();
 
         println!("transaction_response: {:#?}", transaction_response);
         for instruction in &transaction_response

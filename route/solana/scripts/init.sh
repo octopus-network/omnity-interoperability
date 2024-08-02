@@ -8,6 +8,9 @@ SOL_CHAIN_ID="Solana"
 SOL_CID=$(dfx canister id solana_route)
 SOL_FEE="SOL"
 
+# change log level for debugging
+dfx canister call omnity_hub set_logger_filter '("debug")'
+
 # sub topic
 dfx canister call omnity_hub sub_directives "(opt \"${BITCOIN_CHAIN_ID}\", 
         vec {variant {AddChain};variant {UpdateChain}; 
@@ -88,12 +91,18 @@ dfx canister call omnity_hub update_fee "vec {variant { UpdateTargetChainFactor 
 
 dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",null,0:nat64,12:nat64)"
 
+# req airdrop
+solana airdrop 2
+MASTER_KEY=$(solana address)
+echo "current solana cli default address: $MASTER_KEY and balance: $(solana balance $MASTER_KEY)"
 # get payer and init it
-MASTER_KEY=$(dfx canister call solana_route payer '()' --candid ./assets/solana_route.did)
-MASTER_KEY=$(echo "$MASTER_KEY" | awk -F'"' '{print $2}')
-echo "current payer: $MASTER_KEY"
+PAYER=$(dfx canister call solana_route payer '()' --candid ./assets/solana_route.did)
+PAYER=$(echo "$PAYER" | awk -F'"' '{print $2}')
+echo "current payer: $PAYER"
 # transfer SOL to init payer
-solana transfer $MASTER_KEY 0.5 --with-memo init_account --allow-unfunded-recipient
-echo $(solana balance $MASTER_KEY)
+AMOUNT=0.5
+echo "transfer SOL to $PAYER from $MASTER_KEY"
+solana transfer $PAYER $AMOUNT --with-memo init_account --allow-unfunded-recipient
+echo "$PAYER balance:$(solana balance $PAYER)"
 
 echo "Init done!"

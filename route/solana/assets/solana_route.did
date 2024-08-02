@@ -1,3 +1,4 @@
+type CallError = record { method : text; reason : Reason };
 type Chain = record {
   fee_token : opt text;
   canister_id : text;
@@ -65,11 +66,18 @@ type MintTokenStatus = variant {
   Unknown;
 };
 type Permission = variant { Update; Query };
-type Result = variant { Ok; Err : text };
+type Reason = variant {
+  QueueIsFull;
+  CanisterError : text;
+  OutOfCycles;
+  Rejected : text;
+};
+type Result = variant { Ok : text; Err : CallError };
 type Result_1 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_2 = variant { Ok; Err : TransactionError };
-type Result_3 = variant { Ok : text; Err : text };
-type Result_4 = variant { Ok; Err : GenerateTicketError };
+type Result_3 = variant { Ok : vec TransactionStatus; Err : CallError };
+type Result_4 = variant { Ok : text; Err : text };
+type Result_5 = variant { Ok; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type TargetChainFactor = record {
   target_chain_id : text;
@@ -173,28 +181,26 @@ type UpgradeArgs = record {
   chain_state : opt ChainState;
 };
 service : (RouteArg) -> {
-  cannel_schedule : () -> (Result);
-  create_mint : (TokenCreateInfo) -> (text);
+  cannel_schedule : () -> ();
+  create_mint : (TokenCreateInfo) -> (Result);
   generate_ticket : (GenerateTicketReq) -> (Result_1);
   get_chain_list : () -> (vec Chain) query;
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_latest_blockhash : () -> (text);
-  get_or_create_aossicated_account : (text, text) -> (text);
+  get_latest_blockhash : () -> (Result);
+  get_or_create_aossicated_account : (text, text) -> (Result);
   get_redeem_fee : (text) -> (opt nat) query;
-  get_signature_status : (vec text) -> (vec TransactionStatus);
+  get_signature_status : (vec text) -> (Result_3);
   get_tickets_from_queue : () -> (vec record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
-  get_transaction : (text) -> (text);
+  get_transaction : (text) -> (Result);
   handle_mint_token : () -> ();
-  mint_to : (text, nat64, text) -> (text);
+  mint_to : (text, nat64, text) -> (Result);
   mint_token_status : (text) -> (MintTokenStatus) query;
-  payer : () -> (Result_3);
-  query_aossicated_account : () -> (
-      vec record { record { text; text }; text },
-    ) query;
-  query_token_mint : () -> (vec record { text; text }) query;
-  resend_tickets : () -> (Result_4);
+  payer : () -> (Result_4);
+  query_aossicated_account : (text, text) -> (opt text) query;
+  query_token_mint : (text) -> (opt text) query;
+  resend_tickets : () -> (Result_5);
   set_permissions : (principal, Permission) -> ();
-  start_schedule : () -> (Result);
-  update_schnorr_info : (principal, text) -> (Result);
+  start_schedule : () -> ();
+  update_schnorr_info : (principal, text) -> ();
 }

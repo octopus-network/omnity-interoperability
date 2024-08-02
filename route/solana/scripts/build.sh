@@ -13,7 +13,10 @@ candid-extractor $CANISTER_WASM > ./assets/$CANISTER.did
 # optimize wasm file
 # ic-wasm $CANISTER_WASM -o $CANISTER_WASM metadata candid:service -f $DID_PATH -v public
 
-gzip --no-name --force $CANISTER_WASM
-cp $CANISTER_WASM.gz ./assets/$CANISTER.wasm.gz
+# gzip --no-name --force $CANISTER_WASM
+# cp $CANISTER_WASM.gz ./assets/$CANISTER.wasm.gz
+dfx canister create solana_route
+dfx build solana_route
+cp ./.dfx/local/canisters/solana_route/solana_route.wasm.gz ./assets/solana_route.wasm.gz
 
 echo "Build done !"

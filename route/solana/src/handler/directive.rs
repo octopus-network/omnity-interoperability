@@ -7,7 +7,10 @@ use crate::{
     call_error::{CallError, Reason},
     state::{mutate_state, read_state},
 };
+use ic_canister_log::log;
+use ic_solana::logs::{ERROR, INFO};
 use ic_solana::token::TokenCreateInfo;
+
 pub const DIRECTIVE_LIMIT_SIZE: u64 = 20;
 
 /// query directives from hub and save to route state
@@ -42,7 +45,8 @@ pub async fn query_directives() {
             });
         }
         Err(err) => {
-            ic_cdk::eprintln!(
+            log!(
+                ERROR,
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );
@@ -78,38 +82,45 @@ pub async fn inner_query_directives(
 }
 
 pub async fn create_token_mint() {
-    // TODO: optmize
-    let (tokens, token_mint_map) =
-        read_state(|s| (s.tokens.to_owned(), s.token_mint_map.to_owned()));
+    let creating_token_mint = read_state(|s| {
+        let mut creating_token_mint = vec![];
+        for (token_id, token) in s.tokens.iter() {
+            if matches!(s.token_mint_map.get(token_id), None) {
+                creating_token_mint.push(token.to_owned())
+            }
+        }
+        creating_token_mint
+    });
 
-    for (token_id, token) in tokens.iter() {
-        if matches!(token_mint_map.get(token_id), None) {
-            let token_create_info = TokenCreateInfo {
-                name: token.name.to_owned(),
-                symbol: token.symbol.to_owned(),
-                decimals: token.decimals,
-                uri: token.icon.to_owned().unwrap_or_default(),
-            };
-            match create_mint_account(token_create_info).await {
-                Ok(token_mint) => {
-                    ic_cdk::println!(
-                        "[directive::create_token_mint] {:?} new mint token address on solana: {:?} ",
-                        token_id.to_string(),
-                        token_mint
-                    );
-                    // save the token mint
-                    mutate_state(|s| {
-                        s.token_mint_map
-                            .insert(token_id.to_string(), token_mint.to_string())
-                    });
-                }
-                Err(e) => {
-                    ic_cdk::eprintln!(
-                        "[directive::create_token_mint]  create token mint error: {:?}  ",
-                        e
-                    );
-                    continue;
-                }
+    for token in creating_token_mint.into_iter() {
+        let token_create_info = TokenCreateInfo {
+            name: token.name,
+            symbol: token.symbol,
+            decimals: token.decimals,
+            uri: token.icon.unwrap_or_default(),
+        };
+
+        match create_mint_account(token_create_info).await {
+            Ok(token_mint) => {
+                log!(
+                    INFO,
+                    "[directive::create_token_mint] {:?} new mint token address on solana: {:?} ",
+                    token.token_id.to_string(),
+                    token_mint
+                );
+                // save the token mint
+                mutate_state(|s| {
+                    s.token_mint_map
+                        .insert(token.token_id.to_string(), token_mint.to_string())
+                });
+            }
+            Err(e) => {
+                log!(
+                    ERROR,
+                    "[directive::create_token_mint]  create token mint error: {:?}  ",
+                    e
+                );
+                continue;
             }
         }
     }

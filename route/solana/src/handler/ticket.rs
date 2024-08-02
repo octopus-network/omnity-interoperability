@@ -19,6 +19,8 @@ use ic_solana::rpc_client::JsonRpcResponse;
 use serde_json::from_value;
 
 pub const TICKET_LIMIT_SIZE: u64 = 20;
+use ic_canister_log::log;
+use ic_solana::logs::{ERROR, INFO};
 
 /// handler tickets from customs to solana
 pub async fn query_tickets() {
@@ -31,18 +33,22 @@ pub async fn query_tickets() {
         Ok(tickets) => {
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
-                if let Err(_) = Pubkey::try_from(ticket.receiver.as_str()) {
-                    ic_cdk::eprintln!(
-                        "[process tickets] failed to parse ticket receiver: {}",
-                        ticket.receiver
+                if let Err(e) = Pubkey::try_from(ticket.receiver.as_str()) {
+                    log!(
+                        ERROR,
+                        "[process tickets] failed to parse ticket receiver: {}, error:{}",
+                        ticket.receiver,
+                        e.to_string()
                     );
                     next_seq = seq + 1;
                     continue;
                 };
-                if let Err(_) = ticket.amount.parse::<u64>() {
-                    ic_cdk::eprintln!(
-                        "[process tickets] failed to parse ticket amount: {}",
-                        ticket.amount
+                if let Err(e) = ticket.amount.parse::<u64>() {
+                    log!(
+                        ERROR,
+                        "[process tickets] failed to parse ticket amount: {}, Error:{}",
+                        ticket.amount,
+                        e.to_string()
                     );
                     next_seq = seq + 1;
                     continue;
@@ -53,8 +59,12 @@ pub async fn query_tickets() {
             }
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
-        Err(err) => {
-            ic_cdk::eprintln!("[process tickets] failed to query tickets, err: {}", err);
+        Err(e) => {
+            log!(
+                ERROR,
+                "[process tickets] failed to query tickets, err: {}",
+                e.to_string()
+            );
         }
     }
 }
@@ -98,39 +108,26 @@ pub struct MintTokenRequest {
 }
 
 pub async fn create_associated_account() {
-    let mut associated_accounts = vec![];
+    let mut creating_atas = vec![];
     read_state(|s| {
         for (_seq, ticket) in s.tickets_queue.iter() {
-            // ic_cdk::println!(
-            //     "[ticket::create_associated_account] create associated account for {}:{:?}",
-            //     seq,
-            //     ticket
-            // );
             if let Some(token_mint) = s.token_mint_map.get(&ticket.token) {
-                // ic_cdk::println!(
-                //     "[ticket::create_associated_account] find token mint({}) for {}",
-                //     token_mint,
-                //     ticket.token
-                // );
-                // not exists, to be created
+                // ata not exists, to be created
                 if matches!(
                     s.associated_account
                         .get(&(ticket.receiver.to_string(), token_mint.to_string())),
                     None
                 ) {
-                    associated_accounts.push((ticket.receiver.to_owned(), token_mint.to_owned()))
+                    creating_atas.push((ticket.receiver.to_owned(), token_mint.to_owned()))
                 }
             }
         }
     });
-    // ic_cdk::println!(
-    //     "[ticket::create_associated_account] need to create associated account :{:?}",
-    //     associated_accounts
-    // );
-    for (owner, token_mint) in associated_accounts.into_iter() {
+    //TODO: Control foreach size
+    for (owner, token_mint) in creating_atas.into_iter() {
         match get_or_create_ata(owner.to_owned(), token_mint.to_owned()).await {
             Ok(ata) => {
-                ic_cdk::println!(
+                log!(INFO,
                     "[ticket::create_associated_account] new associated_account {:?} based on {:} and {:?} ",
                     ata,
                     owner,
@@ -140,7 +137,8 @@ pub async fn create_associated_account() {
                 mutate_state(|s| s.associated_account.insert((owner, token_mint), ata));
             }
             Err(e) => {
-                ic_cdk::eprintln!(
+                log!(
+                    ERROR,
                     "[ticket::create_associated_account] get_or_create_ata error: {:?}  ",
                     e
                 );
@@ -152,28 +150,23 @@ pub async fn create_associated_account() {
 
 pub async fn handle_mint_token() {
     let (from, to) = read_state(|s| (s.next_consume_ticket_seq, s.next_ticket_seq));
+    //TODO: Control foreach size
     for seq in from..to {
         if let Some(ticket) = read_state(|s| s.tickets_queue.get(&seq)) {
-            ic_cdk::println!("[ticket::handle_mint_token] seq:{:} -> {:?}", seq, ticket);
-
             // first,check token mint
             let token_mint = read_state(|s| s.token_mint_map.get(&ticket.token).cloned());
             let token_mint = match token_mint {
                 Some(token_mint) => token_mint,
                 None => {
-                    ic_cdk::println!(
-                        "[ticket::mint_to] the token({:}) mint account is not exists,continue waiting !",
+                    log!(INFO,
+                        "[ticket::handle_mint_token] the token({:}) mint account is not exists, waiting for create token mint ...",
                         ticket.token
                     );
-                    continue;
+                    break;
                 }
             };
-            ic_cdk::println!(
-                "[ticket::handle_mint_token] the token({:}) mint account: {:} !",
-                ticket.token,
-                token_mint
-            );
-            // secord,check token mint
+
+            // secord,check ata
             let associated_account = read_state(|s| {
                 s.associated_account
                     .get(&(ticket.receiver.to_owned(), token_mint.to_owned()))
@@ -182,19 +175,14 @@ pub async fn handle_mint_token() {
             let associated_account = match associated_account {
                 Some(associated_account) => associated_account,
                 None => {
-                    ic_cdk::println!(
-                        "[ticket::handle_mint_token] the associated_account based on {} and {} is not exists,continue waiting !",
+                    log!(INFO,
+                        "[ticket::handle_mint_token] the associated_account based on {} and {} is not exists,waiting for create associated account ...",
                         ticket.receiver.to_string(),token_mint.to_string()
                     );
-                    continue;
+                    break;
                 }
             };
-            ic_cdk::println!(
-                "[ticket::handle_mint_token] the associated_account based on {} and {} is {:?} !",
-                ticket.receiver,
-                token_mint,
-                associated_account
-            );
+
             let req = MintTokenRequest {
                 ticket_id: ticket.ticket_id.to_owned(),
                 associated_account: associated_account,
@@ -204,10 +192,13 @@ pub async fn handle_mint_token() {
 
             match mint_token(req).await {
                 Ok(signature) => {
-                    ic_cdk::println!(
+                    log!(INFO,
                         "[ticket::handle_mint_token] process successful for ticket id: {} and tx hash :{}",
                         ticket.ticket_id,signature
                     );
+                    mutate_state(|s| s.next_consume_ticket_seq = to);
+
+                    //TODO: consider whether to remove or add status for handled ticket ?
                     // if ok, remove the handled ticket from queue
                     mutate_state(|s| s.tickets_queue.remove(&seq));
 
@@ -216,27 +207,29 @@ pub async fn handle_mint_token() {
                     if let Err(err) =
                         update_tx_hash(hub_principal, ticket.ticket_id.to_string(), signature).await
                     {
-                        ic_cdk::eprintln!(
+                        log!(ERROR,
                             "[tickets::handle_mint_token] failed to update tx hash after mint token:{}",
                             err
                         );
                     }
-                    mutate_state(|s| s.next_consume_ticket_seq = to);
                 }
-                Err(MintTokenError::TemporarilyUnavailable(desc)) => {
-                    ic_cdk::eprintln!(
+                Err(MintTokenError::TemporarilyUnavailable(e)) => {
+                    log!(ERROR,
                         "[ticket::handle_mint_token] failed to mint token for ticket id: {}, err: {}",
                         ticket.ticket_id,
-                        desc
+                        e
                     );
+
                     break;
                 }
-                Err(err) => {
-                    ic_cdk::eprintln!(
+                Err(e) => {
+                    log!(
+                        ERROR,
                         "[ticket::mint_to] process failure for ticket id: {}, err: {:?}",
                         ticket.ticket_id,
-                        err
+                        e
                     );
+                    break;
                 }
             }
         }
@@ -251,7 +244,7 @@ pub async fn mint_token(req: MintTokenRequest) -> Result<String, MintTokenError>
     let signuate = mint_to(req.associated_account, req.amount, req.token_mint)
         .await
         .map_err(|e| MintTokenError::TemporarilyUnavailable(e.to_string()))?;
-    mutate_state(|s| s.finalize_mint_token_req(req.ticket_id.clone(), signuate.to_string()));
+    mutate_state(|s| s.finalize_mint_token_req(req.ticket_id.to_owned(), signuate.to_owned()));
 
     Ok(signuate)
 }
@@ -318,7 +311,7 @@ pub struct GenerateTicketOk {
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
-    ic_cdk::println!("generate_ticket req: {:#?}", req);
+    log!(INFO, "generate_ticket req: {:#?}", req);
 
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
@@ -335,9 +328,7 @@ pub async fn generate_ticket(
             req.target_chain_id.clone(),
         ));
     }
-    // if !read_state(|s| s.tokens.get(&req.token_id.to_string()).is_none()) {
-    //     return Err(GenerateTicketError::UnsupportedToken(req.token_id.clone()));
-    // }
+
     if !read_state(|s| s.tokens.contains_key(&req.token_id.to_string())) {
         return Err(GenerateTicketError::UnsupportedToken(req.token_id.clone()));
     }
@@ -348,86 +339,66 @@ pub async fn generate_ticket(
         ));
     }
 
-    let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
-    let action = req.action.clone();
+    let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.to_owned()));
 
-    // check solana sigature status
-    // let signature_status = get_signature_status(vec![req.signature.to_string()])
-    //     .await
-    //     .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?
-    //     .first()
-    //     .cloned()
-    //     .ok_or(GenerateTicketError::TemporarilyUnavailable(
-    //         "Not found signature".to_string(),
-    //     ))?
-    //     .confirmation_status
-    //     .ok_or(GenerateTicketError::TemporarilyUnavailable(
-    //         "Not found confirmation status".to_string(),
-    //     ))?;
-
-    // if !matches!(signature_status, TransactionConfirmationStatus::Finalized) {
-    //     return Err(GenerateTicketError::TemporarilyUnavailable(
-    //         "signature status not finalized".to_string(),
-    //     ));
-    // }
-
-    //parsed tx by signature
+    //parsed tx via signature
     let mut receiver = String::from("");
     let client = solana_client().await;
-
-    let tx_str = client
+    let tx = client
         .query_transaction(req.signature.to_owned())
         .await
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
 
-    let json_response = serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&tx_str)
+    let json_response = serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&tx)
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
 
     if let Some(e) = json_response.error {
         return Err(GenerateTicketError::TemporarilyUnavailable(e.message));
     } else {
-        // parse instruction
-        for instruction in &json_response
+        let tx_detail = json_response
             .result
-            .unwrap()
-            .transaction
-            .message
-            .instructions
-        {
+            .ok_or(GenerateTicketError::TemporarilyUnavailable(
+                "tx result is None".to_string(),
+            ))?;
+        // parse instruction
+        for instruction in &tx_detail.transaction.message.instructions {
             if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.to_owned()) {
-                ic_cdk::println!("Parsed Value: {:#?}", parsed_value);
                 if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.clone()) {
-                    ic_cdk::println!("Parsed instruction: {:#?}", pi);
+                    log!(INFO, "Parsed instruction: {:#?}", pi);
                     if pi.instr_type.eq("transfer") {
                         let transfer = from_value::<Transfer>(pi.info.clone()).map_err(|e| {
                             GenerateTicketError::TemporarilyUnavailable(e.to_string())
                         })?;
-                        ic_cdk::println!("Parsed transfer: {:#?}", transfer);
-                        //TODO: check: transfer.source == req.sender
-                        //TODO: check: transfer.destination == omnity.received.account
-                        //TODO: check: transfer.lamports == omnity.received.amount
+                        log!(INFO, "Parsed transfer: {:#?}", transfer);
+                        //TODO: verify: transfer.source == req.sender
+                        //TODO: verify: transfer.destination == omnity.received.account
+                        //TODO: verify: transfer.lamports == omnity.received.amount
                     }
                     if pi.instr_type.eq("burnChecked") {
                         let burn = from_value::<Burn>(pi.info.clone()).map_err(|e| {
                             GenerateTicketError::TemporarilyUnavailable(e.to_string())
                         })?;
-                        ic_cdk::println!("Parsed burn: {:#?}", burn);
-                        //TODO: check: burn.amount == req.ammount
-                        //TODO: check: burn.authority == req.sender
-                        //TODO: check: burn.mint == (req.token_id related to token mint address)
+                        log!(INFO, "Parsed burn: {:#?}", burn);
+                        //TODO: verify: burn.amount == req.ammount
+                        //TODO: verify: burn.authority == req.sender
+                        //TODO: verify: burn.mint == (req.token_id related to token mint address)
                     }
                 } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.clone()) {
-                    ic_cdk::println!("Parsed memo: {:?}", memo);
-                    //TODO: check req.receiver.eq(memo)
+                    log!(INFO, "Parsed memo: {:?}", memo);
+                    //TODO: verify req.receiver.eq(memo)
                     receiver = memo;
                 } else {
-                    ic_cdk::println!("Unknown Parsed instruction: {:#?}", parsed_value.parsed);
+                    log!(
+                        INFO,
+                        "Unknown Parsed instruction: {:#?}",
+                        parsed_value.parsed
+                    );
                 }
             } else {
-                ic_cdk::println!("Unknown Parsed Value: {:#?}", instruction.parsed);
+                log!(INFO, "Unknown Parsed Value: {:#?}", instruction.parsed);
                 return Err(GenerateTicketError::TemporarilyUnavailable(format!(
                     "tx parsed error:{}",
-                    tx_str
+                    tx
                 )));
             }
         }
@@ -438,24 +409,29 @@ pub async fn generate_ticket(
         ticket_type: TicketType::Normal,
         ticket_time: ic_cdk::api::time(),
         src_chain: chain_id,
-        dst_chain: req.target_chain_id.clone(),
-        action,
-        token: req.token_id.clone(),
+        dst_chain: req.target_chain_id.to_owned(),
+        action: req.action.to_owned(),
+        token: req.token_id.to_owned(),
         amount: req.amount.to_string(),
-        sender: Some(req.sender.clone()),
+        sender: Some(req.sender.to_owned()),
         receiver: receiver.to_string(),
-        memo: req.memo.clone().map(|m| m.to_bytes().to_vec()),
+        memo: req.memo.to_owned().map(|m| m.to_bytes().to_vec()),
     };
 
-    match send_ticket(hub_principal, ticket.clone()).await {
+    match send_ticket(hub_principal, ticket.to_owned()).await {
         Err(err) => {
             mutate_state(|s| {
                 s.failed_tickets.push(ticket.clone());
             });
-            ic_cdk::eprintln!("failed to send ticket: {}", req.signature.to_string());
+            log!(
+                ERROR,
+                "failed to send ticket: {}",
+                req.signature.to_string()
+            );
             Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
         }
         Ok(()) => {
+            // TODO: remove this code?
             mutate_state(|s| s.finalize_gen_ticket(req.signature.to_string(), req.clone()));
 
             Ok(GenerateTicketOk {
@@ -467,11 +443,8 @@ pub async fn generate_ticket(
 
 /// send ticket to hub
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
-    // TODO determine how many cycle it will cost.
-    let cost_cycles = 4_000_000_000_u64;
-
     let resp: (Result<(), Error>,) =
-        ic_cdk::api::call::call_with_payment(hub_principal, "send_ticket", (ticket,), cost_cycles)
+        ic_cdk::api::call::call(hub_principal, "send_ticket", (ticket,))
             .await
             .map_err(|(code, message)| CallError {
                 method: "send_ticket".to_string(),

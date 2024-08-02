@@ -1,13 +1,8 @@
-use candid::Principal;
-
-use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
-
-// use ic_canisters_http_types::{HttpRequest, HttpResponse};
-// use ic_log::writer::Logs;
-// use log::info;
-// use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
-
 use crate::auth::{is_admin, set_perms, Permission};
+use crate::call_error::{CallError, Reason};
+use candid::Principal;
+use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_solana::types::TransactionStatus;
 
 use crate::event::{Event, GetEventsArg};
 
@@ -17,20 +12,20 @@ use crate::state::TokenResp;
 use ic_solana::token::TokenCreateInfo;
 
 use crate::types::TokenId;
-// use omnity_types::Network;
+
 use crate::lifecycle::{self, RouteArg, UpgradeArgs};
-// use solana_route::memory::init_stable_log;
-// use solana_route::schnorr::{PublicKeyReply, SchnorrAlgorithm};
+
 use crate::event;
 use crate::state::AssociatedTokenAccount;
 use crate::state::Owner;
 use crate::state::TokenMint;
 use crate::state::{mutate_state, read_state, MintTokenStatus};
 use crate::types::{Chain, ChainId, Ticket};
+use ic_canister_log::log;
+use ic_solana::logs::{ERROR, INFO};
 
 #[init]
 fn init(args: RouteArg) {
-    // init_log(Some(init_stable_log()));
     match args {
         RouteArg::Init(args) => {
             event::record_event(&Event::Init(args.clone()));
@@ -40,21 +35,19 @@ fn init(args: RouteArg) {
             panic!("expected InitArgs got UpgradeArgs");
         }
     }
-    // start_schedule()
 }
 
 #[pre_upgrade]
 fn pre_upgrade() {
-    ic_cdk::println!("begin to execute pre_upgrade ...");
+    log!(INFO, "begin to execute pre_upgrade ...");
     scheduler::cannel_schedule();
     lifecycle::pre_upgrade();
-    ic_cdk::println!("pre_upgrade end!");
+    log!(INFO, "pre_upgrade end!");
 }
 
 #[post_upgrade]
 fn post_upgrade(args: Option<RouteArg>) {
-    // init_log(Some(init_stable_log()));
-    ic_cdk::println!("begin to execute post_upgrade with :{:?}", args);
+    log!(INFO, "begin to execute post_upgrade with :{:?}", args);
     let mut upgrade_arg: Option<UpgradeArgs> = None;
     if let Some(route_arg) = args {
         upgrade_arg = match route_arg {
@@ -62,34 +55,29 @@ fn post_upgrade(args: Option<RouteArg>) {
             RouteArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
         };
     }
+
     lifecycle::post_upgrade(upgrade_arg);
-    // ic_cdk::println!("start schedule task ...");
-    // scheduler::start_schedule();
-    ic_cdk::println!("upgrade successfully!");
+    log!(INFO, "upgrade successfully!");
 }
 
 #[update(guard = "is_admin")]
-pub fn start_schedule() -> Result<(), String> {
-    ic_cdk::println!("start schedule task ...");
+pub fn start_schedule() {
+    log!(INFO, "start schedule task ...");
     scheduler::start_schedule();
-    Ok(())
 }
 
 #[update(guard = "is_admin")]
-pub fn cannel_schedule() -> Result<(), String> {
-    ic_cdk::println!("cannel schedule task ...");
+pub fn cannel_schedule() {
+    log!(INFO, "cannel schedule task ...");
     scheduler::cannel_schedule();
-    Ok(())
 }
 
-// just for test or dev
 #[update(guard = "is_admin")]
-pub async fn update_schnorr_info(id: Principal, key_name: String) -> Result<(), String> {
+pub async fn update_schnorr_info(id: Principal, key_name: String) {
     mutate_state(|s| {
         s.schnorr_canister = id;
         s.schnorr_key_name = key_name;
-    });
-    Ok(())
+    })
 }
 
 #[update(guard = "is_admin")]
@@ -105,18 +93,18 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
         let ticket = mutate_state(|rs| rs.failed_tickets.pop()).unwrap();
 
         let hub_principal = read_state(|s| (s.hub_principal));
-        if let Err(err) = handler::ticket::send_ticket(hub_principal, ticket.clone())
+        if let Err(err) = handler::ticket::send_ticket(hub_principal, ticket.to_owned())
             .await
             .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))
         {
             mutate_state(|state| {
-                state.failed_tickets.push(ticket.clone());
+                state.failed_tickets.push(ticket.to_owned());
             });
-            ic_cdk::eprintln!("failed to resend ticket: {}", ticket.ticket_id);
+            log!(ERROR, "failed to resend ticket: {}", ticket.ticket_id);
             return Err(err);
         }
     }
-    ic_cdk::println!("successfully resend {} tickets", tickets_sz);
+    log!(INFO, "successfully resend {} tickets", tickets_sz);
     Ok(())
 }
 
@@ -151,78 +139,77 @@ fn get_tickets_from_queue() -> Vec<(u64, Ticket)> {
 }
 
 #[update]
-async fn get_latest_blockhash() -> String {
+async fn get_latest_blockhash() -> Result<String, CallError> {
     use crate::service::sol_call::solana_client;
     let client = solana_client().await;
-    client.get_latest_blockhash().await.unwrap().to_string()
+    let block_hash = client
+        .get_latest_blockhash()
+        .await
+        .map_err(|err| CallError {
+            method: "get_latest_blockhash".to_string(),
+            reason: Reason::CanisterError(err.to_string()),
+        })?;
+    Ok(block_hash.to_string())
 }
 
 #[update]
-async fn get_transaction(signature: String) -> String {
+async fn get_transaction(signature: String) -> Result<String, CallError> {
     use crate::service::sol_call::solana_client;
     let client = solana_client().await;
-    client.query_transaction(signature).await.unwrap()
+    client
+        .query_transaction(signature)
+        .await
+        .map_err(|err| CallError {
+            method: "get_transaction".to_string(),
+            reason: Reason::CanisterError(err.to_string()),
+        })
 }
 
 #[update]
-async fn get_signature_status(signatures: Vec<String>) -> Vec<ic_solana::types::TransactionStatus> {
-    let signature_status = sol_call::get_signature_status(signatures).await.unwrap();
-    signature_status
+async fn get_signature_status(
+    signatures: Vec<String>,
+) -> Result<Vec<TransactionStatus>, CallError> {
+    sol_call::get_signature_status(signatures).await
 }
 
-// just for test
 #[update(guard = "is_admin")]
 pub async fn handle_mint_token() {
     ticket::handle_mint_token().await;
 }
 
-// just for test
 #[update(guard = "is_admin")]
-pub async fn create_mint(req: TokenCreateInfo) -> String {
-    let mint = sol_call::create_mint_account(req).await.unwrap();
-    mint
+pub async fn create_mint(req: TokenCreateInfo) -> Result<String, CallError> {
+    sol_call::create_mint_account(req).await
 }
 
 #[query]
-pub async fn query_token_mint() -> Vec<(TokenId, TokenMint)> {
-    let mints = read_state(|s| {
-        s.token_mint_map
-            .iter()
-            .map(|(token_id, token_mint)| (token_id.to_owned(), token_mint.to_owned()))
-            .collect::<Vec<_>>()
-    });
-    mints
+pub async fn query_token_mint(token_id: TokenId) -> Option<TokenMint> {
+    read_state(|s| s.token_mint_map.get(&token_id).cloned())
 }
 
-// just for test
 #[update(guard = "is_admin")]
-pub async fn get_or_create_aossicated_account(owner: String, token_mint: String) -> String {
-    let aossicated_account = sol_call::get_or_create_ata(owner, token_mint)
-        .await
-        .unwrap();
-    aossicated_account
+pub async fn get_or_create_aossicated_account(
+    owner: String,
+    token_mint: String,
+) -> Result<String, CallError> {
+    sol_call::get_or_create_ata(owner, token_mint).await
 }
 
 #[query]
-pub async fn query_aossicated_account() -> Vec<((Owner, TokenMint), AssociatedTokenAccount)> {
-    let atas = read_state(|s| {
-        s.associated_account
-            .iter()
-            .map(|((owner, token_mint), ata)| {
-                ((owner.to_owned(), token_mint.to_owned()), ata.to_owned())
-            })
-            .collect::<Vec<_>>()
-    });
-    atas
+pub async fn query_aossicated_account(
+    owner: Owner,
+    token_mint: TokenMint,
+) -> Option<AssociatedTokenAccount> {
+    read_state(|s| s.associated_account.get(&(owner, token_mint)).cloned())
 }
 
-// just for test
 #[update(guard = "is_admin")]
-pub async fn mint_to(aossicated_account: String, amount: u64, token_mint: String) -> String {
-    let signature = sol_call::mint_to(aossicated_account, amount, token_mint)
-        .await
-        .unwrap();
-    signature
+pub async fn mint_to(
+    aossicated_account: String,
+    amount: u64,
+    token_mint: String,
+) -> Result<String, CallError> {
+    sol_call::mint_to(aossicated_account, amount, token_mint).await
 }
 
 #[query]
@@ -268,8 +255,6 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
         .take(MAX_EVENTS_PER_QUERY.min(args.length as usize))
         .collect()
 }
-
-// fn main() {}
 
 // Enable Candid export
 ic_cdk::export_candid!();

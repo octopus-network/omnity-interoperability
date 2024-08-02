@@ -1444,6 +1444,7 @@ dependencies = [
  "candid",
  "ciborium",
  "hex",
+ "ic-canister-log",
  "ic-canisters-http-types",
  "ic-cdk 0.14.0",
  "ic-cdk-timers",

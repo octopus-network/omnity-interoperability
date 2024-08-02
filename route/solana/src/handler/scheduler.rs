@@ -1,7 +1,3 @@
-use ic_cdk_timers::TimerId;
-use std::cell::RefCell;
-use std::collections::HashMap;
-
 use super::{directive, ticket};
 use crate::constants::CREATE_ATA_INTERVAL;
 use crate::constants::CREATE_MINT_INTERVAL;
@@ -9,6 +5,11 @@ use crate::{
     constants::{MINT_TOKEN_INTERVAL, QUERY_DERECTIVE_INTERVAL, QUERY_TICKET_INTERVAL},
     guard::{TaskType, TimerGuard},
 };
+use ic_canister_log::log;
+use ic_cdk_timers::TimerId;
+use ic_solana::logs::INFO;
+use std::cell::RefCell;
+use std::collections::HashMap;
 thread_local! {
     static TIMER_GUARD: RefCell<HashMap<TaskType,TimerId>> = RefCell::new(HashMap::default());
 }
@@ -21,11 +22,14 @@ pub fn start_schedule() {
                 Ok(guard) => guard,
                 Err(_) => return,
             };
-            // ic_cdk::println!("directive::query_directives() at {:?}", ic_cdk::api::time());
             directive::query_directives().await;
         });
     });
-    ic_cdk::println!(" started query_directives task : {:?}", directive_timer_id);
+    log!(
+        INFO,
+        " started query_directives task : {:?}",
+        directive_timer_id
+    );
     TIMER_GUARD.with_borrow_mut(|guard| {
         guard.insert(TaskType::GetDirectives, directive_timer_id);
     });
@@ -37,15 +41,11 @@ pub fn start_schedule() {
                 Ok(guard) => guard,
                 Err(_) => return,
             };
-
-            // ic_cdk::println!(
-            //     "directive::create_token_mint() at {:?}",
-            //     ic_cdk::api::time()
-            // );
             directive::create_token_mint().await;
         });
     });
-    ic_cdk::println!(
+    log!(
+        INFO,
         "started create_token_mint task : {:?}",
         create_mint_timer_id
     );
@@ -61,11 +61,14 @@ pub fn start_schedule() {
                 Err(_) => return,
             };
 
-            // ic_cdk::println!("ticket::query_tickets() at {:?}", ic_cdk::api::time());
             ticket::query_tickets().await;
         });
     });
-    ic_cdk::println!("started query_tickets task : {:?}", query_ticket_timer_id);
+    log!(
+        INFO,
+        "started query_tickets task : {:?}",
+        query_ticket_timer_id
+    );
     TIMER_GUARD.with_borrow_mut(|guard| {
         guard.insert(TaskType::GetTickets, query_ticket_timer_id);
     });
@@ -79,14 +82,11 @@ pub fn start_schedule() {
                     Err(_) => return,
                 };
 
-                // ic_cdk::println!(
-                //     "ticket::create_associated_account() at {:?}",
-                //     ic_cdk::api::time()
-                // );
                 ticket::create_associated_account().await;
             });
         });
-    ic_cdk::println!(
+    log!(
+        INFO,
         "started create_token_mint task : {:?}",
         create_associated_account_timer_id
     );
@@ -105,11 +105,14 @@ pub fn start_schedule() {
                 Err(_) => return,
             };
 
-            // ic_cdk::println!("ticket::handle_mint_token() at {:?}", ic_cdk::api::time());
             ticket::handle_mint_token().await;
         });
     });
-    ic_cdk::println!("started handle_mint_token task : {:?}", mint_token_timer_id);
+    log!(
+        INFO,
+        "started handle_mint_token task : {:?}",
+        mint_token_timer_id
+    );
     TIMER_GUARD.with_borrow_mut(|guard| {
         guard.insert(TaskType::MintToken, mint_token_timer_id);
     });
