@@ -21,7 +21,10 @@ use crate::state::Owner;
 use crate::state::TokenMint;
 use crate::state::{mutate_state, read_state, MintTokenStatus};
 use crate::types::{Chain, ChainId, Ticket};
+use ic_canister_log::export as export_logs;
 use ic_canister_log::log;
+
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_solana::logs::{ERROR, INFO};
 
 #[init]
@@ -254,6 +257,51 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
         .skip(args.start as usize)
         .take(MAX_EVENTS_PER_QUERY.min(args.length as usize))
         .collect()
+}
+
+#[query(hidden = true)]
+fn http_request(req: HttpRequest) -> HttpResponse {
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+
+    if req.path() == "/logs" {
+        use serde_json;
+        use std::str::FromStr;
+
+        let max_skip_timestamp = match req.raw_query_param("time") {
+            Some(arg) => match u64::from_str(arg) {
+                Ok(value) => value,
+                Err(_) => {
+                    return HttpResponseBuilder::bad_request()
+                        .with_body_and_content_length("failed to parse the 'time' parameter")
+                        .build()
+                }
+            },
+            None => 0,
+        };
+
+        let mut entries = vec![];
+        for entry in export_logs(&ic_solana::logs::INFO_BUF) {
+            entries.push(entry);
+        }
+        for entry in export_logs(&ic_solana::logs::DEBUG_BUF) {
+            entries.push(entry);
+        }
+        for entry in export_logs(&ic_solana::logs::ERROR_BUF) {
+            entries.push(entry);
+        }
+        for entry in export_logs(&ic_solana::logs::TRACE_HTTP_BUF) {
+            entries.push(entry);
+        }
+        entries.retain(|entry| entry.timestamp >= max_skip_timestamp);
+        HttpResponseBuilder::ok()
+            .header("Content-Type", "application/json; charset=utf-8")
+            .with_body_and_content_length(serde_json::to_string(&entries).unwrap_or_default())
+            .build()
+    } else {
+        HttpResponseBuilder::not_found().build()
+    }
 }
 
 // Enable Candid export
