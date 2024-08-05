@@ -10,7 +10,6 @@ use candid::{CandidType, Principal};
 
 use ic_stable_structures::StableBTreeMap;
 
-use crate::event::{record_event, Event};
 use crate::types::{
     Chain, ChainId, ChainState, Factor, Ticket, TicketId, ToggleState, Token, TokenId,
 };
@@ -137,19 +136,16 @@ impl SolanaRouteState {
     pub fn add_chain(&mut self, chain: Chain) {
         self.counterparties
             .insert(chain.chain_id.clone(), chain.clone());
-        record_event(&Event::AddedChain(chain));
     }
 
     pub fn add_token(&mut self, token: Token) {
         self.tokens.insert(token.token_id.clone(), token.clone());
-        record_event(&Event::AddedToken(token));
     }
 
     pub fn toggle_chain_state(&mut self, toggle: ToggleState) {
         if toggle.chain_id == self.chain_id {
             self.chain_state = toggle.action.into();
         } else if let Some(chain) = self.counterparties.get_mut(&toggle.chain_id) {
-            record_event(&Event::ToggleChainState(toggle.clone()));
             chain.chain_state = toggle.action.into();
         }
     }
@@ -159,24 +155,19 @@ impl SolanaRouteState {
     }
 
     pub fn finalize_mint_token_req(&mut self, ticket_id: String, signature: String) {
-        record_event(&Event::FinalizedMintToken {
-            ticket_id: ticket_id.clone(),
-            signature: signature.to_string(),
-        });
         self.finalized_mint_token_requests
             .insert(ticket_id, signature);
     }
 
-    pub fn finalize_gen_ticket(&mut self, ticket_id: String, request: GenerateTicketReq) {
-        record_event(&Event::FinalizedGenTicket { ticket_id, request })
-    }
+    pub fn finalize_gen_ticket(&mut self, _ticket_id: String, _request: GenerateTicketReq) {}
 
     pub fn update_fee(&mut self, fee: Factor) {
-        record_event(&Event::UpdatedFee { fee: fee.clone() });
         match fee {
             Factor::UpdateTargetChainFactor(factor) => {
-                self.target_chain_factor
-                    .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
+                self.target_chain_factor.insert(
+                    factor.target_chain_id.to_owned(),
+                    factor.target_chain_factor,
+                );
             }
 
             Factor::UpdateFeeTokenFactor(token_factor) => {

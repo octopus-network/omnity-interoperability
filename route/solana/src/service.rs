@@ -4,8 +4,6 @@ use candid::Principal;
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_solana::types::TransactionStatus;
 
-use crate::event::{Event, GetEventsArg};
-
 use crate::handler::ticket::{self, GenerateTicketError, GenerateTicketOk, GenerateTicketReq};
 use crate::handler::{self, scheduler, sol_call};
 use crate::state::TokenResp;
@@ -15,7 +13,6 @@ use crate::types::TokenId;
 
 use crate::lifecycle::{self, RouteArg, UpgradeArgs};
 
-use crate::event;
 use crate::state::AssociatedTokenAccount;
 use crate::state::Owner;
 use crate::state::TokenMint;
@@ -31,7 +28,6 @@ use ic_solana::logs::{ERROR, INFO};
 fn init(args: RouteArg) {
     match args {
         RouteArg::Init(args) => {
-            event::record_event(&Event::Init(args.clone()));
             lifecycle::init(args);
         }
         RouteArg::Upgrade(_) => {
@@ -247,16 +243,6 @@ async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, Ge
 #[update(guard = "is_admin")]
 pub async fn set_permissions(caller: Principal, perm: Permission) {
     set_perms(caller.to_string(), perm)
-}
-
-#[query]
-fn get_events(args: GetEventsArg) -> Vec<Event> {
-    const MAX_EVENTS_PER_QUERY: usize = 2000;
-
-    event::events()
-        .skip(args.start as usize)
-        .take(MAX_EVENTS_PER_QUERY.min(args.length as usize))
-        .collect()
 }
 
 #[query(hidden = true)]

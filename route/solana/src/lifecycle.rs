@@ -1,11 +1,10 @@
+use crate::types::ChainState;
 use crate::{
-    event::{record_event, Event},
     memory,
     state::{read_state, replace_state, SolanaRouteState},
 };
 use candid::{CandidType, Principal};
 use ic_stable_structures::{writer::Writer, Memory};
-use crate::types::ChainState;
 use serde::{Deserialize, Serialize};
 
 #[derive(CandidType, serde::Deserialize, Clone, Debug)]
@@ -75,8 +74,6 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
     if let Some(args) = args {
-        record_event(&Event::Upgrade(args.clone()));
-
         if let Some(chain_id) = args.chain_id {
             state.chain_id = chain_id;
         }

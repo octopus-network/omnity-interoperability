@@ -100,7 +100,7 @@ PAYER=$(dfx canister call solana_route payer '()' --candid ./assets/solana_route
 PAYER=$(echo "$PAYER" | awk -F'"' '{print $2}')
 echo "current payer: $PAYER"
 # transfer SOL to init payer
-AMOUNT=0.5
+AMOUNT=0.2
 echo "transfer SOL to $PAYER from $MASTER_KEY"
 solana transfer $PAYER $AMOUNT --with-memo init_account --allow-unfunded-recipient
 echo "$PAYER balance:$(solana balance $PAYER)"

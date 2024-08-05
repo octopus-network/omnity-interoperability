@@ -1,7 +1,7 @@
 pub mod auth;
 pub mod call_error;
 pub mod constants;
-pub mod event;
+// pub mod event;
 pub mod guard;
 pub mod handler;
 pub mod lifecycle;
