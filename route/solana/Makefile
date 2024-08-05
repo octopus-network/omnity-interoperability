@@ -9,18 +9,18 @@ help: ## Show this help
 # ----------------------------------------------------------------------------------------------------------------------
 
 .PHONY: start
-start: ## Start the canisters
+start: ## Start ic localnet
 	dfx stop
 	RUST_BACKTRACE=1 dfx start --clean --background > dfx.out 2>&1
 
 .PHONY: build
-build: start ## Build the canisters
+build: start ## Build the solana route canister
 	# dfx canister create solana_route
 	# dfx build solana_route
 	./scripts/build.sh
 
 .PHONY: deploy
-deploy: ## deploy the canisters
+deploy: ## deploy the canisters(omnity_hub,schnorr_canister,ic-solana-provider and solana_route)
 	./scripts/deploy.sh
 
 .PHONY: init
@@ -28,7 +28,7 @@ init: ## init test data
 	./scripts/init.sh
 
 .PHONY: test
-test: ## Run solana canister tests
+test: ## Run e2e test
 	./scripts/test.sh
 
 .PHONY: clean

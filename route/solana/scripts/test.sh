@@ -20,7 +20,7 @@ echo
 echo "mock: transfer from Bitcoin to Solana ..."
 echo 
 TID="28b47548-55dc-4e89-b41d-76bc0247828f"
-AMOUNT="999999999"
+AMOUNT="77777777"
 SOL_RECEIVER="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 dfx canister call omnity_hub send_ticket "(record { ticket_id = \"${TID}\"; 
         ticket_type = variant { Normal }; 
@@ -36,7 +36,7 @@ dfx canister call omnity_hub send_ticket "(record { ticket_id = \"${TID}\";
 dfx canister call omnity_hub query_tickets "(opt \"${SOL_CHAIN_ID}\",0:nat64,5:nat64)"
 echo 
 
-sleep 10
+sleep 20
 
 echo "canister call solana_route get_tickets_from_queue "
 dfx canister call solana_route get_tickets_from_queue '()' 
@@ -58,10 +58,12 @@ echo "aossicated account: $ATA"
 # first, burn token
 CUSTOMS_RECEIVER="D58qMHmDAoEaviG8s9VmGwRhcw2z1apJHt6RnPtgxdVj"
 OWNER=~/.config/solana/boern.json
-BURN_AMOUNT=888888
+BURN_AMOUNT=77777
 SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
 SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
 echo "burn signature: $SIGNAURE"
+
+sleep 10
 
 # secord,generate ticket
 dfx canister call solana_route generate_ticket "(record {
