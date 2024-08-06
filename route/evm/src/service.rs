@@ -42,8 +42,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade(block_interval_sec: u64) {
-    EvmRouteState::post_upgrade(block_interval_sec);
+fn post_upgrade() {
+    EvmRouteState::post_upgrade();
     init_log(Some(init_stable_log()));
     start_tasks();
     info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
