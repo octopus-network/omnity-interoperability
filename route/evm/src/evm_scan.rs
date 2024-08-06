@@ -1,21 +1,22 @@
 use anyhow::anyhow;
-use cketh_common::eth_rpc::Hash;
 use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig};
+use cketh_common::eth_rpc::{Hash, HttpOutcallError, RpcError};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
-use evm_rpc::candid_types::TransactionReceipt;
 use evm_rpc::{MultiRpcResult, RpcServices};
+use evm_rpc::candid_types::TransactionReceipt;
 use itertools::Itertools;
 use log::{error, info};
 
+use crate::*;
 use crate::const_args::{SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
 use crate::contract_types::{
-    AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
-    TokenMinted, TokenTransportRequested,
+    AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded,
+    TokenBurned, TokenMinted, TokenTransportRequested,
 };
+use crate::eth_common::JsonRpcResponse;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
-use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -224,10 +225,37 @@ pub async fn get_transaction_receipt(
         .await
         .map_err(|err| Error::IcCallError(err.0, err.1))?;
     match rpc_result {
-        MultiRpcResult::Consistent(result) => result.map_err(|e| {
-            error!("query transaction receipt error: {:?}", e.clone());
-            Error::EvmRpcError(format!("{:?}", e))
-        }),
+        MultiRpcResult::Consistent(result) => match result {
+            Ok(info) => {
+                return Ok(info);
+            }
+            Err(e) => {
+                if let RpcError::HttpOutcallError(ee) = e.clone() {
+                    match ee {
+                        HttpOutcallError::IcError { .. } => {}
+                        HttpOutcallError::InvalidHttpJsonRpcResponse {
+                            status,
+                            body,
+                            ..
+                        } => {
+                            if status == 200 {
+                                info!("content: {}", &body);
+                                let json_rpc: JsonRpcResponse<eth_common::TransactionReceipt> =
+                                    serde_json::from_str(&body).map_err(|e| {
+                                        Error::EvmRpcError(format!(
+                                            "local deserialize error: {}",
+                                            e.to_string()
+                                        ))
+                                    })?;
+                                return Ok(Some(json_rpc.result.into()));
+                            }
+                        }
+                    }
+                }
+                error!("query transaction receipt error: {:?}", e.clone());
+                Err(Error::EvmRpcError(format!("{:?}", e)))
+            }
+        },
         MultiRpcResult::Inconsistent(_) => {
             Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
         }

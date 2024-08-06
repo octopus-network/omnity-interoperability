@@ -262,6 +262,11 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
 }
 
 #[update(guard = "is_admin")]
+pub fn insert_pending_hash(tx_hash: String) {
+    mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
+}
+
+#[update(guard = "is_admin")]
 pub fn query_handled_event(tx_hash: String) -> Option<String> {
     read_state(|s| s.handled_evm_event.get(&tx_hash).cloned())
 }

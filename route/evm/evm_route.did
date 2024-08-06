@@ -139,6 +139,7 @@ service : (InitArgs) -> {
   get_ticket : (text) -> (opt record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
   http_request : (HttpRequest) -> (HttpResponse) query;
+  insert_pending_hash : (text) -> ();
   metrics : () -> (MetricsStatus);
   mint_token_status : (text) -> (MintTokenStatus) query;
   pubkey_and_evm_addr : () -> (text, text);
