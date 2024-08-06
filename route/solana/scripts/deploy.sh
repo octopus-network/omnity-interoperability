@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # get admin id
-ADMIN="rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"
+# ADMIN="rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"
+ADMIN=$(dfx identity get-principal)
 echo "admin id: $ADMIN"
 echo 
 
@@ -21,7 +22,14 @@ echo "Schnorr canister id: $SCHNORR_CANISTER_ID"
 echo 
 
 # Deploy the solana canister and set the schnorr canister id
-dfx deploy ic-solana-provider --argument "( record { nodesInSubnet = 28; schnorr_canister = opt \"${SCHNORR_CANISTER_ID}\" } )" --mode=reinstall -y
+SOLANA_RPC_URL="testnet"
+SCHNORR_KEY_NAME="test_key_1"
+dfx deploy ic-solana-provider --argument "( record { 
+    nodesInSubnet = 28; 
+    schnorr_canister = opt \"${SCHNORR_CANISTER_ID}\"; 
+    schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
+    rpc_url = opt \"${SOLANA_RPC_URL}\"; 
+    } )" --mode=reinstall -y
 SOL_PROVIDER_CANISTER_ID=$(dfx canister id ic-solana-provider)
 echo "solana provide canister id: $SOL_PROVIDER_CANISTER_ID"
 echo 

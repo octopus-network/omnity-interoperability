@@ -50,6 +50,7 @@ pub fn pre_upgrade() {
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UpgradeArgs {
+    pub admin: Option<Principal>,
     pub chain_id: Option<String>,
     pub hub_principal: Option<Principal>,
     pub chain_state: Option<ChainState>,
@@ -74,6 +75,9 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
     if let Some(args) = args {
+        if let Some(admin) = args.admin {
+            state.admin = admin;
+        }
         if let Some(chain_id) = args.chain_id {
             state.chain_id = chain_id;
         }

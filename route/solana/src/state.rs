@@ -3,7 +3,6 @@ use crate::{
     auth::Permission,
     constants::{FEE_TOKEN, SCHNORR_KEY_NAME},
     guard::TaskType,
-    handler::ticket::GenerateTicketReq,
     lifecycle::InitArgs,
 };
 use candid::{CandidType, Principal};
@@ -159,8 +158,6 @@ impl SolanaRouteState {
             .insert(ticket_id, signature);
     }
 
-    pub fn finalize_gen_ticket(&mut self, _ticket_id: String, _request: GenerateTicketReq) {}
-
     pub fn update_fee(&mut self, fee: Factor) {
         match fee {
             Factor::UpdateTargetChainFactor(factor) => {
@@ -176,6 +173,16 @@ impl SolanaRouteState {
                 }
             }
         }
+    }
+    pub fn get_fee(&self, chain_id: ChainId) -> Option<u128> {
+        read_state(|s| {
+            s.target_chain_factor
+                .get(&chain_id)
+                .map_or(None, |target_chain_factor| {
+                    s.fee_token_factor
+                        .map(|fee_token_factor| target_chain_factor * fee_token_factor)
+                })
+        })
     }
 }
 

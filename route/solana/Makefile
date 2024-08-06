@@ -20,11 +20,11 @@ build: start ## Build the solana route canister
 	./scripts/build.sh
 
 .PHONY: deploy
-deploy: ## deploy the canisters(omnity_hub,schnorr_canister,ic-solana-provider and solana_route)
+deploy: ## Deploy the canisters(omnity_hub,schnorr_canister,ic-solana-provider and solana_route)
 	./scripts/deploy.sh
 
 .PHONY: init
-init: ## init test data
+init: ## Init test data
 	./scripts/init.sh
 
 .PHONY: test

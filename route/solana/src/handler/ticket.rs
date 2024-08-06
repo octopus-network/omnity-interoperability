@@ -19,6 +19,7 @@ use ic_solana::rpc_client::JsonRpcResponse;
 use serde_json::from_value;
 
 pub const TICKET_LIMIT_SIZE: u64 = 20;
+pub const COUNTER_SIZE: u64 = 5;
 use ic_canister_log::log;
 use ic_solana::logs::{ERROR, INFO};
 
@@ -36,7 +37,7 @@ pub async fn query_tickets() {
                 if let Err(e) = Pubkey::try_from(ticket.receiver.as_str()) {
                     log!(
                         ERROR,
-                        "[process tickets] failed to parse ticket receiver: {}, error:{}",
+                        "[ticket::query_tickets] failed to parse ticket receiver: {}, error:{}",
                         ticket.receiver,
                         e.to_string()
                     );
@@ -46,7 +47,7 @@ pub async fn query_tickets() {
                 if let Err(e) = ticket.amount.parse::<u64>() {
                     log!(
                         ERROR,
-                        "[process tickets] failed to parse ticket amount: {}, Error:{}",
+                        "[ticket::query_tickets] failed to parse ticket amount: {}, Error:{}",
                         ticket.amount,
                         e.to_string()
                     );
@@ -62,7 +63,7 @@ pub async fn query_tickets() {
         Err(e) => {
             log!(
                 ERROR,
-                "[process tickets] failed to query tickets, err: {}",
+                "[ticket::query_tickets] failed to query tickets, err: {}",
                 e.to_string()
             );
         }
@@ -123,7 +124,8 @@ pub async fn create_associated_account() {
             }
         }
     });
-    //TODO: Control foreach size
+
+    let mut count = 0u64;
     for (owner, token_mint) in creating_atas.into_iter() {
         match get_or_create_ata(owner.to_owned(), token_mint.to_owned()).await {
             Ok(ata) => {
@@ -135,6 +137,11 @@ pub async fn create_associated_account() {
                 );
                 // save the associated_account
                 mutate_state(|s| s.associated_account.insert((owner, token_mint), ata));
+                // Control foreach size, if >= COUNTER_SIZE, then break
+                count += 1;
+                if count >= COUNTER_SIZE {
+                    break;
+                }
             }
             Err(e) => {
                 log!(
@@ -149,88 +156,83 @@ pub async fn create_associated_account() {
 }
 
 pub async fn handle_mint_token() {
-    let (from, to) = read_state(|s| (s.next_consume_ticket_seq, s.next_ticket_seq));
-    //TODO: Control foreach size
-    for seq in from..to {
-        if let Some(ticket) = read_state(|s| s.tickets_queue.get(&seq)) {
-            // first,check token mint
-            let token_mint = read_state(|s| s.token_mint_map.get(&ticket.token).cloned());
-            let token_mint = match token_mint {
-                Some(token_mint) => token_mint,
-                None => {
-                    log!(INFO,
-                        "[ticket::handle_mint_token] the token({:}) mint account is not exists, waiting for create token mint ...",
-                        ticket.token
-                    );
-                    break;
-                }
-            };
+    // take 5 tickets to mint,very time
+    let tickets = read_state(|s| {
+        s.tickets_queue
+            .iter()
+            .take(5)
+            .map(|(seq, ticket)| (seq, ticket))
+            .collect::<Vec<_>>()
+    });
 
-            // secord,check ata
-            let associated_account = read_state(|s| {
-                s.associated_account
-                    .get(&(ticket.receiver.to_owned(), token_mint.to_owned()))
-                    .cloned()
-            });
-            let associated_account = match associated_account {
-                Some(associated_account) => associated_account,
-                None => {
-                    log!(INFO,
-                        "[ticket::handle_mint_token] the associated_account based on {} and {} is not exists,waiting for create associated account ...",
-                        ticket.receiver.to_string(),token_mint.to_string()
-                    );
-                    break;
-                }
-            };
+    for (seq, ticket) in tickets.into_iter() {
+        // first,check token mint
+        let token_mint = read_state(|s| s.token_mint_map.get(&ticket.token).cloned());
+        let token_mint = match token_mint {
+            Some(token_mint) => token_mint,
+            None => {
+                log!(INFO,
+                 "[ticket::handle_mint_token] the token({:}) mint account is not exists, waiting for create token mint ...",
+                 ticket.token
+             );
+                continue;
+            }
+        };
 
-            let req = MintTokenRequest {
-                ticket_id: ticket.ticket_id.to_owned(),
-                associated_account: associated_account,
-                amount: ticket.amount.parse::<u64>().unwrap(),
-                token_mint: token_mint,
-            };
+        // secord,check ata
+        let associated_account = read_state(|s| {
+            s.associated_account
+                .get(&(ticket.receiver.to_owned(), token_mint.to_owned()))
+                .cloned()
+        });
+        let associated_account = match associated_account {
+            Some(associated_account) => associated_account,
+            None => {
+                log!(INFO,
+                 "[ticket::handle_mint_token] the associated_account based on {} and {} is not exists,waiting for create associated account ...",
+                 ticket.receiver.to_string(),token_mint.to_string()
+             );
+                continue;
+            }
+        };
 
-            match mint_token(req).await {
-                Ok(signature) => {
-                    log!(INFO,
-                        "[ticket::handle_mint_token] process successful for ticket id: {} and tx hash :{}",
-                        ticket.ticket_id,signature
-                    );
-                    mutate_state(|s| s.next_consume_ticket_seq = to);
+        let req = MintTokenRequest {
+            ticket_id: ticket.ticket_id.to_owned(),
+            associated_account: associated_account,
+            amount: ticket.amount.parse::<u64>().unwrap(),
+            token_mint: token_mint,
+        };
 
-                    //TODO: consider whether to remove or add status for handled ticket ?
-                    // if ok, remove the handled ticket from queue
-                    mutate_state(|s| s.tickets_queue.remove(&seq));
+        match mint_token(req).await {
+            Ok(signature) => {
+                log!(INFO,
+                 "[ticket::handle_mint_token] process successful for ticket id: {} and tx hash :{}",
+                 ticket.ticket_id,signature
+             );
+                // if ok, remove the handled ticket from queue
+                mutate_state(|s| s.tickets_queue.remove(&seq));
 
-                    // update txhash to hub
-                    let hub_principal = read_state(|s| s.hub_principal);
-                    if let Err(err) =
-                        update_tx_hash(hub_principal, ticket.ticket_id.to_string(), signature).await
-                    {
-                        log!(ERROR,
-                            "[tickets::handle_mint_token] failed to update tx hash after mint token:{}",
-                            err
-                        );
-                    }
-                }
-                Err(MintTokenError::TemporarilyUnavailable(e)) => {
-                    log!(ERROR,
-                        "[ticket::handle_mint_token] failed to mint token for ticket id: {}, err: {}",
-                        ticket.ticket_id,
-                        e
-                    );
-
-                    break;
-                }
-                Err(e) => {
+                // update txhash to hub
+                let hub_principal = read_state(|s| s.hub_principal);
+                if let Err(err) =
+                    update_tx_hash(hub_principal, ticket.ticket_id.to_string(), signature).await
+                {
                     log!(
                         ERROR,
-                        "[ticket::mint_to] process failure for ticket id: {}, err: {:?}",
-                        ticket.ticket_id,
-                        e
+                        "[tickets::handle_mint_token] failed to update tx hash after mint token:{}",
+                        err
                     );
-                    break;
                 }
+            }
+            Err(e) => {
+                log!(
+                    ERROR,
+                    "[ticket::handle_mint_token] failed to mint token for ticket id: {}, err: {:?}",
+                    ticket.ticket_id,
+                    e
+                );
+
+                continue;
             }
         }
     }
@@ -361,32 +363,69 @@ pub async fn generate_ticket(
                 "tx result is None".to_string(),
             ))?;
         // parse instruction
+        // TODO: check instruction size == 3(must includes: transfer,burned and memo)
         for instruction in &tx_detail.transaction.message.instructions {
             if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.to_owned()) {
-                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.clone()) {
+                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.to_owned()) {
                     log!(INFO, "Parsed instruction: {:#?}", pi);
                     if pi.instr_type.eq("transfer") {
-                        let transfer = from_value::<Transfer>(pi.info.clone()).map_err(|e| {
+                        let transfer = from_value::<Transfer>(pi.info.to_owned()).map_err(|e| {
                             GenerateTicketError::TemporarilyUnavailable(e.to_string())
                         })?;
                         log!(INFO, "Parsed transfer: {:#?}", transfer);
-                        //TODO: verify: transfer.source == req.sender
-                        //TODO: verify: transfer.destination == omnity.received.account
-                        //TODO: verify: transfer.lamports == omnity.received.amount
+                        let fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).ok_or(
+                            GenerateTicketError::TemporarilyUnavailable(format!(
+                                "No found fee for {}",
+                                req.target_chain_id
+                            )),
+                        )?;
+                        let lamports = transfer.lamports as u128;
+                        //TODO: verify: transfer.destination == omnity.solana_fee_account and transfer.lamports == omnity.solana_fee_account_received_amount
+                        if !(transfer.source.eq(&req.sender) && lamports == fee) {
+                            return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                                "Unable to verify the fee info",
+                            )));
+                        }
                     }
                     if pi.instr_type.eq("burnChecked") {
-                        let burn = from_value::<Burn>(pi.info.clone()).map_err(|e| {
+                        let burn = from_value::<Burn>(pi.info.to_owned()).map_err(|e| {
                             GenerateTicketError::TemporarilyUnavailable(e.to_string())
                         })?;
                         log!(INFO, "Parsed burn: {:#?}", burn);
-                        //TODO: verify: burn.amount == req.ammount
-                        //TODO: verify: burn.authority == req.sender
-                        //TODO: verify: burn.mint == (req.token_id related to token mint address)
+                        let burned_amount = burn
+                            .token_amount
+                            .ui_amount_string
+                            .parse::<u64>()
+                            .map_err(|e| {
+                                GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                            })?;
+                        let mint_address =
+                            read_state(|s| s.token_mint_map.get(&req.token_id).cloned()).ok_or(
+                                GenerateTicketError::TemporarilyUnavailable(format!(
+                                    "No found token mint address for {}",
+                                    req.token_id
+                                )),
+                            )?;
+                        if !(burn.authority.eq(&req.sender)
+                            && burn.mint.eq(&mint_address)
+                            && burned_amount == req.amount)
+                        {
+                            return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                                "Unable to verify the token burned info",
+                            )));
+                        }
                     }
-                } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.clone()) {
+                } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.to_owned()) {
                     log!(INFO, "Parsed memo: {:?}", memo);
-                    //TODO: verify req.receiver.eq(memo)
-                    receiver = memo;
+                    //verify memo.eq(req.receiver.)
+                    if memo.eq(&req.receiver) {
+                        receiver = memo;
+                    } else {
+                        return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                            "receiver({}) from memo not match req.receiver({})",
+                            memo, req.receiver,
+                        )));
+                    }
                 } else {
                     log!(
                         INFO,
@@ -431,9 +470,7 @@ pub async fn generate_ticket(
             Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
         }
         Ok(()) => {
-            // TODO: remove this code?
-            mutate_state(|s| s.finalize_gen_ticket(req.signature.to_string(), req.clone()));
-
+            log!(INFO, "successful to send ticket: {:?}", ticket);
             Ok(GenerateTicketOk {
                 ticket_id: req.signature.to_string(),
             })

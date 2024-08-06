@@ -140,6 +140,7 @@ type TransactionStatus = record {
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
 type UpgradeArgs = record {
+  admin : opt principal;
   hub_principal : opt principal;
   sol_canister : opt principal;
   chain_id : opt text;
@@ -148,7 +149,7 @@ type UpgradeArgs = record {
   chain_state : opt ChainState;
 };
 service : (RouteArg) -> {
-  cannel_schedule : () -> ();
+  cancel_schedule : () -> ();
   create_mint : (TokenCreateInfo) -> (Result);
   generate_ticket : (GenerateTicketReq) -> (Result_1);
   get_chain_list : () -> (vec Chain) query;

@@ -21,21 +21,25 @@ pub async fn query_directives() {
             for (_, directive) in &directives {
                 match directive {
                     Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
-                        mutate_state(|s| s.add_chain(chain.clone()));
+                        mutate_state(|s| s.add_chain(chain.to_owned()));
                     }
 
                     Directive::AddToken(token) => {
-                        mutate_state(|s| s.add_token(token.clone()));
+                        mutate_state(|s| s.add_token(token.to_owned()));
                     }
-                    //TODO: if update_token, need to update solana token metadata
-                    Directive::UpdateToken(_token) => {
-                        todo!()
+                    Directive::UpdateToken(token) => {
+                        let t = read_state(|s| s.tokens.get(&token.token_id).cloned());
+                        match t {
+                            //TODO: if update_token, need to update solana token metadata
+                            Some(_t) => todo!(),
+                            None => mutate_state(|s| s.add_token(token.to_owned())),
+                        }
                     }
                     Directive::ToggleChainState(toggle) => {
-                        mutate_state(|s| s.toggle_chain_state(toggle.clone()));
+                        mutate_state(|s| s.toggle_chain_state(toggle.to_owned()));
                     }
                     Directive::UpdateFee(fee) => {
-                        mutate_state(|s| s.update_fee(fee.clone()));
+                        mutate_state(|s| s.update_fee(fee.to_owned()));
                     }
                 }
             }

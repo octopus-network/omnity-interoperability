@@ -119,7 +119,7 @@ pub fn start_schedule() {
 }
 
 // clear the running tasks
-pub fn cannel_schedule() {
+pub fn cancel_schedule() {
     TIMER_GUARD.with_borrow_mut(|guard| {
         guard
             .iter()

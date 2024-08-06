@@ -39,7 +39,7 @@ fn init(args: RouteArg) {
 #[pre_upgrade]
 fn pre_upgrade() {
     log!(INFO, "begin to execute pre_upgrade ...");
-    scheduler::cannel_schedule();
+    scheduler::cancel_schedule();
     lifecycle::pre_upgrade();
     log!(INFO, "pre_upgrade end!");
 }
@@ -66,9 +66,9 @@ pub fn start_schedule() {
 }
 
 #[update(guard = "is_admin")]
-pub fn cannel_schedule() {
-    log!(INFO, "cannel schedule task ...");
-    scheduler::cannel_schedule();
+pub fn cancel_schedule() {
+    log!(INFO, "cancel schedule task ...");
+    scheduler::cancel_schedule();
 }
 
 #[update(guard = "is_admin")]
@@ -122,7 +122,8 @@ fn get_token_list() -> Vec<TokenResp> {
     read_state(|s| {
         s.tokens
             .iter()
-            .map(|(_, token)| token.clone().into())
+            .filter(|(token_id, _)| s.token_mint_map.contains_key(&token_id.to_string()))
+            .map(|(_, token)| token.to_owned().into())
             .collect()
     })
 }
@@ -225,14 +226,7 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
 
 #[query]
 pub fn get_redeem_fee(chain_id: ChainId) -> Option<u128> {
-    read_state(|s| {
-        s.target_chain_factor
-            .get(&chain_id)
-            .map_or(None, |target_chain_factor| {
-                s.fee_token_factor
-                    .map(|fee_token_factor| target_chain_factor * fee_token_factor)
-            })
-    })
+    read_state(|s| s.get_fee(chain_id))
 }
 
 #[update]

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 BITCOIN_CHAIN_ID="Bitcoin"
 BITCOIN_CID="be2us-64aaa-aaaaa-qaabq-cai"
 
@@ -57,9 +56,9 @@ dfx canister call omnity_hub execute_proposal "(vec {variant {
 dfx canister call omnity_hub query_directives "(opt \"${BITCOIN_CHAIN_ID}\",opt variant {AddChain},0:nat64,5:nat64)"
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
-TOKEN_NAME="HOPE•YOU•GET•RICH"
-TOKEN_SYMBOL="RICH"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•POWER"
+TOKEN_NAME="HOPE•YOU•GET•POWER"
+TOKEN_SYMBOL="POWER"
 DECIMALS=2
 ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
 dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = record { 
@@ -103,6 +102,6 @@ echo "current payer: $PAYER"
 AMOUNT=0.2
 echo "transfer SOL to $PAYER from $MASTER_KEY"
 solana transfer $PAYER $AMOUNT --with-memo init_account --allow-unfunded-recipient
-echo "$PAYER balance:$(solana balance $PAYER)"
+echo "$PAYER balance: $(solana balance $PAYER)"
 
 echo "Init done!"
