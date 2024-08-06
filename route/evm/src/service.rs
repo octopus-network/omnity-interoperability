@@ -9,25 +9,22 @@ use ic_cdk_timers::set_timer_interval;
 use log::{error, info};
 use serde_derive::Deserialize;
 
-use crate::const_args::{
-    FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL,
-    SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
-};
-use crate::eth_common::{get_balance, EvmAddress, EvmTxType};
+use crate::{Error, get_time_secs, hub};
+use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
+use crate::eth_common::{EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, EvmRouteState,
+    EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
     StateProfile,
 };
 use crate::types::{
     Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
     PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
 };
-use crate::{get_time_secs, hub, Error};
 
 #[init]
 fn init(args: InitArgs) {
@@ -209,7 +206,7 @@ fn update_rpcs(rpcs: Vec<RpcApi>) {
 
 fn is_admin() -> Result<(), String> {
     let c = ic_cdk::caller();
-    match read_state(|s| s.admins.contains(&c)) {
+    match ic_cdk::api::is_controller(&c) || read_state(|s| s.admins.contains(&c)) {
         true => Ok(()),
         false => Err("permission deny".to_string()),
     }
@@ -264,6 +261,20 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
 #[update(guard = "is_admin")]
 pub fn insert_pending_hash(tx_hash: String) {
     mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
+}
+
+#[update(guard = "is_admin")]
+pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
+    let hub_principal = read_state(|s| s.hub_principal);
+    match hub::query_tickets(hub_principal, start, BATCH_QUERY_LIMIT).await {
+        Ok(tickets) => {
+            return tickets
+        }
+        Err(err) => {
+            log::error!("[process tickets] failed to query tickets, err: {}", err);
+            return vec![];
+        }
+    }
 }
 
 #[update(guard = "is_admin")]

@@ -1,10 +1,10 @@
-use candid::utils::ArgumentEncoder;
 use candid::{CandidType, Principal};
+use candid::utils::ArgumentEncoder;
 
 use crate::call_error::{CallError, Reason};
-use crate::types::Topic;
 use crate::types::{ChainId, Directive, TicketId};
 use crate::types::{Seq, Ticket};
+use crate::types::Topic;
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
     call(hub_principal, "send_ticket".into(), (ticket,)).await
