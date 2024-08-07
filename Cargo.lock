@@ -12213,6 +12213,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "ton_route"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "candid",
+ "ciborium",
+ "futures",
+ "hex",
+ "humantime",
+ "ic-canisters-http-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
+ "ic-cdk",
+ "ic-cdk-macros",
+ "ic-cdk-timers",
+ "ic-ledger-types",
+ "ic-log 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?branch=v0.12.x-stablelog)",
+ "ic-stable-structures 0.6.3",
+ "itertools 0.12.1",
+ "k256 0.13.3",
+ "log",
+ "num-traits",
+ "omnity_types",
+ "serde",
+ "serde_bytes",
+ "serde_derive",
+ "serde_json",
+ "sha2 0.10.8",
+ "thiserror",
+ "tiny-keccak",
+]
+
+[[package]]
 name = "tonic"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
