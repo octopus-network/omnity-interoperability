@@ -72,6 +72,12 @@
       "package": "evm_route",
       "type": "custom"
     },
+    "evm_route_rsk": {
+      "candid": "route/evm/evm_route.did",
+      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
+      "package": "evm_route",
+      "type": "custom"
+    },
     "evm_route_bitlayer": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
