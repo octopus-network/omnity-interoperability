@@ -17,6 +17,7 @@ use crate::state::AssociatedTokenAccount;
 use crate::state::Owner;
 use crate::state::TokenMint;
 use crate::state::{mutate_state, read_state, MintTokenStatus};
+use crate::types::ChainState;
 use crate::types::{Chain, ChainId, Ticket};
 use ic_canister_log::export as export_logs;
 use ic_canister_log::log;
@@ -79,8 +80,15 @@ pub async fn update_schnorr_info(id: Principal, key_name: String) {
     })
 }
 
-#[update(guard = "is_admin")]
-pub async fn payer() -> Result<String, String> {
+#[update]
+pub async fn signer() -> Result<String, String> {
+    let pk = sol_call::eddsa_public_key().await?;
+    Ok(pk.to_string())
+}
+
+//TODO: maybe other account?
+#[update]
+pub async fn get_fee_account() -> Result<String, String> {
     let pk = sol_call::eddsa_public_key().await?;
     Ok(pk.to_string())
 }
@@ -112,6 +120,7 @@ fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
         s.counterparties
             .iter()
+            .filter(|(_, chain)| matches!(chain.chain_state, ChainState::Active))
             .map(|(_, chain)| chain.clone())
             .collect()
     })

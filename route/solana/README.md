@@ -62,17 +62,17 @@ echo "Solana route canister id: $SOLANA_ROUTE_CANISTER_ID"
 
 ```
 
-### Init the payer account
+### Init the signer account
 ```bash
-# get payer from solana route
-PAYER=$(dfx canister call solana_route payer '()')
-PAYER=$(echo "$PAYER" | awk -F'"' '{print $2}')
-echo "current payer: $PAYER"
-# init the payer via cli
-# Note: install solana-cli first or transfer SOL to payer from wallet app,like Phantom
+# get signer from solana route
+SIGNER=$(dfx canister call solana_route signer '()')
+SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
+echo "current signer: $SIGNER"
+# init the signer via cli
+# Note: install solana-cli first or transfer SOL to signer from wallet app,like Phantom
 AMOUNT=2
-solana transfer $PAYER $AMOUNT --with-memo init_account --allow-unfunded-recipient
-echo "$PAYER balance: $(solana balance $PAYER)"
+solana transfer $SIGNER $AMOUNT --with-memo init_account --allow-unfunded-recipient
+echo "$SIGNER balance: $(solana balance $SIGNER)"
 ```
 
 ### Start solana route schedule to query directives and tickets from hub 

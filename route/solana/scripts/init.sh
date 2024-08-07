@@ -94,14 +94,14 @@ dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",null,0:n
 solana airdrop 2
 MASTER_KEY=$(solana address)
 echo "current solana cli default address: $MASTER_KEY and balance: $(solana balance $MASTER_KEY)"
-# get payer and init it
-PAYER=$(dfx canister call solana_route payer '()' --candid ./assets/solana_route.did)
-PAYER=$(echo "$PAYER" | awk -F'"' '{print $2}')
-echo "current payer: $PAYER"
-# transfer SOL to init payer
+# get signer and init it
+SIGNER=$(dfx canister call solana_route signer '()' --candid ./assets/solana_route.did)
+SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
+echo "current SIGNER: $SIGNER"
+# transfer SOL to init signer
 AMOUNT=0.2
-echo "transfer SOL to $PAYER from $MASTER_KEY"
-solana transfer $PAYER $AMOUNT --with-memo init_account --allow-unfunded-recipient
-echo "$PAYER balance: $(solana balance $PAYER)"
+echo "transfer SOL to $SIGNER from $MASTER_KEY"
+solana transfer $SIGNER $AMOUNT --with-memo init_account --allow-unfunded-recipient
+echo "$SIGNER balance: $(solana balance $SIGNER)"
 
 echo "Init done!"
