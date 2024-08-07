@@ -5,22 +5,70 @@ use candid::{CandidType, Nat};
 use cketh_common::eth_rpc::{Hash, RpcError};
 use cketh_common::eth_rpc_client::providers::RpcService;
 use cketh_common::eth_rpc_client::RpcConfig;
+use cketh_common::numeric::BlockNumber;
 use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
 use ethers_core::types::{Eip1559TransactionRequest, TransactionRequest, U256};
 use ethers_core::utils::keccak256;
-use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use evm_rpc::{MultiRpcResult, RpcServices};
+use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use log::{error, info};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
+use crate::{Error, state};
 use crate::const_args::{
     BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT, GET_ACCOUNT_NONCE_CYCLES,
 };
 use crate::eth_common::EvmAddressError::LengthError;
-use crate::{state, Error};
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct TransactionReceipt {
+    #[serde(rename = "blockHash")]
+    pub block_hash: String,
+    #[serde(rename = "blockNumber")]
+    pub block_number: String,
+    #[serde(rename = "gasUsed")]
+    pub gas_used: String,
+    pub status: String,
+    #[serde(rename = "transactionHash")]
+    pub transaction_hash: String,
+    #[serde(rename = "contractAddress")]
+    pub contract_address: Option<String>,
+    pub from: String,
+    pub logs: Vec<cketh_common::eth_rpc::LogEntry>,
+    #[serde(rename = "logsBloom")]
+    pub logs_bloom: String,
+    pub to: String,
+    #[serde(rename = "transactionIndex")]
+    pub transaction_index: String,
+    pub r#type: String,
+}
+
+impl Into<evm_rpc::candid_types::TransactionReceipt> for TransactionReceipt {
+    fn into(self) -> evm_rpc::candid_types::TransactionReceipt {
+        evm_rpc::candid_types::TransactionReceipt {
+            block_hash: self.block_hash,
+            block_number: BlockNumber::new(hex_to_u64(&self.block_number) as u128),
+            effective_gas_price: Default::default(),
+            gas_used: hex_to_u64(&self.gas_used).into(),
+            status: hex_to_u64(&self.status).into(),
+            transaction_hash: self.transaction_hash,
+            contract_address: self.contract_address,
+            from: self.from,
+            logs: self.logs,
+            logs_bloom: self.logs_bloom,
+            to: self.to,
+            transaction_index: hex_to_u64(&self.transaction_index).into(),
+            r#type: self.r#type,
+        }
+    }
+}
+
+pub fn hex_to_u64(hex_str: &String) -> u64 {
+    u64::from_str_radix(hex_str.strip_prefix("0x").unwrap(), 16).unwrap()
+}
 
 #[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
 pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
@@ -392,4 +440,12 @@ pub struct EvmJsonRpcRequest {
     pub params: Vec<String>,
     pub id: u64,
     pub jsonrpc: String,
+}
+
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct JsonRpcResponse<T> {
+    pub jsonrpc: String,
+    pub result: T,
+    pub id: u32,
 }
