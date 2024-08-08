@@ -30,4 +30,3 @@ dist/
 canister_ids.json
 bitcoin_customs.wasm
 **/*.svg
-*.wasm.gz
