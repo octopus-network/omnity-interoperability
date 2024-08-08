@@ -217,7 +217,8 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
             },
             Err(r) => {
                 if let RpcError::JsonRpcError(ref jerr) = r {
-                    if jerr.code == -32603 && jerr.message == "already known" {
+                    if (jerr.code == -32603 && jerr.message == "already known")
+                        || (jerr.code == -32010 && jerr.message == "pending transaction with same hash already exists") {
                         return Ok(hex::encode([1u8; 32]));
                     }
                 }
