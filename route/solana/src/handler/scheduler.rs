@@ -2,7 +2,9 @@ use super::{directive, ticket};
 use crate::constants::CREATE_ATA_INTERVAL;
 use crate::constants::CREATE_MINT_INTERVAL;
 use crate::{
-    constants::{MINT_TOKEN_INTERVAL, QUERY_DERECTIVE_INTERVAL, QUERY_TICKET_INTERVAL},
+    constants::{
+        MINT_TOKEN_INTERVAL, QUERY_DERECTIVE_INTERVAL, QUERY_TICKET_INTERVAL, UPDATE_TOKEN_INTERVAL,
+    },
     guard::{TaskType, TimerGuard},
 };
 use ic_canister_log::log;
@@ -51,6 +53,25 @@ pub fn start_schedule() {
     );
     TIMER_GUARD.with_borrow_mut(|guard| {
         guard.insert(TaskType::CreateMint, create_mint_timer_id);
+    });
+
+    // handle to update token metadata
+    let update_token_timer_id = ic_cdk_timers::set_timer_interval(UPDATE_TOKEN_INTERVAL, || {
+        ic_cdk::spawn(async {
+            let _guard = match TimerGuard::new(TaskType::UpdateToken) {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            directive::update_token().await;
+        });
+    });
+    log!(
+        INFO,
+        "started update_token task : {:?}",
+        update_token_timer_id
+    );
+    TIMER_GUARD.with_borrow_mut(|guard| {
+        guard.insert(TaskType::UpdateToken, update_token_timer_id);
     });
 
     // query_tickets task

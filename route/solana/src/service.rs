@@ -7,7 +7,7 @@ use ic_solana::types::TransactionStatus;
 use crate::handler::ticket::{self, GenerateTicketError, GenerateTicketOk, GenerateTicketReq};
 use crate::handler::{self, scheduler, sol_call};
 use crate::state::TokenResp;
-use ic_solana::token::TokenCreateInfo;
+use ic_solana::token::TokenInfo;
 
 use crate::types::TokenId;
 
@@ -86,11 +86,9 @@ pub async fn signer() -> Result<String, String> {
     Ok(pk.to_string())
 }
 
-//TODO: maybe other account?
 #[update]
-pub async fn get_fee_account() -> Result<String, String> {
-    let pk = sol_call::eddsa_public_key().await?;
-    Ok(pk.to_string())
+pub async fn get_fee_account() -> String {
+    read_state(|s| s.fee_account.to_string())
 }
 
 #[update(guard = "is_admin")]
@@ -187,7 +185,7 @@ pub async fn handle_mint_token() {
 }
 
 #[update(guard = "is_admin")]
-pub async fn create_mint(req: TokenCreateInfo) -> Result<String, CallError> {
+pub async fn create_mint(req: TokenInfo) -> Result<String, CallError> {
     sol_call::create_mint_account(req).await
 }
 
@@ -221,6 +219,14 @@ pub async fn mint_to(
     sol_call::mint_to(aossicated_account, amount, token_mint).await
 }
 
+#[update(guard = "is_admin")]
+pub async fn update_token_metadata(
+    token_mint: String,
+    req: TokenInfo,
+) -> Result<String, CallError> {
+    sol_call::update_token_metadata(token_mint, req).await
+}
+
 #[query]
 fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     read_state(|s| {
@@ -233,6 +239,9 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     })
 }
 
+// redeem fee = gas fee + service fee
+// the service fee,there is 3 solutions
+// s2e: free; e2s: 2$; e2e: 1$
 #[query]
 pub fn get_redeem_fee(chain_id: ChainId) -> Option<u128> {
     read_state(|s| s.get_fee(chain_id))

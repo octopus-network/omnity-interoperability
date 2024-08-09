@@ -28,8 +28,8 @@ ic-canister-log = "0.2"
 ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
 ic-management-canister-types = { git = "https://github.com/dfinity/ic", package = "ic-management-canister-types" }
-ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "boern/dev", package = "ic-solana" }
-# ic-solana = { path = "/home/boern/workspace/ic-solana/src/ic-solana" }
+# ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "boern/dev", package = "ic-solana" }
+ic-solana = { path = "/home/boern/workspace/ic-solana/src/ic-solana" }
 
 [patch.crates-io.curve25519-dalek]
 git = "https://github.com/solana-labs/curve25519-dalek.git"

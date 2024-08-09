@@ -1,7 +1,7 @@
 use crate::types::{ChainId, Directive, Error, Seq, Topic};
 use candid::Principal;
 
-use crate::handler::sol_call::create_mint_account;
+use crate::handler::sol_call::{create_mint_account, update_token_metadata};
 
 use crate::{
     call_error::{CallError, Reason},
@@ -9,7 +9,7 @@ use crate::{
 };
 use ic_canister_log::log;
 use ic_solana::logs::{ERROR, INFO};
-use ic_solana::token::TokenCreateInfo;
+use ic_solana::token::TokenInfo;
 
 pub const DIRECTIVE_LIMIT_SIZE: u64 = 20;
 
@@ -27,12 +27,24 @@ pub async fn query_directives() {
                     Directive::AddToken(token) => {
                         mutate_state(|s| s.add_token(token.to_owned()));
                     }
-                    Directive::UpdateToken(token) => {
-                        let t = read_state(|s| s.tokens.get(&token.token_id).cloned());
+                    Directive::UpdateToken(update_token) => {
+                        let t = read_state(|s| s.tokens.get(&update_token.token_id).cloned());
                         match t {
-                            //TODO: if update_token, need to update solana token metadata
-                            Some(_t) => todo!(),
-                            None => mutate_state(|s| s.add_token(token.to_owned())),
+                            None => mutate_state(|s| s.add_token(update_token.to_owned())),
+                            //if update_token, need to update solana token metadata
+                            Some(current_token) => {
+                                log!(
+                                    INFO,
+                                    "[Directive::UpdateToken] need to update token metadata for :{:?} ",
+                                    current_token,
+                                );
+                                mutate_state(|s| {
+                                    s.update_token_queue.insert(
+                                        update_token.token_id.to_string(),
+                                        update_token.to_owned(),
+                                    )
+                                });
+                            }
                         }
                     }
                     Directive::ToggleChainState(toggle) => {
@@ -97,14 +109,14 @@ pub async fn create_token_mint() {
     });
 
     for token in creating_token_mint.into_iter() {
-        let token_create_info = TokenCreateInfo {
+        let token_reate_info = TokenInfo {
             name: token.name,
             symbol: token.symbol,
             decimals: token.decimals,
             uri: token.icon.unwrap_or_default(),
         };
 
-        match create_mint_account(token_create_info).await {
+        match create_mint_account(token_reate_info).await {
             Ok(token_mint) => {
                 log!(
                     INFO,
@@ -121,7 +133,7 @@ pub async fn create_token_mint() {
             Err(e) => {
                 log!(
                     ERROR,
-                    "[directive::create_token_mint]  create token mint error: {:?}  ",
+                    "[directive::create_token_mint] create token mint error: {:?}  ",
                     e
                 );
                 continue;
@@ -130,4 +142,57 @@ pub async fn create_token_mint() {
     }
 }
 
-// # TODO: update token_medadata()
+pub async fn update_token() {
+    let update_tokens = read_state(|s| {
+        s.update_token_queue
+            .iter()
+            .take(5)
+            .map(|(token_id, token)| (token_id.to_owned(), token.to_owned()))
+            .collect::<Vec<_>>()
+    });
+
+    for (token_id, token) in update_tokens.into_iter() {
+        let token_mint = read_state(|s| s.token_mint_map.get(&token_id).cloned());
+        if let Some(token_mint) = token_mint {
+            let token_update_info = TokenInfo {
+                name: token.name.to_owned(),
+                symbol: token.symbol.to_owned(),
+                decimals: token.decimals,
+                uri: token.icon.to_owned().unwrap_or_default(),
+            };
+
+            match update_token_metadata(token_mint, token_update_info).await {
+                Ok(signature) => {
+                    log!(
+                    INFO,
+                    "[directive::update_token] {:?} update token metadata on solana sucessfully ! \n{:?} ",
+                    token.token_id.to_string(),
+                    signature
+                );
+
+                    mutate_state(|s| {
+                        // update the token info
+                        s.add_token(token.to_owned());
+                        // remove the updated token from queue
+                        s.update_token_queue.remove(&token_id)
+                    });
+                }
+                Err(e) => {
+                    log!(
+                        ERROR,
+                        "[directive::update_token] update token metadata error: {:?}  ",
+                        e
+                    );
+                    continue;
+                }
+            }
+        } else {
+            log!(
+                ERROR,
+                "[directive::update_token] not found token mint : {:?}",
+                token.token_id
+            );
+            continue;
+        }
+    }
+}

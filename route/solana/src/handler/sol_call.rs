@@ -7,7 +7,7 @@ use crate::{call_error::CallError, state::read_state};
 use ic_canister_log::log;
 use ic_solana::logs::{DEBUG, INFO};
 use ic_solana::rpc_client::RpcResult;
-use ic_solana::token::{SolanaClient, TokenCreateInfo};
+use ic_solana::token::{SolanaClient, TokenInfo};
 use ic_solana::types::{Pubkey, TransactionStatus};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
@@ -47,7 +47,7 @@ pub async fn solana_client() -> SolanaClient {
 }
 
 // create mint token account with token metadata
-pub async fn create_mint_account(req: TokenCreateInfo) -> Result<String, CallError> {
+pub async fn create_mint_account(req: TokenInfo) -> Result<String, CallError> {
     let sol_client = solana_client().await;
 
     let token_pub_key = sol_client
@@ -116,6 +116,31 @@ pub async fn mint_to(
         signature
     );
     Ok(signature)
+}
+
+// create mint token account with token metadata
+pub async fn update_token_metadata(
+    token_mint: String,
+    req: TokenInfo,
+) -> Result<String, CallError> {
+    let sol_client = solana_client().await;
+    let token_mint = Pubkey::from_str(&token_mint).expect("Invalid token mint address");
+
+    let signature = sol_client
+        .update_metadata(token_mint, req)
+        .await
+        .map_err(|e| CallError {
+            method: "[sol_call::update_token_metadata] update_token_metadata".to_string(),
+            reason: Reason::CanisterError(e.to_string()),
+        })?;
+
+    log!(
+        INFO,
+        "[sol_call::update_token_metadata] signature: {:?}",
+        signature
+    );
+
+    Ok(signature.to_string())
 }
 
 // query solana tx signature status
@@ -286,6 +311,7 @@ pub struct TokenAmount {
 #[cfg(test)]
 mod test {
     use super::*;
+    use candid::Principal;
     use ic_solana::rpc_client::JsonRpcResponse;
     use serde_json::from_value;
 
@@ -765,5 +791,11 @@ mod test {
                 println!("Unknown Parsed Value: {:#?}", instruction.parsed);
             }
         }
+    }
+
+    #[test]
+    fn test_management_canister() {
+        let principal = Principal::management_canister();
+        println!("The management principal value is: {}", principal)
     }
 }

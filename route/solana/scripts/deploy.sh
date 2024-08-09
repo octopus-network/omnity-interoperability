@@ -35,15 +35,17 @@ echo "solana provide canister id: $SOL_PROVIDER_CANISTER_ID"
 echo 
 
 CHAIN_ID="Solana"
+FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 # Deploy solana_route
 dfx deploy solana_route --argument "(variant { Init = record { \
     admin = principal \"${ADMIN}\";\
     chain_id=\"${CHAIN_ID}\";\
     hub_principal= principal \"${HUB_CANISTER_ID}\";\
     chain_state= variant { Active }; \
-    schnorr_canister = principal \"${SCHNORR_CANISTER_ID}\";\
+    schnorr_canister = opt principal \"${SCHNORR_CANISTER_ID}\";\
     schnorr_key_name = null; \
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
+    fee_account= opt \"${FEE_ACCOUNT}\"; 
 } })" \
 --mode=reinstall -y
 

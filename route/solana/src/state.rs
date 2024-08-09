@@ -1,7 +1,7 @@
 use crate::memory::Memory;
 use crate::{
     auth::Permission,
-    constants::{FEE_TOKEN, SCHNORR_KEY_NAME},
+    constants::{FEE_ACCOUNT, FEE_TOKEN, SCHNORR_KEY_NAME},
     guard::TaskType,
     lifecycle::InitArgs,
 };
@@ -69,6 +69,7 @@ pub struct SolanaRouteState {
     pub counterparties: BTreeMap<ChainId, Chain>,
 
     pub tokens: BTreeMap<TokenId, Token>,
+    pub update_token_queue: BTreeMap<TokenId, Token>,
 
     pub token_mint_map: BTreeMap<TokenId, TokenMint>,
 
@@ -88,6 +89,7 @@ pub struct SolanaRouteState {
     pub schnorr_key_name: String,
 
     pub sol_canister: Principal,
+    pub fee_account: String,
 
     // Locks preventing concurrent execution timer tasks
     pub active_tasks: HashSet<TaskType>,
@@ -110,12 +112,15 @@ impl From<InitArgs> for SolanaRouteState {
             next_directive_seq: 0,
             counterparties: Default::default(),
             tokens: Default::default(),
+            update_token_queue: Default::default(),
             finalized_mint_token_requests: Default::default(),
             fee_token_factor: None,
             target_chain_factor: Default::default(),
             chain_state: args.chain_state,
             failed_tickets: Default::default(),
-            schnorr_canister: args.schnorr_canister,
+            schnorr_canister: args
+                .schnorr_canister
+                .unwrap_or(Principal::management_canister()),
             schnorr_key_name: args
                 .schnorr_key_name
                 .unwrap_or(SCHNORR_KEY_NAME.to_string()),
@@ -125,6 +130,7 @@ impl From<InitArgs> for SolanaRouteState {
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
             associated_account: Default::default(),
+            fee_account: args.fee_account.unwrap_or(FEE_ACCOUNT.to_string()),
         }
     }
 }
@@ -190,10 +196,6 @@ impl SolanaRouteState {
 pub fn management_canister() -> CanisterId {
     read_state(|s| s.schnorr_canister)
 }
-
-// pub fn finalize_gen_ticket(ticket_id: String, request: GenerateTicketReq) {
-//     record_event(&Event::FinalizedGenTicket { ticket_id, request })
-// }
 
 pub fn take_state<F, R>(f: F) -> R
 where
