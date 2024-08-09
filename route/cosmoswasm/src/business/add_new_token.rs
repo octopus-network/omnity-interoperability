@@ -21,20 +21,26 @@ pub async fn add_new_token(token: Token) -> Result<HttpResponse> {
         },
     };
 
-    let url = state::read_state(|state| state.cw_url.clone());
-    let chain_id: tendermint::chain::Id = state::read_state(|state| state.chain_id.clone())
-        .parse()
-        .unwrap();
-    let client = CosmosWasmClient::new(url, chain_id);
+    let rpc_url = state::read_state(|state| state.cw_rpc_url.clone());
+    let rest_url = state::read_state(|state| state.cw_rest_url.clone());
+    let chain_id = state::read_state(|state| state.chain_id.clone());
+    let client = CosmosWasmClient::new(rpc_url, rest_url, chain_id);
     let contract_id = get_contract_id();
 
     let schnorr_public_key = cw_schnorr_public_key().await?;
+    log::info!("schnorr_public_key: {:?}", schnorr_public_key);
     let tendermint_public_key = tendermint::public_key::PublicKey::from_raw_secp256k1(
         schnorr_public_key.public_key.as_slice(),
     )
     .unwrap();
+
+    log::info!("tendermint_public_key: {:?}", tendermint_public_key);
     let sender_public_key = cosmrs::crypto::PublicKey::from(tendermint_public_key);
     let sender_account_id = sender_public_key.account_id(ACCOUNT_PREFIX).unwrap();
+
+    log::info!("sender_public_key: {:?}", sender_public_key);
+
+    log::info!("sender_account_id: {:?}", sender_account_id);
 
     client
         .execute_msg(

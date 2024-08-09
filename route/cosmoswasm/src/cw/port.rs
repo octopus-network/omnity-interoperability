@@ -1,3 +1,4 @@
+use cosmwasm_schema::cw_serde;
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
@@ -6,7 +7,7 @@ use crate::{
     state,
 };
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[cw_serde]
 pub enum ExecuteMsg {
     ExecDirective {
         seq: u64,
@@ -25,7 +26,7 @@ pub enum ExecuteMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[cw_serde]
 pub enum Directive {
     AddToken {
         settlement_chain: String,

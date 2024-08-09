@@ -38,10 +38,10 @@ async fn process_directives() {
                         }
                     }
                     Directive::ToggleChainState(toggle) => {
-                        mutate_state(|s| toggle_chain_state(toggle.clone()));
+                        // mutate_state(|s| toggle_chain_state(toggle.clone()));
                     }
                     Directive::UpdateFee(fee) => {
-                        mutate_state(|s| update_fee(s, fee.clone()));
+                        // mutate_state(|s| update_fee(s, fee.clone()));
                         log::info!("[process_directives] success to update fee, fee: {}", fee);
                     }
                 }

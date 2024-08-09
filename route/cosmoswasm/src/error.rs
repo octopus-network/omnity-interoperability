@@ -1,4 +1,4 @@
-use candid::{CandidType, Principal};
+use candid::{CandidType, Nat, Principal};
 use ic_cdk::api::call::RejectionCode;
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,8 @@ pub enum RouteError {
     CallError(String, Principal, String, String),
     #[error("Http out call failed, code: {0:?}, message: {1}")]
     HttpOutCallError(String, String),
+    #[error("Http status code: {0:?}, url: {1}, body: {2}")]
+    HttpStatusError(Nat, String, String),
     #[error("{0}")]
     CustomError(String),
 }

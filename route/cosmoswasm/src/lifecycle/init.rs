@@ -14,7 +14,8 @@ pub struct InitArgs {
     pub schnorr_canister_principal: Principal,
     pub cosmoswasm_port_contract_address: String,
     pub chain_id: String,
-    pub cw_url: String,
+    pub cw_rpc_url: String,
+    pub cw_rest_url: String,
     pub hub_principal: Principal,
 }
 

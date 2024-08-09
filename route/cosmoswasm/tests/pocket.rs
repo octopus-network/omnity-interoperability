@@ -123,7 +123,7 @@ impl Setup {
             cosmoswasm_port_contract_address: "osmo1cyyzpxplxdzkeea7kwsydadg87357qnahakaks"
                 .to_string(),
             chain_id: "localosmosis".to_string(),
-            cw_url: "http://localhost:26657".to_string(),
+            cw_rpc_url: "http://localhost:26657".to_string(),
         };
         pic.install_canister(
             cosmoswasm_route_principal.into(),

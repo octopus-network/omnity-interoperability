@@ -1,20 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format};
 
 use candid::Principal;
 use cosmoswasm_route::{
-    business::add_new_token::add_new_token,
-    cw::client::CosmosWasmClient,
-    lifecycle::{self, init::InitArgs},
-    schnorr::cw_schnorr_public_key,
-    state::{self},
+    business::add_new_token::add_new_token, cw::client::CosmosWasmClient, lifecycle::{self, init::InitArgs}, memory::init_stable_log, schnorr::cw_schnorr_public_key, state::{self}, take_state, utils::bytes_to_base64
 };
 use cosmrs::tendermint;
 use ic_cdk::{
     api::{
         call::{CallResult, RejectionCode},
         management_canister::http_request::HttpResponse,
-    },
-    init, update,
+    }, init, post_upgrade, pre_upgrade, update
 };
 use omnity_types::{log::init_log, Token};
 
@@ -22,7 +17,25 @@ use omnity_types::{log::init_log, Token};
 pub fn init(args: InitArgs) {
     lifecycle::init::init(args);
 
-    // init_log(Some(init_stable_log()));
+    init_log(Some(init_stable_log()));
+}
+
+#[update]
+pub fn test_public_key(v: String) {
+
+    let public_key_bytes = v.split(",").map(|s| s.parse::<u8>().unwrap()).collect::<Vec<u8>>();
+    log::info!("public_key_base64: {:?}", bytes_to_base64(&public_key_bytes));
+    // dbg!(&bytes_to_base64(&public_key_bytes));
+    let tendermint_public_key = tendermint::public_key::PublicKey::from_raw_secp256k1(
+        public_key_bytes.as_slice(),
+    )
+    .unwrap();
+    log::info!("tendermint_public_key: {:?}", tendermint_public_key);
+
+    log::info!("tendermint_public_key_hex: {:?}", tendermint_public_key.to_hex());
+
+    let sender_public_key_from_tendermint = cosmrs::crypto::PublicKey::from(tendermint_public_key);
+    log::info!("sender_public_key_from_tendermint: {:?}", sender_public_key_from_tendermint);
 }
 
 fn check_anonymous_caller() {
@@ -31,8 +44,8 @@ fn check_anonymous_caller() {
     }
 }
 
-#[update]
-async fn generate_ticket(tx_hash: String) -> Result {}
+// #[update]
+// async fn generate_ticket(tx_hash: String) -> Result {}
 
 // #[update]
 // pub async fn test_cosmos_tx() {
@@ -66,7 +79,7 @@ pub async fn cosmos_address() -> Result<String, String> {
 }
 
 #[update]
-pub async fn test_add_token() -> Result<HttpResponse, String> {
+pub async fn test_add_token() -> Result<String, String> {
     add_new_token(Token {
         token_id: "token_id".to_string(),
         name: "name".to_string(),
@@ -77,7 +90,24 @@ pub async fn test_add_token() -> Result<HttpResponse, String> {
     })
     .await
     .map_err(|e| serde_json::to_string(&e).unwrap())
+    .map(|e| format!("{:?}", e))
 }
+
+#[pre_upgrade]
+fn pre_upgrade() {
+    take_state(|state| ic_cdk::storage::stable_save((state,)).expect("failed to save state"))
+}
+
+#[post_upgrade]
+fn post_upgrade() {
+    
+    lifecycle::upgrade::post_upgrade();
+
+    init_log(Some(init_stable_log()));
+
+}
+
+
 
 fn main() {}
 
