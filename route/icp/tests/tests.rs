@@ -602,7 +602,7 @@ fn test_mint_big_decimal_token_to_account() {
     add_chain(&route);
     add_token(&route, SYMBOL1.into(), TOKEN_ID1.into(),  Some(18));
 
-    let amount = "1_000_000_000_000_000_000";
+    let amount = "1000000000000000000";
     let receiver =
         Principal::from_str("hsefg-sb4rm-qb5o2-vzqqa-ugrfq-tpdli-tazi3-3lmja-ur77u-tfncz-jqe")
             .unwrap();
