@@ -1,7 +1,8 @@
 use candid::{Nat, Principal};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_cdk::api::call::CallResult;
 use ic_cdk::api::management_canister::main::{
-    canister_info, update_settings, CanisterInfoRequest, CanisterSettings, UpdateSettingsArgument,
+    canister_info, install_code, stop_canister, uninstall_code, update_settings, CanisterInfoRequest, CanisterSettings, UpdateSettingsArgument
 };
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
@@ -116,6 +117,31 @@ pub async fn update_icrc_ledger(
         return Err("ledger id not found!".into());
     }
     upgrade_icrc2_ledger(ledger_id, upgrade_args).await
+}
+
+#[update(guard = "is_controller")]
+pub async fn tmp_reinstall_token_ledger()->CallResult<()> {
+    use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
+
+    let principal = Principal::from_text("ic2be-wqaaa-aaaar-qahgq-cai").unwrap();
+
+    let args = CanisterIdRecord {
+        canister_id: principal.into(),
+    };
+    stop_canister(args.clone()).await?;
+
+    uninstall_code(args.clone()).await?;
+
+    crate::updates::add_new_token::install_icrc_ledger_without_create_canister(
+        "NON•STOP•NYAN•CAT".to_string(),
+        "CAT.OT".to_string(),
+        18,
+        Some("https://www.okx.com/cdn/web3/currency/token/0-btc_runesMain_840000:344-98.png/type=default_350_0".to_string()),
+        args
+    ).await?;
+
+    Ok(())
+
 }
 
 #[update(guard = "is_controller")]

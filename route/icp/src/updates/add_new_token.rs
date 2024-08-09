@@ -2,6 +2,7 @@ use crate::state::{audit, mutate_state, read_state};
 use crate::{BLOCK_HOLE_ADDRESS, FEE_COLLECTOR_SUB_ACCOUNT, ICRC2_WASM};
 use candid::{CandidType, Deserialize};
 use candid::{Encode, Principal};
+use ic_cdk::api::call::CallResult;
 use ic_cdk::api::management_canister::main::{
     create_canister, install_code, CanisterIdRecord, CanisterInstallMode, CanisterSettings,
     CreateCanisterArgument, InstallCodeArgument,
@@ -39,6 +40,48 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
     mutate_state(|s| {
         audit::add_token(s, token, record.canister_id);
     });
+    Ok(())
+}
+
+pub async fn install_icrc_ledger_without_create_canister(
+    token_name: String,
+    token_symbol: String,
+    token_decimal: u8,
+    token_icon: Option<String>, 
+    canister_id_record: CanisterIdRecord,
+)-> CallResult<()> {
+    let owner: Principal = ic_cdk::id();
+    let install_code_arg = InstallCodeArgument {
+        mode: CanisterInstallMode::Install,
+        canister_id: canister_id_record.canister_id.clone(),
+        wasm_module: ICRC2_WASM.to_vec(),
+        arg: Encode!(&LedgerArgument::Init(
+            LedgerInitArgsBuilder::with_symbol_and_name(token_symbol, token_name)
+                .with_decimals(token_decimal)
+                .with_minting_account(Into::<Account>::into(owner))
+                .with_fee_collector_account(Account {
+                    owner,
+                    subaccount: Some(FEE_COLLECTOR_SUB_ACCOUNT.clone())
+                })
+                .with_metadata_entry(
+                    "icrc1:logo",
+                    MetadataValue::Text(token_icon.unwrap_or_default())
+                )
+                .with_archive_options(ArchiveOptions {
+                    trigger_threshold: 1000,
+                    num_blocks_to_archive: 1000,
+                    node_max_memory_size_bytes: None,
+                    max_message_size_bytes: None,
+                    controller_id: owner.into(),
+                    cycles_for_archive_creation: None,
+                    max_transactions_per_response: None,
+                })
+                .build()
+        ))
+        .unwrap(),
+    };
+    install_code(install_code_arg)
+        .await?;
     Ok(())
 }
 
