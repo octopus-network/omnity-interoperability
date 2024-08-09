@@ -473,12 +473,12 @@ fn add_chain(route: &RouteSetup) {
     route.await_chain(SETTLEMENT_CHAIN.into(), 10);
 }
 
-fn add_token(route: &RouteSetup, symbol: String, token_id: String) {
+fn add_token(route: &RouteSetup, symbol: String, token_id: String, decimals: Option<u8>) {
     route.push_directives(vec![Directive::AddToken(Token {
         token_id: token_id.clone(),
         name: symbol.clone(),
         symbol,
-        decimals: 0,
+        decimals: decimals.unwrap_or(0),
         icon: None,
         metadata: HashMap::default(),
     })]);
@@ -513,7 +513,7 @@ fn test_add_chain() {
 #[test]
 fn test_add_token() {
     let route = RouteSetup::new();
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into(), None);
     let _ = route.get_token_ledger(TOKEN_ID1.into());
 }
 
@@ -545,7 +545,7 @@ fn mint_token(
 fn test_mint_token() {
     let route = RouteSetup::new();
     add_chain(&route);
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into(), None);
 
     let amount = "1000000";
     let receiver =
@@ -570,9 +570,39 @@ fn test_mint_token() {
 fn test_mint_token_to_account() {
     let route = RouteSetup::new();
     add_chain(&route);
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into(), None);
 
     let amount = "1000000";
+    let receiver =
+        Principal::from_str("hsefg-sb4rm-qb5o2-vzqqa-ugrfq-tpdli-tazi3-3lmja-ur77u-tfncz-jqe")
+            .unwrap();
+    let subaccount: Subaccount = [1; 32];
+    let receiver_account = Account {
+        owner: receiver,
+        subaccount: Some(subaccount.clone()),
+    };
+
+    mint_token(
+        "test_ticket".into(),
+        &route,
+        TOKEN_ID1.into(),
+        receiver_account.to_string(),
+        amount.into(),
+    );
+
+    let ledger_id = route.get_token_ledger(TOKEN_ID1.into());
+
+    let balance = route.icrc1_balance_of(ledger_id, receiver, Some(subaccount));
+    assert_eq!(balance, Nat::from_str(amount).unwrap());
+}
+
+#[test]
+fn test_mint_big_decimal_token_to_account() {
+    let route = RouteSetup::new();
+    add_chain(&route);
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into(),  Some(18));
+
+    let amount = "1_000_000_000_000_000_000";
     let receiver =
         Principal::from_str("hsefg-sb4rm-qb5o2-vzqqa-ugrfq-tpdli-tazi3-3lmja-ur77u-tfncz-jqe")
             .unwrap();
@@ -600,7 +630,7 @@ fn test_mint_token_to_account() {
 fn test_generate_ticket() {
     let route = RouteSetup::new();
     add_chain(&route);
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into(), None);
     set_fee(&route);
 
     let amount = "1000000";
@@ -638,7 +668,7 @@ fn test_generate_ticket() {
 fn test_mint_multi_tokens() {
     let route = RouteSetup::new();
     add_chain(&route);
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into(), None);
 
     let amount = "1000000";
     mint_token(
@@ -653,7 +683,7 @@ fn test_mint_multi_tokens() {
     let balance = route.icrc1_balance_of(ledger_id1, route.caller.into(), None);
     assert_eq!(balance, Nat::from_str("1000000").unwrap());
 
-    add_token(&route, SYMBOL2.into(), TOKEN_ID2.into());
+    add_token(&route, SYMBOL2.into(), TOKEN_ID2.into(), None);
     mint_token(
         "test_ticket_id2".into(),
         &route,
@@ -671,7 +701,7 @@ fn test_mint_multi_tokens() {
 pub fn test_transfer_fee() {
     let route = RouteSetup::new();
     add_chain(&route);
-    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into());
+    add_token(&route, SYMBOL1.into(), TOKEN_ID1.into(), None);
     let _token_canister_id = route.get_token_ledger(TOKEN_ID1.into());
 
     let amount = "1000100";
