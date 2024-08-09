@@ -2,7 +2,7 @@ use candid::{Nat, Principal};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::call::CallResult;
 use ic_cdk::api::management_canister::main::{
-    canister_info, install_code, stop_canister, uninstall_code, update_settings, CanisterInfoRequest, CanisterSettings, UpdateSettingsArgument
+    canister_info, start_canister, stop_canister, uninstall_code, update_settings, CanisterInfoRequest, CanisterSettings, UpdateSettingsArgument
 };
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
@@ -121,7 +121,7 @@ pub async fn update_icrc_ledger(
 
 #[update(guard = "is_controller")]
 pub async fn tmp_reinstall_token_ledger()->CallResult<()> {
-    use ic_cdk::api::management_canister::main::{CanisterIdRecord, CanisterStatusResponse};
+    use ic_cdk::api::management_canister::main::{CanisterIdRecord};
 
     let principal = Principal::from_text("ic2be-wqaaa-aaaar-qahgq-cai").unwrap();
 
@@ -142,6 +142,17 @@ pub async fn tmp_reinstall_token_ledger()->CallResult<()> {
 
     Ok(())
 
+}
+
+#[update(guard = "is_controller")]
+pub async fn start_token_ledger()->CallResult<()> {
+    use ic_cdk::api::management_canister::main::{CanisterIdRecord};
+
+    let principal = Principal::from_text("ic2be-wqaaa-aaaar-qahgq-cai").unwrap();
+    let args = CanisterIdRecord {
+        canister_id: principal.into(),
+    };
+    start_canister(args).await
 }
 
 #[update(guard = "is_controller")]
