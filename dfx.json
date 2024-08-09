@@ -1,5 +1,5 @@
 {
-  "dfx": "0.17.0",
+  "dfx": "0.22.0",
   "canisters": {
     "icrc1_ledger_canister": {
       "type": "custom",
@@ -22,25 +22,46 @@
       "package": "bitcoin_customs",
       "type": "custom",
       "wasm": "bitcoin_customs.wasm",
-      "build": "./build_script.sh"
+      "build": "./build_script.sh",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "icp_customs": {
       "gzip": true,
       "candid": "customs/icp/icp_customs.did",
       "package": "icp_customs",
-      "type": "rust"
+      "type": "rust",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "omnity_hub": {
       "gzip": true,
       "candid": "hub/omnity_hub.did",
       "package": "omnity_hub",
-      "type": "rust"
+      "type": "rust",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "icp_route": {
       "gzip": true,
       "candid": "route/icp/icp_route.did",
+      "wasm": "target/wasm32-unknown-unknown/release/icp_route.wasm",
       "package": "icp_route",
-      "type": "rust"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "hub_mock": {
       "gzip": true,
@@ -64,49 +85,89 @@
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
       "package": "evm_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "evm_route_bitfinity": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
       "package": "evm_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
-    "evm_route_rsk": {
+    "evm_route_rootstock": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
       "package": "evm_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "evm_route_bitlayer": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
       "package": "evm_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "evm_route_xlayer": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
       "package": "evm_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "evm_route_bsquared": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
       "package": "evm_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "evm_route_merlin": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
       "package": "evm_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "evm_route_bob": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
       "package": "evm_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "evm_rpc": {
       "type": "custom",
@@ -118,11 +179,16 @@
         }
       }
     },
-    "rune_oracle": {
+    "runes_oracle": {
       "gzip": true,
       "candid": "customs/oracle_canister/oracle.did",
       "package": "rune_oracle_canister",
-      "type": "rust"
+      "type": "rust",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     }
   },
   "defaults": {
