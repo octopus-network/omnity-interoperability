@@ -227,6 +227,11 @@ pub async fn update_token_metadata(
     sol_call::update_token_metadata(token_mint, req).await
 }
 
+#[update(guard = "is_admin")]
+pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, CallError> {
+    sol_call::transfer_to(to_account, amount).await
+}
+
 #[query]
 fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     read_state(|s| {

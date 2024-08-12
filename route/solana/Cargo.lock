@@ -710,7 +710,7 @@ dependencies = [
 [[package]]
 name = "ic-base-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "byte-unit",
  "bytes",
@@ -737,7 +737,7 @@ dependencies = [
 [[package]]
 name = "ic-btc-replica-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "candid",
  "ic-btc-interface",
@@ -837,7 +837,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-ed25519"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "curve25519-dalek 4.1.3",
  "ed25519-dalek",
@@ -851,7 +851,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-sha2"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "sha2",
 ]
@@ -859,7 +859,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-sha2"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "ic-crypto-internal-sha2",
 ]
@@ -867,7 +867,7 @@ dependencies = [
 [[package]]
 name = "ic-error-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "ic-protobuf",
  "ic-utils",
@@ -879,7 +879,7 @@ dependencies = [
 [[package]]
 name = "ic-management-canister-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "candid",
  "ic-base-types",
@@ -899,7 +899,7 @@ dependencies = [
 [[package]]
 name = "ic-protobuf"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "bincode",
  "candid",
@@ -913,7 +913,7 @@ dependencies = [
 [[package]]
 name = "ic-solana"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/ic-solana/?branch=boern/dev#60d368b69024200363bf762c0584e7cf39826786"
+source = "git+https://github.com/octopus-network/ic-solana/?branch=boern/dev#79be2ab6d2cad9af58149f6fc5224f734166bc51"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -954,7 +954,7 @@ dependencies = [
 [[package]]
 name = "ic-utils"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "hex",
  "scoped_threadpool",
@@ -1166,7 +1166,7 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 [[package]]
 name = "phantom_newtype"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#99813d3fa9aca001044666d958b563452d286d72"
+source = "git+https://github.com/dfinity/ic#d33903cb181e86f2b20ef23decc3dd0ed446188e"
 dependencies = [
  "candid",
  "serde",

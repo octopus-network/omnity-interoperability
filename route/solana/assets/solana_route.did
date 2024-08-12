@@ -172,6 +172,7 @@ service : (RouteArg) -> {
   set_permissions : (principal, Permission) -> ();
   signer : () -> (Result_5);
   start_schedule : () -> ();
+  transfer_to : (text, nat64) -> (Result);
   update_schnorr_info : (principal, text) -> ();
   update_token_metadata : (text, TokenInfo) -> (Result);
 }

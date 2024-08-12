@@ -143,6 +143,24 @@ pub async fn update_token_metadata(
     Ok(signature.to_string())
 }
 
+// transfer from signer or payer
+pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, CallError> {
+    let sol_client = solana_client().await;
+    let token_mint = Pubkey::from_str(&to_account).expect("Invalid token mint address");
+
+    let signature = sol_client
+        .transfer_to(token_mint, amount)
+        .await
+        .map_err(|e| CallError {
+            method: "[sol_call::transfer_to] transfer_to".to_string(),
+            reason: Reason::CanisterError(e.to_string()),
+        })?;
+
+    log!(INFO, "[sol_call::transfer_to] signature: {:?}", signature);
+
+    Ok(signature.to_string())
+}
+
 // query solana tx signature status
 pub async fn get_signature_status(
     signatures: Vec<String>,
