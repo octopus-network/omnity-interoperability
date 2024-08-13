@@ -31,6 +31,8 @@ Omnity is an omni-chain interoperability protocol built by Octopus Network on th
 * B² Network (https://www.bsquared.network/)
 * X Layer (https://www.okx.com/xlayer)
 * Merlin (https://merlinchain.io/)
+* Bob (https://www.gobob.xyz/)
+* Rootstock (https://rootstock.io/)
 
 ## Social Media
 
