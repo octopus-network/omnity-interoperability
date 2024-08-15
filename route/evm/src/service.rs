@@ -200,6 +200,12 @@ fn update_admins(admins: Vec<Principal>) {
 }
 
 #[update(guard = "is_admin")]
+fn update_fee_token(fee_token: String) {
+    mutate_state(|s| s.fee_token_id = fee_token);
+}
+
+
+#[update(guard = "is_admin")]
 fn update_rpcs(rpcs: Vec<RpcApi>) {
     mutate_state(|s| s.rpc_providers = rpcs);
 }
@@ -280,6 +286,12 @@ pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
 #[update(guard = "is_admin")]
 pub fn query_handled_event(tx_hash: String) -> Option<String> {
     read_state(|s| s.handled_evm_event.get(&tx_hash).cloned())
+}
+
+#[update(guard = "is_admin")]
+pub async fn rewrite_tx_hash(ticket_id: String, tx_hash: String) {
+    let hub_principal = read_state(|s| s.hub_principal);
+    hub::update_tx_hash(hub_principal, ticket_id, tx_hash).await.unwrap();
 }
 
 #[update(guard = "is_admin")]
