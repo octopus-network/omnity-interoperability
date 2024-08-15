@@ -92,17 +92,6 @@
         }
       ]
     },
-    "evm_route_bitfinity": {
-      "candid": "route/evm/evm_route.did",
-      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
-      "package": "evm_route",
-      "type": "custom",
-      "metadata": [
-        {
-          "name": "candid:service"
-        }
-      ]
-    },
     "evm_route_rootstock": {
       "candid": "route/evm/evm_route.did",
       "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",

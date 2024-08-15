@@ -1,12 +1,17 @@
 {
-  "dfx": "0.17.0",
+  "dfx": "0.22.0",
   "canisters": {
     "evm_route": {
       "candid": "evm_route.did",
       "package": "evm_route",
       "type": "rust"
     },
-
+    "evm_route_bitfinity": {
+      "gzip": true,
+      "candid": "evm_route.did",
+      "package": "evm_route",
+      "type": "rust"
+    },
     "evm_rpc": {
       "type": "custom",
       "candid": "https://github.com/internet-computer-protocol/evm-rpc-canister/releases/latest/download/evm_rpc.did",
