@@ -35,8 +35,12 @@ pub enum Error {
     RouteNotInitialized,
     #[error("IC call error: {0:?}, {1}")]
     IcCallError(RejectionCode, String),
+    #[error("generate rpc request data error: {0}")]
+    RequestDataError(String),
     #[error(transparent)]
     Custom(#[from] anyhow::Error),
+    #[error("Temporay error")]
+    Temporary
 }
 
 pub mod const_args {
