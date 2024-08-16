@@ -222,6 +222,9 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
                         || (jerr.code == -32015 && jerr.message == "transaction pool error transaction already exists in the pool") {
                         return Ok(hex::encode([1u8; 32]));
                     }
+                    if jerr.code == -32015 && jerr.message.contains("transaction pool error invalid transaction nonce") {
+                        return Err(Error::Temporary);
+                    }
                 }
                 Err(Error::EvmRpcError(format!("{:?}", r)))
             }
