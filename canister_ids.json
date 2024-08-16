@@ -1,0 +1,12 @@
+{
+
+  "evm_route_bitlayer": {
+    "ic": "he2gn-7qaaa-aaaar-qagaq-cai"
+  },
+  "evm_route_bsquared": {
+    "ic": "gsr6g-kaaaa-aaaar-qagfq-cai"
+  },
+  "evm_route_xlayer": {
+    "ic": "gjucd-qyaaa-aaaar-qagha-cai"
+  }
+}
