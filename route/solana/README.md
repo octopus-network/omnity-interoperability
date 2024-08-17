@@ -95,7 +95,7 @@ dfx canister call solana_route start_schedule '()'
 ### Upgrade the solana route canister
 ```bash
 
-dfx deploy solana_route --argument "(variant { Init = record { \
+dfx deploy solana_route --argument "(variant { UpgradeArgs = record { \
     admin = principal \"${ADMIN}\";\
     chain_id=\"${CHAIN_ID}\";\
     hub_principal= principal \"${HUB_CANISTER_ID}\";\

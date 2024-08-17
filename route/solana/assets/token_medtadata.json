@@ -1,0 +1,12 @@
+{
+    "name": "HOPE•YOU•GET•POWER",
+    "symbol": "POWER",
+    "description": "Omnity solana route",
+    "image": "https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token.png",
+    "attributes": [
+        {
+            "trait_type": "Item",
+            "value": "Developer Portal"
+        }
+    ]
+}

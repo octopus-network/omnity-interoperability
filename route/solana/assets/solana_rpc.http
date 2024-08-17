@@ -1,12 +1,13 @@
 
-# devnet: https://api.devnet.solana.com
-# testnet: https://api.testnet.solana.com
-# mainnet: https://api.mainnet-beta.solana.com
-# localnet: http://127.0.0.1:8899
-# debug: http://34.90.18.145:8899
+@devnet = https://api.devnet.solana.com
+@testnet = https://api.testnet.solana.com
+@mainnet = https://api.mainnet-beta.solana.com
+@localnet = http://127.0.0.1:8899
+@debug = http://34.90.18.145:8899
+@alchemy = https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
 
 ### query account info
-POST https://api.testnet.solana.com
+POST {{devnet}}
 content-type: application/json
 
 {
@@ -22,7 +23,7 @@ content-type: application/json
 }
 
 ### get balance
-POST https://api.testnet.solana.com
+POST {{devnet}}
 content-type: application/json
 
 {
@@ -34,7 +35,7 @@ content-type: application/json
 }
 
 ### req airdrop
-POST https://api.testnet.solana.com
+POST {{alchemy}}
 content-type: application/json
 
   {
@@ -46,8 +47,21 @@ content-type: application/json
     ]
   }
 
-### ret tx detail
-POST https://api.testnet.solana.com
+### req airdrop
+POST {{alchemy}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0", "id": 1,
+    "method": "requestAirdrop",
+    "params": [
+      "74SqAGc8wHgkwNx2Hqiz1UdKkZL1gCCvsRRwN2tSm8Ny",
+      2000000000
+    ]
+  }
+
+### req tx detail
+POST {{devnet}}
 content-type: application/json
 
   {
@@ -57,5 +71,20 @@ content-type: application/json
     "params": [
       "4BkuCEpNBQ77VM6TYvVz6zMEeL72NMesScJZ9fk48etTbXhx6W9MSwqsjDcREysmD6GrGBxsRndL5BZWbE3NKh8z",
       "jsonParsed"
+    ]
+  }
+
+### req latest blockhash
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "id":1,
+    "jsonrpc":"2.0",
+    "method":"getLatestBlockhash",
+    "params":[
+      {
+        "commitment":"processed"
+      }
     ]
   }

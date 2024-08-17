@@ -244,9 +244,7 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     })
 }
 
-// redeem fee = gas fee + service fee
-// the service fee,there is 3 solutions
-// s2e: free; e2s: 2$; e2e: 1$
+
 #[query]
 pub fn get_redeem_fee(chain_id: ChainId) -> Option<u128> {
     read_state(|s| s.get_fee(chain_id))

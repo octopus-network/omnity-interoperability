@@ -1,3 +1,9 @@
+type HttpHeader = record { value : text; name : text };
+type HttpResponse = record {
+  status : nat;
+  body : blob;
+  headers : vec HttpHeader;
+};
 type InitArgs = record {
   rpc_url : opt text;
   schnorr_canister : opt text;
@@ -79,6 +85,7 @@ type UiTokenAmount = record {
 };
 service : (InitArgs) -> {
   get_address : () -> (text);
+  get_responses : () -> (vec record { nat64; HttpResponse }) query;
   request : (text, text, nat64) -> (Result);
   requestCost : (text, nat64) -> (nat) query;
   sol_getAccountInfo : (text) -> (Result_1);
