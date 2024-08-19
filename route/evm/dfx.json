@@ -12,6 +12,12 @@
       "package": "evm_route",
       "type": "rust"
     },
+    "evm_route_ailayer": {
+      "gzip": true,
+      "candid": "evm_route.did",
+      "package": "evm_route",
+      "type": "rust"
+    },
     "evm_rpc": {
       "type": "custom",
       "candid": "https://github.com/internet-computer-protocol/evm-rpc-canister/releases/latest/download/evm_rpc.did",

@@ -1,5 +1,8 @@
 {
+  "evm_route_ailayer": {
+    "ic": "pk76v-yyaaa-aaaar-qahxa-cai"
+  },
   "evm_route_bitfinity": {
-    "ic":"pw3ee-pyaaa-aaaar-qahva-cai"
+    "ic": "pw3ee-pyaaa-aaaar-qahva-cai"
   }
 }
