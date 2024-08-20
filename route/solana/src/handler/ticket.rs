@@ -1,11 +1,15 @@
+use std::str::FromStr;
+
 use crate::types::{ChainId, ChainState, Error, Seq, Ticket, TicketId, TicketType, TxAction};
 use candid::{CandidType, Principal};
+use ic_solana::token::associated_account::get_associated_token_address_with_program_id;
+use ic_solana::token::constants::token22_program_id;
 use ic_solana::types::Pubkey;
 use ic_stable_structures::Storable;
 
 use serde::{Deserialize, Serialize};
 
-use super::sol_call::{get_or_create_ata, mint_to};
+use super::sol_call::{create_ata, mint_to};
 use crate::handler::sol_call::solana_client;
 
 use crate::handler::sol_call::ParsedValue;
@@ -126,27 +130,78 @@ pub async fn create_associated_account() {
     });
 
     let mut count = 0u64;
+    let sol_client = solana_client().await;
     for (owner, token_mint) in creating_atas.into_iter() {
-        match get_or_create_ata(owner.to_owned(), token_mint.to_owned()).await {
-            Ok(ata) => {
-                log!(INFO,
-                    "[ticket::create_associated_account] new associated_account {:?} based on {:} and {:?} ",
-                    ata,
-                    owner,
-                    token_mint
-                );
-                // save the associated_account
-                mutate_state(|s| s.associated_account.insert((owner, token_mint), ata));
-                // Control foreach size, if >= COUNTER_SIZE, then break
-                count += 1;
-                if count >= COUNTER_SIZE {
-                    break;
+        let to_account = Pubkey::from_str(owner.as_str()).expect("Invalid to_account address");
+        let token_mint = Pubkey::from_str(token_mint.as_str()).expect("Invalid token_mint address");
+
+        let associated_account = get_associated_token_address_with_program_id(
+            &to_account,
+            &token_mint,
+            &token22_program_id(),
+        );
+        log!(
+            INFO,
+            "[ticket::create_associated_account] get_associated_token_address_with_program_id : {:?}",
+            associated_account
+        );
+
+        let ata_account_info = sol_client
+            .get_account_info(associated_account.to_string())
+            .await;
+
+        match ata_account_info {
+            Ok(account_info) => {
+                match account_info {
+                    // not exists,need to create it
+                    None => {
+                        match create_ata(owner.to_owned(), token_mint.to_string()).await {
+                            Ok(signature) => {
+                                log!(
+                                    INFO,
+                                    "[ticket::create_associated_account] create_ata result : {:?}",
+                                    signature
+                                );
+
+                                // Control foreach size, if >= COUNTER_SIZE, then break
+                                count += 1;
+                                if count >= COUNTER_SIZE {
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                log!(
+                                    ERROR,
+                                    "[ticket::create_associated_account] create_ata error: {:?}  ",
+                                    e
+                                );
+                                continue;
+                            }
+                        }
+                    }
+                    Some(info) => {
+                        log!(
+                            INFO,
+                            "[directive::create_associated_account] {:?} already created and the account info: {:?} ",
+                            associated_account.to_string(),
+                            info
+                        );
+
+                        // save the associated_account
+                        mutate_state(|s| {
+                            s.associated_account.insert(
+                                (owner, token_mint.to_string()),
+                                associated_account.to_string(),
+                            )
+                        });
+                    }
                 }
             }
+
             Err(e) => {
                 log!(
                     ERROR,
-                    "[ticket::create_associated_account] get_or_create_ata error: {:?}  ",
+                    "[directive::create_associated_account] get account info error: {:?}  ",
                     e
                 );
                 continue;
@@ -240,6 +295,8 @@ pub async fn handle_mint_token() {
 
 /// send tx to solana for mint token
 pub async fn mint_token(req: MintTokenRequest) -> Result<String, MintTokenError> {
+    //TODO: first find and comfirm signature status,if tx not finally, send tx req to solana
+    // if tx finallized, just modify finalized the mint req
     if read_state(|s| s.finalized_mint_token_requests.contains_key(&req.ticket_id)) {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id));
     }

@@ -5,7 +5,7 @@ use crate::call_error::Reason;
 use crate::{call_error::CallError, state::read_state};
 
 use ic_canister_log::log;
-use ic_solana::logs::{DEBUG, INFO};
+use ic_solana::logs::INFO;
 use ic_solana::rpc_client::RpcResult;
 use ic_solana::token::{SolanaClient, TokenInfo};
 use ic_solana::types::{Pubkey, TransactionStatus};
@@ -30,11 +30,11 @@ pub async fn solana_client() -> SolanaClient {
         })
         .unwrap();
 
-    log!(
-        DEBUG,
-        "[tickets::solana_client] payer pub key: {:?} ",
-        payer.to_string()
-    );
+    // log!(
+    //     DEBUG,
+    //     "[tickets::solana_client] payer pub key: {:?} ",
+    //     payer.to_string()
+    // );
 
     let derived_path = vec![ByteBuf::from(chain_id.as_bytes())];
     SolanaClient {
@@ -46,12 +46,32 @@ pub async fn solana_client() -> SolanaClient {
     }
 }
 
+// get account info
+pub async fn get_account_info(account: String) -> Result<Option<String>, CallError> {
+    let sol_client = solana_client().await;
+    let account_info = sol_client
+        .get_account_info(account.to_string())
+        .await
+        .map_err(|e| CallError {
+            method: "[sol_call::get_account_info] get_account_info".to_string(),
+            reason: Reason::CanisterError(e.to_string()),
+        })?;
+    log!(
+        INFO,
+        "[sol_call::get_account_info] account({}) info : {:?}",
+        account,
+        account_info,
+    );
+
+    Ok(account_info)
+}
+
 // create mint token account with token metadata
-pub async fn create_mint_account(req: TokenInfo) -> Result<String, CallError> {
+pub async fn create_mint_account(token_mint: Pubkey, req: TokenInfo) -> Result<String, CallError> {
     let sol_client = solana_client().await;
 
-    let token_pub_key = sol_client
-        .create_mint_with_metadata(req)
+    let signature = sol_client
+        .create_mint_with_metadata(token_mint, req)
         .await
         .map_err(|e| CallError {
             method: "[sol_call::create_mint_account] create_mint_with_metadata".to_string(),
@@ -60,27 +80,24 @@ pub async fn create_mint_account(req: TokenInfo) -> Result<String, CallError> {
 
     log!(
         INFO,
-        "[sol_call::create_mint_account] mint account : {:?}",
-        token_pub_key.to_string()
+        "[sol_call::create_mint_account] mint account signature: {:?}",
+        signature.to_string()
     );
 
-    Ok(token_pub_key.to_string())
+    Ok(signature.to_string())
 }
 
 // get or create associated account
-pub async fn get_or_create_ata(
-    to_account: String,
-    token_mint: String,
-) -> Result<String, CallError> {
+pub async fn create_ata(to_account: String, token_mint: String) -> Result<String, CallError> {
     let to_account = Pubkey::from_str(to_account.as_str()).expect("Invalid to_account address");
     let token_mint = Pubkey::from_str(token_mint.as_str()).expect("Invalid token_mint address");
 
     let sol_client = solana_client().await;
     let associated_token_account = sol_client
-        .associated_account(&to_account, &token_mint)
+        .create_associated_token_account(&to_account, &token_mint)
         .await
         .map_err(|e| CallError {
-            method: "create_mint_account".to_string(),
+            method: "create_associated_token_account".to_string(),
             reason: Reason::CanisterError(e.to_string()),
         })?;
 
@@ -167,7 +184,6 @@ pub async fn get_signature_status(
 ) -> Result<Vec<TransactionStatus>, CallError> {
     let sol_canister = read_state(|s| s.sol_canister);
 
-    // send tx(sol_create_mint_account) to solana
     let response: Result<(RpcResult<Vec<TransactionStatus>>,), _> =
         ic_cdk::call(sol_canister, "sol_getSignatureStatuses", (signatures,)).await;
     let tx_status = response
@@ -199,6 +215,23 @@ pub async fn eddsa_public_key() -> Result<Pubkey, String> {
     let pk =
         ic_solana::eddsa::eddsa_public_key(schnorr_canister, schnorr_key_name, derived_path).await;
     Pubkey::try_from(pk.as_slice()).map_err(|e| e.to_string())
+}
+
+pub async fn sign(msg: String) -> Result<String, String> {
+    let (chain_id, schnorr_key_name, schnorr_canister) = read_state(|s| {
+        (
+            s.chain_id.to_owned(),
+            s.schnorr_key_name.to_owned(),
+            s.schnorr_canister,
+        )
+    });
+    let derived_path = vec![ByteBuf::from(chain_id.as_bytes())];
+    let msg = msg.as_bytes().to_vec();
+    let signature =
+        ic_solana::eddsa::sign_with_eddsa(schnorr_canister, schnorr_key_name, derived_path, msg)
+            .await;
+    let sig = String::from_utf8_lossy(&signature).to_string();
+    Ok(sig)
 }
 
 #[derive(Serialize, Deserialize, Debug)]

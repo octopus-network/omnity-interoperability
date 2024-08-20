@@ -913,7 +913,6 @@ dependencies = [
 [[package]]
 name = "ic-solana"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/ic-solana/?branch=boern/dev#79be2ab6d2cad9af58149f6fc5224f734166bc51"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

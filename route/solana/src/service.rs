@@ -6,12 +6,12 @@ use ic_solana::types::TransactionStatus;
 
 use crate::handler::ticket::{self, GenerateTicketError, GenerateTicketOk, GenerateTicketReq};
 use crate::handler::{self, scheduler, sol_call};
-use crate::state::TokenResp;
-use ic_solana::token::TokenInfo;
-
-use crate::types::TokenId;
-
 use crate::lifecycle::{self, RouteArg, UpgradeArgs};
+use crate::service::sol_call::solana_client;
+use crate::state::TokenResp;
+use crate::types::TokenId;
+use ic_solana::token::SolanaClient;
+use ic_solana::token::TokenInfo;
 
 use crate::state::AssociatedTokenAccount;
 use crate::state::Owner;
@@ -84,6 +84,12 @@ pub async fn update_schnorr_info(id: Principal, key_name: String) {
 pub async fn signer() -> Result<String, String> {
     let pk = sol_call::eddsa_public_key().await?;
     Ok(pk.to_string())
+}
+
+#[update]
+pub async fn sign(msg: String) -> Result<String, String> {
+    let signature = sol_call::sign(msg).await?;
+    Ok(signature)
 }
 
 #[update]
@@ -180,13 +186,22 @@ async fn get_signature_status(
 }
 
 #[update(guard = "is_admin")]
-pub async fn handle_mint_token() {
-    ticket::handle_mint_token().await;
-}
-
-#[update(guard = "is_admin")]
 pub async fn create_mint(req: TokenInfo) -> Result<String, CallError> {
-    sol_call::create_mint_account(req).await
+    let sol_client = solana_client().await;
+
+    let mint_account = SolanaClient::derive_account(
+        sol_client.schnorr_canister.clone(),
+        sol_client.chainkey_name.clone(),
+        req.name.to_string(),
+    )
+    .await;
+    log!(
+        INFO,
+        "[service::create_mint] mint_account from schonnor chainkey: {:?} ",
+        mint_account.to_string(),
+    );
+    sol_call::create_mint_account(mint_account, req).await
+    //TODO: update create_mint_account result to state
 }
 
 #[query]
@@ -195,11 +210,12 @@ pub async fn query_token_mint(token_id: TokenId) -> Option<TokenMint> {
 }
 
 #[update(guard = "is_admin")]
-pub async fn get_or_create_aossicated_account(
+pub async fn create_aossicated_account(
     owner: String,
     token_mint: String,
 ) -> Result<String, CallError> {
-    sol_call::get_or_create_ata(owner, token_mint).await
+    sol_call::create_ata(owner, token_mint).await
+    //TODO: update get_or_create_aossicated_account result to state
 }
 
 #[query]
@@ -217,6 +233,7 @@ pub async fn mint_to(
     token_mint: String,
 ) -> Result<String, CallError> {
     sol_call::mint_to(aossicated_account, amount, token_mint).await
+    //TODO: update mint to result to state
 }
 
 #[update(guard = "is_admin")]
@@ -225,6 +242,7 @@ pub async fn update_token_metadata(
     req: TokenInfo,
 ) -> Result<String, CallError> {
     sol_call::update_token_metadata(token_mint, req).await
+    //TODO: update update_token_metadata result to state
 }
 
 #[update(guard = "is_admin")]
@@ -243,7 +261,6 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
         )
     })
 }
-
 
 #[query]
 pub fn get_redeem_fee(chain_id: ChainId) -> Option<u128> {

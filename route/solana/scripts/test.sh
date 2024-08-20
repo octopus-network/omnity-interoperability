@@ -2,7 +2,7 @@
 
 BITCOIN_CHAIN_ID="Bitcoin"
 SOL_CHAIN_ID="Solana"
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•POWER"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE"
 
 # start schedule 
 dfx canister call solana_route start_schedule '()' 
@@ -65,7 +65,7 @@ echo "mock: redeem from solana to customs... "
 # first, burn token
 CUSTOMS_RECEIVER="D58qMHmDAoEaviG8s9VmGwRhcw2z1apJHt6RnPtgxdVj"
 OWNER=~/.config/solana/boern.json
-BURN_AMOUNT=333333
+BURN_AMOUNT=666666
 echo spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER
 # echo $(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
 SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
@@ -89,7 +89,7 @@ dfx canister call solana_route generate_ticket "(record {
 dfx canister call omnity_hub query_tickets "(opt \"${BITCOIN_CHAIN_ID}\",0:nat64,5:nat64)"
 
 # update token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•POWER"
+# TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE"
 TOKEN_NAME="HOPE•YOU•GET•MANEKI"
 TOKEN_SYMBOL="MANEKI"
 DECIMALS=5
@@ -117,6 +117,12 @@ dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",opt vari
 sleep 30
 
 dfx canister call solana_route get_token_list '()' 
+
+
+sleep 300
+
+# cannel schedule
+dfx canister call solana_route cancel_schedule '()' 
 
 #  dfx canister call solana_route update_token_metadata '(
 #   "GfEtRbpg3jmVT62goNP4EFTKT5UHKfCYXHUCy5sx5dDa",
@@ -148,8 +154,4 @@ dfx canister call solana_route get_token_list '()'
 #dfx canister install --mode upgrade --argument '(variant { Upgrade = null })'  --upgrade-unchanged --yes solana_route
 
 
-# sleep 10
-
-# cannel schedule
-# dfx canister call solana_route cancel_schedule '()' 
 

@@ -15,7 +15,7 @@ content-type: application/json
    "id": 1,
    "method": "getAccountInfo",
    "params": [
-     "Cq1a7rXyxQWqZbu4FTmNseURU1cXKYMiwZKGe34JKD1",
+     "Br65xtMqAt6j5RCTMsrR3NSw3UGofH5k2MHCSNBk1bHV",
      {
        "encoding": "jsonParsed"
      }
@@ -42,7 +42,7 @@ content-type: application/json
     "jsonrpc": "2.0", "id": 1,
     "method": "requestAirdrop",
     "params": [
-      "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+      "74SqAGc8wHgkwNx2Hqiz1UdKkZL1gCCvsRRwN2tSm8Ny",
       2000000000
     ]
   }
@@ -69,10 +69,29 @@ content-type: application/json
     "id": 1,
     "method": "getTransaction",
     "params": [
-      "4BkuCEpNBQ77VM6TYvVz6zMEeL72NMesScJZ9fk48etTbXhx6W9MSwqsjDcREysmD6GrGBxsRndL5BZWbE3NKh8z",
+      "hCs3kjXemmMvoAP63EAgHFJ5wniQESEMD7wRubWUZefG5ZSFhyMXCnuwff9Qe3RuYJVMG7b7RS3z8MtiT5VxMQe",
       "jsonParsed"
     ]
   }
+
+### getSignatureStatuses
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getSignatureStatuses",
+    "params": [
+      [
+        "3rJZdctbGC3fWWAywBnvbj93NVMgbmoEnCghtsUKy3CqJ9HmvptUuKDSnnvy9AnAPSrGhnFG5c6gqbQDXxmNNS43"
+      ],
+      {
+        "searchTransactionHistory": true
+      }
+    ]
+  }
+
 
 ### req latest blockhash
 POST {{devnet}}
@@ -86,5 +105,34 @@ content-type: application/json
       {
         "commitment":"processed"
       }
+    ]
+  }
+
+### getSignaturesForAddress
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getSignaturesForAddress",
+    "params": [
+      "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+      {
+        "limit": 5
+      }
+    ]
+  }
+
+### sendTransaction
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "sendTransaction",
+    "params": [
+      "4hXTCkRzt9WyecNzV1XPgCDfGAZzQKNxLXgynz5QDuWWPSAZBZSHptvWRL3BjCvzUXRdKvHL2b7yGrRQcWyaqsaBCncVG7BFggS8w9snUts67BSh3EqKpXLUm5UMHfD7ZBe9GhARjbNQMLJ1QD3Spr6oMTBU6EhdB4RD8CP2xUxr2u3d6fos36PD98XS6oX8TQjLpsMwncs5DAMiD4nNnR8NBfyghGCWvCVifVwvA8B8TJxE1aiyiv2L429BCWfyzAme5sZW8rDb14NeCQHhZbtNqfXhcp2tAnaAT"
     ]
   }

@@ -12,10 +12,11 @@ case "$1" in
     echo "Setting up for testnet environment..."
 
     # Testnet env
-    HUB_CANISTER_ID=xykho-eiaaa-aaaag-qjrka-cai
+    # HUB_CANISTER_ID=xykho-eiaaa-aaaag-qjrka-cai
+    HUB_CANISTER_ID=arlph-jyaaa-aaaak-ak2oa-cai
     SCHNORR_CANISTER_ID=aaaaa-aa
-    # SCHNORR_KEY_NAME="test_key_1"
-    SCHNORR_KEY_NAME="key_1"
+    SCHNORR_KEY_NAME="test_key_1"
+    # SCHNORR_KEY_NAME="key_1"
     SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
     SOL_PROVIDER_CANISTER_ID=l3ka6-4yaaa-aaaar-qahpa-cai
     SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
@@ -60,52 +61,63 @@ esac
 # disable warning
 export DFX_WARNING="-mainnet_plaintext_identity"
 
+# install or reinstall omnity hub
+# create canister for omnity hub
+# dfx canister create omnity_hub --ic
+dfx canister install $HUB_CANISTER_ID --argument "(variant { Init = record { admin = principal \"${ADMIN}\" } })" \
+  --mode=reinstall -y \
+  --wasm=./assets/omnity_hub.wasm.gz \
+  --ic
+
 # upgrade hub
 # dfx canister install $HUB_CANISTER_ID --argument '(variant { Upgrade = null })' \
 #     --mode=upgrade -y \
 #     --wasm=./assets/omnity_hub.wasm.gz \
 #     --ic 
+
 # change log level for debugging
 dfx canister call $HUB_CANISTER_ID set_logger_filter '("debug")' --ic
 dfx canister status $HUB_CANISTER_ID --ic
 echo 
 
-# echo "reinstall $SOL_PROVIDER_CANISTER_ID ..."
-# dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
-#     rpc_url = opt \"${SOLANA_RPC_URL}\"; 
-#     nodesInSubnet = opt 28; 
-#     schnorr_canister = opt \"${SCHNORR_CANISTER_ID}\"; 
-#     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
-#     } )" \
-#     --mode=reinstall -y \
-#     --wasm=./assets/ic-solana-provider.wasm.gz \
-#     --ic 
-
-echo "upgrade $SOL_PROVIDER_CANISTER_ID ..."
+echo "reinstall $SOL_PROVIDER_CANISTER_ID ..."
 dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
     rpc_url = opt \"${SOLANA_RPC_URL}\"; 
     nodesInSubnet = opt 28; 
     schnorr_canister = opt \"${SCHNORR_CANISTER_ID}\"; 
     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
     } )" \
-    --mode=upgrade -y \
+    --mode=reinstall -y \
     --wasm=./assets/ic-solana-provider.wasm.gz \
     --ic 
+
+# echo "upgrade $SOL_PROVIDER_CANISTER_ID ..."
+# dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
+#     rpc_url = opt \"${SOLANA_RPC_URL}\"; 
+#     nodesInSubnet = opt 28; 
+#     schnorr_canister = opt \"${SCHNORR_CANISTER_ID}\"; 
+#     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
+#     } )" \
+#     --mode=upgrade -y \
+#     --wasm=./assets/ic_solana_provider.wasm.gz \
+#     --ic 
 
 dfx canister status $SOL_PROVIDER_CANISTER_ID --ic
 # test get blockhash
 dfx canister call $SOL_PROVIDER_CANISTER_ID sol_latestBlockhash '()' --ic
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getAccountInfo '("3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia")' --ic
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getSignatureStatuses '(vec {"4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4"})' --ic
 echo 
 
+
+
+# solana_route canister
 SOL_CHAIN_ID="Solana"
 SOL_FEE="SOL"
 FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 
-# solana_route canister
-
-# echo "Solana route canister id: $SOLANA_ROUTE_CANISTER_ID"
-echo "upgrade $SOLANA_ROUTE_CANISTER_ID ..."
-dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Upgrade = record { \
+echo "reinstall $SOLANA_ROUTE_CANISTER_ID ..."
+dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Init = record { \
     admin = principal \"${ADMIN}\";\
     chain_id=\"${SOL_CHAIN_ID}\";\
     hub_principal= principal \"${HUB_CANISTER_ID}\";\
@@ -115,9 +127,24 @@ dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Upgrade = 
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
     fee_account= opt \"${FEE_ACCOUNT}\"; 
     } })" \
-    --mode=upgrade -y \
+    --mode=reinstall -y \
     --wasm=./assets/solana_route.wasm.gz \
     --ic 
+
+# echo "upgrade $SOLANA_ROUTE_CANISTER_ID ..."
+# dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Upgrade = record { \
+#     admin = principal \"${ADMIN}\";\
+#     chain_id=\"${SOL_CHAIN_ID}\";\
+#     hub_principal= principal \"${HUB_CANISTER_ID}\";\
+#     chain_state= variant { Active }; \
+#     schnorr_canister = opt principal \"${SCHNORR_CANISTER_ID}\";\
+#     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
+#     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
+#     fee_account= opt \"${FEE_ACCOUNT}\"; 
+#     } })" \
+#     --mode=upgrade -y \
+#     --wasm=./assets/solana_route.wasm.gz \
+#     --ic 
 
 dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
 
@@ -127,11 +154,20 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID set_permissions "(
     variant { Update }
     )" \
     --ic 
-
+# test 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_schnorr_info "(principal \"${SCHNORR_CANISTER_ID}\",\"${SCHNORR_KEY_NAME}\")" --ic 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction '("4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4")' --ic
 # update schnorr info
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID update_schnorr_info '(principal "aaaaa-aa","key_1")' --ic
 
 # sub topic
+BITCOIN_CHAIN_ID="Bitcoin"
+BITCOIN_CANISTER_ID="xykho-eiaaa-aaaag-qjrka-cai"
+dfx canister call $HUB_CANISTER_ID sub_directives "(opt \"${BITCOIN_CHAIN_ID}\",
+         vec {variant {AddChain};variant {UpdateChain};
+         variant {AddToken}; variant {UpdateToken};
+         variant {UpdateFee} ;variant {ToggleChainState} })" --ic
 dfx canister call $HUB_CANISTER_ID sub_directives "(opt \"${SOL_CHAIN_ID}\",
          vec {variant {AddChain};variant {UpdateChain};
          variant {AddToken}; variant {UpdateToken};
@@ -139,9 +175,24 @@ dfx canister call $HUB_CANISTER_ID sub_directives "(opt \"${SOL_CHAIN_ID}\",
 
 dfx canister call $HUB_CANISTER_ID query_subscribers '(null)' --ic 
 
-# add solana
-BITCOIN_CHAIN_ID="Bitcoin"
-BITCOIN_CANISTER_ID="xykho-eiaaa-aaaag-qjrka-cai"
+# add chains
+# add bitcoin
+dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
+        AddChain = record { chain_state=variant { Active }; 
+        chain_id = \"${BITCOIN_CHAIN_ID}\"; chain_type=variant { SettlementChain }; 
+        canister_id=\"${BITCOIN_CANISTER_ID}\"; 
+        contract_address=null; 
+        counterparties=opt vec {\"${SOL_CHAIN_ID}\"}; 
+        fee_token=null}}})" --ic 
+dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant { 
+        AddChain = record { chain_state=variant { Active }; 
+        chain_id = \"${BITCOIN_CHAIN_ID}\"; chain_type=variant { SettlementChain }; 
+        canister_id=\"${BITCOIN_CANISTER_ID}\"; 
+        contract_address=null; 
+        counterparties=opt vec {\"${SOL_CHAIN_ID}\"};
+        fee_token=null}}})" --ic 
+dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {AddChain},0:nat64,5:nat64)" --ic
+
 dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
         AddChain = record { chain_state=variant { Active }; 
         chain_id = \"${SOL_CHAIN_ID}\"; 
@@ -160,54 +211,55 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant {
         counterparties=opt vec {\"${BITCOIN_CHAIN_ID}\"}; 
         fee_token=opt \"${SOL_FEE}\"}}})" \
         --ic 
+dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${BITCOIN_CHAIN_ID}\",opt variant {AddChain},0:nat64,5:nat64)" --ic 
 
 # send update chain(bitcoin) to solana route
-dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
-        UpdateChain = record { chain_state=variant { Active }; 
-        chain_id = \"${BITCOIN_CHAIN_ID}\"; 
-        chain_type=variant { SettlementChain }; 
-        canister_id=\"${BITCOIN_CANISTER_ID}\"; 
-        contract_address=null; 
-        counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
-                                \"eICP\";
-                                \"bevm_testnet\";
-                                \"bitlayer_testnet\";
-                                \"B²_testnet\";
-                                \"xlayer_testnet\";
-                                }; 
-        fee_token=null}}})" \
-        --ic 
+# dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
+#         UpdateChain = record { chain_state=variant { Active }; 
+#         chain_id = \"${BITCOIN_CHAIN_ID}\"; 
+#         chain_type=variant { SettlementChain }; 
+#         canister_id=\"${BITCOIN_CANISTER_ID}\"; 
+#         contract_address=null; 
+#         counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
+#                                 \"eICP\";
+#                                 \"bevm_testnet\";
+#                                 \"bitlayer_testnet\";
+#                                 \"B²_testnet\";
+#                                 \"xlayer_testnet\";
+#                                 }; 
+#         fee_token=null}}})" \
+#         --ic 
         
-dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant { 
-        UpdateChain = record { chain_state=variant { Active }; 
-        chain_id = \"${BITCOIN_CHAIN_ID}\"; 
-        chain_type=variant { SettlementChain }; 
-        canister_id=\"${BITCOIN_CANISTER_ID}\"; 
-        contract_address=null; 
-        counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
-                                \"eICP\";
-                                \"bevm_testnet\";
-                                \"bitlayer_testnet\";
-                                \"B²_testnet\";
-                                \"xlayer_testnet\";
-                                }; 
-        fee_token=null}}})" \
-        --ic 
+# dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant { 
+#         UpdateChain = record { chain_state=variant { Active }; 
+#         chain_id = \"${BITCOIN_CHAIN_ID}\"; 
+#         chain_type=variant { SettlementChain }; 
+#         canister_id=\"${BITCOIN_CANISTER_ID}\"; 
+#         contract_address=null; 
+#         counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
+#                                 \"eICP\";
+#                                 \"bevm_testnet\";
+#                                 \"bitlayer_testnet\";
+#                                 \"B²_testnet\";
+#                                 \"xlayer_testnet\";
+#                                 }; 
+#         fee_token=null}}})" \
+#         --ic 
 
-dfx canister call $HUB_CANISTER_ID query_directives "(
-    opt \"${BITCOIN_CHAIN_ID}\",
-    opt variant {AddChain},0:nat64,5:nat64)" \
-    --ic 
+# dfx canister call $HUB_CANISTER_ID query_directives "(
+#     opt \"${BITCOIN_CHAIN_ID}\",
+#     opt variant {AddChain},0:nat64,5:nat64)" \
+#     --ic 
 
-dfx canister call $HUB_CANISTER_ID query_directives "(
-    opt \"${SOL_CHAIN_ID}\",
-    opt variant {AddChain},0:nat64,5:nat64)" \
-    --ic 
+# dfx canister call $HUB_CANISTER_ID query_directives "(
+#     opt \"${SOL_CHAIN_ID}\",
+#     opt variant {AddChain},0:nat64,5:nat64)" \
+#     --ic 
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE"
-TOKEN_NAME="HOPE•YOU•GET•NICE"
-TOKEN_SYMBOL="NICE"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE2"
+TOKEN_NAME="HOPE•YOU•GET•NICE2"
+TOKEN_SYMBOL="NICE2"
 DECIMALS=2
 ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
 
@@ -261,7 +313,7 @@ solana airdrop 2
 MASTER_KEY=$(solana address)
 echo "current solana cli default address: $MASTER_KEY and balance: $(solana balance $MASTER_KEY)"
 # transfer SOL to init signer
-AMOUNT=0.2
+AMOUNT=0.5
 echo "transfer SOL to $SIGNER from $MASTER_KEY"
 solana transfer $SIGNER $AMOUNT --with-memo init_account --allow-unfunded-recipient
 echo "$SIGNER balance: $(solana balance $SIGNER)"
@@ -281,7 +333,7 @@ echo
 
 echo "mock transfer from Bitcoin to Solana ..."
 echo 
-TID="28b47548-55dc-4e89-b41d-76bc0247828f"
+TID="28b47548-55dc-4e89-b41d-76bc0247828e"
 AMOUNT="999999999"
 SOL_RECEIVER="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 dfx canister call $HUB_CANISTER_ID send_ticket "(record { ticket_id = \"${TID}\"; 
@@ -352,3 +404,15 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID generate_ticket "(record {
     --ic
 dfx canister call $HUB_CANISTER_ID query_tickets "(opt \"${BITCOIN_CHAIN_ID}\",0:nat64,5:nat64)" --ic
 
+sleep 300
+
+# cannel schedule
+dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
+
+# test mint_to
+dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_to "(\"${ATA}\",
+  888888:nat64,\"${TOKEN_MINT}\")" --ic
+
+# test send_raw_transaction
+RAW_TX=4S6Q1Toi7GEWiadHTsc5LT6Q9askJGMp9hBWJZWDNfazH82pFVh6aURGb8MLbas2ezgDgtuj7GbV7R5CsS9aFYwi3tz8oLaScPYT5JALaAEBXJRatFHRfZtJPp4WDJ9bKDpvwD8P4dv23pDD2Kfr8vi9xW9zF4FkZqdEMq3q1J3g5risnCn7FiJkrKxG5Prc2SSPZhDUJpLsFB51SJ3BbNVL59Ztjaz5vTcTr4o7xqmUmUdnR8WBWj9MhQbGCF99T5QsTA8pYw2vviMc1Kjvmao1Wdh49ow1rEemyZPkqEE6vFQwuGTZbgXJH8d5UGcSPwG8FbJqKGsfYb
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_sendRawTransaction "(\"${RAW_TX}\")" --ic

@@ -33,7 +33,7 @@
     "ic-solana-provider": {
       "package": "ic-solana-provider",
       "type": "custom",
-      "wasm": "assets/ic-solana-provider.wasm.gz",
+      "wasm": "assets/ic_solana_provider.wasm.gz",
       "candid": "assets/ic-solana-provider.did"
     }
   },

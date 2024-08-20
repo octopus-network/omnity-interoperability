@@ -9,7 +9,9 @@ use crate::{
 };
 use ic_canister_log::log;
 use ic_solana::logs::{ERROR, INFO};
-use ic_solana::token::TokenInfo;
+use ic_solana::token::{SolanaClient, TokenInfo};
+
+use super::sol_call::solana_client;
 
 pub const DIRECTIVE_LIMIT_SIZE: u64 = 20;
 
@@ -107,33 +109,73 @@ pub async fn create_token_mint() {
         }
         creating_token_mint
     });
-
+    let sol_client = solana_client().await;
     for token in creating_token_mint.into_iter() {
-        let token_reate_info = TokenInfo {
+        let token_info = TokenInfo {
             name: token.name,
             symbol: token.symbol,
             decimals: token.decimals,
             uri: token.icon.unwrap_or_default(),
         };
 
-        match create_mint_account(token_reate_info).await {
-            Ok(token_mint) => {
-                log!(
-                    INFO,
-                    "[directive::create_token_mint] {:?} new mint token address on solana: {:?} ",
-                    token.token_id.to_string(),
-                    token_mint
-                );
-                // save the token mint
-                mutate_state(|s| {
-                    s.token_mint_map
-                        .insert(token.token_id.to_string(), token_mint.to_string())
-                });
-            }
+        // query mint account
+        let mint_account = SolanaClient::derive_account(
+            sol_client.schnorr_canister.clone(),
+            sol_client.chainkey_name.clone(),
+            token_info.name.to_string(),
+        )
+        .await;
+        log!(
+            INFO,
+            "[directive::create_token_mint] mint_account from schonnor chainkey: {:?} ",
+            mint_account.to_string(),
+        );
+        let mint_account_info = sol_client.get_account_info(mint_account.to_string()).await;
+        log!(
+            INFO,
+            "[directive::create_token_mint] {} mint_account_info from solana : {:?} ",
+            mint_account.to_string(),
+            mint_account_info,
+        );
+        match mint_account_info {
+            Ok(account_info) => match account_info {
+                // not exists,need to create it
+                None => match create_mint_account(mint_account, token_info).await {
+                    Ok(signature) => {
+                        log!(
+                            INFO,
+                            "[directive::create_token_mint] create_mint_account signature: {:?} ",
+                            signature.to_string(),
+                        );
+                    }
+                    Err(e) => {
+                        log!(
+                            ERROR,
+                            "[directive::create_token_mint] create token mint error: {:?}  ",
+                            e
+                        );
+                        continue;
+                    }
+                },
+                Some(info) => {
+                    log!(
+                        INFO,
+                        "[directive::create_token_mint] {:?} already created and the account info: {:?} ",
+                        mint_account.to_string(),
+                        info
+                    );
+
+                    // save the token mint
+                    mutate_state(|s| {
+                        s.token_mint_map
+                            .insert(token.token_id.to_string(), mint_account.to_string())
+                    });
+                }
+            },
             Err(e) => {
                 log!(
                     ERROR,
-                    "[directive::create_token_mint] create token mint error: {:?}  ",
+                    "[directive::create_token_mint] get account info error: {:?}  ",
                     e
                 );
                 continue;

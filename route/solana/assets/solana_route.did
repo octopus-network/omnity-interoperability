@@ -170,6 +170,7 @@ service : (RouteArg) -> {
   query_token_mint : (text) -> (opt text) query;
   resend_tickets : () -> (Result_4);
   set_permissions : (principal, Permission) -> ();
+  sign : (text) -> (Result_5);
   signer : () -> (Result_5);
   start_schedule : () -> ();
   transfer_to : (text, nat64) -> (Result);
