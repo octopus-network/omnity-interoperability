@@ -1,5 +1,4 @@
 use candid::{CandidType, Nat, Principal};
-use ic_cdk::api::call::RejectionCode;
 use serde::{Deserialize, Serialize};
 
 pub type Result<R> = std::result::Result<R, RouteError>;
@@ -12,6 +11,18 @@ pub enum RouteError {
     HttpOutCallError(String, String),
     #[error("Http status code: {0:?}, url: {1}, body: {2}")]
     HttpStatusError(Nat, String, String),
+    #[error("Sign with ecdsa error, reject code {0}, message: {1}")]
+    SignWithEcdsaError(String, String),
+    #[error("Query ecdsa public key error, reject code {0}, message: {1}")]
+    QueryEcdsaPublicKeyError(String, String),
+    #[error("Event not found, kind: {0}")]
+    EventNotFound(String),
+    #[error("Attribute parse error, key: {0}, event kind: {1}, error: {2}")]
+    AttributeParseError(String, String, String),
+    #[error("Attribute not found, key: {0}, event kind: {1}")]
+    AttributeNotFound(String, String),
     #[error("{0}")]
     CustomError(String),
+    #[error("Failed to send ticket, error: {0}")]
+    SendTicketErr(String),
 }

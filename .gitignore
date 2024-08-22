@@ -14,7 +14,7 @@
 src/declarations/
 
 # rust
-target/
+**/target/
 
 # frontend code
 node_modules/

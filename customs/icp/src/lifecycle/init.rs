@@ -11,6 +11,7 @@ pub enum CustomArg {
 pub struct InitArgs {
     pub chain_id: String,
     pub hub_principal: Principal,
+    pub ckbtc_ledger_principal: Principal,
 }
 
 pub fn init(args: InitArgs) {

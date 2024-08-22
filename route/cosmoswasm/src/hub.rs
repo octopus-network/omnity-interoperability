@@ -42,10 +42,10 @@ pub async fn query_tickets(
                 message,
             )
         })?;
-    let data = resp.0.map_err(|err| {
+
+    resp.0.map_err(|err| {
         RouteError::CustomError(format!("Error calling query_tickets: {:?}", err).to_string())
-    })?;
-    Ok(data)
+    })
 }
 
 pub async fn query_directives(

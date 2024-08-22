@@ -1,9 +1,9 @@
-use candid::Principal;
+use candid::{Nat, Principal};
 use icrc_ledger_types::icrc1::account::Account;
-use omnity_types::Directive;
+use omnity_types::{Directive, Ticket};
 use state::{mutate_state, read_state};
 use std::str::FromStr;
-use updates::mint_token::{MintTokenError, MintTokenRequest};
+use updates::mint_token::{retrieve_ckbtc, MintTokenError, MintTokenRequest, RetrieveBtcOk};
 
 pub mod call_error;
 pub mod hub;
@@ -20,6 +20,21 @@ async fn process_tickets() {
         Ok(tickets) => {
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
+
+                if ticket.token.eq("ckbtc") {
+                    match retrieve_ckbtc(ticket.receiver.clone(), Nat::from_str(ticket.amount.as_str()).unwrap()).await {
+                        Ok(r) => {
+                            log::info!("[process tickets] process successful for ticket id: {}", ticket.ticket_id);
+                        },
+                        Err(e) => {
+                            log::error!("[process tickets] failed to retrieve ckbtc: {:?}", e);
+                            next_seq = seq + 1;
+                            continue;
+                        },
+                    }
+                    continue;
+                }
+
                 let receiver_parse_result = if ticket.receiver.contains(".") {
                     Account::from_str(ticket.receiver.as_str()).map_err(|e| e.to_string())
                 } else {

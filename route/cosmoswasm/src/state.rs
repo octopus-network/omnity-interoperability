@@ -1,8 +1,9 @@
-use std::{cell::RefCell, collections::BTreeMap};
+use std::cell::RefCell;
 
 use candid::{CandidType, Principal};
-use cosmrs::AccountId;
-use omnity_types::{Chain, ChainId};
+use ic_stable_structures::storable::Bound;
+use ic_stable_structures::Storable;
+use omnity_types::ChainState;
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
@@ -14,7 +15,6 @@ thread_local! {
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
 pub struct RouteState {
-    pub schnorr_canister_principal: Principal,
     pub cw_port_contract_address: String,
     pub cw_chain_key_derivation_path: Vec<ByteBuf>,
     pub chain_id: String,
@@ -22,18 +22,30 @@ pub struct RouteState {
     pub cw_rest_url: String,
     pub hub_principal: Principal,
     pub next_directive_seq: u64,
-    pub counterparties: BTreeMap<ChainId, Chain>,
-    // pub tokens: BTreeMap<String, Token>,
-    // pub fee_token_factor: Option<u128>,
-    // pub target_chain_factor: BTreeMap<ChainId, u128>,
-    // pub chain_state: ChainState,
+
+    pub chain_state: ChainState,
+    pub next_ticket_seq: u64,
     pub is_timer_running: bool,
+    pub cw_public_key_vec: Option<Vec<u8>>,
+}
+
+impl Storable for RouteState {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        serde_cbor::to_vec(self)
+            .expect("Failed to serialize token ledger.")
+            .into()
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        serde_cbor::from_slice(&bytes).expect("Failed to deserialize token ledger.")
+    }
 }
 
 impl From<InitArgs> for RouteState {
     fn from(args: InitArgs) -> Self {
         Self {
-            schnorr_canister_principal: args.schnorr_canister_principal,
             cw_port_contract_address: args.cosmoswasm_port_contract_address,
             cw_chain_key_derivation_path: [vec![1u8; 4]] // Example derivation path for signing
                 .iter()
@@ -44,90 +56,10 @@ impl From<InitArgs> for RouteState {
             cw_rest_url: args.cw_rest_url,
             hub_principal: args.hub_principal,
             next_directive_seq: 0,
-            counterparties: Default::default(),
+            chain_state: ChainState::Active,
+            next_ticket_seq: 0,
             is_timer_running: false,
+            cw_public_key_vec: None,
         }
     }
 }
-
-/// Mutates (part of) the current state using `f`.
-///
-/// Panics if there is no state.
-pub fn mutate_state<F, R>(f: F) -> R
-where
-    F: FnOnce(&mut RouteState) -> R,
-{
-    __STATE.with(|s| f(s.borrow_mut().as_mut().expect("State not initialized!")))
-}
-
-pub fn read_state<F, R>(f: F) -> R
-where
-    F: FnOnce(&RouteState) -> R,
-{
-    __STATE.with(|s| f(s.borrow().as_ref().expect("State not initialized!")))
-}
-
-pub fn replace_state(state: RouteState) {
-    __STATE.with(|s| {
-        *s.borrow_mut() = Some(state);
-    });
-}
-
-/// Take the current state.
-///
-/// After calling this function the state won't be initialized anymore.
-/// Panics if there is no state.
-pub fn take_state<F, R>(f: F) -> R
-where
-    F: FnOnce(RouteState) -> R,
-{
-    __STATE.with(|s| f(s.take().expect("State not initialized!")))
-}
-
-pub fn get_contract_id() -> AccountId {
-    read_state(|state| state.cw_port_contract_address.clone())
-        .parse()
-        .unwrap()
-}
-
-pub fn get_derivation_path() -> Vec<ByteBuf> {
-    read_state(|state| state.cw_chain_key_derivation_path.clone())
-}
-
-pub fn add_chain(chain: Chain) {
-    mutate_state(|state| {
-        state.counterparties.insert(chain.chain_id.clone(), chain);
-    });
-}
-
-// pub fn add_token(address: String, token: Token) {
-//     mutate_state(|state| {
-//         state.tokens.insert(address, token);
-//     });
-// }
-
-// pub fn toggle_chain_state(toggle: ToggleState) {
-//     mutate_state(|state| {
-//         if toggle.chain_id == state.chain_id {
-//             state.chain_state = toggle.action.into();
-//         } else if let Some(chain) = state.counterparties.get_mut(&toggle.chain_id) {
-//             chain.chain_state = toggle.action.into();
-//         }
-//     });
-// }
-
-// pub fn update_fee(state: &mut RouteState, fee: Factor) {
-//     match fee {
-//         Factor::UpdateTargetChainFactor(factor) => {
-//             state
-//                 .target_chain_factor
-//                 .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
-//         }
-
-//         Factor::UpdateFeeTokenFactor(token_factor) => {
-//             if token_factor.fee_token == "LICP" {
-//                 state.fee_token_factor = Some(token_factor.fee_token_factor);
-//             }
-//         }
-//     }
-// }

@@ -1,9 +1,7 @@
-use crate::*;
-
-
+#[allow(unused)]
 pub fn post_upgrade() {
-    let (mut stable_state,): (RouteState,) =
-        ic_cdk::storage::stable_restore().expect("failed to restore state");
+    // let (stable_state,): (RouteState,) =
+    //     ic_cdk::storage::stable_restore().expect("failed to restore state");
 
-    replace_state(stable_state);
+    // replace_state(stable_state);
 }
