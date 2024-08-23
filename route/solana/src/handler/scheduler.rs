@@ -126,7 +126,7 @@ pub fn start_schedule() {
                 Err(_) => return,
             };
 
-            ticket::handle_mint_token().await;
+            ticket::mint_token().await;
         });
     });
     log!(

@@ -9,6 +9,7 @@ use candid::{CandidType, Principal};
 
 use ic_stable_structures::StableBTreeMap;
 
+use crate::handler::ticket::MintTokenRequest;
 use crate::types::{
     Chain, ChainId, ChainState, Factor, Ticket, TicketId, ToggleState, Token, TokenId,
 };
@@ -17,10 +18,11 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
 };
+
 pub type CanisterId = Principal;
 pub type Owner = String;
-pub type TokenMint = String;
-pub type AssociatedTokenAccount = String;
+pub type MintAccount = String;
+pub type AssociatedAccount = String;
 
 thread_local! {
     static STATE: RefCell<Option<SolanaRouteState>> = RefCell::default();
@@ -30,6 +32,21 @@ thread_local! {
 pub enum MintTokenStatus {
     Finalized { signature: String },
     Unknown,
+    TxFailed { e: String },
+}
+
+#[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AccountStatus {
+    Confirmed,
+    Unknown,
+}
+
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+pub struct AccountInfo {
+    pub account: String,
+    pub retry: u8,
+    pub signature: Option<String>,
+    pub status: AccountStatus,
 }
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
@@ -69,13 +86,13 @@ pub struct SolanaRouteState {
     pub counterparties: BTreeMap<ChainId, Chain>,
 
     pub tokens: BTreeMap<TokenId, Token>,
-    pub update_token_queue: BTreeMap<TokenId, Token>,
+    pub update_token_queue: BTreeMap<TokenId, (Token, u64)>,
 
-    pub token_mint_map: BTreeMap<TokenId, TokenMint>,
+    pub token_mint_accounts: BTreeMap<TokenId, AccountInfo>,
 
-    pub associated_account: BTreeMap<(Owner, TokenMint), AssociatedTokenAccount>,
+    pub associated_accounts: BTreeMap<(Owner, MintAccount), AccountInfo>,
 
-    pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
+    pub mint_token_requests: BTreeMap<TicketId, MintTokenRequest>,
 
     pub fee_token_factor: Option<u128>,
 
@@ -105,7 +122,7 @@ impl From<InitArgs> for SolanaRouteState {
         Self {
             chain_id: args.chain_id,
             hub_principal: args.hub_principal,
-            token_mint_map: Default::default(),
+            token_mint_accounts: Default::default(),
 
             next_ticket_seq: 0,
             next_consume_ticket_seq: 0,
@@ -113,7 +130,7 @@ impl From<InitArgs> for SolanaRouteState {
             counterparties: Default::default(),
             tokens: Default::default(),
             update_token_queue: Default::default(),
-            finalized_mint_token_requests: Default::default(),
+            mint_token_requests: Default::default(),
             fee_token_factor: None,
             target_chain_factor: Default::default(),
             chain_state: args.chain_state,
@@ -129,7 +146,7 @@ impl From<InitArgs> for SolanaRouteState {
             admin: args.admin,
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
-            associated_account: Default::default(),
+            associated_accounts: Default::default(),
             fee_account: args.fee_account.unwrap_or(FEE_ACCOUNT.to_string()),
         }
     }
@@ -155,13 +172,12 @@ impl SolanaRouteState {
         }
     }
 
-    pub fn sol_token_address(&self, ticket_id: &String) -> Option<String> {
-        self.token_mint_map.get(ticket_id).cloned()
+    pub fn sol_token_account(&self, ticket_id: &String) -> Option<AccountInfo> {
+        self.token_mint_accounts.get(ticket_id).cloned()
     }
 
-    pub fn finalize_mint_token_req(&mut self, ticket_id: String, signature: String) {
-        self.finalized_mint_token_requests
-            .insert(ticket_id, signature);
+    pub fn finalize_mint_token_req(&mut self, ticket_id: String, req: MintTokenRequest) {
+        self.mint_token_requests.insert(ticket_id, req);
     }
 
     pub fn update_fee(&mut self, fee: Factor) {

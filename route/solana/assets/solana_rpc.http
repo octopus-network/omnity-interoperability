@@ -42,7 +42,7 @@ content-type: application/json
     "jsonrpc": "2.0", "id": 1,
     "method": "requestAirdrop",
     "params": [
-      "74SqAGc8wHgkwNx2Hqiz1UdKkZL1gCCvsRRwN2tSm8Ny",
+      "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
       2000000000
     ]
   }
@@ -57,38 +57,6 @@ content-type: application/json
     "params": [
       "74SqAGc8wHgkwNx2Hqiz1UdKkZL1gCCvsRRwN2tSm8Ny",
       2000000000
-    ]
-  }
-
-### req tx detail
-POST {{devnet}}
-content-type: application/json
-
-  {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "getTransaction",
-    "params": [
-      "hCs3kjXemmMvoAP63EAgHFJ5wniQESEMD7wRubWUZefG5ZSFhyMXCnuwff9Qe3RuYJVMG7b7RS3z8MtiT5VxMQe",
-      "jsonParsed"
-    ]
-  }
-
-### getSignatureStatuses
-POST {{devnet}}
-content-type: application/json
-
-  {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "getSignatureStatuses",
-    "params": [
-      [
-        "3rJZdctbGC3fWWAywBnvbj93NVMgbmoEnCghtsUKy3CqJ9HmvptUuKDSnnvy9AnAPSrGhnFG5c6gqbQDXxmNNS43"
-      ],
-      {
-        "searchTransactionHistory": true
-      }
     ]
   }
 
@@ -134,5 +102,48 @@ content-type: application/json
     "method": "sendTransaction",
     "params": [
       "4hXTCkRzt9WyecNzV1XPgCDfGAZzQKNxLXgynz5QDuWWPSAZBZSHptvWRL3BjCvzUXRdKvHL2b7yGrRQcWyaqsaBCncVG7BFggS8w9snUts67BSh3EqKpXLUm5UMHfD7ZBe9GhARjbNQMLJ1QD3Spr6oMTBU6EhdB4RD8CP2xUxr2u3d6fos36PD98XS6oX8TQjLpsMwncs5DAMiD4nNnR8NBfyghGCWvCVifVwvA8B8TJxE1aiyiv2L429BCWfyzAme5sZW8rDb14NeCQHhZbtNqfXhcp2tAnaAT"
+    ]
+  }
+
+
+# for i in {1..100}; do curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+#   "jsonrpc": "2.0",
+#   "id": 1,
+#   "method": "getTransaction",
+#   "params": [
+#     "2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK",
+#     "jsonParsed"
+#   ]
+# }' | jq ; echo; done
+
+### req tx detail
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK",
+      "json"
+    ]
+  }
+
+### getSignatureStatuses
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getSignatureStatuses",
+    "params": [
+      [
+        "2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK"
+      ],
+      {
+        "searchTransactionHistory": true
+      }
     ]
   }
