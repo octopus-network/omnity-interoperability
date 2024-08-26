@@ -3,8 +3,8 @@ export const idlFactory = ({ IDL }) => {
     'hub_principal' : IDL.Principal,
     'cw_rpc_url' : IDL.Text,
     'cw_rest_url' : IDL.Text,
-    'cosmoswasm_port_contract_address' : IDL.Text,
     'chain_id' : IDL.Text,
+    'cosmwasm_port_contract_address' : IDL.Text,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
   return IDL.Service({
@@ -18,8 +18,8 @@ export const init = ({ IDL }) => {
     'hub_principal' : IDL.Principal,
     'cw_rpc_url' : IDL.Text,
     'cw_rest_url' : IDL.Text,
-    'cosmoswasm_port_contract_address' : IDL.Text,
     'chain_id' : IDL.Text,
+    'cosmwasm_port_contract_address' : IDL.Text,
   });
   return [InitArgs];
 };

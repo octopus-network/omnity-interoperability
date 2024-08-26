@@ -81,6 +81,3 @@ pub fn test_show_address() {
     let hex = hex::encode(bytes);
     dbg!(&hex);
 }
-
-#[test]
-pub fn test_

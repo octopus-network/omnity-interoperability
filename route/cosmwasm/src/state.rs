@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use candid::{CandidType, Principal};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
@@ -42,7 +40,7 @@ impl Storable for RouteState {
 impl From<InitArgs> for RouteState {
     fn from(args: InitArgs) -> Self {
         Self {
-            cw_port_contract_address: args.cosmoswasm_port_contract_address,
+            cw_port_contract_address: args.cosmwasm_port_contract_address,
             cw_chain_key_derivation_path: [vec![1u8; 4]] // Example derivation path for signing
                 .iter()
                 .map(|v| ByteBuf::from(v.clone()))

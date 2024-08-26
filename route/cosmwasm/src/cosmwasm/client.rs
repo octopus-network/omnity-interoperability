@@ -5,13 +5,13 @@ const DENOM: &str = "uosmo";
 const MEMO: &str = "memo";
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CosmosWasmClient {
+pub struct CosmWasmClient {
     pub rpc_url: String,
     pub rest_url: String,
     pub chain_id: ChainId,
 }
 
-impl CosmosWasmClient {
+impl CosmWasmClient {
     pub fn new(rpc_url: String, rest_url: String, chain_id: ChainId) -> Self {
         Self {
             rpc_url,
@@ -20,7 +20,7 @@ impl CosmosWasmClient {
         }
     }
 
-    pub fn cosmos_wasm_port_client() -> CosmosWasmClient {
+    pub fn cosmos_wasm_port_client() -> CosmWasmClient {
         let (rpc_url, rest_url, chain_id) = memory::read_state(|state| {
             (
                 state.cw_rpc_url.clone(),
@@ -28,7 +28,7 @@ impl CosmosWasmClient {
                 state.chain_id.clone(),
             )
         });
-        let client = CosmosWasmClient::new(rpc_url, rest_url, chain_id);
+        let client = CosmWasmClient::new(rpc_url, rest_url, chain_id);
         client
     }
 

@@ -12,7 +12,7 @@ members = [
     "mock/icp",
     "mock/hub",
     "customs/icp",
-    "proxy/cosmoswasm"
+    "proxy/cosmwasm"
 ]
 resolver = "2"
 

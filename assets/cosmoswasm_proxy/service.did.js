@@ -1,6 +1,7 @@
 export const idlFactory = ({ IDL }) => {
   const InitArgs = IDL.Record({
-    'icp_custom_principal' : IDL.Principal,
+    'trigger' : IDL.Principal,
+    'icp_customs_principal' : IDL.Principal,
     'ckbtc_index_principal' : IDL.Principal,
   });
   const Account = IDL.Record({
@@ -15,12 +16,14 @@ export const idlFactory = ({ IDL }) => {
         [Result],
         ['query'],
       ),
+    'set_trigger_principal' : IDL.Func([IDL.Principal], [Result_1], []),
     'trigger_transaction' : IDL.Func([IDL.Nat], [Result_1], []),
   });
 };
 export const init = ({ IDL }) => {
   const InitArgs = IDL.Record({
-    'icp_custom_principal' : IDL.Principal,
+    'trigger' : IDL.Principal,
+    'icp_customs_principal' : IDL.Principal,
     'ckbtc_index_principal' : IDL.Principal,
   });
   return [InitArgs];

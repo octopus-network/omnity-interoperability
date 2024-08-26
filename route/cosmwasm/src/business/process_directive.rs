@@ -1,4 +1,4 @@
-use cosmoswasm::{
+use cosmwasm::{
     port::{PortContractExecutor, DIRECTIVE_EXECUTED_EVENT_KIND},
     rpc::{response::TxCommitResponse, wrapper::Wrapper},
     TxHash,
@@ -58,7 +58,7 @@ pub async fn execute_directive(seq: Seq, directive: Directive) -> Result<TxHash>
         directive: directive.into(),
     };
 
-    let client = CosmosWasmClient::cosmos_wasm_port_client();
+    let client = CosmWasmClient::cosmos_wasm_port_client();
 
     let contract_id = get_contract_id();
 

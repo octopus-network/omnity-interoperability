@@ -2,8 +2,8 @@ type InitArgs = record {
   hub_principal : principal;
   cw_rpc_url : text;
   cw_rest_url : text;
-  cosmoswasm_port_contract_address : text;
   chain_id : text;
+  cosmwasm_port_contract_address : text;
 };
 type Result = variant { Ok : text; Err : text };
 service : (InitArgs) -> {

@@ -59,16 +59,16 @@
       "package": "icp_route",
       "type": "custom"
     },
-    "cosmoswasm_route": {
-      "candid": "route/cosmoswasm/cosmoswasm_route.did",
-      "wasm": "route/cosmoswasm/target/wasm32-unknown-unknown/release/cosmoswasm_route.wasm",
-      "package": "cosmoswasm_route",
+    "cosmwasm_route": {
+      "candid": "route/cosmwasm/cosmwasm_route.did",
+      "wasm": "route/cosmwasm/target/wasm32-unknown-unknown/release/cosmwasm_route.wasm",
+      "package": "cosmwasm_route",
       "type": "custom"
     },
-    "cosmoswasm_proxy": {
+    "cosmwasm_proxy": {
       "gzip": true,
-      "candid": "proxy/cosmoswasm/cosmoswasm_proxy.did",
-      "package": "cosmoswasm_proxy",
+      "candid": "proxy/cosmwasm/cosmwasm_proxy.did",
+      "package": "cosmwasm_proxy",
       "type": "rust"
     },
     "hub_mock": {

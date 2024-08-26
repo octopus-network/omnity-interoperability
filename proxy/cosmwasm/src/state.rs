@@ -19,11 +19,11 @@ thread_local! {
         ).expect("Failed to init cell for CKBTC_LEDGER_PRINCIPAL.")
     );
 
-    static ICP_CUSTOM_PRINCIPAL: RefCell<Cell<Option<Principal>, Memory>> = RefCell::new(
+    static ICP_CUSTOMS_PRINCIPAL: RefCell<Cell<Option<Principal>, Memory>> = RefCell::new(
         Cell::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))),
             None,
-        ).expect("Failed to init cell for ICP_CUSTOM_PRINCIPAL.")
+        ).expect("Failed to init cell for ICP_CUSTOMS_PRINCIPAL.")
     );
 
     static EXECUTED_TRANSACTIONS_INDEXES: RefCell<StableBTreeMap<u64, TicketId, Memory>> = RefCell::new(
@@ -86,8 +86,8 @@ pub fn get_ckbtc_ledger_principal() -> Principal {
     })
 }
 
-pub fn set_icp_custom_principal(principal: Principal) {
-    ICP_CUSTOM_PRINCIPAL.with(|c| {
+pub fn set_icp_customs_principal(principal: Principal) {
+    ICP_CUSTOMS_PRINCIPAL.with(|c| {
         c.borrow_mut()
             .set(Some(principal.clone()))
             .expect("Failed to set ICP_CUSTOM_PRINCIPAL.")
@@ -95,7 +95,7 @@ pub fn set_icp_custom_principal(principal: Principal) {
 }
 
 pub fn get_icp_custom_principal() -> Principal {
-    ICP_CUSTOM_PRINCIPAL.with(|c| {
+    ICP_CUSTOMS_PRINCIPAL.with(|c| {
         c.borrow()
             .get()
             .expect("ICP_CUSTOM_PRINCIPAL not initialized!")

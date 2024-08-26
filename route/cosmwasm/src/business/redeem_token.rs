@@ -1,4 +1,4 @@
-use cosmoswasm::port::REDEEM_EVENT_KIND;
+use cosmwasm::port::REDEEM_EVENT_KIND;
 use tendermint::abci::Event;
 
 use crate::*;

@@ -1,5 +1,5 @@
 pub mod business;
-pub mod cosmoswasm;
+pub mod cosmwasm;
 pub mod error;
 pub mod hub;
 pub mod lifecycle;
@@ -32,10 +32,10 @@ pub use serde_json::json;
 pub use state::*;
 
 pub use crate::{
-    cosmoswasm::port::{Directive, ExecuteMsg},
+    cosmwasm::port::{Directive, ExecuteMsg},
     utils::Id,
 };
-pub use cosmoswasm::TxHash;
+pub use cosmwasm::TxHash;
 
 pub use omnity_types::TicketId;
 pub use omnity_types::Topic;
@@ -52,7 +52,7 @@ pub use omnity_types::EcdsaKeyIds;
 pub use serde_json::Value;
 pub use utils::*;
 
-pub use cosmoswasm::client::{cw_chain_key_arg, query_cw_public_key, CosmosWasmClient};
+pub use cosmwasm::client::{cw_chain_key_arg, query_cw_public_key, CosmWasmClient};
 pub use memory::get_contract_id;
 
 pub type DerivationPath = Vec<Vec<u8>>;

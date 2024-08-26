@@ -1,5 +1,5 @@
 [package]
-name = "cosmoswasm_proxy"
+name = "cosmwasm_proxy"
 version = "0.1.0"
 edition = "2021"
 

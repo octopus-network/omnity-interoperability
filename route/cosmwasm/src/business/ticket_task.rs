@@ -1,5 +1,5 @@
 use business::mint_token::MintTokenRequest;
-use cosmoswasm::port::PortContractExecutor;
+use cosmwasm::port::PortContractExecutor;
 use memory::{mutate_state, read_state};
 
 use crate::*;

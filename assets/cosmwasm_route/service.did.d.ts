@@ -6,8 +6,8 @@ export interface InitArgs {
   'hub_principal' : Principal,
   'cw_rpc_url' : string,
   'cw_rest_url' : string,
-  'cosmoswasm_port_contract_address' : string,
   'chain_id' : string,
+  'cosmwasm_port_contract_address' : string,
 }
 export type Result = { 'Ok' : string } |
   { 'Err' : string };

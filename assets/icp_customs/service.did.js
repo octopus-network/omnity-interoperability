@@ -4,7 +4,6 @@ export const idlFactory = ({ IDL }) => {
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
   });
-  const CustomArg = IDL.Variant({ 'Init' : InitArgs });
   const GenerateTicketReq = IDL.Record({
     'token_id' : IDL.Text,
     'from_subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
@@ -16,7 +15,12 @@ export const idlFactory = ({ IDL }) => {
   const GenerateTicketError = IDL.Variant({
     'SendTicketErr' : IDL.Text,
     'TemporarilyUnavailable' : IDL.Text,
+    'InsufficientIcp' : IDL.Record({
+      'provided' : IDL.Nat64,
+      'required' : IDL.Nat64,
+    }),
     'InsufficientAllowance' : IDL.Record({ 'allowance' : IDL.Nat64 }),
+    'TransferIcpFailure' : IDL.Text,
     'UnsupportedChainId' : IDL.Text,
     'UnsupportedToken' : IDL.Text,
     'InsufficientFunds' : IDL.Record({ 'balance' : IDL.Nat64 }),
@@ -54,6 +58,8 @@ export const idlFactory = ({ IDL }) => {
     'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_token_list' : IDL.Func([], [IDL.Vec(Token)], ['query']),
+    'set_ckbtc_token' : IDL.Func([IDL.Text], [], []),
+    'set_icp_token' : IDL.Func([IDL.Text], [], []),
   });
 };
 export const init = ({ IDL }) => {
@@ -62,6 +68,5 @@ export const init = ({ IDL }) => {
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
   });
-  const CustomArg = IDL.Variant({ 'Init' : InitArgs });
-  return [CustomArg];
+  return [InitArgs];
 };

@@ -281,37 +281,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cosmoswasm_route"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "candid",
- "ciborium",
- "cosmrs",
- "cosmwasm-schema",
- "flate2",
- "hex",
- "ic-cdk 0.12.2",
- "ic-cdk-macros 0.8.4",
- "ic-cdk-timers 0.7.0",
- "ic-log",
- "ic-stable-structures",
- "ic0 0.18.11",
- "log",
- "num-traits",
- "omnity_types",
- "rand",
- "serde",
- "serde_bytes",
- "serde_cbor",
- "serde_json",
- "sha2 0.10.8",
- "thiserror",
- "uuid",
-]
-
-[[package]]
 name = "cosmrs"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -353,6 +322,37 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.75",
+]
+
+[[package]]
+name = "cosmwasm_route"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "candid",
+ "ciborium",
+ "cosmrs",
+ "cosmwasm-schema",
+ "flate2",
+ "hex",
+ "ic-cdk 0.12.2",
+ "ic-cdk-macros 0.8.4",
+ "ic-cdk-timers 0.7.0",
+ "ic-log",
+ "ic-stable-structures",
+ "ic0 0.18.11",
+ "log",
+ "num-traits",
+ "omnity_types",
+ "rand",
+ "serde",
+ "serde_bytes",
+ "serde_cbor",
+ "serde_json",
+ "sha2 0.10.8",
+ "thiserror",
+ "uuid",
 ]
 
 [[package]]

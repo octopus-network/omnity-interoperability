@@ -15,10 +15,11 @@ export type ChainState = { 'Active' : null } |
   { 'Deactive' : null };
 export type ChainType = { 'SettlementChain' : null } |
   { 'ExecutionChain' : null };
-export type CustomArg = { 'Init' : InitArgs };
 export type GenerateTicketError = { 'SendTicketErr' : string } |
   { 'TemporarilyUnavailable' : string } |
+  { 'InsufficientIcp' : { 'provided' : bigint, 'required' : bigint } } |
   { 'InsufficientAllowance' : { 'allowance' : bigint } } |
+  { 'TransferIcpFailure' : string } |
   { 'UnsupportedChainId' : string } |
   { 'UnsupportedToken' : string } |
   { 'InsufficientFunds' : { 'balance' : bigint } };
@@ -49,6 +50,8 @@ export interface _SERVICE {
   'generate_ticket' : ActorMethod<[GenerateTicketReq], Result>,
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
   'get_token_list' : ActorMethod<[], Array<Token>>,
+  'set_ckbtc_token' : ActorMethod<[string], undefined>,
+  'set_icp_token' : ActorMethod<[string], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: ({ IDL }: { IDL: IDL }) => IDL.Type[];

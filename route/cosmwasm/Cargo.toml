@@ -1,5 +1,5 @@
 [package]
-name = "cosmoswasm_route"
+name = "cosmwasm_route"
 version = "0.1.0"
 edition = "2021"
 

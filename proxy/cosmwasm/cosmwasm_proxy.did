@@ -1,7 +1,7 @@
 type Account = record { owner : principal; subaccount : opt blob };
 type InitArgs = record {
   trigger : principal;
-  icp_custom_principal : principal;
+  icp_customs_principal : principal;
   ckbtc_index_principal : principal;
 };
 type Result = variant { Ok : Account; Err : text };

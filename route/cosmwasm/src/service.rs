@@ -2,12 +2,12 @@ use crate::*;
 use business::{
     process_directive::process_directive_msg_task, ticket_task::process_ticket_msg_task,
 };
-use cosmoswasm::{
+use cosmrs::tendermint;
+use cosmwasm::{
     client::{query_cw_public_key, OSMO_ACCOUNT_PREFIX},
     port::PortContractExecutor,
     TxHash,
 };
-use cosmrs::tendermint;
 use ic_cdk::{init, post_upgrade, update};
 use ic_cdk_timers::set_timer_interval;
 use lifecycle::init::InitArgs;

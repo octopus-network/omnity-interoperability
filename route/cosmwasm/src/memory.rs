@@ -7,7 +7,7 @@ use ic_stable_structures::{Cell, StableBTreeMap};
 use omnity_types::TicketId;
 use std::cell::RefCell;
 
-use crate::cosmoswasm::TxHash;
+use crate::cosmwasm::TxHash;
 use crate::RouteState;
 
 const LOG_MEMORY_ID: MemoryId = MemoryId::new(2);

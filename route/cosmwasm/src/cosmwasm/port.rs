@@ -3,7 +3,6 @@ use business::{
     mint_token::MintTokenRequest,
     redeem_token::{parse_redeem_event, RedeemEvent},
 };
-use cosmoswasm::rpc::tx::TxResultByHashResponse;
 use cosmrs::{
     tendermint::{
         self,
@@ -11,13 +10,14 @@ use cosmrs::{
     },
     AccountId,
 };
+use cosmwasm::rpc::tx::TxResultByHashResponse;
 use cosmwasm_schema::cw_serde;
 use memory::read_state;
 use std::collections::HashMap;
 
 use crate::{
-    cosmoswasm::rpc::{response::TxCommitResponse, wrapper::Wrapper},
-    CosmosWasmClient,
+    cosmwasm::rpc::{response::TxCommitResponse, wrapper::Wrapper},
+    CosmWasmClient,
 };
 
 use super::TxHash;
@@ -30,14 +30,14 @@ pub const DIRECTIVE_EXECUTED_EVENT_KIND: &str = "wasm-DirectiveExecuted";
 pub const TOKEN_MINTED_EVENT_KIND: &str = "wasm-TokenMinted";
 
 pub struct PortContractExecutor {
-    pub client: CosmosWasmClient,
+    pub client: CosmWasmClient,
     pub contract_id: AccountId,
     pub tendermint_public_key: tendermint::public_key::PublicKey,
 }
 
 impl PortContractExecutor {
     pub fn new(
-        client: CosmosWasmClient,
+        client: CosmWasmClient,
         contract_id: AccountId,
         tendermint_public_key: tendermint::public_key::PublicKey,
     ) -> Self {
@@ -49,7 +49,7 @@ impl PortContractExecutor {
     }
 
     pub fn from_state() -> PortContractExecutor {
-        let client = CosmosWasmClient::cosmos_wasm_port_client();
+        let client = CosmWasmClient::cosmos_wasm_port_client();
         let contract_id = get_contract_id();
         // let public_key_response = query_cw_public_key().await?;
         let public_key_vec = read_state(|s| {
