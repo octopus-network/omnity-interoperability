@@ -60,9 +60,15 @@
       "type": "custom"
     },
     "cosmoswasm_route": {
-      "gzip": true,
       "candid": "route/cosmoswasm/cosmoswasm_route.did",
+      "wasm": "route/cosmoswasm/target/wasm32-unknown-unknown/release/cosmoswasm_route.wasm",
       "package": "cosmoswasm_route",
+      "type": "custom"
+    },
+    "cosmoswasm_proxy": {
+      "gzip": true,
+      "candid": "proxy/cosmoswasm/cosmoswasm_proxy.did",
+      "package": "cosmoswasm_proxy",
       "type": "rust"
     },
     "hub_mock": {
