@@ -32,12 +32,12 @@ thread_local! {
         )
     );
 
-    // static TARGET_CHAIN_ID: RefCell<Cell<Option<String>, Memory>> = RefCell::new(
-    //     Cell::init(
-    //         MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))),
-    //         None,
-    //     ).expect("Failed to init cell for TARGET_CHAIN_ID.")
-    // );
+    static TRIGGER_PRINCIPAL: RefCell<Cell<Principal, Memory>> = RefCell::new(
+        Cell::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))),
+            Principal::anonymous()
+        ).expect("Failed to init cell for TRIGGER_PRINCIPAL.")
+    );
 
 }
 
@@ -55,6 +55,18 @@ pub fn insert_executed_transaction_index(index: u64, ticket_id: TicketId) {
             .insert(index, ticket_id)
             .expect("Failed to insert executed transaction index.")
     });
+}
+
+pub fn set_trigger_principal(principal: Principal) {
+    TRIGGER_PRINCIPAL.with(|c| {
+        c.borrow_mut()
+            .set(principal.clone())
+            .expect("Failed to set TRIGGER_PRINCIPAL.")
+    });
+}
+
+pub fn get_trigger_principal() -> Principal {
+    TRIGGER_PRINCIPAL.with(|c| c.borrow().get().clone())
 }
 
 pub fn set_ckbtc_index_principal(principal: Principal) {

@@ -24,7 +24,19 @@ pub fn get_identity_by_osmosis_account_id(osmosis_account_id: String) -> std::re
 }
 
 #[ic_cdk::update]
+pub fn set_trigger_principal(principal: Principal) -> std::result::Result<(), String> {
+    assert!(ic_cdk::api::is_controller(&ic_cdk::caller()), "Caller is not controller");
+    state::set_trigger_principal(principal);
+    Ok(())
+}
+
+#[ic_cdk::update]
 pub async fn trigger_transaction(block_index: BlockIndex) -> std::result::Result<(), String> {
+    assert_eq!(
+        ic_cdk::api::caller(),
+        state::get_trigger_principal(),
+        "Caller is not trigger principal"
+    );
     assert!(
         !contains_executed_transaction_index(nat_to_u64(block_index.clone())),
         "Transaction already executed"

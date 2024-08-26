@@ -9,11 +9,12 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
-type CustomArg = variant { Init : InitArgs };
 type GenerateTicketError = variant {
   SendTicketErr : text;
   TemporarilyUnavailable : text;
+  InsufficientIcp : record { provided : nat64; required : nat64 };
   InsufficientAllowance : record { allowance : nat64 };
+  TransferIcpFailure : text;
   UnsupportedChainId : text;
   UnsupportedToken : text;
   InsufficientFunds : record { balance : nat64 };
@@ -40,8 +41,10 @@ type Token = record {
   name : text;
   symbol : text;
 };
-service : (CustomArg) -> {
+service : (InitArgs) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_token_list : () -> (vec Token) query;
+  set_ckbtc_token : (text) -> ();
+  set_icp_token : (text) -> ();
 }

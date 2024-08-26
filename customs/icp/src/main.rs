@@ -3,9 +3,11 @@ use std::time::Duration;
 use candid::Principal;
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
-use icp_customs::lifecycle::init::CustomArg;
+use icp_customs::lifecycle::init::InitArgs;
+use icp_customs::updates::generate_ticket::{
+    GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
+};
 use icp_customs::{lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL};
-use icp_customs::updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq};
 use omnity_types::{Chain, Token};
 
 pub fn is_controller() -> Result<(), String> {
@@ -17,13 +19,9 @@ pub fn is_controller() -> Result<(), String> {
 }
 
 #[init]
-fn init(args: CustomArg) {
-    match args {
-        CustomArg::Init(args) => {
-            lifecycle::init(args);
-            set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
-        }
-    }
+fn init(args: InitArgs) {
+    lifecycle::init(args);
+    set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
 }
 
 fn check_anonymous_caller() {

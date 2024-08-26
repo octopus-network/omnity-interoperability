@@ -23,10 +23,3 @@ pub use ic_ledger_types::AccountIdentifier;
 pub use lifecycle::*;
 pub use state::{set_ckbtc_index_principal, set_icp_custom_principal};
 pub use types::*;
-
-// #[ic_cdk::update]
-// pub async fn get_account_identity(osmosis_account_id: String) -> Result<Principal> {
-//     let account_id = Principal::from_text(&osmosis_account_id)
-//         .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))?;
-//     Ok(account_id)
-// }

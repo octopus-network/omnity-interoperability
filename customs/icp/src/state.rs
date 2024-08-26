@@ -18,7 +18,6 @@ const COUNTERPARTIES_MEMORY_ID: MemoryId = MemoryId::new(3);
 const FINALIZED_MINT_TOKEN_REQUESTS_MEMORY_ID: MemoryId = MemoryId::new(4);
 const STATE_MEMORY_ID: MemoryId = MemoryId::new(5);
 
-
 thread_local! {
     static __STATE: RefCell<Option<CustomsState>> = RefCell::default();
 
