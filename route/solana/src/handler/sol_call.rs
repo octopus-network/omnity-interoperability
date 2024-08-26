@@ -5,7 +5,7 @@ use crate::call_error::Reason;
 use crate::{call_error::CallError, state::read_state};
 
 use ic_canister_log::log;
-use ic_solana::logs::INFO;
+use ic_solana::logs::DEBUG;
 use ic_solana::rpc_client::RpcResult;
 use ic_solana::token::{SolanaClient, TokenInfo};
 use ic_solana::types::{Pubkey, TransactionStatus};
@@ -57,7 +57,7 @@ pub async fn get_account_info(account: String) -> Result<Option<String>, CallErr
             reason: Reason::CanisterError(e.to_string()),
         })?;
     log!(
-        INFO,
+        DEBUG,
         "[sol_call::get_account_info] account({}) info : {:?}",
         account,
         account_info,
@@ -79,7 +79,7 @@ pub async fn create_mint_account(token_mint: Pubkey, req: TokenInfo) -> Result<S
         })?;
 
     log!(
-        INFO,
+        DEBUG,
         "[sol_call::create_mint_account] mint account signature: {:?}",
         signature.to_string()
     );
@@ -101,7 +101,7 @@ pub async fn create_ata(to_account: String, token_mint: String) -> Result<String
             reason: Reason::CanisterError(e.to_string()),
         })?;
 
-    log!(INFO,
+    log!(DEBUG,
         "[solana_client::get_or_create_ata] wallet address: {:?}, token_mint: {:?}, and the associated token account: {:?} ",
         to_account.to_string(),
         token_mint.to_string(),
@@ -128,7 +128,7 @@ pub async fn mint_to(
         })?;
 
     log!(
-        INFO,
+        DEBUG,
         "[tickets::mint_to] mint successful and the signature is : {}",
         signature
     );
@@ -152,7 +152,7 @@ pub async fn update_token_metadata(
         })?;
 
     log!(
-        INFO,
+        DEBUG,
         "[sol_call::update_token_metadata] signature: {:?}",
         signature
     );
@@ -173,7 +173,7 @@ pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, Call
             reason: Reason::CanisterError(e.to_string()),
         })?;
 
-    log!(INFO, "[sol_call::transfer_to] signature: {:?}", signature);
+    log!(DEBUG, "[sol_call::transfer_to] signature: {:?}", signature);
 
     Ok(signature.to_string())
 }
@@ -197,7 +197,7 @@ pub async fn get_signature_status(
             reason: Reason::CanisterError(rpc_error.to_string()),
         })?;
 
-    log!(INFO, "sol_getSignatureStatuses result: {:?}", tx_status);
+    log!(DEBUG, "sol_getSignatureStatuses result: {:?}", tx_status);
 
     Ok(tx_status)
 }

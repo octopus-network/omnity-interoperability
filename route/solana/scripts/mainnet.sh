@@ -88,7 +88,7 @@ dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record {
     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
     } )" \
     --mode=reinstall -y \
-    --wasm=./assets/ic-solana-provider.wasm.gz \
+    --wasm=./assets/ic_solana_provider.wasm.gz \
     --ic 
 
 # echo "upgrade $SOL_PROVIDER_CANISTER_ID ..."
@@ -304,9 +304,11 @@ dfx canister call $HUB_CANISTER_ID update_fee "vec {variant { UpdateTargetChainF
 
 dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateFee},0:nat64,12:nat64)" --ic 
 
+# query signer
 SIGNER=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic)
 SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
 echo "current SIGNER: $SIGNER"
+echo "$SIGNER balance: $(solana balance $SIGNER)"
 
 # req airdrop
 solana airdrop 2
@@ -360,17 +362,17 @@ echo
 sleep 20
 
 # get token mint
-TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_token_mint "(\"${TOKEN_ID}\")" --ic)
+TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
 TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
 echo "token mint: $TOKEN_MINT"
 
 # get aossicated account based on owner and token mint
-ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",\"${TOKEN_MINT}\")" --ic)
+ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_ata_address "(\"${SOL_RECEIVER}\",\"${TOKEN_MINT}\")" --ic)
 ATA=$(echo "$ATA" | awk -F'"' '{print $2}')
 while [ -z "$ATA" ]; do
   echo "ATA is empty, waiting..."
   sleep 5  
-  ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",\"${TOKEN_MINT}\")" --ic)
+  ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_ata_address "(\"${SOL_RECEIVER}\",\"${TOKEN_MINT}\")" --ic)
   ATA=$(echo "$ATA" | awk -F'"' '{print $2}')
 done
 echo "The dest address: $SOL_RECEIVER and the token address: $TOKEN_MINT aossicated account is: $ATA"
@@ -410,12 +412,12 @@ sleep 300
 dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 
 # test mint_to
-dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_to "(\"${ATA}\",
-  888888:nat64,\"${TOKEN_MINT}\")" --ic
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_to "(\"${ATA}\",
+#   888888:nat64,\"${TOKEN_MINT}\")" --ic
 
 # test send_raw_transaction
-RAW_TX=4S6Q1Toi7GEWiadHTsc5LT6Q9askJGMp9hBWJZWDNfazH82pFVh6aURGb8MLbas2ezgDgtuj7GbV7R5CsS9aFYwi3tz8oLaScPYT5JALaAEBXJRatFHRfZtJPp4WDJ9bKDpvwD8P4dv23pDD2Kfr8vi9xW9zF4FkZqdEMq3q1J3g5risnCn7FiJkrKxG5Prc2SSPZhDUJpLsFB51SJ3BbNVL59Ztjaz5vTcTr4o7xqmUmUdnR8WBWj9MhQbGCF99T5QsTA8pYw2vviMc1Kjvmao1Wdh49ow1rEemyZPkqEE6vFQwuGTZbgXJH8d5UGcSPwG8FbJqKGsfYb
-dfx canister call $SOL_PROVIDER_CANISTER_ID sol_sendRawTransaction "(\"${RAW_TX}\")" --ic
+# RAW_TX=4S6Q1Toi7GEWiadHTsc5LT6Q9askJGMp9hBWJZWDNfazH82pFVh6aURGb8MLbas2ezgDgtuj7GbV7R5CsS9aFYwi3tz8oLaScPYT5JALaAEBXJRatFHRfZtJPp4WDJ9bKDpvwD8P4dv23pDD2Kfr8vi9xW9zF4FkZqdEMq3q1J3g5risnCn7FiJkrKxG5Prc2SSPZhDUJpLsFB51SJ3BbNVL59Ztjaz5vTcTr4o7xqmUmUdnR8WBWj9MhQbGCF99T5QsTA8pYw2vviMc1Kjvmao1Wdh49ow1rEemyZPkqEE6vFQwuGTZbgXJH8d5UGcSPwG8FbJqKGsfYb
+# dfx canister call $SOL_PROVIDER_CANISTER_ID sol_sendRawTransaction "(\"${RAW_TX}\")" --ic
 
-SIG=2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\")" --ic
+# SIG=2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\")" --ic

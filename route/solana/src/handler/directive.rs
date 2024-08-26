@@ -12,7 +12,7 @@ use crate::{
     state::{mutate_state, read_state},
 };
 use ic_canister_log::log;
-use ic_solana::logs::{ERROR, INFO};
+use ic_solana::logs::{ERROR, DEBUG};
 use ic_solana::token::{SolanaClient, TokenInfo};
 
 use super::sol_call::solana_client;
@@ -40,7 +40,7 @@ pub async fn query_directives() {
                             //if update_token, need to update solana token metadata
                             Some(current_token) => {
                                 log!(
-                                    INFO,
+                                    DEBUG,
                                     "[Directive::UpdateToken] need to update token metadata for :{:?} ",
                                     current_token,
                                 );
@@ -141,7 +141,7 @@ pub async fn create_token_mint() {
             )
             .await;
             log!(
-                INFO,
+                DEBUG,
                 "[directive::create_token_mint] mint_account from schonnor chainkey: {:?} ",
                 new_account.to_string(),
             );
@@ -162,7 +162,7 @@ pub async fn create_token_mint() {
         // query mint account from solana
         let mint_account_info = sol_client.get_account_info(mint_account.to_string()).await;
         log!(
-            INFO,
+            DEBUG,
             "[directive::create_token_mint] {} mint_account_info from solana : {:?} ",
             mint_account.to_string(),
             mint_account_info,
@@ -173,7 +173,7 @@ pub async fn create_token_mint() {
                 None => match create_mint_account(mint_account, token_info).await {
                     Ok(signature) => {
                         log!(
-                            INFO,
+                            DEBUG,
                             "[directive::create_token_mint] create_mint_account signature: {:?} ",
                             signature.to_string(),
                         );
@@ -193,7 +193,7 @@ pub async fn create_token_mint() {
                             "[directive::create_token_mint] create token mint error: {:?}  ",
                             e
                         );
-                        // update  account retry num
+                        // update retry num
                         mutate_state(|s| {
                             s.token_mint_accounts
                                 .get_mut(&token.token_id)
@@ -207,13 +207,14 @@ pub async fn create_token_mint() {
                 // already exists
                 Some(info) => {
                     log!(
-                        INFO,
+                        DEBUG,
+                        
                         "[directive::create_token_mint] {:?} already created and the account info: {:?} ",
                         mint_account.to_string(),
                         info
                     );
 
-                    // update  account status to confimed
+                    // update account status to confimed
                     mutate_state(|s| {
                         s.token_mint_accounts
                             .get_mut(&token.token_id)
@@ -252,9 +253,8 @@ pub async fn update_token() {
         }
         let account_info = read_state(|s| s.token_mint_accounts.get(&token_id).cloned());
         if let Some(account_info) = account_info {
-            //TODO: query token metadata from solana chain and comparison metadata with new metadata
+            //query token metadata from solana chain and comparison metadata with new metadata
             // if not eq, execute update token metadata
-
             let token_update_info = TokenInfo {
                 token_id: token_id.to_string(),
                 name: token.name.to_owned(),
@@ -266,12 +266,12 @@ pub async fn update_token() {
             match update_token_metadata(account_info.account, token_update_info).await {
                 Ok(signature) => {
                     log!(
-                    INFO,
+                                                DEBUG
+,
                     "[directive::update_token] {:?} update token metadata on solana sucessfully ! \n{:?} ",
                     token.token_id.to_string(),
                     signature
                 );
-
                     mutate_state(|s| {
                         // update the token info
                         s.add_token(token.to_owned());

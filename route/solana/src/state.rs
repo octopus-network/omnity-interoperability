@@ -176,7 +176,7 @@ impl SolanaRouteState {
         self.token_mint_accounts.get(ticket_id).cloned()
     }
 
-    pub fn finalize_mint_token_req(&mut self, ticket_id: String, req: MintTokenRequest) {
+    pub fn update_mint_token_req(&mut self, ticket_id: String, req: MintTokenRequest) {
         self.mint_token_requests.insert(ticket_id, req);
     }
 

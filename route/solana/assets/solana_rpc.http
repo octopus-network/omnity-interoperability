@@ -15,7 +15,7 @@ content-type: application/json
    "id": 1,
    "method": "getAccountInfo",
    "params": [
-     "Br65xtMqAt6j5RCTMsrR3NSw3UGofH5k2MHCSNBk1bHV",
+     "FWyxWofuHJTjt9zvUqGRkY4WojTTCs7rDsrdJz6m29iR",
      {
        "encoding": "jsonParsed"
      }
@@ -60,6 +60,17 @@ content-type: application/json
     ]
   }
 
+### req getTokenSupply
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0", "id": 1,
+    "method": "getTokenSupply",
+    "params": [
+      "6RzHSwJaq1gLiWoKwT4kUuYwAfDGLTawf49npS5hzBiQ"
+    ]
+  }
 
 ### req latest blockhash
 POST {{devnet}}

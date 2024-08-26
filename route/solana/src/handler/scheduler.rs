@@ -9,7 +9,7 @@ use crate::{
 };
 use ic_canister_log::log;
 use ic_cdk_timers::TimerId;
-use ic_solana::logs::INFO;
+use ic_solana::logs::DEBUG;
 use std::cell::RefCell;
 use std::collections::HashMap;
 thread_local! {
@@ -28,7 +28,7 @@ pub fn start_schedule() {
         });
     });
     log!(
-        INFO,
+        DEBUG,
         " started query_directives task : {:?}",
         directive_timer_id
     );
@@ -47,7 +47,7 @@ pub fn start_schedule() {
         });
     });
     log!(
-        INFO,
+        DEBUG,
         "started create_token_mint task : {:?}",
         create_mint_timer_id
     );
@@ -66,7 +66,7 @@ pub fn start_schedule() {
         });
     });
     log!(
-        INFO,
+        DEBUG,
         "started update_token task : {:?}",
         update_token_timer_id
     );
@@ -86,7 +86,7 @@ pub fn start_schedule() {
         });
     });
     log!(
-        INFO,
+        DEBUG,
         "started query_tickets task : {:?}",
         query_ticket_timer_id
     );
@@ -107,7 +107,7 @@ pub fn start_schedule() {
             });
         });
     log!(
-        INFO,
+        DEBUG,
         "started create_token_mint task : {:?}",
         create_associated_account_timer_id
     );
@@ -130,7 +130,7 @@ pub fn start_schedule() {
         });
     });
     log!(
-        INFO,
+        DEBUG,
         "started handle_mint_token task : {:?}",
         mint_token_timer_id
     );

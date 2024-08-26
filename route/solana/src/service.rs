@@ -28,7 +28,7 @@ use ic_solana::types::TransactionConfirmationStatus;
 use std::str::FromStr;
 
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use ic_solana::logs::{ERROR, INFO};
+use ic_solana::logs::{DEBUG, ERROR};
 
 #[init]
 fn init(args: RouteArg) {
@@ -44,15 +44,15 @@ fn init(args: RouteArg) {
 
 #[pre_upgrade]
 fn pre_upgrade() {
-    log!(INFO, "begin to execute pre_upgrade ...");
+    log!(DEBUG, "begin to execute pre_upgrade ...");
     scheduler::cancel_schedule();
     lifecycle::pre_upgrade();
-    log!(INFO, "pre_upgrade end!");
+    log!(DEBUG, "pre_upgrade end!");
 }
 
 #[post_upgrade]
 fn post_upgrade(args: Option<RouteArg>) {
-    log!(INFO, "begin to execute post_upgrade with :{:?}", args);
+    log!(DEBUG, "begin to execute post_upgrade with :{:?}", args);
     let mut upgrade_arg: Option<UpgradeArgs> = None;
     if let Some(route_arg) = args {
         upgrade_arg = match route_arg {
@@ -62,18 +62,18 @@ fn post_upgrade(args: Option<RouteArg>) {
     }
 
     lifecycle::post_upgrade(upgrade_arg);
-    log!(INFO, "upgrade successfully!");
+    log!(DEBUG, "upgrade successfully!");
 }
 
 #[update(guard = "is_admin")]
 pub fn start_schedule() {
-    log!(INFO, "start schedule task ...");
+    log!(DEBUG, "start schedule task ...");
     scheduler::start_schedule();
 }
 
 #[update(guard = "is_admin")]
 pub fn cancel_schedule() {
-    log!(INFO, "cancel schedule task ...");
+    log!(DEBUG, "cancel schedule task ...");
     scheduler::cancel_schedule();
 }
 
@@ -120,7 +120,7 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
             return Err(err);
         }
     }
-    log!(INFO, "successfully resend {} tickets", tickets_sz);
+    log!(DEBUG, "successfully resend {} tickets", tickets_sz);
     Ok(())
 }
 
@@ -224,7 +224,7 @@ pub async fn get_account_info(req: TokenInfo) -> Result<Option<String>, CallErro
             reason: Reason::CanisterError(e.to_string()),
         })?;
     log!(
-        INFO,
+        DEBUG,
         "[service::create_mint] {} mint_account_info from solana : {:?} ",
         mint_account.to_string(),
         mint_account_info,
@@ -243,7 +243,7 @@ pub async fn create_mint(req: TokenInfo) -> Result<AccountInfo, CallError> {
     )
     .await;
     log!(
-        INFO,
+        DEBUG,
         "[service::create_mint] mint_account from schonnor chainkey: {:?} ",
         mint_account.to_string(),
     );
@@ -260,16 +260,16 @@ pub async fn create_mint(req: TokenInfo) -> Result<AccountInfo, CallError> {
             status: AccountStatus::Unknown,
         };
         //save inited account info
-        mutate_state(|s| {
-            s.token_mint_accounts
-                .insert(req.token_id.to_string(), new_account_info.clone())
-        });
+        // mutate_state(|s| {
+        //     s.token_mint_accounts
+        //         .insert(req.token_id.to_string(), new_account_info.clone())
+        // });
         new_account_info
     };
 
     let signature = sol_call::create_mint_account(mint_account, req.clone()).await?;
     log!(
-        INFO,
+        DEBUG,
         "[[service::create_mint] create_mint_account signature: {:?} ",
         signature.to_string(),
     );
@@ -290,7 +290,7 @@ pub async fn create_mint(req: TokenInfo) -> Result<AccountInfo, CallError> {
             reason: Reason::CanisterError(e.to_string()),
         })?;
     log!(
-        INFO,
+        DEBUG,
         "[service::create_mint] {} mint_account_info from solana : {:?} ",
         mint_account.to_string(),
         mint_account_on_chain,
@@ -298,7 +298,7 @@ pub async fn create_mint(req: TokenInfo) -> Result<AccountInfo, CallError> {
     match mint_account_on_chain {
         None => {
             log!(
-             INFO,
+                DEBUG,
              "[service::create_mint] not found mint_account_info from solana for {:?} , pls check the mint_account info and retry",
              mint_account.to_string(),
          );
@@ -343,7 +343,7 @@ pub async fn derive_aossicated_account(
         &token22_program_id(),
     );
     log!(
-        INFO,
+        DEBUG,
         "[ticket::create_associated_account] get_associated_token_address_with_program_id : {:?}",
         associated_account
     );
@@ -364,7 +364,7 @@ pub async fn create_aossicated_account(
         &token22_program_id(),
     );
     log!(
-        INFO,
+        DEBUG,
         "[ticket::create_associated_account] get_associated_token_address_with_program_id : {:?}",
         associated_account
     );
@@ -386,7 +386,7 @@ pub async fn create_aossicated_account(
     };
     let signature = sol_call::create_ata(owner.to_string(), token_mint.to_string()).await?;
     log!(
-        INFO,
+        DEBUG,
         "[[service::create_aossicated_account] create_aossicated_account signature: {:?} ",
         signature.to_string(),
     );
@@ -409,7 +409,7 @@ pub async fn create_aossicated_account(
             reason: Reason::CanisterError(e.to_string()),
         })?;
     log!(
-        INFO,
+        DEBUG,
         "[service::create_aossicated_account] {} mint_account_info from solana : {:?} ",
         associated_account.to_string(),
         ata_on_chain,
@@ -417,7 +417,7 @@ pub async fn create_aossicated_account(
     match ata_on_chain {
         None => {
             log!(
-                INFO,
+                DEBUG,
                 "[service::create_mint] not found ata info from solana for {:?} , pls check the mint_account info and retry",
                 associated_account.to_string(),
             );
@@ -471,7 +471,9 @@ pub async fn mint_to(
             })
             .to_owned()
     });
+    log!(DEBUG, "[service::mint_to] mint token request: {:?} ", req);
 
+    // new mint req
     if matches!(req.status, MintTokenStatus::Unknown) && matches!(req.signature, None) {
         let signature = sol_call::mint_to(
             req.associated_account.clone(),
@@ -481,14 +483,15 @@ pub async fn mint_to(
         .await?;
         req.signature = Some(signature.to_string());
     }
+    // to be confimed req
     if matches!(req.status, MintTokenStatus::Unknown) && matches!(req.signature, Some(_)) {
         // query signature status
         let sig = req.signature.clone().unwrap().to_string();
         let tx_status_vec = sol_call::get_signature_status(vec![sig.to_string()]).await?;
         tx_status_vec.first().map(|tx_status| {
             log!(
-                INFO,
-                "[service::mint_to] {}  status : {:?} ",
+                DEBUG,
+                "[service::mint_to] {} status : {:?} ",
                 sig.to_string(),
                 tx_status,
             );
@@ -498,7 +501,7 @@ pub async fn mint_to(
                         signature: sig.to_string(),
                     };
                     mutate_state(|s| {
-                        s.finalize_mint_token_req(req.ticket_id.to_owned(), req.clone())
+                        s.update_mint_token_req(req.ticket_id.to_owned(), req.clone())
                     });
                 }
             }
@@ -527,13 +530,13 @@ pub async fn update_token_metadata(
     token_mint: String,
     req: TokenInfo,
 ) -> Result<String, CallError> {
-    let update_token = read_state(|s| s.update_token_queue.get(&req.token_id).cloned());
     let signature = sol_call::update_token_metadata(token_mint, req.clone()).await?;
     log!(
-        INFO,
-        "[service::update_token_metadata] update_token_metadata  signature: {:?} ",
+        DEBUG,
+        "[service::update_token_metadata] update_token_metadata signature: {:?} ",
         signature.to_string(),
     );
+    let update_token = read_state(|s| s.update_token_queue.get(&req.token_id).cloned());
     match update_token {
         None => {
             // update update_token_metadata result to state
@@ -621,18 +624,14 @@ fn http_request(req: HttpRequest) -> HttpResponse {
         };
 
         let mut entries = vec![];
-        for entry in export_logs(&ic_solana::logs::INFO_BUF) {
+
+        for entry in export_logs(&ic_solana::logs::ERROR_BUF) {
             entries.push(entry);
         }
         for entry in export_logs(&ic_solana::logs::DEBUG_BUF) {
             entries.push(entry);
         }
-        for entry in export_logs(&ic_solana::logs::ERROR_BUF) {
-            entries.push(entry);
-        }
-        for entry in export_logs(&ic_solana::logs::TRACE_HTTP_BUF) {
-            entries.push(entry);
-        }
+
         entries.retain(|entry| entry.timestamp >= max_skip_timestamp);
         HttpResponseBuilder::ok()
             .header("Content-Type", "application/json; charset=utf-8")

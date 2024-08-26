@@ -56,9 +56,9 @@ dfx canister call omnity_hub execute_proposal "(vec {variant {
 dfx canister call omnity_hub query_directives "(opt \"${BITCOIN_CHAIN_ID}\",opt variant {AddChain},0:nat64,5:nat64)"
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE"
-TOKEN_NAME="HOPE•YOU•GET•NICE"
-TOKEN_SYMBOL="NICE"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE3"
+TOKEN_NAME="HOPE•YOU•GET•NICE3"
+TOKEN_SYMBOL="NICE3"
 DECIMALS=2
 ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
 dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = record { 
