@@ -1,8 +1,11 @@
 {
-  "omnity_hub": {
-    "ic": "7wupf-wiaaa-aaaar-qaeya-cai"
-  },
   "bitcoin_customs": {
     "ic": "7rvjr-3qaaa-aaaar-qaeyq-cai"
+  },
+  "bitfinity_route": {
+    "ic": "pw3ee-pyaaa-aaaar-qahva-cai"
+  },
+  "omnity_hub": {
+    "ic": "7wupf-wiaaa-aaaar-qaeya-cai"
   }
 }
