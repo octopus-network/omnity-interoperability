@@ -2,6 +2,7 @@ use ic_canister_log::declare_log_buffer;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use serde_derive::Deserialize;
 use ic_canister_log::export as export_logs;
+use time::OffsetDateTime;
 
 // High-priority messages.
 declare_log_buffer!(name = P0, capacity = 1000);
@@ -18,6 +19,7 @@ pub enum Priority {
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct LogEntry {
     pub timestamp: u64,
+    pub time_str: String,
     pub priority: Priority,
     pub file: String,
     pub line: u32,
@@ -50,6 +52,7 @@ pub fn http_request(req: HttpRequest) -> HttpResponse {
 
             entries.entries.push(LogEntry {
                 timestamp: entry.timestamp,
+                time_str: OffsetDateTime::from_unix_timestamp_nanos(entry.timestamp as i128).unwrap().to_string(),
                 counter: entry.counter,
                 priority: Priority::P0,
                 file: entry.file.to_string(),
@@ -60,6 +63,7 @@ pub fn http_request(req: HttpRequest) -> HttpResponse {
         for entry in export_logs(&P1) {
             entries.entries.push(LogEntry {
                 timestamp: entry.timestamp,
+                time_str: OffsetDateTime::from_unix_timestamp_nanos(entry.timestamp as i128).unwrap().to_string(),
                 counter: entry.counter,
                 priority: Priority::P1,
                 file: entry.file.to_string(),
