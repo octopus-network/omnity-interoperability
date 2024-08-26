@@ -32,7 +32,13 @@
       "gzip": true,
       "candid": "customs/icp/icp_customs.did",
       "package": "icp_customs",
-      "type": "rust"
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/icp_customs.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "bitfinity_route": {
       "gzip": true,
@@ -59,11 +65,17 @@
       "package": "icp_route",
       "type": "custom"
     },
-    "cosmwasm_route": {
+    "cosmwasm_route_osmosis_testnet": {
+      "gzip": true,
       "candid": "route/cosmwasm/cosmwasm_route.did",
       "wasm": "route/cosmwasm/target/wasm32-unknown-unknown/release/cosmwasm_route.wasm",
       "package": "cosmwasm_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "cosmwasm_proxy": {
       "gzip": true,
