@@ -93,7 +93,7 @@ pub async fn send_ticket(seq: Seq) -> Result<Option<String>, BitfinityRouteError
                 DEFAULT_EVM_TX_FEE,
             );
             log!(P0,
-                "[evm route] send ticket tx content: {:?}",
+                "[bitfinity route] send ticket tx content: {:?}",
                 serde_json::to_string(&tx)
             );
             let mut pending_ticket = PendingTicketStatus {
@@ -156,7 +156,7 @@ pub async fn send_directive(seq: Seq) -> Result<Option<String>, BitfinityRouteEr
             };
             let tx = gen_evm_eip1559_tx(data, get_gasprice().await.ok(), nonce, fee);
             log!(P0,
-                "[evm route] send directive tx content: {:?}",
+                "[bitfinity route] send directive tx content: {:?}",
                 serde_json::to_string(&tx)
             );
             let mut pending_directive = PendingDirectiveStatus {

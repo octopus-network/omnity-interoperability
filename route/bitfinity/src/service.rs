@@ -296,7 +296,7 @@ pub async fn resend_ticket_to_hub(tx_hash: String) {
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))
         .unwrap();
-    log!(P0, "[evm_route] burn_ticket sent to hub success: {:?}", ticket);
+    log!(P0, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
 }
 
 #[derive(CandidType, Deserialize)]

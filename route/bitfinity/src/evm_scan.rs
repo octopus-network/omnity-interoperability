@@ -59,7 +59,7 @@ pub fn scan_evm_task() {
                         mutate_state(|s| s.handled_evm_event.insert(hash));
                     }
                     Err(e) => {
-                        log!(P0, "[evm route] handle evm logs error: {}", e.to_string());
+                        log!(P0, "[bitfinity route] handle evm logs error: {}", e.to_string());
                     }
                 }
             }
@@ -107,7 +107,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
             if dst_check_result {
                 handle_token_transport(&l, token_transport).await?;
             } else {
-                log!(P0, "[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,&tx_hash);
+                log!(P0, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,&tx_hash);
             }
         } else if topic1 == DirectiveExecuted::signature_hash() {
             let directive_executed = DirectiveExecuted::decode_log(&raw_log)
@@ -172,7 +172,7 @@ pub async fn handle_runes_mint(
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))?;
     log!(P0,
-        "[evm_route] rune_mint_ticket sent to hub success: {:?}",
+        "[bitfinity route] rune_mint_ticket sent to hub success: {:?}",
         ticket
     );
     Ok(())
@@ -183,7 +183,7 @@ pub async fn handle_token_burn(log_entry: &TransactionReceiptLog, event: TokenBu
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))?;
-    log!(P0, "[evm_route] burn_ticket sent to hub success: {:?}", ticket);
+    log!(P0, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
     Ok(())
 }
 
@@ -196,7 +196,7 @@ pub async fn handle_token_transport(
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))?;
     log!(P0,
-        "[evm_route] transport_ticket sent to hub success: {:?}",
+        "[bitfinity route] transport_ticket sent to hub success: {:?}",
         ticket
     );
     Ok(())
@@ -250,7 +250,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
                 return Ok(ticket_from_transport_event(&l, token_transport));
             } else {
                 let tx_hash = l.transaction_hash.to_hex_str();
-                log!(P0, "[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
+                log!(P0, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
             }
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
