@@ -5,11 +5,16 @@ use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
 use icp_customs::lifecycle::init::CustomArg;
 use icp_customs::{lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL};
-use icp_customs::{
-    state::read_state,
-    updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq},
-};
+use icp_customs::updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq};
 use omnity_types::{Chain, Token};
+
+pub fn is_controller() -> Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
+}
 
 #[init]
 fn init(args: CustomArg) {
@@ -35,22 +40,26 @@ async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, Ge
 
 #[query]
 fn get_chain_list() -> Vec<Chain> {
-    read_state(|s| {
-        s.counterparties
-            .iter()
-            .map(|(_, chain)| chain.clone())
-            .collect()
-    })
+    icp_customs::state::get_chain_list()
 }
 
 #[query]
 fn get_token_list() -> Vec<Token> {
-    read_state(|s| {
-        s.tokens
-            .iter()
-            .map(|(_, (token, _))| token.clone())
-            .collect()
-    })
+    icp_customs::state::get_token_list()
+}
+
+#[update(guard = "is_controller")]
+fn set_icp_token(token_id: String) {
+    icp_customs::state::mutate_state(|state| {
+        state.icp_token_id = Some(token_id);
+    });
+}
+
+#[update(guard = "is_controller")]
+fn set_ckbtc_token(token_id: String) {
+    icp_customs::state::mutate_state(|state| {
+        state.ckbtc_token_id = Some(token_id);
+    });
 }
 
 fn main() {}

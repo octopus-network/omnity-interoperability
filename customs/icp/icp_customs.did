@@ -26,7 +26,11 @@ type GenerateTicketReq = record {
   amount : nat;
   receiver : text;
 };
-type InitArgs = record { hub_principal : principal; chain_id : text };
+type InitArgs = record {
+  ckbtc_ledger_principal : principal;
+  hub_principal : principal;
+  chain_id : text;
+};
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Token = record {
   decimals : nat8;

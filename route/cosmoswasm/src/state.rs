@@ -9,10 +9,6 @@ use serde_bytes::ByteBuf;
 
 use crate::lifecycle::init::InitArgs;
 
-thread_local! {
-    static __STATE: RefCell<Option<RouteState>> = RefCell::default();
-}
-
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
 pub struct RouteState {
     pub cw_port_contract_address: String,

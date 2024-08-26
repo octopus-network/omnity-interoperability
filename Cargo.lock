@@ -8653,6 +8653,8 @@ dependencies = [
  "ic-cdk 0.12.2",
  "ic-cdk-macros 0.8.4",
  "ic-cdk-timers 0.6.0",
+ "ic-ledger-types",
+ "ic-stable-structures 0.6.5",
  "icrc-ledger-client-cdk",
  "icrc-ledger-types",
  "log",

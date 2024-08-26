@@ -3,7 +3,7 @@ use std::str::FromStr;
 use candid::{CandidType, Deserialize, Principal};
 use omnity_types::Token;
 
-use crate::state::{mutate_state, read_state};
+use crate::state::{get_token, insert_token};
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum AddNewTokenError {
@@ -13,7 +13,7 @@ pub enum AddNewTokenError {
 }
 
 pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
-    if read_state(|s| s.tokens.contains_key(&token.token_id)) {
+    if get_token(&token.token_id).is_some() {
         return Err(AddNewTokenError::AlreadyAdded(token.token_id));
     }
 
@@ -25,6 +25,6 @@ pub async fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
     let principal = Principal::from_str(&ledger_id)
         .map_err(|_| AddNewTokenError::InvalidLedgerId(ledger_id))?;
 
-    mutate_state(|s| s.tokens.insert(token.token_id.clone(), (token, principal)));
+    insert_token(token, principal);
     Ok(())
 }

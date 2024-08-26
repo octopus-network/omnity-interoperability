@@ -1,5 +1,6 @@
 export const idlFactory = ({ IDL }) => {
   const InitArgs = IDL.Record({
+    'ckbtc_ledger_principal' : IDL.Principal,
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
   });
@@ -57,6 +58,7 @@ export const idlFactory = ({ IDL }) => {
 };
 export const init = ({ IDL }) => {
   const InitArgs = IDL.Record({
+    'ckbtc_ledger_principal' : IDL.Principal,
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
   });

@@ -1,18 +1,20 @@
 use candid::{Nat, Principal};
 use icrc_ledger_types::icrc1::account::Account;
-use omnity_types::{Directive, Ticket};
-use state::{mutate_state, read_state};
+use omnity_types::Directive;
+use state::{insert_counterparty, is_ckbtc, is_icp, mutate_state, read_state};
 use std::str::FromStr;
-use updates::mint_token::{retrieve_ckbtc, MintTokenError, MintTokenRequest, RetrieveBtcOk};
+use updates::mint_token::{retrieve_ckbtc, unlock_icp, MintTokenError, MintTokenRequest};
 
 pub mod call_error;
 pub mod hub;
 pub mod lifecycle;
 pub mod state;
 pub mod updates;
+pub mod utils;
 
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
+pub const ICP_TRANSFER_FEE: u64 = 10_000;
 
 async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
@@ -21,9 +23,9 @@ async fn process_tickets() {
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
 
-                if ticket.token.eq("ckbtc") {
+                if is_ckbtc(&ticket.token) {
                     match retrieve_ckbtc(ticket.receiver.clone(), Nat::from_str(ticket.amount.as_str()).unwrap()).await {
-                        Ok(r) => {
+                        Ok(_) => {
                             log::info!("[process tickets] process successful for ticket id: {}", ticket.ticket_id);
                         },
                         Err(e) => {
@@ -69,6 +71,26 @@ async fn process_tickets() {
                     next_seq = seq + 1;
                     continue;
                 };
+
+                if is_icp(&ticket.token) {
+                    match unlock_icp(& MintTokenRequest{
+                        ticket_id: ticket.ticket_id.clone(),
+                        token_id: ticket.token.clone(),
+                        receiver,
+                        amount,
+                    }).await {
+                        Ok(_) => {
+                            log::info!("[process tickets] process successful for ticket id: {}", ticket.ticket_id);
+                        },
+                        Err(e) => {
+                            log::error!("[process tickets] failed to unlock icp: {:?}", e);
+                            next_seq = seq + 1;
+                            continue;
+                        },
+                    }
+                    continue;
+                }
+
                 match updates::mint_token(&mut MintTokenRequest {
                     ticket_id: ticket.ticket_id.clone(),
                     token_id: ticket.token.clone(),
@@ -116,10 +138,7 @@ async fn process_directives() {
             for (_, directive) in &directives {
                 match directive {
                     Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
-                        mutate_state(|s| {
-                            s.counterparties
-                                .insert(chain.chain_id.clone(), chain.clone())
-                        });
+                        insert_counterparty(chain.clone());
                     }
                     Directive::AddToken(token) | Directive::UpdateToken(token) => {
                         match updates::add_new_token(token.clone()).await {

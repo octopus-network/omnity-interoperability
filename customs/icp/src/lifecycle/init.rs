@@ -1,4 +1,4 @@
-use crate::state::{replace_state, CustomsState};
+use crate::state::{set_state, CustomsState};
 use candid::{CandidType, Deserialize, Principal};
 use serde::Serialize;
 
@@ -16,5 +16,5 @@ pub struct InitArgs {
 
 pub fn init(args: InitArgs) {
     let state = CustomsState::from(args);
-    replace_state(state);
+    set_state(state);
 }

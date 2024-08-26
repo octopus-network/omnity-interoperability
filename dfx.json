@@ -140,6 +140,26 @@
       "candid": "customs/oracle_canister/oracle.did",
       "package": "rune_oracle_canister",
       "type": "rust"
+    },
+    "ckbtc_minter": {
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-minter.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-minter.did"
+    },
+    "ckbtc_ledger": {
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-ledger.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-ledger.did"
+    },
+    "ckbtc_index": {
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-index-ng.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-index-ng.did"
+    },
+    "ckbtc_archive": {
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-archive.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-archive.did"
     }
   },
   "defaults": {

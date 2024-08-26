@@ -30,7 +30,11 @@ export interface GenerateTicketReq {
   'amount' : bigint,
   'receiver' : string,
 }
-export interface InitArgs { 'hub_principal' : Principal, 'chain_id' : string }
+export interface InitArgs {
+  'ckbtc_ledger_principal' : Principal,
+  'hub_principal' : Principal,
+  'chain_id' : string,
+}
 export type Result = { 'Ok' : GenerateTicketOk } |
   { 'Err' : GenerateTicketError };
 export interface Token {

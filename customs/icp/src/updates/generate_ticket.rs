@@ -4,11 +4,14 @@ use icrc_ledger_types::{
     icrc1::account::{Account, Subaccount},
     icrc2::transfer_from::{TransferFromArgs, TransferFromError},
 };
+use ic_ledger_types::{
+    AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID
+};
 use num_traits::cast::ToPrimitive;
 use omnity_types::{Ticket, TxAction};
 use serde::Serialize;
 
-use crate::{hub, state::read_state};
+use crate::{hub, state::{get_counterparty, get_token_principal, is_icp, read_state}, utils::convert_u128_u64, ICP_TRANSFER_FEE};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketReq {
@@ -34,36 +37,47 @@ pub enum GenerateTicketError {
     InsufficientFunds {
         balance: u64,
     },
+    InsufficientIcp {
+        required: u64,
+        provided: u64,
+    },
     /// The caller didn't approve enough funds for spending.
     InsufficientAllowance {
         allowance: u64,
     },
     SendTicketErr(String),
+    TransferIcpFailure(String),
 }
 
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
-    if read_state(|s| s.counterparties.get(&req.target_chain_id).is_none()) {
+
+    if get_counterparty(&req.target_chain_id).is_none() {
         return Err(GenerateTicketError::UnsupportedChainId(
             req.target_chain_id.clone(),
         ));
     }
 
-    let ledger_id = read_state(|s| match s.tokens.get(&req.token_id) {
-        Some((_, ledger_id)) => Ok(ledger_id.clone()),
-        None => Err(GenerateTicketError::UnsupportedToken(req.token_id.clone())),
-    })?;
+    let ticket_id = if is_icp(&req.token_id) {
+        let block_index = lock_icp(ic_cdk::caller(), convert_u128_u64(req.amount)).await?;
+        let ticket_id = format!("{}_{}", MAINNET_LEDGER_CANISTER_ID.to_string(), block_index.to_string());
+        ticket_id
+    } else {
+        let ledger_id = get_token_principal(&req.token_id).ok_or(GenerateTicketError::UnsupportedToken(req.token_id.clone()))?;
 
-    let user = Account {
-        owner: ic_cdk::caller(),
-        subaccount: req.from_subaccount,
+        let user = Account {
+            owner: ic_cdk::caller(),
+            subaccount: req.from_subaccount,
+        };
+    
+        let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
+        let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
+        ticket_id
     };
 
-    let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
-    let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
-
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
+
     hub::send_ticket(
         hub_principal,
         Ticket {
@@ -84,6 +98,50 @@ pub async fn generate_ticket(
     .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
 
     Ok(GenerateTicketOk { ticket_id })
+}
+
+async fn ic_balance_of(subaccount: &IcSubaccount) -> Result<Tokens, GenerateTicketError> {
+    let account_identifier = AccountIdentifier::new(&ic_cdk::api::id(), &subaccount);
+    let balance_args = ic_ledger_types::AccountBalanceArgs {
+        account: account_identifier,
+    };
+    ic_ledger_types::account_balance(MAINNET_LEDGER_CANISTER_ID, balance_args)
+        .await
+        .map_err(|(_, reason)| GenerateTicketError::TemporarilyUnavailable(reason))
+}
+
+
+async fn lock_icp(
+    user: Principal,
+    amount: u64
+)->Result<u64, GenerateTicketError>{
+
+    let subaccount =  IcSubaccount::from(user);
+    let ic_balance = ic_balance_of(&subaccount).await?;
+
+    if ic_balance.e8s() < amount + ICP_TRANSFER_FEE {
+        return Err(GenerateTicketError::InsufficientIcp { 
+            required: amount + ICP_TRANSFER_FEE,
+            provided: ic_balance.e8s(),
+        });
+    }
+
+    let transfer_args = ic_ledger_types::TransferArgs {
+        memo: ic_ledger_types::Memo(0),
+        amount: Tokens::from_e8s(amount),
+        fee: Tokens::from_e8s(ICP_TRANSFER_FEE),
+        from_subaccount: Some(subaccount.clone()),
+        to: AccountIdentifier::new(&ic_cdk::api::id(), &DEFAULT_SUBACCOUNT),
+        created_at_time: None,
+    };
+
+    let index = ic_ledger_types::transfer(MAINNET_LEDGER_CANISTER_ID, transfer_args)
+        .await
+        .map_err(|(_, reason)| GenerateTicketError::TemporarilyUnavailable(reason))?
+        .map_err(|err| GenerateTicketError::TransferIcpFailure(err.to_string()))?;
+
+    Ok(index)
+
 }
 
 async fn burn_token_icrc2(
