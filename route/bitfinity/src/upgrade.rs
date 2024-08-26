@@ -15,6 +15,7 @@ use crate::types::{PendingDirectiveStatus, PendingTicketStatus,};
 
 #[derive(Deserialize, Serialize)]
 pub struct OldEvmRouteState {
+    pub bitfinity_canister: Principal,
     pub admins: Vec<Principal>,
     pub hub_principal: Principal,
     pub omnity_chain_id: String,
@@ -25,11 +26,9 @@ pub struct OldEvmRouteState {
     pub counterparties: BTreeMap<ChainId, Chain>,
     pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
     pub chain_state: ChainState,
-    pub evm_rpc_addr: Principal,
     pub key_id: EcdsaKeyId,
     pub key_derivation_path: Vec<Vec<u8>>,
     pub pubkey: Vec<u8>,
-    pub rpc_providers: Vec<RpcApi>,
     pub omnity_port_contract: EvmAddress,
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
@@ -48,7 +47,6 @@ pub struct OldEvmRouteState {
     pub pending_directive_map: StableBTreeMap<Seq, PendingDirectiveStatus, Memory>,
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
-    pub evm_tx_type: EvmTxType,
     pub block_interval_secs: u64,
     pub pending_events_on_chain: BTreeMap<String, u64>,
 }
@@ -84,34 +82,8 @@ impl From<(OldEvmRouteState, Principal)> for EvmRouteState {
             pending_tickets_map: old.pending_tickets_map,
             pending_directive_map: old.pending_directive_map,
             is_timer_running: old.is_timer_running,
-            block_interval_secs: old.block_interval_secs ,
+            block_interval_secs: old.block_interval_secs,
             pending_events_on_chain: old.pending_events_on_chain,
         }
     }
-}
-
-
-#[derive(
-CandidType, Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord,
-)]
-pub enum EvmTxType {
-    Legacy,
-    #[default]
-    Eip1559,
-}
-
-#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, CandidType)]
-pub struct RpcApi {
-    pub url: String,
-    pub headers: Option<Vec<HttpHeader>>,
-}
-
-#[derive(
-CandidType, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Default,
-)]
-pub struct HttpHeader {
-    /// Name
-    pub name: String,
-    /// Value
-    pub value: String,
 }
