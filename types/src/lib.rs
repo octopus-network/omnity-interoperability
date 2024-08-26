@@ -11,6 +11,7 @@ use sha2::Digest;
 use std::borrow::Cow;
 use thiserror::Error;
 
+#[cfg(feature = "default")]
 pub mod log;
 pub mod rune_id;
 pub mod signer;

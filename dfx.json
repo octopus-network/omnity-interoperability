@@ -34,6 +34,12 @@
       "package": "icp_customs",
       "type": "rust"
     },
+    "bitfinity_route": {
+      "gzip": true,
+      "candid": "route/bitfinity/bitfinity_route.did",
+      "package": "bitfinity_route",
+      "type": "rust"
+    },
     "omnity_hub": {
       "gzip": true,
       "candid": "hub/omnity_hub.did",
