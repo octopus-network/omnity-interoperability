@@ -7,6 +7,8 @@ use icp_customs::lifecycle::init::InitArgs;
 use icp_customs::updates::generate_ticket::{
     GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
+use ic_ledger_types::{AccountIdentifier, Subaccount};
+use icp_customs::lifecycle::init::CustomArg;
 use icp_customs::{lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL};
 use omnity_types::{Chain, Token};
 
@@ -34,6 +36,12 @@ fn check_anonymous_caller() {
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
     updates::generate_ticket(args).await
+}
+
+#[query]
+fn get_account_identifier(principal: Principal) -> AccountIdentifier {
+    let subaccount = Subaccount::from(principal);
+    AccountIdentifier::new(&ic_cdk::api::id(), &subaccount)
 }
 
 #[query]

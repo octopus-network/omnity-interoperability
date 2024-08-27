@@ -22,7 +22,6 @@ type GenerateTicketError = variant {
 type GenerateTicketOk = record { ticket_id : text };
 type GenerateTicketReq = record {
   token_id : text;
-  from_subaccount : opt blob;
   target_chain_id : text;
   amount : nat;
   receiver : text;
@@ -43,6 +42,7 @@ type Token = record {
 };
 service : (InitArgs) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
+  get_account_identifier : (principal) -> (blob) query;
   get_chain_list : () -> (vec Chain) query;
   get_token_list : () -> (vec Token) query;
   set_ckbtc_token : (text) -> ();

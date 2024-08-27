@@ -4,9 +4,7 @@ use icrc_ledger_types::{
     icrc1::account::{Account, Subaccount},
     icrc2::transfer_from::{TransferFromArgs, TransferFromError},
 };
-use ic_ledger_types::{
-    AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID
-};
+use ic_ledger_types::{AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID};
 use num_traits::cast::ToPrimitive;
 use omnity_types::{Ticket, TxAction};
 use serde::Serialize;
