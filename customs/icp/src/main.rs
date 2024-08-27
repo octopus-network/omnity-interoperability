@@ -8,7 +8,6 @@ use icp_customs::updates::generate_ticket::{
     GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use ic_ledger_types::{AccountIdentifier, Subaccount};
-use icp_customs::lifecycle::init::CustomArg;
 use icp_customs::{lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL};
 use omnity_types::{Chain, Token};
 
