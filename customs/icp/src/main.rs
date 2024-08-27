@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use candid::Principal;
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
 use icp_customs::lifecycle::init::InitArgs;
@@ -66,6 +67,15 @@ fn set_ckbtc_token(token_id: String) {
         state.ckbtc_token_id = Some(token_id);
     });
 }
+
+#[query(hidden = true)]
+fn http_request(req: HttpRequest) -> HttpResponse {
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+    omnity_types::ic_log::http_request(req)
+}
+
 
 fn main() {}
 

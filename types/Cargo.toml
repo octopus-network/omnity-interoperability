@@ -31,6 +31,10 @@ getrandom = { version = "0.2", features = ["custom"] }
 ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.12.x-stablelog", optional = true }
 humantime = "2.1"
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
+serde_derive = "1.0.208"
+time = "0.3.36"
+ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+env_filter = "=0.1.1"
 
 [dev-dependencies]
 tokio = { version = "1.35.1", features = ["full"] }

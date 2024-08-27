@@ -3,6 +3,9 @@ use icrc_ledger_types::icrc1::account::Account;
 use omnity_types::Directive;
 use state::{insert_counterparty, is_ckbtc, is_icp, mutate_state, read_state};
 use std::str::FromStr;
+use ic_canister_log::log;
+use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
+use omnity_types::ic_log::P0;
 use updates::mint_token::{retrieve_ckbtc, unlock_icp, MintTokenError, MintTokenRequest};
 
 pub mod call_error;
@@ -26,10 +29,10 @@ async fn process_tickets() {
                 if is_ckbtc(&ticket.token) {
                     match retrieve_ckbtc(ticket.receiver.clone(), Nat::from_str(ticket.amount.as_str()).unwrap()).await {
                         Ok(_) => {
-                            log::info!("[process tickets] process successful for ticket id: {}", ticket.ticket_id);
+                            log!(P0, "[process tickets] process successful for ticket id: {}", ticket.ticket_id);
                         },
                         Err(e) => {
-                            log::error!("[process tickets] failed to retrieve ckbtc: {:?}", e);
+                            log!(P0, "[process tickets] failed to retrieve ckbtc: {:?}", e);
                             next_seq = seq + 1;
                             continue;
                         },
@@ -51,7 +54,7 @@ async fn process_tickets() {
                 let receiver = match receiver_parse_result {
                     Ok(receiver) => receiver,
                     Err(err) => {
-                        log::error!(
+                        log!(P0,
                             "[process tickets] failed to parse ticket receiver: {}, err: {}",
                             ticket.receiver,
                             err
@@ -64,7 +67,7 @@ async fn process_tickets() {
                 let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
                     amount
                 } else {
-                    log::error!(
+                    log!(P0,
                         "[process tickets] failed to parse ticket amount: {}",
                         ticket.amount
                     );
@@ -79,11 +82,14 @@ async fn process_tickets() {
                         receiver,
                         amount,
                     }).await {
-                        Ok(_) => {
-                            log::info!("[process tickets] process successful for ticket id: {}", ticket.ticket_id);
+                        Ok(height) => {
+                            log!(P0, "[process tickets] process successful for ticket id: {}", &ticket.ticket_id);
+                            let hub_principal = read_state(|s| s.hub_principal);
+                            let tx_hash = format!("{}_{}", MAINNET_LEDGER_CANISTER_ID.to_string(), height.to_string());
+                            hub::update_tx_hash(hub_principal, ticket.ticket_id.clone(), tx_hash).await.unwrap();
                         },
                         Err(e) => {
-                            log::error!("[process tickets] failed to unlock icp: {:?}", e);
+                            log!(P0, "[process tickets] failed to unlock icp: {:?}", e);
                             next_seq = seq + 1;
                             continue;
                         },
@@ -100,13 +106,13 @@ async fn process_tickets() {
                 .await
                 {
                     Ok(_) => {
-                        log::info!(
+                        log!(P0,
                             "[process tickets] process successful for ticket id: {}",
                             ticket.ticket_id
                         );
                     }
                     Err(MintTokenError::TemporarilyUnavailable(desc)) => {
-                        log::error!(
+                        log!(P0,
                             "[process tickets] failed to mint token for ticket id: {}, err: {}",
                             ticket.ticket_id,
                             desc
@@ -114,7 +120,7 @@ async fn process_tickets() {
                         break;
                     }
                     Err(err) => {
-                        log::error!(
+                        log!(P0,
                             "[process tickets] process failure for ticket id: {}, err: {:?}",
                             ticket.ticket_id,
                             err
@@ -126,7 +132,7 @@ async fn process_tickets() {
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
         Err(err) => {
-            log::error!("[process tickets] failed to query tickets, err: {}", err);
+            log!(P0, "[process tickets] failed to query tickets, err: {}", err);
         }
     }
 }
@@ -143,13 +149,13 @@ async fn process_directives() {
                     Directive::AddToken(token) | Directive::UpdateToken(token) => {
                         match updates::add_new_token(token.clone()).await {
                             Ok(_) => {
-                                log::info!(
+                                log!(P0,
                                     "[process directives] add token successful, token id: {}",
                                     token.token_id
                                 );
                             }
                             Err(err) => {
-                                log::error!(
+                                log!(P0,
                                     "[process directives] failed to add token: token id: {}, err: {:?}",
                                     token.token_id,
                                     err
@@ -166,7 +172,7 @@ async fn process_directives() {
             });
         }
         Err(err) => {
-            log::error!(
+            log!(P0,
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );

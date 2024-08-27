@@ -15,6 +15,7 @@ use thiserror::Error;
 pub mod log;
 pub mod rune_id;
 pub mod signer;
+pub mod ic_log;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;

@@ -87,14 +87,13 @@ pub async fn generate_ticket(
             action: TxAction::Transfer,
             token: req.token_id.clone(),
             amount: req.amount.to_string(),
-            sender: None,
+            sender: Some(ic_cdk::caller().to_text()),
             receiver: req.receiver.clone(),
             memo: None,
         },
     )
     .await
     .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
-
     Ok(GenerateTicketOk { ticket_id })
 }
 
@@ -137,9 +136,7 @@ async fn lock_icp(
         .await
         .map_err(|(_, reason)| GenerateTicketError::TemporarilyUnavailable(reason))?
         .map_err(|err| GenerateTicketError::TransferIcpFailure(err.to_string()))?;
-
     Ok(index)
-
 }
 
 async fn burn_token_icrc2(
