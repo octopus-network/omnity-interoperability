@@ -7,5 +7,14 @@
   },
   "omnity_hub": {
     "ic": "7wupf-wiaaa-aaaar-qaeya-cai"
+  },
+  "cosmwasm_proxy": {
+    "ic": "ncfbq-kyaaa-aaaar-qah3a-cai"
+  },
+  "cosmwasm_route_osmosis_testnet": {
+    "ic": "nfehe-haaaa-aaaar-qah3q-cai"
+  },
+  "icp_customs": {
+    "ic": "nlgkm-4qaaa-aaaar-qah2q-cai"
   }
 }
