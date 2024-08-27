@@ -12,13 +12,11 @@ pub async fn init(args: lifecycle::init::InitArgs) {
 
 #[query]
 pub fn get_identity_by_osmosis_account_id(osmosis_account_id: String) -> std::result::Result<Account, String> {
-    let account_id = Principal::from_text(&osmosis_account_id)
-        .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string())).map_err(|e| e.to_string())?;
-    let address_data = AddressData::try_from(account_id.to_text().as_str())
+    let address_data = AddressData::try_from(osmosis_account_id.as_str())
         .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string())).map_err(|e| e.to_string())?;
 
     Ok(Account {
-        owner: account_id,
+        owner: ic_cdk::api::id(),
         subaccount: Some(address_data.into()),
     })
 }
