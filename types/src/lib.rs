@@ -767,3 +767,10 @@ pub enum Error {
     #[error("custom error: (`{0}`)")]
     CustomError(String),
 }
+
+
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MintTokenStatus {
+    Finalized { tx_hash: String },
+    Unknown,
+}

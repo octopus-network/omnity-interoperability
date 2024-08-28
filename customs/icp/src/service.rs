@@ -11,7 +11,8 @@ use crate::updates::generate_ticket::{
 use ic_ledger_types::{AccountIdentifier, Subaccount};
 use crate::{lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL, hub};
 use crate::state::{CustomsState, get_finalized_mint_token_request, read_state};
-use omnity_types::{Chain, Seq, Ticket, TicketId, Token};
+use omnity_types::{Chain, Seq, Ticket, Token, MintTokenStatus, TicketId};
+use omnity_types::MintTokenStatus::{Finalized, Unknown};
 
 pub fn is_controller() -> Result<(), String> {
     if ic_cdk::api::is_controller(&ic_cdk::caller()) {
@@ -100,10 +101,21 @@ pub fn get_state() -> CustomsState {
     read_state(|s|s.clone())
 }
 
-#[query(guard = "is_controller")]
-pub fn ticket_finallized(ticket_id: TicketId) -> Option<u64> {
-    get_finalized_mint_token_request(&ticket_id)
+
+#[query]
+fn mint_token_status(ticket_id: TicketId) -> MintTokenStatus {
+   match get_finalized_mint_token_request(&ticket_id) {
+       None => {
+           Unknown
+       }
+       Some(i) => {
+           Finalized {
+               tx_hash: i.to_string()
+           }
+       }
+   }
 }
+
 
 // Enable Candid export
 ic_cdk::export_candid!();

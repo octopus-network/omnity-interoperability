@@ -42,6 +42,10 @@ type InitArgs = record {
   hub_principal : principal;
   chain_id : text;
 };
+type MintTokenStatus = variant {
+  Finalized : record { tx_hash : text };
+  Unknown;
+};
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Ticket = record {
   token : text;
@@ -73,9 +77,8 @@ service : (InitArgs) -> {
   get_state : () -> (CustomsState) query;
   get_token_list : () -> (vec Token) query;
   handle_ticket : (nat64) -> ();
-  insert_token : (Token) -> ();
+  mint_token_status : (text) -> (MintTokenStatus) query;
   query_hub_tickets : (nat64, nat64) -> (vec record { nat64; Ticket });
   set_ckbtc_token : (text) -> ();
   set_icp_token : (text) -> ();
-  ticket_finallized : (text) -> (opt nat64) query;
 }

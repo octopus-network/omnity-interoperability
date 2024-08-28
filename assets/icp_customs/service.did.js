@@ -46,6 +46,16 @@ export const idlFactory = ({ IDL }) => {
     'chain_type' : ChainType,
     'contract_address' : IDL.Opt(IDL.Text),
   });
+  const CustomsState = IDL.Record({
+    'ckbtc_ledger_principal' : IDL.Principal,
+    'hub_principal' : IDL.Principal,
+    'is_timer_running' : IDL.Bool,
+    'next_directive_seq' : IDL.Nat64,
+    'icp_token_id' : IDL.Opt(IDL.Text),
+    'chain_id' : IDL.Text,
+    'next_ticket_seq' : IDL.Nat64,
+    'ckbtc_token_id' : IDL.Opt(IDL.Text),
+  });
   const Token = IDL.Record({
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
@@ -54,16 +64,32 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'symbol' : IDL.Text,
   });
-  const HttpRequest = IDL.Record({
-    'url' : IDL.Text,
-    'method' : IDL.Text,
-    'body' : IDL.Vec(IDL.Nat8),
-    'headers' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
+  const MintTokenStatus = IDL.Variant({
+    'Finalized' : IDL.Record({ 'tx_hash' : IDL.Text }),
+    'Unknown' : IDL.Null,
   });
-  const HttpResponse = IDL.Record({
-    'body' : IDL.Vec(IDL.Nat8),
-    'headers' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
-    'status_code' : IDL.Nat16,
+  const TxAction = IDL.Variant({
+    'Burn' : IDL.Null,
+    'Redeem' : IDL.Null,
+    'Mint' : IDL.Null,
+    'Transfer' : IDL.Null,
+  });
+  const TicketType = IDL.Variant({
+    'Resubmit' : IDL.Null,
+    'Normal' : IDL.Null,
+  });
+  const Ticket = IDL.Record({
+    'token' : IDL.Text,
+    'action' : TxAction,
+    'dst_chain' : IDL.Text,
+    'memo' : IDL.Opt(IDL.Vec(IDL.Nat8)),
+    'ticket_id' : IDL.Text,
+    'sender' : IDL.Opt(IDL.Text),
+    'ticket_time' : IDL.Nat64,
+    'ticket_type' : TicketType,
+    'src_chain' : IDL.Text,
+    'amount' : IDL.Text,
+    'receiver' : IDL.Text,
   });
   return IDL.Service({
     'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
@@ -73,8 +99,15 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
+    'get_state' : IDL.Func([], [CustomsState], ['query']),
     'get_token_list' : IDL.Func([], [IDL.Vec(Token)], ['query']),
-    'http_request' : IDL.Func([HttpRequest], [HttpResponse], ['query']),
+    'handle_ticket' : IDL.Func([IDL.Nat64], [], []),
+    'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
+    'query_hub_tickets' : IDL.Func(
+        [IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(IDL.Tuple(IDL.Nat64, Ticket))],
+        [],
+      ),
     'set_ckbtc_token' : IDL.Func([IDL.Text], [], []),
     'set_icp_token' : IDL.Func([IDL.Text], [], []),
   });
