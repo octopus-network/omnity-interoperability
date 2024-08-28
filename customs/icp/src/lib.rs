@@ -1,6 +1,6 @@
 use candid::{Nat, Principal};
 use icrc_ledger_types::icrc1::account::Account;
-use omnity_types::Directive;
+use omnity_types::{Directive, Ticket};
 use state::{insert_counterparty, is_ckbtc, is_icp, mutate_state, read_state};
 use std::str::FromStr;
 use ic_canister_log::log;
@@ -14,122 +14,130 @@ pub mod lifecycle;
 pub mod state;
 pub mod updates;
 pub mod utils;
+pub mod service;
 
+type TempUnavalible = bool;
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICP_TRANSFER_FEE: u64 = 10_000;
+
+pub fn parse_receiver(ticket: &Ticket) -> Option<Account> {
+    let receiver_parse_result = if ticket.receiver.contains(".") {
+        Account::from_str(ticket.receiver.as_str()).map_err(|e| e.to_string())
+    } else {
+        Principal::from_str(ticket.receiver.as_str())
+            .map(|owner| Account {
+                owner,
+                subaccount: None,
+            })
+            .map_err(|e| e.to_string())
+    };
+
+    match receiver_parse_result {
+        Ok(receiver) => Some(receiver),
+        Err(err) => {
+            log!(P0,
+                "[process tickets] failed to parse ticket receiver: {}, err: {}",
+                ticket.receiver,
+                err
+            );
+             None
+        }
+    }
+}
+pub async fn handle_ticket(ticket: &Ticket) -> TempUnavalible {
+
+    if is_ckbtc(&ticket.token) {
+        match retrieve_ckbtc(ticket.receiver.clone(), Nat::from_str(ticket.amount.as_str()).unwrap(), ticket.ticket_id.clone()).await {
+            Ok(_) => {
+                log!(P0, "[process tickets] process successful for ticket id: {}", ticket.ticket_id);
+            },
+            Err(e) => {
+                log!(P0, "[process tickets] failed to retrieve ckbtc: {:?}", e);
+            },
+        }
+        return false;
+    }
+
+    let receiver = parse_receiver(&ticket);
+    if receiver.is_none() {
+        return false;
+    }
+    let receiver = receiver.unwrap();
+
+    let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
+        amount
+    } else {
+        log!(P0,
+            "[process tickets] failed to parse ticket amount: {}",
+            ticket.amount
+        );
+        return false;
+    };
+
+    if is_icp(&ticket.token) {
+        match unlock_icp(& MintTokenRequest{
+            ticket_id: ticket.ticket_id.clone(),
+            token_id: ticket.token.clone(),
+            receiver,
+            amount,
+        }).await {
+            Ok(height) => {
+                log!(P0, "[process tickets] process successful for ticket id: {}", &ticket.ticket_id);
+                let hub_principal = read_state(|s| s.hub_principal);
+                let tx_hash = format!("{}_{}", MAINNET_LEDGER_CANISTER_ID.to_string(), height.to_string());
+                let _ = hub::update_tx_hash(hub_principal, ticket.ticket_id.clone(), tx_hash).await;
+            },
+            Err(e) => {
+                log!(P0, "[process tickets] failed to unlock icp: {:?}", e);
+            },
+        }
+        return false;
+    }
+
+    match updates::mint_token(&mut MintTokenRequest {
+        ticket_id: ticket.ticket_id.clone(),
+        token_id: ticket.token.clone(),
+        receiver,
+        amount,
+    })
+        .await
+    {
+        Ok(_) => {
+            log!(P0,
+                "[process tickets] process successful for ticket id: {}",
+                ticket.ticket_id
+            );
+        }
+        Err(MintTokenError::TemporarilyUnavailable(desc)) => {
+            log!(P0,
+                "[process tickets] failed to mint token for ticket id: {}, err: {}",
+                ticket.ticket_id,
+                desc
+            );
+            return true;
+        }
+        Err(err) => {
+            log!(P0,
+                "[process tickets] process failure for ticket id: {}, err: {:?}",
+                ticket.ticket_id,
+                err
+            );
+        }
+    }
+    false
+}
 
 async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
-            let mut next_seq = offset;
             for (seq, ticket) in &tickets {
-
-                if is_ckbtc(&ticket.token) {
-                    match retrieve_ckbtc(ticket.receiver.clone(), Nat::from_str(ticket.amount.as_str()).unwrap()).await {
-                        Ok(_) => {
-                            log!(P0, "[process tickets] process successful for ticket id: {}", ticket.ticket_id);
-                        },
-                        Err(e) => {
-                            log!(P0, "[process tickets] failed to retrieve ckbtc: {:?}", e);
-                            next_seq = seq + 1;
-                            continue;
-                        },
-                    }
-                    continue;
+                if handle_ticket(ticket).await {
+                    break;
                 }
-
-                let receiver_parse_result = if ticket.receiver.contains(".") {
-                    Account::from_str(ticket.receiver.as_str()).map_err(|e| e.to_string())
-                } else {
-                    Principal::from_str(ticket.receiver.as_str())
-                        .map(|owner| Account {
-                            owner,
-                            subaccount: None,
-                        })
-                        .map_err(|e| e.to_string())
-                };
-
-                let receiver = match receiver_parse_result {
-                    Ok(receiver) => receiver,
-                    Err(err) => {
-                        log!(P0,
-                            "[process tickets] failed to parse ticket receiver: {}, err: {}",
-                            ticket.receiver,
-                            err
-                        );
-                        next_seq = seq + 1;
-                        continue;
-                    }
-                };
-
-                let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
-                    amount
-                } else {
-                    log!(P0,
-                        "[process tickets] failed to parse ticket amount: {}",
-                        ticket.amount
-                    );
-                    next_seq = seq + 1;
-                    continue;
-                };
-
-                if is_icp(&ticket.token) {
-                    match unlock_icp(& MintTokenRequest{
-                        ticket_id: ticket.ticket_id.clone(),
-                        token_id: ticket.token.clone(),
-                        receiver,
-                        amount,
-                    }).await {
-                        Ok(height) => {
-                            log!(P0, "[process tickets] process successful for ticket id: {}", &ticket.ticket_id);
-                            let hub_principal = read_state(|s| s.hub_principal);
-                            let tx_hash = format!("{}_{}", MAINNET_LEDGER_CANISTER_ID.to_string(), height.to_string());
-                            hub::update_tx_hash(hub_principal, ticket.ticket_id.clone(), tx_hash).await.unwrap();
-                        },
-                        Err(e) => {
-                            log!(P0, "[process tickets] failed to unlock icp: {:?}", e);
-                            next_seq = seq + 1;
-                            continue;
-                        },
-                    }
-                    continue;
-                }
-
-                match updates::mint_token(&mut MintTokenRequest {
-                    ticket_id: ticket.ticket_id.clone(),
-                    token_id: ticket.token.clone(),
-                    receiver,
-                    amount,
-                })
-                .await
-                {
-                    Ok(_) => {
-                        log!(P0,
-                            "[process tickets] process successful for ticket id: {}",
-                            ticket.ticket_id
-                        );
-                    }
-                    Err(MintTokenError::TemporarilyUnavailable(desc)) => {
-                        log!(P0,
-                            "[process tickets] failed to mint token for ticket id: {}, err: {}",
-                            ticket.ticket_id,
-                            desc
-                        );
-                        break;
-                    }
-                    Err(err) => {
-                        log!(P0,
-                            "[process tickets] process failure for ticket id: {}, err: {:?}",
-                            ticket.ticket_id,
-                            err
-                        );
-                    }
-                }
-                next_seq = seq + 1;
+                mutate_state(|s| s.next_ticket_seq = seq+1)
             }
-            mutate_state(|s| s.next_ticket_seq = next_seq)
         }
         Err(err) => {
             log!(P0, "[process tickets] failed to query tickets, err: {}", err);

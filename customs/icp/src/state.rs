@@ -1,4 +1,4 @@
-use candid::Principal;
+use candid::{CandidType, Principal};
 use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
 use serde::Serialize;
 use std::{borrow::Cow, cell::RefCell};
@@ -57,7 +57,7 @@ thread_local! {
 
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize, CandidType)]
 pub struct CustomsState {
     pub chain_id: String,
 
@@ -68,12 +68,6 @@ pub struct CustomsState {
 
     // Next index of query directives from hub
     pub next_directive_seq: u64,
-
-    // pub tokens: BTreeMap<TokenId, (Token, Principal)>,
-
-    // pub counterparties: BTreeMap<ChainId, Chain>,
-
-    // pub finalized_mint_token_requests: BTreeMap<TicketId, u64>,
 
     pub ckbtc_ledger_principal: Principal,
 
@@ -226,9 +220,3 @@ pub fn is_icp(token_id: &TokenId)->bool{
         state.icp_token_id.as_ref().map_or(false, |id| id == token_id)
     })
 }
-
-// pub fn replace_state(state: CustomsState) {
-//     __STATE.with(|s| {
-//         *s.borrow_mut() = Some(state);
-//     });
-// }

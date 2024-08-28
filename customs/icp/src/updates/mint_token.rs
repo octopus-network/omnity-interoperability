@@ -74,7 +74,11 @@ pub struct RetrieveBtcOk {
 pub async fn retrieve_ckbtc(
     receiver: String,
     amount: Nat,
+    ticket_id: TicketId
 ) -> Result<RetrieveBtcOk, MintTokenError> {
+    if get_finalized_mint_token_request(&ticket_id).is_some() {
+        return Err(MintTokenError::AlreadyProcessed(ticket_id.clone()));
+    }
     let ckbtc_ledger_principal = read_state(|s| s.ckbtc_ledger_principal.clone());
     let client = ICRC1Client {
         runtime: CdkRuntime,
@@ -109,7 +113,7 @@ pub async fn retrieve_ckbtc(
         ic_cdk::call(ckbtc_ledger_principal, "retrieve_btc_with_approval", (arg,))
             .await
             .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?;
-
+    insert_finalized_mint_token_request(ticket_id, result.0.block_index);
     Ok(result.0)
 }
 
@@ -117,7 +121,6 @@ pub async fn unlock_icp(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
     if get_finalized_mint_token_request(&req.ticket_id).is_some() {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
     }
-
     let transfer_args = ic_ledger_types::TransferArgs {
         memo: ic_ledger_types::Memo(0),
         amount: Tokens::from_e8s(convert_u128_u64(req.amount) - ICP_TRANSFER_FEE),
@@ -133,12 +136,11 @@ pub async fn unlock_icp(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
         ),
         created_at_time: None,
     };
-
     let block_index = ic_ledger_types::transfer(MAINNET_LEDGER_CANISTER_ID, transfer_args)
         .await
         .map_err(|(_, reason)| MintTokenError::CustomError(reason))?
         .map_err(|err| MintTokenError::CustomError(err.to_string()))?;
-
+    insert_finalized_mint_token_request(req.ticket_id.clone(), block_index);
     Ok(block_index)
 
 }
@@ -147,14 +149,10 @@ pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
     if get_finalized_mint_token_request(&req.ticket_id).is_some() {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
     }
-
     let ledger_id = get_token_principal(&req.token_id)
         .ok_or(MintTokenError::UnsupportedToken(req.token_id.clone()))?;
-
     let block_index = mint(ledger_id, req.amount, req.receiver).await?;
-
     insert_finalized_mint_token_request(req.ticket_id.clone(), block_index);
-
     Ok(())
 }
 

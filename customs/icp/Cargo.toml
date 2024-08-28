@@ -3,9 +3,8 @@ name = "icp_customs"
 version = "0.1.0"
 edition.workspace = true
 
-[[bin]]
-name = "icp_customs"
-path = "src/main.rs"
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
 candid = { workspace = true }
