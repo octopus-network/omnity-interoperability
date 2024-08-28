@@ -1,0 +1,13 @@
+type Account = record { owner : principal; subaccount : opt blob };
+type InitArgs = record {
+  trigger : principal;
+  icp_customs_principal : principal;
+  ckbtc_index_principal : principal;
+};
+type Result = variant { Ok : Account; Err : text };
+type Result_1 = variant { Ok; Err : text };
+service : (InitArgs) -> {
+  get_identity_by_osmosis_account_id : (text) -> (Result) query;
+  set_trigger_principal : (principal) -> (Result_1);
+  trigger_transaction : (nat) -> (Result_1);
+}

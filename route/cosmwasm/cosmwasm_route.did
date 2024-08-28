@@ -1,0 +1,28 @@
+type ChainState = variant { Active; Deactive };
+type InitArgs = record {
+  hub_principal : principal;
+  cw_rpc_url : text;
+  cw_rest_url : text;
+  chain_id : text;
+  cosmwasm_port_contract_address : text;
+};
+type Result = variant { Ok : text; Err : text };
+type RouteState = record {
+  hub_principal : principal;
+  cw_rpc_url : text;
+  cw_chain_key_derivation_path : vec blob;
+  is_timer_running : bool;
+  next_directive_seq : nat64;
+  cw_rest_url : text;
+  cw_public_key_vec : opt blob;
+  chain_id : text;
+  cw_port_contract_address : text;
+  next_ticket_seq : nat64;
+  chain_state : ChainState;
+};
+service : (InitArgs) -> {
+  cache_public_key_and_start_timer : () -> ();
+  redeem : (text) -> (Result);
+  route_status : () -> (RouteState) query;
+  tendermint_address : () -> (Result);
+}

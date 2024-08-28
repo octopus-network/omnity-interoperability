@@ -1,9 +1,22 @@
-use crate::state::{mutate_state, read_state};
+use crate::{
+    state::{
+        get_finalized_mint_token_request, get_token_principal, insert_finalized_mint_token_request,
+        read_state,
+    },
+    utils::convert_u128_u64,
+    ICP_TRANSFER_FEE,
+};
 use candid::{CandidType, Deserialize, Nat, Principal};
+use ic_ledger_types::{
+    AccountIdentifier, Subaccount as IcSubaccount, Tokens, MAINNET_LEDGER_CANISTER_ID,
+};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
-use icrc_ledger_types::icrc1::{
-    account::Account,
-    transfer::{TransferArg, TransferError},
+use icrc_ledger_types::{
+    icrc1::{
+        account::{Account, Subaccount, DEFAULT_SUBACCOUNT},
+        transfer::{TransferArg, TransferError},
+    },
+    icrc2::approve::ApproveArgs,
 };
 use num_traits::cast::ToPrimitive;
 use omnity_types::TicketId;
@@ -25,6 +38,8 @@ pub enum MintTokenError {
     AlreadyProcessed(TicketId),
 
     TemporarilyUnavailable(String),
+
+    CustomError(String),
 }
 
 pub enum ErrorCode {
@@ -37,22 +52,107 @@ impl From<TransferError> for MintTokenError {
     }
 }
 
-pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
-    if read_state(|s| s.finalized_mint_token_requests.contains_key(&req.ticket_id)) {
+/// The arguments of the [retrieve_btc_with_approval] endpoint.
+#[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct RetrieveBtcWithApprovalArgs {
+    // amount to retrieve in satoshi
+    pub amount: u64,
+
+    // address where to send bitcoins
+    pub address: String,
+
+    // The subaccount to burn ckBTC from.
+    pub from_subaccount: Option<Subaccount>,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct RetrieveBtcOk {
+    // the index of the burn block on the ckbtc ledger
+    pub block_index: u64,
+}
+
+pub async fn retrieve_ckbtc(
+    receiver: String,
+    amount: Nat,
+    ticket_id: TicketId
+) -> Result<RetrieveBtcOk, MintTokenError> {
+    if get_finalized_mint_token_request(&ticket_id).is_some() {
+        return Err(MintTokenError::AlreadyProcessed(ticket_id.clone()));
+    }
+    let ckbtc_ledger_principal = read_state(|s| s.ckbtc_ledger_principal.clone());
+    let client = ICRC1Client {
+        runtime: CdkRuntime,
+        ledger_canister_id: ckbtc_ledger_principal,
+    };
+    let approve_args = ApproveArgs {
+        from_subaccount: None,
+        spender: Account {
+            owner: ckbtc_ledger_principal,
+            subaccount: None,
+        },
+        amount: amount.clone(),
+        expected_allowance: None,
+        expires_at: None,
+        fee: None,
+        memo: None,
+        created_at_time: None,
+    };
+
+    client
+        .approve(approve_args)
+        .await
+        .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?
+        .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?;
+
+    let arg = RetrieveBtcWithApprovalArgs {
+        amount: amount.to_string().parse().unwrap(),
+        address: receiver,
+        from_subaccount: None,
+    };
+    let result: (RetrieveBtcOk,) =
+        ic_cdk::call(ckbtc_ledger_principal, "retrieve_btc_with_approval", (arg,))
+            .await
+            .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?;
+    insert_finalized_mint_token_request(ticket_id, result.0.block_index);
+    Ok(result.0)
+}
+
+pub async fn unlock_icp(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
+    if get_finalized_mint_token_request(&req.ticket_id).is_some() {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
     }
+    let transfer_args = ic_ledger_types::TransferArgs {
+        memo: ic_ledger_types::Memo(0),
+        amount: Tokens::from_e8s(convert_u128_u64(req.amount) - ICP_TRANSFER_FEE),
+        fee: Tokens::from_e8s(ICP_TRANSFER_FEE),
+        from_subaccount: None,
+        to: AccountIdentifier::new(
+            &req.receiver.owner,
+            &IcSubaccount(
+                req.receiver
+                    .subaccount
+                    .unwrap_or(DEFAULT_SUBACCOUNT.clone()),
+            ),
+        ),
+        created_at_time: None,
+    };
+    let block_index = ic_ledger_types::transfer(MAINNET_LEDGER_CANISTER_ID, transfer_args)
+        .await
+        .map_err(|(_, reason)| MintTokenError::CustomError(reason))?
+        .map_err(|err| MintTokenError::CustomError(err.to_string()))?;
+    insert_finalized_mint_token_request(req.ticket_id.clone(), block_index);
+    Ok(block_index)
 
-    let ledger_id = read_state(|s| match s.tokens.get(&req.token_id) {
-        Some((_, ledger_id)) => Ok(ledger_id.clone()),
-        None => Err(MintTokenError::UnsupportedToken(req.token_id.clone())),
-    })?;
+}
 
+pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
+    if get_finalized_mint_token_request(&req.ticket_id).is_some() {
+        return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
+    }
+    let ledger_id = get_token_principal(&req.token_id)
+        .ok_or(MintTokenError::UnsupportedToken(req.token_id.clone()))?;
     let block_index = mint(ledger_id, req.amount, req.receiver).await?;
-
-    mutate_state(|s| {
-        s.finalized_mint_token_requests
-            .insert(req.ticket_id.clone(), block_index)
-    });
+    insert_finalized_mint_token_request(req.ticket_id.clone(), block_index);
     Ok(())
 }
 

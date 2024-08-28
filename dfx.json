@@ -32,7 +32,13 @@
       "gzip": true,
       "candid": "customs/icp/icp_customs.did",
       "package": "icp_customs",
-      "type": "rust"
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/icp_customs.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "bitfinity_route": {
       "gzip": true,
@@ -58,6 +64,24 @@
       "wasm": "target/wasm32-unknown-unknown/release/icp_route.wasm",
       "package": "icp_route",
       "type": "custom"
+    },
+    "cosmwasm_route_osmosis_testnet": {
+      "gzip": true,
+      "candid": "route/cosmwasm/cosmwasm_route.did",
+      "wasm": "route/cosmwasm/target/wasm32-unknown-unknown/release/cosmwasm_route.wasm",
+      "package": "cosmwasm_route",
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
+    "cosmwasm_proxy": {
+      "gzip": true,
+      "candid": "proxy/cosmwasm/cosmwasm_proxy.did",
+      "package": "cosmwasm_proxy",
+      "type": "rust"
     },
     "hub_mock": {
       "gzip": true,
@@ -134,6 +158,26 @@
       "candid": "customs/oracle_canister/oracle.did",
       "package": "rune_oracle_canister",
       "type": "rust"
+    },
+    "ckbtc_minter": {
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-minter.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-minter.did"
+    },
+    "ckbtc_ledger": {
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-ledger.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-ledger.did"
+    },
+    "ckbtc_index": {
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-index-ng.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-index-ng.did"
+    },
+    "ckbtc_archive": {
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-archive.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-archive.did"
     }
   },
   "defaults": {

@@ -22,8 +22,8 @@ use omnity_types::{
     Chain, ChainId, Directive, Network, Seq, Ticket, TicketId,
 };
 use crate::logs::P0;
-use crate::types::{TokenResp, PendingDirectiveStatus, PendingTicketStatus, MetricsStatus, MintTokenStatus};
-
+use crate::types::{TokenResp, PendingDirectiveStatus, PendingTicketStatus, MetricsStatus};
+use omnity_types::MintTokenStatus;
 
 #[init]
 fn init(args: InitArgs) {
