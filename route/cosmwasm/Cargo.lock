@@ -631,9 +631,9 @@ dependencies = [
 
 [[package]]
 name = "env_filter"
-version = "0.1.2"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f2c92ceda6ceec50f43169f9ee8424fe2db276791afde7b2cd8bc084cb376ab"
+checksum = "c6dc8c8ff84895b051f07a0e65f975cf225131742531338752abfb324e4449ff"
 dependencies = [
  "log",
  "regex",
@@ -903,6 +903,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "ic-canister-log"
+version = "0.2.0"
+source = "git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01#a7862784e8da4a97a1d608fd5b3db365de41a2d7"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -1253,9 +1261,11 @@ dependencies = [
  "candid",
  "ciborium",
  "derive_more",
+ "env_filter",
  "getrandom",
  "hex",
  "humantime",
+ "ic-canister-log",
  "ic-canisters-http-types",
  "ic-cdk 0.12.2",
  "ic-log",
@@ -1264,10 +1274,12 @@ dependencies = [
  "lazy_static",
  "log",
  "serde",
+ "serde_derive",
  "serde_json",
  "serde_with",
  "sha2 0.10.8",
  "thiserror",
+ "time",
 ]
 
 [[package]]

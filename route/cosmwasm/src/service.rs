@@ -8,7 +8,7 @@ use cosmwasm::{
     port::PortContractExecutor,
     TxHash,
 };
-use ic_cdk::{init, post_upgrade, update};
+use ic_cdk::{init, post_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use lifecycle::init::InitArgs;
 use memory::{init_stable_log, insert_redeem_ticket, mutate_state, read_state};
@@ -95,6 +95,11 @@ pub async fn tendermint_address() -> std::result::Result<String, String> {
     let sender_public_key = cosmrs::crypto::PublicKey::from(tendermint_public_key);
     let sender_account_id = sender_public_key.account_id(OSMO_ACCOUNT_PREFIX).unwrap();
     Ok(sender_account_id.to_string())
+}
+
+#[query]
+pub fn route_status()-> RouteState {
+    read_state(|s| s.clone())
 }
 
 #[post_upgrade]

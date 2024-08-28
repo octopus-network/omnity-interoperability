@@ -16,5 +16,8 @@
   },
   "icp_customs": {
     "ic": "nlgkm-4qaaa-aaaar-qah2q-cai"
+  },
+  "ckbtc_minter": {
+    "ic": "mqygn-kiaaa-aaaar-qaadq-cai"
   }
 }
