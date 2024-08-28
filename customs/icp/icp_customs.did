@@ -73,6 +73,7 @@ service : (InitArgs) -> {
   get_state : () -> (CustomsState) query;
   get_token_list : () -> (vec Token) query;
   handle_ticket : (nat64) -> ();
+  insert_token : (Token) -> ();
   query_hub_tickets : (nat64, nat64) -> (vec record { nat64; Ticket });
   set_ckbtc_token : (text) -> ();
   set_icp_token : (text) -> ();

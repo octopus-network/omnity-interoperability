@@ -28,5 +28,4 @@ dist/
 *.out
 *.txt
 bitcoin_customs.wasm
-**/*.svg
 *.wasm.gz

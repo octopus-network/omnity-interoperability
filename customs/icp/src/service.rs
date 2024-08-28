@@ -12,6 +12,7 @@ use ic_ledger_types::{AccountIdentifier, Subaccount};
 use crate::{lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL, hub};
 use crate::state::{CustomsState, get_finalized_mint_token_request, read_state};
 use omnity_types::{Chain, Seq, Ticket, TicketId, Token};
+use crate::updates::add_new_token;
 
 pub fn is_controller() -> Result<(), String> {
     if ic_cdk::api::is_controller(&ic_cdk::caller()) {
@@ -103,6 +104,11 @@ pub fn get_state() -> CustomsState {
 #[query(guard = "is_controller")]
 pub fn ticket_finallized(ticket_id: TicketId) -> Option<u64> {
     get_finalized_mint_token_request(&ticket_id)
+}
+
+#[update(guard = "is_controller")]
+pub async fn insert_token(token: Token) {
+    add_new_token(token).await.unwrap();
 }
 
 // Enable Candid export
