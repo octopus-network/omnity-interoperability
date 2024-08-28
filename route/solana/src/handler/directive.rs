@@ -248,6 +248,7 @@ pub async fn update_token() {
     });
 
     for (token_id, (token, retry)) in update_tokens.into_iter() {
+        // limit retry to 3
         if retry >= 3 {
             continue;
         }
@@ -265,13 +266,11 @@ pub async fn update_token() {
 
             match update_token_metadata(account_info.account, token_update_info).await {
                 Ok(signature) => {
-                    log!(
-                                                DEBUG
-,
-                    "[directive::update_token] {:?} update token metadata on solana sucessfully ! \n{:?} ",
+                    log!(DEBUG,"[directive::update_token] {:?} update token metadata on solana sucessfully ! \n{:?} ",
                     token.token_id.to_string(),
                     signature
                 );
+                //TODO: check signature status
                     mutate_state(|s| {
                         // update the token info
                         s.add_token(token.to_owned());

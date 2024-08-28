@@ -124,20 +124,15 @@ sleep 300
 # cannel schedule
 dfx canister call solana_route cancel_schedule '()' 
 
-#  dfx canister call solana_route update_token_metadata '(
-#   "GfEtRbpg3jmVT62goNP4EFTKT5UHKfCYXHUCy5sx5dDa",
-#   record{name="ARTMOO8"; 
-#   symbol="AMC"; 
-#   decimals=2; 
-#   uri="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/image.png"})'
-
 # manual operation 
+
 # TOKEN_NAME="HOPE•YOU•GET•RICH"
 # TOKEN_SYMBOL="RICH"
 # DECIMALS=2
 # ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
 
 # dfx canister call solana_route create_mint "(record {
+#          token_id=\"${TOKEN_ID}\";
 #         name=\"${TOKEN_NAME}\";
 #         symbol=\"${TOKEN_SYMBOL}\";
 #         decimals=${DECIMALS}:nat8;
@@ -151,8 +146,6 @@ dfx canister call solana_route cancel_schedule '()'
 #         \"${ATA}\",
 #         888888:nat64,
 #         \"${TOKEN_MINT}\")"
-# manual handle tickets (transfer from customs to solana )
-
 
 # upgrade canister
 # echo "upgrade solana route ..."

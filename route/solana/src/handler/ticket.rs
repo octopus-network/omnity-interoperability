@@ -159,8 +159,7 @@ pub async fn create_associated_account() {
                 &token22_program_id(),
             );
             log!(
-                DEBUG,
-                
+                DEBUG,  
                 "[ticket::create_associated_account] get_associated_token_address_with_program_id : {:?}",
                 associated_account
             );
@@ -269,7 +268,7 @@ pub async fn mint_token() {
     });
 
     for (seq, ticket) in tickets.into_iter() {
-        // first,check token mint
+        // check token mint
         let token_mint = read_state(|s| s.token_mint_accounts.get(&ticket.token).cloned());
         let token_mint = match token_mint {
             Some(token_mint) => {
@@ -291,7 +290,7 @@ pub async fn mint_token() {
             }
         };
 
-        // secord,check ata
+        // check ata
         let associated_account = read_state(|s| {
             s.associated_accounts
                 .get(&(ticket.receiver.to_owned(), token_mint.account.to_owned()))
@@ -332,99 +331,121 @@ pub async fn mint_token() {
             }
         };
         log!(DEBUG, "[ticket::mint_token] mint token request: {:?} ", req);
-        //new mint req
-        if matches!(req.status, MintTokenStatus::Unknown) && matches!(req.signature, None) {
-            //mint to
-            match mint_to(req.clone()).await {
-                Ok(signature) => {
-                    log!(
-                        DEBUG,
-                        "[ticket::mint_token] process successful for ticket id: {} and tx hash :{}",
-                        ticket.ticket_id,
-                        signature
-                    );
-                    // if ok, remove the handled ticket from queue
-                    mutate_state(|s| s.tickets_queue.remove(&seq));
 
-                    // update txhash to hub
-                    let hub_principal = read_state(|s| s.hub_principal);
-                    if let Err(err) =
-                        update_tx_hash(hub_principal, ticket.ticket_id.to_string(), signature).await
-                    {
-                        log!(
-                            ERROR,
-                            "[tickets::mint_token] failed to update tx hash after mint token:{}",
-                            err
-                        );
-                    }
-                }
-                Err(e) => {
-                    log!(
-                        ERROR,
-                        "[ticket::mint_token] failed to mint token for ticket id: {}, err: {:?}",
-                        ticket.ticket_id,
-                        e
-                    );
+        match req.status {
 
-                    continue;
-                }
-            }
-        };
+            MintTokenStatus::Unknown => {
+                match req.signature.clone() {
+                    //new mint req,mint_token
+                    None => {
+                        match mint_to(&mut req).await {
+                            Ok(signature) => {
+                                log!(
+                                    DEBUG,
+                                    "[ticket::mint_token] process successful for ticket id: {} and signature :{}",
+                                    ticket.ticket_id,
+                                    signature
+                                );
+                                // update req signature,but not comfirmed
+                                req.signature = Some(signature.to_string());
+                                mutate_state(|s| s.update_mint_token_req(req.ticket_id.to_owned(), req.clone()));
+                                 // remove the handled ticket from queue
+                                // mutate_state(|s| s.tickets_queue.remove(&seq));
 
-        // already minted but uncomfirmed,so, query the signature status
-        if matches!(req.status, MintTokenStatus::Unknown) && matches!(req.signature, Some(_)) {
-            // query signature status
-            let sig = req.signature.clone().unwrap().to_string();
-            let tx_status_ret = sol_call::get_signature_status(vec![sig.to_string()]).await;
-            match tx_status_ret {
-                Err(e) => {
-                    log!(
-                        ERROR,
-                        "[ticket::mint_token] get_signature_status for {} ,err: {:?}",
-                        sig,
-                        e
-                    );
-                    continue;
-                }
-                Ok(status_vec) => {
-                    status_vec.first().map(|tx_status| {
-                        log!(
-                            DEBUG,
-                            "[ticket::mint_token] signature {}  status : {:?} ",
-                            sig.to_string(),
-                            tx_status,
-                        );
-                        if let Some(status) = &tx_status.confirmation_status {
-                            if matches!(status, TransactionConfirmationStatus::Finalized) {
-                                // let req = MintTokenRequest {
-                                //     ticket_id: req.ticket_id,
-                                //     associated_account: req.associated_account.to_owned(),
-                                //     amount: req.amount,
-                                //     token_mint: req.token_mint,
-                                //     status: MintTokenStatus::Finalized {
-                                //         signature: sig.to_string(),
-                                //     },
-                                //     signature: req.signature,
-                                // };
-                                req.status = MintTokenStatus::Finalized {
-                                    signature: sig.to_string(),
-                                };
-                                mutate_state(|s| {
-                                    s.update_mint_token_req(req.ticket_id.to_owned(), req)
-                                });
+                            }
+                            Err(e) => {
+                                let err_info = format!( "[ticket::mint_token] failed to mint token for ticket id: {}, err: {:?}",
+                                ticket.ticket_id,e);
+                                log!(ERROR,"{}", err_info.to_string());
+                                // if err, update req status and return
+                                req.status = MintTokenStatus::TxFailed { e: err_info };
+                                mutate_state(|s| s.update_mint_token_req(req.ticket_id.to_owned(), req.clone()));
+                                
+                                // remove the handled ticket from queue,don`t retry 
+                                // mutate_state(|s| s.tickets_queue.remove(&seq));
+                                continue;
                             }
                         }
-                    });
+                    },
+                    Some(sig) => {
+                         // query signature status
+                        let tx_status_ret = sol_call::get_signature_status(vec![sig.to_string()]).await;
+                        match tx_status_ret {
+                            Err(e) => {
+                                log!(
+                                    ERROR,
+                                    "[ticket::mint_token] get_signature_status for {} ,err: {:?}",
+                                    sig.to_string(),
+                                    e
+                                );
+                                continue;
+                            }
+                            Ok(status_vec) => {
+                                status_vec.first().map(|tx_status| {
+                                    log!(
+                                        DEBUG,
+                                        "[ticket::mint_token] signature {}  status : {:?} ",
+                                        sig.to_string(),
+                                        tx_status,
+                                    );
+                                    if let Some(status) = &tx_status.confirmation_status {
+                                        if matches!(status, TransactionConfirmationStatus::Finalized) {
+                                            // update mint token status
+                                            req.status = MintTokenStatus::Finalized {
+                                                signature: sig.to_string(),
+                                            };
+                                            mutate_state(|s| {
+                                                s.update_mint_token_req(req.ticket_id.to_owned(), req)
+                                            });
+
+                                            // remove the handled ticket from queue
+                                           mutate_state(|s| s.tickets_queue.remove(&seq));
+                                        }
+                                    }
+                                });
+                            
+                            }
+                        }
+                    }
                 }
-            }
+              
+            },
+            MintTokenStatus::Finalized { signature } => {
+                // update txhash to hub
+               let hub_principal = read_state(|s| s.hub_principal);
+               if let Err(err) =
+                   update_tx_hash(hub_principal, ticket.ticket_id.to_string(), signature).await
+               {
+                   log!(
+                       ERROR,
+                       "[tickets::mint_token] failed to update tx hash after mint token:{}",
+                       err
+                   );
+               }
+                // remove the handled ticket from queue
+                mutate_state(|s| s.tickets_queue.remove(&seq));
+                                      
+              continue;
+           }
+            MintTokenStatus::TxFailed { e } => {
+                log!(
+                    ERROR,
+                   "[ticket::mint_token] failed to mint token for ticket id: {}, err: {:?}",
+                    ticket.ticket_id,e
+                );
+                  // remove the handled ticket from queue
+                //   mutate_state(|s| s.tickets_queue.remove(&seq));
+            },
+            
         }
+         
     }
 }
 
 /// send tx to solana for mint token
-pub async fn mint_to(mut req: MintTokenRequest) -> Result<String, MintTokenError> {
+pub async fn mint_to( req: &mut MintTokenRequest) -> Result<String, MintTokenError> {
     if read_state(|s| s.mint_token_requests.contains_key(&req.ticket_id)) {
-        return Err(MintTokenError::AlreadyProcessed(req.ticket_id));
+        return Err(MintTokenError::AlreadyProcessed(req.ticket_id.to_string()));
     }
     let signature = sol_call::mint_to(
         req.associated_account.clone(),
@@ -433,13 +454,8 @@ pub async fn mint_to(mut req: MintTokenRequest) -> Result<String, MintTokenError
     )
     .await
     .map_err(|e| {
-        // if err, update req status and return
-        req.status = MintTokenStatus::TxFailed { e: e.to_string() };
-        mutate_state(|s| s.update_mint_token_req(req.ticket_id.to_owned(), req.clone()));
         MintTokenError::TemporarilyUnavailable(e.to_string())
     })?;
-    req.signature = Some(signature.to_string());
-    mutate_state(|s| s.update_mint_token_req(req.ticket_id.to_owned(), req));
 
     Ok(signature)
 }
@@ -538,11 +554,29 @@ pub async fn generate_ticket(
 
     //parsed tx via signature
     let mut receiver = String::from("");
+    let mut tx = String::from("");
     let client = solana_client().await;
-    let tx = client
+    // retry 3 to get tx detail
+    for n in 0..=2 {
+        let tx_resp = client
         .query_transaction(req.signature.to_owned())
         .await
-        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
+        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()));
+        match tx_resp {
+            Ok(tx_detail)=>{
+                tx=tx_detail;
+                break;
+            },
+            Err(e)=>{
+                log!(DEBUG, "query_transaction error: {:?}", e);
+                if n==2{
+                    return Err(e);
+                }
+                continue;
+            }
+        }
+
+    }
 
     let json_response = serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&tx)
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;

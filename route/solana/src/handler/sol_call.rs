@@ -184,7 +184,7 @@ pub async fn get_signature_status(
 ) -> Result<Vec<TransactionStatus>, CallError> {
     let sol_canister = read_state(|s| s.sol_canister);
 
-    let response: Result<(RpcResult<Vec<TransactionStatus>>,), _> =
+    let response: Result<(RpcResult<String>,), _> =
         ic_cdk::call(sol_canister, "sol_getSignatureStatuses", (signatures,)).await;
     let tx_status = response
         .map_err(|(code, message)| CallError {
@@ -197,9 +197,15 @@ pub async fn get_signature_status(
             reason: Reason::CanisterError(rpc_error.to_string()),
         })?;
 
-    log!(DEBUG, "sol_getSignatureStatuses result: {:?}", tx_status);
+    log!(DEBUG, "call sol_getSignatureStatuses resp: {:?}", tx_status);
 
-    Ok(tx_status)
+    let status =
+        serde_json::from_str::<Vec<TransactionStatus>>(&tx_status).map_err(|err| CallError {
+            method: "sol_getSignatureStatuses".to_string(),
+            reason: Reason::CanisterError(err.to_string()),
+        })?;
+    log!(DEBUG, "call sol_getSignatureStatuses staus: {:?}", status);
+    Ok(status)
 }
 
 pub async fn eddsa_public_key() -> Result<Pubkey, String> {

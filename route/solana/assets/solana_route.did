@@ -76,8 +76,8 @@ type Result_2 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_3 = variant { Ok : opt text; Err : CallError };
 type Result_4 = variant { Ok; Err : TransactionError };
 type Result_5 = variant { Ok : vec TransactionStatus; Err : CallError };
-type Result_6 = variant { Ok : MintTokenRequest; Err : CallError };
-type Result_7 = variant { Ok : MintTokenStatus; Err : CallError };
+type Result_6 = variant { Ok : MintTokenStatus; Err : CallError };
+type Result_7 = variant { Ok : MintTokenRequest; Err : CallError };
 type Result_8 = variant { Ok; Err : GenerateTicketError };
 type Result_9 = variant { Ok : text; Err : text };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
@@ -174,23 +174,25 @@ type UpgradeArgs = record {
 service : (RouteArg) -> {
   cancel_schedule : () -> ();
   create_aossicated_account : (text, text) -> (Result);
-  create_mint : (TokenInfo) -> (Result);
+  create_mint_account : (TokenInfo) -> (Result);
   derive_aossicated_account : (text, text) -> (Result_1);
   derive_mint_account : (TokenInfo) -> (Result_1);
   generate_ticket : (GenerateTicketReq) -> (Result_2);
-  get_account_info : (TokenInfo) -> (Result_3);
+  get_account_info : (text) -> (Result_3);
   get_chain_list : () -> (vec Chain) query;
   get_fee_account : () -> (text);
   get_latest_blockhash : () -> (Result_1);
   get_redeem_fee : (text) -> (opt nat) query;
   get_signature_status : (vec text) -> (Result_5);
+  get_ticket_from_queue : (text) -> (opt record { nat64; Ticket }) query;
   get_tickets_from_queue : () -> (vec record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
   get_transaction : (text) -> (Result_1);
-  mint_to : (text, text, nat64, text) -> (Result_6);
-  mint_token_status : (text) -> (Result_7) query;
+  mint_token : (MintTokenRequest) -> (Result_6);
+  mint_token_req : (text) -> (Result_7) query;
+  mint_token_status : (text) -> (Result_6) query;
   query_aossicated_account : (text, text) -> (opt AccountInfo) query;
-  query_ata_address : (text, text) -> (opt text) query;
+  query_aossicated_account_address : (text, text) -> (opt text) query;
   query_mint_account : (text) -> (opt AccountInfo) query;
   query_mint_address : (text) -> (opt text) query;
   remove_ticket_from_quene : (text) -> (opt Ticket);
@@ -201,5 +203,5 @@ service : (RouteArg) -> {
   start_schedule : () -> ();
   transfer_to : (text, nat64) -> (Result_1);
   update_schnorr_info : (principal, text) -> ();
-  update_token_metadata : (text, TokenInfo) -> (Result_1);
+  update_token_metadata : (TokenInfo) -> (Result_1);
 }
