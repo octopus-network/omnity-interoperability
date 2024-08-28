@@ -154,7 +154,7 @@ async fn process_directives() {
                     Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
                         insert_counterparty(chain.clone());
                     }
-                    Directive::AddToken(token) | Directive::UpdateToken(token) => {
+                    Directive::AddToken(token) => {
                         match updates::add_new_token(token.clone()).await {
                             Ok(_) => {
                                 log!(P0,
@@ -165,6 +165,23 @@ async fn process_directives() {
                             Err(err) => {
                                 log!(P0,
                                     "[process directives] failed to add token: token id: {}, err: {:?}",
+                                    token.token_id,
+                                    err
+                                );
+                            }
+                        }
+                    }
+                    Directive::UpdateToken(token) => {
+                        match updates::update_token(token.clone()).await {
+                            Ok(_) => {
+                                log!(P0,
+                                    "[process directives] update token successful, token id: {}",
+                                    token.token_id
+                                );
+                            }
+                            Err(err) => {
+                                log!(P0,
+                                    "[process directives] failed to update token: token id: {}, err: {:?}",
                                     token.token_id,
                                     err
                                 );
