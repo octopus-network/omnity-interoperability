@@ -54,10 +54,27 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'symbol' : IDL.Text,
   });
+  const HttpRequest = IDL.Record({
+    'url' : IDL.Text,
+    'method' : IDL.Text,
+    'body' : IDL.Vec(IDL.Nat8),
+    'headers' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
+  });
+  const HttpResponse = IDL.Record({
+    'body' : IDL.Vec(IDL.Nat8),
+    'headers' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
+    'status_code' : IDL.Nat16,
+  });
   return IDL.Service({
     'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
+    'get_account_identifier' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(IDL.Nat8)],
+        ['query'],
+      ),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_token_list' : IDL.Func([], [IDL.Vec(Token)], ['query']),
+    'http_request' : IDL.Func([HttpRequest], [HttpResponse], ['query']),
     'set_ckbtc_token' : IDL.Func([IDL.Text], [], []),
     'set_icp_token' : IDL.Func([IDL.Text], [], []),
   });

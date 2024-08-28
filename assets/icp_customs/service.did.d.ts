@@ -31,6 +31,17 @@ export interface GenerateTicketReq {
   'amount' : bigint,
   'receiver' : string,
 }
+export interface HttpRequest {
+  'url' : string,
+  'method' : string,
+  'body' : Uint8Array | number[],
+  'headers' : Array<[string, string]>,
+}
+export interface HttpResponse {
+  'body' : Uint8Array | number[],
+  'headers' : Array<[string, string]>,
+  'status_code' : number,
+}
 export interface InitArgs {
   'ckbtc_ledger_principal' : Principal,
   'hub_principal' : Principal,
@@ -48,10 +59,12 @@ export interface Token {
 }
 export interface _SERVICE {
   'generate_ticket' : ActorMethod<[GenerateTicketReq], Result>,
+  'get_account_identifier' : ActorMethod<[Principal], Uint8Array | number[]>,
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
   'get_token_list' : ActorMethod<[], Array<Token>>,
+  'http_request' : ActorMethod<[HttpRequest], HttpResponse>,
   'set_ckbtc_token' : ActorMethod<[string], undefined>,
   'set_icp_token' : ActorMethod<[string], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
-export declare const init: ({ IDL }: { IDL: IDL }) => IDL.Type[];
+export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];
