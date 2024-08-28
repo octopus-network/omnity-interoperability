@@ -85,12 +85,15 @@ pub async fn redeem(tx_hash: TxHash) -> std::result::Result<TicketId, String> {
 
 #[update]
 pub async fn tendermint_address() -> std::result::Result<String, String> {
-    let ecdsa_public_key_response = query_cw_public_key().await.map_err(|e| e.to_string())?;
+    let public_key_vec = read_state(|s| {
+        s.cw_public_key_vec
+            .clone()
+            .expect("cw_public_key_vec not found")
+    });
 
-    let tendermint_public_key = tendermint::public_key::PublicKey::from_raw_secp256k1(
-        &ecdsa_public_key_response.public_key.as_slice(),
-    )
-    .unwrap();
+    let tendermint_public_key =
+        tendermint::public_key::PublicKey::from_raw_secp256k1(public_key_vec.as_slice())
+            .expect("failed to init tendermint public key");
 
     let sender_public_key = cosmrs::crypto::PublicKey::from(tendermint_public_key);
     let sender_account_id = sender_public_key.account_id(OSMO_ACCOUNT_PREFIX).unwrap();
