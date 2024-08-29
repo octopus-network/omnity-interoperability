@@ -58,9 +58,11 @@ pub async fn link_chains(args: LinkChainReq) -> Result<(), SelfServiceError> {
             Ok(())
         }
     })?;
-
     let mut chain1 = with_state(|s|s.chain(&args.chain1)).unwrap();
     let mut chain2 = with_state(|s|s.chain(&args.chain2)).unwrap();
+    if chain1.contains_counterparty(&args.chain2) && chain2.contains_counterparty(&args.chain1) {
+        return Ok(())
+    }
     chain1.add_counterparty(args.chain2.clone());
     chain2.add_counterparty(args.chain1.clone());
     execute_proposal(vec![UpdateChain(chain1)]).await.map_err(|e| LinkError(e))?;

@@ -93,6 +93,15 @@ impl ChainMeta {
             }
         }
     }
+
+    pub fn contains_counterparty(&self, chain_id: &ChainId) -> bool {
+        match &self.counterparties {
+            None => { false }
+            Some(c) => {
+                c.contains(chain_id)
+            }
+        }
+    }
 }
 
 impl Storable for ChainMeta {
