@@ -12,10 +12,7 @@ use omnity_hub::lifecycle::init::HubArg;
 #[cfg(feature = "profiling")]
 use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
-use omnity_hub::self_help::{
-    principal_to_subaccount, AddDestChainArgs, AddRunesTokenReq, FinalizeAddRunesArgs,
-    SelfServiceError, ADD_CHAIN_FEE, ADD_TOKEN_FEE,
-};
+use omnity_hub::self_help::{principal_to_subaccount, AddDestChainArgs, AddRunesTokenReq, FinalizeAddRunesArgs, SelfServiceError, ADD_CHAIN_FEE, ADD_TOKEN_FEE, LinkChainReq};
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta, TxHash};
 use omnity_hub::{proposal, self_help};
@@ -231,6 +228,13 @@ fn remove_runes_oracle(oracle: Principal) {
 pub async fn add_runes_token(args: AddRunesTokenReq) -> Result<(), SelfServiceError> {
     self_help::add_runes_token(args).await
 }
+
+#[update]
+pub async fn link_chains(args: LinkChainReq) -> Result<(), SelfServiceError> {
+    self_help::link_chains(args).await
+}
+
+
 
 #[update(guard = "is_runes_oracle")]
 pub async fn finalize_add_runes_token_req(

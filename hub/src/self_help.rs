@@ -11,6 +11,8 @@ use ic_ledger_types::{
 use omnity_types::{rune_id::RuneId, ChainId};
 use serde::Serialize;
 use std::{collections::HashMap, str::FromStr};
+use crate::self_help::SelfServiceError::LinkError;
+use crate::types::Proposal::UpdateChain;
 
 pub const ADD_TOKEN_FEE: u64 = 1_000_000_000;
 pub const ADD_CHAIN_FEE: u64 = 300_000_000;
@@ -25,7 +27,13 @@ pub struct AddRunesTokenReq {
     pub dest_chain: ChainId,
 }
 
-#[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct LinkChainReq{
+    pub chain1: ChainId,
+    pub chain2: ChainId,
+}
+
+#[derive(CandidType, Debug, Deserialize)]
 pub enum SelfServiceError {
     TemporarilyUnavailable(String),
     InvalidRuneId(String),
@@ -37,6 +45,27 @@ pub enum SelfServiceError {
     InvalidProposal(String),
     TokenNotFound,
     ChainNotFound(String),
+    LinkError(omnity_types::Error),
+}
+
+pub async fn link_chains(args: LinkChainReq) -> Result<(), SelfServiceError> {
+    with_state(|s| {
+        if !s.chains.contains_key(&args.chain1) {
+            Err(SelfServiceError::ChainNotFound(args.chain1.clone()))
+        }else if !s.chains.contains_key(&args.chain2) {
+            Err(SelfServiceError::ChainNotFound(args.chain2.clone()))
+        }else {
+            Ok(())
+        }
+    })?;
+
+    let mut chain1 = with_state(|s|s.chain(&args.chain1)).unwrap();
+    let mut chain2 = with_state(|s|s.chain(&args.chain2)).unwrap();
+    chain1.add_counterparty(args.chain2.clone());
+    chain2.add_counterparty(args.chain1.clone());
+    execute_proposal(vec![UpdateChain(chain1)]).await.map_err(|e| LinkError(e))?;
+    execute_proposal(vec![UpdateChain(chain2)]).await.map_err(|e| LinkError(e))?;
+    Ok(())
 }
 
 pub async fn add_runes_token(args: AddRunesTokenReq) -> Result<(), SelfServiceError> {
