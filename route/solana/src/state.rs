@@ -44,7 +44,7 @@ pub enum AccountStatus {
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
 pub struct AccountInfo {
     pub account: String,
-    pub retry: u8,
+    pub retry: u64,
     pub signature: Option<String>,
     pub status: AccountStatus,
 }

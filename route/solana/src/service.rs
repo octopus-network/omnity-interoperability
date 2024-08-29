@@ -255,7 +255,7 @@ pub async fn create_mint_account(req: TokenInfo) -> Result<AccountInfo, CallErro
         let signature = sol_call::create_mint_account(mint_account, req.clone()).await?;
         log!(
             DEBUG,
-            "[[service::create_mint] create_mint_account signature: {:?} ",
+            "[service::create_mint] create_mint_account signature: {:?} ",
             signature.to_string(),
         );
 
@@ -536,7 +536,7 @@ pub async fn mint_token(req: MintTokenRequest) -> Result<MintTokenStatus, CallEr
                     tx_status_vec.first().map(|tx_status| {
                         log!(
                             DEBUG,
-                            "[service::mint_to] {} status : {:?} ",
+                            "[service::mint_to] signature: {} status: {:?} ",
                             sig.to_string(),
                             tx_status,
                         );
@@ -556,7 +556,11 @@ pub async fn mint_token(req: MintTokenRequest) -> Result<MintTokenStatus, CallEr
             }
         }
         MintTokenStatus::Finalized { .. } => {
-            log!(DEBUG, "[service::mint_to] {:?} already finalized !", req);
+            log!(
+                DEBUG,
+                "[service::mint_to] {:?} already finalized !",
+                req.ticket_id.to_string()
+            );
             // remove ticket from quene,if exsits
             remove_ticket_from_quene(req.ticket_id.to_string()).await;
             return Ok(req.status);

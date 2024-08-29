@@ -7,7 +7,7 @@ export DFX_WARNING="-mainnet_plaintext_identity"
 total_calls=100
 success_count=0
 failure_count=0
-output_file="summary_report.md"
+output_file="rpc_summary_report.md"
 # Canister ID
 SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
 
@@ -28,7 +28,7 @@ done
 success_rate=$(echo "scale=2; $success_count/$total_calls*100" | bc)
 failure_rate=$(echo "scale=2; $failure_count/$total_calls*100" | bc)
 
-echo "# Summary Report" > $output_file
+echo "# RPC Summary Report" > $output_file
 echo "" >> $output_file
 echo "## get_latest_blockhash" >> $output_file
 echo "- ***Total Calls**: $total_calls" >> $output_file

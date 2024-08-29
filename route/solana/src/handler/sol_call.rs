@@ -93,7 +93,7 @@ pub async fn create_ata(to_account: String, token_mint: String) -> Result<String
     let token_mint = Pubkey::from_str(token_mint.as_str()).expect("Invalid token_mint address");
 
     let sol_client = solana_client().await;
-    let associated_token_account = sol_client
+    let signature = sol_client
         .create_associated_token_account(&to_account, &token_mint)
         .await
         .map_err(|e| CallError {
@@ -102,12 +102,12 @@ pub async fn create_ata(to_account: String, token_mint: String) -> Result<String
         })?;
 
     log!(DEBUG,
-        "[solana_client::get_or_create_ata] wallet address: {:?}, token_mint: {:?}, and the associated token account: {:?} ",
+        "[sol_call::get_or_create_ata] wallet address: {:?}, token_mint: {:?}, and tx signature: {:?} ",
         to_account.to_string(),
         token_mint.to_string(),
-        associated_token_account.to_string()
+        signature.to_string()
     );
-    Ok(associated_token_account.to_string())
+    Ok(signature.to_string())
 }
 
 pub async fn mint_to(
@@ -197,14 +197,22 @@ pub async fn get_signature_status(
             reason: Reason::CanisterError(rpc_error.to_string()),
         })?;
 
-    log!(DEBUG, "call sol_getSignatureStatuses resp: {:?}", tx_status);
+    log!(
+        DEBUG,
+        "[sol_call::get_signature_status] call sol_getSignatureStatuses resp: {:?}",
+        tx_status
+    );
 
     let status =
         serde_json::from_str::<Vec<TransactionStatus>>(&tx_status).map_err(|err| CallError {
             method: "sol_getSignatureStatuses".to_string(),
             reason: Reason::CanisterError(err.to_string()),
         })?;
-    log!(DEBUG, "call sol_getSignatureStatuses staus: {:?}", status);
+    log!(
+        DEBUG,
+        "[sol_call::get_signature_status] call sol_getSignatureStatuses status: {:?}",
+        status
+    );
     Ok(status)
 }
 

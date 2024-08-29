@@ -28,6 +28,7 @@ use serde_json::from_value;
 
 pub const TICKET_LIMIT_SIZE: u64 = 20;
 pub const COUNTER_SIZE: u64 = 5;
+use crate::constants::RETRY_LIMIT_SIZE;
 use ic_canister_log::log;
 use ic_solana::logs::{ERROR, DEBUG};
 
@@ -116,6 +117,7 @@ pub struct MintTokenRequest {
     pub token_mint: String,
     pub status: MintTokenStatus,
     pub signature: Option<String>,
+    pub retry:u64,
 }
 
 pub async fn create_associated_account() {
@@ -123,18 +125,22 @@ pub async fn create_associated_account() {
     read_state(|s| {
         for (_seq, ticket) in s.tickets_queue.iter() {
             if let Some(token_mint) = s.token_mint_accounts.get(&ticket.token) {
-                match s
+                //the token mint account must be confirmed
+                if matches!(token_mint.status,AccountStatus::Confirmed){
+                    match s
                     .associated_accounts
                     .get(&(ticket.receiver.to_string(), token_mint.account.to_string()))
                 {
                     None => creating_atas.push((ticket.receiver.to_owned(), token_mint.to_owned())),
                     Some(ata) => {
                         //filter account,unconformed and retry <5
-                        if !matches!(ata.status, AccountStatus::Confirmed) && ata.retry < 5 {
+                        if !matches!(ata.status, AccountStatus::Confirmed) && ata.retry < RETRY_LIMIT_SIZE {
                             creating_atas.push((ticket.receiver.to_owned(), token_mint.to_owned()))
                         }
                     }
                 }
+                }
+               
             }
         }
     });
@@ -160,7 +166,7 @@ pub async fn create_associated_account() {
             );
             log!(
                 DEBUG,  
-                "[ticket::create_associated_account] get_associated_token_address_with_program_id : {:?}",
+                "[ticket::create_associated_account] native get_associated_token_address_with_program_id : {:?}",
                 associated_account
             );
             let account_info = AccountInfo {
@@ -182,7 +188,12 @@ pub async fn create_associated_account() {
         let ata_account_info = sol_client
             .get_account_info(associated_account.to_string())
             .await;
-
+        log!(
+            DEBUG,
+            "[ticket::create_associated_account] {} ata_account_info from solana : {:?} ",
+            associated_account.to_string(),
+            ata_account_info,
+        );
         match ata_account_info {
             Ok(account_info) => {
                 match account_info {
@@ -210,7 +221,7 @@ pub async fn create_associated_account() {
                                 "[ticket::create_associated_account] create_ata error: {:?}  ",
                                 e
                             );
-                            // update account retry num
+                            // update account retry 
                             mutate_state(|s| {
                                 s.associated_accounts
                                     .get_mut(&(owner.to_string(), token_mint.account.to_string()))
@@ -224,7 +235,7 @@ pub async fn create_associated_account() {
                     Some(info) => {
                         log!(
                             DEBUG,
-                            "[directive::create_associated_account] {:?} already created and the account info: {:?} ",
+                            "[ticket::create_associated_account] {:?} already created and the account info: {:?} ",
                             associated_account.to_string(),
                             info
                         );
@@ -243,7 +254,7 @@ pub async fn create_associated_account() {
             Err(e) => {
                 log!(
                     ERROR,
-                    "[directive::create_associated_account] get account info error: {:?}  ",
+                    "[ticket::create_associated_account] get account info error: {:?}  ",
                     e
                 );
                 continue;
@@ -268,7 +279,6 @@ pub async fn mint_token() {
     });
 
     for (seq, ticket) in tickets.into_iter() {
-        // check token mint
         let token_mint = read_state(|s| s.token_mint_accounts.get(&ticket.token).cloned());
         let token_mint = match token_mint {
             Some(token_mint) => {
@@ -328,17 +338,23 @@ pub async fn mint_token() {
                 token_mint: token_mint.account,
                 status: MintTokenStatus::Unknown,
                 signature: None,
+                retry:0
             }
         };
         log!(DEBUG, "[ticket::mint_token] mint token request: {:?} ", req);
 
-        match req.status {
+        // retry < RETRY_LIMIT_SIZE,or skip
+        if req.retry >= RETRY_LIMIT_SIZE {
+            continue;
+        }
+    
+        match &req.status {
 
             MintTokenStatus::Unknown => {
                 match req.signature.clone() {
                     //new mint req,mint_token
                     None => {
-                        match mint_to(&mut req).await {
+                        match mint_to(req.clone()).await {
                             Ok(signature) => {
                                 log!(
                                     DEBUG,
@@ -348,6 +364,7 @@ pub async fn mint_token() {
                                 );
                                 // update req signature,but not comfirmed
                                 req.signature = Some(signature.to_string());
+                                req.retry +=1;
                                 mutate_state(|s| s.update_mint_token_req(req.ticket_id.to_owned(), req.clone()));
                                  // remove the handled ticket from queue
                                 // mutate_state(|s| s.tickets_queue.remove(&seq));
@@ -359,6 +376,7 @@ pub async fn mint_token() {
                                 log!(ERROR,"{}", err_info.to_string());
                                 // if err, update req status and return
                                 req.status = MintTokenStatus::TxFailed { e: err_info };
+                                req.retry +=1;
                                 mutate_state(|s| s.update_mint_token_req(req.ticket_id.to_owned(), req.clone()));
                                 
                                 // remove the handled ticket from queue,don`t retry 
@@ -397,9 +415,7 @@ pub async fn mint_token() {
                                             mutate_state(|s| {
                                                 s.update_mint_token_req(req.ticket_id.to_owned(), req)
                                             });
-
-                                            // remove the handled ticket from queue
-                                           mutate_state(|s| s.tickets_queue.remove(&seq));
+                        
                                         }
                                     }
                                 });
@@ -414,7 +430,7 @@ pub async fn mint_token() {
                 // update txhash to hub
                let hub_principal = read_state(|s| s.hub_principal);
                if let Err(err) =
-                   update_tx_hash(hub_principal, ticket.ticket_id.to_string(), signature).await
+                   update_tx_hash(hub_principal, ticket.ticket_id.to_string(), signature.to_string()).await
                {
                    log!(
                        ERROR,
@@ -431,10 +447,41 @@ pub async fn mint_token() {
                 log!(
                     ERROR,
                    "[ticket::mint_token] failed to mint token for ticket id: {}, err: {:?}",
-                    ticket.ticket_id,e
+                    ticket.ticket_id,e.to_string()
                 );
-                  // remove the handled ticket from queue
-                //   mutate_state(|s| s.tickets_queue.remove(&seq));
+                 //retry mint_to 
+                match mint_to(req.clone()).await {
+                    Ok(signature) => {
+                        log!(
+                            DEBUG,
+                            "[ticket::mint_token] process successful for ticket id: {} and signature :{}",
+                            ticket.ticket_id,
+                            signature
+                        );
+                        // update req signature,but not comfirmed
+                        req.signature = Some(signature.to_string());
+                        req.retry +=1;
+                        mutate_state(|s| s.update_mint_token_req(req.ticket_id.to_owned(), req.clone()));
+                         // remove the handled ticket from queue
+                        // mutate_state(|s| s.tickets_queue.remove(&seq));
+
+                    }
+                    Err(e) => {
+                        let err_info = format!( "[ticket::mint_token] failed to mint token for ticket id: {}, err: {:?}",
+                        ticket.ticket_id,e);
+                        log!(ERROR,"{}", err_info.to_string());
+                        // if err, update req status and return
+                        req.status = MintTokenStatus::TxFailed { e: err_info };
+                        req.retry +=1;
+                        mutate_state(|s| s.update_mint_token_req(req.ticket_id.to_owned(), req.clone()));
+                        
+                        // remove the handled ticket from queue,don`t retry 
+                        // mutate_state(|s| s.tickets_queue.remove(&seq));
+                        continue;
+                    }
+                }
+               
+                
             },
             
         }
@@ -443,7 +490,7 @@ pub async fn mint_token() {
 }
 
 /// send tx to solana for mint token
-pub async fn mint_to( req: &mut MintTokenRequest) -> Result<String, MintTokenError> {
+pub async fn mint_to( req: MintTokenRequest) -> Result<String, MintTokenError> {
     if read_state(|s| s.mint_token_requests.contains_key(&req.ticket_id)) {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.to_string()));
     }

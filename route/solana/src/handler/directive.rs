@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use crate::constants::RETRY_LIMIT_SIZE;
 use crate::state::{AccountInfo, AccountStatus};
 use crate::types::{ChainId, Directive, Error, Seq, Topic};
 use candid::Principal;
@@ -110,9 +111,9 @@ pub async fn create_token_mint() {
             match s.token_mint_accounts.get(token_id) {
                 None => creating_token_mint.push(token.to_owned()),
 
-                //filter account,unconformed and retry <3
+                //filter account,unconformed and retry < RETRY_LIMIT_SIZE
                 Some(account) => {
-                    if !matches!(account.status, AccountStatus::Confirmed) && account.retry < 3 {
+                    if !matches!(account.status, AccountStatus::Confirmed) && account.retry < RETRY_LIMIT_SIZE {
                         creating_token_mint.push(token.to_owned())
                     }
                 }
@@ -193,7 +194,7 @@ pub async fn create_token_mint() {
                             "[directive::create_token_mint] create token mint error: {:?}  ",
                             e
                         );
-                        // update retry num
+                        // update retry 
                         mutate_state(|s| {
                             s.token_mint_accounts
                                 .get_mut(&token.token_id)
@@ -248,8 +249,8 @@ pub async fn update_token() {
     });
 
     for (token_id, (token, retry)) in update_tokens.into_iter() {
-        // limit retry to 3
-        if retry >= 3 {
+        // limit retry to 5
+        if retry >= RETRY_LIMIT_SIZE {
             continue;
         }
         let account_info = read_state(|s| s.token_mint_accounts.get(&token_id).cloned());
