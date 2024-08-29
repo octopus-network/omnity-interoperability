@@ -46,6 +46,7 @@ pub enum SelfServiceError {
     TokenNotFound,
     ChainNotFound(String),
     LinkError(omnity_types::Error),
+    ChainsAlreadyLinked,
 }
 
 pub async fn link_chains(args: LinkChainReq) -> Result<(), SelfServiceError> {
@@ -61,7 +62,7 @@ pub async fn link_chains(args: LinkChainReq) -> Result<(), SelfServiceError> {
     let mut chain1 = with_state(|s|s.chain(&args.chain1)).unwrap();
     let mut chain2 = with_state(|s|s.chain(&args.chain2)).unwrap();
     if chain1.contains_counterparty(&args.chain2) && chain2.contains_counterparty(&args.chain1) {
-        return Ok(())
+        return Err(SelfServiceError::ChainsAlreadyLinked);
     }
     chain1.add_counterparty(args.chain2.clone());
     chain2.add_counterparty(args.chain1.clone());

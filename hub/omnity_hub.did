@@ -129,6 +129,7 @@ type SelfServiceError = variant {
   TemporarilyUnavailable : text;
   InsufficientFee : record { provided : nat64; required : nat64 };
   TokenNotFound;
+  ChainsAlreadyLinked;
   TransferFailure : text;
   InvalidProposal : text;
   InvalidRuneId : text;

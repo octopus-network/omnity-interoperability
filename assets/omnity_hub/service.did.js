@@ -41,6 +41,7 @@ export const idlFactory = ({ IDL }) => {
       'required' : IDL.Nat64,
     }),
     'TokenNotFound' : IDL.Null,
+    'ChainsAlreadyLinked' : IDL.Null,
     'TransferFailure' : IDL.Text,
     'InvalidProposal' : IDL.Text,
     'InvalidRuneId' : IDL.Text,

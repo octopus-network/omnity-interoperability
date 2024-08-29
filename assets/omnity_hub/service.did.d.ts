@@ -148,6 +148,7 @@ export type Result_9 = { 'Ok' : Array<[string, Ticket]> } |
 export type SelfServiceError = { 'TemporarilyUnavailable' : string } |
   { 'InsufficientFee' : { 'provided' : bigint, 'required' : bigint } } |
   { 'TokenNotFound' : null } |
+  { 'ChainsAlreadyLinked' : null } |
   { 'TransferFailure' : string } |
   { 'InvalidProposal' : string } |
   { 'InvalidRuneId' : string } |
