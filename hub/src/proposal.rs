@@ -258,8 +258,13 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 with_state_mut(|hub_state| {
                     hub_state.update_fee(factor.clone())?;
                     let target_subs = match &factor {
-                        Factor::UpdateTargetChainFactor(_factor) => {
-                           hub_state.chains.iter().map(|s|s.0).collect()
+                        Factor::UpdateTargetChainFactor(factor) => {
+                           hub_state.chains.iter().filter_map(|s|{
+                               match s.0 != factor.target_chain_id {
+                                   true => {Some(s.0)}
+                                   false => {None}
+                               }
+                           }).collect()
                         }
                         Factor::UpdateFeeTokenFactor(factor) => {
                             hub_state.get_chains_by_fee_token(factor.fee_token.clone())
