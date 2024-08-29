@@ -92,6 +92,7 @@ type FinalizeAddRunesArgs = record {
 type GetEventsArg = record { start : nat64; length : nat64 };
 type HubArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type InitArgs = record { admin : principal };
+type LinkChainReq = record { chain1 : text; chain2 : text };
 type Permission = variant { Update; Query };
 type Proposal = variant {
   UpdateChain : Chain;
@@ -134,6 +135,7 @@ type SelfServiceError = variant {
   RequestNotFound;
   ChainNotFound : text;
   TokenAlreadyExisting;
+  LinkError : Error;
   EmptyArgument;
 };
 type SelfServiceFee = record { add_token_fee : nat64; add_chain_fee : nat64 };
@@ -248,6 +250,7 @@ service : (HubArg) -> {
     ) -> (Result_14) query;
   handle_chain : (vec Proposal) -> (Result_1);
   handle_token : (vec Proposal) -> (Result_1);
+  link_chains : (LinkChainReq) -> (Result);
   pending_ticket : (Ticket) -> (Result_1);
   query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_15) query;
   query_subscribers : (opt Topic) -> (Result_16) query;
