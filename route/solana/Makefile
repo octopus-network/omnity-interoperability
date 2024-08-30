@@ -31,6 +31,10 @@ init: ## Init test data
 test: ## Run e2e test
 	./scripts/test.sh
 
+.PHONY: stress
+stress: ## Run stress test on localnet
+	./scripts/stress_localnet.sh
+
 .PHONY: clean
 clean: ## Cleanup
 	dfx stop

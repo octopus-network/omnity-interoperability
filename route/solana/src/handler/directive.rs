@@ -1,19 +1,19 @@
 use std::str::FromStr;
 
 use crate::constants::RETRY_LIMIT_SIZE;
-use crate::state::{AccountInfo, AccountStatus};
+use crate::state::{AccountInfo, TxStatus};
 use crate::types::{ChainId, Directive, Error, Seq, Topic};
 use candid::Principal;
-use ic_solana::types::Pubkey;
+use ic_solana::types::{Pubkey, TransactionConfirmationStatus};
 
-use crate::handler::sol_call::{create_mint_account, update_token_metadata};
+use crate::handler::sol_call::{self, create_mint_account, update_token_metadata};
 
 use crate::{
     call_error::{CallError, Reason},
     state::{mutate_state, read_state},
 };
 use ic_canister_log::log;
-use ic_solana::logs::{ERROR, DEBUG};
+use ic_solana::logs::{DEBUG, ERROR};
 use ic_solana::token::{SolanaClient, TokenInfo};
 
 use super::sol_call::solana_client;
@@ -111,9 +111,11 @@ pub async fn create_token_mint() {
             match s.token_mint_accounts.get(token_id) {
                 None => creating_token_mint.push(token.to_owned()),
 
-                //filter account,unconformed and retry < RETRY_LIMIT_SIZE
+                //filter account,not finallized and retry < RETRY_LIMIT_SIZE
                 Some(account) => {
-                    if !matches!(account.status, AccountStatus::Confirmed) && account.retry < RETRY_LIMIT_SIZE {
+                    if !matches!(account.status, TxStatus::Finalized { .. })
+                        && account.retry < RETRY_LIMIT_SIZE
+                    {
                         creating_token_mint.push(token.to_owned())
                     }
                 }
@@ -130,109 +132,166 @@ pub async fn create_token_mint() {
             decimals: token.decimals,
             uri: token.icon.unwrap_or_default(),
         };
-        let mint_account = if let Some(account) =
+        let mint_account_account = if let Some(account) =
             read_state(|s| s.token_mint_accounts.get(&token.token_id).cloned())
         {
-            Pubkey::from_str(&account.account).expect("Invalid to_account address")
+            // Pubkey::from_str(&account.account).expect("Invalid to_account address")
+            account
         } else {
-            let new_account = SolanaClient::derive_account(
+            let new_account_address = SolanaClient::derive_account(
                 sol_client.schnorr_canister.clone(),
                 sol_client.chainkey_name.clone(),
-                token_info.name.to_string(),
+                token_info.token_id.to_string(),
             )
             .await;
             log!(
                 DEBUG,
-                "[directive::create_token_mint] mint_account from schonnor chainkey: {:?} ",
-                new_account.to_string(),
+                "[directive::create_token_mint] token id({:}) mint account address derive from schonnor chainkey: {:?} ",
+                token_info.token_id,new_account_address,
             );
-            let account_info = AccountInfo {
-                account: new_account.to_string(),
+            let new_account_info = AccountInfo {
+                account: new_account_address.to_string(),
                 retry: 0,
                 signature: None,
-                status: AccountStatus::Unknown,
+                status: TxStatus::Unknown,
             };
             //save inited account info
             mutate_state(|s| {
                 s.token_mint_accounts
-                    .insert(token.token_id.to_string(), account_info)
+                    .insert(token.token_id.to_string(), new_account_info.clone())
             });
-            new_account
+
+            // new_account
+            new_account_info
         };
 
         // query mint account from solana
-        let mint_account_info = sol_client.get_account_info(mint_account.to_string()).await;
+        // let mint_account_info = sol_client.get_account_info(mint_account.to_string()).await;
         log!(
             DEBUG,
-            "[directive::create_token_mint] {} mint_account_info from solana : {:?} ",
-            mint_account.to_string(),
-            mint_account_info,
+            "[directive::create_token_mint] token id({:}) mint_account_info from solana route: {:?} ",
+            token_info.token_id,mint_account_account,
         );
-        match mint_account_info {
-            Ok(account_info) => match account_info {
-                // not exists,need to create it
-                None => match create_mint_account(mint_account, token_info).await {
-                    Ok(signature) => {
+        // retry < RETRY_LIMIT_SIZE,or skip
+        // if mint_account_account.retry >= RETRY_LIMIT_SIZE {
+        //     continue;
+        // }
+        match &mint_account_account.status {
+            TxStatus::Unknown => {
+                match &mint_account_account.signature {
+                    // not exists,need to create it
+                    None => {
+                        handle_creating_mint_account(
+                            mint_account_account.account.to_string(),
+                            token_info,
+                        )
+                        .await
+                    }
+                    // already created,but not finallized
+                    Some(sig) => {
                         log!(
                             DEBUG,
-                            "[directive::create_token_mint] create_mint_account signature: {:?} ",
-                            signature.to_string(),
+                            "[directive::create_token_mint] {:?} already created and waiting for {:} finallized ... ",
+                            mint_account_account,sig
+                            
                         );
-                        // update account.signature and account.retry ,but not confirmed
-                        mutate_state(|s| {
-                            s.token_mint_accounts
-                                .get_mut(&token.token_id)
-                                .map(|account| {
-                                    account.signature = Some(signature);
-                                    account.retry += 1;
-                                })
-                        });
-                    }
-                    Err(e) => {
-                        log!(
-                            ERROR,
-                            "[directive::create_token_mint] create token mint error: {:?}  ",
-                            e
-                        );
-                        // update retry 
-                        mutate_state(|s| {
-                            s.token_mint_accounts
-                                .get_mut(&token.token_id)
-                                .map(|account| {
-                                    account.retry += 1;
-                                })
-                        });
-                        continue;
-                    }
-                },
-                // already exists
-                Some(info) => {
-                    log!(
-                        DEBUG,
-                        
-                        "[directive::create_token_mint] {:?} already created and the account info: {:?} ",
-                        mint_account.to_string(),
-                        info
-                    );
 
-                    // update account status to confimed
-                    mutate_state(|s| {
-                        s.token_mint_accounts
-                            .get_mut(&token.token_id)
-                            .map(|account| {
-                                account.status = AccountStatus::Confirmed;
-                            })
-                    });
+                        // update status
+                        update_mint_account_status(sig.to_string(), token_info.token_id).await;
+                    }
                 }
-            },
-            Err(e) => {
+            }
+            TxStatus::Finalized { .. } => {
+                log!(
+                    DEBUG,
+                    "[directive::create_token_mint] token id: {:} -> token mint account: {:?} Already finalized !",
+                    token.token_id,mint_account_account,
+                );
+            }
+            TxStatus::TxFailed { .. } => {
                 log!(
                     ERROR,
-                    "[directive::create_token_mint] get account info error: {:?}  ",
-                    e
+                    "[directive::create_token_mint] failed to create mint token for {:}, retry ..",
+                    token.token_id
                 );
-                continue;
+                handle_creating_mint_account(mint_account_account.account.to_string(), token_info)
+                    .await
             }
+        }
+    }
+}
+
+pub async fn handle_creating_mint_account(account_address: String, token_info: TokenInfo) {
+    let mint_account = Pubkey::from_str(&account_address).expect("Invalid to_account address");
+    match create_mint_account(mint_account, token_info.clone()).await {
+        Ok(signature) => {
+            log!(
+                DEBUG,
+                "[directive::handle_creating_mint_account] create_mint_account signature: {:?} for {:}",
+                signature.to_string(),mint_account.to_string()
+            );
+            // update account.signature and account.retry ,but not finalized
+            mutate_state(|s| {
+                s.token_mint_accounts
+                    .get_mut(&token_info.token_id)
+                    .map(|account| {
+                        account.signature = Some(signature);
+                        account.retry += 1;
+                    })
+            });
+        }
+        Err(e) => {
+            log!(
+                ERROR,
+                "[directive::handle_creating_mint_account] create token mint error: {:?}  ",
+                e
+            );
+            // update retry
+            mutate_state(|s| {
+                s.token_mint_accounts
+                    .get_mut(&token_info.token_id)
+                    .map(|account| {
+                        account.status = TxStatus::TxFailed { e: e.to_string() };
+                        account.retry += 1;
+                    })
+            });
+        }
+    }
+}
+
+pub async fn update_mint_account_status(sig: String, token_id: String) {
+    // query signature status
+    let tx_status_ret = sol_call::get_signature_status(vec![sig.to_string()]).await;
+    match tx_status_ret {
+        Err(e) => {
+            log!(
+                ERROR,
+                "[directive::update_mint_account_status] get_signature_status for {} ,err: {:?}",
+                sig.to_string(),
+                e
+            );
+        }
+        Ok(status_vec) => {
+            status_vec.first().map(|tx_status| {
+                log!(
+                    DEBUG,
+                    "[directive::update_mint_account_status] signature {} status : {:?} ",
+                    sig.to_string(),
+                    tx_status,
+                );
+                if let Some(status) = &tx_status.confirmation_status {
+                    if matches!(status, TransactionConfirmationStatus::Finalized) {
+                        // update account status to Finalized
+                        mutate_state(|s| {
+                            s.token_mint_accounts.get_mut(&token_id).map(|account| {
+                                account.status = TxStatus::Finalized {
+                                    signature: sig.to_string(),
+                                };
+                            })
+                        });
+                    }
+                }
+            });
         }
     }
 }
@@ -249,7 +308,7 @@ pub async fn update_token() {
     });
 
     for (token_id, (token, retry)) in update_tokens.into_iter() {
-        // limit retry to 5
+        // limit retry to RETRY_LIMIT_SIZE
         if retry >= RETRY_LIMIT_SIZE {
             continue;
         }
@@ -271,7 +330,7 @@ pub async fn update_token() {
                     token.token_id.to_string(),
                     signature
                 );
-                //TODO: check signature status
+                    //TODO: check signature status
                     mutate_state(|s| {
                         // update the token info
                         s.add_token(token.to_owned());
@@ -291,7 +350,6 @@ pub async fn update_token() {
                         // remove the updated token from queue
                         s.update_token_queue.insert(token_id, (token, retry))
                     });
-                    continue;
                 }
             }
         } else {
@@ -300,7 +358,6 @@ pub async fn update_token() {
                 "[directive::update_token] not found token mint for token id : {:?}",
                 token.token_id
             );
-            continue;
         }
     }
 }

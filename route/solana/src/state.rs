@@ -29,7 +29,7 @@ thread_local! {
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum MintTokenStatus {
+pub enum TxStatus {
     Finalized { signature: String },
     Unknown,
     TxFailed { e: String },
@@ -46,7 +46,7 @@ pub struct AccountInfo {
     pub account: String,
     pub retry: u64,
     pub signature: Option<String>,
-    pub status: AccountStatus,
+    pub status: TxStatus,
 }
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize)]

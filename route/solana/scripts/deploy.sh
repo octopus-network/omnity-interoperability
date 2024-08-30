@@ -16,6 +16,7 @@ echo
 # TODO: deploy customs
 
 # Deploy schnorr canister
+# SCHNORR_CANISTER_ID=aaaaa-aa
 dfx deploy schnorr_canister --mode=reinstall -y
 SCHNORR_CANISTER_ID=$(dfx canister id schnorr_canister)
 echo "Schnorr canister id: $SCHNORR_CANISTER_ID"

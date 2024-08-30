@@ -55,13 +55,31 @@ dfx canister call omnity_hub execute_proposal "(vec {variant {
         fee_token=opt \"${SOL_FEE}\"}}})"
 dfx canister call omnity_hub query_directives "(opt \"${BITCOIN_CHAIN_ID}\",opt variant {AddChain},0:nat64,5:nat64)"
 
-# add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•AAAAA"
-TOKEN_NAME="HOPE•YOU•GET•AAAAA"
-TOKEN_SYMBOL="AAAAA"
+# token info
+TOKEN_ID_PRE="Bitcoin-runes-HOPE•YOU•GET•ZZZ"
+TOKEN_NAME_PRE="HOPE•YOU•GET•ZZZ"
+TOKEN_SYMBOL_PRE="ZZZ"
 DECIMALS=2
 ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
-dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = record { 
+
+# ticket info
+TID_PRE="28b47548-55dc-4e89-b41d-76bc0247828e"
+AMOUNT="55555"
+SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
+
+total_calls=5
+for i in $(seq 1 $total_calls); do
+  TOKEN_ID=${TOKEN_ID_PRE}$i
+  TOKEN_NAME=${TOKEN_NAME_PRE}$i
+  TOKEN_SYMBOL=${TOKEN_SYMBOL_PRE}$i
+  TID=${TID_PRE}$i
+  echo ${TOKEN_ID}
+  echo ${TOKEN_NAME}
+  echo ${TOKEN_SYMBOL}
+  echo ${TID}
+  # add token
+  echo "Executing add token $i..."
+  dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = record { 
         token_id = \"${TOKEN_ID}\"; 
         name = \"${TOKEN_NAME}\";
         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
@@ -69,8 +87,9 @@ dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = reco
         decimals = ${DECIMALS};
         icon = opt \"${ICON}\"; 
         metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
-        dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
-dfx canister call omnity_hub execute_proposal "( vec {variant { AddToken = record { 
+        dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})" \
+
+  dfx canister call omnity_hub execute_proposal "( vec {variant { AddToken = record { 
         token_id = \"${TOKEN_ID}\"; 
         name = \"${TOKEN_NAME}\";
         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
@@ -78,17 +97,23 @@ dfx canister call omnity_hub execute_proposal "( vec {variant { AddToken = recor
         decimals = ${DECIMALS};
         icon = opt \"${ICON}\"; 
         metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
-        dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
-dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {AddToken},0:nat64,5:nat64)"
+        dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})" \
+   
+   # send ticket 
+   echo "Executing send ticket $i..."
+   dfx canister call omnity_hub send_ticket "(record { ticket_id = \"${TID}\"; 
+        ticket_type = variant { Normal }; 
+        ticket_time = 1715654809737051178 : nat64; 
+        token = \"${TOKEN_ID}\"; 
+        amount = \"${AMOUNT}\"; 
+        src_chain = \"${BITCOIN_CHAIN_ID}\"; 
+        dst_chain = \"${SOL_CHAIN_ID}\"; 
+        action = variant { Transfer }; 
+        sender = null; 
+        receiver = \"${SOL_RECEIVER}\";
+        memo = null; })" \
 
-# update fee
-dfx canister call omnity_hub update_fee "vec {variant { UpdateTargetChainFactor = 
-        record { target_chain_id=\"${BITCOIN_CHAIN_ID}\"; 
-                 target_chain_factor=10000 : nat}}; 
-                 variant { UpdateFeeTokenFactor = record { fee_token=\"${SOL_FEE}\"; 
-                                                 fee_token_factor=1 : nat}}}"
-
-dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",null,0:nat64,12:nat64)"
+done
 
 # req airdrop
 solana airdrop 2
@@ -104,4 +129,8 @@ echo "transfer SOL to $SIGNER from $MASTER_KEY"
 solana transfer $SIGNER $AMOUNT --with-memo init_account --allow-unfunded-recipient
 echo "$SIGNER balance: $(solana balance $SIGNER)"
 
-echo "Init done!"
+sleep 30
+# start schedule
+echo "start_schedule ... " 
+dfx canister call solana_route start_schedule '()' 
+echo "waiting for query directives or tickets from hub to solana route"

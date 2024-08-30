@@ -1,10 +1,9 @@
 type AccountInfo = record {
-  status : AccountStatus;
+  status : TxStatus;
   signature : opt text;
   account : text;
-  retry : nat8;
+  retry : nat64;
 };
-type AccountStatus = variant { Confirmed; Unknown };
 type CallError = record { method : text; reason : Reason };
 type Chain = record {
   fee_token : opt text;
@@ -51,17 +50,13 @@ type InitArgs = record {
   chain_state : ChainState;
 };
 type MintTokenRequest = record {
-  status : MintTokenStatus;
+  status : TxStatus;
   signature : opt text;
   associated_account : text;
   ticket_id : text;
   amount : nat64;
   token_mint : text;
-};
-type MintTokenStatus = variant {
-  Finalized : record { signature : text };
-  TxFailed : record { e : text };
-  Unknown;
+  retry : nat64;
 };
 type Permission = variant { Update; Query };
 type Reason = variant {
@@ -76,7 +71,7 @@ type Result_2 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_3 = variant { Ok : opt text; Err : CallError };
 type Result_4 = variant { Ok; Err : TransactionError };
 type Result_5 = variant { Ok : vec TransactionStatus; Err : CallError };
-type Result_6 = variant { Ok : MintTokenStatus; Err : CallError };
+type Result_6 = variant { Ok : TxStatus; Err : CallError };
 type Result_7 = variant { Ok : MintTokenRequest; Err : CallError };
 type Result_8 = variant { Ok; Err : GenerateTicketError };
 type Result_9 = variant { Ok : text; Err : text };
@@ -161,6 +156,11 @@ type TransactionStatus = record {
   confirmation_status : opt TransactionConfirmationStatus;
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxStatus = variant {
+  Finalized : record { signature : text };
+  TxFailed : record { e : text };
+  Unknown;
+};
 type UpgradeArgs = record {
   admin : opt principal;
   hub_principal : opt principal;

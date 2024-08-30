@@ -2,13 +2,13 @@
 
 BITCOIN_CHAIN_ID="Bitcoin"
 SOL_CHAIN_ID="Solana"
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE3"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•AAAAA"
 
 # start schedule 
 dfx canister call solana_route start_schedule '()' 
 
 # wait for query directives or tickets from hub to solana route
-sleep 30
+sleep 60
 
 echo "check sync directive from hub "
 dfx canister call solana_route get_chain_list '()' 
@@ -20,7 +20,7 @@ echo
 echo "mock: transfer from Bitcoin to Solana ..."
 echo 
 TID="28b47548-55dc-4e89-b41d-76bc0247828f"
-AMOUNT="999999999"
+AMOUNT="22222222"
 SOL_RECEIVER="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 dfx canister call omnity_hub send_ticket "(record { ticket_id = \"${TID}\"; 
         ticket_type = variant { Normal }; 
@@ -42,7 +42,7 @@ echo "canister call solana_route get_tickets_from_queue "
 dfx canister call solana_route get_tickets_from_queue '()' 
 echo 
 
-sleep 20
+sleep 90
 
 # get token mint
 TOKEN_MINT=$(dfx canister call solana_route query_mint_address "(\"${TOKEN_ID}\")")
@@ -50,12 +50,12 @@ TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
 echo "token mint: $TOKEN_MINT"
 
 # get aossicated account based on owner and token mint
-ATA=$(dfx canister call solana_route query_ata_address "(\"${SOL_RECEIVER}\",\"${TOKEN_MINT}\")" )
+ATA=$(dfx canister call solana_route query_aossicated_account_address "(\"${SOL_RECEIVER}\",\"${TOKEN_MINT}\")" )
 ATA=$(echo "$ATA" | awk -F'"' '{print $2}')
 while [ -z "$ATA" ]; do
   echo "ATA is empty, waiting..."
   sleep 5  
-  ATA=$(dfx canister call solana_route query_ata_address "(\"${SOL_RECEIVER}\",\"${TOKEN_MINT}\")")
+  ATA=$(dfx canister call solana_route query_aossicated_account_address "(\"${SOL_RECEIVER}\",\"${TOKEN_MINT}\")")
   ATA=$(echo "$ATA" | awk -F'"' '{print $2}')
 done
 echo "The dest address: $SOL_RECEIVER and the token address: $TOKEN_MINT aossicated account is: $ATA"
@@ -65,7 +65,7 @@ echo "mock: redeem from solana to customs... "
 # first, burn token
 CUSTOMS_RECEIVER="D58qMHmDAoEaviG8s9VmGwRhcw2z1apJHt6RnPtgxdVj"
 OWNER=~/.config/solana/boern.json
-BURN_AMOUNT=666666
+BURN_AMOUNT=111111
 echo spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER
 # echo $(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
 SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
@@ -90,8 +90,8 @@ dfx canister call omnity_hub query_tickets "(opt \"${BITCOIN_CHAIN_ID}\",0:nat64
 
 # update token
 # TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE"
-TOKEN_NAME="HOPE•YOU•GET•MANEKI3"
-TOKEN_SYMBOL="MANEKI3"
+TOKEN_NAME="HOPE•YOU•GET•BBBBB"
+TOKEN_SYMBOL="BBBBB"
 DECIMALS=5
 ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/image.png"
 dfx canister call omnity_hub validate_proposal "( vec {variant { UpdateToken = record { 

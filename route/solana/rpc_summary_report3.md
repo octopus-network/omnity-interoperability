@@ -1,26 +1,26 @@
 # RPC Summary Report
 
 ## get_latest_blockhash
-- ***Total Calls**: 300
+- ***Total Calls**: 100
 - ***Successful Calls**: 65
 - ***Failed Calls**: 35
 - ***Success Rate**: 65.00%
 - ***Failure Rate**: 35.00%
 ## get_account_info
-- ***Total Calls**: 300
-- ***Successful Calls**: 97
-- ***Failed Calls**: 3
-- ***Success Rate**: 97.00%
-- ***Failure Rate**: 3.00%
+- ***Total Calls**: 100
+- ***Successful Calls**: 96
+- ***Failed Calls**: 4
+- ***Success Rate**: 96.00%
+- ***Failure Rate**: 4.00%
 ## get_signature_status
-- ***Total Calls**: 300
+- ***Total Calls**: 100
 - ***Successful Calls**: 98
 - ***Failed Calls**: 2
 - ***Success Rate**: 98.00%
 - ***Failure Rate**: 2.00%
 ## get_transaction
-- ***Total Calls**: 300
-- ***Successful Calls**: 86
-- ***Failed Calls**: 14
-- ***Success Rate**: 86.00%
-- ***Failure Rate**: 14.00%
+- ***Total Calls**: 100
+- ***Successful Calls**: 80
+- ***Failed Calls**: 20
+- ***Success Rate**: 80.00%
+- ***Failure Rate**: 20.00%

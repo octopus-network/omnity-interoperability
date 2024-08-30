@@ -278,7 +278,7 @@ for i in $(seq 1 $total_calls); do
         --ic 
    
    # add ticket 
-   echo "Executing add ticket $i..."
+   echo "Executing send ticket $i..."
    dfx canister call $HUB_CANISTER_ID send_ticket "(record { ticket_id = \"${TID}\"; 
         ticket_type = variant { Normal }; 
         ticket_time = 1715654809737051178 : nat64; 
