@@ -8,6 +8,9 @@
   "omnity_hub": {
     "ic": "7wupf-wiaaa-aaaar-qaeya-cai"
   },
+  "icp_route": {
+    "ic": "7ywcn-nyaaa-aaaar-qaeza-cai"
+  },
   "cosmwasm_proxy": {
     "ic": "ncfbq-kyaaa-aaaar-qah3a-cai"
   },

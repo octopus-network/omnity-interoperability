@@ -63,7 +63,12 @@
       "candid": "route/icp/icp_route.did",
       "wasm": "target/wasm32-unknown-unknown/release/icp_route.wasm",
       "package": "icp_route",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "cosmwasm_route_osmosis_testnet": {
       "gzip": true,
