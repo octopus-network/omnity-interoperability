@@ -7,6 +7,7 @@ pub mod memory;
 pub mod service;
 pub mod state;
 pub mod utils;
+pub mod guard;
 
 pub use candid::Principal;
 pub use error::Result;
@@ -32,7 +33,6 @@ pub use serde_json::json;
 pub use state::*;
 
 pub use crate::{
-    cosmwasm::port::{Directive, ExecuteMsg},
     utils::Id,
 };
 pub use cosmwasm::TxHash;
@@ -60,4 +60,12 @@ pub struct EcdsaChainKeyArg {
     pub derivation_path: DerivationPath,
     pub key_id: EcdsaKeyId,
 }
-// pub use tendermint_rpc::endpoint::broadcast::tx_commit::Response;
+
+pub mod const_args {
+    pub const FETCH_HUB_TICKET_NAME: &str = "FETCH_HUB_TICKET";
+    pub const FETCH_HUB_DIRECTIVE_NAME: &str = "FETCH_HUB_DIRECTIVE";
+    pub const BATCH_QUERY_LIMIT: u64 = 20;
+    pub const VERSION: &str = "0.1.4";
+    pub const INTERVAL_QUERY_DIRECTIVE: u64 = 60;
+    pub const INTERVAL_QUERY_TICKET: u64 = 60;
+}

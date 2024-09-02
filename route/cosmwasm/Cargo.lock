@@ -326,7 +326,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm_route"
-version = "0.1.0"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "base64",
@@ -336,6 +336,7 @@ dependencies = [
  "cosmwasm-schema",
  "flate2",
  "hex",
+ "ic-canisters-http-types",
  "ic-cdk 0.12.2",
  "ic-cdk-macros 0.8.4",
  "ic-cdk-timers 0.7.0",

@@ -76,6 +76,7 @@ pub async fn query_directives(
     let data = resp.0.map_err(|err| {
         RouteError::CustomError(format!("Error calling query_directives: {:?}", err).to_string())
     })?;
+    log::info!("query_directives: {:?}", data);
     Ok(data)
 }
 

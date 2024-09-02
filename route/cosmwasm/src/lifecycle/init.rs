@@ -1,9 +1,7 @@
 use candid::{CandidType, Principal};
 use serde::{Deserialize, Serialize};
 
-use crate::state::RouteState;
-
-use super::memory::set_route_state;
+use crate::{memory::set_route_state, state::RouteState};
 
 #[derive(CandidType, serde::Deserialize)]
 pub enum RouteArg {

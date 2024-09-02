@@ -1,22 +1,24 @@
 use crate::*;
-use business::{
-    process_directive::process_directive_msg_task, ticket_task::process_ticket_msg_task,
-};
+use business::{process_directive::process_directive_task, ticket_task::process_ticket_task};
 use cosmrs::tendermint;
 use cosmwasm::{
     client::{query_cw_public_key, OSMO_ACCOUNT_PREFIX},
-    port::PortContractExecutor,
+    port::{ExecuteMsg, PortContractExecutor},
     TxHash,
 };
-use ic_cdk::{init, post_upgrade, query, update};
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_cdk::{
+    api::management_canister::http_request::{TransformArgs, TransformContext},
+    init, post_upgrade, query, update,
+};
 use ic_cdk_timers::set_timer_interval;
 use lifecycle::init::InitArgs;
 use memory::{init_stable_log, insert_redeem_ticket, mutate_state, read_state};
-use omnity_types::log::init_log;
+use omnity_types::{
+    log::{init_log, StableLogWriter},
+    Directive,
+};
 use std::time::Duration;
-
-pub const INTERVAL_QUERY_DIRECTIVE: u64 = 60;
-pub const INTERVAL_QUERY_TICKET: u64 = 5;
 
 #[init]
 pub async fn init(args: InitArgs) {
@@ -36,18 +38,18 @@ pub async fn cache_public_key_and_start_timer() {
     });
 
     set_timer_interval(
-        Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),
-        process_directive_msg_task,
+        Duration::from_secs(const_args::INTERVAL_QUERY_DIRECTIVE),
+        process_directive_task,
     );
     set_timer_interval(
-        Duration::from_secs(INTERVAL_QUERY_TICKET),
-        process_ticket_msg_task,
+        Duration::from_secs(const_args::INTERVAL_QUERY_TICKET),
+        process_ticket_task,
     );
 }
 
 #[update]
 pub async fn redeem(tx_hash: TxHash) -> std::result::Result<TicketId, String> {
-    let port_contract_executor = PortContractExecutor::from_state();
+    let port_contract_executor = PortContractExecutor::from_state().map_err(|e| e.to_string())?;
     let event = port_contract_executor
         .query_redeem_token_event(tx_hash.clone())
         .await
@@ -84,16 +86,15 @@ pub async fn redeem(tx_hash: TxHash) -> std::result::Result<TicketId, String> {
 // }
 
 #[update]
-pub async fn tendermint_address() -> std::result::Result<String, String> {
-    let public_key_vec = read_state(|s| {
-        s.cw_public_key_vec
-            .clone()
-            .expect("cw_public_key_vec not found")
-    });
+pub async fn osmosis_account_id() -> std::result::Result<String, String> {
+    let public_key_response = query_cw_public_key()
+        .await
+        .expect("failed to query cw public key");
 
-    let tendermint_public_key =
-        tendermint::public_key::PublicKey::from_raw_secp256k1(public_key_vec.as_slice())
-            .expect("failed to init tendermint public key");
+    let tendermint_public_key = tendermint::public_key::PublicKey::from_raw_secp256k1(
+        public_key_response.public_key.as_slice(),
+    )
+    .expect("failed to init tendermint public key");
 
     let sender_public_key = cosmrs::crypto::PublicKey::from(tendermint_public_key);
     let sender_account_id = sender_public_key.account_id(OSMO_ACCOUNT_PREFIX).unwrap();
@@ -101,15 +102,118 @@ pub async fn tendermint_address() -> std::result::Result<String, String> {
 }
 
 #[query]
-pub fn route_status()-> RouteState {
+pub fn route_status() -> RouteState {
     read_state(|s| s.clone())
+}
+
+#[update]
+pub fn update_cw_settings(args: UpdateCwSettingsArgs) {
+    mutate_state(|state| {
+        if let Some(cw_rpc_url) = args.cw_rpc_url {
+            state.cw_rpc_url = cw_rpc_url;
+        }
+
+        if let Some(cw_rest_url) = args.cw_rest_url {
+            state.cw_rest_url = cw_rest_url;
+        }
+
+        if let Some(cw_port_contract_address) = args.cw_port_contract_address {
+            state.cw_port_contract_address = cw_port_contract_address;
+        }
+    });
+}
+
+#[query(hidden = true)]
+fn http_request(req: HttpRequest) -> HttpResponse {
+    StableLogWriter::http_request(req)
+}
+
+#[query(hidden = true)]
+fn cleanup_response(
+    mut args: TransformArgs,
+) -> ic_cdk::api::management_canister::http_request::HttpResponse {
+    // The response header contains non-deterministic fields that make it impossible to reach consensus!
+    // Errors seem deterministic and do not contain data that can break consensus.
+    // Clear non-deterministic fields from the response headers.
+
+    args.response.headers.clear();
+    args.response
+}
+
+#[update]
+async fn test_execute_directive(
+    seq: String,
+    d: Directive,
+) -> std::result::Result<TxHash, String> {
+    let _seq: u64 = seq.to_string().parse().unwrap() ;
+    let msg = ExecuteMsg::ExecDirective {
+        seq: _seq,
+        directive: d.into(),
+    };
+
+    let client = CosmWasmClient::cosmos_wasm_port_client();
+
+    let contract_id = get_contract_id();
+
+    let public_key_response = query_cw_public_key().await.map_err(|e| e.to_string())?;
+
+    let tendermint_public_key: tendermint::PublicKey =
+        tendermint::public_key::PublicKey::from_raw_secp256k1(
+            public_key_response.public_key.as_slice(),
+        )
+        .unwrap();
+
+    let tx_hash = client
+        .execute_msg(contract_id, msg, tendermint_public_key)
+        .await.map_err(|e| e.to_string());
+    tx_hash
+
+}
+
+#[update]
+async fn test_http_outcall(
+    url: String,
+) -> std::result::Result<ic_cdk::api::management_canister::http_request::HttpResponse, String> {
+    let request_headers = vec![HttpHeader {
+        name: "content-type".to_string(),
+        value: "application/json".to_string(),
+    }];
+
+    let request = CanisterHttpRequestArgument {
+        url: url,
+        max_response_bytes: None,
+        method: HttpMethod::GET,
+        headers: request_headers,
+        body: None,
+        transform: Some(TransformContext::from_name(
+            "cleanup_response".to_owned(),
+            vec![],
+        )),
+    };
+
+    http_request_with_status_check(request)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[post_upgrade]
 fn post_upgrade() {
-    lifecycle::upgrade::post_upgrade();
-
     init_log(Some(init_stable_log()));
+
+    lifecycle::upgrade::post_upgrade();
+    mutate_state(|state| {
+        state.next_directive_seq = 0;
+    });
+
+    set_timer_interval(
+        Duration::from_secs(const_args::INTERVAL_QUERY_DIRECTIVE),
+        process_directive_task,
+    );
+    set_timer_interval(
+        Duration::from_secs(const_args::INTERVAL_QUERY_TICKET),
+        process_ticket_task,
+    );
+    log::info!("Finish Upgrade current version: {}", const_args::VERSION);
 }
 
 ic_cdk::export_candid!();
