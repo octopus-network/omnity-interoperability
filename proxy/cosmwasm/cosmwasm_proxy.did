@@ -1,13 +1,24 @@
 type Account = record { owner : principal; subaccount : opt blob };
+type BtcTransportRecord = record {
+  minted_amount : nat64;
+  block_index : nat64;
+  utxo : Utxo;
+  ticket_id : opt text;
+};
 type InitArgs = record {
   trigger : principal;
   icp_customs_principal : principal;
   ckbtc_index_principal : principal;
 };
+type OutPoint = record { txid : blob; vout : nat32 };
 type Result = variant { Ok : Account; Err : text };
 type Result_1 = variant { Ok; Err : text };
+type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 service : (InitArgs) -> {
   get_identity_by_osmosis_account_id : (text) -> (Result) query;
+  query_btc_transport_info : (text) -> (vec BtcTransportRecord) query;
+  query_status : () -> (principal, principal) query;
   set_trigger_principal : (principal) -> (Result_1);
   trigger_transaction : (nat) -> (Result_1);
+  trigger_update_balance : (text) -> (Result_1);
 }

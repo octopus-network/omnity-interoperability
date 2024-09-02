@@ -113,21 +113,25 @@
       "type": "rust"
     },
     "ckbtc_minter": {
+      "gzip": true,
       "type": "custom",
       "wasm": "assets/ckbtc/ic-ckbtc-minter.wasm",
       "candid": "assets/ckbtc/ic-ckbtc-minter.did"
     },
     "ckbtc_ledger": {
+      "gzip": true,
       "type": "custom",
       "wasm": "assets/ckbtc/ic-ckbtc-ledger.wasm",
       "candid": "assets/ckbtc/ic-ckbtc-ledger.did"
     },
     "ckbtc_index": {
+      "gzip": true,
       "type": "custom",
       "wasm": "assets/ckbtc/ic-ckbtc-index-ng.wasm",
       "candid": "assets/ckbtc/ic-ckbtc-index-ng.did"
     },
     "ckbtc_archive": {
+      "gzip": true,
       "type": "custom",
       "wasm": "assets/ckbtc/ic-ckbtc-archive.wasm",
       "candid": "assets/ckbtc/ic-ckbtc-archive.did"
