@@ -17,11 +17,13 @@ ciborium = "0.2.1"
 humantime = "2.1"
 # ic
 candid = "0.9"
-ic-cdk = "0.11.0"
+ic-cdk = "0.11.6"
 ic-cdk-timers = "0.2"
 ic-stable-structures = "0.6"
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", rev = "22b875f2b9508739b005d4352c14e877995f52fd" }
-tiny-keccak = { version = "2.0.2", features = ["keccak"], default-features = false }
+tiny-keccak = { version = "2.0.2", features = [
+    "keccak",
+], default-features = false }
 num-traits = { version = "0.2", default-features = false }
 bytes = { version = "^1.4.0", default-features = false }
 serde_derive = "^1.0"
