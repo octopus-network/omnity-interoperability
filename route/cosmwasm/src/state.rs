@@ -1,7 +1,9 @@
+use std::collections::HashSet;
+
 use candid::{CandidType, Principal};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
-use omnity_types::ChainState;
+use omnity_types::{ChainState, Directive, Seq, Ticket};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
@@ -19,8 +21,15 @@ pub struct RouteState {
 
     pub chain_state: ChainState,
     pub next_ticket_seq: u64,
-    pub is_timer_running: bool,
+    #[serde(skip)]
+    pub is_timer_running: HashSet<String>,
+
     pub cw_public_key_vec: Option<Vec<u8>>,
+
+    #[serde(default)]
+    pub processing_tickets: Vec<(Seq, Ticket)>,
+    #[serde(default)]
+    pub processing_directive: Vec<(Seq, Directive)>,
 }
 
 impl Storable for RouteState {
@@ -52,8 +61,17 @@ impl From<InitArgs> for RouteState {
             next_directive_seq: 0,
             chain_state: ChainState::Active,
             next_ticket_seq: 0,
-            is_timer_running: false,
+            is_timer_running: HashSet::default(),
             cw_public_key_vec: None,
+            processing_tickets: Vec::default(),
+            processing_directive: Vec::default(),
         }
     }
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
+pub struct UpdateCwSettingsArgs {
+    pub cw_rpc_url: Option<String>,
+    pub cw_rest_url: Option<String>,
+    pub cw_port_contract_address: Option<String>,
 }

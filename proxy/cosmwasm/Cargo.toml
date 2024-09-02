@@ -15,7 +15,8 @@ crate-type = ["cdylib"]
 candid = { workspace = true }
 candid_parser = { workspace = true }
 ciborium = { workspace = true }
-ic-btc-interface = { git = "https://github.com/dfinity/bitcoin-canister", rev = "9b239d1d67253eb14a35be6061e3967d5ec9db9d" }
+# ic-btc-interface = { git = "https://github.com/dfinity/bitcoin-canister", rev = "9b239d1d67253eb14a35be6061e3967d5ec9db9d" }
+ic-btc-interface = "0.2.0"
 ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
 ic-ledger-types = { workspace = true }

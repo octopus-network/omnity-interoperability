@@ -29,6 +29,7 @@ pub const REDEEM_EVENT_KIND: &str = "wasm-RedeemRequested";
 pub const DIRECTIVE_EXECUTED_EVENT_KIND: &str = "wasm-DirectiveExecuted";
 pub const TOKEN_MINTED_EVENT_KIND: &str = "wasm-TokenMinted";
 
+#[derive(Debug, Clone)]
 pub struct PortContractExecutor {
     pub client: CosmWasmClient,
     pub contract_id: AccountId,
@@ -48,27 +49,29 @@ impl PortContractExecutor {
         }
     }
 
-    pub fn from_state() -> PortContractExecutor {
+    pub fn from_state() -> Result<PortContractExecutor> {
         let client = CosmWasmClient::cosmos_wasm_port_client();
         let contract_id = get_contract_id();
         // let public_key_response = query_cw_public_key().await?;
         let public_key_vec = read_state(|s| {
             s.cw_public_key_vec
                 .clone()
-                .expect("cw_public_key_vec not found")
-        });
+                .ok_or(RouteError::CustomError("cw_public_key_vec not found".to_string()))
+                // .expect("cw_public_key_vec not found")
+        })?;
 
         let tendermint_public_key =
             tendermint::public_key::PublicKey::from_raw_secp256k1(public_key_vec.as_slice())
-                .expect("failed to init tendermint public key");
+            .ok_or(RouteError::CustomError("failed to init tendermint public key".to_string()))?;
 
-        Self::new(client, contract_id, tendermint_public_key)
+        Ok(Self::new(client, contract_id, tendermint_public_key))
     }
 
     pub async fn execute_directive(&self, seq: u64, directive: Directive) -> Result<TxHash> {
+
         let msg = ExecuteMsg::ExecDirective { seq, directive };
 
-        let response = self
+        let tx_hash = self
             .client
             .execute_msg(
                 self.contract_id.clone(),
@@ -77,19 +80,20 @@ impl PortContractExecutor {
             )
             .await?;
 
-        let wrapper: Wrapper<TxCommitResponse> =
-            serde_json::from_slice(response.body.as_slice()).unwrap();
+        log::info!("execute directive tx_hash: {:?}", tx_hash);
 
-        assert!(wrapper.error.is_none(), "Error: {:?}", wrapper.error);
-        let result: TxCommitResponse = wrapper.into_result()?;
+        let mut times: i32 = 3;
+        while times > 0 {
+            match self.confirm_execute_directive(seq, tx_hash.clone()).await {
+                Ok(_) => {
+                    return Ok(tx_hash);
+                },
+                Err(_) => {},
+            }
+            times -=1;
+        }
 
-        let expect_event = Event::new(
-            DIRECTIVE_EXECUTED_EVENT_KIND,
-            [("sequence", seq.to_string()).no_index()],
-        );
-        result.assert_event_exist(&expect_event)?;
-
-        Ok(result.hash.to_string())
+        Err(RouteError::ConfirmExecuteDirectiveErr(seq, tx_hash))
     }
 
     pub async fn query_redeem_token_event(&self, tx_hash: TxHash) -> Result<RedeemEvent> {
@@ -107,27 +111,29 @@ impl PortContractExecutor {
         Ok(redeem_event)
     }
 
-    pub async fn mint_token(&self, mint_token_request: MintTokenRequest) -> Result<TxHash> {
-        let msg = ExecuteMsg::PrivilegeMintToken {
-            ticket_id: mint_token_request.ticket_id.clone(),
-            token_id: mint_token_request.token_id.clone(),
-            receiver: mint_token_request.receiver.clone(),
-            amount: mint_token_request.amount.to_string(),
-        };
+    pub async fn confirm_execute_directive(&self, seq: u64, tx_hash: TxHash) -> Result<()> {
+        let tx_response = self.client.query_tx_by_hash(tx_hash).await?;
+        let wrapper: Wrapper<TxResultByHashResponse> =
+            serde_json::from_slice(&tx_response.body).unwrap();
 
-        let response = self
-            .client
-            .execute_msg(
-                self.contract_id.clone(),
-                msg,
-                self.tendermint_public_key.clone(),
-            )
-            .await?;
+        let result: TxResultByHashResponse = wrapper.into_result()?;
+        log::info!("tx_result: {:?}", result);
 
-        let wrapper: Wrapper<TxCommitResponse> =
-            serde_json::from_slice(response.body.as_slice()).unwrap();
+        let expect_event = Event::new(
+            DIRECTIVE_EXECUTED_EVENT_KIND,
+            [("sequence", seq.to_string()).no_index()],
+        );
+        result.assert_event_exist(&expect_event)?;
+        Ok(())
+    }
 
-        let result: TxCommitResponse = wrapper.into_result()?;
+    pub async fn confirm_mint_token(&self, mint_token_request: MintTokenRequest, tx_hash: TxHash) -> Result<()> {
+        let tx_response = self.client.query_tx_by_hash(tx_hash).await?;
+        let wrapper: Wrapper<TxResultByHashResponse> =
+            serde_json::from_slice(&tx_response.body).unwrap();
+
+        let result: TxResultByHashResponse = wrapper.into_result()?;
+        log::info!("tx_result: {:?}", result);
 
         let expect_event = Event::new(
             TOKEN_MINTED_EVENT_KIND,
@@ -139,8 +145,39 @@ impl PortContractExecutor {
             ],
         );
         result.assert_event_exist(&expect_event)?;
+        Ok(())
+    }
 
-        Ok(result.hash.to_string())
+    pub async fn mint_token(&self, mint_token_request: MintTokenRequest) -> Result<TxHash> {
+        let msg = ExecuteMsg::PrivilegeMintToken {
+            ticket_id: mint_token_request.ticket_id.clone(),
+            token_id: mint_token_request.token_id.clone(),
+            receiver: mint_token_request.receiver.clone(),
+            amount: mint_token_request.amount.clone().to_string(),
+        };
+
+        let tx_hash = self
+            .client
+            .execute_msg(
+                self.contract_id.clone(),
+                msg,
+                self.tendermint_public_key.clone(),
+            )
+            .await?;
+
+        log::info!("mint token tx_hash: {:?}", tx_hash);
+
+        let mut times = 3;
+        while times > 0 {
+            match self.confirm_mint_token(mint_token_request.clone(), tx_hash.clone()).await {
+                Ok(_) => {
+                    return Ok(tx_hash);
+                },
+                Err(_) => {},
+            }
+            times -=1;
+        }
+        Err(RouteError::ConfirmMintTokenErr(format!("{:?}", mint_token_request).to_string(), tx_hash))
     }
 }
 

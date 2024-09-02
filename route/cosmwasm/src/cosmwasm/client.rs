@@ -1,3 +1,5 @@
+use cosmwasm::port::ExecuteMsg;
+
 use crate::*;
 
 pub const OSMO_ACCOUNT_PREFIX: &str = "osmo";
@@ -42,6 +44,7 @@ impl CosmWasmClient {
             self.rest_url, address
         )
         .to_string();
+        log::info!("full_url: {:?}", full_url);
 
         let request_headers = vec![HttpHeader {
             name: "content-type".to_string(),
@@ -98,7 +101,7 @@ impl CosmWasmClient {
 
         let request_body = json!({
             "jsonrpc": "2.0",
-            "method": "broadcast_tx_commit",
+            "method": "broadcast_tx_async",
             "params": {
                 "tx": raw_base64,
             },
@@ -142,7 +145,7 @@ impl CosmWasmClient {
         contract_id: AccountId,
         msg: ExecuteMsg,
         tendermint_public_key: tendermint::public_key::PublicKey,
-    ) -> Result<HttpResponse> {
+    ) -> Result<TxHash> {
         let sender_public_key = cosmrs::crypto::PublicKey::from(tendermint_public_key);
         let sender_account_id = sender_public_key.account_id(OSMO_ACCOUNT_PREFIX).unwrap();
 
@@ -172,11 +175,7 @@ impl CosmWasmClient {
         .unwrap();
 
         let tx_body = tx::BodyBuilder::new().msg(msg_execute).memo(MEMO).finish();
-        log::info!("tx_body: {:?}", tx_body);
-
         let auth_info = SignerInfo::single_direct(Some(sender_public_key), sequence).auth_info(fee);
-
-        log::info!("auth_info: {:?}", auth_info);
 
         let chain_id = self
             .chain_id
@@ -186,9 +185,6 @@ impl CosmWasmClient {
                 RouteError::CustomError(format!("Failed to parse chain id: {:?}", e.to_string()))
             })?;
         let sign_doc = SignDoc::new(&tx_body, &auth_info, &chain_id, account_number).unwrap();
-
-        log::info!("sign_doc: {:?}", sign_doc);
-
         let sign_result = sign_with_cw_key(
             sign_doc
                 .clone()
@@ -197,8 +193,6 @@ impl CosmWasmClient {
         )
         .await?;
 
-        log::info!("sign_result: {:?}", sign_result);
-
         let raw: Raw = proto::cosmos::tx::v1beta1::TxRaw {
             body_bytes: sign_doc.body_bytes.clone(),
             auth_info_bytes: sign_doc.auth_info_bytes.clone(),
@@ -206,14 +200,19 @@ impl CosmWasmClient {
         }
         .into();
 
-        log::info!("raw: {:?}", raw);
+        let tx_hash = raw.to_bytes().map_err(|e| {
+            RouteError::CustomError(format!("Failed to convert raw to bytes: {:?}", e.to_string()))
+        })?;
+        let http_response = self.broadcast_tx_commit(raw).await?;
+        log::info!("http_response: {:?}", http_response);
 
-        self.broadcast_tx_commit(raw).await
+        Ok( bytes_to_hex( &sha256(tx_hash)))
+
     }
 }
 
 pub async fn cw_chain_key_arg() -> EcdsaChainKeyArg {
-    let test_key_local = EcdsaKeyIds::TestKeyLocalDevelopment.to_key_id();
+    let key_id = EcdsaKeyIds::ProductionKey1.to_key_id();
     let cw_chain_key_derivation_path =
         memory::read_state(|state| state.cw_chain_key_derivation_path.clone());
 
@@ -224,7 +223,7 @@ pub async fn cw_chain_key_arg() -> EcdsaChainKeyArg {
             .collect(),
         key_id: EcdsaKeyId {
             curve: ic_cdk::api::management_canister::ecdsa::EcdsaCurve::Secp256k1,
-            name: test_key_local.name,
+            name: key_id.name,
         },
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "cosmwasm_route"
-version = "0.1.0"
+version = "0.1.3"
 edition = "2021"
 
 [lib]
@@ -26,12 +26,13 @@ ic-cdk-timers = "0.7.0"
 num-traits = "0.2.17"
 ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.12.x-stablelog" }
 
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
 ic-stable-structures = "0.6"
 
 
 omnity_types = { path = "../../types" }
 
-hex = "0.4.3"
+# hex = "0.4.3"
 
 cosmrs = {version = "0.17.0", features = ["cosmwasm"]}
 cosmwasm-schema = "2.0.1"

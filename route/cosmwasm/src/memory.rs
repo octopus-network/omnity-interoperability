@@ -36,6 +36,7 @@ thread_local! {
             None
         ).expect("Failed to init route state")
     );
+
 }
 
 pub fn init_stable_log() -> StableBTreeMap<Vec<u8>, Vec<u8>, Memory> {
@@ -52,6 +53,15 @@ pub fn set_route_state(state: RouteState) {
         .expect("Failed to set route state");
 }
 
+pub fn take_state() -> RouteState {
+    ROUTE_STATE.with(|r| {
+        r.borrow_mut()
+            .get()
+            .clone()
+            .expect("Failed to take route state")
+    })
+}
+
 pub fn read_state<F, R>(f: F) -> R
 where
     F: FnOnce(&RouteState) -> R,
@@ -64,9 +74,9 @@ where
     })
 }
 
-pub fn mutate_state<F>(f: F)
+pub fn mutate_state<F, R>(f: F) -> R
 where
-    F: FnOnce(&mut RouteState),
+    F: FnOnce(&mut RouteState) -> R,
 {
     let mut route_state = ROUTE_STATE.with(|r| {
         r.borrow_mut()
@@ -74,10 +84,11 @@ where
             .clone()
             .expect("Failed to mutate route state")
     });
-    f(&mut route_state);
+    let r = f(&mut route_state);
     ROUTE_STATE
         .with(|r| r.borrow_mut().set(Some(route_state)))
         .expect("Failed to set route state");
+    r
 }
 
 pub fn get_contract_id() -> AccountId {

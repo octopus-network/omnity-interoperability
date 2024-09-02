@@ -1,7 +1,7 @@
 use crate::*;
 
-pub const TARGET_CHAIN_ID: &str = "ic";
-pub const TOKEN_ID: &str = "icp";
+pub const TARGET_CHAIN_ID: &str = "osmo-test-5";
+pub const TOKEN_ID: &str = "sICP-icrc-ckBTC";
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct GenerateTicketOk {

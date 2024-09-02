@@ -1,4 +1,33 @@
+type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
 type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type Directive = variant {
+  UpdateChain : Chain;
+  UpdateFee : Factor;
+  AddToken : Token;
+  AddChain : Chain;
+  ToggleChainState : ToggleState;
+  UpdateToken : Token;
+};
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
+type HttpHeader = record { value : text; name : text };
+type HttpResponse = record {
+  status : nat;
+  body : blob;
+  headers : vec HttpHeader;
+};
 type InitArgs = record {
   hub_principal : principal;
   cw_rpc_url : text;
@@ -7,22 +36,62 @@ type InitArgs = record {
   cosmwasm_port_contract_address : text;
 };
 type Result = variant { Ok : text; Err : text };
+type Result_1 = variant { Ok : HttpResponse; Err : text };
 type RouteState = record {
   hub_principal : principal;
   cw_rpc_url : text;
   cw_chain_key_derivation_path : vec blob;
-  is_timer_running : bool;
+  is_timer_running : vec text;
   next_directive_seq : nat64;
   cw_rest_url : text;
   cw_public_key_vec : opt blob;
   chain_id : text;
   cw_port_contract_address : text;
+  processing_tickets : vec record { nat64; Ticket };
   next_ticket_seq : nat64;
   chain_state : ChainState;
+  processing_directive : vec record { nat64; Directive };
+};
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
+type Ticket = record {
+  token : text;
+  action : TxAction;
+  dst_chain : text;
+  memo : opt blob;
+  ticket_id : text;
+  sender : opt text;
+  ticket_time : nat64;
+  ticket_type : TicketType;
+  src_chain : text;
+  amount : text;
+  receiver : text;
+};
+type TicketType = variant { Resubmit; Normal };
+type ToggleAction = variant { Deactivate; Activate };
+type ToggleState = record { action : ToggleAction; chain_id : text };
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
+type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type UpdateCwSettingsArgs = record {
+  cw_rpc_url : opt text;
+  cw_rest_url : opt text;
+  cw_port_contract_address : opt text;
 };
 service : (InitArgs) -> {
   cache_public_key_and_start_timer : () -> ();
+  osmosis_account_id : () -> (Result);
   redeem : (text) -> (Result);
   route_status : () -> (RouteState) query;
-  tendermint_address : () -> (Result);
+  test_execute_directive : (text, Directive) -> (Result);
+  test_http_outcall : (text) -> (Result_1);
+  update_cw_settings : (UpdateCwSettingsArgs) -> ();
 }

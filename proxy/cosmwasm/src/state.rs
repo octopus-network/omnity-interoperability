@@ -1,6 +1,10 @@
+use std::borrow::Cow;
+
+use ic_btc_interface::Utxo;
 use ic_stable_structures::{
     memory_manager::{MemoryId, MemoryManager, VirtualMemory},
-    Cell, DefaultMemoryImpl, StableBTreeMap,
+    storable::Bound,
+    Cell, DefaultMemoryImpl, StableBTreeMap, Storable,
 };
 
 use crate::*;
@@ -39,6 +43,131 @@ thread_local! {
         ).expect("Failed to init cell for TRIGGER_PRINCIPAL.")
     );
 
+    static CKBTC_MINTED_RECORDS_MAP: RefCell<StableBTreeMap<String, BtcTransportRecordList, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))),
+        )
+    );
+
+    static CKBTC_MINTER_PRINCIPAL: RefCell<Cell<Option<Principal>, Memory>> = RefCell::new(
+        Cell::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))),
+            None,
+        ).expect("Failed to init cell for CKBTC_MINTER_PRINCIPAL.")
+        // Cell::init(
+        //     MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5)),
+        //     Principal::anonymous()
+        // ).expect("Failed to init cell for CKBTC_MINTER_PRINCIPAL.")
+    );
+
+}
+
+pub fn get_btc_transport_records(osmosis_account_id: String) -> Vec<BtcTransportRecord> {
+    CKBTC_MINTED_RECORDS_MAP.with(|c| {
+        c.borrow()
+            .get(&osmosis_account_id)
+            .unwrap_or_else(|| BtcTransportRecordList(vec![]))
+            .0
+    })
+}
+
+pub fn insert_btc_transport_records(
+    osmosis_account_id: String,
+    minted_records: Vec<BtcTransportRecord>,
+) {
+    // CKBTC_MINTED_RECORDS_MAP.with(|c| {
+    //     let mut list = c.borrow_mut()
+    //         .get(&osmosis_account_id)
+    //         .expect("Failed to insert CKBTC minted records.");
+    //     list.0.extend(minted_records);
+
+    //     c.borrow_mut()
+    //         .insert(osmosis_account_id, list)
+    //         .expect("Failed to insert CKBTC minted records.");
+
+    // });
+    CKBTC_MINTED_RECORDS_MAP.with(|c| {
+        c.borrow_mut()
+            .insert(osmosis_account_id, BtcTransportRecordList(minted_records))
+            .expect("Failed to insert CKBTC minted records.");
+    });
+}
+
+// pub fn get_btc_transports(osmosis_account_id: String) -> BtcCrossChainInfoList {
+//     BTC_ADDRESS_TX_MAP.with(|c| {
+//         c.borrow()
+//             .get(&osmosis_account_id)
+//             .unwrap_or_else(|| BtcCrossChainInfoList(vec![]))
+//     })
+// }
+
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct BtcCrossChainInfoList(pub Vec<BtcTransportInfo>);
+
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct BtcTransportInfo {
+    tx_hash: Utxo,
+    block_index: u64,
+    ticket_id: Option<TicketId>,
+}
+
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct BtcTransportRecordList(pub Vec<BtcTransportRecord>);
+
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct BtcTransportRecord {
+    pub block_index: u64,
+    pub minted_amount: u64,
+    pub utxo: Utxo,
+    pub ticket_id: Option<TicketId>,
+}
+
+impl Storable for BtcTransportRecord {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        let ck_btc_minted_record =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode CkBtcMintedRecord");
+        ck_btc_minted_record
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl Storable for BtcTransportRecordList {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        let ck_btc_minted_record_list = ciborium::de::from_reader(bytes.as_ref())
+            .expect("failed to decode CkBtcMintedRecordList");
+        ck_btc_minted_record_list
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl Storable for BtcCrossChainInfoList {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        let btc_cross_chain_info =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode BtcCrossChainInfo");
+        btc_cross_chain_info
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
 }
 
 pub fn contains_executed_transaction_index(index: u64) -> bool {
@@ -82,6 +211,23 @@ pub fn get_ckbtc_ledger_principal() -> Principal {
         c.borrow()
             .get()
             .expect("CKBTC_LEDGER_PRINCIPAL not initialized!")
+            .clone()
+    })
+}
+
+pub fn set_ckbtc_minter_principal(principal: Principal) {
+    CKBTC_MINTER_PRINCIPAL.with(|c| {
+        c.borrow_mut()
+            .set(Some(principal.clone()))
+            .expect("Failed to set CKBTC_MINTER_PRINCIPAL.")
+    });
+}
+
+pub fn get_ckbtc_minter_principal() -> Principal {
+    CKBTC_MINTER_PRINCIPAL.with(|c| {
+        c.borrow()
+            .get()
+            .expect("CKBTC_MINTER_PRINCIPAL not initialized!")
             .clone()
     })
 }
