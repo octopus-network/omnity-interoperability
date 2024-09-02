@@ -8,17 +8,38 @@ use icrc_ledger_types::{
 
 use crate::*;
 
+pub async fn balance_of(owner: Account) -> Result<Nat> {
+    let settings = state::get_settings();
+    let client = ICRC1Client {
+        runtime: CdkRuntime,
+        ledger_canister_id: settings.ckbtc_ledger_principal,
+    };
+    let result = client
+        .balance_of(owner)
+        .await
+        .map_err(|(code, msg)| {
+            Errors::CanisterCallError(
+                settings.ckbtc_ledger_principal.to_string(),
+                "balance_of".to_string(),
+                format!("{:?}", code),
+                msg,
+            )
+        })?;
+    Ok(result)
+}
+
 pub async fn approve_ckbtc_for_icp_custom(
     subaccount: Option<Subaccount>,
     amount: Nat,
 ) -> Result<()> {
-    let ckbtc_ledger_principal = state::get_ckbtc_ledger_principal();
+    let settings = state::get_settings();
+    let ckbtc_ledger_principal = settings.ckbtc_ledger_principal.clone();
     let client = ICRC1Client {
         runtime: CdkRuntime,
         ledger_canister_id: ckbtc_ledger_principal,
     };
     let spender = Account {
-        owner: state::get_icp_custom_principal(),
+        owner: settings.icp_customs_principal,
         subaccount: None,
     };
     let approve_args = ApproveArgs {
@@ -48,7 +69,7 @@ pub async fn approve_ckbtc_for_icp_custom(
 }
 
 pub async fn get_ckbtc_transaction(block_index: BlockIndex) -> Result<GetTransactionsResponse> {
-    let ckbtc_ledger_principal = state::get_ckbtc_ledger_principal();
+    let ckbtc_ledger_principal = state::get_settings().ckbtc_ledger_principal;
     let request = GetTransactionsRequest {
         start: block_index,
         length: 1_u8.into(),
@@ -69,13 +90,13 @@ pub async fn get_ckbtc_transaction(block_index: BlockIndex) -> Result<GetTransac
 }
 
 pub async fn update_balance(args: UpdateBalanceArgs)-> Result<Vec<UtxoStatus>> {
-    let ckbtc_minter_principal = state::get_ckbtc_minter_principal();
+    let settings = state::get_settings();
     let result: (std::result::Result<Vec<UtxoStatus>, UpdateBalanceError>,) =
-    ic_cdk::api::call::call(ckbtc_minter_principal, "update_balance", (args.clone(),))
+    ic_cdk::api::call::call(settings.ckbtc_minter_principal, "update_balance", (args.clone(),))
         .await
         .map_err(|(code, msg)| {
             Errors::CanisterCallError(
-                ckbtc_minter_principal.to_string(),
+                settings.ckbtc_minter_principal.to_string(),
                 "get_transactions".to_string(),
                 format!("{:?}", code),
                 msg,
@@ -88,9 +109,29 @@ pub async fn update_balance(args: UpdateBalanceArgs)-> Result<Vec<UtxoStatus>> {
             format!("{:?}",e).to_string()
         )
     )
-
 } 
 
+pub async fn get_btc_address(args: GetBtcAddressArgs) -> Result<String> {
+    let ckbtc_minter_principal = state::get_settings().ckbtc_minter_principal;
+    let address: (String,) = ic_cdk::api::call::call(ckbtc_minter_principal, "get_btc_address", (args,))
+        .await
+        .map_err(|(code, msg)| {
+            Errors::CanisterCallError(
+                ckbtc_minter_principal.to_string(),
+                "get_btc_address".to_string(),
+                format!("{:?}", code),
+                msg,
+            )
+        })?;
+    Ok(address.0)
+}
+
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct GetBtcAddressArgs {
+    pub owner: Option<Principal>,
+    pub subaccount: Option<Subaccount>,
+}
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UpdateBalanceArgs {

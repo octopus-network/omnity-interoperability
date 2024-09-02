@@ -1,14 +1,15 @@
 export const idlFactory = ({ IDL }) => {
-  const InitArgs = IDL.Record({
-    'trigger' : IDL.Principal,
+  const Settings = IDL.Record({
+    'ckbtc_ledger_principal' : IDL.Principal,
+    'ckbtc_minter_principal' : IDL.Principal,
     'icp_customs_principal' : IDL.Principal,
-    'ckbtc_index_principal' : IDL.Principal,
   });
+  const Result = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
   const Account = IDL.Record({
     'owner' : IDL.Principal,
     'subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
   });
-  const Result = IDL.Variant({ 'Ok' : Account, 'Err' : IDL.Text });
+  const Result_1 = IDL.Variant({ 'Ok' : Account, 'Err' : IDL.Text });
   const OutPoint = IDL.Record({
     'txid' : IDL.Vec(IDL.Nat8),
     'vout' : IDL.Nat32,
@@ -18,35 +19,56 @@ export const idlFactory = ({ IDL }) => {
     'value' : IDL.Nat64,
     'outpoint' : OutPoint,
   });
-  const BtcTransportRecord = IDL.Record({
+  const MintedUtxo = IDL.Record({
     'minted_amount' : IDL.Nat64,
     'block_index' : IDL.Nat64,
     'utxo' : Utxo,
-    'ticket_id' : IDL.Opt(IDL.Text),
   });
-  const Result_1 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
+  const TicketRecord = IDL.Record({
+    'ticket_id' : IDL.Text,
+    'minted_utxos' : IDL.Vec(MintedUtxo),
+  });
+  const UtxoRecord = IDL.Record({
+    'ticket_id' : IDL.Opt(IDL.Text),
+    'minted_utxo' : MintedUtxo,
+  });
+  const Result_2 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
   return IDL.Service({
+    'generate_ticket_from_subaccount' : IDL.Func([IDL.Text], [Result], []),
+    'get_btc_mint_address' : IDL.Func([IDL.Text], [Result], []),
     'get_identity_by_osmosis_account_id' : IDL.Func(
         [IDL.Text],
-        [Result],
+        [Result_1],
         ['query'],
       ),
-    'query_btc_transport_info' : IDL.Func(
+    'query_settings' : IDL.Func([], [Settings], ['query']),
+    'query_ticket_records' : IDL.Func(
         [IDL.Text],
-        [IDL.Vec(BtcTransportRecord)],
+        [IDL.Vec(TicketRecord)],
         ['query'],
       ),
-    'query_status' : IDL.Func([], [IDL.Principal, IDL.Principal], ['query']),
-    'set_trigger_principal' : IDL.Func([IDL.Principal], [Result_1], []),
-    'trigger_transaction' : IDL.Func([IDL.Nat], [Result_1], []),
-    'trigger_update_balance' : IDL.Func([IDL.Text], [Result_1], []),
+    'query_utxo_records' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(UtxoRecord)],
+        ['query'],
+      ),
+    'trigger_update_balance' : IDL.Func([IDL.Text], [Result_2], []),
+    'update_settings' : IDL.Func(
+        [
+          IDL.Opt(IDL.Principal),
+          IDL.Opt(IDL.Principal),
+          IDL.Opt(IDL.Principal),
+        ],
+        [],
+        [],
+      ),
   });
 };
 export const init = ({ IDL }) => {
-  const InitArgs = IDL.Record({
-    'trigger' : IDL.Principal,
+  const Settings = IDL.Record({
+    'ckbtc_ledger_principal' : IDL.Principal,
+    'ckbtc_minter_principal' : IDL.Principal,
     'icp_customs_principal' : IDL.Principal,
-    'ckbtc_index_principal' : IDL.Principal,
   });
-  return [InitArgs];
+  return [Settings];
 };

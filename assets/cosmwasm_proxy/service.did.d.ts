@@ -6,34 +6,48 @@ export interface Account {
   'owner' : Principal,
   'subaccount' : [] | [Uint8Array | number[]],
 }
-export interface BtcTransportRecord {
+export interface MintedUtxo {
   'minted_amount' : bigint,
   'block_index' : bigint,
   'utxo' : Utxo,
-  'ticket_id' : [] | [string],
-}
-export interface InitArgs {
-  'trigger' : Principal,
-  'icp_customs_principal' : Principal,
-  'ckbtc_index_principal' : Principal,
 }
 export interface OutPoint { 'txid' : Uint8Array | number[], 'vout' : number }
-export type Result = { 'Ok' : Account } |
+export type Result = { 'Ok' : string } |
   { 'Err' : string };
-export type Result_1 = { 'Ok' : null } |
+export type Result_1 = { 'Ok' : Account } |
   { 'Err' : string };
+export type Result_2 = { 'Ok' : null } |
+  { 'Err' : string };
+export interface Settings {
+  'ckbtc_ledger_principal' : Principal,
+  'ckbtc_minter_principal' : Principal,
+  'icp_customs_principal' : Principal,
+}
+export interface TicketRecord {
+  'ticket_id' : string,
+  'minted_utxos' : Array<MintedUtxo>,
+}
 export interface Utxo {
   'height' : number,
   'value' : bigint,
   'outpoint' : OutPoint,
 }
+export interface UtxoRecord {
+  'ticket_id' : [] | [string],
+  'minted_utxo' : MintedUtxo,
+}
 export interface _SERVICE {
-  'get_identity_by_osmosis_account_id' : ActorMethod<[string], Result>,
-  'query_btc_transport_info' : ActorMethod<[string], Array<BtcTransportRecord>>,
-  'query_status' : ActorMethod<[], [Principal, Principal]>,
-  'set_trigger_principal' : ActorMethod<[Principal], Result_1>,
-  'trigger_transaction' : ActorMethod<[bigint], Result_1>,
-  'trigger_update_balance' : ActorMethod<[string], Result_1>,
+  'generate_ticket_from_subaccount' : ActorMethod<[string], Result>,
+  'get_btc_mint_address' : ActorMethod<[string], Result>,
+  'get_identity_by_osmosis_account_id' : ActorMethod<[string], Result_1>,
+  'query_settings' : ActorMethod<[], Settings>,
+  'query_ticket_records' : ActorMethod<[string], Array<TicketRecord>>,
+  'query_utxo_records' : ActorMethod<[string], Array<UtxoRecord>>,
+  'trigger_update_balance' : ActorMethod<[string], Result_2>,
+  'update_settings' : ActorMethod<
+    [[] | [Principal], [] | [Principal], [] | [Principal]],
+    undefined
+  >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

@@ -32,7 +32,7 @@ pub async fn generate_ticket(
         from_subaccount: Some(subaccount),
     };
 
-    let icp_custom = state::get_icp_custom_principal();
+    let icp_custom = state::get_settings().icp_customs_principal;
     let result: (Result<GenerateTicketOk>,) =
         ic_cdk::api::call::call(icp_custom, "generate_ticket", (req,))
             .await

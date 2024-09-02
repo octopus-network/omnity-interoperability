@@ -22,6 +22,7 @@ ic-ledger-types = { workspace = true }
 icrc-ledger-client-cdk = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 icrc-ledger-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-stable-structures = { workspace = true }
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
 
 serde = { workspace = true }
 serde_bytes = { workspace = true }
@@ -31,3 +32,6 @@ thiserror = "1"
 log = "0.4"
 
 subtle-encoding = { version = "0.5", features = ["bech32-preview"] }
+
+omnity_types = { path = "../../types" }
+itertools = "0.13.0"

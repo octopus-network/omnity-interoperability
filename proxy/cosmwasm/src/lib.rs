@@ -21,5 +21,4 @@ pub use external::ckbtc::*;
 pub use ic_cdk::{init, query, update};
 pub use ic_ledger_types::AccountIdentifier;
 pub use lifecycle::*;
-pub use state::{set_ckbtc_index_principal, set_icp_customs_principal};
 pub use types::*;

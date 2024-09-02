@@ -11,96 +11,149 @@ use crate::*;
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
+const LOG_MEMORY_ID: MemoryId = MemoryId::new(1);
+const SETTINGS_MEMORY_ID: MemoryId = MemoryId::new(2);
+const UTXO_RECORDS_MAP_MEMORY_ID: MemoryId = MemoryId::new(3);
+const TICKET_RECORDS_MAP_MEMORY_ID: MemoryId = MemoryId::new(4);
+
+
+
 thread_local! {
 
     static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
     RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
 
-    static CKBTC_LEDGER_PRINCIPAL: RefCell<Cell<Option<Principal>, Memory>> = RefCell::new(
+    static SETTINGS: RefCell<Cell<Settings, Memory>> = RefCell::new(
         Cell::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(0))),
-            None,
-        ).expect("Failed to init cell for CKBTC_LEDGER_PRINCIPAL.")
+            MEMORY_MANAGER.with(|m| m.borrow().get(SETTINGS_MEMORY_ID)),
+            Settings {
+                ckbtc_ledger_principal: Principal::anonymous(),
+                ckbtc_minter_principal: Principal::anonymous(),
+                icp_customs_principal: Principal::anonymous(),
+            },
+        ).expect("Failed to init cell for SETTINGS.")
     );
 
-    static ICP_CUSTOMS_PRINCIPAL: RefCell<Cell<Option<Principal>, Memory>> = RefCell::new(
-        Cell::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))),
-            None,
-        ).expect("Failed to init cell for ICP_CUSTOMS_PRINCIPAL.")
-    );
-
-    static EXECUTED_TRANSACTIONS_INDEXES: RefCell<StableBTreeMap<u64, TicketId, Memory>> = RefCell::new(
+    static UTXO_RECORDS_MAP: RefCell<StableBTreeMap<String, UtxoRecordList, Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))),
+            MEMORY_MANAGER.with(|m| m.borrow().get(UTXO_RECORDS_MAP_MEMORY_ID)),
         )
     );
 
-    static TRIGGER_PRINCIPAL: RefCell<Cell<Principal, Memory>> = RefCell::new(
-        Cell::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))),
-            Principal::anonymous()
-        ).expect("Failed to init cell for TRIGGER_PRINCIPAL.")
-    );
-
-    static CKBTC_MINTED_RECORDS_MAP: RefCell<StableBTreeMap<String, BtcTransportRecordList, Memory>> = RefCell::new(
+    static TICKET_RECORDS_MAP: RefCell<StableBTreeMap<TicketId, TicketRecordList, Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))),
+            MEMORY_MANAGER.with(|m| m.borrow().get(TICKET_RECORDS_MAP_MEMORY_ID)),
         )
     );
-
-    static CKBTC_MINTER_PRINCIPAL: RefCell<Cell<Option<Principal>, Memory>> = RefCell::new(
-        Cell::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))),
-            None,
-        ).expect("Failed to init cell for CKBTC_MINTER_PRINCIPAL.")
-    );
-
 }
 
+pub fn init_stable_log() -> StableBTreeMap<Vec<u8>, Vec<u8>, Memory> {
+    StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(LOG_MEMORY_ID)))
+}
 
-pub fn get_btc_transport_records(osmosis_account_id: String) -> Vec<BtcTransportRecord> {
-    CKBTC_MINTED_RECORDS_MAP.with(|c| {
+pub fn get_utxo_records(osmosis_account_id: String) -> Vec<UtxoRecord> {
+    UTXO_RECORDS_MAP.with(|c| {
         c.borrow()
             .get(&osmosis_account_id)
-            .unwrap_or_else(|| BtcTransportRecordList(vec![]))
+            .unwrap_or_else(|| UtxoRecordList(vec![]))
             .0
     })
 }
 
-pub fn insert_btc_transport_records(
-    osmosis_account_id: String,
-    minted_records: Vec<BtcTransportRecord>,
-) {
-    CKBTC_MINTED_RECORDS_MAP.with(|c| {
+pub fn get_ticket_records(osmosis_account_id: String) -> Vec<TicketRecord> {
+    TICKET_RECORDS_MAP.with(|c| {
+        c.borrow()
+            .get(&osmosis_account_id)
+            .unwrap_or_else(|| TicketRecordList(vec![]))
+            .0
+    })
+}
+
+pub fn insert_utxo_records(osmosis_account_id: String, utxo_records: Vec<UtxoRecord>)->Option<UtxoRecordList> {
+    UTXO_RECORDS_MAP.with(|c| {
         c.borrow_mut()
-            .insert(osmosis_account_id, BtcTransportRecordList(minted_records))
-            .expect("Failed to insert CKBTC minted records.");
+            .insert(osmosis_account_id, UtxoRecordList(utxo_records))
+    })
+}
+
+pub fn insert_ticket_records(osmosis_account_id: TicketId, ticket_records: Vec<TicketRecord>)->Option<TicketRecordList> {
+    TICKET_RECORDS_MAP.with(|c| {
+        c.borrow_mut()
+            .insert(osmosis_account_id, TicketRecordList(ticket_records))
+    })
+}
+
+pub fn extend_ticket_records(osmosis_account_id: TicketId, ticket_records: Vec<TicketRecord>) {
+    TICKET_RECORDS_MAP.with(|c| {
+        let mut records = c
+            .borrow()
+            .get(&osmosis_account_id)
+            .unwrap_or_else(|| TicketRecordList(vec![]))
+            .0;
+        records.extend(ticket_records);
+        c.borrow_mut()
+            .insert(osmosis_account_id, TicketRecordList(records))
     });
 }
 
 #[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
-pub struct BtcCrossChainInfoList(pub Vec<BtcTransportInfo>);
-
-#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
-pub struct BtcTransportInfo {
-    tx_hash: Utxo,
-    block_index: u64,
-    ticket_id: Option<TicketId>,
-}
-
-#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
-pub struct BtcTransportRecordList(pub Vec<BtcTransportRecord>);
-
-#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
-pub struct BtcTransportRecord {
+pub struct MintedUtxo {
     pub block_index: u64,
     pub minted_amount: u64,
     pub utxo: Utxo,
+}
+
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct TicketRecordList(pub Vec<TicketRecord>);
+
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct TicketRecord {
+    pub ticket_id: TicketId,
+    pub minted_utxos: Vec<MintedUtxo>,
+}
+
+impl Storable for TicketRecord {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        let ticket_record =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TicketRecord");
+        ticket_record
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl Storable for TicketRecordList {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        let ticket_record_list = ciborium::de::from_reader(bytes.as_ref())
+            .expect("failed to decode TicketRecordList");
+        ticket_record_list
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct UtxoRecordList(pub Vec<UtxoRecord>);
+
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct UtxoRecord {
+    pub minted_utxo: MintedUtxo,
     pub ticket_id: Option<TicketId>,
 }
 
-impl Storable for BtcTransportRecord {
+impl Storable for UtxoRecord {
     fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
@@ -116,7 +169,7 @@ impl Storable for BtcTransportRecord {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-impl Storable for BtcTransportRecordList {
+impl Storable for UtxoRecordList {
     fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
@@ -131,8 +184,14 @@ impl Storable for BtcTransportRecordList {
 
     const BOUND: Bound = Bound::Unbounded;
 }
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct Settings {
+    pub ckbtc_ledger_principal: Principal,
+    pub ckbtc_minter_principal: Principal,
+    pub icp_customs_principal: Principal,
+}
 
-impl Storable for BtcCrossChainInfoList {
+impl Storable for Settings {
     fn to_bytes(&self) -> Cow<[u8]> {
         let mut bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut bytes);
@@ -140,89 +199,27 @@ impl Storable for BtcCrossChainInfoList {
     }
 
     fn from_bytes(bytes: Cow<[u8]>) -> Self {
-        let btc_cross_chain_info =
-            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode BtcCrossChainInfo");
-        btc_cross_chain_info
+        let settings = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Settings");
+        settings
     }
 
     const BOUND: Bound = Bound::Unbounded;
 }
 
-pub fn contains_executed_transaction_index(index: u64) -> bool {
-    EXECUTED_TRANSACTIONS_INDEXES.with(|c| c.borrow().contains_key(&index))
+pub fn get_settings() -> Settings {
+    SETTINGS.with(|c| c.borrow().get().clone())
 }
 
-pub fn get_ticket_id_of_executed_transaction(index: u64) -> Option<TicketId> {
-    EXECUTED_TRANSACTIONS_INDEXES.with(|c| c.borrow().get(&index))
-}
-
-pub fn insert_executed_transaction_index(index: u64, ticket_id: TicketId) {
-    EXECUTED_TRANSACTIONS_INDEXES.with(|c| {
+pub fn set_settings(settings: Settings) {
+    SETTINGS.with(|c| {
         c.borrow_mut()
-            .insert(index, ticket_id)
-            .expect("Failed to insert executed transaction index.")
+            .set(settings.clone())
+            .expect("Failed to set SETTINGS.")
     });
 }
 
-pub fn set_trigger_principal(principal: Principal) {
-    TRIGGER_PRINCIPAL.with(|c| {
-        c.borrow_mut()
-            .set(principal.clone())
-            .expect("Failed to set TRIGGER_PRINCIPAL.")
-    });
-}
-
-pub fn get_trigger_principal() -> Principal {
-    TRIGGER_PRINCIPAL.with(|c| c.borrow().get().clone())
-}
-
-pub fn set_ckbtc_index_principal(principal: Principal) {
-    CKBTC_LEDGER_PRINCIPAL.with(|c| {
-        c.borrow_mut()
-            .set(Some(principal.clone()))
-            .expect("Failed to set CKBTC_LEDGER_PRINCIPAL.")
-    });
-}
-
-pub fn get_ckbtc_ledger_principal() -> Principal {
-    CKBTC_LEDGER_PRINCIPAL.with(|c| {
-        c.borrow()
-            .get()
-            .expect("CKBTC_LEDGER_PRINCIPAL not initialized!")
-            .clone()
-    })
-}
-
-pub fn set_ckbtc_minter_principal(principal: Principal) {
-    CKBTC_MINTER_PRINCIPAL.with(|c| {
-        c.borrow_mut()
-            .set(Some(principal.clone()))
-            .expect("Failed to set CKBTC_MINTER_PRINCIPAL.")
-    });
-}
-
-pub fn get_ckbtc_minter_principal() -> Principal {
-    CKBTC_MINTER_PRINCIPAL.with(|c| {
-        c.borrow()
-            .get()
-            .expect("CKBTC_MINTER_PRINCIPAL not initialized!")
-            .clone()
-    })
-}
-
-pub fn set_icp_customs_principal(principal: Principal) {
-    ICP_CUSTOMS_PRINCIPAL.with(|c| {
-        c.borrow_mut()
-            .set(Some(principal.clone()))
-            .expect("Failed to set ICP_CUSTOM_PRINCIPAL.")
-    });
-}
-
-pub fn get_icp_custom_principal() -> Principal {
-    ICP_CUSTOMS_PRINCIPAL.with(|c| {
-        c.borrow()
-            .get()
-            .expect("ICP_CUSTOM_PRINCIPAL not initialized!")
-            .clone()
-    })
+pub fn mutate_settings(f: impl FnOnce(&mut Settings)) {
+    let mut settings = get_settings();
+    f(&mut settings);
+    set_settings(settings);
 }
