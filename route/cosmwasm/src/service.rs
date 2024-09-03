@@ -28,7 +28,7 @@ pub async fn init(args: InitArgs) {
 }
 
 #[update]
-pub async fn cache_public_key_and_start_timer() {
+pub async fn cache_public_key() {
     let public_key_response = query_cw_public_key()
         .await
         .expect("failed to query cw public key");
@@ -36,11 +36,18 @@ pub async fn cache_public_key_and_start_timer() {
     mutate_state(|state| {
         state.cw_public_key_vec = Some(public_key_response.public_key.clone());
     });
+}
 
+#[update]
+pub async fn start_process_directive_task() {
     set_timer_interval(
         Duration::from_secs(const_args::INTERVAL_QUERY_DIRECTIVE),
         process_directive_task,
     );
+}
+
+#[update]
+pub async fn start_process_ticket_task() {
     set_timer_interval(
         Duration::from_secs(const_args::INTERVAL_QUERY_TICKET),
         process_ticket_task,
@@ -70,9 +77,12 @@ pub async fn redeem(tx_hash: TxHash) -> std::result::Result<TicketId, String> {
         memo: None,
     };
 
+    log::info!("try to send redeem ticket: {:?}, tx_hash: {:?}", ticket, tx_hash);
+
     hub::send_ticket(hub_principal, ticket.clone())
         .await
         .map_err(|e| e.to_string())?;
+    log::info!("send redeem ticket success: {:?}, tx_hash: {:?}", ticket, tx_hash);
 
     insert_redeem_ticket(tx_hash, ticket.ticket_id.clone());
 
