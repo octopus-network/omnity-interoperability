@@ -32,13 +32,17 @@ export const idlFactory = ({ IDL }) => {
     'ticket_id' : IDL.Opt(IDL.Text),
     'minted_utxo' : MintedUtxo,
   });
-  const Result_2 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
   return IDL.Service({
     'generate_ticket_from_subaccount' : IDL.Func([IDL.Text], [Result], []),
     'get_btc_mint_address' : IDL.Func([IDL.Text], [Result], []),
     'get_identity_by_osmosis_account_id' : IDL.Func(
         [IDL.Text],
         [Result_1],
+        ['query'],
+      ),
+    'query_scheduled_osmosis_account_id_list' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Text)],
         ['query'],
       ),
     'query_settings' : IDL.Func([], [Settings], ['query']),
@@ -52,7 +56,8 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(UtxoRecord)],
         ['query'],
       ),
-    'trigger_update_balance' : IDL.Func([IDL.Text], [Result_2], []),
+    'trigger_update_balance' : IDL.Func([IDL.Text], [Result], []),
+    'update_balance_after_seven_block' : IDL.Func([IDL.Text], [], []),
     'update_settings' : IDL.Func(
         [
           IDL.Opt(IDL.Principal),

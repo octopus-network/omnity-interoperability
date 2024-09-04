@@ -7,7 +7,6 @@ type MintedUtxo = record {
 type OutPoint = record { txid : blob; vout : nat32 };
 type Result = variant { Ok : text; Err : text };
 type Result_1 = variant { Ok : Account; Err : text };
-type Result_2 = variant { Ok; Err : text };
 type Settings = record {
   ckbtc_ledger_principal : principal;
   ckbtc_minter_principal : principal;
@@ -20,9 +19,11 @@ service : (Settings) -> {
   generate_ticket_from_subaccount : (text) -> (Result);
   get_btc_mint_address : (text) -> (Result);
   get_identity_by_osmosis_account_id : (text) -> (Result_1) query;
+  query_scheduled_osmosis_account_id_list : () -> (vec text) query;
   query_settings : () -> (Settings) query;
   query_ticket_records : (text) -> (vec TicketRecord) query;
   query_utxo_records : (text) -> (vec UtxoRecord) query;
-  trigger_update_balance : (text) -> (Result_2);
+  trigger_update_balance : (text) -> (Result);
+  update_balance_after_seven_block : (text) -> ();
   update_settings : (opt principal, opt principal, opt principal) -> ();
 }

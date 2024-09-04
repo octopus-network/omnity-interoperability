@@ -16,8 +16,6 @@ export type Result = { 'Ok' : string } |
   { 'Err' : string };
 export type Result_1 = { 'Ok' : Account } |
   { 'Err' : string };
-export type Result_2 = { 'Ok' : null } |
-  { 'Err' : string };
 export interface Settings {
   'ckbtc_ledger_principal' : Principal,
   'ckbtc_minter_principal' : Principal,
@@ -40,10 +38,12 @@ export interface _SERVICE {
   'generate_ticket_from_subaccount' : ActorMethod<[string], Result>,
   'get_btc_mint_address' : ActorMethod<[string], Result>,
   'get_identity_by_osmosis_account_id' : ActorMethod<[string], Result_1>,
+  'query_scheduled_osmosis_account_id_list' : ActorMethod<[], Array<string>>,
   'query_settings' : ActorMethod<[], Settings>,
   'query_ticket_records' : ActorMethod<[string], Array<TicketRecord>>,
   'query_utxo_records' : ActorMethod<[string], Array<UtxoRecord>>,
-  'trigger_update_balance' : ActorMethod<[string], Result_2>,
+  'trigger_update_balance' : ActorMethod<[string], Result>,
+  'update_balance_after_seven_block' : ActorMethod<[string], undefined>,
   'update_settings' : ActorMethod<
     [[] | [Principal], [] | [Principal], [] | [Principal]],
     undefined
