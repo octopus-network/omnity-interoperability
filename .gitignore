@@ -30,3 +30,6 @@ dist/
 canister_ids.json
 bitcoin_customs.wasm
 **/*.svg
+**/*.crt
+**/*.csr
+**/*.key

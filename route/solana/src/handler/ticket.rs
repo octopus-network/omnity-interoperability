@@ -226,11 +226,11 @@ pub async fn create_associated_account() {
                     associated_account,
                 );
             }
-            TxStatus::TxFailed { .. } => {
+            TxStatus::TxFailed { e } => {
                 log!(
                     ERROR,
-                   "[ticket::create_token_mint] failed to create_associated_account for owner: {} and token mint: {}",
-                   owner,token_mint.account
+                   "[ticket::create_associated_account] failed to create_associated_account for owner: {} and token mint: {}, error: {:}",
+                   owner,token_mint.account,e
                 );
                 handle_creating_ata(owner.to_owned(), token_mint.account.to_string()).await;
             }
@@ -251,7 +251,7 @@ pub async fn handle_creating_ata(owner:String,token_mint_address:String) {
         Ok(signature) => {
             log!(
                 DEBUG,
-                "[ticket::create_associated_account] create_associated_account signature : {:?}",
+                "[ticket::handle_creating_ata] create_ata signature : {:?}",
                 signature
             );
             // update account created signature and retry ,but not confirmed
@@ -267,8 +267,8 @@ pub async fn handle_creating_ata(owner:String,token_mint_address:String) {
         Err(e) => {
             log!(
                 ERROR,
-                "[ticket::create_associated_account] create_associated_account error: {:?}  ",
-                e
+                "[ticket::handle_creating_ata] create_ata for {:} and {:}, error: {:?}  ",
+                owner.to_string(), token_mint_address.to_string(), e
             );
             // update account retry 
             mutate_state(|s| {
@@ -293,7 +293,7 @@ pub async fn update_ata_status(sig:String,owner:String,token_mint:String) {
     Err(e) => {
         log!(
              ERROR,
-             "[ticket::create_associated_account] get_signature_status for {} ,err: {:?}",
+             "[ticket::update_ata_status] get_signature_status for {} ,err: {:?}",
              sig.to_string(),
              e
          );
@@ -303,7 +303,7 @@ pub async fn update_ata_status(sig:String,owner:String,token_mint:String) {
         status_vec.first().map(|tx_status| {
              log!(
                  DEBUG,
-                 "[ticket::create_associated_account] signature {}  status : {:?} ",
+                 "[ticket::update_ata_status] signature {}  status : {:?} ",
                  sig.to_string(),
                  tx_status,
              );
@@ -474,14 +474,14 @@ pub async fn mint_token() {
                 mutate_state(|s| s.tickets_queue.remove(&seq));
                                       
            }
-            TxStatus::TxFailed { .. } => {
+            TxStatus::TxFailed { e } => {
                 log!(
                     ERROR,
-                   "[ticket::mint_token] failed to mint token for ticket id: {}, and retry mint ..",
-                    ticket.ticket_id
+                   "[ticket::mint_token] failed to mint token for ticket id: {}, error: {:} and retry mint ..",
+                    ticket.ticket_id,e 
                 );
                  //retry mint_to 
-                 handle_mint_token(mint_req).await;
+                //  handle_mint_token(mint_req).await;
  
             },
             

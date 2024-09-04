@@ -208,11 +208,11 @@ pub async fn create_token_mint() {
                     token.token_id,mint_account_account,
                 );
             }
-            TxStatus::TxFailed { .. } => {
+            TxStatus::TxFailed { e } => {
                 log!(
                     ERROR,
-                    "[directive::create_token_mint] failed to create mint token for {:}, retry ..",
-                    token.token_id
+                    "[directive::create_token_mint] failed to create mint token for {:},error:{:}, retry ..",
+                    token.token_id,e.to_string()
                 );
                 handle_creating_mint_account(mint_account_account.account.to_string(), token_info)
                     .await
@@ -243,8 +243,8 @@ pub async fn handle_creating_mint_account(account_address: String, token_info: T
         Err(e) => {
             log!(
                 ERROR,
-                "[directive::handle_creating_mint_account] create token mint error: {:?}  ",
-                e
+                "[directive::handle_creating_mint_account] create token mint for {:}, error: {:?}  ",
+                token_info.token_id,e
             );
             // update retry
             mutate_state(|s| {
