@@ -23,9 +23,11 @@ echo "Schnorr canister id: $SCHNORR_CANISTER_ID"
 echo 
 
 # Deploy the solana canister and set the schnorr canister id
-SOLANA_RPC_URL="devnet"
+# SOLANA_RPC_URL="devnet"
 # SOLANA_RPC_URL="https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
 # SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+# SOLANA_RPC_URL="http://localhost:8888/"
+SOLANA_RPC_URL=https://solana-rpc-proxy-398338012986.us-central1.run.app/
 SCHNORR_KEY_NAME="test_key_1"
 dfx deploy ic-solana-provider --argument "( record { 
     nodesInSubnet = 28; 

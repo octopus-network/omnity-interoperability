@@ -70,7 +70,7 @@ pub async fn get_account_info(account: String) -> Result<Option<String>, CallErr
 pub async fn create_mint_account(token_mint: Pubkey, req: TokenInfo) -> Result<String, CallError> {
     let sol_client = solana_client().await;
 
-    let signature = sol_client
+    let signature: String = sol_client
         .create_mint_with_metadata(token_mint, req)
         .await
         .map_err(|e| CallError {

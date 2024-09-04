@@ -440,7 +440,7 @@ pub async fn mint_token() {
                                     );
                                     if let Some(status) = &tx_status.confirmation_status {
                                         if matches!(status, TransactionConfirmationStatus::Finalized) {
-                                            // update mint token status
+                                            // update mint token req status
                                             mint_req.status = TxStatus::Finalized {
                                                 signature: sig.to_string(),
                                             };

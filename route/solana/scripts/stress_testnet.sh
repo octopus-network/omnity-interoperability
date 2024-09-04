@@ -234,15 +234,15 @@ dfx canister call $HUB_CANISTER_ID update_fee "vec {variant { UpdateTargetChainF
 dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateFee},0:nat64,12:nat64)" --ic 
 
 # token info
-TOKEN_ID_PRE="Bitcoin-runes-HOPE•YOU•GET•ZZZ"
-TOKEN_NAME_PRE="HOPE•YOU•GET•ZZZ"
-TOKEN_SYMBOL_PRE="ZZZ"
-DECIMALS=2
+TOKEN_ID_PRE="Bitcoin-runes-HOPE•YOU•GET•UST"
+TOKEN_NAME_PRE="HOPE•YOU•GET•UST"
+TOKEN_SYMBOL_PRE="UST"
+DECIMALS=9
 ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
 
 # ticket info
 TID_PRE="28b47548-55dc-4e89-b41d-76bc0247828e"
-AMOUNT="55555"
+MINT_AMOUNT="5555555555"
 SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
 
 total_calls=5
@@ -283,7 +283,7 @@ for i in $(seq 1 $total_calls); do
         ticket_type = variant { Normal }; 
         ticket_time = 1715654809737051178 : nat64; 
         token = \"${TOKEN_ID}\"; 
-        amount = \"${AMOUNT}\"; 
+        amount = \"${MINT_AMOUNT}\"; 
         src_chain = \"${BITCOIN_CHAIN_ID}\"; 
         dst_chain = \"${SOL_CHAIN_ID}\"; 
         action = variant { Transfer }; 

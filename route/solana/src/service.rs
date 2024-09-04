@@ -273,18 +273,27 @@ pub async fn create_mint_account(req: TokenInfo) -> Result<AccountInfo, CallErro
                     });
 
                     // update mint account status
-                    update_mint_account_status(sig.to_string(), req.token_id).await;
+                    update_mint_account_status(sig.to_string(), req.token_id.to_string()).await;
                 }
                 Some(sig) => {
                     // update mint account status
-                    update_mint_account_status(sig.to_string(), req.token_id).await;
+                    update_mint_account_status(sig.to_string(), req.token_id.to_string()).await;
                 }
             }
         }
         TxStatus::Finalized { .. } => return Ok(mint_account_info),
     }
 
-    Ok(mint_account_info)
+    match read_state(|s| s.token_mint_accounts.get(&req.token_id).cloned()) {
+        None => Err(CallError {
+            method: "[service::create_mint_account] create_mint_account".to_string(),
+            reason: Reason::CanisterError(format!(
+                "Not found account for {} ",
+                req.token_id.to_string()
+            )),
+        }),
+        Some(account) => Ok(account),
+    }
 }
 
 #[update(guard = "is_admin")]
@@ -452,8 +461,21 @@ pub async fn create_aossicated_account(
         }
         TxStatus::Finalized { .. } => return Ok(ata_info),
     }
-
-    Ok(ata_info)
+    match read_state(|s| {
+        s.associated_accounts
+            .get(&(owner.to_string(), token_mint.to_string()))
+            .cloned()
+    }) {
+        None => Err(CallError {
+            method: "[service::create_aossicated_account] create_aossicated_account".to_string(),
+            reason: Reason::CanisterError(format!(
+                "Not found account for {} and {}",
+                owner.to_string(),
+                token_mint.to_string()
+            )),
+        }),
+        Some(account) => Ok(account),
+    }
 }
 
 #[query]
@@ -549,11 +571,22 @@ pub async fn mint_token(req: MintTokenRequest) -> Result<TxStatus, CallError> {
                 );
             }
             // remove the handled ticket from queue
-            remove_ticket_from_quene(req.ticket_id).await;
+            remove_ticket_from_quene(req.ticket_id.to_string()).await;
         }
     }
 
-    Ok(req.status)
+    let q = read_state(|s| s.mint_token_requests.get(&req.ticket_id).cloned());
+    match q {
+        None => Err(CallError {
+            method: "[service::mint_token] mint_token".to_string(),
+            reason: Reason::CanisterError(format!(
+                "Not found ticket({}) mint token request",
+                req.ticket_id.to_string()
+            )),
+        }),
+
+        Some(q) => Ok(q.status),
+    }
 }
 
 async fn update_mint_req_status(sig: String, ticket_id: String) -> Result<(), CallError> {

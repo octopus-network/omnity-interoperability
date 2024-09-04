@@ -2,7 +2,7 @@
 
 BITCOIN_CHAIN_ID="Bitcoin"
 SOL_CHAIN_ID="Solana"
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•AAAAA"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•FIVE"
 
 # start schedule 
 dfx canister call solana_route start_schedule '()' 
@@ -90,33 +90,33 @@ dfx canister call omnity_hub query_tickets "(opt \"${BITCOIN_CHAIN_ID}\",0:nat64
 
 # update token
 # TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE"
-TOKEN_NAME="HOPE•YOU•GET•BBBBB"
-TOKEN_SYMBOL="BBBBB"
-DECIMALS=5
-ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/image.png"
-dfx canister call omnity_hub validate_proposal "( vec {variant { UpdateToken = record { 
-        token_id = \"${TOKEN_ID}\"; 
-        name = \"${TOKEN_NAME}\";
-        issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
-        symbol = \"${TOKEN_SYMBOL}\"; 
-        decimals = ${DECIMALS};
-        icon = opt \"${ICON}\"; 
-        metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
-        dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
-dfx canister call omnity_hub execute_proposal "( vec {variant { UpdateToken = record { 
-        token_id = \"${TOKEN_ID}\"; 
-        name = \"${TOKEN_NAME}\";
-        issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
-        symbol = \"${TOKEN_SYMBOL}\"; 
-        decimals = ${DECIMALS};
-        icon = opt \"${ICON}\"; 
-        metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
-        dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
-dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateToken},0:nat64,5:nat64)"
+# TOKEN_NAME="HOPE•YOU•GET•DDDDDD"
+# TOKEN_SYMBOL="DDDDDD"
+# DECIMALS=5
+# ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/image.png"
+# dfx canister call omnity_hub validate_proposal "( vec {variant { UpdateToken = record { 
+#         token_id = \"${TOKEN_ID}\"; 
+#         name = \"${TOKEN_NAME}\";
+#         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
+#         symbol = \"${TOKEN_SYMBOL}\"; 
+#         decimals = ${DECIMALS};
+#         icon = opt \"${ICON}\"; 
+#         metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
+#         dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
+# dfx canister call omnity_hub execute_proposal "( vec {variant { UpdateToken = record { 
+#         token_id = \"${TOKEN_ID}\"; 
+#         name = \"${TOKEN_NAME}\";
+#         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
+#         symbol = \"${TOKEN_SYMBOL}\"; 
+#         decimals = ${DECIMALS};
+#         icon = opt \"${ICON}\"; 
+#         metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
+#         dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
+# dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateToken},0:nat64,5:nat64)"
 
-sleep 30
+# sleep 30
 
-dfx canister call solana_route get_token_list '()' 
+# dfx canister call solana_route get_token_list '()' 
 
 
 sleep 300

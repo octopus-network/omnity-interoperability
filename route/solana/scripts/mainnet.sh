@@ -259,9 +259,9 @@ dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${BITCOIN_CHAIN_ID}\
 #     --ic 
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE7"
-TOKEN_NAME="HOPE•YOU•GET•NICE7"
-TOKEN_SYMBOL="NICE7"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE12"
+TOKEN_NAME="HOPE•YOU•GET•NICE12"
+TOKEN_SYMBOL="NICE12"
 DECIMALS=2
 ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
 
@@ -326,7 +326,7 @@ echo "$SIGNER balance: $(solana balance $SIGNER)"
 echo "start_schedule ... " 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic
 echo "waiting for query directives or tickets from hub to solana route"
-sleep 50
+sleep 90
 
 echo "check sync directive from hub "
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_chain_list '()' --ic
@@ -337,7 +337,7 @@ echo
 echo "mock transfer from Bitcoin to Solana ..."
 echo 
 TID="28b47548-55dc-4e89-b41d-76bc0247828e"
-AMOUNT="999999999"
+AMOUNT="333333333"
 SOL_RECEIVER="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 dfx canister call $HUB_CANISTER_ID send_ticket "(record { ticket_id = \"${TID}\"; 
         ticket_type = variant { Normal }; 
@@ -354,7 +354,7 @@ dfx canister call $HUB_CANISTER_ID send_ticket "(record { ticket_id = \"${TID}\"
 dfx canister call $HUB_CANISTER_ID query_tickets "(opt \"${SOL_CHAIN_ID}\",0:nat64,5:nat64)" --ic
 echo 
 
-sleep 60
+sleep 120
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_req "(\"${TID}\")" --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --ic
@@ -391,7 +391,7 @@ echo "mock redeem from solana to customs... "
 # first, burn token
 CUSTOMS_RECEIVER="bc1qmh0chcr9f73a3ynt90k0w8qsqlydr4a6espnj6"
 OWNER=~/.config/solana/boern.json
-BURN_AMOUNT=333333
+BURN_AMOUNT=1111111
 echo spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER
 # echo $(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
 SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
@@ -423,15 +423,15 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 
 # manual operation 
 
-# create token mint account
+# # create token mint account
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID create_mint_account "(record {
-        token_id=\"${TOKEN_ID}\";
-        name=\"${TOKEN_NAME}\";
-        symbol=\"${TOKEN_SYMBOL}\";
-        decimals=${DECIMALS}:nat8;
-        uri=\"${ICON}\";
-})" --ic
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID create_mint_account "(record {
+#         token_id=\"${TOKEN_ID}\";
+#         name=\"${TOKEN_NAME}\";
+#         symbol=\"${TOKEN_SYMBOL}\";
+#         decimals=${DECIMALS}:nat8;
+#         uri=\"${ICON}\";
+# })" --ic
 
 # update token
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
@@ -443,29 +443,40 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID create_mint_account "(record {
 #         uri=\"${ICON}\";
 # })" --ic
 
+# # get token mint
+# TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
+# TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
+# echo "token mint: $TOKEN_MINT"
 
+# SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
 # create aossicated account for user
-dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
-        \"${TOKEN_MINT}\")" --ic  
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
+#         \"${TOKEN_MINT}\")" --ic  
 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_RECEIVER}\",
-        \"${TOKEN_MINT}\")" --ic  
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_RECEIVER}\",
+#         \"${TOKEN_MINT}\")" --ic  
 
+# get ata
+# ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account_address "(\"${SOL_RECEIVER}\",
+#         \"${TOKEN_MINT}\")" --ic)
+# ATA=$(echo "$ATA" | awk -F'"' '{print $2}')
+# echo "The dest address: $SOL_RECEIVER and the token address: $TOKEN_MINT aossicated account is: $ATA"
 
-TID=28b47548-55dc-4e89-b41d-76bc0247828e1
-ATA=H8ESHFzzCki2c6dKbkUA8y5N7UpnbcW2THx91mhaoGfG
-MINT_AMOUNT=55555
-TOKEN_MINT=4PY24Vzmd4tCm24yekAW8tnv1oQ9SLbufo2WXT7xYhq1
+# TID=28b47548-55dc-4e89-b41d-76bc0247828e1
+# ATA=H8ESHFzzCki2c6dKbkUA8y5N7UpnbcW2THx91mhaoGfG
+# MINT_AMOUNT=55555
+# TOKEN_MINT=4PY24Vzmd4tCm24yekAW8tnv1oQ9SLbufo2WXT7xYhq1
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_req "(\"${TID}\")" --ic
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --ic
 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token "(record{
-        ticket_id=\"${TID}\";
-        associated_account=\"${ATA}\";
-        amount=${MINT_AMOUNT}:nat64;
-        token_mint=\"${TOKEN_MINT}\";
-        status=variant { Unknown };
-        signature=null;})" --ic
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token "(record{
+#         ticket_id=\"${TID}\";
+#         associated_account=\"${ATA}\";
+#         amount=${MINT_AMOUNT}:nat64;
+#         token_mint=\"${TOKEN_MINT}\";
+#         status=variant { Unknown };
+#         signature=null;
+#         retry=0;})" --ic
 
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --ic
 
