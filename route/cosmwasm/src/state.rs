@@ -30,6 +30,10 @@ pub struct RouteState {
     pub processing_tickets: Vec<(Seq, Ticket)>,
     #[serde(default)]
     pub processing_directive: Vec<(Seq, Directive)>,
+    // #[serde(default)]
+    // pub ticket_failed_times: u32,
+    // #[serde(default)]
+    // pub directive_failed_times: u32,
 }
 
 impl Storable for RouteState {

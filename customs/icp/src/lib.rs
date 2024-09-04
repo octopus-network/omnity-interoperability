@@ -49,8 +49,8 @@ pub async fn handle_ticket(ticket: &Ticket) -> TempUnavalible {
 
     if is_ckbtc(&ticket.token) {
         match retrieve_ckbtc(ticket.receiver.clone(), Nat::from_str(ticket.amount.as_str()).unwrap(), ticket.ticket_id.clone()).await {
-            Ok(_) => {
-                log!(P0, "[process tickets] process successful for ticket id: {}", ticket.ticket_id);
+            Ok( result ) => {
+                log!(P0, "[process tickets] process successful for ticket id: {}, block index: {}", ticket.ticket_id, result.block_index);
             },
             Err(e) => {
                 log!(P0, "[process tickets] failed to retrieve ckbtc: {:?}", e);

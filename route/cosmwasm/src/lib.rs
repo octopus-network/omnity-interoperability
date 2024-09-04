@@ -1,13 +1,13 @@
 pub mod business;
 pub mod cosmwasm;
 pub mod error;
+pub mod guard;
 pub mod hub;
 pub mod lifecycle;
 pub mod memory;
 pub mod service;
 pub mod state;
 pub mod utils;
-pub mod guard;
 
 pub use candid::Principal;
 pub use error::Result;
@@ -32,9 +32,7 @@ pub use serde_bytes::ByteBuf;
 pub use serde_json::json;
 pub use state::*;
 
-pub use crate::{
-    utils::Id,
-};
+pub use crate::utils::Id;
 pub use cosmwasm::TxHash;
 
 pub use omnity_types::TicketId;
@@ -65,7 +63,6 @@ pub mod const_args {
     pub const FETCH_HUB_TICKET_NAME: &str = "FETCH_HUB_TICKET";
     pub const FETCH_HUB_DIRECTIVE_NAME: &str = "FETCH_HUB_DIRECTIVE";
     pub const BATCH_QUERY_LIMIT: u64 = 20;
-    pub const VERSION: &str = "0.1.4";
     pub const INTERVAL_QUERY_DIRECTIVE: u64 = 60;
     pub const INTERVAL_QUERY_TICKET: u64 = 60;
 }

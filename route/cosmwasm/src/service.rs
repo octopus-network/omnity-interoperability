@@ -1,24 +1,26 @@
-use crate::*;
-use business::{process_directive::process_directive_task, ticket_task::process_ticket_task};
+use crate::business::{process_directive::process_directive_task, ticket_task::process_ticket_task};
 use cosmrs::tendermint;
-use cosmwasm::{
+use crate::cosmwasm::{
     client::{query_cw_public_key, OSMO_ACCOUNT_PREFIX},
-    port::{ExecuteMsg, PortContractExecutor},
+    port::PortContractExecutor,
     TxHash,
 };
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{
-    api::management_canister::http_request::{TransformArgs, TransformContext},
-    init, post_upgrade, query, update,
+    api::management_canister::http_request::TransformArgs, init, post_upgrade, query, update,
 };
 use ic_cdk_timers::set_timer_interval;
 use lifecycle::init::InitArgs;
-use memory::{init_stable_log, insert_redeem_ticket, mutate_state, read_state};
+use crate::memory::{init_stable_log, insert_redeem_ticket, mutate_state, read_state};
 use omnity_types::{
     log::{init_log, StableLogWriter},
-    Directive,
+    Ticket, TicketId,
 };
 use std::time::Duration;
+
+use crate::{
+    const_args, hub, lifecycle, RouteState, UpdateCwSettingsArgs
+};
 
 #[init]
 pub async fn init(args: InitArgs) {
@@ -27,7 +29,15 @@ pub async fn init(args: InitArgs) {
     init_log(Some(init_stable_log()));
 }
 
-#[update]
+pub fn is_controller() -> std::result::Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
+}
+
+#[update(guard = "is_controller")]
 pub async fn cache_public_key() {
     let public_key_response = query_cw_public_key()
         .await
@@ -38,7 +48,7 @@ pub async fn cache_public_key() {
     });
 }
 
-#[update]
+#[update(guard = "is_controller")]
 pub async fn start_process_directive_task() {
     set_timer_interval(
         Duration::from_secs(const_args::INTERVAL_QUERY_DIRECTIVE),
@@ -46,7 +56,7 @@ pub async fn start_process_directive_task() {
     );
 }
 
-#[update]
+#[update(guard = "is_controller")]
 pub async fn start_process_ticket_task() {
     set_timer_interval(
         Duration::from_secs(const_args::INTERVAL_QUERY_TICKET),
@@ -77,12 +87,20 @@ pub async fn redeem(tx_hash: TxHash) -> std::result::Result<TicketId, String> {
         memo: None,
     };
 
-    log::info!("try to send redeem ticket: {:?}, tx_hash: {:?}", ticket, tx_hash);
+    log::info!(
+        "try to send redeem ticket: {:?}, tx_hash: {:?}",
+        ticket,
+        tx_hash
+    );
 
     hub::send_ticket(hub_principal, ticket.clone())
         .await
         .map_err(|e| e.to_string())?;
-    log::info!("send redeem ticket success: {:?}, tx_hash: {:?}", ticket, tx_hash);
+    log::info!(
+        "send redeem ticket success: {:?}, tx_hash: {:?}",
+        ticket,
+        tx_hash
+    );
 
     insert_redeem_ticket(tx_hash, ticket.ticket_id.clone());
 
@@ -95,7 +113,7 @@ pub async fn redeem(tx_hash: TxHash) -> std::result::Result<TicketId, String> {
 //     }
 // }
 
-#[update]
+#[update(guard = "is_controller")]
 pub async fn osmosis_account_id() -> std::result::Result<String, String> {
     let public_key_response = query_cw_public_key()
         .await
@@ -111,12 +129,12 @@ pub async fn osmosis_account_id() -> std::result::Result<String, String> {
     Ok(sender_account_id.to_string())
 }
 
-#[query]
-pub fn route_status() -> RouteState {
+#[query(guard = "is_controller")]
+pub fn route_state() -> RouteState {
     read_state(|s| s.clone())
 }
 
-#[update]
+#[update(guard = "is_controller")]
 pub fn update_cw_settings(args: UpdateCwSettingsArgs) {
     mutate_state(|state| {
         if let Some(cw_rpc_url) = args.cw_rpc_url {
@@ -150,70 +168,11 @@ fn cleanup_response(
     args.response
 }
 
-#[update]
-async fn test_execute_directive(
-    seq: String,
-    d: Directive,
-) -> std::result::Result<TxHash, String> {
-    let _seq: u64 = seq.to_string().parse().unwrap() ;
-    let msg = ExecuteMsg::ExecDirective {
-        seq: _seq,
-        directive: d.into(),
-    };
-
-    let client = CosmWasmClient::cosmos_wasm_port_client();
-
-    let contract_id = get_contract_id();
-
-    let public_key_response = query_cw_public_key().await.map_err(|e| e.to_string())?;
-
-    let tendermint_public_key: tendermint::PublicKey =
-        tendermint::public_key::PublicKey::from_raw_secp256k1(
-            public_key_response.public_key.as_slice(),
-        )
-        .unwrap();
-
-    let tx_hash = client
-        .execute_msg(contract_id, msg, tendermint_public_key)
-        .await.map_err(|e| e.to_string());
-    tx_hash
-
-}
-
-#[update]
-async fn test_http_outcall(
-    url: String,
-) -> std::result::Result<ic_cdk::api::management_canister::http_request::HttpResponse, String> {
-    let request_headers = vec![HttpHeader {
-        name: "content-type".to_string(),
-        value: "application/json".to_string(),
-    }];
-
-    let request = CanisterHttpRequestArgument {
-        url: url,
-        max_response_bytes: None,
-        method: HttpMethod::GET,
-        headers: request_headers,
-        body: None,
-        transform: Some(TransformContext::from_name(
-            "cleanup_response".to_owned(),
-            vec![],
-        )),
-    };
-
-    http_request_with_status_check(request)
-        .await
-        .map_err(|e| e.to_string())
-}
-
 #[post_upgrade]
 fn post_upgrade() {
     init_log(Some(init_stable_log()));
 
     lifecycle::upgrade::post_upgrade();
-    mutate_state(|state| {
-        state.next_directive_seq = 0;
-    });
 
     set_timer_interval(
         Duration::from_secs(const_args::INTERVAL_QUERY_DIRECTIVE),
@@ -223,7 +182,7 @@ fn post_upgrade() {
         Duration::from_secs(const_args::INTERVAL_QUERY_TICKET),
         process_ticket_task,
     );
-    log::info!("Finish Upgrade current version: {}", const_args::VERSION);
+    log::info!("Finish Upgrade current version: {}", env!("CARGO_PKG_VERSION"));
 }
 
 ic_cdk::export_candid!();

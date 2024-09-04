@@ -1,6 +1,4 @@
-use cosmwasm::{
-    port::PortContractExecutor,
-};
+use cosmwasm::port::PortContractExecutor;
 use memory::{set_route_state, take_state};
 
 use crate::*;
@@ -15,7 +13,7 @@ pub fn process_directive_task() {
             None => return,
         };
         match process_directives().await {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
                 log::error!("failed to process directives, err: {:?}", e);
             }
@@ -23,27 +21,41 @@ pub fn process_directive_task() {
     });
 }
 
-async fn process_directives()->Result<()> {
+async fn process_directives() -> Result<()> {
     let mut state = take_state();
     if state.chain_state == ChainState::Deactive {
         return Ok(());
     }
 
     if state.processing_directive.is_empty() {
-        let directives = hub::query_directives(state.hub_principal, state.next_directive_seq, const_args::BATCH_QUERY_LIMIT).await?;
+        let directives = hub::query_directives(
+            state.hub_principal,
+            state.next_directive_seq,
+            const_args::BATCH_QUERY_LIMIT,
+        )
+        .await?;
         state.processing_directive = directives.clone();
     }
 
     let port_contract_executor = PortContractExecutor::from_state()?;
-    state.processing_directive.sort_by(|(seq1, _), (seq2, _)| seq2.cmp(seq1));
+    state
+        .processing_directive
+        .sort_by(|(seq1, _), (seq2, _)| seq2.cmp(seq1));
 
     while !state.processing_directive.is_empty() {
         let (seq, directive) = state.processing_directive.pop().unwrap();
-        match port_contract_executor.execute_directive(seq, directive.clone().into()).await {
+        match port_contract_executor
+            .execute_directive(seq, directive.clone().into())
+            .await
+        {
             Ok(_) => {
                 state.next_directive_seq = seq + 1;
                 set_route_state(state.clone());
-                log::info!("[process directives] success to execute directive, seq: {}, directive: {:?}", seq, directive);
+                log::info!(
+                    "[process directives] success to execute directive, seq: {}, directive: {:?}",
+                    seq,
+                    directive
+                );
             }
             Err(err) => {
                 log::error!("[process directives] failed to execute directive, seq: {}, directive: {:?}, err: {:?}", seq, directive, err);
@@ -53,6 +65,6 @@ async fn process_directives()->Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }

@@ -1,5 +1,7 @@
 use crate::call_error::{CallError, Reason};
 use candid::Principal;
+use ic_canister_log::log;
+use omnity_types::ic_log::P0;
 use omnity_types::{Directive, TicketId};
 use omnity_types::Topic;
 use omnity_types::{self, ChainId, Seq, Ticket};

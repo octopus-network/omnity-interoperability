@@ -201,13 +201,15 @@ impl CosmWasmClient {
         .into();
 
         let tx_hash = raw.to_bytes().map_err(|e| {
-            RouteError::CustomError(format!("Failed to convert raw to bytes: {:?}", e.to_string()))
+            RouteError::CustomError(format!(
+                "Failed to convert raw to bytes: {:?}",
+                e.to_string()
+            ))
         })?;
         let http_response = self.broadcast_tx_commit(raw).await?;
         log::info!("http_response: {:?}", http_response);
 
-        Ok( bytes_to_hex( &sha256(tx_hash)))
-
+        Ok(bytes_to_hex(&sha256(tx_hash)))
     }
 }
 

@@ -5,6 +5,7 @@ pub mod state;
 pub mod types;
 pub mod utils;
 pub mod service;
+pub mod business;
 
 pub use candid::CandidType;
 pub use candid::Principal;

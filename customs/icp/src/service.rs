@@ -10,7 +10,7 @@ use crate::updates::generate_ticket::{
 };
 use ic_ledger_types::{AccountIdentifier, Subaccount};
 use crate::{lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL, hub};
-use crate::state::{CustomsState, get_finalized_mint_token_request, read_state};
+use crate::state::{get_finalized_mint_token_request, read_state, CustomsState};
 use omnity_types::{Chain, Seq, Ticket, Token, MintTokenStatus, TicketId};
 use omnity_types::MintTokenStatus::{Finalized, Unknown};
 
@@ -100,7 +100,6 @@ pub async fn handle_ticket(seq:u64) {
 pub fn get_state() -> CustomsState {
     read_state(|s|s.clone())
 }
-
 
 #[query]
 fn mint_token_status(ticket_id: TicketId) -> MintTokenStatus {

@@ -42,7 +42,6 @@ pub fn bytes_to_hex(bytes: &[u8]) -> String {
 pub async fn http_request_with_status_check(
     mut request: CanisterHttpRequestArgument,
 ) -> Result<HttpResponse> {
-
     request.transform = Some(TransformContext::from_name(
         "cleanup_response".to_owned(),
         vec![],
@@ -52,7 +51,11 @@ pub async fn http_request_with_status_check(
     let response = http_request(request.clone(), 50_000_000_000)
         .await
         .map_err(|(code, message)| {
-            RouteError::HttpOutCallError(format!("{:?}", code).to_string(), message, format!("{:?}", request))
+            RouteError::HttpOutCallError(
+                format!("{:?}", code).to_string(),
+                message,
+                format!("{:?}", request),
+            )
         })?
         .0;
     log::info!(
@@ -105,7 +108,8 @@ pub fn http_request_required_cycles(
         + HTTP_OUTCALL_REQUEST_PER_NODE_COST * nodes_in_subnet
         + HTTP_OUTCALL_REQUEST_COST_PER_BYTE * request_bytes
         + HTTP_OUTCALL_RESPONSE_COST_PER_BYTE * max_response_bytes)
-        * nodes_in_subnet * 3
+        * nodes_in_subnet
+        * 3
 }
 
 #[test]

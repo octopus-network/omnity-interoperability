@@ -14,6 +14,7 @@ type CustomsState = record {
   hub_principal : principal;
   is_timer_running : bool;
   next_directive_seq : nat64;
+  ckbtc_minter_principal : opt principal;
   icp_token_id : opt text;
   chain_id : text;
   next_ticket_seq : nat64;

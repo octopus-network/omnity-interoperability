@@ -1,4 +1,8 @@
+use std::time::Duration;
+
 use crate::*;
+use std::result::Result;
+use business::update_balance::{read_osmosis_account_id_then_update_balance, update_balance_and_generate_ticket};
 use candid::Nat;
 use external::{
     ckbtc,
@@ -6,13 +10,21 @@ use external::{
 };
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::post_upgrade;
+use ic_cdk_timers::set_timer;
 use icrc_ledger_types::icrc1::account::Account;
-use itertools::Itertools;
 use omnity_types::log::{init_log, StableLogWriter};
 use state::{
-    extend_ticket_records, get_settings, get_ticket_records, get_utxo_records, init_stable_log, insert_utxo_records, MintedUtxo, Settings, TicketRecord, UtxoRecord
+    extend_ticket_records, get_settings, get_ticket_records, get_utxo_records, init_stable_log, push_scheduled_osmosis_account_id, Settings, TicketRecord, UtxoRecord
 };
 use utils::nat_to_u128;
+
+pub fn is_controller() -> Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
+}
 
 #[ic_cdk::init]
 pub async fn init(args: lifecycle::init::InitArgs) {
@@ -24,7 +36,7 @@ pub async fn init(args: lifecycle::init::InitArgs) {
 #[query]
 pub fn get_identity_by_osmosis_account_id(
     osmosis_account_id: String,
-) -> std::result::Result<Account, String> {
+) -> Result<Account, String> {
     let address_data = AddressData::try_from(osmosis_account_id.as_str())
         .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
         .map_err(|e| e.to_string())?;
@@ -38,7 +50,7 @@ pub fn get_identity_by_osmosis_account_id(
 #[update]
 pub async fn get_btc_mint_address(
     osmosis_account_id: String,
-) -> std::result::Result<String, String> {
+) -> Result<String, String> {
     let address_data = AddressData::try_from(osmosis_account_id.as_str())
         .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
         .map_err(|e| e.to_string())?;
@@ -64,6 +76,11 @@ pub fn query_ticket_records(osmosis_account_id: String) -> Vec<TicketRecord> {
 #[query]
 pub async fn query_settings() -> Settings {
     get_settings()
+}
+
+#[query(guard = "is_controller")]
+pub async fn query_scheduled_osmosis_account_id_list() -> Vec<String> {
+    state::get_scheduled_osmosis_account_id_list()
 }
 
 #[query(hidden = true)]
@@ -93,7 +110,7 @@ pub async fn update_settings(
 #[update]
 pub async fn generate_ticket_from_subaccount(
     osmosis_account_id: String,
-) -> std::result::Result<TicketId, String> {
+) -> Result<TicketId, String> {
     let address_data = AddressData::try_from(osmosis_account_id.as_str())
         .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
         .map_err(|e| e.to_string())?;
@@ -128,103 +145,34 @@ pub async fn generate_ticket_from_subaccount(
 }
 
 #[update]
-pub async fn trigger_update_balance(osmosis_account_id: String) -> std::result::Result<(), String> {
-    let address_data = AddressData::try_from(osmosis_account_id.as_str())
-        .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
-        .map_err(|e| e.to_string())?;
-
-    let subaccount: Subaccount = address_data.into();
-
-    let result = ckbtc::update_balance(UpdateBalanceArgs {
-        owner: None,
-        subaccount: Some(subaccount.clone()),
-    })
-    .await
-    .map_err(|e| e.to_string())?;
-
-    log::info!(
-        "osmosis account id: {} ,update_balance result: {:?}",
-        osmosis_account_id,
-        result
+pub async fn update_balance_after_seven_block(osmosis_account_id: String) {
+    let timer_id = set_timer(
+        Duration::from_secs(7 * 10 * 60),
+        read_osmosis_account_id_then_update_balance
     );
 
-    let minted_success_utxo_status = result
-        .iter()
-        .filter_map(|e| match e {
-            UtxoStatus::Minted {
-                block_index,
-                minted_amount,
-                utxo,
-            } => Some(UtxoRecord {
-                minted_utxo: MintedUtxo {
-                    block_index: block_index.clone(),
-                    minted_amount: minted_amount.clone(),
-                    utxo: utxo.clone(),
-                },
-                ticket_id: None,
-            }),
-            _ => None,
-        })
-        .collect_vec();
-
-    let minted_success_amount = minted_success_utxo_status
-        .iter()
-        .map(|e| e.minted_utxo.minted_amount)
-        .sum::<u64>();
-    let block_index_set = minted_success_utxo_status
-        .iter()
-        .map(|e| e.minted_utxo.block_index)
-        .collect::<std::collections::HashSet<u64>>();
-
-    let mut utxo_record_list = get_utxo_records(osmosis_account_id.clone());
-    utxo_record_list.extend(minted_success_utxo_status.clone());
-    insert_utxo_records(osmosis_account_id.clone(), utxo_record_list);
-
-    approve_ckbtc_for_icp_custom(Some(subaccount), minted_success_amount.into())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let ticket_id = generate_ticket(
-        TOKEN_ID.to_string(),
-        TARGET_CHAIN_ID.to_string(),
-        nat_to_u128(minted_success_amount - Nat::from(2_u8) * Nat::from(10_u8)),
-        subaccount,
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-
-    log::info!(
-        "osmosis account id: {} ,generate_ticket result: {:?}",
-        osmosis_account_id,
-        ticket_id
-    );
-
-    let mut utxo_record_list = get_utxo_records(osmosis_account_id.clone());
-    utxo_record_list.iter_mut().for_each(|e| {
-        if block_index_set.contains(&e.minted_utxo.block_index) {
-            e.ticket_id = Some(ticket_id.clone());
+    match push_scheduled_osmosis_account_id(osmosis_account_id.clone()) {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("failed to push osmosis account id: {} to scheduled osmosis account id list, err: {}", osmosis_account_id, e);
+            return;
         }
-    });
-    insert_utxo_records(osmosis_account_id.clone(), utxo_record_list.clone());
+    }
 
-    let belong_ticket_utxos = utxo_record_list
-        .iter()
-        .filter(|e| e.ticket_id.is_some())
-        .map(|e| e.minted_utxo.clone())
-        .collect_vec(); 
+    log::info!("set timer({:?}) for osmosis account id: {}", timer_id, osmosis_account_id);
 
-    extend_ticket_records(osmosis_account_id, vec![TicketRecord {
-        ticket_id: ticket_id.clone(),
-        minted_utxos: belong_ticket_utxos,
-    }]);
-    // insert_ticket_records(ticket_id, utxo_record_list);
+}
 
-    Ok(())
+#[update(guard = "is_controller")]
+pub async fn trigger_update_balance(osmosis_account_id: String) -> Result<TicketId, String> {
+    update_balance_and_generate_ticket(osmosis_account_id).await
 }
 
 #[post_upgrade]
 fn post_upgrade() {
     init_log(Some(init_stable_log()));
+
+    // todo migrate update balance timers
 }
 
 ic_cdk::export_candid!();

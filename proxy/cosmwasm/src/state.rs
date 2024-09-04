@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::VecDeque};
 
 use ic_btc_interface::Utxo;
 use ic_stable_structures::{
@@ -15,8 +15,7 @@ const LOG_MEMORY_ID: MemoryId = MemoryId::new(1);
 const SETTINGS_MEMORY_ID: MemoryId = MemoryId::new(2);
 const UTXO_RECORDS_MAP_MEMORY_ID: MemoryId = MemoryId::new(3);
 const TICKET_RECORDS_MAP_MEMORY_ID: MemoryId = MemoryId::new(4);
-
-
+const SCHDULED_OSMOSIS_ACCOUNT_QUEUE_MEMORY_ID: MemoryId = MemoryId::new(5);
 
 thread_local! {
 
@@ -45,6 +44,14 @@ thread_local! {
             MEMORY_MANAGER.with(|m| m.borrow().get(TICKET_RECORDS_MAP_MEMORY_ID)),
         )
     );
+
+    static SCHDULED_OSMOSIS_ACCOUNT_QUEUE: RefCell<Cell<SchduledOsmosisAccountList, Memory>> = RefCell::new(
+        Cell::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(SCHDULED_OSMOSIS_ACCOUNT_QUEUE_MEMORY_ID)),
+            SchduledOsmosisAccountList(VecDeque::default())
+        ).expect("Failed to init cell for UPDATE_OSMOSIS_ACCOUNT_QUEUE.")
+    );
+
 }
 
 pub fn init_stable_log() -> StableBTreeMap<Vec<u8>, Vec<u8>, Memory> {
@@ -69,14 +76,20 @@ pub fn get_ticket_records(osmosis_account_id: String) -> Vec<TicketRecord> {
     })
 }
 
-pub fn insert_utxo_records(osmosis_account_id: String, utxo_records: Vec<UtxoRecord>)->Option<UtxoRecordList> {
+pub fn insert_utxo_records(
+    osmosis_account_id: String,
+    utxo_records: Vec<UtxoRecord>,
+) -> Option<UtxoRecordList> {
     UTXO_RECORDS_MAP.with(|c| {
         c.borrow_mut()
             .insert(osmosis_account_id, UtxoRecordList(utxo_records))
     })
 }
 
-pub fn insert_ticket_records(osmosis_account_id: TicketId, ticket_records: Vec<TicketRecord>)->Option<TicketRecordList> {
+pub fn insert_ticket_records(
+    osmosis_account_id: TicketId,
+    ticket_records: Vec<TicketRecord>,
+) -> Option<TicketRecordList> {
     TICKET_RECORDS_MAP.with(|c| {
         c.borrow_mut()
             .insert(osmosis_account_id, TicketRecordList(ticket_records))
@@ -96,11 +109,56 @@ pub fn extend_ticket_records(osmosis_account_id: TicketId, ticket_records: Vec<T
     });
 }
 
+pub fn push_scheduled_osmosis_account_id(osmosis_account_id: String)->Result<SchduledOsmosisAccountList> {
+    SCHDULED_OSMOSIS_ACCOUNT_QUEUE.with(|c| {
+        let mut queue = c.borrow().get().0.clone();
+        queue.push_back(osmosis_account_id);
+        c.borrow_mut()
+            .set(SchduledOsmosisAccountList(queue))
+            .map_err(|e| Errors::CustomError(format!("Failed to set SCHDULED_OSMOSIS_ACCOUNT_QUEUE. {:?}", e)))
+            // .expect("Failed to set SCHDULED_OSMOSIS_ACCOUNT_QUEUE.")
+    })
+}
+
+pub fn pop_first_scheduled_osmosis_account_id() -> Result<Option<String>> {
+    SCHDULED_OSMOSIS_ACCOUNT_QUEUE.with(|c| {
+        let mut queue = c.borrow().get().0.clone();
+        let osmosis_account_id = queue.pop_front();
+        c.borrow_mut()
+            .set(SchduledOsmosisAccountList(queue))
+            .map_err(|e| Errors::CustomError(format!("Failed to set SCHDULED_OSMOSIS_ACCOUNT_QUEUE. {:?}", e)))
+            .map(|_| osmosis_account_id)
+    })
+}
+
+pub fn get_scheduled_osmosis_account_id_list() -> Vec<String> {
+    SCHDULED_OSMOSIS_ACCOUNT_QUEUE.with(|c| c.borrow().get().0.clone().into())
+}
+
 #[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
 pub struct MintedUtxo {
     pub block_index: u64,
     pub minted_amount: u64,
     pub utxo: Utxo,
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct SchduledOsmosisAccountList(pub VecDeque<String>);
+
+impl Storable for SchduledOsmosisAccountList {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        let schduled_osmosis_account_list = ciborium::de::from_reader(bytes.as_ref())
+            .expect("failed to decode SchduledOsmosisAccountList");
+        schduled_osmosis_account_list
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
 }
 
 #[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
@@ -136,8 +194,8 @@ impl Storable for TicketRecordList {
     }
 
     fn from_bytes(bytes: Cow<[u8]>) -> Self {
-        let ticket_record_list = ciborium::de::from_reader(bytes.as_ref())
-            .expect("failed to decode TicketRecordList");
+        let ticket_record_list =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TicketRecordList");
         ticket_record_list
     }
 
@@ -199,7 +257,8 @@ impl Storable for Settings {
     }
 
     fn from_bytes(bytes: Cow<[u8]>) -> Self {
-        let settings = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Settings");
+        let settings =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Settings");
         settings
     }
 

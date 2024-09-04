@@ -15,10 +15,7 @@ use cosmwasm_schema::cw_serde;
 use memory::read_state;
 use std::collections::HashMap;
 
-use crate::{
-    cosmwasm::rpc::wrapper::Wrapper,
-    CosmWasmClient,
-};
+use crate::{cosmwasm::rpc::wrapper::Wrapper, CosmWasmClient};
 
 use super::TxHash;
 
@@ -54,21 +51,22 @@ impl PortContractExecutor {
         let contract_id = get_contract_id();
         // let public_key_response = query_cw_public_key().await?;
         let public_key_vec = read_state(|s| {
-            s.cw_public_key_vec
-                .clone()
-                .ok_or(RouteError::CustomError("cw_public_key_vec not found".to_string()))
-                // .expect("cw_public_key_vec not found")
+            s.cw_public_key_vec.clone().ok_or(RouteError::CustomError(
+                "cw_public_key_vec not found".to_string(),
+            ))
+            // .expect("cw_public_key_vec not found")
         })?;
 
         let tendermint_public_key =
             tendermint::public_key::PublicKey::from_raw_secp256k1(public_key_vec.as_slice())
-            .ok_or(RouteError::CustomError("failed to init tendermint public key".to_string()))?;
+                .ok_or(RouteError::CustomError(
+                    "failed to init tendermint public key".to_string(),
+                ))?;
 
         Ok(Self::new(client, contract_id, tendermint_public_key))
     }
 
     pub async fn execute_directive(&self, seq: u64, directive: Directive) -> Result<TxHash> {
-
         let msg = ExecuteMsg::ExecDirective { seq, directive };
 
         let tx_hash = self
@@ -87,10 +85,10 @@ impl PortContractExecutor {
             match self.confirm_execute_directive(seq, tx_hash.clone()).await {
                 Ok(_) => {
                     return Ok(tx_hash);
-                },
-                Err(_) => {},
+                }
+                Err(_) => {}
             }
-            times -=1;
+            times -= 1;
         }
 
         Err(RouteError::ConfirmExecuteDirectiveErr(seq, tx_hash))
@@ -127,7 +125,11 @@ impl PortContractExecutor {
         Ok(())
     }
 
-    pub async fn confirm_mint_token(&self, mint_token_request: MintTokenRequest, tx_hash: TxHash) -> Result<()> {
+    pub async fn confirm_mint_token(
+        &self,
+        mint_token_request: MintTokenRequest,
+        tx_hash: TxHash,
+    ) -> Result<()> {
         let tx_response = self.client.query_tx_by_hash(tx_hash).await?;
         let wrapper: Wrapper<TxResultByHashResponse> =
             serde_json::from_slice(&tx_response.body).unwrap();
@@ -169,15 +171,21 @@ impl PortContractExecutor {
 
         let mut times = 3;
         while times > 0 {
-            match self.confirm_mint_token(mint_token_request.clone(), tx_hash.clone()).await {
+            match self
+                .confirm_mint_token(mint_token_request.clone(), tx_hash.clone())
+                .await
+            {
                 Ok(_) => {
                     return Ok(tx_hash);
-                },
-                Err(_) => {},
+                }
+                Err(_) => {}
             }
-            times -=1;
+            times -= 1;
         }
-        Err(RouteError::ConfirmMintTokenErr(format!("{:?}", mint_token_request).to_string(), tx_hash))
+        Err(RouteError::ConfirmMintTokenErr(
+            format!("{:?}", mint_token_request).to_string(),
+            tx_hash,
+        ))
     }
 }
 

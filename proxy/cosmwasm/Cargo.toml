@@ -23,6 +23,7 @@ icrc-ledger-client-cdk = { git = "https://github.com/dfinity/ic", tag = "release
 icrc-ledger-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-stable-structures = { workspace = true }
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
+ic-cdk-timers = "0.6"
 
 serde = { workspace = true }
 serde_bytes = { workspace = true }

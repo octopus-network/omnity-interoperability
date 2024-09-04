@@ -1,3 +1,2 @@
 #[allow(unused)]
-pub fn post_upgrade() {
-}
+pub fn post_upgrade() {}
