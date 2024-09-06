@@ -92,7 +92,7 @@ pub async fn generate_ticket(
         
             Ok(hex::encode(&ticket_id))
         }
-        TxAction::Burn | TxAction::Redeem => {
+        TxAction::Burn | TxAction::Redeem | TxAction::RedeemIcpChainKeyAssets(_)=> {
             let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
             let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
             Ok(ticket_id)

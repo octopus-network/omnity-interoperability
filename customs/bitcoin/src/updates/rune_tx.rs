@@ -85,6 +85,9 @@ pub async fn generate_rune_tx_request(args: RuneTxArgs) -> Result<(), GenRuneTxR
         TxAction::Transfer => {
             return Err(GenRuneTxReqError::InvalidTxAction);
         }
+        TxAction::RedeemIcpChainKeyAssets(_) => {
+            return Err(GenRuneTxReqError::InvalidTxAction);
+        }
     };
 
     if read_state(|s| s.count_incomplete_rune_tx_requests() >= MAX_CONCURRENT_PENDING_REQUESTS) {

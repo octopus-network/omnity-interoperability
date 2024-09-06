@@ -16,3 +16,7 @@ pub fn nat_to_u64(nat: candid::Nat) -> u64 {
 pub fn nat_to_u128(nat: candid::Nat) -> u128 {
     u128::from_str(&nat.0.to_string()).unwrap()
 }
+
+pub fn get_chain_time_seconds() -> u64 {
+    ic_cdk::api::time() / 1_000_000_000
+}

@@ -7,7 +7,7 @@ use omnity_types::{ChainState, Directive, Seq, Ticket};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
-use crate::lifecycle::init::InitArgs;
+use crate::{cosmwasm::client::MultiRpcConfig, lifecycle::init::InitArgs};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize)]
 pub struct RouteState {
@@ -30,6 +30,8 @@ pub struct RouteState {
     pub processing_tickets: Vec<(Seq, Ticket)>,
     #[serde(default)]
     pub processing_directive: Vec<(Seq, Directive)>,
+    #[serde(default)]
+    pub multi_rpc_config: MultiRpcConfig,
     // #[serde(default)]
     // pub ticket_failed_times: u32,
     // #[serde(default)]
@@ -69,6 +71,7 @@ impl From<InitArgs> for RouteState {
             cw_public_key_vec: None,
             processing_tickets: Vec::default(),
             processing_directive: Vec::default(),
+            multi_rpc_config: MultiRpcConfig::default(),
         }
     }
 }
@@ -78,4 +81,5 @@ pub struct UpdateCwSettingsArgs {
     pub cw_rpc_url: Option<String>,
     pub cw_rest_url: Option<String>,
     pub cw_port_contract_address: Option<String>,
+    pub multi_rpc_config: Option<MultiRpcConfig>
 }

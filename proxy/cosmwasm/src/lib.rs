@@ -6,6 +6,7 @@ pub mod types;
 pub mod utils;
 pub mod service;
 pub mod business;
+pub mod guard;
 
 pub use candid::CandidType;
 pub use candid::Principal;

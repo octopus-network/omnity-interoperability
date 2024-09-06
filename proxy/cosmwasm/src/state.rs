@@ -1,10 +1,10 @@
-use std::{borrow::Cow, collections::VecDeque};
+use std::{borrow::Cow, collections::{HashSet, VecDeque}};
 
 use ic_btc_interface::Utxo;
 use ic_stable_structures::{
     memory_manager::{MemoryId, MemoryManager, VirtualMemory},
     storable::Bound,
-    Cell, DefaultMemoryImpl, StableBTreeMap, Storable,
+    Cell, DefaultMemoryImpl, StableBTreeMap, Storable
 };
 
 use crate::*;
@@ -29,6 +29,8 @@ thread_local! {
                 ckbtc_ledger_principal: Principal::anonymous(),
                 ckbtc_minter_principal: Principal::anonymous(),
                 icp_customs_principal: Principal::anonymous(),
+                update_balances_jobs: vec![],
+                is_timer_running: HashSet::new()
             },
         ).expect("Failed to init cell for SETTINGS.")
     );
@@ -247,6 +249,10 @@ pub struct Settings {
     pub ckbtc_ledger_principal: Principal,
     pub ckbtc_minter_principal: Principal,
     pub icp_customs_principal: Principal,
+    #[serde[default]]
+    pub update_balances_jobs: Vec<UpdateBalanceJob>,
+    #[serde[default]]
+    pub is_timer_running: HashSet<String>
 }
 
 impl Storable for Settings {
@@ -277,8 +283,12 @@ pub fn set_settings(settings: Settings) {
     });
 }
 
-pub fn mutate_settings(f: impl FnOnce(&mut Settings)) {
+pub fn mutate_settings<F, R>(f: F) -> R
+where 
+    F: FnOnce(&mut Settings)->R
+{
     let mut settings = get_settings();
-    f(&mut settings);
+    let r = f(&mut settings);
     set_settings(settings);
+    r
 }

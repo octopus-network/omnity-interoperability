@@ -6,6 +6,11 @@ export interface Account {
   'owner' : Principal,
   'subaccount' : [] | [Uint8Array | number[]],
 }
+export interface InitArgs {
+  'ckbtc_ledger_principal' : Principal,
+  'ckbtc_minter_principal' : Principal,
+  'icp_customs_principal' : Principal,
+}
 export interface MintedUtxo {
   'minted_amount' : bigint,
   'block_index' : bigint,
@@ -18,12 +23,19 @@ export type Result_1 = { 'Ok' : Account } |
   { 'Err' : string };
 export interface Settings {
   'ckbtc_ledger_principal' : Principal,
+  'update_balances_jobs' : Array<UpdateBalanceJob>,
+  'is_timer_running' : Array<string>,
   'ckbtc_minter_principal' : Principal,
   'icp_customs_principal' : Principal,
 }
 export interface TicketRecord {
   'ticket_id' : string,
   'minted_utxos' : Array<MintedUtxo>,
+}
+export interface UpdateBalanceJob {
+  'osmosis_account_id' : string,
+  'failed_times' : number,
+  'next_execute_time' : bigint,
 }
 export interface Utxo {
   'height' : number,
@@ -43,7 +55,7 @@ export interface _SERVICE {
   'query_ticket_records' : ActorMethod<[string], Array<TicketRecord>>,
   'query_utxo_records' : ActorMethod<[string], Array<UtxoRecord>>,
   'trigger_update_balance' : ActorMethod<[string], Result>,
-  'update_balance_after_seven_block' : ActorMethod<[string], undefined>,
+  'update_balance_after_finalization' : ActorMethod<[string], undefined>,
   'update_settings' : ActorMethod<
     [[] | [Principal], [] | [Principal], [] | [Principal]],
     undefined

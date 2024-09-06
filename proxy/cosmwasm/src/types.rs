@@ -1,5 +1,9 @@
+use std::borrow::Cow;
+
 use crate::*;
+use ic_stable_structures::{storable::Bound, Storable};
 use subtle_encoding::bech32;
+use utils::get_chain_time_seconds;
 
 pub const TENDERMINT_ADDRESS_LENGTH: usize = 20;
 pub type TicketId = String;
@@ -52,45 +56,52 @@ impl From<Subaccount> for AddressData {
     }
 }
 
-// pub mod index_ng {
-//     use candid::Nat;
+#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
+pub struct UpdateBalanceJob {
+    pub osmosis_account_id: String,
+    pub failed_times: u32,
+    pub next_execute_time: u64,
+}
 
-//     use candid::{CandidType, Deserialize, Principal};
-//     use icrc_ledger_types::icrc1::account::{Account, Subaccount};
-//     use icrc_ledger_types::icrc1::transfer::BlockIndex;
-//     use icrc_ledger_types::icrc3::transactions::Transaction;
+impl UpdateBalanceJob {
+    const MAX_FAILED_TIMES: u32 = 15;
+    const INIT_DELAY: u64 = 60 * 50;
+    const FAILED_DELAY: u64 = 60 * 5;
+    pub fn new(osmosis_account_id: String) -> Self {
+        UpdateBalanceJob {
+            osmosis_account_id,
+            failed_times: 0,
+            next_execute_time: get_chain_time_seconds() + UpdateBalanceJob::INIT_DELAY,
+        }
+    }
 
-//     #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
-//     pub struct TransactionWithId {
-//         pub id: BlockIndex,
-//         pub transaction: Transaction,
-//     }
+    pub fn executable(&self) -> bool {
+        get_chain_time_seconds() >= self.next_execute_time
+    }
 
-//     #[derive(CandidType, Debug, Deserialize, PartialEq, Eq)]
-//     pub struct GetAccountTransactionsError {
-//         pub message: String,
-//     }
+    pub fn handle_execute_failed_and_continue(&mut self) -> bool {
+        self.failed_times += 1;
+        if self.failed_times >= UpdateBalanceJob::MAX_FAILED_TIMES {
+            return false;
+        }
+        self.next_execute_time = get_chain_time_seconds() + UpdateBalanceJob::FAILED_DELAY;
+        return true
+    }
 
-//     #[derive(CandidType, Debug, Deserialize, PartialEq, Eq)]
-//     pub struct GetAccountTransactionsResponse {
-//         pub balance: Nat,
-//         pub transactions: Vec<TransactionWithId>,
-//         // The txid of the oldest transaction the account has
-//         pub oldest_tx_id: Option<BlockIndex>,
-//     }
+}
 
-//     pub type GetAccountTransactionsResult =
-//         Result<GetAccountTransactionsResponse, GetAccountTransactionsError>;
+impl Storable for UpdateBalanceJob {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
 
-//     #[derive(CandidType, Debug, Deserialize, PartialEq, Eq)]
-//     pub struct GetAccountTransactionsArgs {
-//         pub account: Account,
-//         // The txid of the last transaction seen by the client.
-//         // If None then the results will start from the most recent
-//         // txid. If set then the results will start from the next
-//         // most recent txid after start (start won't be included).
-//         pub start: Option<BlockIndex>,
-//         // Maximum number of transactions to fetch.
-//         pub max_results: Nat,
-//     }
-// }
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        let update_balance_job = ciborium::de::from_reader(bytes.as_ref())
+            .expect("failed to decode UpdateBalanceJob");
+        update_balance_job
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}

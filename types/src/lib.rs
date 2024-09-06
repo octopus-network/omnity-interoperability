@@ -1,6 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
-    str::FromStr,
+    collections::{BTreeMap, HashMap}, str::FromStr
 };
 
 use candid::CandidType;
@@ -338,6 +337,15 @@ pub enum TxAction {
     Redeem,
     Burn,
     Mint,
+    RedeemIcpChainKeyAssets(IcpChainKeyToken)
+}
+
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
+pub enum IcpChainKeyToken {
+    #[default]
+    CKBTC
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]

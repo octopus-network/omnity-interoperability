@@ -1,3 +1,4 @@
+use candid::CandidType;
 use cosmwasm::port::ExecuteMsg;
 
 use crate::*;
@@ -120,9 +121,21 @@ impl CosmWasmClient {
         http_request_with_status_check(request).await
     }
 
-    pub async fn query_tx_by_hash(&self, tx_hash: TxHash) -> Result<HttpResponse> {
+    pub async fn query_tx_by_hash_from_multi_rpc(
+        &self,
+        tx_hash: TxHash,
+        rpc_url_vec: Vec<String>,
+    ) -> Vec<Result<HttpResponse>> {
+        let mut fut = Vec::with_capacity(rpc_url_vec.len());
+        for rpc_url in rpc_url_vec {
+            fut.push(async { self.query_tx_by_hash(tx_hash.clone(), rpc_url).await });
+        }
+        futures::future::join_all(fut).await
+    }
+
+    pub async fn query_tx_by_hash(&self, tx_hash: TxHash, rpc_url: String) -> Result<HttpResponse> {
         // https://rpc.testnet.osmosis.zone/tx?hash=0xFE14C9EAD18A6990FF426F4782894C1719A4A2C4B62D2F6B8A53AD945D7FFE34
-        let request_url = format!("{}/tx?hash=0x{}", self.rpc_url, tx_hash);
+        let request_url = format!("{}/tx?hash=0x{}", rpc_url, tx_hash);
         let request_headers = vec![HttpHeader {
             name: "content-type".to_string(),
             value: "application/json".to_string(),
@@ -263,4 +276,88 @@ pub async fn sign_with_cw_key(message: Vec<u8>) -> Result<SignWithEcdsaResponse>
         .await
         .map_err(|e| RouteError::SignWithEcdsaError(format!("{:?}", e.0), e.1))?;
     Ok(response)
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, Default)]
+pub struct MultiRpcConfig {
+    pub rpc_list: Vec<String>,
+    pub minimum_response_count: u32,
+}
+
+impl MultiRpcConfig {
+    pub fn new(rpc_list: Vec<String>, minimum_response_count: u32) -> Result<Self> {
+        
+        let s = Self {
+            rpc_list,
+            minimum_response_count,
+        };
+        s.check_config_valid()?;
+        
+        Ok(s)
+    }
+
+    pub fn check_config_valid(&self)->Result<()> {
+        if self.minimum_response_count == 0 {
+            return Err(RouteError::CustomError(
+                "minimum_response_count should be greater than 0".to_string(),
+            ));
+        }
+        if self.rpc_list.len() < self.minimum_response_count as usize {
+            return Err(RouteError::CustomError(
+                "rpc_list length should be greater than minimum_response_count".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn valid_and_get_result<'a, T>(
+        &self,
+        response_list: &'a Vec<Result<HttpResponse>>,
+    ) -> Result<T>
+    where
+        T: Serialize + Deserialize<'a> + Clone,
+    {
+        self.check_config_valid()?;
+        let mut success_response_list = vec![];
+        let mut success_response_body_list = vec![];
+
+        for response in response_list {
+            if response.is_err() {
+                continue;
+            }
+            match response {
+                Ok(res) => match serde_json::from_slice::<T>(&res.body) {
+                    Ok(t) => {
+                        success_response_list.push(t);
+                        success_response_body_list.push(res.body.clone());
+                    }
+                    Err(_) => {
+                        continue;
+                    }
+                },
+                Err(_) => {
+                    continue;
+                }
+            }
+        }
+
+        if success_response_list.len() < self.minimum_response_count as usize {
+            return Err(RouteError::CustomError(format!(
+                "Not enough valid response, expected: {}, actual: {}",
+                self.minimum_response_count,
+                success_response_list.len()
+            )));
+        }
+
+        // The minimum_response_count should greater than 0
+        let mut i = 1;
+        while i < success_response_list.len() {
+            if success_response_body_list[i - 1] != success_response_body_list[i] {
+                return Err(RouteError::CustomError("Response mismatch".to_string()));
+            }
+            i += 1;
+        }
+
+        Ok(success_response_list[0].clone())
+    }
 }

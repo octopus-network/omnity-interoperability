@@ -1,5 +1,5 @@
 export const idlFactory = ({ IDL }) => {
-  const Settings = IDL.Record({
+  const InitArgs = IDL.Record({
     'ckbtc_ledger_principal' : IDL.Principal,
     'ckbtc_minter_principal' : IDL.Principal,
     'icp_customs_principal' : IDL.Principal,
@@ -10,6 +10,18 @@ export const idlFactory = ({ IDL }) => {
     'subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
   });
   const Result_1 = IDL.Variant({ 'Ok' : Account, 'Err' : IDL.Text });
+  const UpdateBalanceJob = IDL.Record({
+    'osmosis_account_id' : IDL.Text,
+    'failed_times' : IDL.Nat32,
+    'next_execute_time' : IDL.Nat64,
+  });
+  const Settings = IDL.Record({
+    'ckbtc_ledger_principal' : IDL.Principal,
+    'update_balances_jobs' : IDL.Vec(UpdateBalanceJob),
+    'is_timer_running' : IDL.Vec(IDL.Text),
+    'ckbtc_minter_principal' : IDL.Principal,
+    'icp_customs_principal' : IDL.Principal,
+  });
   const OutPoint = IDL.Record({
     'txid' : IDL.Vec(IDL.Nat8),
     'vout' : IDL.Nat32,
@@ -57,7 +69,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'trigger_update_balance' : IDL.Func([IDL.Text], [Result], []),
-    'update_balance_after_seven_block' : IDL.Func([IDL.Text], [], []),
+    'update_balance_after_finalization' : IDL.Func([IDL.Text], [], []),
     'update_settings' : IDL.Func(
         [
           IDL.Opt(IDL.Principal),
@@ -70,10 +82,10 @@ export const idlFactory = ({ IDL }) => {
   });
 };
 export const init = ({ IDL }) => {
-  const Settings = IDL.Record({
+  const InitArgs = IDL.Record({
     'ckbtc_ledger_principal' : IDL.Principal,
     'ckbtc_minter_principal' : IDL.Principal,
     'icp_customs_principal' : IDL.Principal,
   });
-  return [Settings];
+  return [InitArgs];
 };

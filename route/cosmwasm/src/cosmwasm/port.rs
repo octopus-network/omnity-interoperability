@@ -95,9 +95,14 @@ impl PortContractExecutor {
     }
 
     pub async fn query_redeem_token_event(&self, tx_hash: TxHash) -> Result<RedeemEvent> {
-        let tx_response = self.client.query_tx_by_hash(tx_hash).await?;
-        let wrapper: Wrapper<TxResultByHashResponse> =
-            serde_json::from_slice(&tx_response.body).unwrap();
+        // let  = MultiRpcRule
+        let multi_rpc_config = read_state(|s| s.multi_rpc_config.clone());
+        multi_rpc_config.check_config_valid()?;
+        let tx_response = self.client.query_tx_by_hash_from_multi_rpc(tx_hash, multi_rpc_config.rpc_list.clone()).await;
+
+        let wrapper = multi_rpc_config.valid_and_get_result::<Wrapper<TxResultByHashResponse>>(&tx_response)?;
+        // let wrapper: Wrapper<TxResultByHashResponse> =
+        //     serde_json::from_slice(&tx_response.body).unwrap();
 
         let result: TxResultByHashResponse = wrapper.into_result()?;
         log::info!("tx_result: {:?}", result);
@@ -110,7 +115,7 @@ impl PortContractExecutor {
     }
 
     pub async fn confirm_execute_directive(&self, seq: u64, tx_hash: TxHash) -> Result<()> {
-        let tx_response = self.client.query_tx_by_hash(tx_hash).await?;
+        let tx_response = self.client.query_tx_by_hash(tx_hash, self.client.rpc_url.clone()).await?;
         let wrapper: Wrapper<TxResultByHashResponse> =
             serde_json::from_slice(&tx_response.body).unwrap();
 
@@ -130,7 +135,7 @@ impl PortContractExecutor {
         mint_token_request: MintTokenRequest,
         tx_hash: TxHash,
     ) -> Result<()> {
-        let tx_response = self.client.query_tx_by_hash(tx_hash).await?;
+        let tx_response = self.client.query_tx_by_hash(tx_hash, self.client.rpc_url.clone()).await?;
         let wrapper: Wrapper<TxResultByHashResponse> =
             serde_json::from_slice(&tx_response.body).unwrap();
 

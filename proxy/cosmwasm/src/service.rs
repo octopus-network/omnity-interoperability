@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::*;
 use std::result::Result;
-use business::update_balance::{read_osmosis_account_id_then_update_balance, update_balance_and_generate_ticket};
+use business::update_balance::{process_update_balance_jobs, update_balance_and_generate_ticket};
 use candid::Nat;
 use external::{
     ckbtc,
@@ -10,11 +10,11 @@ use external::{
 };
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::post_upgrade;
-use ic_cdk_timers::set_timer;
+use ic_cdk_timers::set_timer_interval;
 use icrc_ledger_types::icrc1::account::Account;
 use omnity_types::log::{init_log, StableLogWriter};
 use state::{
-    extend_ticket_records, get_settings, get_ticket_records, get_utxo_records, init_stable_log, push_scheduled_osmosis_account_id, Settings, TicketRecord, UtxoRecord
+    extend_ticket_records, get_settings, get_ticket_records, get_utxo_records, init_stable_log, mutate_settings, Settings, TicketRecord, UtxoRecord
 };
 use utils::nat_to_u128;
 
@@ -31,6 +31,11 @@ pub async fn init(args: lifecycle::init::InitArgs) {
     lifecycle::init::init(args);
 
     init_log(Some(init_stable_log()));
+
+    set_timer_interval(
+        Duration::from_secs(5 * 60),
+        process_update_balance_jobs,
+    );
 }
 
 #[query]
@@ -145,21 +150,13 @@ pub async fn generate_ticket_from_subaccount(
 }
 
 #[update]
-pub async fn update_balance_after_seven_block(osmosis_account_id: String) {
-    let timer_id = set_timer(
-        Duration::from_secs(7 * 10 * 60),
-        read_osmosis_account_id_then_update_balance
-    );
+pub async fn update_balance_after_finalization(osmosis_account_id: String) {
 
-    match push_scheduled_osmosis_account_id(osmosis_account_id.clone()) {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("failed to push osmosis account id: {} to scheduled osmosis account id list, err: {}", osmosis_account_id, e);
-            return;
-        }
-    }
+    mutate_settings(|s| {
+        s.update_balances_jobs.push(UpdateBalanceJob::new(osmosis_account_id.clone()))
+    });
 
-    log::info!("set timer({:?}) for osmosis account id: {}", timer_id, osmosis_account_id);
+    log::info!("Created update balance job for osmosis account id: {}", osmosis_account_id);
 
 }
 
@@ -171,8 +168,10 @@ pub async fn trigger_update_balance(osmosis_account_id: String) -> Result<Ticket
 #[post_upgrade]
 fn post_upgrade() {
     init_log(Some(init_stable_log()));
-
-    // todo migrate update balance timers
+    set_timer_interval(
+        Duration::from_secs(5 * 60),
+        process_update_balance_jobs,
+    );
 }
 
 ic_cdk::export_candid!();

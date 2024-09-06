@@ -3,35 +3,81 @@ use icrc_ledger_types::icrc1::account::Subaccount;
 use itertools::Itertools;
 use omnity_types::TicketId;
 
-use crate::{approve_ckbtc_for_icp_custom, external::{ckbtc, custom::{generate_ticket, TARGET_CHAIN_ID, TOKEN_ID}}, state::{extend_ticket_records, get_utxo_records, insert_utxo_records, pop_first_scheduled_osmosis_account_id, MintedUtxo, TicketRecord, UtxoRecord}, utils::nat_to_u128, AddressData, Errors, UpdateBalanceArgs, UtxoStatus};
+use crate::{
+    approve_ckbtc_for_icp_custom,
+    external::{
+        ckbtc,
+        custom::{generate_ticket, TARGET_CHAIN_ID, TOKEN_ID},
+    },
+    state::{
+        extend_ticket_records, get_settings, get_utxo_records, insert_utxo_records, pop_first_scheduled_osmosis_account_id, set_settings, MintedUtxo, TicketRecord, UtxoRecord
+    },
+    utils::nat_to_u128,
+    AddressData, Errors, UpdateBalanceArgs, UtxoStatus,
+};
+
+pub fn process_update_balance_jobs() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(
+            "process_update_balance_jobs".to_string(),
+        ) {
+            Some(guard) => guard,
+            None => return,
+        };
+        let mut settings = get_settings();
+        let mut new_balance_jobs_list = vec![];
+        for mut job in settings.update_balances_jobs {
+            if !job.executable() {
+                new_balance_jobs_list.push(job);
+                continue;
+            }
+
+            match update_balance_and_generate_ticket(job.osmosis_account_id.clone()).await {
+                Ok(_) => {}
+                Err(e) => {
+                    if job.handle_execute_failed_and_continue() {
+                        new_balance_jobs_list.push(job.clone());
+                    }
+                    log::error!(
+                        "Failed to execute update balance job : {:?},error: {:?}",
+                        job,
+                        e
+                    );
+                }
+            }
+        }
+        settings.update_balances_jobs = new_balance_jobs_list;
+        set_settings(settings);
+    })
+}
 
 pub fn read_osmosis_account_id_then_update_balance() {
     ic_cdk::spawn(async {
-
-        match pop_first_scheduled_osmosis_account_id()
-        .and_then(|opt_account_id| 
-            opt_account_id.ok_or(Errors::CustomError("Failed to get osmosis account id".to_string()) )
-        ) {
+        match pop_first_scheduled_osmosis_account_id().and_then(|opt_account_id| {
+            opt_account_id.ok_or(Errors::CustomError(
+                "Failed to get osmosis account id".to_string(),
+            ))
+        }) {
             Ok(account_id) => {
                 match update_balance_and_generate_ticket(account_id.clone()).await {
                     Ok(_) => {
                         log::info!("Successfully update balance and generate ticket for osmosis account id: {}", account_id);
-                    },
+                    }
                     Err(_) => {
                         log::error!("Failed to update balance and generate ticket for osmosis account id: {}", account_id);
-                    },
+                    }
                 }
-
-            },
+            }
             Err(e) => {
                 log::error!("pop_first_scheduled_osmosis_account_id error: {:?}", e);
-            },
+            }
         }
-        
     });
 }
 
-pub async fn update_balance_and_generate_ticket(osmosis_account_id: String)-> std::result::Result<TicketId, String> {
+pub async fn update_balance_and_generate_ticket(
+    osmosis_account_id: String,
+) -> std::result::Result<TicketId, String> {
     let address_data = AddressData::try_from(osmosis_account_id.as_str())
         .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
         .map_err(|e| e.to_string())?;

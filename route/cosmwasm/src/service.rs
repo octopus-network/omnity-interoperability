@@ -1,26 +1,30 @@
-use crate::business::{process_directive::process_directive_task, ticket_task::process_ticket_task};
-use cosmrs::tendermint;
-use crate::cosmwasm::{
-    client::{query_cw_public_key, OSMO_ACCOUNT_PREFIX},
-    port::PortContractExecutor,
-    TxHash,
+use crate::business::{
+    process_directive::process_directive_task, ticket_task::process_ticket_task,
 };
+use crate::cosmwasm::port::PortContractExecutor;
+use crate::memory::{get_redeem_tickets, init_stable_log, mutate_state, read_state};
+use crate::{
+    business::redeem_token::redeem_token_and_send_ticket,
+    cosmwasm::{
+        client::{query_cw_public_key, OSMO_ACCOUNT_PREFIX},
+        TxHash,
+    },
+};
+use cosmrs::tendermint;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{
     api::management_canister::http_request::TransformArgs, init, post_upgrade, query, update,
 };
 use ic_cdk_timers::set_timer_interval;
 use lifecycle::init::InitArgs;
-use crate::memory::{init_stable_log, insert_redeem_ticket, mutate_state, read_state};
 use omnity_types::{
     log::{init_log, StableLogWriter},
-    Ticket, TicketId,
+    TicketId,
 };
+use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::{
-    const_args, hub, lifecycle, RouteState, UpdateCwSettingsArgs
-};
+use crate::{const_args, lifecycle, RouteState, UpdateCwSettingsArgs};
 
 #[init]
 pub async fn init(args: InitArgs) {
@@ -65,53 +69,52 @@ pub async fn start_process_ticket_task() {
 }
 
 #[update]
-pub async fn redeem(tx_hash: TxHash) -> std::result::Result<TicketId, String> {
+pub async fn test_rpc(
+    tx_hash: String,
+    rpc_url: String,
+) -> std::result::Result<String, String> {
+    // let client = crate::CosmWasmClient::cosmos_wasm_port_client();
+    // client
+    //     .query_tx_by_hash(tx_hash, rpc_url)
+    //     .await
+    //     .map_err(|e| e.to_string())
+
     let port_contract_executor = PortContractExecutor::from_state().map_err(|e| e.to_string())?;
     let event = port_contract_executor
         .query_redeem_token_event(tx_hash.clone())
-        .await
-        .map_err(|e| e.to_string())?;
+        .await.map_err(|e| e.to_string())?;
+    serde_json::to_string(&event)
+        .map_err(|e| e.to_string())
 
-    let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
-    let ticket = Ticket {
-        ticket_id: tx_hash.clone(),
-        ticket_type: omnity_types::TicketType::Normal,
-        ticket_time: ic_cdk::api::time(),
-        src_chain: chain_id,
-        dst_chain: event.target_chain.clone(),
-        action: omnity_types::TxAction::Redeem,
-        token: event.token_id.clone(),
-        amount: event.amount.to_string(),
-        sender: Some(event.sender),
-        receiver: event.receiver,
-        memo: None,
-    };
-
-    log::info!(
-        "try to send redeem ticket: {:?}, tx_hash: {:?}",
-        ticket,
-        tx_hash
-    );
-
-    hub::send_ticket(hub_principal, ticket.clone())
-        .await
-        .map_err(|e| e.to_string())?;
-    log::info!(
-        "send redeem ticket success: {:?}, tx_hash: {:?}",
-        ticket,
-        tx_hash
-    );
-
-    insert_redeem_ticket(tx_hash, ticket.ticket_id.clone());
-
-    Ok(ticket.ticket_id)
 }
 
-// fn check_anonymous_caller() {
-//     if ic_cdk::caller() == Principal::anonymous() {
-//         panic!("anonymous caller not allowed")
-//     }
-// }
+#[update]
+pub async fn redeem(tx_hash: TxHash) -> std::result::Result<TicketId, String> {
+    let _guard = match crate::guard::TimerLogicGuard::new(format!("redeem_{}", tx_hash)) {
+        Some(guard) => guard,
+        None => return Err("redeem task is running".to_string()),
+    };
+
+    match redeem_token_and_send_ticket(tx_hash.clone()).await {
+        Ok(ticket_id) => {
+            log::info!(
+                "send redeem ticket success: {:?}, tx_hash: {:?}",
+                ticket_id,
+                tx_hash
+            );
+
+            Ok(ticket_id)
+        }
+        Err(error) => {
+            log::error!(
+                "send redeem ticket failed: {:?}, tx_hash: {:?}",
+                error,
+                tx_hash
+            );
+            Err(error.to_string())
+        }
+    }
+}
 
 #[update(guard = "is_controller")]
 pub async fn osmosis_account_id() -> std::result::Result<String, String> {
@@ -148,6 +151,11 @@ pub fn update_cw_settings(args: UpdateCwSettingsArgs) {
         if let Some(cw_port_contract_address) = args.cw_port_contract_address {
             state.cw_port_contract_address = cw_port_contract_address;
         }
+
+        if let Some(multi_rpc_config) = args.multi_rpc_config {
+            state.multi_rpc_config = multi_rpc_config;
+        }
+        log::info!("update cw settings, new state: {:?}", state);
     });
 }
 
@@ -168,6 +176,11 @@ fn cleanup_response(
     args.response
 }
 
+#[query(guard = "is_controller")]
+fn query_redeemed_tickets() -> HashMap<TxHash, TicketId> {
+    get_redeem_tickets()
+}
+
 #[post_upgrade]
 fn post_upgrade() {
     init_log(Some(init_stable_log()));
@@ -182,7 +195,10 @@ fn post_upgrade() {
         Duration::from_secs(const_args::INTERVAL_QUERY_TICKET),
         process_ticket_task,
     );
-    log::info!("Finish Upgrade current version: {}", env!("CARGO_PKG_VERSION"));
+    log::info!(
+        "Finish Upgrade current version: {}",
+        env!("CARGO_PKG_VERSION")
+    );
 }
 
 ic_cdk::export_candid!();

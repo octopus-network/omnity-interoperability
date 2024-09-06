@@ -5,7 +5,7 @@ use ic_stable_structures::{
 };
 use ic_stable_structures::{Cell, StableBTreeMap};
 use omnity_types::TicketId;
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap};
 
 use crate::cosmwasm::TxHash;
 use crate::RouteState;
@@ -45,6 +45,17 @@ pub fn init_stable_log() -> StableBTreeMap<Vec<u8>, Vec<u8>, Memory> {
 
 pub fn insert_redeem_ticket(tx_hash: TxHash, ticket_id: TicketId) {
     REDEEM_TICKETS.with(|r| r.borrow_mut().insert(tx_hash, ticket_id));
+}
+
+pub fn get_redeem_tickets() -> HashMap<TxHash, TicketId> {
+    REDEEM_TICKETS
+    .with_borrow(|r| 
+        r.iter().collect()
+    )
+}
+
+pub fn get_redeem_ticket(tx_hash: &TxHash) -> Option<TicketId> {
+    REDEEM_TICKETS.with(|r| r.borrow().get(tx_hash).clone())
 }
 
 pub fn set_route_state(state: RouteState) {

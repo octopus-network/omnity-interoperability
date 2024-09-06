@@ -19,9 +19,8 @@ use icrc_ledger_types::{
     icrc2::approve::ApproveArgs,
 };
 use num_traits::cast::ToPrimitive;
-use omnity_types::{ic_log::P0, TicketId};
+use omnity_types::TicketId;
 use serde::Serialize;
-use ic_canister_log::log;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MintTokenRequest {

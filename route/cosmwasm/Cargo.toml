@@ -1,6 +1,6 @@
 [package]
 name = "cosmwasm_route"
-version = "0.1.6"
+version = "0.1.8"
 edition = "2021"
 
 [lib]
@@ -42,6 +42,8 @@ rand = "0.8.5"
 uuid = "1.10.0"
 
 sha2 = "0.10.6"
+itertools = "0.13.0"
+futures = "0.3.30"
 
 [dev-dependencies]
 # ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }

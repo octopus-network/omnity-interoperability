@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use state::Settings;
 
 use crate::*;
@@ -14,5 +16,7 @@ pub fn init(args: InitArgs) {
         ckbtc_ledger_principal: args.ckbtc_ledger_principal,
         ckbtc_minter_principal: args.ckbtc_minter_principal,
         icp_customs_principal: args.icp_customs_principal,
+        update_balances_jobs: vec![],
+        is_timer_running: HashSet::new(),
     });
 }

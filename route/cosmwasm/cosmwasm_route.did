@@ -22,6 +22,12 @@ type Factor = variant {
   UpdateTargetChainFactor : TargetChainFactor;
 };
 type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
+type HttpHeader = record { value : text; name : text };
+type HttpResponse = record {
+  status : nat;
+  body : blob;
+  headers : vec HttpHeader;
+};
 type InitArgs = record {
   hub_principal : principal;
   cw_rpc_url : text;
@@ -29,7 +35,12 @@ type InitArgs = record {
   chain_id : text;
   cosmwasm_port_contract_address : text;
 };
+type MultiRpcConfig = record {
+  rpc_list : vec text;
+  minimum_response_count : nat32;
+};
 type Result = variant { Ok : text; Err : text };
+type Result_1 = variant { Ok : HttpResponse; Err : text };
 type RouteState = record {
   hub_principal : principal;
   cw_rpc_url : text;
@@ -40,6 +51,7 @@ type RouteState = record {
   cw_public_key_vec : opt blob;
   chain_id : text;
   cw_port_contract_address : text;
+  multi_rpc_config : MultiRpcConfig;
   processing_tickets : vec record { nat64; Ticket };
   next_ticket_seq : nat64;
   chain_state : ChainState;
@@ -78,13 +90,16 @@ type UpdateCwSettingsArgs = record {
   cw_rpc_url : opt text;
   cw_rest_url : opt text;
   cw_port_contract_address : opt text;
+  multi_rpc_config : opt MultiRpcConfig;
 };
 service : (InitArgs) -> {
   cache_public_key : () -> ();
   osmosis_account_id : () -> (Result);
+  query_redeemed_tickets : () -> (vec record { text; text }) query;
   redeem : (text) -> (Result);
   route_state : () -> (RouteState) query;
   start_process_directive_task : () -> ();
   start_process_ticket_task : () -> ();
+  test_rpc : (text, text) -> (Result_1);
   update_cw_settings : (UpdateCwSettingsArgs) -> ();
 }
