@@ -268,11 +268,12 @@ pub fn insert_pending_hash(tx_hash: String) {
 }
 
 #[update(guard = "is_admin")]
-pub async fn test_receipt(tx_hash: String) -> (TransactionReceipt, Vec<LocalLogEntry>){
+pub async fn test_receipt(tx_hash: String) -> String{
     let r = get_transaction_receipt(&tx_hash).await.unwrap();
     let t = r.unwrap();
-    let v: Vec<LocalLogEntry> = t.logs.clone().into_iter().map(|l|l.into()).collect();
-    (t,v)
+    serde_json::to_string(&t).unwrap()
+/*    let v: Vec<LocalLogEntry> = t.logs.clone().into_iter().map(|l|l.into()).collect();
+    (t,v)*/
 }
 
 
