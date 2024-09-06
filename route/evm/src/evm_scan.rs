@@ -217,7 +217,9 @@ pub async fn get_transaction_receipt(
                     chain_id: crate::state::evm_chain_id(),
                     services: crate::state::rpc_providers(),
                 },
-                None::<RpcConfig>,
+                Some(RpcConfig{
+                    response_size_estimate: Some(10000),
+                }),
                 hash,
             ),
             SCAN_EVM_CYCLES * rpc_size,
