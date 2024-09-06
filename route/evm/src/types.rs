@@ -6,7 +6,11 @@ use std::{
 
 use candid::CandidType;
 use candid::Principal;
-use cketh_common::eth_rpc::LogEntry;
+use cketh_common::address::Address;
+use cketh_common::checked_amount::CheckedAmountOf;
+use cketh_common::eth_rpc::{Data, FixedSizeData, Hash};
+use cketh_common::numeric::{BlockNumber, LogIndex};
+use evm_rpc_types::LogEntry;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
@@ -26,6 +30,64 @@ pub type DstChain = ChainId;
 pub type TokenId = String;
 pub type TicketId = String;
 pub type Account = String;
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, CandidType)]
+pub struct LocalLogEntry {
+    /// The address from which this log originated.
+    pub address: Address,
+    /// Array of 0 to 4 32 Bytes DATA of indexed log arguments.
+    /// In solidity: The first topic is the event signature hash (e.g. Deposit(address,bytes32,uint256)),
+    /// unless you declared the event with the anonymous specifier.
+    pub topics: Vec<FixedSizeData>,
+    /// Contains one or more 32-byte non-indexed log arguments.
+    pub data: Data,
+    /// The block number in which this log appeared.
+    /// None if the block is pending.
+    #[serde(rename = "blockNumber")]
+    pub block_number: Option<BlockNumber>,
+    // 32 Bytes - hash of the transactions from which this log was created.
+    // None when its pending log.
+    #[serde(rename = "transactionHash")]
+    pub transaction_hash: Option<Hash>,
+    // Integer of the transactions position within the block the log was created from.
+    // None if the log is pending.
+    #[serde(rename = "transactionIndex")]
+    pub transaction_index: Option<CheckedAmountOf<()>>,
+    /// 32 Bytes - hash of the block in which this log appeared.
+    /// None if the block is pending.
+    #[serde(rename = "blockHash")]
+    pub block_hash: Option<Hash>,
+    /// Integer of the log index position in the block.
+    /// None if the log is pending.
+    #[serde(rename = "logIndex")]
+    pub log_index: Option<LogIndex>,
+    /// "true" when the log was removed due to a chain reorganization.
+    /// "false" if it's a valid log.
+    #[serde(default)]
+    pub removed: bool,
+}
+
+impl Into<LocalLogEntry> for LogEntry {
+    fn into(self) -> LocalLogEntry {
+       /* let addr = Address::try_from(self.address.into()).unwrap();
+        let topics = self.topics.into_iter().map(|t|{
+            let r
+        }).collect();
+        LocalLogEntry {
+            address: addr,
+            topics: vec![],
+            data: Data(),
+            block_number: None,
+            transaction_hash: None,
+            transaction_index: None,
+            block_hash: None,
+            log_index: None,
+            removed: false,
+        }*/
+        let s = serde_json::to_string(&self).unwrap();
+        serde_json::from_str(s.as_str()).unwrap()
+    }
+}
 
 #[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
 pub struct PendingTicketStatus {
@@ -236,7 +298,7 @@ pub struct Ticket {
 }
 
 impl Ticket {
-    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMintRequested) -> Self {
+    pub fn from_runes_mint_event(log_entry: &LocalLogEntry, runes_mint: RunesMintRequested) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -260,7 +322,7 @@ impl Ticket {
         }
     }
 
-    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
+    pub fn from_burn_event(log_entry: &LocalLogEntry, token_burned: TokenBurned) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -293,7 +355,7 @@ impl Ticket {
     }
 
     pub fn from_transport_event(
-        log_entry: &LogEntry,
+        log_entry: &LocalLogEntry,
         token_transport_requested: TokenTransportRequested,
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());

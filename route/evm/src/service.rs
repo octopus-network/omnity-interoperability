@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
+use evm_rpc_types::TransactionReceipt;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
@@ -12,7 +13,7 @@ use serde_derive::Deserialize;
 use crate::{Error, get_time_secs, hub};
 use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
 use crate::eth_common::{EvmAddress, EvmTxType, get_balance};
-use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
+use crate::evm_scan::{create_ticket_by_tx, get_transaction_receipt, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
@@ -21,10 +22,7 @@ use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
     StateProfile,
 };
-use crate::types::{
-    Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
-    PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
-};
+use crate::types::{Chain, ChainId, Directive, LocalLogEntry, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
 
 #[init]
 fn init(args: InitArgs) {
@@ -268,6 +266,15 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
 pub fn insert_pending_hash(tx_hash: String) {
     mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
 }
+
+#[update(guard = "is_admin")]
+pub async fn test_receipt(tx_hash: String) -> (TransactionReceipt, Vec<LocalLogEntry>){
+    let r = get_transaction_receipt(&tx_hash).await.unwrap();
+    let t = r.unwrap();
+    let v: Vec<LocalLogEntry> = t.logs.clone().into_iter().map(|l|l.into()).collect();
+    (t,v)
+}
+
 
 #[update(guard = "is_admin")]
 pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {

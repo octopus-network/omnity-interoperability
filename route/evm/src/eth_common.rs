@@ -10,8 +10,7 @@ use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
 use ethers_core::types::{Eip1559TransactionRequest, TransactionRequest, U256};
 use ethers_core::utils::keccak256;
-use evm_rpc::{MultiRpcResult, RpcServices};
-use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
+use evm_rpc::types::{candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus}, MultiRpcResult, RpcServices};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use log::{error, info};
 use num_traits::ToPrimitive;
@@ -22,6 +21,7 @@ use crate::const_args::{
     BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT, GET_ACCOUNT_NONCE_CYCLES,
 };
 use crate::eth_common::EvmAddressError::LengthError;
+use crate::evm_scan::get_transaction_receipt;
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct TransactionReceipt {
@@ -45,27 +45,29 @@ pub struct TransactionReceipt {
     pub transaction_index: String,
     pub r#type: String,
 }
+/*
+impl Into<evm_rpc_types::TransactionReceipt> for TransactionReceipt {
+    fn into(self) -> evm_rpc_types::TransactionReceipt {
+        /* evm_rpc_types::TransactionReceipt {
+             block_hash: self.block_hash,
+             block_number: BlockNumber::new(hex_to_u64(&self.block_number) as u128),
+             effective_gas_price: Default::default(),
+             gas_used: hex_to_u64(&self.gas_used).into(),
+             status: hex_to_u64(&self.status).into(),
+             transaction_hash: self.transaction_hash,
+             contract_address: self.contract_address,
+             from: self.from,
+             logs: self.logs,
+             logs_bloom: self.logs_bloom,
+             to: self.to,
+             transaction_index: hex_to_u64(&self.transaction_index).into(),
+             r#type: self.r#type,
+         }*/
 
-impl Into<evm_rpc::candid_types::TransactionReceipt> for TransactionReceipt {
-    fn into(self) -> evm_rpc::candid_types::TransactionReceipt {
-        evm_rpc::candid_types::TransactionReceipt {
-            block_hash: self.block_hash,
-            block_number: BlockNumber::new(hex_to_u64(&self.block_number) as u128),
-            effective_gas_price: Default::default(),
-            gas_used: hex_to_u64(&self.gas_used).into(),
-            status: hex_to_u64(&self.status).into(),
-            transaction_hash: self.transaction_hash,
-            contract_address: self.contract_address,
-            from: self.from,
-            logs: self.logs,
-            logs_bloom: self.logs_bloom,
-            to: self.to,
-            transaction_index: hex_to_u64(&self.transaction_index).into(),
-            r#type: self.r#type,
-        }
+
     }
 }
-
+*/
 pub fn hex_to_u64(hex_str: &String) -> u64 {
     u64::from_str_radix(hex_str.strip_prefix("0x").unwrap(), 16).unwrap()
 }

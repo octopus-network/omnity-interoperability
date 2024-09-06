@@ -50,6 +50,28 @@ type InitArgs = record {
   evm_rpc_canister_addr : principal;
   port_addr : opt text;
 };
+type LocalLogEntry = record {
+  transactionHash : opt text;
+  blockNumber : opt nat;
+  data : text;
+  blockHash : opt text;
+  transactionIndex : opt nat;
+  topics : vec text;
+  address : text;
+  logIndex : opt nat;
+  removed : bool;
+};
+type LogEntry = record {
+  transactionHash : opt text;
+  blockNumber : opt nat;
+  data : text;
+  blockHash : opt text;
+  transactionIndex : opt nat;
+  topics : vec text;
+  address : text;
+  logIndex : opt nat;
+  removed : bool;
+};
 type MetricsStatus = record {
   chainkey_addr_balance : nat;
   latest_scan_interval_secs : nat64;
@@ -131,6 +153,21 @@ type TokenResp = record {
   rune_id : opt text;
   symbol : text;
 };
+type TransactionReceipt = record {
+  to : text;
+  status : nat;
+  transactionHash : text;
+  blockNumber : nat;
+  from : text;
+  logs : vec LogEntry;
+  blockHash : text;
+  "type" : text;
+  transactionIndex : nat;
+  effectiveGasPrice : nat;
+  logsBloom : text;
+  contractAddress : opt text;
+  gasUsed : nat;
+};
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
 service : (InitArgs) -> {
   generate_ticket : (text) -> (Result);
@@ -159,6 +196,7 @@ service : (InitArgs) -> {
   rewrite_tx_hash : (text, text) -> ();
   route_state : () -> (StateProfile) query;
   set_port_address : (text) -> ();
+  test_receipt : (text) -> (TransactionReceipt, vec LocalLogEntry);
   update_admins : (vec principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
   update_fee_token : (text) -> ();

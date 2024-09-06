@@ -1,10 +1,11 @@
 use anyhow::anyhow;
-use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig};
+use evm_rpc_types::{Hex32, LogEntry};
+use cketh_common::{eth_rpc_client::RpcConfig};
 use cketh_common::eth_rpc::{Hash, HttpOutcallError, RpcError};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
-use evm_rpc::{MultiRpcResult, RpcServices};
-use evm_rpc::candid_types::TransactionReceipt;
+use evm_rpc::types::{MultiRpcResult, RpcServices};
+use evm_rpc_types::{Nat256, TransactionReceipt};
 use itertools::Itertools;
 use log::{error, info};
 
@@ -16,7 +17,7 @@ use crate::contract_types::{
 };
 use crate::eth_common::JsonRpcResponse;
 use crate::state::{mutate_state, read_state};
-use crate::types::{ChainState, Directive, Ticket};
+use crate::types::{ChainState, Directive, LocalLogEntry, Ticket};
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -43,11 +44,11 @@ pub fn scan_evm_task() {
                     "rpc".to_string()
                 });
             if let Ok(Some(tr)) = receipt {
-                if tr.status == 0 {
+                if tr.status == Nat256::from(0u8) {
                     mutate_state(|s| s.pending_events_on_chain.remove(&hash));
                     continue;
                 }
-                let res = handle_port_events(tr.logs.clone()).await;
+                let res = handle_port_events(tr.logs.clone().into_iter().map(|l|l.into()).collect()).await;
                 match res {
                     Ok(_) => {
                         mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -62,14 +63,14 @@ pub fn scan_evm_task() {
     });
 }
 
-pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
+pub async fn handle_port_events(logs: Vec<LocalLogEntry>) -> anyhow::Result<()> {
     for l in logs {
         if l.removed {
             return Err(anyhow!("log is removed"));
         }
         let block = l.block_number.ok_or(anyhow!("block is pending"))?;
         let log_index = l.log_index.ok_or(anyhow!("log is pending"))?;
-        let log_key = std::format!("{}-{}", block, log_index);
+        let log_key = std::format!("{:?}-{:?}", block, log_index);
         let tx_hash = l
             .transaction_hash
             .unwrap_or(cketh_common::eth_rpc::Hash([0u8; 32]))
@@ -166,10 +167,10 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
 }
 
 pub async fn handle_runes_mint(
-    log_entry: &LogEntry,
+    log_entry: &LocalLogEntry,
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
-    let ticket = Ticket::from_runes_mint_event(log_entry, event);
+    let ticket = Ticket::from_runes_mint_event(&log_entry.clone().into(), event);
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
@@ -180,8 +181,8 @@ pub async fn handle_runes_mint(
     Ok(())
 }
 
-pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyhow::Result<()> {
-    let ticket = Ticket::from_burn_event(log_entry, event);
+pub async fn handle_token_burn(log_entry: &LocalLogEntry, event: TokenBurned) -> anyhow::Result<()> {
+    let ticket = Ticket::from_burn_event(&log_entry.clone().into(), event);
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| Error::HubError(s))?;
@@ -190,7 +191,7 @@ pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyh
 }
 
 pub async fn handle_token_transport(
-    log_entry: &LogEntry,
+    log_entry: &LocalLogEntry,
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_transport_event(log_entry, event);
@@ -217,7 +218,7 @@ pub async fn get_transaction_receipt(
                     chain_id: crate::state::evm_chain_id(),
                     services: crate::state::rpc_providers(),
                 },
-                Some(RpcConfig{
+                Some(RpcConfig {
                     response_size_estimate: Some(10000),
                 }),
                 hash,
@@ -240,17 +241,18 @@ pub async fn get_transaction_receipt(
                             body,
                             ..
                         } => {
-                            if status == 200 {
-                                info!("content: {}", &body);
-                                let json_rpc: JsonRpcResponse<eth_common::TransactionReceipt> =
-                                    serde_json::from_str(&body).map_err(|e| {
-                                        Error::EvmRpcError(format!(
-                                            "local deserialize error: {}",
-                                            e.to_string()
-                                        ))
-                                    })?;
-                                return Ok(Some(json_rpc.result.into()));
-                            }
+                            panic!("todox")
+                            /*  if status == 200 {
+                                  info!("content: {}", &body);
+                                  let json_rpc: JsonRpcResponse<eth_common::TransactionReceipt> =
+                                      serde_json::from_str(&body).map_err(|e| {
+                                          Error::EvmRpcError(format!(
+                                              "local deserialize error: {}",
+                                              e.to_string()
+                                          ))
+                                      })?;
+                                  return Ok(Some(json_rpc.result.into()));
+                              }*/ //todo
                         }
                     }
                 }
@@ -275,15 +277,15 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
         None => Err("not find".to_string()),
         Some(tr) => {
             let return_tr = tr.clone();
-            assert_eq!(tr.status, 1, "transaction failed");
-            let ticket = generate_ticket_by_logs(tr.logs);
+            assert_eq!(tr.status, Nat256::from(1u8), "transaction failed");
+            let ticket = generate_ticket_by_logs(tr.logs.into_iter().map(|l|l.into()).collect());
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))
         }
     }
 }
 
-pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
+pub fn generate_ticket_by_logs(logs: Vec<LocalLogEntry>) -> anyhow::Result<Ticket> {
     for l in logs {
         if l.removed {
             return Err(anyhow!("log is removed"));
@@ -310,7 +312,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
             if dst_check_result {
                 return Ok(Ticket::from_transport_event(&l, token_transport));
             } else {
-                let tx_hash = l.transaction_hash.unwrap_or(Hash([0u8; 32])).to_string();
+                let tx_hash = l.transaction_hash.unwrap_or(cketh_common::eth_rpc::Hash([0u8; 32])).to_string();
                 info!("[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
             }
         } else if topic1 == RunesMintRequested::signature_hash() {
