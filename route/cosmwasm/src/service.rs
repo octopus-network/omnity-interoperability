@@ -1,8 +1,5 @@
-use crate::business::{
-    process_directive::process_directive_task, ticket_task::process_ticket_task,
-};
-use crate::cosmwasm::port::PortContractExecutor;
-use crate::memory::{get_redeem_tickets, init_stable_log, mutate_state, read_state};
+use crate::memory::{get_redeem_tickets, init_stable_log, mutate_state, read_state, GUARD_RUNNING_TASK, PERIODIC_JOB_MANAGER_MAP };
+use crate::periodic_jobs::{start_process_directive_job, start_process_ticket_job};
 use crate::{
     business::redeem_token::redeem_token_and_send_ticket,
     cosmwasm::{
@@ -15,16 +12,14 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{
     api::management_canister::http_request::TransformArgs, init, post_upgrade, query, update,
 };
-use ic_cdk_timers::set_timer_interval;
 use lifecycle::init::InitArgs;
 use omnity_types::{
     log::{init_log, StableLogWriter},
     TicketId,
 };
-use std::collections::HashMap;
-use std::time::Duration;
+use std::collections::{HashMap, HashSet};
 
-use crate::{const_args, lifecycle, RouteState, UpdateCwSettingsArgs};
+use crate::{lifecycle, RouteState, UpdateCwSettingsArgs};
 
 #[init]
 pub async fn init(args: InitArgs) {
@@ -53,44 +48,18 @@ pub async fn cache_public_key() {
 }
 
 #[update(guard = "is_controller")]
-pub async fn start_process_directive_task() {
-    set_timer_interval(
-        Duration::from_secs(const_args::INTERVAL_QUERY_DIRECTIVE),
-        process_directive_task,
-    );
+pub async fn start_process_directive() {
+    start_process_directive_job();
 }
 
 #[update(guard = "is_controller")]
-pub async fn start_process_ticket_task() {
-    set_timer_interval(
-        Duration::from_secs(const_args::INTERVAL_QUERY_TICKET),
-        process_ticket_task,
-    );
-}
-
-#[update]
-pub async fn test_rpc(
-    tx_hash: String,
-    rpc_url: String,
-) -> std::result::Result<String, String> {
-    // let client = crate::CosmWasmClient::cosmos_wasm_port_client();
-    // client
-    //     .query_tx_by_hash(tx_hash, rpc_url)
-    //     .await
-    //     .map_err(|e| e.to_string())
-
-    let port_contract_executor = PortContractExecutor::from_state().map_err(|e| e.to_string())?;
-    let event = port_contract_executor
-        .query_redeem_token_event(tx_hash.clone())
-        .await.map_err(|e| e.to_string())?;
-    serde_json::to_string(&event)
-        .map_err(|e| e.to_string())
-
+pub async fn start_process_ticket() {
+    start_process_ticket_job();
 }
 
 #[update]
 pub async fn redeem(tx_hash: TxHash) -> std::result::Result<TicketId, String> {
-    let _guard = match crate::guard::TimerLogicGuard::new(format!("redeem_{}", tx_hash)) {
+    let _ = match crate::guard::LogicGuard::new(format!("redeem_{}", tx_hash)) {
         Some(guard) => guard,
         None => return Err("redeem task is running".to_string()),
     };
@@ -133,8 +102,12 @@ pub async fn osmosis_account_id() -> std::result::Result<String, String> {
 }
 
 #[query(guard = "is_controller")]
-pub fn route_state() -> RouteState {
-    read_state(|s| s.clone())
+pub fn route_state() -> (RouteState, String, HashSet<String>) {
+    (
+        read_state(|s| s.clone()),
+        PERIODIC_JOB_MANAGER_MAP.with(|m| format!("{:?}", m.borrow()).to_string()),
+        GUARD_RUNNING_TASK.with(|g| g.borrow().clone()),
+    )
 }
 
 #[update(guard = "is_controller")]
@@ -187,14 +160,9 @@ fn post_upgrade() {
 
     lifecycle::upgrade::post_upgrade();
 
-    set_timer_interval(
-        Duration::from_secs(const_args::INTERVAL_QUERY_DIRECTIVE),
-        process_directive_task,
-    );
-    set_timer_interval(
-        Duration::from_secs(const_args::INTERVAL_QUERY_TICKET),
-        process_ticket_task,
-    );
+    start_process_directive_job();
+    start_process_ticket_job();
+  
     log::info!(
         "Finish Upgrade current version: {}",
         env!("CARGO_PKG_VERSION")

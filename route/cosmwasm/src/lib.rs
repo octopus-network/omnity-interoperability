@@ -8,6 +8,7 @@ pub mod memory;
 pub mod service;
 pub mod state;
 pub mod utils;
+pub mod periodic_jobs;
 
 pub use candid::Principal;
 pub use error::Result;
@@ -54,14 +55,15 @@ pub use cosmwasm::client::{cw_chain_key_arg, query_cw_public_key, CosmWasmClient
 pub use memory::get_contract_id;
 
 pub type DerivationPath = Vec<Vec<u8>>;
+pub type JobName = String;
 pub struct EcdsaChainKeyArg {
     pub derivation_path: DerivationPath,
     pub key_id: EcdsaKeyId,
 }
 
 pub mod const_args {
-    pub const FETCH_HUB_TICKET_NAME: &str = "FETCH_HUB_TICKET";
-    pub const FETCH_HUB_DIRECTIVE_NAME: &str = "FETCH_HUB_DIRECTIVE";
+    pub const PROCESS_TICKET_JOB_NAME: &str = "PROCESS_TICKET_JOB_NAME";
+    pub const PROCESS_DIRECTIVE_JOB_NAME: &str = "PROCESS_DIRECTIVE_JOB_NAME";
     pub const BATCH_QUERY_LIMIT: u64 = 20;
     pub const INTERVAL_QUERY_DIRECTIVE: u64 = 60;
     pub const INTERVAL_QUERY_TICKET: u64 = 60;

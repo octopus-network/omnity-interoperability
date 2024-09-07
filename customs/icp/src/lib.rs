@@ -1,12 +1,12 @@
 use candid::{Nat, Principal};
 use icrc_ledger_types::icrc1::account::Account;
-use omnity_types::{Directive, Ticket};
-use state::{insert_counterparty, is_ckbtc, is_icp, mutate_state, read_state};
+use omnity_types::{Directive, IcpChainKeyToken, Ticket};
+use state::{insert_counterparty, is_icp, mutate_state, read_state};
 use std::str::FromStr;
 use ic_canister_log::log;
-use ic_ledger_types::MAINNET_LEDGER_CANISTER_ID;
 use omnity_types::ic_log::P0;
-use updates::mint_token::{retrieve_ckbtc, unlock_icp, MintTokenError, MintTokenRequest};
+use updates::mint_token::{retrieve_ckbtc, unlock_icp, MintTokenRequest};
+use omnity_types::TxAction;
 
 pub mod call_error;
 pub mod hub;
@@ -16,7 +16,6 @@ pub mod updates;
 pub mod utils;
 pub mod service;
 
-type TempUnavalible = bool;
 pub const PERIODIC_TASK_INTERVAL: u64 = 5;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const ICP_TRANSFER_FEE: u64 = 10_000;
@@ -45,87 +44,46 @@ pub fn parse_receiver(ticket: &Ticket) -> Option<Account> {
         }
     }
 }
-pub async fn handle_ticket(ticket: &Ticket) -> TempUnavalible {
 
-    if is_ckbtc(&ticket.token) {
-        match retrieve_ckbtc(ticket.receiver.clone(), Nat::from_str(ticket.amount.as_str()).unwrap(), ticket.ticket_id.clone()).await {
-            Ok( result ) => {
-                log!(P0, "[process tickets] process successful for ticket id: {}, block index: {}", ticket.ticket_id, result.block_index);
-            },
-            Err(e) => {
-                log!(P0, "[process tickets] failed to retrieve ckbtc: {:?}", e);
-            },
-        }
-        return false;
-    }
-
-    let receiver = parse_receiver(&ticket);
-    if receiver.is_none() {
-        return false;
-    }
-    let receiver = receiver.unwrap();
-
-    let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
-        amount
-    } else {
-        log!(P0,
-            "[process tickets] failed to parse ticket amount: {}",
-            ticket.amount
-        );
-        return false;
+pub async fn handle_redeem_ticket(ticket: &Ticket) -> Result<u64, String> {
+    let block_index = match ticket.action {
+        TxAction::Transfer | TxAction::Burn | TxAction::Mint => {
+            return Err("Unsupported action".to_string())
+        },
+        TxAction::Redeem => {
+            let receiver = parse_receiver(&ticket).ok_or("Failed to parse receiver")?;
+            let amount = ticket.amount.parse::<u128>().map_err(|e| e.to_string())?;
+            if is_icp(&ticket.token) {
+                unlock_icp(& MintTokenRequest{
+                    ticket_id: ticket.ticket_id.clone(),
+                    token_id: ticket.token.clone(),
+                    receiver,
+                    amount,
+                }).await.map_err(|e| format!("{:?}",e).to_string())?
+            } else {
+                updates::mint_token(&mut MintTokenRequest {
+                    ticket_id: ticket.ticket_id.clone(),
+                    token_id: ticket.token.clone(),
+                    receiver,
+                    amount,
+                }).await.map_err(|e| format!("{:?}", e).to_string())?
+            }
+        },
+        TxAction::RedeemIcpChainKeyAssets(icp_chain_key_token) => {
+            match icp_chain_key_token {
+                IcpChainKeyToken::CKBTC => {
+                    retrieve_ckbtc(
+                        ticket.receiver.clone(), 
+                        Nat::from_str(ticket.amount.as_str()).unwrap(), ticket.ticket_id.clone()
+                    )
+                    .await
+                    .map_err(|e| format!("{:?}", e).to_string())?
+                },
+            }
+        },
     };
 
-    if is_icp(&ticket.token) {
-        match unlock_icp(& MintTokenRequest{
-            ticket_id: ticket.ticket_id.clone(),
-            token_id: ticket.token.clone(),
-            receiver,
-            amount,
-        }).await {
-            Ok(height) => {
-                log!(P0, "[process tickets] process successful for ticket id: {}", &ticket.ticket_id);
-                let hub_principal = read_state(|s| s.hub_principal);
-                let tx_hash = format!("{}_{}", MAINNET_LEDGER_CANISTER_ID.to_string(), height.to_string());
-                let _ = hub::update_tx_hash(hub_principal, ticket.ticket_id.clone(), tx_hash).await;
-            },
-            Err(e) => {
-                log!(P0, "[process tickets] failed to unlock icp: {:?}", e);
-            },
-        }
-        return false;
-    }
-
-    match updates::mint_token(&mut MintTokenRequest {
-        ticket_id: ticket.ticket_id.clone(),
-        token_id: ticket.token.clone(),
-        receiver,
-        amount,
-    })
-        .await
-    {
-        Ok(_) => {
-            log!(P0,
-                "[process tickets] process successful for ticket id: {}",
-                ticket.ticket_id
-            );
-        }
-        Err(MintTokenError::TemporarilyUnavailable(desc)) => {
-            log!(P0,
-                "[process tickets] failed to mint token for ticket id: {}, err: {}",
-                ticket.ticket_id,
-                desc
-            );
-            return true;
-        }
-        Err(err) => {
-            log!(P0,
-                "[process tickets] process failure for ticket id: {}, err: {:?}",
-                ticket.ticket_id,
-                err
-            );
-        }
-    }
-    false
+    Ok(block_index)
 }
 
 async fn process_tickets() {
@@ -133,10 +91,16 @@ async fn process_tickets() {
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
             for (seq, ticket) in &tickets {
-                if handle_ticket(ticket).await {
-                    break;
+                match handle_redeem_ticket(ticket).await {
+                    Ok(_) => {
+                        log!(P0, "[process tickets] process successful for ticket{}", ticket);
+                        mutate_state(|s| s.next_ticket_seq = seq+1)
+                    },
+                    Err(e) => {
+                        log!(P0, "[process tickets] failed to process ticket: {}, err: {}", ticket, e);
+                        break;
+                    },
                 }
-                mutate_state(|s| s.next_ticket_seq = seq+1)
             }
         }
         Err(err) => {

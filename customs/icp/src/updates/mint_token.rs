@@ -104,7 +104,7 @@ pub async fn retrieve_ckbtc(
     receiver: String,
     amount: Nat,
     ticket_id: TicketId
-) -> Result<RetrieveBtcOk, MintTokenError> {
+) -> Result<u64, MintTokenError> {
 
     if get_finalized_mint_token_request(&ticket_id).is_some() {
         return Err(MintTokenError::AlreadyProcessed(ticket_id.clone()));
@@ -147,7 +147,7 @@ pub async fn retrieve_ckbtc(
             .map_err(|e| MintTokenError::CustomError(format!("{:?}", e)))?;
     let retrieve_result = result.0.map_err(|e| MintTokenError::CustomError(format!("{:?}", e)))?;
     insert_finalized_mint_token_request(ticket_id, retrieve_result.block_index);
-    Ok(retrieve_result)
+    Ok(retrieve_result.block_index)
 }
 
 pub async fn unlock_icp(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
@@ -178,7 +178,7 @@ pub async fn unlock_icp(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
 
 }
 
-pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
+pub async fn mint_token(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
     if get_finalized_mint_token_request(&req.ticket_id).is_some() {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
     }
@@ -186,7 +186,7 @@ pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
         .ok_or(MintTokenError::UnsupportedToken(req.token_id.clone()))?;
     let block_index = mint(ledger_id, req.amount, req.receiver).await?;
     insert_finalized_mint_token_request(req.ticket_id.clone(), block_index);
-    Ok(())
+    Ok(block_index)
 }
 
 async fn mint(ledger_id: Principal, amount: u128, to: Account) -> Result<u64, MintTokenError> {

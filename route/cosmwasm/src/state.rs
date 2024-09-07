@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 
 use candid::{CandidType, Principal};
 use ic_stable_structures::storable::Bound;
@@ -21,8 +20,6 @@ pub struct RouteState {
 
     pub chain_state: ChainState,
     pub next_ticket_seq: u64,
-    #[serde(skip)]
-    pub is_timer_running: HashSet<String>,
 
     pub cw_public_key_vec: Option<Vec<u8>>,
 
@@ -32,10 +29,6 @@ pub struct RouteState {
     pub processing_directive: Vec<(Seq, Directive)>,
     #[serde(default)]
     pub multi_rpc_config: MultiRpcConfig,
-    // #[serde(default)]
-    // pub ticket_failed_times: u32,
-    // #[serde(default)]
-    // pub directive_failed_times: u32,
 }
 
 impl Storable for RouteState {
@@ -67,7 +60,6 @@ impl From<InitArgs> for RouteState {
             next_directive_seq: 0,
             chain_state: ChainState::Active,
             next_ticket_seq: 0,
-            is_timer_running: HashSet::default(),
             cw_public_key_vec: None,
             processing_tickets: Vec::default(),
             processing_directive: Vec::default(),

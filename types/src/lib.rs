@@ -341,7 +341,7 @@ pub enum TxAction {
 }
 
 #[derive(
-    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+    CandidType, Deserialize, Serialize, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 pub enum IcpChainKeyToken {
     #[default]

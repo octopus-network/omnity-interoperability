@@ -4,6 +4,10 @@ use candid::Nat;
 use ic_cdk::api::management_canister::http_request::{HttpResponse, TransformContext};
 use serde::{Deserialize, Serialize};
 
+pub fn get_chain_time_seconds() -> u64 {
+    ic_cdk::api::time() / 1_000_000_000
+}
+
 /// JSON-RPC ID: request-specific identifier
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd)]
 #[serde(untagged)]

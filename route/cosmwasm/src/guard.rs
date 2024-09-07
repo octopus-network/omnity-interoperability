@@ -1,25 +1,25 @@
-use crate::memory::mutate_state;
+use crate::memory::mutate_guard_running_task;
 
 #[must_use]
-pub struct TimerLogicGuard(String);
+pub struct LogicGuard(String);
 
-impl TimerLogicGuard {
+impl LogicGuard {
     pub fn new(task_name: String) -> Option<Self> {
-        mutate_state(|s| {
-            if s.is_timer_running.contains(&task_name) {
-                return None::<TimerLogicGuard>;
+        mutate_guard_running_task(|s| {
+            if s.contains(&task_name) {
+                return None::<LogicGuard>;
             }
 
-            s.is_timer_running.insert(task_name.clone());
-            Some(TimerLogicGuard(task_name))
+            s.insert(task_name.clone());
+            Some(LogicGuard(task_name))
         })
     }
 }
 
-impl Drop for TimerLogicGuard {
+impl Drop for LogicGuard {
     fn drop(&mut self) {
-        mutate_state(|s| {
-            s.is_timer_running.remove(&self.0);
+        mutate_guard_running_task(|s| {
+            s.remove(&self.0);
         });
     }
 }

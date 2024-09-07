@@ -1,22 +1,37 @@
 use business::mint_token::MintTokenRequest;
 use cosmwasm::port::PortContractExecutor;
-use memory::{set_route_state, take_state};
+use memory::{get_periodic_job_manager, insert_periodic_job_manager, set_route_state, take_state};
 
 use crate::*;
 use omnity_types::ChainState;
 
 pub fn process_ticket_task() {
     ic_cdk::spawn(async {
-        let _guard =
-            match crate::guard::TimerLogicGuard::new(const_args::FETCH_HUB_TICKET_NAME.to_string())
-            {
-                Some(guard) => guard,
-                None => return,
-            };
-        match process_tickets().await {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("failed to process tickets, err: {:?}", e);
+        let job_name = const_args::PROCESS_TICKET_JOB_NAME;
+        match get_periodic_job_manager(job_name) {
+            Some(mut periodic_job_manager) => {
+                if !periodic_job_manager.should_execute() {
+                    return;
+                }
+                periodic_job_manager.is_running = true;
+                insert_periodic_job_manager(job_name.to_string(), periodic_job_manager.clone());
+                match process_tickets().await {
+                    Ok(_) => {
+                        periodic_job_manager.job_execute_success();
+                    }
+                    Err(e) => {
+                        periodic_job_manager.job_execute_failed();
+                        log::error!("failed to process directives, err: {:?}", e);
+                    }
+                }
+                insert_periodic_job_manager(job_name.to_string(), periodic_job_manager.clone());
+            }
+            None => {
+                log::error!(
+                    "periodic job({}) manager is none",
+                    job_name
+                );
+                return;
             }
         }
     });
