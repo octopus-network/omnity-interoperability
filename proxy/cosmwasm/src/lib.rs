@@ -5,6 +5,8 @@ pub mod state;
 pub mod types;
 pub mod utils;
 pub mod service;
+pub mod business;
+pub mod guard;
 
 pub use candid::CandidType;
 pub use candid::Principal;
@@ -21,5 +23,4 @@ pub use external::ckbtc::*;
 pub use ic_cdk::{init, query, update};
 pub use ic_ledger_types::AccountIdentifier;
 pub use lifecycle::*;
-pub use state::{set_ckbtc_index_principal, set_icp_customs_principal};
 pub use types::*;

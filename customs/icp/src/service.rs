@@ -1,18 +1,16 @@
 use std::time::Duration;
 
+use crate::lifecycle::init::InitArgs;
+use crate::state::{get_finalized_mint_token_request, read_state, CustomsState};
+use crate::updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq};
+use crate::{hub, lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL};
 use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk_macros::{init, post_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use crate::lifecycle::init::InitArgs;
-use crate::updates::generate_ticket::{
-    GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
-};
 use ic_ledger_types::{AccountIdentifier, Subaccount};
-use crate::{lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL, hub};
-use crate::state::{CustomsState, get_finalized_mint_token_request, read_state};
-use omnity_types::{Chain, Seq, Ticket, Token, MintTokenStatus, TicketId};
 use omnity_types::MintTokenStatus::{Finalized, Unknown};
+use omnity_types::{Chain, MintTokenStatus, Seq, Ticket, TicketId, Token};
 
 pub fn is_controller() -> Result<(), String> {
     if ic_cdk::api::is_controller(&ic_cdk::caller()) {
@@ -84,38 +82,53 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 }
 
 #[update(guard = "is_controller")]
-pub async fn query_hub_tickets(from:u64, limit: u64) -> Vec<(Seq, Ticket)>{
-    let hub_principal = read_state(|s|s.hub_principal);
-    hub::query_tickets(hub_principal, from, limit).await.unwrap()
+pub async fn query_hub_tickets(from: u64, limit: u64) -> Vec<(Seq, Ticket)> {
+    let hub_principal = read_state(|s| s.hub_principal);
+    hub::query_tickets(hub_principal, from, limit)
+        .await
+        .unwrap()
 }
 
 #[update(guard = "is_controller")]
-pub async fn handle_ticket(seq:u64) {
-    let hub_principal = read_state(|s|s.hub_principal);
-    let r = hub::query_tickets(hub_principal, seq, 1).await.unwrap().first().unwrap().clone();
-    super::handle_ticket(&r.1).await;
+pub async fn handle_ticket(seq: u64)->Result<u64, String> {
+    let hub_principal = read_state(|s| s.hub_principal);
+    let r = hub::query_tickets(hub_principal, seq, 1)
+        .await
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+    match super::handle_redeem_ticket(&r.1).await {
+        Ok(block_index) => {
+            log::info!(
+                "[handle_ticket] process successful for ticket: {}, block_index: {}",
+                r.1,
+                block_index
+            );
+
+            Ok(block_index)
+        },
+        Err(e) => {
+            log::error!("[handle_ticket] failed to process ticket: {}, error: {}", r.1, e);
+            Err(e)
+        },
+    }
 }
 
 #[query(guard = "is_controller")]
 pub fn get_state() -> CustomsState {
-    read_state(|s|s.clone())
+    read_state(|s| s.clone())
 }
-
 
 #[query]
 fn mint_token_status(ticket_id: TicketId) -> MintTokenStatus {
-   match get_finalized_mint_token_request(&ticket_id) {
-       None => {
-           Unknown
-       }
-       Some(i) => {
-           Finalized {
-               tx_hash: i.to_string()
-           }
-       }
-   }
+    match get_finalized_mint_token_request(&ticket_id) {
+        None => Unknown,
+        Some(i) => Finalized {
+            tx_hash: i.to_string(),
+        },
+    }
 }
-
 
 // Enable Candid export
 ic_cdk::export_candid!();

@@ -326,7 +326,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm_route"
-version = "0.1.0"
+version = "0.1.9"
 dependencies = [
  "anyhow",
  "base64",
@@ -335,13 +335,16 @@ dependencies = [
  "cosmrs",
  "cosmwasm-schema",
  "flate2",
+ "futures",
  "hex",
+ "ic-canisters-http-types",
  "ic-cdk 0.12.2",
  "ic-cdk-macros 0.8.4",
  "ic-cdk-timers 0.7.0",
  "ic-log",
  "ic-stable-structures",
  "ic0 0.18.11",
+ "itertools 0.13.0",
  "log",
  "num-traits",
  "omnity_types",
@@ -938,13 +941,13 @@ dependencies = [
 
 [[package]]
 name = "ic-cdk"
-version = "0.13.4"
+version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "393d356e44d2470c90562356d4bde631b8addb5d81b7d29b0b58e17be7f1a2ca"
+checksum = "3b1da6a25b045f9da3c9459c0cb2b0700ac368ee16382975a17185a23b9c18ab"
 dependencies = [
  "candid",
- "ic-cdk-macros 0.13.3",
- "ic0 0.23.0",
+ "ic-cdk-macros 0.13.2",
+ "ic0 0.21.1",
  "serde",
  "serde_bytes",
 ]
@@ -959,22 +962,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "serde_tokenstream 0.1.7",
+ "serde_tokenstream",
  "syn 1.0.109",
 ]
 
 [[package]]
 name = "ic-cdk-macros"
-version = "0.13.3"
+version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b2a7d0338dbd29d63df3445402dc9cd792d2f65ceccf36d4f9a88529ca2b62d"
+checksum = "a45800053d80a6df839a71aaea5797e723188c0b992618208ca3b941350c7355"
 dependencies = [
  "candid",
  "proc-macro2",
  "quote",
  "serde",
- "serde_tokenstream 0.2.2",
- "syn 2.0.75",
+ "serde_tokenstream",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -998,7 +1001,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "054727a3a1c486528b96349817d54290ff70df6addf417def456ea708a16f7fb"
 dependencies = [
  "futures",
- "ic-cdk 0.13.4",
+ "ic-cdk 0.13.5",
  "ic0 0.21.1",
  "serde",
  "serde_bytes",
@@ -1078,12 +1081,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a54b5297861c651551676e8c43df805dad175cc33bc97dbd992edbbb85dcbcdf"
 
 [[package]]
-name = "ic0"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8de254dd67bbd58073e23dc1c8553ba12fa1dc610a19de94ad2bbcd0460c067f"
-
-[[package]]
 name = "ic_principal"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1135,6 +1132,15 @@ name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
@@ -1384,7 +1390,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81bddcdb20abf9501610992b6759a4c888aef7d1a7247ef75e2404275ac24af1"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.75",
@@ -1658,18 +1664,6 @@ dependencies = [
  "proc-macro2",
  "serde",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "serde_tokenstream"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64060d864397305347a78851c51588fd283767e7e7589829e8121d65512340f1"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde",
- "syn 2.0.75",
 ]
 
 [[package]]

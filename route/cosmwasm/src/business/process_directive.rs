@@ -1,90 +1,85 @@
-use cosmwasm::{
-    port::{PortContractExecutor, DIRECTIVE_EXECUTED_EVENT_KIND},
-    rpc::{response::TxCommitResponse, wrapper::Wrapper},
-    TxHash,
-};
-use memory::{mutate_state, read_state};
-use tendermint::abci::{Event, EventAttributeIndexExt};
+use cosmwasm::port::PortContractExecutor;
+use memory::{get_periodic_job_manager, insert_periodic_job_manager, set_route_state, take_state};
 
 use crate::*;
-use omnity_types::Directive;
+use omnity_types::ChainState;
 
-pub fn process_directive_msg_task() {
+pub fn process_directive_task() {
     ic_cdk::spawn(async {
-        // Considering that the directive is queried once a minute, guard protection is not needed.
-        process_directives().await;
+        let job_name = const_args::PROCESS_DIRECTIVE_JOB_NAME;
+        match get_periodic_job_manager(job_name) {
+            Some(mut periodic_job_manager) => {
+                if !periodic_job_manager.should_execute() {
+                    return;
+                }
+                periodic_job_manager.is_running = true;
+                insert_periodic_job_manager(job_name.to_string(), periodic_job_manager.clone());
+                match process_directives().await {
+                    Ok(_) => {
+                        periodic_job_manager.job_execute_success();
+                    }
+                    Err(e) => {
+                        periodic_job_manager.job_execute_failed();
+                        log::error!("failed to process directives, err: {:?}", e);
+                    }
+                }
+                insert_periodic_job_manager(job_name.to_string(), periodic_job_manager.clone());
+            }
+            None => {
+                log::error!(
+                    "periodic job({}) manager is none",
+                    job_name
+                );
+                return;
+            }
+        }
     });
 }
 
-pub const BATCH_QUERY_LIMIT: u64 = 20;
-async fn process_directives() {
-    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
-    let port_contract_executor = PortContractExecutor::from_state();
-    match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
-        Ok(directives) => {
-            for (seq, directive) in &directives {
-                match port_contract_executor
-                    .execute_directive(seq.clone(), directive.clone().into())
-                    .await
-                {
-                    Ok(_) => {
-                        mutate_state(|s| {
-                            s.next_directive_seq = seq + 1;
-                        });
-                        log::info!("[process directives] success to execute directive, seq: {}, directive: {:?}", seq, directive);
-                    }
-                    Err(err) => {
-                        log::error!("[process directives] failed to execute directive, seq: {}, directive: {:?}, err: {:?}", seq, directive, err);
-                    }
-                }
-            }
-            let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
-            mutate_state(|s| {
-                s.next_directive_seq = next_seq;
-            });
-        }
-        Err(err) => {
-            log::error!(
-                "[process directives] failed to query directives, err: {:?}",
-                err
-            );
-        }
-    };
-}
+async fn process_directives() -> Result<()> {
+    let mut state = take_state();
+    if state.chain_state == ChainState::Deactive {
+        return Ok(());
+    }
 
-pub async fn execute_directive(seq: Seq, directive: Directive) -> Result<TxHash> {
-    let msg = ExecuteMsg::ExecDirective {
-        seq,
-        directive: directive.into(),
-    };
-
-    let client = CosmWasmClient::cosmos_wasm_port_client();
-
-    let contract_id = get_contract_id();
-
-    let public_key_response = query_cw_public_key().await?;
-
-    let tendermint_public_key: tendermint::PublicKey =
-        tendermint::public_key::PublicKey::from_raw_secp256k1(
-            public_key_response.public_key.as_slice(),
+    if state.processing_directive.is_empty() {
+        let directives = hub::query_directives(
+            state.hub_principal,
+            state.next_directive_seq,
+            const_args::BATCH_QUERY_LIMIT,
         )
-        .unwrap();
-
-    let response = client
-        .execute_msg(contract_id, msg, tendermint_public_key)
         .await?;
+        state.processing_directive = directives.clone();
+    }
 
-    let wrapper: Wrapper<TxCommitResponse> =
-        serde_json::from_slice(response.body.as_slice()).unwrap();
+    let port_contract_executor = PortContractExecutor::from_state()?;
+    state
+        .processing_directive
+        .sort_by(|(seq1, _), (seq2, _)| seq2.cmp(seq1));
 
-    assert!(wrapper.error.is_none(), "Error: {:?}", wrapper.error);
-    let result: TxCommitResponse = wrapper.into_result()?;
+    while !state.processing_directive.is_empty() {
+        let (seq, directive) = state.processing_directive.pop().unwrap();
+        match port_contract_executor
+            .execute_directive(seq, directive.clone().into())
+            .await
+        {
+            Ok(_) => {
+                state.next_directive_seq = seq + 1;
+                set_route_state(state.clone());
+                log::info!(
+                    "[process directives] success to execute directive, seq: {}, directive: {:?}",
+                    seq,
+                    directive
+                );
+            }
+            Err(err) => {
+                log::error!("[process directives] failed to execute directive, seq: {}, directive: {:?}, err: {:?}", seq, directive, err);
+                state.processing_directive.push((seq, directive));
+                set_route_state(state.clone());
+                break;
+            }
+        }
+    }
 
-    let expect_event = Event::new(
-        DIRECTIVE_EXECUTED_EVENT_KIND,
-        [("sequence", seq.to_string()).no_index()],
-    );
-    result.assert_event_exist(&expect_event)?;
-
-    Ok(result.hash.to_string())
+    Ok(())
 }

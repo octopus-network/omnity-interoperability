@@ -71,6 +71,8 @@ pub struct CustomsState {
 
     pub ckbtc_ledger_principal: Principal,
 
+    pub ckbtc_minter_principal: Option<Principal>,
+
     pub icp_token_id: Option<TokenId>,
 
     pub ckbtc_token_id: Option<TokenId>,
@@ -106,6 +108,7 @@ impl From<InitArgs> for CustomsState {
             // finalized_mint_token_requests: Default::default(),
             is_timer_running: false,
             ckbtc_ledger_principal: args.ckbtc_ledger_principal,
+            ckbtc_minter_principal: None,
             icp_token_id: None,
             ckbtc_token_id: None,
         }

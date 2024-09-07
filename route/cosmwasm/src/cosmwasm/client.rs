@@ -1,3 +1,6 @@
+use candid::CandidType;
+use cosmwasm::port::ExecuteMsg;
+
 use crate::*;
 
 pub const OSMO_ACCOUNT_PREFIX: &str = "osmo";
@@ -42,6 +45,7 @@ impl CosmWasmClient {
             self.rest_url, address
         )
         .to_string();
+        log::info!("full_url: {:?}", full_url);
 
         let request_headers = vec![HttpHeader {
             name: "content-type".to_string(),
@@ -98,7 +102,7 @@ impl CosmWasmClient {
 
         let request_body = json!({
             "jsonrpc": "2.0",
-            "method": "broadcast_tx_commit",
+            "method": "broadcast_tx_async",
             "params": {
                 "tx": raw_base64,
             },
@@ -117,9 +121,21 @@ impl CosmWasmClient {
         http_request_with_status_check(request).await
     }
 
-    pub async fn query_tx_by_hash(&self, tx_hash: TxHash) -> Result<HttpResponse> {
+    pub async fn query_tx_by_hash_from_multi_rpc(
+        &self,
+        tx_hash: TxHash,
+        rpc_url_vec: Vec<String>,
+    ) -> Vec<Result<HttpResponse>> {
+        let mut fut = Vec::with_capacity(rpc_url_vec.len());
+        for rpc_url in rpc_url_vec {
+            fut.push(async { self.query_tx_by_hash(tx_hash.clone(), rpc_url).await });
+        }
+        futures::future::join_all(fut).await
+    }
+
+    pub async fn query_tx_by_hash(&self, tx_hash: TxHash, rpc_url: String) -> Result<HttpResponse> {
         // https://rpc.testnet.osmosis.zone/tx?hash=0xFE14C9EAD18A6990FF426F4782894C1719A4A2C4B62D2F6B8A53AD945D7FFE34
-        let request_url = format!("{}/tx?hash=0x{}", self.rpc_url, tx_hash);
+        let request_url = format!("{}/tx?hash=0x{}", rpc_url, tx_hash);
         let request_headers = vec![HttpHeader {
             name: "content-type".to_string(),
             value: "application/json".to_string(),
@@ -142,7 +158,7 @@ impl CosmWasmClient {
         contract_id: AccountId,
         msg: ExecuteMsg,
         tendermint_public_key: tendermint::public_key::PublicKey,
-    ) -> Result<HttpResponse> {
+    ) -> Result<TxHash> {
         let sender_public_key = cosmrs::crypto::PublicKey::from(tendermint_public_key);
         let sender_account_id = sender_public_key.account_id(OSMO_ACCOUNT_PREFIX).unwrap();
 
@@ -172,11 +188,7 @@ impl CosmWasmClient {
         .unwrap();
 
         let tx_body = tx::BodyBuilder::new().msg(msg_execute).memo(MEMO).finish();
-        log::info!("tx_body: {:?}", tx_body);
-
         let auth_info = SignerInfo::single_direct(Some(sender_public_key), sequence).auth_info(fee);
-
-        log::info!("auth_info: {:?}", auth_info);
 
         let chain_id = self
             .chain_id
@@ -186,9 +198,6 @@ impl CosmWasmClient {
                 RouteError::CustomError(format!("Failed to parse chain id: {:?}", e.to_string()))
             })?;
         let sign_doc = SignDoc::new(&tx_body, &auth_info, &chain_id, account_number).unwrap();
-
-        log::info!("sign_doc: {:?}", sign_doc);
-
         let sign_result = sign_with_cw_key(
             sign_doc
                 .clone()
@@ -197,8 +206,6 @@ impl CosmWasmClient {
         )
         .await?;
 
-        log::info!("sign_result: {:?}", sign_result);
-
         let raw: Raw = proto::cosmos::tx::v1beta1::TxRaw {
             body_bytes: sign_doc.body_bytes.clone(),
             auth_info_bytes: sign_doc.auth_info_bytes.clone(),
@@ -206,14 +213,21 @@ impl CosmWasmClient {
         }
         .into();
 
-        log::info!("raw: {:?}", raw);
+        let tx_hash = raw.to_bytes().map_err(|e| {
+            RouteError::CustomError(format!(
+                "Failed to convert raw to bytes: {:?}",
+                e.to_string()
+            ))
+        })?;
+        let http_response = self.broadcast_tx_commit(raw).await?;
+        log::info!("http_response: {:?}", http_response);
 
-        self.broadcast_tx_commit(raw).await
+        Ok(bytes_to_hex(&sha256(tx_hash)))
     }
 }
 
 pub async fn cw_chain_key_arg() -> EcdsaChainKeyArg {
-    let test_key_local = EcdsaKeyIds::TestKeyLocalDevelopment.to_key_id();
+    let key_id = EcdsaKeyIds::ProductionKey1.to_key_id();
     let cw_chain_key_derivation_path =
         memory::read_state(|state| state.cw_chain_key_derivation_path.clone());
 
@@ -224,7 +238,7 @@ pub async fn cw_chain_key_arg() -> EcdsaChainKeyArg {
             .collect(),
         key_id: EcdsaKeyId {
             curve: ic_cdk::api::management_canister::ecdsa::EcdsaCurve::Secp256k1,
-            name: test_key_local.name,
+            name: key_id.name,
         },
     }
 }
@@ -264,41 +278,86 @@ pub async fn sign_with_cw_key(message: Vec<u8>) -> Result<SignWithEcdsaResponse>
     Ok(response)
 }
 
-#[test]
-pub fn test() {
-    let public_key_bytes = vec![
-        2, 244, 211, 246, 208, 6, 119, 55, 46, 52, 239, 207, 151, 152, 143, 4, 205, 148, 37, 126,
-        72, 103, 37, 205, 171, 29, 228, 80, 245, 104, 131, 219, 109,
-    ];
-    dbg!(&bytes_to_base64(&public_key_bytes));
-    let tendermint_public_key =
-        tendermint::public_key::PublicKey::from_raw_secp256k1(public_key_bytes.as_slice()).unwrap();
-    dbg!(&tendermint_public_key);
-    dbg!(&tendermint_public_key.to_hex());
-    let sender_public_key_from_tendermint = cosmrs::crypto::PublicKey::from(tendermint_public_key);
-
-    dbg!(&sender_public_key_from_tendermint);
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, Default)]
+pub struct MultiRpcConfig {
+    pub rpc_list: Vec<String>,
+    pub minimum_response_count: u32,
 }
 
-#[test]
-pub fn test_serde() {
-    let public_key_bytes = vec![
-        2, 244, 211, 246, 208, 6, 119, 55, 46, 52, 239, 207, 151, 152, 143, 4, 205, 148, 37, 126,
-        72, 103, 37, 205, 171, 29, 228, 80, 245, 104, 131, 219, 109,
-    ];
-    dbg!(&bytes_to_base64(&public_key_bytes));
-    let tendermint_public_key =
-        tendermint::public_key::PublicKey::from_raw_secp256k1(public_key_bytes.as_slice()).unwrap();
+impl MultiRpcConfig {
+    pub fn new(rpc_list: Vec<String>, minimum_response_count: u32) -> Result<Self> {
+        
+        let s = Self {
+            rpc_list,
+            minimum_response_count,
+        };
+        s.check_config_valid()?;
+        
+        Ok(s)
+    }
 
-    // tendermint_public_key.to_bech32(hrp)
+    pub fn check_config_valid(&self)->Result<()> {
+        if self.minimum_response_count == 0 {
+            return Err(RouteError::CustomError(
+                "minimum_response_count should be greater than 0".to_string(),
+            ));
+        }
+        if self.rpc_list.len() < self.minimum_response_count as usize {
+            return Err(RouteError::CustomError(
+                "rpc_list length should be greater than minimum_response_count".to_string(),
+            ));
+        }
+        Ok(())
+    }
 
-    let s = serde_json::to_string(&tendermint_public_key).unwrap();
-    dbg!(&s);
-}
+    pub fn valid_and_get_result<'a, T>(
+        &self,
+        response_list: &'a Vec<Result<HttpResponse>>,
+    ) -> Result<T>
+    where
+        T: Serialize + Deserialize<'a> + Clone,
+    {
+        self.check_config_valid()?;
+        let mut success_response_list = vec![];
+        let mut success_response_body_list = vec![];
 
-#[test]
-pub fn test_de() {
-    let s = r#"{\"type\":\"tendermint/PubKeySecp256k1\",\"value\":\"AvTT9tAGdzcuNO/Pl5iPBM2UJX5IZyXNqx3kUPVog9tt\"}"#;
-    let public_key = serde_json::from_str::<tendermint::public_key::PublicKey>(s).unwrap();
-    dbg!(&public_key);
+        for response in response_list {
+            if response.is_err() {
+                continue;
+            }
+            match response {
+                Ok(res) => match serde_json::from_slice::<T>(&res.body) {
+                    Ok(t) => {
+                        success_response_list.push(t);
+                        success_response_body_list.push(res.body.clone());
+                    }
+                    Err(_) => {
+                        continue;
+                    }
+                },
+                Err(_) => {
+                    continue;
+                }
+            }
+        }
+
+        if success_response_list.len() < self.minimum_response_count as usize {
+            return Err(RouteError::CustomError(format!(
+                "Not enough valid response, expected: {}, actual: {}",
+                self.minimum_response_count,
+                success_response_list.len()
+            )));
+        }
+
+        // The minimum_response_count should greater than 0
+        let mut i = 1;
+        while i < success_response_list.len() {
+            if success_response_body_list[i - 1] != success_response_body_list[i] {
+                return Err(RouteError::CustomError("Response mismatch".to_string()));
+            }
+            i += 1;
+        }
+
+        Ok(success_response_list[0].clone())
+    }
 }

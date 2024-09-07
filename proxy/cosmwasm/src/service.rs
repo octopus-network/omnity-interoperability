@@ -1,19 +1,50 @@
+use std::time::Duration;
+
 use crate::*;
+use std::result::Result;
+use business::update_balance::{process_update_balance_jobs, update_balance_and_generate_ticket};
 use candid::Nat;
-use external::custom::{generate_ticket, TARGET_CHAIN_ID, TOKEN_ID};
-use icrc_ledger_types::icrc1::{account::Account, transfer::BlockIndex};
-use state::{contains_executed_transaction_index, insert_executed_transaction_index};
-use utils::{nat_to_u128, nat_to_u64};
+use external::{
+    ckbtc,
+    custom::{generate_ticket, TARGET_CHAIN_ID, TOKEN_ID},
+};
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_cdk::post_upgrade;
+use ic_cdk_timers::set_timer_interval;
+use icrc_ledger_types::icrc1::account::Account;
+use omnity_types::log::{init_log, StableLogWriter};
+use state::{
+    extend_ticket_records, get_settings, get_ticket_records, get_utxo_records, init_stable_log, mutate_settings, Settings, TicketRecord, UtxoRecord
+};
+use utils::nat_to_u128;
+
+pub fn is_controller() -> Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
+}
 
 #[ic_cdk::init]
 pub async fn init(args: lifecycle::init::InitArgs) {
     lifecycle::init::init(args);
+
+    init_log(Some(init_stable_log()));
+
+    set_timer_interval(
+        Duration::from_secs(5 * 60),
+        process_update_balance_jobs,
+    );
 }
 
 #[query]
-pub fn get_identity_by_osmosis_account_id(osmosis_account_id: String) -> std::result::Result<Account, String> {
+pub fn get_identity_by_osmosis_account_id(
+    osmosis_account_id: String,
+) -> Result<Account, String> {
     let address_data = AddressData::try_from(osmosis_account_id.as_str())
-        .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string())).map_err(|e| e.to_string())?;
+        .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
+        .map_err(|e| e.to_string())?;
 
     Ok(Account {
         owner: ic_cdk::api::id(),
@@ -21,60 +52,126 @@ pub fn get_identity_by_osmosis_account_id(osmosis_account_id: String) -> std::re
     })
 }
 
-#[ic_cdk::update]
-pub fn set_trigger_principal(principal: Principal) -> std::result::Result<(), String> {
-    assert!(ic_cdk::api::is_controller(&ic_cdk::caller()), "Caller is not controller");
-    state::set_trigger_principal(principal);
-    Ok(())
+#[update]
+pub async fn get_btc_mint_address(
+    osmosis_account_id: String,
+) -> Result<String, String> {
+    let address_data = AddressData::try_from(osmosis_account_id.as_str())
+        .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
+        .map_err(|e| e.to_string())?;
+
+    get_btc_address(GetBtcAddressArgs {
+        owner: None,
+        subaccount: Some(address_data.into()),
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
-#[ic_cdk::update]
-pub async fn trigger_transaction(block_index: BlockIndex) -> std::result::Result<(), String> {
-    assert_eq!(
-        ic_cdk::api::caller(),
-        state::get_trigger_principal(),
-        "Caller is not trigger principal"
-    );
-    assert!(
-        !contains_executed_transaction_index(nat_to_u64(block_index.clone())),
-        "Transaction already executed"
-    );
+#[query]
+pub fn query_utxo_records(osmosis_account_id: String) -> Vec<UtxoRecord> {
+    get_utxo_records(osmosis_account_id)
+}
 
-    let transaction_response = get_ckbtc_transaction(block_index.clone()).await.map_err(|e| e.to_string())?;
-    assert_eq!(
-        transaction_response.transactions.len(),
-        1,
-        "Expected 1 transaction, got {}",
-        transaction_response.transactions.len()
-    );
+#[query]
+pub fn query_ticket_records(osmosis_account_id: String) -> Vec<TicketRecord> {
+    get_ticket_records(osmosis_account_id)
+}
 
-    let transaction = transaction_response.transactions[0].clone();
-    assert!(
-        transaction.transfer.is_some(),
-        "Expected transfer transaction, got {:?}",
-        transaction
-    );
+#[query]
+pub async fn query_settings() -> Settings {
+    get_settings()
+}
 
-    let transfer = transaction.transfer.unwrap();
-    assert_eq!(
-        transfer.to.owner,
-        ic_cdk::api::id(),
-        "Transaction not for this canister"
-    );
+#[query(guard = "is_controller")]
+pub async fn query_scheduled_osmosis_account_id_list() -> Vec<String> {
+    state::get_scheduled_osmosis_account_id_list()
+}
 
-    approve_ckbtc_for_icp_custom(transfer.to.subaccount.clone(), transfer.amount.clone()).await.map_err(|e| e.to_string())?;
+#[query(hidden = true)]
+fn http_request(req: HttpRequest) -> HttpResponse {
+    StableLogWriter::http_request(req)
+}
+
+#[update]
+pub async fn update_settings(
+    ckbtc_ledger_principal: Option<Principal>,
+    ckbtc_minter_principal: Option<Principal>,
+    icp_customs_principal: Option<Principal>,
+) {
+    state::mutate_settings(|settings| {
+        if ckbtc_ledger_principal.is_some() {
+            settings.ckbtc_ledger_principal = ckbtc_ledger_principal.unwrap();
+        }
+        if ckbtc_minter_principal.is_some() {
+            settings.ckbtc_minter_principal = ckbtc_minter_principal.unwrap();
+        }
+        if icp_customs_principal.is_some() {
+            settings.icp_customs_principal = icp_customs_principal.unwrap();
+        }
+    });
+}
+
+#[update]
+pub async fn generate_ticket_from_subaccount(
+    osmosis_account_id: String,
+) -> Result<TicketId, String> {
+    let address_data = AddressData::try_from(osmosis_account_id.as_str())
+        .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
+        .map_err(|e| e.to_string())?;
+
+    let subaccount: Subaccount = address_data.into();
+
+    let balance = ckbtc::balance_of(Account {
+        owner: ic_cdk::api::id(),
+        subaccount: Some(subaccount.clone()),
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    approve_ckbtc_for_icp_custom(Some(subaccount), balance.clone())
+        .await
+        .map_err(|e| e.to_string())?;
 
     let ticket_id = generate_ticket(
         TOKEN_ID.to_string(),
         TARGET_CHAIN_ID.to_string(),
-        nat_to_u128(transfer.amount - Nat::from(2_u8) * transfer.fee.unwrap_or(Nat::from(0_u8))),
-        transfer.to.subaccount.unwrap(),
+        nat_to_u128(balance - Nat::from(2_u8) * Nat::from(10_u8)),
+        subaccount,
     )
-    .await.map_err(|e| e.to_string())?;
+    .await
+    .map_err(|e| e.to_string())?;
 
-    insert_executed_transaction_index(nat_to_u64(block_index), ticket_id);
+    extend_ticket_records(osmosis_account_id, vec![TicketRecord {
+        ticket_id: ticket_id.clone(),
+        minted_utxos: vec![],
+    }]);
+    Ok(ticket_id)
+}
 
-    Ok(())
+#[update]
+pub async fn update_balance_after_finalization(osmosis_account_id: String) {
+
+    mutate_settings(|s| {
+        s.update_balances_jobs.push(UpdateBalanceJob::new(osmosis_account_id.clone()))
+    });
+
+    log::info!("Created update balance job for osmosis account id: {}", osmosis_account_id);
+
+}
+
+#[update(guard = "is_controller")]
+pub async fn trigger_update_balance(osmosis_account_id: String) -> Result<TicketId, String> {
+    update_balance_and_generate_ticket(osmosis_account_id).await
+}
+
+#[post_upgrade]
+fn post_upgrade() {
+    init_log(Some(init_stable_log()));
+    set_timer_interval(
+        Duration::from_secs(5 * 60),
+        process_update_balance_jobs,
+    );
 }
 
 ic_cdk::export_candid!();

@@ -1,7 +1,7 @@
 use crate::*;
 
-pub const TARGET_CHAIN_ID: &str = "ic";
-pub const TOKEN_ID: &str = "icp";
+pub const TARGET_CHAIN_ID: &str = "osmo-test-5";
+pub const TOKEN_ID: &str = "sICP-icrc-ckBTC";
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct GenerateTicketOk {
@@ -32,7 +32,7 @@ pub async fn generate_ticket(
         from_subaccount: Some(subaccount),
     };
 
-    let icp_custom = state::get_icp_custom_principal();
+    let icp_custom = state::get_settings().icp_customs_principal;
     let result: (Result<GenerateTicketOk>,) =
         ic_cdk::api::call::call(icp_custom, "generate_ticket", (req,))
             .await

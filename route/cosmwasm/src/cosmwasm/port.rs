@@ -15,10 +15,7 @@ use cosmwasm_schema::cw_serde;
 use memory::read_state;
 use std::collections::HashMap;
 
-use crate::{
-    cosmwasm::rpc::{response::TxCommitResponse, wrapper::Wrapper},
-    CosmWasmClient,
-};
+use crate::{cosmwasm::rpc::wrapper::Wrapper, CosmWasmClient};
 
 use super::TxHash;
 
@@ -29,6 +26,7 @@ pub const REDEEM_EVENT_KIND: &str = "wasm-RedeemRequested";
 pub const DIRECTIVE_EXECUTED_EVENT_KIND: &str = "wasm-DirectiveExecuted";
 pub const TOKEN_MINTED_EVENT_KIND: &str = "wasm-TokenMinted";
 
+#[derive(Debug, Clone)]
 pub struct PortContractExecutor {
     pub client: CosmWasmClient,
     pub contract_id: AccountId,
@@ -48,27 +46,30 @@ impl PortContractExecutor {
         }
     }
 
-    pub fn from_state() -> PortContractExecutor {
+    pub fn from_state() -> Result<PortContractExecutor> {
         let client = CosmWasmClient::cosmos_wasm_port_client();
         let contract_id = get_contract_id();
         // let public_key_response = query_cw_public_key().await?;
         let public_key_vec = read_state(|s| {
-            s.cw_public_key_vec
-                .clone()
-                .expect("cw_public_key_vec not found")
-        });
+            s.cw_public_key_vec.clone().ok_or(RouteError::CustomError(
+                "cw_public_key_vec not found".to_string(),
+            ))
+            // .expect("cw_public_key_vec not found")
+        })?;
 
         let tendermint_public_key =
             tendermint::public_key::PublicKey::from_raw_secp256k1(public_key_vec.as_slice())
-                .expect("failed to init tendermint public key");
+                .ok_or(RouteError::CustomError(
+                    "failed to init tendermint public key".to_string(),
+                ))?;
 
-        Self::new(client, contract_id, tendermint_public_key)
+        Ok(Self::new(client, contract_id, tendermint_public_key))
     }
 
     pub async fn execute_directive(&self, seq: u64, directive: Directive) -> Result<TxHash> {
         let msg = ExecuteMsg::ExecDirective { seq, directive };
 
-        let response = self
+        let tx_hash = self
             .client
             .execute_msg(
                 self.contract_id.clone(),
@@ -77,25 +78,31 @@ impl PortContractExecutor {
             )
             .await?;
 
-        let wrapper: Wrapper<TxCommitResponse> =
-            serde_json::from_slice(response.body.as_slice()).unwrap();
+        log::info!("execute directive tx_hash: {:?}", tx_hash);
 
-        assert!(wrapper.error.is_none(), "Error: {:?}", wrapper.error);
-        let result: TxCommitResponse = wrapper.into_result()?;
+        let mut times: i32 = 3;
+        while times > 0 {
+            match self.confirm_execute_directive(seq, tx_hash.clone()).await {
+                Ok(_) => {
+                    return Ok(tx_hash);
+                }
+                Err(_) => {}
+            }
+            times -= 1;
+        }
 
-        let expect_event = Event::new(
-            DIRECTIVE_EXECUTED_EVENT_KIND,
-            [("sequence", seq.to_string()).no_index()],
-        );
-        result.assert_event_exist(&expect_event)?;
-
-        Ok(result.hash.to_string())
+        Err(RouteError::ConfirmExecuteDirectiveErr(seq, tx_hash))
     }
 
     pub async fn query_redeem_token_event(&self, tx_hash: TxHash) -> Result<RedeemEvent> {
-        let tx_response = self.client.query_tx_by_hash(tx_hash).await?;
-        let wrapper: Wrapper<TxResultByHashResponse> =
-            serde_json::from_slice(&tx_response.body).unwrap();
+        // let  = MultiRpcRule
+        let multi_rpc_config = read_state(|s| s.multi_rpc_config.clone());
+        multi_rpc_config.check_config_valid()?;
+        let tx_response = self.client.query_tx_by_hash_from_multi_rpc(tx_hash, multi_rpc_config.rpc_list.clone()).await;
+
+        let wrapper = multi_rpc_config.valid_and_get_result::<Wrapper<TxResultByHashResponse>>(&tx_response)?;
+        // let wrapper: Wrapper<TxResultByHashResponse> =
+        //     serde_json::from_slice(&tx_response.body).unwrap();
 
         let result: TxResultByHashResponse = wrapper.into_result()?;
         log::info!("tx_result: {:?}", result);
@@ -107,27 +114,33 @@ impl PortContractExecutor {
         Ok(redeem_event)
     }
 
-    pub async fn mint_token(&self, mint_token_request: MintTokenRequest) -> Result<TxHash> {
-        let msg = ExecuteMsg::PrivilegeMintToken {
-            ticket_id: mint_token_request.ticket_id.clone(),
-            token_id: mint_token_request.token_id.clone(),
-            receiver: mint_token_request.receiver.clone(),
-            amount: mint_token_request.amount.to_string(),
-        };
+    pub async fn confirm_execute_directive(&self, seq: u64, tx_hash: TxHash) -> Result<()> {
+        let tx_response = self.client.query_tx_by_hash(tx_hash, self.client.rpc_url.clone()).await?;
+        let wrapper: Wrapper<TxResultByHashResponse> =
+            serde_json::from_slice(&tx_response.body).unwrap();
 
-        let response = self
-            .client
-            .execute_msg(
-                self.contract_id.clone(),
-                msg,
-                self.tendermint_public_key.clone(),
-            )
-            .await?;
+        let result: TxResultByHashResponse = wrapper.into_result()?;
+        log::info!("tx_result: {:?}", result);
 
-        let wrapper: Wrapper<TxCommitResponse> =
-            serde_json::from_slice(response.body.as_slice()).unwrap();
+        let expect_event = Event::new(
+            DIRECTIVE_EXECUTED_EVENT_KIND,
+            [("sequence", seq.to_string()).no_index()],
+        );
+        result.assert_event_exist(&expect_event)?;
+        Ok(())
+    }
 
-        let result: TxCommitResponse = wrapper.into_result()?;
+    pub async fn confirm_mint_token(
+        &self,
+        mint_token_request: MintTokenRequest,
+        tx_hash: TxHash,
+    ) -> Result<()> {
+        let tx_response = self.client.query_tx_by_hash(tx_hash, self.client.rpc_url.clone()).await?;
+        let wrapper: Wrapper<TxResultByHashResponse> =
+            serde_json::from_slice(&tx_response.body).unwrap();
+
+        let result: TxResultByHashResponse = wrapper.into_result()?;
+        log::info!("tx_result: {:?}", result);
 
         let expect_event = Event::new(
             TOKEN_MINTED_EVENT_KIND,
@@ -139,8 +152,45 @@ impl PortContractExecutor {
             ],
         );
         result.assert_event_exist(&expect_event)?;
+        Ok(())
+    }
 
-        Ok(result.hash.to_string())
+    pub async fn mint_token(&self, mint_token_request: MintTokenRequest) -> Result<TxHash> {
+        let msg = ExecuteMsg::PrivilegeMintToken {
+            ticket_id: mint_token_request.ticket_id.clone(),
+            token_id: mint_token_request.token_id.clone(),
+            receiver: mint_token_request.receiver.clone(),
+            amount: mint_token_request.amount.clone().to_string(),
+        };
+
+        let tx_hash = self
+            .client
+            .execute_msg(
+                self.contract_id.clone(),
+                msg,
+                self.tendermint_public_key.clone(),
+            )
+            .await?;
+
+        log::info!("mint token tx_hash: {:?}", tx_hash);
+
+        let mut times = 3;
+        while times > 0 {
+            match self
+                .confirm_mint_token(mint_token_request.clone(), tx_hash.clone())
+                .await
+            {
+                Ok(_) => {
+                    return Ok(tx_hash);
+                }
+                Err(_) => {}
+            }
+            times -= 1;
+        }
+        Err(RouteError::ConfirmMintTokenErr(
+            format!("{:?}", mint_token_request).to_string(),
+            tx_hash,
+        ))
     }
 }
 
@@ -345,18 +395,4 @@ impl From<omnity_types::FeeTokenFactor> for FeeTokenFactor {
             fee_token_factor: value.fee_token_factor,
         }
     }
-}
-
-#[test]
-pub fn test_parse_execute_tx_result() {
-    let body = r#"{"jsonrpc":"2.0","id":"01010101-0101-4101-8101-010101010101","result":{"check_tx":{"code":0,"data":"","log":"","info":"","gas_wanted":"2000000","gas_used":"61511","events":[],"codespace":"","sender":"","priority":"0","mempoolError":""},"deliver_tx":{"code":0,"data":"Ei4KLC9jb3Ntd2FzbS53YXNtLnYxLk1zZ0V4ZWN1dGVDb250cmFjdFJlc3BvbnNl","log":"","info":"","gas_wanted":"2000000","gas_used":"1189664","events":[{"type":"coin_spent","attributes":[{"key":"spender","value":"osmo1lgg2dg68h2dsw2amwht5nae7f4j3qp0pzqrrg6","index":true},{"key":"amount","value":"10000uosmo","index":true}]},{"type":"coin_received","attributes":[{"key":"receiver","value":"osmo17xpfvakm2amg962yls6f84z3kell8c5lczssa0","index":true},{"key":"amount","value":"10000uosmo","index":true}]},{"type":"transfer","attributes":[{"key":"recipient","value":"osmo17xpfvakm2amg962yls6f84z3kell8c5lczssa0","index":true},{"key":"sender","value":"osmo1lgg2dg68h2dsw2amwht5nae7f4j3qp0pzqrrg6","index":true},{"key":"amount","value":"10000uosmo","index":true}]},{"type":"message","attributes":[{"key":"sender","value":"osmo1lgg2dg68h2dsw2amwht5nae7f4j3qp0pzqrrg6","index":true}]},{"type":"tx","attributes":[{"key":"fee","value":"10000uosmo","index":true}]},{"type":"tx","attributes":[{"key":"acc_seq","value":"osmo1lgg2dg68h2dsw2amwht5nae7f4j3qp0pzqrrg6/4","index":true}]},{"type":"tx","attributes":[{"key":"signature","value":"JNqWcKGRQp/IQ1HZQtgQoLX98hqG1r+QMYeOtY9E2aF7LEtnBnG68wqtqEIWaD9p3PBjVyqn4W7aSs9OQ1r2vA==","index":true}]},{"type":"message","attributes":[{"key":"action","value":"/cosmwasm.wasm.v1.MsgExecuteContract","index":true},{"key":"sender","value":"osmo1lgg2dg68h2dsw2amwht5nae7f4j3qp0pzqrrg6","index":true},{"key":"module","value":"wasm","index":true},{"key":"msg_index","value":"0","index":true}]},{"type":"execute","attributes":[{"key":"_contract_address","value":"osmo1w72rzhw4azdxk7ymtdww3vsq6l727nlu7nv5dph9l3m86cuskjfsjthed4","index":true},{"key":"msg_index","value":"0","index":true}]},{"type":"wasm-DirectiveExecuted","attributes":[{"key":"_contract_address","value":"osmo1w72rzhw4azdxk7ymtdww3vsq6l727nlu7nv5dph9l3m86cuskjfsjthed4","index":true},{"key":"sequence","value":"1","index":true},{"key":"msg_index","value":"0","index":true}]},{"type":"wasm-execute_msg","attributes":[{"key":"_contract_address","value":"osmo1w72rzhw4azdxk7ymtdww3vsq6l727nlu7nv5dph9l3m86cuskjfsjthed4","index":true},{"key":"contract","value":"osmo1w72rzhw4azdxk7ymtdww3vsq6l727nlu7nv5dph9l3m86cuskjfsjthed4","index":true},{"key":"msg_index","value":"0","index":true}]},{"type":"create_denom","attributes":[{"key":"creator","value":"osmo1w72rzhw4azdxk7ymtdww3vsq6l727nlu7nv5dph9l3m86cuskjfsjthed4","index":true},{"key":"new_token_denom","value":"factory/osmo1w72rzhw4azdxk7ymtdww3vsq6l727nlu7nv5dph9l3m86cuskjfsjthed4/ck_btc2","index":true},{"key":"msg_index","value":"0","index":true}]}],"codespace":""},"hash":"0C508F2DE3040FC8955F52D6030D7BF28F43C7281B416270E95F35E1CE2B1D14","height":"10999958"}}"#;
-    let wrapper: Wrapper<TxCommitResponse> = serde_json::from_str(&body).unwrap();
-
-    let result: TxCommitResponse = wrapper.into_result().unwrap();
-
-    let expect_event = Event::new(
-        DIRECTIVE_EXECUTED_EVENT_KIND,
-        [("sequence", "1").no_index()],
-    );
-    result.assert_event_exist(&expect_event).unwrap();
 }

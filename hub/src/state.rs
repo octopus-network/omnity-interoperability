@@ -658,7 +658,7 @@ impl HubState {
                 }
             }
 
-            TxAction::Redeem | TxAction::Burn => {
+            TxAction::Redeem | TxAction::Burn | TxAction::RedeemIcpChainKeyAssets(_) => {
                 // update token amount on src chain
                 self.update_token_position(
                     TokenKey::from(ticket.src_chain.to_string(), ticket.token.to_string()),

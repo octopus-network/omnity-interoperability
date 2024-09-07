@@ -3,7 +3,7 @@ use crate::{
         get_finalized_mint_token_request, get_token_principal, insert_finalized_mint_token_request,
         read_state,
     },
-    utils::convert_u128_u64,
+    utils::{convert_u128_u64, nat_to_u64},
     ICP_TRANSFER_FEE,
 };
 use candid::{CandidType, Deserialize, Nat, Principal};
@@ -30,7 +30,6 @@ pub struct MintTokenRequest {
     pub receiver: Account,
     pub amount: u128,
 }
-
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MintTokenError {
     UnsupportedToken(String),
@@ -71,15 +70,47 @@ pub struct RetrieveBtcOk {
     pub block_index: u64,
 }
 
+#[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
+pub enum RetrieveBtcWithApprovalError {
+    /// There is another request for this principal.
+    AlreadyProcessing,
+
+    /// The withdrawal amount is too low.
+    AmountTooLow(u64),
+
+    /// The bitcoin address is not valid.
+    MalformedAddress(String),
+
+    /// The withdrawal account does not hold the requested ckBTC amount.
+    InsufficientFunds { balance: u64 },
+
+    /// The caller didn't approve enough funds for spending.
+    InsufficientAllowance { allowance: u64 },
+
+    /// There are too many concurrent requests, retry later.
+    TemporarilyUnavailable(String),
+
+    /// A generic error reserved for future extensions.
+    GenericError {
+        error_message: String,
+        /// See the [ErrorCode] enum above for the list of possible values.
+        error_code: u64,
+    },
+}
+
+pub const CKBTC_TRANSFER_FEE: u64 = 10;
+
 pub async fn retrieve_ckbtc(
     receiver: String,
     amount: Nat,
     ticket_id: TicketId
-) -> Result<RetrieveBtcOk, MintTokenError> {
+) -> Result<u64, MintTokenError> {
+
     if get_finalized_mint_token_request(&ticket_id).is_some() {
         return Err(MintTokenError::AlreadyProcessed(ticket_id.clone()));
     }
     let ckbtc_ledger_principal = read_state(|s| s.ckbtc_ledger_principal.clone());
+    let ckbtc_minter_principal = read_state(|s| s.ckbtc_minter_principal.clone()).ok_or(MintTokenError::CustomError("ckbtc_minter_principal not found".to_string()))?;
     let client = ICRC1Client {
         runtime: CdkRuntime,
         ledger_canister_id: ckbtc_ledger_principal,
@@ -87,10 +118,10 @@ pub async fn retrieve_ckbtc(
     let approve_args = ApproveArgs {
         from_subaccount: None,
         spender: Account {
-            owner: ckbtc_ledger_principal,
+            owner: ckbtc_minter_principal,
             subaccount: None,
         },
-        amount: amount.clone(),
+        amount: Nat::from(amount.clone()),
         expected_allowance: None,
         expires_at: None,
         fee: None,
@@ -101,20 +132,22 @@ pub async fn retrieve_ckbtc(
     client
         .approve(approve_args)
         .await
-        .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?
-        .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?;
+        .map_err(|e| MintTokenError::CustomError(format!("{:?}", e)))?
+        .map_err(|e| MintTokenError::CustomError(format!("{:?}", e)))?;
 
     let arg = RetrieveBtcWithApprovalArgs {
-        amount: amount.to_string().parse().unwrap(),
+        amount: nat_to_u64(amount) - 2 * CKBTC_TRANSFER_FEE,
         address: receiver,
         from_subaccount: None,
     };
-    let result: (RetrieveBtcOk,) =
-        ic_cdk::call(ckbtc_ledger_principal, "retrieve_btc_with_approval", (arg,))
+
+    let result: (std::result::Result<RetrieveBtcOk, RetrieveBtcWithApprovalError >,) =
+        ic_cdk::call(ckbtc_minter_principal, "retrieve_btc_with_approval", (arg,))
             .await
-            .map_err(|e| MintTokenError::TemporarilyUnavailable(format!("{:?}", e)))?;
-    insert_finalized_mint_token_request(ticket_id, result.0.block_index);
-    Ok(result.0)
+            .map_err(|e| MintTokenError::CustomError(format!("{:?}", e)))?;
+    let retrieve_result = result.0.map_err(|e| MintTokenError::CustomError(format!("{:?}", e)))?;
+    insert_finalized_mint_token_request(ticket_id, retrieve_result.block_index);
+    Ok(retrieve_result.block_index)
 }
 
 pub async fn unlock_icp(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
@@ -145,7 +178,7 @@ pub async fn unlock_icp(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
 
 }
 
-pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
+pub async fn mint_token(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
     if get_finalized_mint_token_request(&req.ticket_id).is_some() {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
     }
@@ -153,7 +186,7 @@ pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
         .ok_or(MintTokenError::UnsupportedToken(req.token_id.clone()))?;
     let block_index = mint(ledger_id, req.amount, req.receiver).await?;
     insert_finalized_mint_token_request(req.ticket_id.clone(), block_index);
-    Ok(())
+    Ok(block_index)
 }
 
 async fn mint(ledger_id: Principal, amount: u128, to: Account) -> Result<u64, MintTokenError> {
