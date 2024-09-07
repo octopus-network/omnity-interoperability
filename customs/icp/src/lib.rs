@@ -92,8 +92,8 @@ async fn process_tickets() {
         Ok(tickets) => {
             for (seq, ticket) in &tickets {
                 match handle_redeem_ticket(ticket).await {
-                    Ok(_) => {
-                        log!(P0, "[process tickets] process successful for ticket{}", ticket);
+                    Ok(block_index) => {
+                        log!(P0, "[process tickets] process successful for ticket{}, block_index: {}", ticket, block_index);
                         mutate_state(|s| s.next_ticket_seq = seq+1)
                     },
                     Err(e) => {
