@@ -38,6 +38,7 @@ type GenerateTicketReq = record {
   amount : nat;
   receiver : text;
 };
+type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record {
   ckbtc_ledger_principal : principal;
   hub_principal : principal;
@@ -48,6 +49,7 @@ type MintTokenStatus = variant {
   Unknown;
 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
+type Result_1 = variant { Ok : nat64; Err : text };
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -70,14 +72,20 @@ type Token = record {
   name : text;
   symbol : text;
 };
-type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxAction = variant {
+  Burn;
+  Redeem;
+  Mint;
+  RedeemIcpChainKeyAssets : IcpChainKeyToken;
+  Transfer;
+};
 service : (InitArgs) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_account_identifier : (principal) -> (blob) query;
   get_chain_list : () -> (vec Chain) query;
   get_state : () -> (CustomsState) query;
   get_token_list : () -> (vec Token) query;
-  handle_ticket : (nat64) -> ();
+  handle_ticket : (nat64) -> (Result_1);
   mint_token_status : (text) -> (MintTokenStatus) query;
   query_hub_tickets : (nat64, nat64) -> (vec record { nat64; Ticket });
   set_ckbtc_token : (text) -> ();

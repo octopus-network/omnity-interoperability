@@ -91,6 +91,7 @@ type FinalizeAddRunesArgs = record {
 };
 type GetEventsArg = record { start : nat64; length : nat64 };
 type HubArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record { admin : principal };
 type LinkChainReq = record { chain1 : text; chain2 : text };
 type Permission = variant { Update; Query };
@@ -198,7 +199,13 @@ type Topic = variant {
   ToggleChainState;
   UpdateToken;
 };
-type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxAction = variant {
+  Burn;
+  Redeem;
+  Mint;
+  RedeemIcpChainKeyAssets : IcpChainKeyToken;
+  Transfer;
+};
 type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
   add_dest_chain_for_token : (AddDestChainArgs) -> (Result);

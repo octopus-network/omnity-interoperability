@@ -22,12 +22,7 @@ type Factor = variant {
   UpdateTargetChainFactor : TargetChainFactor;
 };
 type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
-type HttpHeader = record { value : text; name : text };
-type HttpResponse = record {
-  status : nat;
-  body : blob;
-  headers : vec HttpHeader;
-};
+type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record {
   hub_principal : principal;
   cw_rpc_url : text;
@@ -40,12 +35,10 @@ type MultiRpcConfig = record {
   minimum_response_count : nat32;
 };
 type Result = variant { Ok : text; Err : text };
-type Result_1 = variant { Ok : HttpResponse; Err : text };
 type RouteState = record {
   hub_principal : principal;
   cw_rpc_url : text;
   cw_chain_key_derivation_path : vec blob;
-  is_timer_running : vec text;
   next_directive_seq : nat64;
   cw_rest_url : text;
   cw_public_key_vec : opt blob;
@@ -85,7 +78,13 @@ type Token = record {
   name : text;
   symbol : text;
 };
-type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxAction = variant {
+  Burn;
+  Redeem;
+  Mint;
+  RedeemIcpChainKeyAssets : IcpChainKeyToken;
+  Transfer;
+};
 type UpdateCwSettingsArgs = record {
   cw_rpc_url : opt text;
   cw_rest_url : opt text;
@@ -97,9 +96,8 @@ service : (InitArgs) -> {
   osmosis_account_id : () -> (Result);
   query_redeemed_tickets : () -> (vec record { text; text }) query;
   redeem : (text) -> (Result);
-  route_state : () -> (RouteState) query;
-  start_process_directive_task : () -> ();
-  start_process_ticket_task : () -> ();
-  test_rpc : (text, text) -> (Result_1);
+  route_state : () -> (RouteState, text, vec text) query;
+  start_process_directive : () -> ();
+  start_process_ticket : () -> ();
   update_cw_settings : (UpdateCwSettingsArgs) -> ();
 }
