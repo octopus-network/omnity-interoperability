@@ -30,8 +30,9 @@ serde_derive = "^1.0"
 k256 = "0.13"
 # essential dependencies of evm-rpc-canister
 ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.9.1-stablelog" }
-evm_rpc = { git = "https://github.com/internet-computer-protocol/evm-rpc-canister.git", rev = "64f743e96d1db9c1cdc4089c2f54751193a000de" }
-cketh-common = { git = "https://github.com/dfinity/ic", rev = "22b875f2b9508739b005d4352c14e877995f52fd", package = "ic-cketh-minter" }
+evm_rpc = { git = "https://github.com/internet-computer-protocol/evm-rpc-canister.git", rev = "1e5ba9a28c63f4adc5b14266db923121bfd410fe" }
+cketh-common = { git = "https://github.com/dfinity/ic", rev = "1f551bea63354370b6e7a5037e96d464bdab3b41", package = "ic-cketh-minter" }
+
 ethers-core = "2.0.11"
 itertools = "0.12.1"
 anyhow = "1.0.80"
@@ -39,4 +40,7 @@ sha2 = "0.10.8"
 ethers-contract = "2.0.14"
 ethers-providers = "2.0.14"
 futures = "0.3"
+zeroize = "1.8.1"
+evm_rpc_types = { git = "https://github.com/internet-computer-protocol/evm-rpc-canister.git", rev = "1e5ba9a28c63f4adc5b14266db923121bfd410fe", package = "evm_rpc_types" }
+
 [workspace]
