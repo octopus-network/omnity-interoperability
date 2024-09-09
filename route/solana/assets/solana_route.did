@@ -156,11 +156,7 @@ type TransactionStatus = record {
   confirmation_status : opt TransactionConfirmationStatus;
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
-type TxStatus = variant {
-  Finalized : record { signature : text };
-  TxFailed : record { e : text };
-  Unknown;
-};
+type TxStatus = variant { Finalized; TxFailed : record { e : text }; Unknown };
 type UpgradeArgs = record {
   admin : opt principal;
   hub_principal : opt principal;

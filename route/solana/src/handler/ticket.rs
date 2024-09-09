@@ -126,7 +126,7 @@ pub async fn create_associated_account() {
         for (_seq, ticket) in s.tickets_queue.iter() {
             if let Some(token_mint) = s.token_mint_accounts.get(&ticket.token) {
                 //the token mint account must be confirmed
-                if matches!(token_mint.status,TxStatus::Finalized {..}){
+                if matches!(token_mint.status,TxStatus::Finalized){
                     match s
                     .associated_accounts
                     .get(&(ticket.receiver.to_string(), token_mint.account.to_string()))
@@ -134,7 +134,7 @@ pub async fn create_associated_account() {
                     None => creating_atas.push((ticket.receiver.to_owned(), token_mint.to_owned())),
                     Some(ata) => {
                         //filter account,unconformed and retry < RETRY_LIMIT_SIZE
-                        if !matches!(ata.status, TxStatus::Finalized {..}) && ata.retry < RETRY_LIMIT_SIZE {
+                        if !matches!(ata.status, TxStatus::Finalized) && ata.retry < RETRY_LIMIT_SIZE {
                             creating_atas.push((ticket.receiver.to_owned(), token_mint.to_owned()))
                         }
                     }
@@ -186,15 +186,45 @@ pub async fn create_associated_account() {
             new_account_info
         };
 
-        // let ata_account_info = sol_client
-        //     .get_account_info(associated_account.to_string())
-        //     .await;
+     
         log!(
             DEBUG,
             "[ticket::create_associated_account] ata_account_info from solana route : {:?} ",
             associated_account,
    
         );
+
+         // check ATA exists on solana
+         let sol_client = solana_client().await;
+           let ata_account_info = sol_client
+            .get_account_info(associated_account.account.to_string())
+            .await;
+         log!(
+             DEBUG,
+             "[ticket::create_associated_account] ATA: {:?} account info from solana: {:?} ",
+             associated_account,ata_account_info,
+         );
+         if let Ok(account_info) = ata_account_info {
+             if matches!(account_info,Some(..)){
+                 let ata = AccountInfo {
+                     account: associated_account.account.to_string(),
+                     retry: associated_account.retry,
+                     signature: associated_account.signature,
+                     status: TxStatus::Finalized,
+                 };
+                 //update mint account info
+                 mutate_state(|s| {
+                    s.associated_accounts.insert(
+                        (owner.to_string(), token_mint.account.to_string()),
+                        ata,
+                    )
+                });
+                 //skip this mint account
+                 continue;
+ 
+             }
+             
+         }
         
         // retry < RETRY_LIMIT_SIZE,or skip
         // if associated_account.retry >= RETRY_LIMIT_SIZE {
@@ -219,7 +249,7 @@ pub async fn create_associated_account() {
                     }
                 }
             }
-            TxStatus::Finalized { .. } => {
+            TxStatus::Finalized => {
                 log!(
                     DEBUG,
                     "[ticket::create_associated_account] {:?}  Already finalized !",
@@ -232,7 +262,7 @@ pub async fn create_associated_account() {
                    "[ticket::create_associated_account] failed to create_associated_account for owner: {} and token mint: {}, error: {:}",
                    owner,token_mint.account,e
                 );
-                handle_creating_ata(owner.to_owned(), token_mint.account.to_string()).await;
+                handle_creating_ata(owner.to_string(), token_mint.account.to_string()).await;
             }
         }
 
@@ -245,35 +275,37 @@ pub async fn create_associated_account() {
     }
 }
 
-pub async fn handle_creating_ata(owner:String,token_mint_address:String) {
+pub async fn handle_creating_ata(owner:String,mint_address:String) {
 
-    match create_ata(owner.to_string(), token_mint_address.to_string()).await {
-        Ok(signature) => {
+    match create_ata(owner.to_string(), mint_address.to_string()).await {
+        Ok(sig) => {
             log!(
                 DEBUG,
                 "[ticket::handle_creating_ata] create_ata signature : {:?}",
-                signature
+                sig
             );
             // update account created signature and retry ,but not confirmed
             mutate_state(|s| {
                 s.associated_accounts
-                    .get_mut(&(owner.to_string(), token_mint_address.to_string()))
+                    .get_mut(&(owner.to_string(), mint_address.to_string()))
                     .map(|account| {
-                        account.signature = Some(signature);
+                        account.signature = Some(sig.to_string());
                         account.retry += 1;
                     })
             });
+             // update ata status
+            //  update_ata_status(sig.to_string(),owner.to_string(),mint_address.to_string()).await;
         }
         Err(e) => {
             log!(
                 ERROR,
-                "[ticket::handle_creating_ata] create_ata for {:} and {:}, error: {:?}  ",
-                owner.to_string(), token_mint_address.to_string(), e
+                "[ticket::handle_creating_ata] create_ata for owner: {:} and token_mint: {:}, error: {:?}  ",
+                owner.to_string(), mint_address.to_string(), e
             );
             // update account retry 
             mutate_state(|s| {
                 s.associated_accounts
-                    .get_mut(&(owner.to_string(), token_mint_address.to_string()))
+                    .get_mut(&(owner.to_string(), mint_address.to_string()))
                     .map(|account| {
                         account.status =
                             TxStatus::TxFailed { e: e.to_string() };
@@ -286,7 +318,7 @@ pub async fn handle_creating_ata(owner:String,token_mint_address:String) {
 
 }
 
-pub async fn update_ata_status(sig:String,owner:String,token_mint:String) {
+pub async fn update_ata_status(sig:String,owner:String,mint_address:String) {
     let tx_status_ret =
     sol_call::get_signature_status(vec![sig.to_string()]).await;
    match tx_status_ret {
@@ -312,11 +344,9 @@ pub async fn update_ata_status(sig:String,owner:String,token_mint:String) {
                     // update account status to confimed
                     mutate_state(|s| {
                         s.associated_accounts
-                            .get_mut(&(owner.to_string(), token_mint.to_string()))
+                            .get_mut(&(owner.to_string(), mint_address.to_string()))
                             .map(|account| {
-                                account.status = TxStatus::Finalized {
-                                    signature: sig.to_string(),
-                                };
+                                account.status = TxStatus::Finalized;
                             })
                     });
                  }
@@ -340,7 +370,7 @@ pub async fn mint_token() {
         let token_mint = read_state(|s| s.token_mint_accounts.get(&ticket.token).cloned());
         let token_mint = match token_mint {
             Some(token_mint) => {
-                if !matches!(token_mint.status,TxStatus::Finalized { .. }) {
+                if !matches!(token_mint.status,TxStatus::Finalized) {
                     log!(DEBUG,
                         "[ticket::mint_token] token_mint ({:?}) not comfired, waiting for comfire ...",
                         token_mint
@@ -366,7 +396,7 @@ pub async fn mint_token() {
         });
         let associated_account = match associated_account {
             Some(associated_account) => {
-                if !matches!(associated_account.status,TxStatus::Finalized { .. }) {
+                if !matches!(associated_account.status,TxStatus::Finalized) {
                     log!(DEBUG,
                         "[ticket::mint_token] associated_account ({:?}) not comfired, waiting for comfire ...",
                         associated_account
@@ -441,9 +471,7 @@ pub async fn mint_token() {
                                     if let Some(status) = &tx_status.confirmation_status {
                                         if matches!(status, TransactionConfirmationStatus::Finalized) {
                                             // update mint token req status
-                                            mint_req.status = TxStatus::Finalized {
-                                                signature: sig.to_string(),
-                                            };
+                                            mint_req.status = TxStatus::Finalized;
                                             mutate_state(|s| {
                                                 s.update_mint_token_req(mint_req.ticket_id.to_owned(), mint_req)
                                             });
@@ -458,11 +486,12 @@ pub async fn mint_token() {
                 }
               
             },
-            TxStatus::Finalized { signature } => {
+            TxStatus::Finalized  => {
                 // update txhash to hub
                let hub_principal = read_state(|s| s.hub_principal);
+               let sig = mint_req.signature.unwrap();
                if let Err(err) =
-                   update_tx_hash(hub_principal, ticket.ticket_id.to_string(), signature.to_string()).await
+                   update_tx_hash(hub_principal, ticket.ticket_id.to_string(), sig).await
                {
                    log!(
                        ERROR,
@@ -481,7 +510,7 @@ pub async fn mint_token() {
                     ticket.ticket_id,e 
                 );
                  //retry mint_to 
-                //  handle_mint_token(mint_req).await;
+                 handle_mint_token(mint_req).await;
  
             },
             

@@ -17,7 +17,8 @@ case "$1" in
     SCHNORR_CANISTER_ID=aaaaa-aa
     SCHNORR_KEY_NAME="test_key_1"
     # SCHNORR_KEY_NAME="key_1"
-    SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+#     SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+    SOLANA_RPC_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
     SOL_PROVIDER_CANISTER_ID=l3ka6-4yaaa-aaaar-qahpa-cai
     SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
     echo "testnet environment: 
@@ -38,7 +39,8 @@ case "$1" in
     HUB_CANISTER_ID=7wupf-wiaaa-aaaar-qaeya-cai
     SCHNORR_CANISTER_ID=aaaaa-aa
     SCHNORR_KEY_NAME="key_1"
-    SOLANA_RPC_URL="https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+#     SOLANA_RPC_URL="https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+    SOLANA_RPC_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
     SOL_PROVIDER_CANISTER_ID=l3ka6-4yaaa-aaaar-qahpa-cai
     SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
     
@@ -259,9 +261,9 @@ dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${BITCOIN_CHAIN_ID}\
 #     --ic 
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE12"
-TOKEN_NAME="HOPE•YOU•GET•NICE12"
-TOKEN_SYMBOL="NICE12"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE18"
+TOKEN_NAME="HOPE•YOU•GET•NICE18"
+TOKEN_SYMBOL="NICE18"
 DECIMALS=2
 ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
 
@@ -337,7 +339,7 @@ echo
 echo "mock transfer from Bitcoin to Solana ..."
 echo 
 TID="28b47548-55dc-4e89-b41d-76bc0247828e"
-AMOUNT="333333333"
+AMOUNT="222222222"
 SOL_RECEIVER="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 dfx canister call $HUB_CANISTER_ID send_ticket "(record { ticket_id = \"${TID}\"; 
         ticket_type = variant { Normal }; 
@@ -444,14 +446,14 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 # })" --ic
 
 # # get token mint
-# TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
-# TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
-# echo "token mint: $TOKEN_MINT"
+TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
+TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
+echo "token mint: $TOKEN_MINT"
 
 # SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
 # create aossicated account for user
-# dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
-#         \"${TOKEN_MINT}\")" --ic  
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
+        \"${TOKEN_MINT}\")" --ic  
 
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_RECEIVER}\",
 #         \"${TOKEN_MINT}\")" --ic  

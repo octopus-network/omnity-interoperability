@@ -30,7 +30,7 @@ thread_local! {
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TxStatus {
-    Finalized { signature: String },
+    Finalized,
     Unknown,
     TxFailed { e: String },
 }

@@ -17,7 +17,8 @@ case "$1" in
     SCHNORR_CANISTER_ID=aaaaa-aa
     SCHNORR_KEY_NAME="test_key_1"
     # SCHNORR_KEY_NAME="key_1"
-    SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+    # SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+    SOLANA_RPC_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
     SOL_PROVIDER_CANISTER_ID=l3ka6-4yaaa-aaaar-qahpa-cai
     SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
     echo "testnet environment: 
@@ -38,7 +39,8 @@ case "$1" in
     HUB_CANISTER_ID=7wupf-wiaaa-aaaar-qaeya-cai
     SCHNORR_CANISTER_ID=aaaaa-aa
     SCHNORR_KEY_NAME="key_1"
-    SOLANA_RPC_URL="https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+    # SOLANA_RPC_URL="https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+    SOLANA_RPC_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
     SOL_PROVIDER_CANISTER_ID=l3ka6-4yaaa-aaaar-qahpa-cai
     SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
     
@@ -234,18 +236,18 @@ dfx canister call $HUB_CANISTER_ID update_fee "vec {variant { UpdateTargetChainF
 dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateFee},0:nat64,12:nat64)" --ic 
 
 # token info
-TOKEN_ID_PRE="Bitcoin-runes-HOPE•YOU•GET•UST"
-TOKEN_NAME_PRE="HOPE•YOU•GET•UST"
-TOKEN_SYMBOL_PRE="UST"
-DECIMALS=9
+TOKEN_ID_PRE="Bitcoin-runes-HOPE•YOU•GET•USBL"
+TOKEN_NAME_PRE="HOPE•YOU•GET•USBL"
+TOKEN_SYMBOL_PRE="USBL"
+DECIMALS=2
 ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
 
 # ticket info
 TID_PRE="28b47548-55dc-4e89-b41d-76bc0247828e"
-MINT_AMOUNT="5555555555"
+MINT_AMOUNT="2222222222"
 SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
 
-total_calls=5
+total_calls=10
 for i in $(seq 1 $total_calls); do
   TOKEN_ID=${TOKEN_ID_PRE}$i
   TOKEN_NAME=${TOKEN_NAME_PRE}$i

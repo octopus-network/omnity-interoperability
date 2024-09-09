@@ -281,7 +281,7 @@ pub async fn create_mint_account(req: TokenInfo) -> Result<AccountInfo, CallErro
                 }
             }
         }
-        TxStatus::Finalized { .. } => return Ok(mint_account_info),
+        TxStatus::Finalized => return Ok(mint_account_info),
     }
 
     match read_state(|s| s.token_mint_accounts.get(&req.token_id).cloned()) {
@@ -459,7 +459,7 @@ pub async fn create_aossicated_account(
                 }
             }
         }
-        TxStatus::Finalized { .. } => return Ok(ata_info),
+        TxStatus::Finalized => return Ok(ata_info),
     }
     match read_state(|s| {
         s.associated_accounts
@@ -549,7 +549,7 @@ pub async fn mint_token(req: MintTokenRequest) -> Result<TxStatus, CallError> {
                 Some(sig) => update_mint_req_status(sig, req.ticket_id.to_string()).await?,
             }
         }
-        TxStatus::Finalized { signature } => {
+        TxStatus::Finalized => {
             log!(
                 DEBUG,
                 "[service::mint_to] {:?} already finalized !",
@@ -560,7 +560,7 @@ pub async fn mint_token(req: MintTokenRequest) -> Result<TxStatus, CallError> {
             if let Err(err) = update_tx_hash(
                 hub_principal,
                 req.ticket_id.to_string(),
-                signature.to_string(),
+                req.signature.unwrap(),
             )
             .await
             {
@@ -604,11 +604,9 @@ async fn update_mint_req_status(sig: String, ticket_id: String) -> Result<(), Ca
                 // update req status
 
                 mutate_state(|s| {
-                    s.mint_token_requests.get_mut(&ticket_id).map(|req| {
-                        req.status = TxStatus::Finalized {
-                            signature: sig.to_string(),
-                        }
-                    })
+                    s.mint_token_requests
+                        .get_mut(&ticket_id)
+                        .map(|req| req.status = TxStatus::Finalized)
                 });
                 // update txhash to hub
                 let hub_principal = read_state(|s| s.hub_principal);
