@@ -70,18 +70,6 @@
         }
       ]
     },
-    "cosmwasm_route_osmosis_testnet": {
-      "gzip": true,
-      "candid": "route/cosmwasm/cosmwasm_route.did",
-      "wasm": "route/cosmwasm/target/wasm32-unknown-unknown/release/cosmwasm_route.wasm",
-      "package": "cosmwasm_route",
-      "type": "custom",
-      "metadata": [
-        {
-          "name": "candid:service"
-        }
-      ]
-    },
     "cosmwasm_proxy": {
       "gzip": true,
       "candid": "proxy/cosmwasm/cosmwasm_proxy.did",
