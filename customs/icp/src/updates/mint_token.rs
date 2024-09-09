@@ -136,7 +136,7 @@ pub async fn retrieve_ckbtc(
         .map_err(|e| MintTokenError::CustomError(format!("{:?}", e)))?;
 
     let arg = RetrieveBtcWithApprovalArgs {
-        amount: nat_to_u64(amount) - 2 * CKBTC_TRANSFER_FEE,
+        amount: nat_to_u64(amount),
         address: receiver,
         from_subaccount: None,
     };
