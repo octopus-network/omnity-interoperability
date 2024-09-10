@@ -19,7 +19,7 @@ pub mod types;
 pub mod updates;
 mod upgrade;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum Error {
     #[error("Hub error: {0}")]
     HubError(String),
@@ -37,10 +37,12 @@ pub enum Error {
     IcCallError(RejectionCode, String),
     #[error("generate rpc request data error: {0}")]
     RequestDataError(String),
-    #[error(transparent)]
-    Custom(#[from] anyhow::Error),
+    #[error("custom error: {0}")]
+    Custom(String),
     #[error("Temporay error")]
-    Temporary
+    Temporary,
+    #[error("Fatal error: {0}")]
+    Fatal(String),
 }
 
 pub mod const_args {
@@ -66,6 +68,7 @@ pub mod const_args {
     pub const PENDING_TICKET_TIMEOUT_SECONDS: u64 = 600; //10 minutes
     pub const MONITOR_PRINCIPAL: &str =
         "3edln-ixjzp-oflch-uwhc7-xu5yt-s7t72-rp3rp-25j7a-tu254-h4w3x-jqe";
+    pub const RPC_RETRY_TIMES: usize = 4;
 }
 
 pub fn get_time_secs() -> u64 {

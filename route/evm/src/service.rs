@@ -9,22 +9,25 @@ use ic_cdk_timers::set_timer_interval;
 use log::{error, info};
 use serde_derive::Deserialize;
 
-use crate::{Error, get_time_secs, hub};
-use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
-use crate::eth_common::{EvmAddress, EvmTxType, get_balance};
+use crate::const_args::{
+    BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL,
+    SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
+};
+use crate::eth_common::{call_rpc_with_retry, get_balance, EvmAddress, EvmTxType};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::stable_log::{init_log, StableLogWriter};
 use crate::stable_memory::init_stable_log;
 use crate::state::{
-    EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
+    init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, EvmRouteState,
     StateProfile,
 };
 use crate::types::{
     Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
     PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
 };
+use crate::{get_time_secs, hub, Error};
 
 #[init]
 fn init(args: InitArgs) {
@@ -39,8 +42,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
-    EvmRouteState::post_upgrade();
+fn post_upgrade(gasfee_percent: u64) {
+    EvmRouteState::post_upgrade(gasfee_percent);
     init_log(Some(init_stable_log()));
     start_tasks();
     info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
@@ -204,7 +207,6 @@ fn update_fee_token(fee_token: String) {
     mutate_state(|s| s.fee_token_id = fee_token);
 }
 
-
 #[update(guard = "is_admin")]
 fn update_rpcs(rpcs: Vec<RpcApi>) {
     mutate_state(|s| s.rpc_providers = rpcs);
@@ -229,7 +231,9 @@ fn is_monitor() -> Result<(), String> {
 #[update(guard = "is_monitor")]
 async fn metrics() -> MetricsStatus {
     let chainkey_addr = minter_addr();
-    let balance = get_balance(chainkey_addr).await.unwrap_or_default();
+    let balance = call_rpc_with_retry(chainkey_addr, get_balance)
+        .await
+        .unwrap_or_default();
     MetricsStatus {
         latest_scan_interval_secs: 0,
         chainkey_addr_balance: balance.as_u128(),
@@ -273,9 +277,7 @@ pub fn insert_pending_hash(tx_hash: String) {
 pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
     let hub_principal = read_state(|s| s.hub_principal);
     match hub::query_tickets(hub_principal, start, BATCH_QUERY_LIMIT).await {
-        Ok(tickets) => {
-            return tickets
-        }
+        Ok(tickets) => return tickets,
         Err(err) => {
             log::error!("[process tickets] failed to query tickets, err: {}", err);
             return vec![];
@@ -291,7 +293,9 @@ pub fn query_handled_event(tx_hash: String) -> Option<String> {
 #[update(guard = "is_admin")]
 pub async fn rewrite_tx_hash(ticket_id: String, tx_hash: String) {
     let hub_principal = read_state(|s| s.hub_principal);
-    hub::update_tx_hash(hub_principal, ticket_id, tx_hash).await.unwrap();
+    hub::update_tx_hash(hub_principal, ticket_id, tx_hash)
+        .await
+        .unwrap();
 }
 
 #[update(guard = "is_admin")]

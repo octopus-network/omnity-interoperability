@@ -9,11 +9,12 @@ use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{
     ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument,
 };
-use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
+use ic_stable_structures::writer::Writer;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 
+use crate::{Error, stable_memory};
 use crate::eth_common::{EvmAddress, EvmTxType};
 use crate::service::InitArgs;
 use crate::stable_memory::Memory;
@@ -21,7 +22,7 @@ use crate::types::{Chain, ChainState, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
-use crate::{stable_memory, Error};
+use crate::upgrade::OldEvmRouteState;
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
@@ -71,6 +72,7 @@ impl EvmRouteState {
             evm_tx_type: args.evm_tx_type,
             block_interval_secs: args.block_interval_secs,
             pending_events_on_chain: Default::default(),
+            evm_transfer_gas_percent: 110,
         };
         Ok(ret)
     }
@@ -89,7 +91,7 @@ impl EvmRouteState {
             .expect("failed to save hub state");
     }
 
-    pub fn post_upgrade() {
+    pub fn post_upgrade(gasfee_percent: u64) {
         use ic_stable_structures::Memory;
         let memory = stable_memory::get_upgrade_stash_memory();
         // Read the length of the state bytes.
@@ -98,8 +100,9 @@ impl EvmRouteState {
         let state_len = u32::from_le_bytes(state_len_bytes) as usize;
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
-        let state: EvmRouteState =
+        let state: OldEvmRouteState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+        let state = EvmRouteState::from((state, gasfee_percent));
         replace_state(state);
     }
 
@@ -173,6 +176,7 @@ pub struct EvmRouteState {
     pub evm_tx_type: EvmTxType,
     pub block_interval_secs: u64,
     pub pending_events_on_chain: BTreeMap<String, u64>,
+    pub evm_transfer_gas_percent: u64,
 }
 
 impl From<&EvmRouteState> for StateProfile {
@@ -199,6 +203,7 @@ impl From<&EvmRouteState> for StateProfile {
             fee_token_factor: v.fee_token_factor,
             target_chain_factor: v.target_chain_factor.clone(),
             evm_tx_type: v.evm_tx_type,
+            evm_gasfee_percent: v.evm_transfer_gas_percent,
         }
     }
 }
@@ -226,6 +231,7 @@ pub struct StateProfile {
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub evm_tx_type: EvmTxType,
+    pub evm_gasfee_percent: u64,
 }
 
 pub fn is_active() -> bool {
@@ -258,6 +264,10 @@ pub fn rpc_providers() -> Vec<RpcApi> {
 
 pub fn evm_chain_id() -> u64 {
     read_state(|s| s.evm_chain_id)
+}
+
+pub fn evm_transfer_gas_factor() -> u64 {
+    read_state(|s| s.evm_transfer_gas_percent)
 }
 
 pub fn public_key() -> Vec<u8> {

@@ -76,6 +76,7 @@ type StateProfile = record {
   next_consume_ticket_seq : nat64;
   evm_chain_id : nat64;
   omnity_port_contract : vec nat8;
+  evm_gasfee_percent : nat64;
   next_consume_directive_seq : nat64;
   hub_principal : principal;
   key_id : EcdsaKeyId;

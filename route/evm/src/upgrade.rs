@@ -11,7 +11,7 @@ use crate::stable_memory::Memory;
 use crate::state::EvmRouteState;
 use crate::types::{
     Chain, ChainId, ChainState, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq,
-    Ticket, TicketId, Timestamp, Token, TokenId,
+    Ticket, TicketId, Token, TokenId,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -47,12 +47,11 @@ pub struct OldEvmRouteState {
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
     #[serde(skip, default = "crate::stable_memory::init_pending_directive_map")]
     pub pending_directive_map: StableBTreeMap<Seq, PendingDirectiveStatus, Memory>,
-    pub scan_start_height: u64,
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
     pub evm_tx_type: EvmTxType,
-    #[serde(skip)]
-    pub latest_scan_height_update_time: Timestamp,
+    pub block_interval_secs: u64,
+    pub pending_events_on_chain: BTreeMap<String, u64>,
 }
 
 impl From<(OldEvmRouteState, u64)> for EvmRouteState {
@@ -88,8 +87,9 @@ impl From<(OldEvmRouteState, u64)> for EvmRouteState {
             pending_directive_map: old.pending_directive_map,
             is_timer_running: old.is_timer_running,
             evm_tx_type: old.evm_tx_type,
-            block_interval_secs: value.1,
+            block_interval_secs: old.block_interval_secs,
             pending_events_on_chain: Default::default(),
+            evm_transfer_gas_percent: value.1,
         }
     }
 }
