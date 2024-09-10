@@ -10,19 +10,19 @@ use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
 use ethers_core::types::{Eip1559TransactionRequest, TransactionRequest, U256};
 use ethers_core::utils::keccak256;
-use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use evm_rpc::{MultiRpcResult, RpcServices};
+use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use log::{error, info};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
+use crate::{const_args, Error, eth_common, state};
 use crate::const_args::{
     BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, GET_ACCOUNT_NONCE_CYCLES, SCAN_EVM_CYCLES,
 };
 use crate::eth_common::EvmAddressError::LengthError;
 use crate::state::{evm_transfer_gas_factor, rpc_providers};
-use crate::{const_args, eth_common, state, Error};
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct TransactionReceipt {
@@ -484,6 +484,7 @@ pub async fn call_rpc_with_retry<P: Clone, T, R: Future<Output = Result<T, Error
     }
     for i in 0..const_args::RPC_RETRY_TIMES {
         let r = rpcs[i % rpcs.len()].clone();
+        log::info!("[evm route]request rpc request times: {}, rpc_url: {}", i+1, r.url.clone());
         let call_res = call_rpc(params.clone(), vec![r]).await;
         if call_res.is_ok() {
             rs = call_res;
