@@ -1,27 +1,28 @@
+use std::future::Future;
 use std::str::FromStr;
 
-use anyhow::anyhow;
 use candid::{CandidType, Nat};
-use cketh_common::eth_rpc::{Hash, RpcError};
-use cketh_common::eth_rpc_client::providers::RpcService;
+use cketh_common::eth_rpc::{Hash, HttpOutcallError, RpcError};
+use cketh_common::eth_rpc_client::providers::{RpcApi, RpcService};
 use cketh_common::eth_rpc_client::RpcConfig;
 use cketh_common::numeric::BlockNumber;
 use ethereum_types::Address;
 use ethers_core::abi::ethereum_types;
 use ethers_core::types::{Eip1559TransactionRequest, TransactionRequest, U256};
 use ethers_core::utils::keccak256;
-use evm_rpc::{MultiRpcResult, RpcServices};
 use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
+use evm_rpc::{MultiRpcResult, RpcServices};
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use log::{error, info};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{Error, state};
 use crate::const_args::{
-    BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, EVM_FINALIZED_CONFIRM_HEIGHT, GET_ACCOUNT_NONCE_CYCLES,
+    BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, GET_ACCOUNT_NONCE_CYCLES, SCAN_EVM_CYCLES,
 };
 use crate::eth_common::EvmAddressError::LengthError;
+use crate::state::{evm_transfer_gas_factor, rpc_providers};
+use crate::{const_args, eth_common, state, Error};
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct TransactionReceipt {
@@ -181,7 +182,7 @@ pub async fn sign_transaction_legacy(tx: TransactionRequest) -> anyhow::Result<V
     Ok(signed_tx_bytes)
 }
 
-pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
+pub async fn broadcast(tx: Vec<u8>, rpcs: Vec<RpcApi>) -> Result<String, super::Error> {
     let raw = format!("0x{}", hex::encode(tx));
     info!("[evm route] preparing to send tx: {}", raw);
     let (r,): (MultiRpcResult<SendRawTransactionStatus>,) =
@@ -191,7 +192,7 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
             (
                 RpcServices::Custom {
                     chain_id: crate::state::evm_chain_id(),
-                    services: crate::state::rpc_providers(),
+                    services: rpcs,
                 },
                 None::<RpcConfig>,
                 raw,
@@ -202,33 +203,41 @@ pub async fn broadcast(tx: Vec<u8>) -> Result<String, super::Error> {
         .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
     info!("broadcast result:{:?}", r.clone());
     match r {
-        MultiRpcResult::Consistent(res) => match res {
-            Ok(s) => match s {
-                SendRawTransactionStatus::Ok(hash) => {
-                    Ok(hex::encode(hash.unwrap_or(Hash([0u8; 32])).0))
-                }
-                SendRawTransactionStatus::InsufficientFunds => {
-                    Err(Error::Custom(anyhow!("InsufficientFunds")))
-                }
-                SendRawTransactionStatus::NonceTooLow => Err(Error::Custom(anyhow!("NonceTooLow"))),
-                SendRawTransactionStatus::NonceTooHigh => {
-                    Err(Error::Custom(anyhow!("NonceToohigh")))
-                }
-            },
-            Err(r) => {
-                if let RpcError::JsonRpcError(ref jerr) = r {
-                    if (jerr.code == -32603 && jerr.message == "already known")
+        MultiRpcResult::Consistent(res) => {
+            match res {
+                Ok(s) => match s {
+                    SendRawTransactionStatus::Ok(hash) => {
+                        Ok(hex::encode(hash.unwrap_or(Hash([0u8; 32])).0))
+                    }
+                    SendRawTransactionStatus::InsufficientFunds => {
+                        Err(Error::Fatal("InsufficientFunds".to_string()))
+                    }
+                    SendRawTransactionStatus::NonceTooLow => {
+                        Err(Error::Custom("NonceTooLow".to_string()))
+                    }
+                    SendRawTransactionStatus::NonceTooHigh => {
+                        Err(Error::Custom("NonceToohigh".to_string()))
+                    }
+                },
+                Err(r) => {
+                    if let RpcError::JsonRpcError(ref jerr) = r {
+                        if (jerr.code == -32603 && jerr.message == "already known")
                         || (jerr.code == -32010 && jerr.message == "pending transaction with same hash already exists")
                         || (jerr.code == -32015 && jerr.message == "transaction pool error transaction already exists in the pool") {
                         return Ok(hex::encode([1u8; 32]));
                     }
-                    if jerr.code == -32015 && jerr.message.contains("transaction pool error invalid transaction nonce") {
-                        return Err(Error::Temporary);
+                        if jerr.code == -32015
+                            && jerr
+                                .message
+                                .contains("transaction pool error invalid transaction nonce")
+                        {
+                            return Err(Error::Temporary);
+                        }
                     }
+                    Err(Error::EvmRpcError(format!("{:?}", r)))
                 }
-                Err(Error::EvmRpcError(format!("{:?}", r)))
             }
-        },
+        }
         MultiRpcResult::Inconsistent(_r) => {
             Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
         }
@@ -254,14 +263,14 @@ fn y_parity(prehash: &[u8], sig: &[u8], pubkey: &[u8]) -> u64 {
     )
 }
 
-pub async fn get_account_nonce(addr: String) -> Result<u64, super::Error> {
+pub async fn get_account_nonce(addr: String, rpcs: Vec<RpcApi>) -> Result<u64, super::Error> {
     let (r,): (MultiRpcResult<Nat>,) = ic_cdk::api::call::call_with_payment128(
         crate::state::rpc_addr(),
         "eth_getTransactionCount",
         (
             RpcServices::Custom {
                 chain_id: crate::state::evm_chain_id(),
-                services: crate::state::rpc_providers(),
+                services: rpcs,
             },
             None::<RpcConfig>,
             GetTransactionCountArgs {
@@ -284,10 +293,10 @@ pub async fn get_account_nonce(addr: String) -> Result<u64, super::Error> {
     }
 }
 
-pub async fn get_gasprice() -> anyhow::Result<U256> {
+pub async fn get_gasprice(_v: (), rpcs: Vec<RpcApi>) -> Result<U256, Error> {
     // Define request parameters
     let params = (
-        RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
+        RpcService::Custom(rpcs.clone().pop().unwrap()), // Ethereum mainnet
         serde_json::to_string(&EvmJsonRpcRequest {
             method: "eth_gasPrice".to_string(),
             params: vec![],
@@ -304,7 +313,7 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
             .unwrap();
     let cycles = cycles_result.map_err(|e| {
         error!("[evm route] evm request error: {:?}", e);
-        anyhow!(format!("error in `request_cost`: {:?}", e))
+        Error::Custom(format!("error in `request_cost`: {:?}", e))
     })?;
     // Call with expected number of cycles
     let (result,): (std::result::Result<String, RpcError>,) =
@@ -319,20 +328,18 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
     }
     let r = result.map_err(|e| {
         error!("[evm route]query gas price error: {:?}", &e);
-        Error::Custom(anyhow!(format!(
-            "[evm route]query gas price error: {:?}",
-            &e
-        )))
+        Error::Custom(format!("[evm route]query gas price error: {:?}", &e))
     })?;
-    let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
+    let r: BlockNumberResult =
+        serde_json::from_str(r.as_str()).map_err(|e| Error::Fatal(e.to_string()))?;
     let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
-    let r = u64::from_str_radix(r, 16)?;
-    Ok(U256::from(r * 11 / 10))
+    let r = u64::from_str_radix(r, 16).map_err(|e| Error::Fatal(e.to_string()))?;
+    Ok(U256::from(r * evm_transfer_gas_factor() / 100))
 }
 
-pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
+pub async fn get_balance(addr: String, rpcs: Vec<RpcApi>) -> Result<U256, Error> {
     let params = (
-        RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
+        RpcService::Custom(rpcs.clone().pop().unwrap()), // Ethereum mainnet
         serde_json::to_string(&EvmJsonRpcRequest {
             method: "eth_getBalance".to_string(),
             params: vec![addr, "latest".to_string()],
@@ -349,7 +356,7 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
             .unwrap();
     let cycles = cycles_result.map_err(|e| {
         error!("[evm route] evm request error: {:?}", e);
-        anyhow!(format!("error in `request_cost`: {:?}", e))
+        Error::Custom(format!("error in `request_cost`: {:?}", e))
     })?;
     // Call with expected number of cycles
     let (result,): (std::result::Result<String, RpcError>,) =
@@ -367,61 +374,73 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
             "[evm route]query chainkey address evm balance error: {:?}",
             &e
         );
-        Error::Custom(anyhow!(format!(
+        Error::Custom(format!(
             "[evm route]query chainkey address evm balance error: {:?}",
             &e
-        )))
+        ))
     })?;
-    let r: BalanceResult = serde_json::from_str(r.as_str())?;
+    let r: BalanceResult =
+        serde_json::from_str(r.as_str()).map_err(|e| Error::Fatal(e.to_string()))?;
     let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
-    let r = u64::from_str_radix(r, 16)?;
+    let r = u64::from_str_radix(r, 16).map_err(|e| Error::Fatal(e.to_string()))?;
     Ok(U256::from(r))
 }
 
-pub async fn get_evm_finalized_height() -> anyhow::Result<u64> {
-    // Define request parameters
-    let params = (
-        RpcService::Custom(state::rpc_providers().clone().pop().unwrap()), // Ethereum mainnet
-        serde_json::to_string(&EvmJsonRpcRequest {
-            method: "eth_blockNumber".to_string(),
-            params: vec![],
-            id: 1,
-            jsonrpc: "2.0".to_string(),
-        })
-        .unwrap(),
-        1000u64,
-    );
-    // Get cycles cost
-    let (cycles_result,): (std::result::Result<u128, RpcError>,) =
-        ic_cdk::api::call::call(state::rpc_addr(), "requestCost", params.clone())
-            .await
-            .map_err(|err| Error::IcCallError(err.0, err.1))?;
-    let cycles = cycles_result.map_err(|e| {
-        error!("[evm route] evm request error: {:?}", e);
-        anyhow!(format!("error in `request_cost`: {:?}", e))
-    })?;
-    // Call with expected number of cycles
-    let (result,): (std::result::Result<String, RpcError>,) =
-        ic_cdk::api::call::call_with_payment128(state::rpc_addr(), "request", params, cycles)
-            .await
-            .map_err(|err| Error::IcCallError(err.0, err.1))?;
-    #[derive(Serialize, Deserialize, Debug)]
-    struct BlockNumberResult {
-        pub id: u32,
-        pub jsonrpc: String,
-        pub result: String,
+pub async fn get_transaction_receipt(
+    hash: &String,
+    rpcs: Vec<RpcApi>,
+) -> std::result::Result<Option<evm_rpc::candid_types::TransactionReceipt>, Error> {
+    let rpc_size = rpcs.len() as u128;
+    let (rpc_result,): (MultiRpcResult<Option<evm_rpc::candid_types::TransactionReceipt>>,) =
+        ic_cdk::api::call::call_with_payment128(
+            crate::state::rpc_addr(),
+            "eth_getTransactionReceipt",
+            (
+                RpcServices::Custom {
+                    chain_id: crate::state::evm_chain_id(),
+                    services: rpcs,
+                },
+                Some(RpcConfig {
+                    response_size_estimate: Some(10000),
+                }),
+                hash,
+            ),
+            SCAN_EVM_CYCLES * rpc_size,
+        )
+        .await
+        .map_err(|err| Error::IcCallError(err.0, err.1))?;
+    match rpc_result {
+        MultiRpcResult::Consistent(result) => match result {
+            Ok(info) => {
+                return Ok(info);
+            }
+            Err(e) => {
+                if let RpcError::HttpOutcallError(ee) = e.clone() {
+                    match ee {
+                        HttpOutcallError::IcError { .. } => {}
+                        HttpOutcallError::InvalidHttpJsonRpcResponse { status, body, .. } => {
+                            if status == 200 {
+                                info!("content: {}", &body);
+                                let json_rpc: JsonRpcResponse<eth_common::TransactionReceipt> =
+                                    serde_json::from_str(&body).map_err(|e| {
+                                        Error::EvmRpcError(format!(
+                                            "local deserialize error: {}",
+                                            e.to_string()
+                                        ))
+                                    })?;
+                                return Ok(Some(json_rpc.result.into()));
+                            }
+                        }
+                    }
+                }
+                error!("query transaction receipt error: {:?}", e.clone());
+                Err(Error::EvmRpcError(format!("{:?}", e)))
+            }
+        },
+        MultiRpcResult::Inconsistent(_) => {
+            Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
+        }
     }
-    let r = result.map_err(|e| {
-        error!("[evm route]query block number error: {:?}", &e);
-        Error::Custom(anyhow!(format!(
-            "[evm route]query block number error: {:?}",
-            &e
-        )))
-    })?;
-    let r: BlockNumberResult = serde_json::from_str(r.as_str())?;
-    let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
-    let r = u64::from_str_radix(r, 16)?;
-    Ok(r - EVM_FINALIZED_CONFIRM_HEIGHT)
 }
 
 #[derive(
@@ -447,10 +466,36 @@ pub struct EvmJsonRpcRequest {
     pub jsonrpc: String,
 }
 
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct JsonRpcResponse<T> {
     pub jsonrpc: String,
     pub result: T,
     pub id: u32,
+}
+
+pub async fn call_rpc_with_retry<P: Clone, T, R: Future<Output = Result<T, Error>>>(
+    params: P,
+    call_rpc: fn(params: P, rpc_api: Vec<RpcApi>) -> R,
+) -> Result<T, Error> {
+    let rpcs = rpc_providers();
+    let mut rs = Err(Error::RouteNotInitialized);
+    if rpcs.is_empty() {
+        return rs;
+    }
+    for i in 0..const_args::RPC_RETRY_TIMES {
+        let r = rpcs[i % rpcs.len()].clone();
+        let call_res = call_rpc(params.clone(), vec![r]).await;
+        if call_res.is_ok() {
+            rs = call_res;
+            break;
+        } else {
+            let err = call_res.err().unwrap();
+            log::error!("[evm route]call  rpc error: {}", err.clone().to_string());
+            rs = Err(err);
+        }
+        if let Err(Error::Fatal(_)) = rs {
+            break;
+        }
+    }
+    rs
 }

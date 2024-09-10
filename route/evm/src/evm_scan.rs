@@ -1,22 +1,21 @@
 use anyhow::anyhow;
-use cketh_common::{eth_rpc::LogEntry, eth_rpc_client::RpcConfig};
-use cketh_common::eth_rpc::{Hash, HttpOutcallError, RpcError};
+use cketh_common::eth_rpc::Hash;
+use cketh_common::eth_rpc::LogEntry;
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
-use evm_rpc::{MultiRpcResult, RpcServices};
 use evm_rpc::candid_types::TransactionReceipt;
 use itertools::Itertools;
 use log::{error, info};
 
-use crate::*;
-use crate::const_args::{SCAN_EVM_CYCLES, SCAN_EVM_TASK_NAME};
+use crate::const_args::SCAN_EVM_TASK_NAME;
 use crate::contract_types::{
-    AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded,
-    TokenBurned, TokenMinted, TokenTransportRequested,
+    AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
+    TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::JsonRpcResponse;
+use crate::eth_common::{call_rpc_with_retry, get_transaction_receipt};
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
+use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -36,7 +35,7 @@ pub fn scan_evm_task() {
             if now - time < interval || now - time > interval * 5 {
                 continue;
             }
-            let receipt = crate::evm_scan::get_transaction_receipt(&hash)
+            let receipt = call_rpc_with_retry(&hash, get_transaction_receipt)
                 .await
                 .map_err(|e| {
                     log::error!("user query transaction receipt error: {:?}", e);
@@ -204,68 +203,8 @@ pub async fn handle_token_transport(
     Ok(())
 }
 
-pub async fn get_transaction_receipt(
-    hash: &String,
-) -> std::result::Result<Option<TransactionReceipt>, Error> {
-    let rpc_size = read_state(|s| s.rpc_providers.len() as u128);
-    let (rpc_result,): (MultiRpcResult<Option<TransactionReceipt>>,) =
-        ic_cdk::api::call::call_with_payment128(
-            crate::state::rpc_addr(),
-            "eth_getTransactionReceipt",
-            (
-                RpcServices::Custom {
-                    chain_id: crate::state::evm_chain_id(),
-                    services: crate::state::rpc_providers(),
-                },
-                Some(RpcConfig{
-                    response_size_estimate: Some(10000),
-                }),
-                hash,
-            ),
-            SCAN_EVM_CYCLES * rpc_size,
-        )
-        .await
-        .map_err(|err| Error::IcCallError(err.0, err.1))?;
-    match rpc_result {
-        MultiRpcResult::Consistent(result) => match result {
-            Ok(info) => {
-                return Ok(info);
-            }
-            Err(e) => {
-                if let RpcError::HttpOutcallError(ee) = e.clone() {
-                    match ee {
-                        HttpOutcallError::IcError { .. } => {}
-                        HttpOutcallError::InvalidHttpJsonRpcResponse {
-                            status,
-                            body,
-                            ..
-                        } => {
-                            if status == 200 {
-                                info!("content: {}", &body);
-                                let json_rpc: JsonRpcResponse<eth_common::TransactionReceipt> =
-                                    serde_json::from_str(&body).map_err(|e| {
-                                        Error::EvmRpcError(format!(
-                                            "local deserialize error: {}",
-                                            e.to_string()
-                                        ))
-                                    })?;
-                                return Ok(Some(json_rpc.result.into()));
-                            }
-                        }
-                    }
-                }
-                error!("query transaction receipt error: {:?}", e.clone());
-                Err(Error::EvmRpcError(format!("{:?}", e)))
-            }
-        },
-        MultiRpcResult::Inconsistent(_) => {
-            Err(super::Error::EvmRpcError("Inconsistent result".to_string()))
-        }
-    }
-}
-
 pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, TransactionReceipt), String> {
-    let receipt = crate::evm_scan::get_transaction_receipt(tx_hash)
+    let receipt = call_rpc_with_retry(tx_hash, get_transaction_receipt)
         .await
         .map_err(|e| {
             log::error!("user query transaction receipt error: {:?}", e);
