@@ -9,11 +9,12 @@ use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{
     ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument,
 };
-use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
+use ic_stable_structures::writer::Writer;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 
+use crate::{Error, stable_memory};
 use crate::eth_common::{EvmAddress, EvmTxType};
 use crate::service::InitArgs;
 use crate::stable_memory::Memory;
@@ -22,7 +23,6 @@ use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
 use crate::upgrade::OldEvmRouteState;
-use crate::{stable_memory, Error};
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);
@@ -203,6 +203,7 @@ impl From<&EvmRouteState> for StateProfile {
             fee_token_factor: v.fee_token_factor,
             target_chain_factor: v.target_chain_factor.clone(),
             evm_tx_type: v.evm_tx_type,
+            evm_gasfee_percent: v.evm_transfer_gas_percent,
         }
     }
 }
@@ -230,7 +231,7 @@ pub struct StateProfile {
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub evm_tx_type: EvmTxType,
-    pub evm_gasfee_percent:
+    pub evm_gasfee_percent: u64,
 }
 
 pub fn is_active() -> bool {
