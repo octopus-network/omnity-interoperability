@@ -230,6 +230,7 @@ pub struct StateProfile {
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub evm_tx_type: EvmTxType,
+    pub evm_gasfee_percent:
 }
 
 pub fn is_active() -> bool {
