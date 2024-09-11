@@ -6,6 +6,7 @@ use ic_stable_structures::{
     storable::Bound,
     Cell, DefaultMemoryImpl, StableBTreeMap, Storable
 };
+use omnity_types::{ChainId, TokenId};
 
 use crate::*;
 
@@ -30,7 +31,9 @@ thread_local! {
                 ckbtc_minter_principal: Principal::anonymous(),
                 icp_customs_principal: Principal::anonymous(),
                 update_balances_jobs: vec![],
-                is_timer_running: HashSet::new()
+                is_timer_running: HashSet::new(),
+                token_id: "".to_string(),
+                target_chain_id: "".to_string()
             },
         ).expect("Failed to init cell for SETTINGS.")
     );
@@ -252,7 +255,11 @@ pub struct Settings {
     #[serde[default]]
     pub update_balances_jobs: Vec<UpdateBalanceJob>,
     #[serde[default]]
-    pub is_timer_running: HashSet<String>
+    pub is_timer_running: HashSet<String>,
+    #[serde[default]]
+    pub token_id: TokenId,
+    #[serde[default]]
+    pub target_chain_id: ChainId
 }
 
 impl Storable for Settings {

@@ -6,7 +6,7 @@ use business::update_balance::{process_update_balance_jobs, update_balance_and_g
 use candid::Nat;
 use external::{
     ckbtc,
-    custom::{generate_ticket, TARGET_CHAIN_ID, TOKEN_ID},
+    custom::generate_ticket,
 };
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::post_upgrade;
@@ -98,16 +98,24 @@ pub async fn update_settings(
     ckbtc_ledger_principal: Option<Principal>,
     ckbtc_minter_principal: Option<Principal>,
     icp_customs_principal: Option<Principal>,
+    token_id: Option<String>,
+    target_chain_id: Option<String>,
 ) {
     state::mutate_settings(|settings| {
-        if ckbtc_ledger_principal.is_some() {
-            settings.ckbtc_ledger_principal = ckbtc_ledger_principal.unwrap();
+        if let Some(ckbtc_ledger_principal) = ckbtc_ledger_principal {
+            settings.ckbtc_ledger_principal = ckbtc_ledger_principal;
         }
-        if ckbtc_minter_principal.is_some() {
-            settings.ckbtc_minter_principal = ckbtc_minter_principal.unwrap();
+        if let Some(ckbtc_minter_principal) = ckbtc_minter_principal {
+            settings.ckbtc_minter_principal = ckbtc_minter_principal;
         }
-        if icp_customs_principal.is_some() {
-            settings.icp_customs_principal = icp_customs_principal.unwrap();
+        if let Some(icp_customs_principal) = icp_customs_principal {
+            settings.icp_customs_principal = icp_customs_principal;
+        }
+        if let Some(token_id) = token_id {
+            settings.token_id = token_id;
+        }
+        if let Some(target_chain_id) = target_chain_id {
+            settings.target_chain_id = target_chain_id;
         }
     });
 }
@@ -133,9 +141,11 @@ pub async fn generate_ticket_from_subaccount(
         .await
         .map_err(|e| e.to_string())?;
 
+    let setting = get_settings();
+
     let ticket_id = generate_ticket(
-        TOKEN_ID.to_string(),
-        TARGET_CHAIN_ID.to_string(),
+        setting.token_id,
+        setting.target_chain_id,
         nat_to_u128(balance - Nat::from(2_u8) * Nat::from(10_u8)),
         subaccount,
     )
@@ -168,9 +178,15 @@ pub async fn trigger_update_balance(osmosis_account_id: String) -> Result<Ticket
 #[post_upgrade]
 fn post_upgrade() {
     init_log(Some(init_stable_log()));
+
     set_timer_interval(
         Duration::from_secs(5 * 60),
         process_update_balance_jobs,
+    );
+
+    log::info!(
+        "Finish Upgrade current version: {}",
+        env!("CARGO_PKG_VERSION")
     );
 }
 

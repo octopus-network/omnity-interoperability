@@ -7,7 +7,7 @@ use crate::{
     approve_ckbtc_for_icp_custom,
     external::{
         ckbtc,
-        custom::{generate_ticket, TARGET_CHAIN_ID, TOKEN_ID},
+        custom::generate_ticket,
     },
     state::{
         extend_ticket_records, get_settings, get_utxo_records, insert_utxo_records, pop_first_scheduled_osmosis_account_id, set_settings, MintedUtxo, TicketRecord, UtxoRecord
@@ -132,9 +132,10 @@ pub async fn update_balance_and_generate_ticket(
         .await
         .map_err(|e| e.to_string())?;
 
+    let settings = get_settings();
     let ticket_id = generate_ticket(
-        TOKEN_ID.to_string(),
-        TARGET_CHAIN_ID.to_string(),
+        settings.token_id.to_string(),
+        settings.target_chain_id.to_string(),
         nat_to_u128(minted_success_amount - Nat::from(2_u8) * Nat::from(10_u8)),
         subaccount,
     )
