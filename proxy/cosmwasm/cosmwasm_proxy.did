@@ -1,8 +1,10 @@
 type Account = record { owner : principal; subaccount : opt blob };
 type InitArgs = record {
   ckbtc_ledger_principal : principal;
+  token_id : text;
   ckbtc_minter_principal : principal;
   icp_customs_principal : principal;
+  target_chain_id : text;
 };
 type MintedUtxo = record {
   minted_amount : nat64;
@@ -15,9 +17,11 @@ type Result_1 = variant { Ok : Account; Err : text };
 type Settings = record {
   ckbtc_ledger_principal : principal;
   update_balances_jobs : vec UpdateBalanceJob;
+  token_id : text;
   is_timer_running : vec text;
   ckbtc_minter_principal : principal;
   icp_customs_principal : principal;
+  target_chain_id : text;
 };
 type TicketRecord = record { ticket_id : text; minted_utxos : vec MintedUtxo };
 type UpdateBalanceJob = record {
@@ -37,5 +41,11 @@ service : (InitArgs) -> {
   query_utxo_records : (text) -> (vec UtxoRecord) query;
   trigger_update_balance : (text) -> (Result);
   update_balance_after_finalization : (text) -> ();
-  update_settings : (opt principal, opt principal, opt principal) -> ();
+  update_settings : (
+      opt principal,
+      opt principal,
+      opt principal,
+      opt text,
+      opt text,
+    ) -> ();
 }

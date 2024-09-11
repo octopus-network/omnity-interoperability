@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use omnity_types::{ChainId, TokenId};
 use state::Settings;
 
 use crate::*;
@@ -9,6 +10,8 @@ pub struct InitArgs {
     pub ckbtc_ledger_principal: Principal,
     pub ckbtc_minter_principal: Principal,
     pub icp_customs_principal: Principal,
+    pub token_id: TokenId,
+    pub target_chain_id: ChainId,
 }
 
 pub fn init(args: InitArgs) {
@@ -18,5 +21,7 @@ pub fn init(args: InitArgs) {
         icp_customs_principal: args.icp_customs_principal,
         update_balances_jobs: vec![],
         is_timer_running: HashSet::new(),
+        token_id: args.token_id,
+        target_chain_id: args.target_chain_id,
     });
 }
