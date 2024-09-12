@@ -10,8 +10,6 @@ declare_log_buffer!(name = WARNING, capacity = 1000);
 declare_log_buffer!(name = ERROR, capacity = 1000);
 declare_log_buffer!(name = CRITICAL, capacity = 1000);
 
-// Low-priority info messages.
-
 #[derive(Clone, serde::Serialize, Deserialize, Debug,Copy)]
 pub enum Priority {
     DEBUG,
@@ -86,7 +84,6 @@ pub fn http_request(req: HttpRequest) -> HttpResponse {
         entries
             .entries
             .retain(|entry| entry.timestamp >= max_skip_timestamp);
-
         entries.entries.sort_by(|a,b| a.timestamp.cmp(&b.timestamp));
         let logs = entries.entries.into_iter().skip(offset as usize).take(limit as usize).collect::<Vec<_>>();
         HttpResponseBuilder::ok()
