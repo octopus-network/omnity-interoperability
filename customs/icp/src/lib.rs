@@ -4,7 +4,7 @@ use omnity_types::{Directive, IcpChainKeyToken, Ticket};
 use state::{insert_counterparty, is_icp, mutate_state, read_state};
 use std::str::FromStr;
 use ic_canister_log::log;
-use omnity_types::ic_log::P0;
+use omnity_types::ic_log::{ERROR, INFO};
 use updates::mint_token::{retrieve_ckbtc, unlock_icp, MintTokenRequest};
 use omnity_types::TxAction;
 
@@ -35,7 +35,7 @@ pub fn parse_receiver(ticket: &Ticket) -> Option<Account> {
     match receiver_parse_result {
         Ok(receiver) => Some(receiver),
         Err(err) => {
-            log!(P0,
+            log!(ERROR,
                 "[process tickets] failed to parse ticket receiver: {}, err: {}",
                 ticket.receiver,
                 err
@@ -93,18 +93,18 @@ async fn process_tickets() {
             for (seq, ticket) in &tickets {
                 match handle_redeem_ticket(ticket).await {
                     Ok(block_index) => {
-                        log!(P0, "[process tickets] process successful for ticket{}, block_index: {}", ticket, block_index);
+                        log!(INFO, "[process tickets] process successful for ticket{}, block_index: {}", ticket, block_index);
                         mutate_state(|s| s.next_ticket_seq = seq+1)
                     },
                     Err(e) => {
-                        log!(P0, "[process tickets] failed to process ticket: {}, err: {}", ticket, e);
+                        log!(ERROR, "[process tickets] failed to process ticket: {}, err: {}", ticket, e);
                         break;
                     },
                 }
             }
         }
         Err(err) => {
-            log!(P0, "[process tickets] failed to query tickets, err: {}", err);
+            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
         }
     }
 }
@@ -121,13 +121,13 @@ async fn process_directives() {
                     Directive::AddToken(token) => {
                         match updates::add_new_token(token.clone()).await {
                             Ok(_) => {
-                                log!(P0,
+                                log!(INFO,
                                     "[process directives] add token successful, token id: {}",
                                     token.token_id
                                 );
                             }
                             Err(err) => {
-                                log!(P0,
+                                log!(ERROR,
                                     "[process directives] failed to add token: token id: {}, err: {:?}",
                                     token.token_id,
                                     err
@@ -138,13 +138,13 @@ async fn process_directives() {
                     Directive::UpdateToken(token) => {
                         match updates::update_token(token.clone()).await {
                             Ok(_) => {
-                                log!(P0,
+                                log!(INFO,
                                     "[process directives] update token successful, token id: {}",
                                     token.token_id
                                 );
                             }
                             Err(err) => {
-                                log!(P0,
+                                log!(ERROR,
                                     "[process directives] failed to update token: token id: {}, err: {:?}",
                                     token.token_id,
                                     err
@@ -161,7 +161,7 @@ async fn process_directives() {
             });
         }
         Err(err) => {
-            log!(P0,
+            log!(ERROR,
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );
