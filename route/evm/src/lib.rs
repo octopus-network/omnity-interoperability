@@ -12,7 +12,7 @@ pub mod hub;
 pub mod hub_to_route;
 pub mod route_to_evm;
 pub mod service;
-mod stable_log;
+mod ic_log;
 pub mod stable_memory;
 pub mod state;
 pub mod types;

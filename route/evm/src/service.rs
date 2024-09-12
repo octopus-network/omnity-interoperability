@@ -9,30 +9,27 @@ use ic_cdk_timers::set_timer_interval;
 use log::{error, info};
 use serde_derive::Deserialize;
 
+use crate::{Error, get_time_secs, hub};
 use crate::const_args::{
     BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL,
     SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
 };
-use crate::eth_common::{call_rpc_with_retry, get_balance, EvmAddress, EvmTxType};
+use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
-use crate::stable_log::{init_log, StableLogWriter};
-use crate::stable_memory::init_stable_log;
 use crate::state::{
-    init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, EvmRouteState,
+    EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
     StateProfile,
 };
 use crate::types::{
     Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
     PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
 };
-use crate::{get_time_secs, hub, Error};
 
 #[init]
 fn init(args: InitArgs) {
     replace_state(EvmRouteState::init(args).expect("params error"));
-    init_log(Some(init_stable_log()));
     start_tasks();
 }
 
@@ -44,16 +41,17 @@ fn pre_upgrade() {
 #[post_upgrade]
 fn post_upgrade(gasfee_percent: u64) {
     EvmRouteState::post_upgrade(gasfee_percent);
-    init_log(Some(init_stable_log()));
     start_tasks();
     info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
 }
 
 #[query]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    StableLogWriter::http_request(req)
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+    crate::ic_log::http_request(req)
 }
-
 #[update(guard = "is_admin")]
 fn update_consume_directive_seq(seq: Seq) {
     mutate_state(|s| s.next_consume_directive_seq = seq);
