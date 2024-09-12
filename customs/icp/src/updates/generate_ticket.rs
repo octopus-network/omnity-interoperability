@@ -6,9 +6,10 @@ use icrc_ledger_types::{
 };
 use ic_ledger_types::{AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID};
 use num_traits::cast::ToPrimitive;
-use omnity_types::{ic_log::P0, Ticket, TxAction};
+use omnity_types::{ Ticket, TxAction};
 use serde::Serialize;
 use ic_canister_log::log;
+use omnity_types::ic_log::INFO;
 
 use crate::{hub, state::{get_counterparty, get_token_principal, is_icp, read_state}, utils::convert_u128_u64, ICP_TRANSFER_FEE};
 
@@ -95,7 +96,7 @@ pub async fn generate_ticket(
     )
     .await
     .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
-    log!(P0, "Success to generate ticket: {}", ticket_id);
+    log!(INFO, "Success to generate ticket: {}", ticket_id);
     Ok(GenerateTicketOk { ticket_id })
 }
 
