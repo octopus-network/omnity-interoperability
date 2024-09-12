@@ -3,10 +3,10 @@ use std::time::Duration;
 
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
+use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use log::{error, info};
 use serde_derive::Deserialize;
 
 use crate::{Error, get_time_secs, hub};
@@ -17,6 +17,7 @@ use crate::const_args::{
 use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
+use crate::ic_log::{CRITICAL, ERROR, INFO};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
@@ -39,10 +40,10 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade(gasfee_percent: u64) {
-    EvmRouteState::post_upgrade(gasfee_percent);
+fn post_upgrade() {
+    EvmRouteState::post_upgrade();
     start_tasks();
-    info!("[evmroute] upgraded successed at {}", ic_cdk::api::time());
+    log!(INFO, "[evmroute] upgraded successed at {}", ic_cdk::api::time());
 }
 
 #[query]
@@ -259,7 +260,7 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
     hub::pending_ticket(hub_principal, ticket)
         .await
         .map_err(|e| {
-            error!("call hub error:{}", e.to_string());
+            log!(CRITICAL, "call hub error:{}", e.to_string());
             "call hub error".to_string()
         })?;
     mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
@@ -277,7 +278,7 @@ pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
     match hub::query_tickets(hub_principal, start, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => return tickets,
         Err(err) => {
-            log::error!("[process tickets] failed to query tickets, err: {}", err);
+            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
             return vec![];
         }
     }
@@ -303,7 +304,7 @@ pub async fn resend_ticket_to_hub(tx_hash: String) {
         .await
         .map_err(|(_, s)| Error::HubError(s))
         .unwrap();
-    info!("[evm_route] burn_ticket sent to hub success: {:?}", ticket);
+    log!(INFO, "[evm_route] burn_ticket sent to hub success: {:?}", ticket);
 }
 
 #[derive(CandidType, Deserialize)]

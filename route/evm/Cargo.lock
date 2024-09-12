@@ -1267,7 +1267,6 @@ dependencies = [
  "ic-stable-structures 0.6.4",
  "itertools 0.12.1",
  "k256",
- "log",
  "num-traits",
  "serde",
  "serde_bytes",

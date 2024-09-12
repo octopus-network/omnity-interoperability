@@ -1,16 +1,17 @@
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
-use log::info;
+use ic_canister_log::log;
 
+use crate::{Error, get_time_secs, hub};
 use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
 use crate::contracts::{gen_evm_tx, gen_execute_directive_data, gen_mint_token_data};
+use crate::Error::Custom;
 use crate::eth_common::{
     broadcast, call_rpc_with_retry, get_account_nonce, get_gasprice, sign_transaction,
 };
+use crate::ic_log::{ERROR, INFO};
 use crate::state::{minter_addr, mutate_state, read_state};
 use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq};
-use crate::Error::Custom;
-use crate::{get_time_secs, hub, Error};
 
 pub fn to_evm_task() {
     ic_cdk::spawn(async {
@@ -35,7 +36,7 @@ pub async fn send_directives_to_evm() {
                     return;
                 }
                 _ => {
-                    log::error!("[evm_route] send directive to evm error: {}", e.to_string());
+                    log!(ERROR, "[evm_route] send directive to evm error: {}", e.to_string());
                 }
             },
         }
@@ -55,7 +56,7 @@ pub async fn send_tickets_to_evm() {
                     let ticket_id = read_state(|s| s.tickets_queue.get(&seq).unwrap().ticket_id);
                     match hub::update_tx_hash(hub_principal, ticket_id, tx_hash.clone()).await {
                         Err(err) => {
-                            log::error!(
+                            log!(INFO,
                                 "[rewrite tx_hash] failed to write mint tx hash, reason: {}",
                                 err
                             );
@@ -69,7 +70,7 @@ pub async fn send_tickets_to_evm() {
                     return;
                 }
                 _ => {
-                    log::error!("[evm_route] send ticket to evm error: {}", e.to_string());
+                    log!(ERROR, "[evm_route] send ticket to evm error: {}", e.to_string());
                 }
             },
         }
@@ -94,7 +95,7 @@ pub async fn send_ticket(seq: Seq) -> Result<Option<String>, Error> {
                 nonce,
                 DEFAULT_EVM_TX_FEE,
             );
-            info!(
+            log!(INFO,
                 "[evm route] send ticket tx content: {:?}",
                 serde_json::to_string(&tx)
             );
@@ -160,7 +161,7 @@ pub async fn send_directive(seq: Seq) -> Result<Option<String>, Error> {
                 nonce,
                 fee,
             );
-            info!(
+            log!(INFO,
                 "[evm route] send directive tx content: {:?}",
                 serde_json::to_string(&tx)
             );

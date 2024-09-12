@@ -1,12 +1,13 @@
 use std::str::FromStr;
 
-use ethers_core::abi::{ethereum_types, AbiEncode};
-use ethers_core::types::Eip1559TransactionRequest;
+use ethers_core::abi::{AbiEncode, ethereum_types};
 use ethers_core::types::{Bytes, NameOrAddress, TransactionRequest, U256};
-use log::info;
+use ethers_core::types::Eip1559TransactionRequest;
+use ic_canister_log::log;
 
 use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
 use crate::eth_common::{EvmAddress, EvmTxRequest, EvmTxType};
+use crate::ic_log::WARNING;
 use crate::state::read_state;
 use crate::types::{Directive, Factor, Ticket, ToggleAction};
 
@@ -20,7 +21,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
         }
         Directive::AddToken(token) => {
             if read_state(|s| s.tokens.get(&token.token_id).is_some()) {
-                info!("duplicate issue token id: {}", token.token_id);
+                log!(WARNING, "duplicate issue token id: {}", token.token_id);
                 return vec![];
             }
             Bytes::from(
