@@ -100,7 +100,7 @@ pub struct SolanaRouteState {
 
     pub chain_state: ChainState,
 
-    pub failed_tickets: Vec<Ticket>,
+    pub tickets_failed_to_hub: Vec<Ticket>,
 
     pub schnorr_canister: Principal,
     pub schnorr_key_name: String,
@@ -134,7 +134,7 @@ impl From<InitArgs> for SolanaRouteState {
             fee_token_factor: None,
             target_chain_factor: Default::default(),
             chain_state: args.chain_state,
-            failed_tickets: Default::default(),
+            tickets_failed_to_hub: Default::default(),
             schnorr_canister: args
                 .schnorr_canister
                 .unwrap_or(Principal::management_canister()),

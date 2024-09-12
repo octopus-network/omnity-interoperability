@@ -800,7 +800,7 @@ pub async fn generate_ticket(
     match send_ticket(hub_principal, ticket.to_owned()).await {
         Err(err) => {
             mutate_state(|s| {
-                s.failed_tickets.push(ticket.clone());
+                s.tickets_failed_to_hub.push(ticket.clone());
             });
             log!(
                 ERROR,

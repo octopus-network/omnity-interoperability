@@ -181,6 +181,7 @@ service : (RouteArg) -> {
   get_redeem_fee : (text) -> (opt nat) query;
   get_signature_status : (vec text) -> (Result_5);
   get_ticket_from_queue : (text) -> (opt record { nat64; Ticket }) query;
+  get_tickets_failed_to_hub : () -> (vec Ticket) query;
   get_tickets_from_queue : () -> (vec record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
   get_transaction : (text) -> (Result_1);

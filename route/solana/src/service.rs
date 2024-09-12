@@ -676,11 +676,16 @@ async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, Ge
     ticket::generate_ticket(args).await
 }
 
+#[query]
+pub fn get_tickets_failed_to_hub() -> Vec<Ticket> {
+    read_state(|s| s.tickets_failed_to_hub.to_owned())
+}
+
 #[update(guard = "is_admin")]
 pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
-    let tickets_sz = read_state(|s| s.failed_tickets.len());
-    while !read_state(|s| s.failed_tickets.is_empty()) {
-        let ticket = mutate_state(|rs| rs.failed_tickets.pop()).unwrap();
+    let tickets_sz = read_state(|s| s.tickets_failed_to_hub.len());
+    while !read_state(|s| s.tickets_failed_to_hub.is_empty()) {
+        let ticket = mutate_state(|rs| rs.tickets_failed_to_hub.pop()).unwrap();
 
         let hub_principal = read_state(|s| (s.hub_principal));
         if let Err(err) = handler::ticket::send_ticket(hub_principal, ticket.to_owned())
@@ -688,7 +693,7 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
             .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))
         {
             mutate_state(|state| {
-                state.failed_tickets.push(ticket.to_owned());
+                state.tickets_failed_to_hub.push(ticket.to_owned());
             });
             log!(ERROR, "failed to resend ticket: {}", ticket.ticket_id);
             return Err(err);
