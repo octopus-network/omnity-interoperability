@@ -7,6 +7,7 @@ use crate::{
     ICP_TRANSFER_FEE,
 };
 use candid::{CandidType, Deserialize, Nat, Principal};
+use ic_canister_log::log;
 use ic_ledger_types::{
     AccountIdentifier, Subaccount as IcSubaccount, Tokens, MAINNET_LEDGER_CANISTER_ID,
 };
@@ -21,6 +22,7 @@ use icrc_ledger_types::{
 use num_traits::cast::ToPrimitive;
 use omnity_types::TicketId;
 use serde::Serialize;
+use omnity_types::ic_log::CRITICAL;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MintTokenRequest {
@@ -171,8 +173,15 @@ pub async fn unlock_icp(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
     };
     let block_index = ic_ledger_types::transfer(MAINNET_LEDGER_CANISTER_ID, transfer_args)
         .await
-        .map_err(|(_, reason)| MintTokenError::CustomError(reason))?
-        .map_err(|err| MintTokenError::CustomError(err.to_string()))?;
+        .map_err(|(_, reason)| {
+            log!(CRITICAL, "[process tickets] failed to unlock icp:{}", &reason);
+            MintTokenError::CustomError(reason)
+        })?
+        .map_err(|err| {
+            let err = err.to_string();
+            log!(CRITICAL, "[process tickets] failed to unlock icp transfer error:{}", &err);
+            MintTokenError::CustomError(err)
+        })?;
     insert_finalized_mint_token_request(req.ticket_id.clone(), block_index);
     Ok(block_index)
 
