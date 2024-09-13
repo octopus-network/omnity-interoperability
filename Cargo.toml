@@ -13,6 +13,7 @@ members = [
     "mock/hub",
     "customs/icp",
     "proxy/cosmwasm",
+     "customs/brc20",
 ]
 resolver = "2"
 
