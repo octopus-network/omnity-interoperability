@@ -1,7 +1,9 @@
 use candid::Nat;
 use icrc_ledger_types::icrc1::account::Subaccount;
 use itertools::Itertools;
+use omnity_types::ic_log::WARNING;
 use omnity_types::TicketId;
+use crate::*;
 
 use crate::{
     approve_ckbtc_for_icp_custom,
@@ -38,11 +40,7 @@ pub fn process_update_balance_jobs() {
                     if job.handle_execute_failed_and_continue() {
                         new_balance_jobs_list.push(job.clone());
                     }
-                    log::error!(
-                        "Failed to execute update balance job : {:?},error: {:?}",
-                        job,
-                        e
-                    );
+                    log!(WARNING, "Failed to execute update balance job : {:?},error: {:?}", job, e);
                 }
             }
         }
@@ -61,15 +59,15 @@ pub fn read_osmosis_account_id_then_update_balance() {
             Ok(account_id) => {
                 match update_balance_and_generate_ticket(account_id.clone()).await {
                     Ok(_) => {
-                        log::info!("Successfully update balance and generate ticket for osmosis account id: {}", account_id);
+                        log!(INFO, "Successfully update balance and generate ticket for osmosis account id: {}", account_id);
                     }
                     Err(_) => {
-                        log::error!("Failed to update balance and generate ticket for osmosis account id: {}", account_id);
+                        log!(ERROR, "Failed to update balance and generate ticket for osmosis account id: {}", account_id);
                     }
                 }
             }
             Err(e) => {
-                log::error!("pop_first_scheduled_osmosis_account_id error: {:?}", e);
+                log!(ERROR, "Failed to get first scheduled osmosis account id: {:?}", e);
             }
         }
     });
@@ -90,11 +88,8 @@ pub async fn update_balance_and_generate_ticket(
     })
     .await
     .map_err(|e| e.to_string())?;
-    log::info!(
-        "osmosis account id: {} ,update_balance result: {:?}",
-        osmosis_account_id,
-        result
-    );
+
+    log!(INFO, "osmosis account id: {} ,update_balance result: {:?}", osmosis_account_id, result);
 
     let minted_success_utxo_status = result
         .iter()
@@ -142,11 +137,7 @@ pub async fn update_balance_and_generate_ticket(
     .await
     .map_err(|e| e.to_string())?;
 
-    log::info!(
-        "osmosis account id: {} ,generate_ticket result: {:?}",
-        osmosis_account_id,
-        ticket_id
-    );
+    log!(INFO, "osmosis account id: {} ,generate_ticket result: {:?}", osmosis_account_id, ticket_id);
 
     let mut utxo_record_list = get_utxo_records(osmosis_account_id.clone());
     utxo_record_list.iter_mut().for_each(|e| {

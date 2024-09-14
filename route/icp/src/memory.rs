@@ -7,22 +7,10 @@ use std::cell::RefCell;
 
 const LOG_MEMORY_ID: MemoryId = MemoryId::new(2);
 
-#[cfg(feature = "file_memory")]
-type InnerMemory = FileMemory;
-
-#[cfg(not(feature = "file_memory"))]
 type InnerMemory = DefaultMemoryImpl;
 
 pub type Memory = VirtualMemory<InnerMemory>;
 
-#[cfg(feature = "file_memory")]
-thread_local! {
-    static MEMORY: RefCell<Option<InnerMemory>> = RefCell::new(None);
-
-    static MEMORY_MANAGER: RefCell<Option<MemoryManager<InnerMemory>>> = RefCell::new(None);
-}
-
-#[cfg(not(feature = "file_memory"))]
 thread_local! {
     static MEMORY: RefCell<Option<InnerMemory>> = RefCell::new(Some(InnerMemory::default()));
 
