@@ -24,3 +24,5 @@ pub use ic_cdk::{init, query, update};
 pub use ic_ledger_types::AccountIdentifier;
 pub use lifecycle::*;
 pub use types::*;
+pub use ic_canister_log::log;
+pub use omnity_types::ic_log::{INFO, ERROR};

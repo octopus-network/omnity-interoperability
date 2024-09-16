@@ -9,7 +9,6 @@ use ic_cdk_timers::set_timer_interval;
 use ic_ledger_types::AccountIdentifier;
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
-use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
 use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
@@ -25,7 +24,8 @@ use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::TransferArg;
 
-use omnity_types::log::{init_log, StableLogWriter};
+pub use ic_canister_log::log;
+pub use omnity_types::ic_log::{INFO, ERROR};
 use omnity_types::{Chain, ChainId};
 use std::time::Duration;
 
@@ -33,7 +33,6 @@ use std::time::Duration;
 fn init(args: RouteArg) {
     match args {
         RouteArg::Init(args) => {
-            init_log(Some(init_stable_log()));
             storage::record_event(&Event::Init(args.clone()));
             lifecycle::init(args);
             set_timer_interval(
@@ -273,7 +272,10 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
 
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    StableLogWriter::http_request(req)
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+    omnity_types::ic_log::http_request(req)
 }
 
 #[pre_upgrade]
@@ -292,7 +294,7 @@ fn post_upgrade(route_arg: Option<RouteArg>) {
     }
     lifecycle::post_upgrade(upgrade_arg);
 
-    init_log(Some(init_stable_log()));
+    log!(INFO, "Finish Upgrade current version: {}", env!("CARGO_PKG_VERSION"));
 
     set_timer_interval(
         Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),

@@ -12,7 +12,6 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::post_upgrade;
 use ic_cdk_timers::set_timer_interval;
 use icrc_ledger_types::icrc1::account::Account;
-use omnity_types::log::{init_log, StableLogWriter};
 use state::{
     extend_ticket_records, get_settings, get_ticket_records, get_utxo_records, init_stable_log, mutate_settings, Settings, TicketRecord, UtxoRecord
 };
@@ -29,8 +28,6 @@ pub fn is_controller() -> Result<(), String> {
 #[ic_cdk::init]
 pub async fn init(args: lifecycle::init::InitArgs) {
     lifecycle::init::init(args);
-
-    init_log(Some(init_stable_log()));
 
     set_timer_interval(
         Duration::from_secs(5 * 60),
@@ -90,7 +87,10 @@ pub async fn query_scheduled_osmosis_account_id_list() -> Vec<String> {
 
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    StableLogWriter::http_request(req)
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+    omnity_types::ic_log::http_request(req)
 }
 
 #[update]
@@ -166,7 +166,7 @@ pub async fn update_balance_after_finalization(osmosis_account_id: String) {
         s.update_balances_jobs.push(UpdateBalanceJob::new(osmosis_account_id.clone()))
     });
 
-    log::info!("Created update balance job for osmosis account id: {}", osmosis_account_id);
+    log!(INFO, "Created update balance job for osmosis account id: {}", osmosis_account_id);
 
 }
 
@@ -177,17 +177,12 @@ pub async fn trigger_update_balance(osmosis_account_id: String) -> Result<Ticket
 
 #[post_upgrade]
 fn post_upgrade() {
-    init_log(Some(init_stable_log()));
-
     set_timer_interval(
         Duration::from_secs(5 * 60),
         process_update_balance_jobs,
     );
 
-    log::info!(
-        "Finish Upgrade current version: {}",
-        env!("CARGO_PKG_VERSION")
-    );
+    log!(INFO, "Finish Upgrade current version: {}", env!("CARGO_PKG_VERSION"));
 }
 
 ic_cdk::export_candid!();
