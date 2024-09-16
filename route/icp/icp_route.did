@@ -52,6 +52,7 @@ type GenerateTicketReq = record {
   receiver : text;
 };
 type GetEventsArg = record { start : nat64; length : nat64 };
+type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record {
   hub_principal : principal;
   chain_id : text;
@@ -89,7 +90,13 @@ type TokenResp = record {
   rune_id : opt text;
   symbol : text;
 };
-type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxAction = variant {
+  Burn;
+  Redeem;
+  Mint;
+  RedeemIcpChainKeyAssets : IcpChainKeyToken;
+  Transfer;
+};
 type UpgradeArgs = record {
   hub_principal : opt principal;
   chain_id : opt text;
