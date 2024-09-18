@@ -12,8 +12,8 @@ use ethers_core::types::{Eip1559TransactionRequest, TransactionRequest, U256};
 use ethers_core::utils::keccak256;
 use evm_rpc::{MultiRpcResult, RpcServices};
 use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
+use ic_canister_log::log;
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
-use log::{error, info};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
@@ -22,6 +22,7 @@ use crate::const_args::{
     BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, GET_ACCOUNT_NONCE_CYCLES, SCAN_EVM_CYCLES,
 };
 use crate::eth_common::EvmAddressError::LengthError;
+use crate::ic_log::{CRITICAL, ERROR, INFO};
 use crate::state::{evm_transfer_gas_factor, rpc_providers};
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
@@ -184,7 +185,7 @@ pub async fn sign_transaction_legacy(tx: TransactionRequest) -> anyhow::Result<V
 
 pub async fn broadcast(tx: Vec<u8>, rpcs: Vec<RpcApi>) -> Result<String, super::Error> {
     let raw = format!("0x{}", hex::encode(tx));
-    info!("[evm route] preparing to send tx: {}", raw);
+    log!(INFO, "[evm route] preparing to send tx: {}", raw);
     let (r,): (MultiRpcResult<SendRawTransactionStatus>,) =
         ic_cdk::api::call::call_with_payment128(
             crate::state::rpc_addr(),
@@ -201,7 +202,7 @@ pub async fn broadcast(tx: Vec<u8>, rpcs: Vec<RpcApi>) -> Result<String, super::
         )
         .await
         .map_err(|(_, e)| super::Error::EvmRpcError(e))?;
-    info!("broadcast result:{:?}", r.clone());
+    log!(INFO, "broadcast result:{:?}", r.clone());
     match r {
         MultiRpcResult::Consistent(res) => {
             match res {
@@ -312,7 +313,7 @@ pub async fn get_gasprice(_v: (), rpcs: Vec<RpcApi>) -> Result<U256, Error> {
             .await
             .unwrap();
     let cycles = cycles_result.map_err(|e| {
-        error!("[evm route] evm request error: {:?}", e);
+        log!(ERROR, "[evm route] evm request error: {:?}", e);
         Error::Custom(format!("error in `request_cost`: {:?}", e))
     })?;
     // Call with expected number of cycles
@@ -327,7 +328,7 @@ pub async fn get_gasprice(_v: (), rpcs: Vec<RpcApi>) -> Result<U256, Error> {
         pub result: String,
     }
     let r = result.map_err(|e| {
-        error!("[evm route]query gas price error: {:?}", &e);
+        log!(ERROR, "[evm route]query gas price error: {:?}", &e);
         Error::Custom(format!("[evm route]query gas price error: {:?}", &e))
     })?;
     let r: BlockNumberResult =
@@ -355,7 +356,7 @@ pub async fn get_balance(addr: String, rpcs: Vec<RpcApi>) -> Result<U256, Error>
             .await
             .unwrap();
     let cycles = cycles_result.map_err(|e| {
-        error!("[evm route] evm request error: {:?}", e);
+        log!(ERROR, "[evm route] evm request error: {:?}", e);
         Error::Custom(format!("error in `request_cost`: {:?}", e))
     })?;
     // Call with expected number of cycles
@@ -370,7 +371,7 @@ pub async fn get_balance(addr: String, rpcs: Vec<RpcApi>) -> Result<U256, Error>
         pub result: String,
     }
     let r = result.map_err(|e| {
-        error!(
+        log!(ERROR,
             "[evm route]query chainkey address evm balance error: {:?}",
             &e
         );
@@ -420,7 +421,7 @@ pub async fn get_transaction_receipt(
                         HttpOutcallError::IcError { .. } => {}
                         HttpOutcallError::InvalidHttpJsonRpcResponse { status, body, .. } => {
                             if status == 200 {
-                                info!("content: {}", &body);
+                                log!(INFO, "content: {}", &body);
                                 let json_rpc: JsonRpcResponse<eth_common::TransactionReceipt> =
                                     serde_json::from_str(&body).map_err(|e| {
                                         Error::EvmRpcError(format!(
@@ -433,7 +434,7 @@ pub async fn get_transaction_receipt(
                         }
                     }
                 }
-                error!("query transaction receipt error: {:?}", e.clone());
+                log!(ERROR, "query transaction receipt error: {:?}", e.clone());
                 Err(Error::EvmRpcError(format!("{:?}", e)))
             }
         },
@@ -484,19 +485,25 @@ pub async fn call_rpc_with_retry<P: Clone, T, R: Future<Output = Result<T, Error
     }
     for i in 0..const_args::RPC_RETRY_TIMES {
         let r = rpcs[i % rpcs.len()].clone();
-        log::info!("[evm route]request rpc request times: {}, rpc_url: {}", i+1, r.url.clone());
+        log!(INFO, "[evm route]request rpc request times: {}, rpc_url: {}", i+1, r.url.clone());
         let call_res = call_rpc(params.clone(), vec![r]).await;
         if call_res.is_ok() {
             rs = call_res;
             break;
         } else {
             let err = call_res.err().unwrap();
-            log::error!("[evm route]call  rpc error: {}", err.clone().to_string());
+            log!(ERROR, "[evm route]call  rpc error: {}", err.clone().to_string());
             rs = Err(err);
         }
         if let Err(Error::Fatal(_)) = rs {
             break;
         }
     }
-    rs
+    match rs {
+        Ok(t) => { Ok(t) }
+        Err(e) => {
+            log!(CRITICAL, "rpc error after retry {:?}", &e);
+            Err(e)
+        }
+    }
 }
