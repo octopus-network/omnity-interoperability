@@ -184,7 +184,7 @@ service : (RouteArg) -> {
   get_tickets_failed_to_hub : () -> (vec Ticket) query;
   get_tickets_from_queue : () -> (vec record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
-  get_transaction : (text) -> (Result_1);
+  get_transaction : (text, opt text) -> (Result_1);
   mint_token : (MintTokenRequest) -> (Result_6);
   mint_token_req : (text) -> (Result_7) query;
   mint_token_status : (text) -> (Result_6) query;

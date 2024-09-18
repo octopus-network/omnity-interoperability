@@ -212,14 +212,14 @@ pub async fn create_associated_account() {
                      signature: associated_account.signature,
                      status: TxStatus::Finalized,
                  };
-                 //update mint account info
+                 //update ata info
                  mutate_state(|s| {
                     s.associated_accounts.insert(
                         (owner.to_string(), token_mint.account.to_string()),
                         ata,
                     )
                 });
-                 //skip this mint account
+                 //skip this ata
                  continue;
  
              }
@@ -673,7 +673,7 @@ pub async fn generate_ticket(
     // retry 3 to get tx detail
     for n in 0..=2 {
         let tx_resp = client
-        .query_transaction(req.signature.to_owned())
+        .query_transaction(req.signature.to_owned(),None)
         .await
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()));
         match tx_resp {

@@ -42,7 +42,7 @@ content-type: application/json
     "jsonrpc": "2.0", "id": 1,
     "method": "getBalance",
     "params": [
-      "6ZD8c7rhKW6HHcS2MSB993kJvfYH6rJFu76ytmStYyFS"
+      "74SqAGc8wHgkwNx2Hqiz1UdKkZL1gCCvsRRwN2tSm8Ny"
     ]
 }
 

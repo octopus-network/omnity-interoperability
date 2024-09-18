@@ -2,7 +2,7 @@
 
 ## get_latest_blockhash
 - ***Total Calls**: 100
-- ***Successful Calls**: 96
-- ***Failed Calls**: 4
-- ***Success Rate**: 96.00%
-- ***Failure Rate**: 4.00%
+- ***Successful Calls**: 97
+- ***Failed Calls**: 3
+- ***Success Rate**: 97.00%
+- ***Failure Rate**: 3.00%

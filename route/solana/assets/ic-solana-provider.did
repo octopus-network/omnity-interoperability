@@ -39,7 +39,7 @@ service : (InitArgs) -> {
   sol_getBalance : (text) -> (Result_2);
   sol_getSignatureStatuses : (vec text) -> (Result);
   sol_getTokenBalance : (text) -> (Result_3);
-  sol_getTransaction : (text) -> (Result);
+  sol_getTransaction : (text, opt text) -> (Result);
   sol_getminimumbalanceforrentexemption : (nat64) -> (Result_2);
   sol_latestBlockhash : () -> (Result);
   sol_sendRawTransaction : (text) -> (Result);

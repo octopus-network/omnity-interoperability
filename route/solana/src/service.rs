@@ -143,11 +143,11 @@ async fn get_latest_blockhash() -> Result<String, CallError> {
 }
 
 #[update]
-async fn get_transaction(signature: String) -> Result<String, CallError> {
+async fn get_transaction(signature: String, forward: Option<String>) -> Result<String, CallError> {
     use crate::service::sol_call::solana_client;
     let client = solana_client().await;
     client
-        .query_transaction(signature)
+        .query_transaction(signature,forward)
         .await
         .map_err(|err| CallError {
             method: "get_transaction".to_string(),
@@ -437,7 +437,7 @@ pub async fn create_aossicated_account(
                         sol_call::create_ata(owner.to_string(), token_mint.to_string()).await?;
                     log!(
                         DEBUG,
-                        "[[service::create_aossicated_account] create_aossicated_account signature: {:?} ",
+                        "[service::create_aossicated_account] create_aossicated_account signature: {:?} ",
                         sig.to_string(),
                     );
                     // update signature

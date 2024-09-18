@@ -15,8 +15,8 @@ case "$1" in
     # HUB_CANISTER_ID=xykho-eiaaa-aaaag-qjrka-cai
     HUB_CANISTER_ID=arlph-jyaaa-aaaak-ak2oa-cai
     SCHNORR_CANISTER_ID=aaaaa-aa
-    SCHNORR_KEY_NAME="test_key_1"
-    # SCHNORR_KEY_NAME="key_1"
+#     SCHNORR_KEY_NAME="test_key_1"
+    SCHNORR_KEY_NAME="key_1"
 #     SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
     SOLANA_RPC_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
     SOL_PROVIDER_CANISTER_ID=l3ka6-4yaaa-aaaar-qahpa-cai
@@ -135,16 +135,20 @@ dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Init = rec
     --ic 
 
 # echo "upgrade $SOLANA_ROUTE_CANISTER_ID ..."
-# dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Upgrade = record { \
-#     admin = principal \"${ADMIN}\";\
-#     chain_id=\"${SOL_CHAIN_ID}\";\
-#     hub_principal= principal \"${HUB_CANISTER_ID}\";\
-#     chain_state= variant { Active }; \
-#     schnorr_canister = opt principal \"${SCHNORR_CANISTER_ID}\";\
-#     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
-#     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
-#     fee_account= opt \"${FEE_ACCOUNT}\"; 
-#     } })" \
+dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(opt variant { Upgrade = record { \
+    admin = principal \"${ADMIN}\";\
+    chain_id=\"${SOL_CHAIN_ID}\";\
+    hub_principal= principal \"${HUB_CANISTER_ID}\";\
+    chain_state= variant { Active }; \
+    schnorr_canister = opt principal \"${SCHNORR_CANISTER_ID}\";\
+    schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
+    sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
+    fee_account= opt \"${FEE_ACCOUNT}\"; 
+    } })" \
+    --mode=upgrade -y \
+    --wasm=./assets/solana_route.wasm.gz \
+    --ic 
+# dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument '(null)' \
 #     --mode=upgrade -y \
 #     --wasm=./assets/solana_route.wasm.gz \
 #     --ic 
@@ -161,7 +165,7 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID set_permissions "(
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID update_schnorr_info "(principal \"${SCHNORR_CANISTER_ID}\",\"${SCHNORR_KEY_NAME}\")" --ic 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction '("4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4")' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction '("4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4",null)' --ic
 # update schnorr info
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID update_schnorr_info '(principal "aaaaa-aa","key_1")' --ic
 
@@ -180,7 +184,7 @@ dfx canister call $HUB_CANISTER_ID sub_directives "(opt \"${SOL_CHAIN_ID}\",
 dfx canister call $HUB_CANISTER_ID query_subscribers '(null)' --ic 
 
 # add chains
-# add bitcoin
+echo "add bitcoin chain to hub"
 dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
         AddChain = record { chain_state=variant { Active }; 
         chain_id = \"${BITCOIN_CHAIN_ID}\"; chain_type=variant { SettlementChain }; 
@@ -197,6 +201,7 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant {
         fee_token=null}}})" --ic 
 dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {AddChain},0:nat64,5:nat64)" --ic
 
+echo  "add solana chain to hub"
 dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
         AddChain = record { chain_state=variant { Active }; 
         chain_id = \"${SOL_CHAIN_ID}\"; 
@@ -217,38 +222,38 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant {
         --ic 
 dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${BITCOIN_CHAIN_ID}\",opt variant {AddChain},0:nat64,5:nat64)" --ic 
 
-# send update chain(bitcoin) to solana route
-# dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
-#         UpdateChain = record { chain_state=variant { Active }; 
-#         chain_id = \"${BITCOIN_CHAIN_ID}\"; 
-#         chain_type=variant { SettlementChain }; 
-#         canister_id=\"${BITCOIN_CANISTER_ID}\"; 
-#         contract_address=null; 
-#         counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
-#                                 \"eICP\";
-#                                 \"bevm_testnet\";
-#                                 \"bitlayer_testnet\";
-#                                 \"B²_testnet\";
-#                                 \"xlayer_testnet\";
-#                                 }; 
-#         fee_token=null}}})" \
-#         --ic 
+# push update chain(bitcoin) to solana route
+dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
+        UpdateChain = record { chain_state=variant { Active }; 
+        chain_id = \"${BITCOIN_CHAIN_ID}\"; 
+        chain_type=variant { SettlementChain }; 
+        canister_id=\"${BITCOIN_CANISTER_ID}\"; 
+        contract_address=null; 
+        counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
+                                \"eICP\";
+                                \"bevm_testnet\";
+                                \"bitlayer_testnet\";
+                                \"B²_testnet\";
+                                \"xlayer_testnet\";
+                                }; 
+        fee_token=null}}})" \
+        --ic 
         
-# dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant { 
-#         UpdateChain = record { chain_state=variant { Active }; 
-#         chain_id = \"${BITCOIN_CHAIN_ID}\"; 
-#         chain_type=variant { SettlementChain }; 
-#         canister_id=\"${BITCOIN_CANISTER_ID}\"; 
-#         contract_address=null; 
-#         counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
-#                                 \"eICP\";
-#                                 \"bevm_testnet\";
-#                                 \"bitlayer_testnet\";
-#                                 \"B²_testnet\";
-#                                 \"xlayer_testnet\";
-#                                 }; 
-#         fee_token=null}}})" \
-#         --ic 
+dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant { 
+        UpdateChain = record { chain_state=variant { Active }; 
+        chain_id = \"${BITCOIN_CHAIN_ID}\"; 
+        chain_type=variant { SettlementChain }; 
+        canister_id=\"${BITCOIN_CANISTER_ID}\"; 
+        contract_address=null; 
+        counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
+                                \"eICP\";
+                                \"bevm_testnet\";
+                                \"bitlayer_testnet\";
+                                \"B²_testnet\";
+                                \"xlayer_testnet\";
+                                }; 
+        fee_token=null}}})" \
+        --ic 
 
 # dfx canister call $HUB_CANISTER_ID query_directives "(
 #     opt \"${BITCOIN_CHAIN_ID}\",
@@ -261,9 +266,9 @@ dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${BITCOIN_CHAIN_ID}\
 #     --ic 
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE18"
-TOKEN_NAME="HOPE•YOU•GET•NICE18"
-TOKEN_SYMBOL="NICE18"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE22"
+TOKEN_NAME="HOPE•YOU•GET•NICE22"
+TOKEN_SYMBOL="NICE22"
 DECIMALS=2
 ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
 
@@ -315,9 +320,9 @@ echo "current SIGNER: $SIGNER"
 echo "$SIGNER balance: $(solana balance $SIGNER)"
 
 # req airdrop
-solana airdrop 2
-MASTER_KEY=$(solana address)
-echo "current solana cli default address: $MASTER_KEY and balance: $(solana balance $MASTER_KEY)"
+# solana airdrop 2
+# MASTER_KEY=$(solana address)
+# echo "current solana cli default address: $MASTER_KEY and balance: $(solana balance $MASTER_KEY)"
 # transfer SOL to init signer
 AMOUNT=0.5
 echo "transfer SOL to $SIGNER from $MASTER_KEY"
@@ -401,7 +406,7 @@ SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
 echo "burn signature: $SIGNAURE"
 sleep 10
 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIGNAURE}\")" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIGNAURE}\",null)" --ic
 
 
 # secord,generate ticket
@@ -446,14 +451,14 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 # })" --ic
 
 # # get token mint
-TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
-TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
-echo "token mint: $TOKEN_MINT"
+# TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
+# TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
+# echo "token mint: $TOKEN_MINT"
 
 # SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
 # create aossicated account for user
-dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
-        \"${TOKEN_MINT}\")" --ic  
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
+#         \"${TOKEN_MINT}\")" --ic  
 
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_RECEIVER}\",
 #         \"${TOKEN_MINT}\")" --ic  
@@ -487,4 +492,4 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_R
 # dfx canister call $SOL_PROVIDER_CANISTER_ID sol_sendRawTransaction "(\"${RAW_TX}\")" --ic
 
 # SIG=2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK
-# dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\")" --ic
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\,null")" --ic
