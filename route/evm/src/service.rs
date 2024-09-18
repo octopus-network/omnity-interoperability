@@ -241,6 +241,7 @@ async fn metrics() -> MetricsStatus {
 
 #[update]
 async fn generate_ticket(hash: String) -> Result<(), String> {
+    log!(INFO, "[generate ticket] received generate ticket request: {}", &hash);
     let tx_hash = hash.to_lowercase();
     if read_state(|s| s.pending_events_on_chain.get(&tx_hash).is_some()) {
         return Ok(());
