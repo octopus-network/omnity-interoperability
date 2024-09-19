@@ -8,7 +8,7 @@ use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::self_help::{principal_to_subaccount, AddDestChainArgs, AddRunesTokenReq, FinalizeAddRunesArgs, SelfServiceError, ADD_CHAIN_FEE, ADD_TOKEN_FEE, LinkChainReq};
 use omnity_hub::state::{with_state, with_state_mut};
-use omnity_hub::types::{ChainMeta, TokenMeta, TxHash};
+use omnity_hub::types::{ChainMeta, TokenKey, TokenMeta, TxHash};
 use omnity_hub::{proposal, self_help};
 
 use omnity_hub::types::{
@@ -49,6 +49,20 @@ fn pre_upgrade() {
 fn post_upgrade(args: Option<HubArg>) {
     log!(INFO, "begin to execute post_upgrade with :{:?}", args);
     HubState::post_upgrade(args);
+
+    // fix error update 
+    let position = TokenKey::from("eICP".to_string(), "Bitcoin-runes-BILLION•DOLLAR•CAT".to_string());
+    with_state_mut(|hub_state| {
+        // check ticket and update token on chain
+        hub_state.token_position.insert(position.clone(), 50000_u128);
+    });
+
+    log!(
+        INFO, 
+        "fix Bitcoin-runes-BILLION•DOLLAR•CAT token position, current token position: {:?}", 
+        with_state(|hub_state| hub_state.token_position.get(&position))
+    );
+
     log!(INFO, "post_upgrade successfully, current version: {}", env!("CARGO_PKG_VERSION"));
 }
 
