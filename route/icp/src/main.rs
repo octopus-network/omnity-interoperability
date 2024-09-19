@@ -26,7 +26,7 @@ use icrc_ledger_types::icrc1::transfer::TransferArg;
 
 pub use ic_canister_log::log;
 pub use omnity_types::ic_log::{ERROR, INFO};
-use omnity_types::{Chain, ChainId, Ticket, TxAction};
+use omnity_types::{Chain, ChainId, Ticket};
 use std::time::Duration;
 
 #[init]
@@ -302,20 +302,6 @@ fn post_upgrade(route_arg: Option<RouteArg>) {
         };
     }
     lifecycle::post_upgrade(upgrade_arg);
-
-    mutate_state(|e| {
-        e.failed_tickets
-            .iter_mut()
-            .find(|e| e.ticket_id.eq("2ulkl-dqaaa-aaaar-qaijq-cai_2"))
-            .map(|e| e.action = TxAction::Transfer);
-    });
-
-    log!(
-        INFO,
-        "fix error tx action ticket in failed ticket, current failed tickets: {:?}",
-        read_state(|e| e.failed_tickets.clone())
-    );
-
     set_timer_interval(
         Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),
         process_directive_msg_task,
