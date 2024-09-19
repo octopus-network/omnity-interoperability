@@ -73,6 +73,20 @@ type TargetChainFactor = record {
   target_chain_id : text;
   target_chain_factor : nat;
 };
+type Ticket = record {
+  token : text;
+  action : TxAction;
+  dst_chain : text;
+  memo : opt blob;
+  ticket_id : text;
+  sender : opt text;
+  ticket_time : nat64;
+  ticket_type : TicketType;
+  src_chain : text;
+  amount : text;
+  receiver : text;
+};
+type TicketType = variant { Resubmit; Normal };
 type ToggleAction = variant { Deactivate; Activate };
 type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
@@ -124,6 +138,7 @@ service : (RouteArg) -> {
   get_token_ledger : (text) -> (opt principal) query;
   get_token_list : () -> (vec TokenResp) query;
   mint_token_status : (text) -> (MintTokenStatus) query;
+  query_failed_tickets : () -> (vec Ticket) query;
   remove_controller : (principal, principal) -> (Result);
   resend_tickets : () -> (Result_2);
   update_icrc_ledger : (principal, UpgradeArgs_1) -> (Result);

@@ -26,7 +26,7 @@ use icrc_ledger_types::icrc1::transfer::TransferArg;
 
 pub use ic_canister_log::log;
 pub use omnity_types::ic_log::{INFO, ERROR};
-use omnity_types::{Chain, ChainId};
+use omnity_types::{Chain, ChainId, Ticket};
 use std::time::Duration;
 
 #[init]
@@ -176,6 +176,11 @@ pub async fn collect_ledger_fee(
     Ok(())
 }
 
+#[query(guard = "is_controller")]
+pub fn query_failed_tickets() -> Vec<Ticket> {
+    read_state(|s| s.failed_tickets.clone())
+}
+
 #[update(guard = "is_controller")]
 pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
     let tickets_sz = read_state(|s| s.failed_tickets.len());
@@ -190,11 +195,11 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
             mutate_state(|state| {
                 state.failed_tickets.push(ticket.clone());
             });
-            log::error!("failed to resend ticket: {}", ticket.ticket_id);
+            log!(ERROR, "failed to resend ticket: {}, error: {:?}", ticket.ticket_id, err);
             return Err(err);
         }
     }
-    log::info!("successfully resend {} tickets", tickets_sz);
+    log!(INFO, "successfully resend {} tickets", tickets_sz);
     Ok(())
 }
 
@@ -236,7 +241,6 @@ fn get_token_ledger(token_id: String) -> Option<Principal> {
 
 #[query]
 pub fn get_log_records(offset: usize, limit: usize) -> Logs {
-    log::debug!("collecting {limit} log records");
     ic_log::take_memory_records(limit, offset)
 }
 
