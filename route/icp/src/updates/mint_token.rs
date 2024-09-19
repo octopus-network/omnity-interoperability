@@ -1,4 +1,4 @@
-use crate::{hub, state::{audit, mutate_state, read_state}};
+use crate::{log, ERROR, hub, state::{audit, mutate_state, read_state}};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::{
@@ -52,7 +52,7 @@ pub async fn mint_token(req: &MintTokenRequest) -> Result<(), MintTokenError> {
     let hub_principal = read_state(|s| s.hub_principal);
     let mint_tx_hash = format!("{}_{}", ledger_id.to_string(), block_index);
     if let Err(err) = hub::update_tx_hash(hub_principal, req.ticket_id.clone(), mint_tx_hash).await {
-        log::error!("failed to update tx hash after mint token:{}", err);
+        log!(ERROR, "failed to update tx hash after mint token, err: {:?}", err);
     }
 
     mutate_state(|s| audit::finalize_mint_token_req(s, req.ticket_id.clone(), block_index));
