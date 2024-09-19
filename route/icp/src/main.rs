@@ -25,8 +25,8 @@ use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::TransferArg;
 
 pub use ic_canister_log::log;
-pub use omnity_types::ic_log::{INFO, ERROR};
-use omnity_types::{Chain, ChainId, Ticket};
+pub use omnity_types::ic_log::{ERROR, INFO};
+use omnity_types::{Chain, ChainId, Ticket, TxAction};
 use std::time::Duration;
 
 #[init]
@@ -195,7 +195,12 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
             mutate_state(|state| {
                 state.failed_tickets.push(ticket.clone());
             });
-            log!(ERROR, "failed to resend ticket: {}, error: {:?}", ticket.ticket_id, err);
+            log!(
+                ERROR,
+                "failed to resend ticket: {}, error: {:?}",
+                ticket.ticket_id,
+                err
+            );
             return Err(err);
         }
     }
@@ -298,7 +303,18 @@ fn post_upgrade(route_arg: Option<RouteArg>) {
     }
     lifecycle::post_upgrade(upgrade_arg);
 
-    log!(INFO, "Finish Upgrade current version: {}", env!("CARGO_PKG_VERSION"));
+    mutate_state(|e| {
+        e.failed_tickets
+            .iter_mut()
+            .find(|e| e.ticket_id.eq("2ulkl-dqaaa-aaaar-qaijq-cai_2"))
+            .map(|e| e.action = TxAction::Transfer);
+    });
+
+    log!(
+        INFO,
+        "fix error tx action ticket in failed ticket, current failed tickets: {:?}",
+        read_state(|e| e.failed_tickets.clone())
+    );
 
     set_timer_interval(
         Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),
@@ -307,6 +323,11 @@ fn post_upgrade(route_arg: Option<RouteArg>) {
     set_timer_interval(
         Duration::from_secs(INTERVAL_QUERY_TICKET),
         process_ticket_msg_task,
+    );
+    log!(
+        INFO,
+        "Finish Upgrade current version: {}",
+        env!("CARGO_PKG_VERSION")
     );
 }
 
