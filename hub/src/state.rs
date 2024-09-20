@@ -9,9 +9,10 @@ use crate::metrics::with_metrics_mut;
 use crate::self_help::AddRunesTokenReq;
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta, TxHash};
 use candid::Principal;
+use ic_canister_log::log;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
-use log::{debug, error};
+use omnity_types::ic_log::{ERROR, INFO};
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, TicketType,
     ToggleAction, ToggleState, TokenId, Topic, TxAction,
@@ -235,7 +236,8 @@ impl HubState {
         self.chains.get(dst_chain_id).map(|mut chain| {
             // excluds the deactive state
             if matches!(chain.chain_state, ChainState::Deactive) {
-                debug!(
+                log!(
+                    INFO,
                     "dst chain {} is deactive, donn`t update counterparties for it! ",
                     chain.chain_id.to_string()
                 );
@@ -352,7 +354,7 @@ impl HubState {
                     |e| Err(e),
                     |chain| {
                         if matches!(chain.chain_state, ChainState::Deactive) {
-                            error!("The `{}` is deactive", cf.target_chain_id.to_string());
+                            log!(ERROR, "The `{}` is deactive", cf.target_chain_id.to_string());
                             Err(Error::DeactiveChain(cf.target_chain_id.to_string()))
                         } else {
                             self.target_chain_factors
@@ -444,6 +446,7 @@ impl HubState {
     ) -> Result<(), Error> {
         // save directive
         self.save_directive(dire)?;
+        log!(INFO, "Saved directive: {:?}", dire);
         //publish directive to subscribers
         self.pub_2_subscribers(target_subs, dire.clone())
     }
@@ -494,7 +497,6 @@ impl HubState {
                 let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
                 //TODO: match! and exclude diretive for  target chain self
                 self.dire_map.insert(seq_key.to_owned(), dire.to_owned());
-                debug!("pub_2_targets:{:?}, directive:{:?}", sub.to_string(), dire);
                 record_event(&Event::PubedDirective {
                     seq_key,
                     dire: dire.to_owned(),
@@ -578,10 +580,7 @@ impl HubState {
     pub fn check_and_update(&mut self, ticket: &Ticket) -> Result<(), Error> {
         // check ticket id repetitive
         if self.cross_ledger.contains_key(&ticket.ticket_id) {
-            error!(
-                "The ticket id (`{}`) already exists!`",
-                ticket.ticket_id.to_string()
-            );
+            log!(ERROR, "The ticket id (`{}`) already exists!`", ticket.ticket_id.to_string());
             return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
         }
 
@@ -591,11 +590,7 @@ impl HubState {
 
         //parse ticket token amount to unsigned bigint
         let ticket_amount: u128 = ticket.amount.parse().map_err(|e: ParseIntError| {
-            error!(
-                "The ticket amount(`{}`) parse error: `{}`",
-                ticket.amount.to_string(),
-                e.to_string()
-            );
+            log!(ERROR, "The ticket amount(`{}`) parse error: `{}`", ticket.amount.to_string(), e.to_string());
             Error::TicketAmountParseError(ticket.amount.to_string(), e.to_string())
         })?;
 
@@ -604,11 +599,6 @@ impl HubState {
             TxAction::Transfer => {
                 // ticket from issue chain
                 if self.is_origin(&ticket.src_chain, &ticket.token)? {
-                    debug!(
-                        "ticket token({}) from issue chain({}).",
-                        ticket.token, ticket.src_chain,
-                    );
-
                     // just update token amount on dst chain
                     self.add_token_position(
                         TokenKey::from(ticket.dst_chain.to_string(), ticket.token.to_string()),
@@ -617,16 +607,9 @@ impl HubState {
 
                 // not from issue chain
                 } else {
-                    debug!(
-                        "ticket token({}) from a not issue chain({}).",
-                        ticket.token, ticket.src_chain,
-                    );
-
                     // esure dst chain != token`s issue chain
                     if self.is_origin(&ticket.dst_chain, &ticket.token)? {
-                        error!(
-                            "For a transfer ticket, the dst chain cannot be the token`s issue chain",
-                        );
+                        log!(ERROR, "For a transfer ticket, the dst chain cannot be the token`s issue chain",);
                         return Err(Error::CustomError("For a transfer ticket, the dst chain cannot be the token`s issue chain".to_string()));
                     }
 
@@ -636,7 +619,8 @@ impl HubState {
                         |total_amount| {
                             // check src chain token balance
                             if *total_amount < ticket_amount {
-                                error!(
+                                log!(
+                                    ERROR,
                                     "Insufficient token (`{}`) on chain (`{}`) !)",
                                     ticket.token.to_string(),
                                     ticket.src_chain.to_string(),
@@ -658,18 +642,20 @@ impl HubState {
                 }
             }
 
-            TxAction::Redeem | TxAction::Burn => {
+            TxAction::Redeem | TxAction::Burn | TxAction::RedeemIcpChainKeyAssets(_) => {
                 // update token amount on src chain
                 self.update_token_position(
                     TokenKey::from(ticket.src_chain.to_string(), ticket.token.to_string()),
                     |total_amount| {
                         // check src chain token balance
                         if *total_amount < ticket_amount {
-                            error!(
+                            log!(
+                                ERROR,
                                 "Insufficient token (`{}`) on chain (`{}`) !)",
                                 ticket.token.to_string(),
                                 ticket.src_chain.to_string(),
                             );
+                            
                             return Err::<u128, Error>(Error::NotSufficientTokens(
                                 ticket.token.to_string(),
                                 ticket.src_chain.to_string(),
@@ -700,7 +686,8 @@ impl HubState {
     pub fn pending_ticket(&mut self, ticket: Ticket) -> Result<(), Error> {
         // check ticket id repetitive
         if self.pending_tickets.contains_key(&ticket.ticket_id) {
-            error!(
+            log!(
+                ERROR, 
                 "The ticket id (`{}`) already exists!`",
                 ticket.ticket_id.to_string()
             );
@@ -764,13 +751,19 @@ impl HubState {
     pub fn resubmit_ticket(&mut self, ticket: Ticket) -> Result<(), Error> {
         let now = ic_cdk::api::time();
         if now - self.last_resubmit_ticket_time < 6 * HOUR {
-            error!("The resumit ticket sent too often");
+            log!(
+                ERROR,
+                "The resumit ticket sent too often"
+            );
             return Err(Error::ResubmitTicketSentTooOften);
         }
         match self.cross_ledger.get(&ticket.ticket_id) {
             Some(old_ticket) => {
                 if ticket != old_ticket {
-                    error!("The resubmit ticket must same as the old ticket!");
+                    log!(
+                        ERROR,
+                        "The resubmit ticket must same as the old ticket!"
+                    );
                     return Err(Error::ResubmitTicketMustSame);
                 }
                 let ticket_id = format!("{}_{}", ticket.ticket_id, now);
@@ -797,7 +790,10 @@ impl HubState {
                 Ok(())
             }
             None => {
-                error!("The resubmit ticket id must exist!");
+                log!(
+                    ERROR,
+                    "The resubmit ticket id must exist!"
+                );
                 Err(Error::ResubmitTicketIdMustExist)
             }
         }
@@ -813,7 +809,10 @@ impl HubState {
                 Ok(())
             }
             None => {
-                error!("The ticket id is not exists!");
+                log!(
+                    ERROR,
+                    "The ticket id is not exists!"
+                );
                 Err(Error::NotFoundTicketId(ticket_id.to_string()))
             }
         }
@@ -873,11 +872,6 @@ impl HubState {
         };
 
         target_dires.into_iter().for_each(|d| {
-            debug!(
-                "republish directives({:?}) for subscriber: {}",
-                d,
-                chain_id.to_string()
-            );
             let _ = self.pub_2_subscribers(Some(vec![chain_id.clone()]), d);
         });
 
@@ -885,11 +879,6 @@ impl HubState {
     }
 
     pub fn delete_directives(&mut self, chain_id: &ChainId, topics: &[Topic]) -> Result<(), Error> {
-        debug!(
-            "delete directives with topic ({:?}) for subscriber: {}",
-            topics,
-            chain_id.to_string()
-        );
         for (seq_key, dir) in self
             .dire_map
             .iter()

@@ -9,7 +9,6 @@ use ic_cdk_timers::set_timer_interval;
 use ic_ledger_types::AccountIdentifier;
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
-use icp_route::memory::init_stable_log;
 use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
 use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
@@ -25,15 +24,15 @@ use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::TransferArg;
 
-use omnity_types::log::{init_log, StableLogWriter};
-use omnity_types::{Chain, ChainId};
+pub use ic_canister_log::log;
+pub use omnity_types::ic_log::{ERROR, INFO};
+use omnity_types::{Chain, ChainId, Ticket};
 use std::time::Duration;
 
 #[init]
 fn init(args: RouteArg) {
     match args {
         RouteArg::Init(args) => {
-            init_log(Some(init_stable_log()));
             storage::record_event(&Event::Init(args.clone()));
             lifecycle::init(args);
             set_timer_interval(
@@ -177,6 +176,11 @@ pub async fn collect_ledger_fee(
     Ok(())
 }
 
+#[query(guard = "is_controller")]
+pub fn query_failed_tickets() -> Vec<Ticket> {
+    read_state(|s| s.failed_tickets.clone())
+}
+
 #[update(guard = "is_controller")]
 pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
     let tickets_sz = read_state(|s| s.failed_tickets.len());
@@ -191,11 +195,16 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
             mutate_state(|state| {
                 state.failed_tickets.push(ticket.clone());
             });
-            log::error!("failed to resend ticket: {}", ticket.ticket_id);
+            log!(
+                ERROR,
+                "failed to resend ticket: {}, error: {:?}",
+                ticket.ticket_id,
+                err
+            );
             return Err(err);
         }
     }
-    log::info!("successfully resend {} tickets", tickets_sz);
+    log!(INFO, "successfully resend {} tickets", tickets_sz);
     Ok(())
 }
 
@@ -237,7 +246,6 @@ fn get_token_ledger(token_id: String) -> Option<Principal> {
 
 #[query]
 pub fn get_log_records(offset: usize, limit: usize) -> Logs {
-    log::debug!("collecting {limit} log records");
     ic_log::take_memory_records(limit, offset)
 }
 
@@ -273,7 +281,10 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
 
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    StableLogWriter::http_request(req)
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+    omnity_types::ic_log::http_request(req)
 }
 
 #[pre_upgrade]
@@ -291,9 +302,6 @@ fn post_upgrade(route_arg: Option<RouteArg>) {
         };
     }
     lifecycle::post_upgrade(upgrade_arg);
-
-    init_log(Some(init_stable_log()));
-
     set_timer_interval(
         Duration::from_secs(INTERVAL_QUERY_DIRECTIVE),
         process_directive_msg_task,
@@ -301,6 +309,11 @@ fn post_upgrade(route_arg: Option<RouteArg>) {
     set_timer_interval(
         Duration::from_secs(INTERVAL_QUERY_TICKET),
         process_ticket_msg_task,
+    );
+    log!(
+        INFO,
+        "Finish Upgrade current version: {}",
+        env!("CARGO_PKG_VERSION")
     );
 }
 

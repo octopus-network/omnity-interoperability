@@ -1,7 +1,9 @@
-use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId};
-use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
-use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
 use std::cell::RefCell;
+
+use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
+use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
+
+use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId};
 
 pub type InnerMemory = DefaultMemoryImpl;
 pub type Memory = VirtualMemory<InnerMemory>;
@@ -62,8 +64,4 @@ pub fn init_pending_directive_map() -> StableBTreeMap<Seq, PendingDirectiveStatu
 
 pub fn init_to_evm_directives_queue() -> StableBTreeMap<u64, Directive, Memory> {
     StableBTreeMap::init(get_to_evm_directives_memory())
-}
-
-pub fn init_stable_log() -> StableBTreeMap<Vec<u8>, Vec<u8>, Memory> {
-    StableBTreeMap::init(with_memory_manager(|m| m.get(STABLE_LOG_MEMORY_ID)))
 }

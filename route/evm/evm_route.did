@@ -76,6 +76,7 @@ type StateProfile = record {
   next_consume_ticket_seq : nat64;
   evm_chain_id : nat64;
   omnity_port_contract : vec nat8;
+  evm_gasfee_percent : nat64;
   next_consume_directive_seq : nat64;
   hub_principal : principal;
   key_id : EcdsaKeyId;
@@ -139,11 +140,13 @@ service : (InitArgs) -> {
   get_ticket : (text) -> (opt record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
   http_request : (HttpRequest) -> (HttpResponse) query;
+  insert_pending_hash : (text) -> ();
   metrics : () -> (MetricsStatus);
   mint_token_status : (text) -> (MintTokenStatus) query;
   pubkey_and_evm_addr : () -> (text, text);
   query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;
   query_handled_event : (text) -> (opt text);
+  query_hub_tickets : (nat64) -> (vec record { nat64; Ticket });
   query_pending_directive : (nat64, nat64) -> (
       vec record { nat64; PendingDirectiveStatus },
     ) query;
@@ -154,9 +157,11 @@ service : (InitArgs) -> {
   resend_directive : (nat64) -> ();
   resend_ticket : (nat64) -> ();
   resend_ticket_to_hub : (text) -> ();
+  rewrite_tx_hash : (text, text) -> ();
   route_state : () -> (StateProfile) query;
   set_port_address : (text) -> ();
   update_admins : (vec principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
+  update_fee_token : (text) -> ();
   update_rpcs : (vec RpcApi) -> ();
 }

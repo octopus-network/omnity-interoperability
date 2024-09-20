@@ -1,5 +1,6 @@
 use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::lifecycle::{self, init::CustomArg};
+use bitcoin_customs::logs::P0;
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
 use bitcoin_customs::state::{
@@ -24,6 +25,7 @@ use bitcoin_customs::{
 use candid::Principal;
 use ic_btc_interface::{Txid, Utxo};
 use ic_canister_log::export as export_logs;
+use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk::api::management_canister::http_request::{self, TransformArgs};
 use ic_cdk_macros::{init, post_upgrade, query, update};
@@ -161,6 +163,11 @@ pub fn is_runes_oracle() -> Result<(), String> {
         if !s.runes_oracles.contains(&caller) {
             Err("Not runes principal!".into())
         } else {
+            log!(
+                P0,
+                "[is_runes_oracle]: got update_runes_balance from runes oracle: {}",
+                caller
+            );
             Ok(())
         }
     })
@@ -187,6 +194,11 @@ async fn update_btc_utxos() -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
 #[update]
 async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     check_postcondition(updates::generate_ticket(args).await)
+}
+
+#[query]
+fn get_runes_oracles() -> Vec<Principal> {
+    read_state(|s| s.runes_oracles.iter().cloned().collect())
 }
 
 #[update(guard = "is_controller")]

@@ -14,7 +14,7 @@
 src/declarations/
 
 # rust
-target/
+**/target/
 
 # frontend code
 node_modules/
@@ -27,7 +27,5 @@ dist/
 *.log
 *.out
 *.txt
-canister_ids.json
 bitcoin_customs.wasm
-**/*.svg
 *.wasm.gz

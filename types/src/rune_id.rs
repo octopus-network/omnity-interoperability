@@ -63,7 +63,7 @@ impl FromStr for RuneId {
     type Err = ParseRuneIdError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (height, index) = s.split_once(':').ok_or_else(|| ParseRuneIdError)?;
+        let (height, index) = s.split_once(':').ok_or(ParseRuneIdError)?;
 
         Ok(Self {
             block: height.parse().map_err(|_| ParseRuneIdError)?,

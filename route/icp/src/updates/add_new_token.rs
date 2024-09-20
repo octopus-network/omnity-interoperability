@@ -73,6 +73,9 @@ async fn install_icrc2_ledger(
             LedgerInitArgsBuilder::with_symbol_and_name(token_symbol, token_name)
                 .with_decimals(token_decimal)
                 .with_minting_account(Into::<Account>::into(owner))
+                .with_transfer_fee(
+                    10_u128.checked_pow(token_decimal as u32).expect("transfer fee overflow")
+                )
                 .with_fee_collector_account(Account {
                     owner,
                     subaccount: Some(FEE_COLLECTOR_SUB_ACCOUNT.clone())

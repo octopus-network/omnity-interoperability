@@ -1,6 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
-    str::FromStr,
+    collections::{BTreeMap, HashMap}, str::FromStr
 };
 
 use candid::CandidType;
@@ -11,9 +10,9 @@ use sha2::Digest;
 use std::borrow::Cow;
 use thiserror::Error;
 
-pub mod log;
 pub mod rune_id;
 pub mod signer;
+pub mod ic_log;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
@@ -336,6 +335,15 @@ pub enum TxAction {
     Redeem,
     Burn,
     Mint,
+    RedeemIcpChainKeyAssets(IcpChainKeyToken)
+}
+
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
+pub enum IcpChainKeyToken {
+    #[default]
+    CKBTC
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
@@ -449,6 +457,22 @@ pub struct Chain {
     // fee token
     pub fee_token: Option<TokenId>,
 }
+
+impl Storable for Chain {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Chain");
+        dire
+    }
+}
+
 impl Chain {
     pub fn chain_name(&self) -> Option<&str> {
         match self.chain_type {
@@ -495,6 +519,21 @@ pub struct Token {
     pub decimals: u8,
     pub icon: Option<String>,
     pub metadata: HashMap<String, String>,
+}
+
+impl Storable for Token {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Token");
+        dire
+    }
 }
 
 impl Token {
@@ -733,4 +772,11 @@ pub enum Error {
     SighWithEcdsaError(String),
     #[error("custom error: (`{0}`)")]
     CustomError(String),
+}
+
+
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MintTokenStatus {
+    Finalized { tx_hash: String },
+    Unknown,
 }

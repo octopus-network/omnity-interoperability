@@ -1,5 +1,5 @@
-use log::{debug, error};
-use omnity_types::{ChainState, Directive, Error, Factor};
+use ic_canister_log::log;
+use omnity_types::{ic_log::ERROR, ChainState, Directive, Error, Factor};
 
 use crate::{
     state::{with_state, with_state_mut},
@@ -8,7 +8,7 @@ use crate::{
 
 pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>, Error> {
     if proposals.is_empty() {
-        error!("Proposal can not be empty");
+        log!(ERROR, "Proposal can not be empty");
         return Err(Error::ProposalError(
             "Proposal can not be empty".to_string(),
         ));
@@ -18,14 +18,14 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
         match proposal {
             Proposal::AddChain(chain_meta) => {
                 if chain_meta.chain_id.is_empty() {
-                    error!("Proposal can not be empty");
+                    log!(ERROR, "Proposal can not be empty");
                     return Err(Error::ProposalError(
                         "Chain name can not be empty".to_string(),
                     ));
                 }
 
                 if matches!(chain_meta.chain_state, ChainState::Deactive) {
-                    error!("The status of the new chain state must be active");
+                    log!(ERROR, "The status of the new chain state must be active");
                     return Err(Error::ProposalError(
                         "The status of the new chain state must be active".to_string(),
                     ));
@@ -33,10 +33,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
 
                 with_state(|hub_state| {
                     hub_state.chain(&chain_meta.chain_id).map_or(Ok(()), |_| {
-                        error!(
-                            "The chain(`{}`) already exists",
-                            chain_meta.chain_id.to_string()
-                        );
+                        log!(ERROR, "The chain(`{}`) already exists", chain_meta.chain_id.to_string());
                         Err(Error::ChainAlreadyExisting(chain_meta.chain_id.to_string()))
                     })
                 })?;
@@ -68,7 +65,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     || token_meta.symbol.is_empty()
                     || token_meta.issue_chain.is_empty()
                 {
-                    error!("Token id, token symbol or issue chain can not be empty");
+                    log!(ERROR, "Token id, token symbol or issue chain can not be empty");
                     return Err(Error::ProposalError(
                         "Token id, token symbol or issue chain can not be empty".to_string(),
                     ));
@@ -76,7 +73,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                 with_state(|hub_state| {
                     // check token repetitive
                     hub_state.token(&token_meta.token_id).map_or(Ok(()), |_| {
-                        error!("The token(`{}`) already exists", token_meta.to_string());
+                        log!(ERROR, "The token(`{}`) already exists", token_meta.to_string());
                         Err(Error::TokenAlreadyExisting(token_meta.to_string()))
                     })?;
 
@@ -86,7 +83,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                         .iter()
                         .find(|id| !hub_state.chains.contains_key(*id))
                     {
-                        error!("not found chain: (`{}`)", id.to_string());
+                        log!(ERROR, "not found chain: (`{}`)", id.to_string());
                         return Err(Error::NotFoundChain(id.to_string()));
                     }
 
@@ -130,7 +127,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
 
             Proposal::ToggleChainState(toggle_state) => {
                 if toggle_state.chain_id.is_empty() {
-                    error!("Chain id can not be empty");
+                    log!(ERROR, "Chain id can not be empty");
                     return Err(Error::ProposalError(
                         "Chain id can not be empty".to_string(),
                     ));
@@ -152,7 +149,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     }
                     Factor::UpdateFeeTokenFactor(ref tf) => {
                         if tf.fee_token.is_empty() {
-                            error!("The fee token can not be empty");
+                            log!(ERROR, "The fee token can not be empty");
                             return Err(Error::ProposalError(
                                 "The fee token can not be empty".to_string(),
                             ));
@@ -172,14 +169,9 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             Proposal::AddChain(chain_meta) => {
                 // save new chain
                 with_state_mut(|hub_state| {
-                    debug!(" save new chain: {:?}", chain_meta);
                     hub_state.update_chain(chain_meta.clone())
                 })?;
                 // publish directive for the new chain)
-                debug!(
-                    "publish directive for `AddChain` proposal :{:?}",
-                    chain_meta.to_string()
-                );
                 with_state_mut(|hub_state| {
                     let target_subs = chain_meta.counterparties.clone().unwrap_or_default();
                     hub_state
@@ -189,14 +181,9 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             Proposal::UpdateChain(chain_meta) => {
                 // update chain meta
                 with_state_mut(|hub_state| {
-                    debug!(" update the chain: {:?}", chain_meta);
                     hub_state.update_chain(chain_meta.clone())
                 })?;
                 // publish directive for the new chain)
-                debug!(
-                    "publish directive for `UpdateChain` proposal :{:?}",
-                    chain_meta.to_string()
-                );
                 with_state_mut(|hub_state| {
                     let target_subs = chain_meta.counterparties.clone().unwrap_or_default();
                     hub_state.pub_directive(
@@ -206,11 +193,6 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 })?;
             }
             Proposal::AddToken(token_meata) => {
-                debug!(
-                    "publish directive for `AddToken` proposal :{:?}",
-                    token_meata
-                );
-
                 with_state_mut(|hub_state| {
                     // save token info
                     hub_state.update_token(token_meata.clone())?;
@@ -222,11 +204,6 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 })?
             }
             Proposal::UpdateToken(token_meata) => {
-                debug!(
-                    "publish directive for `UpdateToken` proposal :{:?}",
-                    token_meata
-                );
-
                 with_state_mut(|hub_state| {
                     // update token info
                     hub_state.update_token(token_meata.clone())?;
@@ -239,11 +216,6 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             }
 
             Proposal::ToggleChainState(toggle_status) => {
-                debug!(
-                    "publish directive for `ToggleChainState` proposal :{:?}",
-                    toggle_status
-                );
-
                 with_state_mut(|hub_state| {
                     // publish directive
                     hub_state
@@ -254,12 +226,16 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             }
 
             Proposal::UpdateFee(factor) => {
-                debug!("publish directive for `UpdateFee` proposal :{:?}", factor);
                 with_state_mut(|hub_state| {
                     hub_state.update_fee(factor.clone())?;
                     let target_subs = match &factor {
                         Factor::UpdateTargetChainFactor(factor) => {
-                            hub_state.get_chains_by_counterparty(factor.target_chain_id.clone())
+                           hub_state.chains.iter().filter_map(|s|{
+                               match s.0 != factor.target_chain_id {
+                                   true => {Some(s.0)}
+                                   false => {None}
+                               }
+                           }).collect()
                         }
                         Factor::UpdateFeeTokenFactor(factor) => {
                             hub_state.get_chains_by_fee_token(factor.fee_token.clone())

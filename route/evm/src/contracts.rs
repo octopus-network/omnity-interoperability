@@ -1,12 +1,13 @@
 use std::str::FromStr;
 
-use ethers_core::abi::{ethereum_types, AbiEncode};
-use ethers_core::types::Eip1559TransactionRequest;
+use ethers_core::abi::{AbiEncode, ethereum_types};
 use ethers_core::types::{Bytes, NameOrAddress, TransactionRequest, U256};
-use log::info;
+use ethers_core::types::Eip1559TransactionRequest;
+use ic_canister_log::log;
 
 use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
 use crate::eth_common::{EvmAddress, EvmTxRequest, EvmTxType};
+use crate::ic_log::WARNING;
 use crate::state::read_state;
 use crate::types::{Directive, Factor, Ticket, ToggleAction};
 
@@ -20,7 +21,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
         }
         Directive::AddToken(token) => {
             if read_state(|s| s.tokens.get(&token.token_id).is_some()) {
-                info!("duplicate issue token id: {}", token.token_id);
+                log!(WARNING, "duplicate issue token id: {}", token.token_id);
                 return vec![];
             }
             Bytes::from(
@@ -74,7 +75,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
     .encode()
 }
 
-pub fn gen_mint_token_data(ticket: &Ticket) -> anyhow::Result<Vec<u8>> {
+pub fn gen_mint_token_data(ticket: &Ticket) -> Vec<u8> {
     let receiver = ethereum_types::Address::from_slice(
         EvmAddress::from_str(ticket.receiver.as_str())
             .unwrap()
@@ -82,14 +83,14 @@ pub fn gen_mint_token_data(ticket: &Ticket) -> anyhow::Result<Vec<u8>> {
             .as_slice(),
     );
     let amount: u128 = ticket.amount.parse().unwrap();
-    Ok(PrivilegedMintTokenCall {
+    PrivilegedMintTokenCall {
         token_id: ticket.token.clone(),
         receiver,
         amount: U256::from(amount),
         ticket_id: ticket.ticket_id.clone(),
         memo: String::from_utf8(ticket.memo.clone().unwrap_or_default()).unwrap_or_default(),
     }
-    .encode())
+    .encode()
 }
 
 impl Into<Option<PortContractCommandIndex>> for Directive {

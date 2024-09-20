@@ -255,6 +255,7 @@ service : (CustomArg) -> {
   get_pending_gen_ticket_requests : (GetGenTicketReqsArgs) -> (
       vec GenTicketRequestV2,
     ) query;
+  get_runes_oracles : () -> (vec principal) query;
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   remove_runes_oracle : (principal) -> ();
