@@ -65,11 +65,11 @@ sleep 15
 echo "mock: redeem from solana to customs... "
 # first collect fee
 # get fee account
-FEE_ACCOUNT=$(dfx canister call solana_route get_fee_account '()' --ic)
+FEE_ACCOUNT=$(dfx canister call solana_route get_fee_account '()')
 FEE_ACCOUNT=$(echo "$FEE_ACCOUNT" | awk -F'"' '{print $2}')
 echo "fee account: $FEE_ACCOUNT"
 # get fee amount
-FEE_AMOUNT=$(dfx canister call solana_route get_redeem_fee "(\"${BITCOIN_CHAIN_ID}\")" --ic)
+FEE_AMOUNT=$(dfx canister call solana_route get_redeem_fee "(\"${BITCOIN_CHAIN_ID}\")")
 FEE_AMOUNT=$(echo "$FEE_AMOUNT" | grep -oE '[0-9_]+ ' | sed 's/_//g' | awk '{printf "%.9f\n", $1 / 1000000000}')
 echo "fee account: $FEE_AMOUNT"
 # collect fee

@@ -451,9 +451,9 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 # })" --ic
 
 # # get token mint
-# TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
-# TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
-# echo "token mint: $TOKEN_MINT"
+TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
+TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
+echo "token mint: $TOKEN_MINT"
 
 # SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
 # create aossicated account for user
