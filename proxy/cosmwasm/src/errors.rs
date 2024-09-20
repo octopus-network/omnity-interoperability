@@ -12,6 +12,8 @@ pub enum Errors {
     CanisterCallError(String, String, String, String),
     #[error("ckBTC update the account: ({0}) balance error: {1}")]
     CkBtcUpdateBalanceError(String, String),
+    #[error("Failed to convert Nat({0})")]
+    NatConversionError(String),
     #[error("{0}")]
     CustomError(String),
 }
