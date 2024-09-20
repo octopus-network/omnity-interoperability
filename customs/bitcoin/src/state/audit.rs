@@ -4,8 +4,8 @@ use super::{
     eventlog::Event, CustomsState, GenTicketRequestV2, RuneId, RuneTxRequest, RunesBalance,
     SubmittedBtcTransactionV2,
 };
-use crate::destination::Destination;
 use crate::storage::record_event;
+use crate::{destination::Destination, state::RUNES_TOKEN};
 use ic_btc_interface::{Txid, Utxo};
 use omnity_types::{Chain, ToggleState, Token};
 
@@ -52,17 +52,28 @@ pub fn accept_rune_tx_request(state: &mut CustomsState, request: RuneTxRequest) 
     state.push_back_pending_request(request);
 }
 
-pub fn accept_generate_ticket_request(
-    state: &mut CustomsState,
-    dest: Destination,
-    request: GenTicketRequestV2,
-) {
-    record_event(&Event::AcceptedGenTicketRequestV2(request.clone()));
-    let new_utxos = request.new_utxos.clone();
+pub fn accept_generate_ticket_request(state: &mut CustomsState, request: GenTicketRequestV2) {
+    record_event(&Event::AcceptedGenTicketRequestV3(request.clone()));
     state
         .pending_gen_ticket_requests
         .insert(request.txid, request);
+}
 
+pub fn confirm_generate_ticket_request(state: &mut CustomsState, req: GenTicketRequestV2) {
+    record_event(&Event::ConfirmedGenTicketRequest(req.clone()));
+
+    assert!(state
+        .pending_gen_ticket_requests
+        .remove(&req.txid)
+        .is_some());
+
+    let new_utxos = req.new_utxos.clone();
+    let dest = Destination {
+        target_chain_id: req.target_chain_id.clone(),
+        receiver: req.receiver.clone(),
+        token: Some(RUNES_TOKEN.into()),
+    };
+    state.confirmed_gen_ticket_requests.insert(req.txid, req);
     state.add_utxos(dest, new_utxos, true);
 }
 
@@ -93,10 +104,10 @@ pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: Runes
     state.update_runes_balance(txid, balance);
 }
 
-pub fn remove_pending_request(state: &mut CustomsState, txid: &Txid) {
+pub fn remove_confirmed_request(state: &mut CustomsState, txid: &Txid) {
     record_event(&Event::RemovedTicketRequest { txid: txid.clone() });
     state
-        .pending_gen_ticket_requests
+        .confirmed_gen_ticket_requests
         .remove(txid)
         .and_then(|req| Some(req.new_utxos.iter().for_each(|u| state.forget_utxo(u))));
 }
@@ -111,7 +122,7 @@ pub fn finalize_ticket_request(
         balances: balances.clone(),
     });
 
-    state.pending_gen_ticket_requests.remove(&request.txid);
+    state.confirmed_gen_ticket_requests.remove(&request.txid);
     for balance in balances {
         state.update_runes_balance(request.txid, balance);
     }

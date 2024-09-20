@@ -1,10 +1,7 @@
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::StableLog as IcLog;
 
-#[cfg(not(feature = "file_memory"))]
 use ic_stable_structures::DefaultMemoryImpl;
-#[cfg(feature = "file_memory")]
-use ic_stable_structures::FileMemory;
 use ic_stable_structures::StableBTreeMap;
 use std::cell::RefCell;
 
@@ -31,22 +28,10 @@ const TICKET_METRIC: MemoryId = MemoryId::new(15);
 const TXHASHES: MemoryId = MemoryId::new(16);
 const PENDING_TICKETS: MemoryId = MemoryId::new(17);
 
-#[cfg(feature = "file_memory")]
-type InnerMemory = FileMemory;
-
-#[cfg(not(feature = "file_memory"))]
 type InnerMemory = DefaultMemoryImpl;
 
 pub type Memory = VirtualMemory<InnerMemory>;
 
-#[cfg(feature = "file_memory")]
-thread_local! {
-    static MEMORY: RefCell<Option<InnerMemory>> = RefCell::new(None);
-
-    static MEMORY_MANAGER: RefCell<Option<MemoryManager<InnerMemory>>> = RefCell::new(None);
-}
-
-#[cfg(not(feature = "file_memory"))]
 thread_local! {
     static MEMORY: RefCell<Option<InnerMemory>> = RefCell::new(Some(InnerMemory::default()));
 

@@ -1,0 +1,23 @@
+{
+  "bitcoin_customs": {
+    "ic": "7rvjr-3qaaa-aaaar-qaeyq-cai"
+  },
+  "bitfinity_route": {
+    "ic": "pw3ee-pyaaa-aaaar-qahva-cai"
+  },
+  "omnity_hub": {
+    "ic": "7wupf-wiaaa-aaaar-qaeya-cai"
+  },
+  "icp_route": {
+    "ic": "7ywcn-nyaaa-aaaar-qaeza-cai"
+  },
+  "cosmwasm_proxy": {
+    "ic": "ncfbq-kyaaa-aaaar-qah3a-cai"
+  },
+  "icp_customs": {
+    "ic": "nlgkm-4qaaa-aaaar-qah2q-cai"
+  },
+  "ckbtc_minter": {
+    "ic": "mqygn-kiaaa-aaaar-qaadq-cai"
+  }
+}

@@ -1,17 +1,6 @@
 {
   "dfx": "0.22.0",
   "canisters": {
-    "schnorr_canister": {
-      "type": "custom",
-      "candid": "https://github.com/domwoe/schnorr_canister/releases/latest/download/schnorr_canister.did",
-      "wasm": "https://github.com/domwoe/schnorr_canister/releases/latest/download/schnorr_canister.wasm.gz",
-      "remote": {
-        "id": {
-          "ic": "6fwhw-fyaaa-aaaap-qb7ua-cai",
-          "playground": "6fwhw-fyaaa-aaaap-qb7ua-cai"
-        }
-      }
-    },
     "icp_customs": {
       "package": "icp_customs",
       "type": "custom",

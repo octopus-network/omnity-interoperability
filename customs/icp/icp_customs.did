@@ -9,11 +9,23 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
-type CustomArg = variant { Init : InitArgs };
+type CustomsState = record {
+  ckbtc_ledger_principal : principal;
+  hub_principal : principal;
+  is_timer_running : bool;
+  next_directive_seq : nat64;
+  ckbtc_minter_principal : opt principal;
+  icp_token_id : opt text;
+  chain_id : text;
+  next_ticket_seq : nat64;
+  ckbtc_token_id : opt text;
+};
 type GenerateTicketError = variant {
   SendTicketErr : text;
   TemporarilyUnavailable : text;
+  InsufficientIcp : record { provided : nat64; required : nat64 };
   InsufficientAllowance : record { allowance : nat64 };
+  TransferIcpFailure : text;
   UnsupportedChainId : text;
   UnsupportedToken : text;
   InsufficientFunds : record { balance : nat64 };
@@ -26,8 +38,32 @@ type GenerateTicketReq = record {
   amount : nat;
   receiver : text;
 };
-type InitArgs = record { hub_principal : principal; chain_id : text };
+type IcpChainKeyToken = variant { CKBTC };
+type InitArgs = record {
+  ckbtc_ledger_principal : principal;
+  hub_principal : principal;
+  chain_id : text;
+};
+type MintTokenStatus = variant {
+  Finalized : record { tx_hash : text };
+  Unknown;
+};
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
+type Result_1 = variant { Ok : nat64; Err : text };
+type Ticket = record {
+  token : text;
+  action : TxAction;
+  dst_chain : text;
+  memo : opt blob;
+  ticket_id : text;
+  sender : opt text;
+  ticket_time : nat64;
+  ticket_type : TicketType;
+  src_chain : text;
+  amount : text;
+  receiver : text;
+};
+type TicketType = variant { Resubmit; Normal };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -36,8 +72,22 @@ type Token = record {
   name : text;
   symbol : text;
 };
-service : (CustomArg) -> {
+type TxAction = variant {
+  Burn;
+  Redeem;
+  Mint;
+  RedeemIcpChainKeyAssets : IcpChainKeyToken;
+  Transfer;
+};
+service : (InitArgs) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
+  get_account_identifier : (principal) -> (blob) query;
   get_chain_list : () -> (vec Chain) query;
+  get_state : () -> (CustomsState) query;
   get_token_list : () -> (vec Token) query;
+  handle_ticket : (nat64) -> (Result_1);
+  mint_token_status : (text) -> (MintTokenStatus) query;
+  query_hub_tickets : (nat64, nat64) -> (vec record { nat64; Ticket });
+  set_ckbtc_token : (text) -> ();
+  set_icp_token : (text) -> ();
 }

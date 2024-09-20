@@ -80,6 +80,30 @@ pub struct ChainMeta {
     pub fee_token: Option<TokenId>,
 }
 
+impl ChainMeta {
+    pub fn add_counterparty(&mut self, chain_id: ChainId) {
+        match &mut self.counterparties {
+            None => {
+                self.counterparties = Some(vec![chain_id])
+            }
+            Some(v) => {
+                if !v.contains(&chain_id) {
+                    v.push(chain_id)
+                }
+            }
+        }
+    }
+
+    pub fn contains_counterparty(&self, chain_id: &ChainId) -> bool {
+        match &self.counterparties {
+            None => { false }
+            Some(c) => {
+                c.contains(chain_id)
+            }
+        }
+    }
+}
+
 impl Storable for ChainMeta {
     fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
         let mut bytes = vec![];

@@ -1,10 +1,13 @@
+use std::str::FromStr;
+
+use ic_canister_log::log;
+
+use crate::{audit, hub};
 use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME};
 use crate::eth_common::EvmAddress;
+use crate::ic_log::ERROR;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Seq, Ticket};
-use crate::{audit, hub};
-use log::{self};
-use std::str::FromStr;
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
@@ -16,7 +19,7 @@ async fn process_tickets() {
             store_tickets(tickets, offset);
         }
         Err(err) => {
-            log::error!("[process tickets] failed to query tickets, err: {}", err);
+            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
         }
     }
 }
@@ -25,7 +28,7 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
     let mut next_seq = offset;
     for (seq, ticket) in &tickets {
         if let Err(_) = EvmAddress::from_str(&ticket.receiver) {
-            log::error!(
+            log!(ERROR,
                 "[process tickets] failed to parse ticket receiver: {}",
                 ticket.receiver
             );
@@ -33,7 +36,7 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
             continue;
         };
         if let Err(_) = ticket.amount.parse::<u128>() {
-            log::error!(
+            log!(ERROR,
                 "[process tickets] failed to parse ticket amount: {}",
                 ticket.amount
             );
@@ -86,7 +89,7 @@ async fn process_directives() {
             });
         }
         Err(err) => {
-            log::error!(
+            log!(ERROR,
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );

@@ -1,4 +1,4 @@
-use crate::state::{replace_state, CustomsState};
+use crate::state::{set_state, CustomsState};
 use candid::{CandidType, Deserialize, Principal};
 use serde::Serialize;
 
@@ -11,9 +11,10 @@ pub enum CustomArg {
 pub struct InitArgs {
     pub chain_id: String,
     pub hub_principal: Principal,
+    pub ckbtc_ledger_principal: Principal,
 }
 
 pub fn init(args: InitArgs) {
     let state = CustomsState::from(args);
-    replace_state(state);
+    set_state(state);
 }

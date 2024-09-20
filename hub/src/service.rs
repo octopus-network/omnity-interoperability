@@ -1,30 +1,25 @@
-use crate::memory::init_stable_log;
 use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_ledger_types::AccountIdentifier;
-#[cfg(feature = "profiling")]
-use ic_stable_structures::Memory;
-use log::{debug, info};
 use omnity_hub::auth::{auth_query, auth_update, is_admin, is_runes_oracle, set_perms, Permission};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
 use omnity_hub::lifecycle::init::HubArg;
-#[cfg(feature = "profiling")]
-use omnity_hub::memory::get_profiling_memory;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::self_help::{
     principal_to_subaccount, AddDestChainArgs, AddRunesTokenReq, FinalizeAddRunesArgs,
-    SelfServiceError, ADD_CHAIN_FEE, ADD_TOKEN_FEE,
+    LinkChainReq, SelfServiceError, ADD_CHAIN_FEE, ADD_TOKEN_FEE,
 };
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::types::{ChainMeta, TokenMeta, TxHash};
 use omnity_hub::{proposal, self_help};
 
+use ic_canister_log::log;
+use omnity_hub::lifecycle;
 use omnity_hub::types::{
     TokenResp, {Proposal, Subscribers},
 };
-use omnity_hub::{lifecycle, memory};
-use omnity_types::log::{init_log, LoggerConfigService, StableLogWriter};
+use omnity_types::ic_log::INFO;
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
     TokenId, TokenOnChain, Topic,
@@ -36,8 +31,7 @@ use omnity_hub::state::HubState;
 fn init(args: HubArg) {
     match args {
         HubArg::Init(args) => {
-            init_log(Some(init_stable_log()));
-            info!("hub init args: {:?}", args);
+            log!(INFO, "hub init args: {:?}", args);
 
             lifecycle::init(args.clone());
             record_event(&Event::Init(args));
@@ -50,17 +44,19 @@ fn init(args: HubArg) {
 
 #[pre_upgrade]
 fn pre_upgrade() {
-    info!("begin to execute pre_upgrade ...");
+    log!(INFO, "begin to execute pre_upgrade ...");
     with_state(|hub_state| hub_state.pre_upgrade())
 }
 
 #[post_upgrade]
 fn post_upgrade(args: Option<HubArg>) {
-    init_log(Some(init_stable_log()));
-    info!("begin to execute post_upgrade with :{:?}", args);
-    // init log
+    log!(INFO, "begin to execute post_upgrade with :{:?}", args);
     HubState::post_upgrade(args);
-    info!("upgrade successfully!");
+    log!(
+        INFO,
+        "post_upgrade successfully, current version: {}",
+        env!("CARGO_PKG_VERSION")
+    );
 }
 
 /// validate directive ,this method will be called by sns
@@ -119,28 +115,24 @@ pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
 
 #[update(guard = "auth_update")]
 pub async fn sub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
-    debug!(
+    log!(
+        INFO,
         "sub_topics for chain: {:?}, with topics: {:?} ",
-        chain_id, topics
+        chain_id,
+        topics
     );
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
-    debug!("get_chain_id:{:?}", dst_chain_id);
     with_state_mut(|hub_state| hub_state.sub_directives(&dst_chain_id, &topics))
 }
 
 #[update(guard = "auth_update")]
 pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> Result<(), Error> {
-    debug!(
-        "unsub_topics for chain: {:?}, with topics: {:?} ",
-        chain_id, topics
-    );
     let dst_chain_id = metrics::get_chain_id(chain_id)?;
     with_state_mut(|hub_state| hub_state.unsub_directives(&dst_chain_id, &topics))
 }
 
 #[query(guard = "auth_query")]
 pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subscribers)>, Error> {
-    debug!("query_subscribers for topic: {:?} ", topic);
     with_state(|hub_state| hub_state.query_subscribers(topic))
 }
 
@@ -159,8 +151,6 @@ pub async fn query_directives(
 /// check and push ticket into queue
 #[update(guard = "auth_update")]
 pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
-    debug!("send_ticket: {:?}", ticket);
-
     with_state_mut(|hub_state| {
         // check ticket and update token on chain
         hub_state.check_and_update(&ticket)?;
@@ -171,7 +161,6 @@ pub async fn send_ticket(ticket: Ticket) -> Result<(), Error> {
 
 #[update(guard = "auth_update")]
 pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
-    debug!("received resubmit ticket: {:?}", ticket);
     // No need to update the token since the old ticket has already added
     with_state_mut(|hub_state| hub_state.resubmit_ticket(ticket))
 }
@@ -189,13 +178,11 @@ pub async fn query_tickets(
 
 #[update(guard = "auth_update")]
 pub async fn update_tx_hash(ticket_id: TicketId, tx_hash: String) -> Result<(), Error> {
-    debug!("update tx({:?}) hash: {:?}", ticket_id, tx_hash);
     with_state_mut(|hub_state| hub_state.update_tx_hash(ticket_id, tx_hash))
 }
 
 #[update(guard = "auth_update")]
 pub async fn batch_update_tx_hash(ticket_ids: Vec<TicketId>, tx_hash: String) -> Result<(), Error> {
-    debug!("batch update tx({:?}) hash: {:?}", ticket_ids, tx_hash);
     for ticket_id in ticket_ids {
         with_state_mut(|hub_state| hub_state.update_tx_hash(ticket_id, tx_hash.clone()))?;
     }
@@ -208,11 +195,6 @@ pub async fn query_tx_hash(ticket_id: TicketId) -> Result<TxHash, Error> {
 }
 
 #[update(guard = "is_admin")]
-pub async fn set_logger_filter(filter: String) {
-    LoggerConfigService::default().set_logger_filter(&filter);
-}
-
-#[update(guard = "is_admin")]
 pub async fn set_permissions(caller: Principal, perm: Permission) {
     set_perms(caller.to_string(), perm)
 }
@@ -222,9 +204,19 @@ fn set_runes_oracle(oracle: Principal) {
     with_state_mut(|s| s.runes_oracles.insert(oracle));
 }
 
+#[update(guard = "is_admin")]
+fn remove_runes_oracle(oracle: Principal) {
+    with_state_mut(|s| s.runes_oracles.remove(&oracle));
+}
+
 #[update]
 pub async fn add_runes_token(args: AddRunesTokenReq) -> Result<(), SelfServiceError> {
     self_help::add_runes_token(args).await
+}
+
+#[update]
+pub async fn link_chains(args: LinkChainReq) -> Result<(), SelfServiceError> {
+    self_help::link_chains(args).await
 }
 
 #[update(guard = "is_runes_oracle")]
@@ -362,13 +354,10 @@ pub async fn get_total_tx() -> Result<u64, Error> {
 
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    StableLogWriter::http_request(req)
-}
-
-#[query(guard = "auth_query")]
-pub async fn get_logs(time: Option<u64>, offset: usize, limit: usize) -> Vec<String> {
-    let max_skip_timestamp = time.unwrap_or(0);
-    StableLogWriter::get_logs(max_skip_timestamp, offset, limit)
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+    omnity_types::ic_log::http_request(req)
 }
 
 #[query(guard = "auth_query")]
@@ -440,14 +429,11 @@ pub async fn get_tx_hashes(offset: usize, limit: usize) -> Result<Vec<(TicketId,
 
 #[update(guard = "auth_update")]
 pub async fn pending_ticket(ticket: Ticket) -> Result<(), Error> {
-    debug!("pending_ticket: {:?}", ticket);
     with_state_mut(|hub_state| hub_state.pending_ticket(ticket))
 }
 
 #[update(guard = "auth_update")]
 pub async fn finalize_ticket(ticket_id: String) -> Result<(), Error> {
-    debug!("finaize_ticket: {:?}", ticket_id);
-
     with_state_mut(|hub_state| hub_state.finalize_ticket(&ticket_id))
 }
 
@@ -508,7 +494,6 @@ mod tests {
             admin: PrincipalId::new_user_test_id(1).0,
         });
         init(arg);
-        set_logger_filter("debug".to_string()).await;
     }
     pub fn get_logs(
         max_skip_timestamp: &Option<u64>,
@@ -1848,10 +1833,6 @@ mod tests {
         assert!(result.is_ok());
 
         // print log
-        let logs = StableLogWriter::get_logs(0, 0, 50);
-        for r in logs.iter() {
-            print!("stable log: {}", r)
-        }
         let logs = get_logs(&None, &0, &50);
         for r in logs.iter() {
             print!("http request stable log: {}", r)

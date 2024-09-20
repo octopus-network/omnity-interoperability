@@ -1,5 +1,6 @@
 use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::lifecycle::{self, init::CustomArg};
+use bitcoin_customs::logs::P0;
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
 use bitcoin_customs::state::{
@@ -8,9 +9,6 @@ use bitcoin_customs::state::{
 use bitcoin_customs::storage::record_event;
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
-use bitcoin_customs::updates::update_pending_ticket::{
-    UpdatePendingTicketArgs, UpdatePendingTicketError,
-};
 use bitcoin_customs::updates::{
     self,
     get_btc_address::GetBtcAddressArgs,
@@ -27,7 +25,9 @@ use bitcoin_customs::{
 use candid::Principal;
 use ic_btc_interface::{Txid, Utxo};
 use ic_canister_log::export as export_logs;
+use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_cdk::api::management_canister::http_request::{self, TransformArgs};
 use ic_cdk_macros::{init, post_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use omnity_types::Chain;
@@ -142,12 +142,14 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
     read_state(|s| s.generate_ticket_status(txid))
 }
 
+/// The function name needs to be changed to get_confirmed_gen_ticket_requests,
+/// but considering that it will affect runes oracle, it will be retained temporarily.
 #[query]
 fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequestV2> {
     let start = args.start_txid.map_or(Unbounded, |txid| Excluded(txid));
     let count = max(50, args.max_count) as usize;
     read_state(|s| {
-        s.pending_gen_ticket_requests
+        s.confirmed_gen_ticket_requests
             .range((start, Unbounded))
             .take(count)
             .map(|(_, req)| req.clone())
@@ -161,6 +163,11 @@ pub fn is_runes_oracle() -> Result<(), String> {
         if !s.runes_oracles.contains(&caller) {
             Err("Not runes principal!".into())
         } else {
+            log!(
+                P0,
+                "[is_runes_oracle]: got update_runes_balance from runes oracle: {}",
+                caller
+            );
             Ok(())
         }
     })
@@ -189,17 +196,32 @@ async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketE
     check_postcondition(updates::generate_ticket(args).await)
 }
 
-#[update(guard = "is_controller")]
-async fn update_pending_ticket(
-    args: UpdatePendingTicketArgs,
-) -> Result<(), UpdatePendingTicketError> {
-    check_postcondition(updates::update_pending_ticket(args).await)
+#[query]
+fn get_runes_oracles() -> Vec<Principal> {
+    read_state(|s| s.runes_oracles.iter().cloned().collect())
 }
 
 #[update(guard = "is_controller")]
 fn set_runes_oracle(oracle: Principal) {
     record_event(&Event::AddedRunesOracle { principal: oracle });
     mutate_state(|s| s.runes_oracles.insert(oracle));
+}
+
+#[update(guard = "is_controller")]
+fn remove_runes_oracle(oracle: Principal) {
+    if !read_state(|s| s.runes_oracles.contains(&oracle)) {
+        return;
+    }
+    record_event(&Event::RemovedRunesOracle { principal: oracle });
+    mutate_state(|s| s.runes_oracles.remove(&oracle));
+}
+
+#[update(guard = "is_controller")]
+fn update_rpc_url(url: String) {
+    record_event(&Event::UpdatedRpcURL {
+        rpc_url: url.clone(),
+    });
+    mutate_state(|s| s.rpc_url = Some(url));
 }
 
 #[update]
@@ -329,7 +351,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     }
 }
 
-#[query(guard = "is_controller")]
+#[query]
 fn get_events(args: GetEventsArg) -> Vec<Event> {
     const MAX_EVENTS_PER_QUERY: usize = 2000;
 
@@ -337,6 +359,16 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
         .skip(args.start as usize)
         .take(MAX_EVENTS_PER_QUERY.min(args.length as usize))
         .collect()
+}
+
+#[query]
+fn transform(raw: TransformArgs) -> http_request::HttpResponse {
+    http_request::HttpResponse {
+        status: raw.response.status.clone(),
+        body: raw.response.body.clone(),
+        headers: vec![],
+        ..Default::default()
+    }
 }
 
 #[cfg(feature = "self_check")]

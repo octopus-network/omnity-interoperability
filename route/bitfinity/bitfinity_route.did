@@ -1,0 +1,143 @@
+type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type Directive = variant {
+  UpdateChain : Chain;
+  UpdateFee : Factor;
+  AddToken : Token;
+  AddChain : Chain;
+  ToggleChainState : ToggleState;
+  UpdateToken : Token;
+};
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
+type InitArgs = record {
+  evm_chain_id : nat64;
+  hub_principal : principal;
+  network : Network;
+  fee_token_id : text;
+  block_interval_secs : nat64;
+  chain_id : text;
+  admins : vec principal;
+  bitfinity_canister_pricipal : principal;
+  port_addr : opt text;
+};
+type MetricsStatus = record {
+  chainkey_addr_balance : nat;
+  latest_scan_interval_secs : nat64;
+};
+type MintTokenStatus = variant {
+  Finalized : record { tx_hash : text };
+  Unknown;
+};
+type Network = variant { mainnet; local; testnet };
+type PendingDirectiveStatus = record {
+  seq : nat64;
+  evm_tx_hash : opt text;
+  error : opt text;
+};
+type PendingTicketStatus = record {
+  seq : nat64;
+  evm_tx_hash : opt text;
+  ticket_id : text;
+  error : opt text;
+};
+type Result = variant { Ok; Err : text };
+type StateProfile = record {
+  next_consume_ticket_seq : nat64;
+  evm_chain_id : nat64;
+  omnity_port_contract : blob;
+  next_consume_directive_seq : nat64;
+  hub_principal : principal;
+  token_contracts : vec record { text; text };
+  next_directive_seq : nat64;
+  pubkey : blob;
+  key_derivation_path : vec blob;
+  omnity_chain_id : text;
+  tokens : vec record { text; Token };
+  admins : vec principal;
+  target_chain_factor : vec record { text; nat };
+  bitfinity_principal : principal;
+  counterparties : vec record { text; Chain };
+  next_ticket_seq : nat64;
+  chain_state : ChainState;
+  fee_token_factor : opt nat;
+};
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
+type Ticket = record {
+  token : text;
+  action : TxAction;
+  dst_chain : text;
+  memo : opt blob;
+  ticket_id : text;
+  sender : opt text;
+  ticket_time : nat64;
+  ticket_type : TicketType;
+  src_chain : text;
+  amount : text;
+  receiver : text;
+};
+type TicketType = variant { Resubmit; Normal };
+type ToggleAction = variant { Deactivate; Activate };
+type ToggleState = record { action : ToggleAction; chain_id : text };
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  evm_contract : opt text;
+  rune_id : opt text;
+  symbol : text;
+};
+type TxAction = variant { Burn; Redeem; Mint; Transfer };
+service : (InitArgs) -> {
+  generate_ticket : (text) -> (Result);
+  get_chain_list : () -> (vec Chain) query;
+  get_fee : (text) -> (opt nat64) query;
+  get_ticket : (text) -> (opt record { nat64; Ticket }) query;
+  get_token_list : () -> (vec TokenResp) query;
+  insert_pending_hash : (text) -> ();
+  metrics : () -> (MetricsStatus);
+  mint_token_status : (text) -> (MintTokenStatus) query;
+  pubkey_and_evm_addr : () -> (text, text);
+  query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;
+  query_handled_event : (text) -> (opt text);
+  query_hub_tickets : (nat64) -> (vec record { nat64; Ticket });
+  query_pending_directive : (nat64, nat64) -> (
+      vec record { nat64; PendingDirectiveStatus },
+    ) query;
+  query_pending_ticket : (nat64, nat64) -> (
+      vec record { text; PendingTicketStatus },
+    ) query;
+  query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
+  resend_directive : (nat64) -> ();
+  resend_ticket : (nat64) -> ();
+  resend_ticket_to_hub : (text) -> ();
+  rewrite_tx_hash : (text, text) -> ();
+  route_state : () -> (StateProfile) query;
+  set_port_address : (text) -> ();
+  update_admins : (vec principal) -> ();
+  update_consume_directive_seq : (nat64) -> ();
+  update_fee_token : (text) -> ();
+}

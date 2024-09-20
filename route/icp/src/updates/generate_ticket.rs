@@ -13,6 +13,7 @@ use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromErro
 use num_traits::cast::ToPrimitive;
 use omnity_types::{ChainId, ChainState, Ticket, TxAction};
 use serde::Serialize;
+use crate::{log, ERROR};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketReq {
@@ -92,7 +93,7 @@ pub async fn generate_ticket(
         
             Ok(hex::encode(&ticket_id))
         }
-        TxAction::Burn | TxAction::Redeem => {
+        TxAction::Burn | TxAction::Redeem | TxAction::RedeemIcpChainKeyAssets(_)=> {
             let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
             let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
             Ok(ticket_id)
@@ -125,7 +126,7 @@ pub async fn generate_ticket(
             mutate_state(|s| {
                 s.failed_tickets.push(ticket.clone());
             });
-            log::error!("failed to send ticket: {}", ticket_id);
+            log!(ERROR, "failed to send ticket: {}, err: {:?}", ticket_id, err);
             Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
         }
         Ok(()) => {

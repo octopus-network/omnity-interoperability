@@ -3,8 +3,8 @@
 # start ic local network
 dfx stop
 dfx start --clean --background > dfx.out 2>&1
-dfx canister stop omnity_hub
-dfx canister delete omnity_hub
+# dfx canister stop omnity_hub
+# dfx canister delete omnity_hub
 
 # deploy hub
 #dfx deploy omnity_hub
@@ -175,7 +175,9 @@ dfx canister call omnity_hub get_chain_tokens '(opt "Starknet",null,0:nat64,5:na
 dfx build omnity_hub
 # upgrade canister
 echo "upgrade omnity hub ..."
-dfx canister install --mode upgrade --argument '(variant { Upgrade = null })'  --upgrade-unchanged --yes omnity_hub 
+
+# dfx canister install --mode upgrade --argument '(variant { Upgrade = null })'  --upgrade-unchanged --yes omnity_hub 
+dfx canister install --mode upgrade --argument '(variant { Upgrade = opt record { admin = opt principal "rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe" }})'  --upgrade-unchanged --yes omnity_hub 
 dfx canister call omnity_hub set_logger_filter '("debug")'
 # dfx canister call omnity_hub handle_chain '(vec {variant { UpdateChain = record { chain_state=variant { Active };chain_id = "Bitcoin"; chain_type=variant { SettlementChain };canister_id="bkyz2-fmaaa-aaaaa-qaaaq-cai"; contract_address=null;counterparties=null; fee_token= null}}})'
 # dfx canister call omnity_hub sync_ticket_size '()'

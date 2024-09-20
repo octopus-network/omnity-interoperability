@@ -1,0 +1,44 @@
+[package]
+name = "bitfinity_route"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = { workspace = true }
+ciborium = { workspace = true }
+ic-cdk = { workspace = true }
+ic-cdk-macros = { workspace = true }
+ic-ledger-types = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+ic-stable-structures = { workspace = true }
+serde_bytes = "0.11"
+hex = "0.4"
+humantime = "2.1"
+ic-cdk-timers = "=0.9.0"
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
+tiny-keccak = { version = "2.0.2", features = ["keccak"], default-features = false }
+num-traits = { version = "0.2", default-features = false }
+bytes = { version = "^1.4.0", default-features = false }
+serde_derive = "^1.0"
+k256 = "0.13"
+# essential dependencies of evm-rpc-canister
+#ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.12.x-stablelog" }
+ethers-core = "2.0.11"
+itertools = "0.12.1"
+omnity_types = { path = "../../types", default-features = false }
+sha2 = "0.10.8"
+ethers-contract = "2.0.14"
+ethers-providers = "2.0.14"
+futures = "0.3"
+evm-canister-client = {git = "https://github.com/bitfinity-network/bitfinity-evm-sdk.git",  tag = "v0.30.x"}
+eth-signer = {git = "https://github.com/bitfinity-network/bitfinity-evm-sdk.git", tag = "v0.30.x", features = ["ic_sign"]}
+did = {git = "https://github.com/bitfinity-network/bitfinity-evm-sdk.git", tag = "v0.30.x"}
+ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+env_filter = "=0.1.1"
+time = "0.3.36"

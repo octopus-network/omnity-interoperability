@@ -91,7 +91,9 @@ type FinalizeAddRunesArgs = record {
 };
 type GetEventsArg = record { start : nat64; length : nat64 };
 type HubArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record { admin : principal };
+type LinkChainReq = record { chain1 : text; chain2 : text };
 type Permission = variant { Update; Query };
 type Proposal = variant {
   UpdateChain : Chain;
@@ -128,12 +130,14 @@ type SelfServiceError = variant {
   TemporarilyUnavailable : text;
   InsufficientFee : record { provided : nat64; required : nat64 };
   TokenNotFound;
+  ChainsAlreadyLinked;
   TransferFailure : text;
   InvalidProposal : text;
   InvalidRuneId : text;
   RequestNotFound;
   ChainNotFound : text;
   TokenAlreadyExisting;
+  LinkError : Error;
   EmptyArgument;
 };
 type SelfServiceFee = record { add_token_fee : nat64; add_chain_fee : nat64 };
@@ -195,7 +199,13 @@ type Topic = variant {
   ToggleChainState;
   UpdateToken;
 };
-type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxAction = variant {
+  Burn;
+  Redeem;
+  Mint;
+  RedeemIcpChainKeyAssets : IcpChainKeyToken;
+  Transfer;
+};
 type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
   add_dest_chain_for_token : (AddDestChainArgs) -> (Result);
@@ -217,7 +227,6 @@ service : (HubArg) -> {
   get_events : (GetEventsArg) -> (vec Event) query;
   get_fee_account : (opt principal) -> (blob) query;
   get_fees : (opt text, opt text, nat64, nat64) -> (Result_8) query;
-  get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
   get_pending_ticket_size : () -> (Result_4) query;
   get_pending_tickets : (nat64, nat64) -> (Result_9) query;
   get_self_service_fee : () -> (SelfServiceFee) query;
@@ -248,14 +257,15 @@ service : (HubArg) -> {
     ) -> (Result_14) query;
   handle_chain : (vec Proposal) -> (Result_1);
   handle_token : (vec Proposal) -> (Result_1);
+  link_chains : (LinkChainReq) -> (Result);
   pending_ticket : (Ticket) -> (Result_1);
   query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_15) query;
   query_subscribers : (opt Topic) -> (Result_16) query;
   query_tickets : (opt text, nat64, nat64) -> (Result_17) query;
   query_tx_hash : (text) -> (Result_18) query;
+  remove_runes_oracle : (principal) -> ();
   resubmit_ticket : (Ticket) -> (Result_1);
   send_ticket : (Ticket) -> (Result_1);
-  set_logger_filter : (text) -> ();
   set_permissions : (principal, Permission) -> ();
   set_runes_oracle : (principal) -> ();
   sub_directives : (opt text, vec Topic) -> (Result_1);

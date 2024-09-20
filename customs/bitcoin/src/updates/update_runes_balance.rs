@@ -1,9 +1,10 @@
 use crate::hub;
+use crate::logs::{P0, P1};
 use crate::state::{audit, GenTicketStatus, RunesBalance};
 use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
-use omnity_types::{Ticket, TicketType, TxAction};
+use ic_canister_log::log;
 use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -18,54 +19,64 @@ pub enum UpdateRunesBalanceError {
     AleardyProcessed,
     MismatchWithGenTicketReq,
     UtxoNotFound,
-    SendTicketErr(String),
+    FinalizeTicketErr(String),
+    RequestNotConfirmed,
+    BalancesIsEmpty,
 }
 
 pub async fn update_runes_balance(
     args: UpdateRunesBalanceArgs,
 ) -> Result<(), UpdateRunesBalanceError> {
+    if args.balances.len() == 0 {
+        return Err(UpdateRunesBalanceError::BalancesIsEmpty);
+    }
+
+    let req = read_state(|s| match s.generate_ticket_status(args.txid) {
+        GenTicketStatus::Finalized(_) => Err(UpdateRunesBalanceError::AleardyProcessed),
+        GenTicketStatus::Unknown => Err(UpdateRunesBalanceError::RequestNotFound),
+        GenTicketStatus::Pending(_) => Err(UpdateRunesBalanceError::RequestNotConfirmed),
+        GenTicketStatus::Confirmed(req) => Ok(req),
+    })?;
+
     for balance in &args.balances {
         let outpoint = OutPoint {
             txid: args.txid,
             vout: balance.vout,
         };
-        read_state(|s| match s.outpoint_destination.get(&outpoint) {
-            Some(_) => Ok(()),
-            None => Err(UpdateRunesBalanceError::UtxoNotFound),
-        })?;
+        if req
+            .new_utxos
+            .iter()
+            .find(|u| u.outpoint == outpoint)
+            .is_none()
+        {
+            return Err(UpdateRunesBalanceError::UtxoNotFound);
+        }
     }
-
-    let req = read_state(|s| match s.generate_ticket_status(args.txid) {
-        GenTicketStatus::Finalized => Err(UpdateRunesBalanceError::AleardyProcessed),
-        GenTicketStatus::Unknown => Err(UpdateRunesBalanceError::RequestNotFound),
-        GenTicketStatus::Pending(req) => Ok(req),
-    })?;
 
     let amount = args.balances.iter().map(|b| b.amount).sum::<u128>();
     if amount != req.amount || args.balances.iter().any(|b| b.rune_id != req.rune_id) {
-        mutate_state(|s| audit::remove_pending_request(s, &req.txid));
+        mutate_state(|s| audit::remove_confirmed_request(s, &req.txid));
+        log!(
+            P0,
+            "[update_runes_balance] amount mismatch for ticket_id: {}, request amount: {}, oracle amount: {}, oracle: {}",
+            args.txid.to_string(),
+            req.amount,
+            amount,
+            ic_cdk::caller().to_string(),
+        );
         return Err(UpdateRunesBalanceError::MismatchWithGenTicketReq);
     }
 
-    let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
-    hub::send_ticket(
-        hub_principal,
-        Ticket {
-            ticket_id: args.txid.to_string(),
-            ticket_type: TicketType::Normal,
-            ticket_time: ic_cdk::api::time(),
-            src_chain: chain_id,
-            dst_chain: req.target_chain_id.clone(),
-            action: TxAction::Transfer,
-            token: req.token_id.clone(),
-            amount: req.amount.to_string(),
-            sender: None,
-            receiver: req.receiver.clone(),
-            memo: None,
-        },
-    )
-    .await
-    .map_err(|err| UpdateRunesBalanceError::SendTicketErr(format!("{}", err)))?;
+    let hub_principal = read_state(|s| s.hub_principal);
+    hub::finalize_ticket(hub_principal, args.txid.to_string())
+        .await
+        .map_err(|err| UpdateRunesBalanceError::FinalizeTicketErr(format!("{}", err)))?;
+
+    log!(
+        P1,
+        "[update_runes_balance] send ticket to hub: {}",
+        args.txid.to_string()
+    );
 
     mutate_state(|s| audit::finalize_ticket_request(s, &req, args.balances));
 

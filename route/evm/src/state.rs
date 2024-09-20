@@ -18,7 +18,7 @@ use crate::{Error, stable_memory};
 use crate::eth_common::{EvmAddress, EvmTxType};
 use crate::service::InitArgs;
 use crate::stable_memory::Memory;
-use crate::types::{Chain, ChainState, Timestamp, Token, TokenId};
+use crate::types::{Chain, ChainState, Token, TokenId};
 use crate::types::{
     ChainId, Directive, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId,
 };
@@ -67,10 +67,11 @@ impl EvmRouteState {
             pending_directive_map: StableBTreeMap::init(
                 crate::stable_memory::get_pending_directive_map_memory(),
             ),
-            scan_start_height: args.scan_start_height,
             is_timer_running: Default::default(),
             evm_tx_type: args.evm_tx_type,
-            latest_scan_height_update_time: ic_cdk::api::time(),
+            block_interval_secs: args.block_interval_secs,
+            pending_events_on_chain: Default::default(),
+            evm_transfer_gas_percent: 110,
         };
         Ok(ret)
     }
@@ -98,7 +99,9 @@ impl EvmRouteState {
         let state_len = u32::from_le_bytes(state_len_bytes) as usize;
         let mut state_bytes = vec![0; state_len];
         memory.read(4, &mut state_bytes);
-        let state: EvmRouteState = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+        let state: EvmRouteState =
+            ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+        //  let state = EvmRouteState::from((state, gasfee_percent));
         replace_state(state);
     }
 
@@ -167,12 +170,12 @@ pub struct EvmRouteState {
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
     #[serde(skip, default = "crate::stable_memory::init_pending_directive_map")]
     pub pending_directive_map: StableBTreeMap<Seq, PendingDirectiveStatus, Memory>,
-    pub scan_start_height: u64,
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
     pub evm_tx_type: EvmTxType,
-    #[serde(skip)]
-    pub latest_scan_height_update_time: Timestamp,
+    pub block_interval_secs: u64,
+    pub pending_events_on_chain: BTreeMap<String, u64>,
+    pub evm_transfer_gas_percent: u64,
 }
 
 impl From<&EvmRouteState> for StateProfile {
@@ -196,10 +199,10 @@ impl From<&EvmRouteState> for StateProfile {
             next_consume_ticket_seq: v.next_consume_ticket_seq,
             next_consume_directive_seq: v.next_consume_directive_seq,
             rpc_providers: v.rpc_providers.clone(),
-            start_scan_height: v.scan_start_height,
             fee_token_factor: v.fee_token_factor,
             target_chain_factor: v.target_chain_factor.clone(),
             evm_tx_type: v.evm_tx_type,
+            evm_gasfee_percent: v.evm_transfer_gas_percent,
         }
     }
 }
@@ -224,10 +227,10 @@ pub struct StateProfile {
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
     pub rpc_providers: Vec<RpcApi>,
-    pub start_scan_height: u64,
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub evm_tx_type: EvmTxType,
+    pub evm_gasfee_percent: u64,
 }
 
 pub fn is_active() -> bool {
@@ -260,6 +263,10 @@ pub fn rpc_providers() -> Vec<RpcApi> {
 
 pub fn evm_chain_id() -> u64 {
     read_state(|s| s.evm_chain_id)
+}
+
+pub fn evm_transfer_gas_factor() -> u64 {
+    read_state(|s| s.evm_transfer_gas_percent)
 }
 
 pub fn public_key() -> Vec<u8> {

@@ -1,6 +1,11 @@
 {
-  "dfx": "0.17.0",
+  "dfx": "0.22.0",
   "canisters": {
+    "icrc1_ledger_canister": {
+      "type": "custom",
+      "candid": "icrc1_ledger.did",
+      "wasm": "icrc1_ledger.wasm.gz"
+    },
     "icp_ledger_canister": {
       "type": "custom",
       "candid": "https://raw.githubusercontent.com/dfinity/ic/ac971e7b4c851b89b312bee812f6de542ed907c5/rs/rosetta-api/icp_ledger/ledger.did",
@@ -16,25 +21,59 @@
       "candid": "customs/bitcoin/bitcoin_customs.did",
       "package": "bitcoin_customs",
       "type": "custom",
-      "wasm": "bitcoin_customs.wasm",
-      "build": "./build_script.sh"
+      "wasm": "target/wasm32-unknown-unknown/release/bitcoin_customs.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "icp_customs": {
       "gzip": true,
       "candid": "customs/icp/icp_customs.did",
       "package": "icp_customs",
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/icp_customs.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
+    "bitfinity_route": {
+      "gzip": true,
+      "candid": "route/bitfinity/bitfinity_route.did",
+      "package": "bitfinity_route",
       "type": "rust"
     },
     "omnity_hub": {
       "gzip": true,
       "candid": "hub/omnity_hub.did",
       "package": "omnity_hub",
-      "type": "rust"
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/omnity_hub.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "icp_route": {
       "gzip": true,
       "candid": "route/icp/icp_route.did",
+      "wasm": "target/wasm32-unknown-unknown/release/icp_route.wasm",
       "package": "icp_route",
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
+    "cosmwasm_proxy": {
+      "gzip": true,
+      "candid": "proxy/cosmwasm/cosmwasm_proxy.did",
+      "package": "cosmwasm_proxy",
       "type": "rust"
     },
     "hub_mock": {
@@ -55,68 +94,11 @@
       "package": "icp_mock",
       "type": "rust"
     },
-    "evm_route_bevm": {
-      "candid": "route/evm/evm_route.did",
-      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
-      "package": "evm_route",
-      "type": "custom"
-    },
-    "evm_route_bitlayer": {
-      "candid": "route/evm/evm_route.did",
-      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
-      "package": "evm_route",
-      "type": "custom"
-    },
-    "evm_route_xlayer": {
-      "candid": "route/evm/evm_route.did",
-      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
-      "package": "evm_route",
-      "type": "custom"
-    },
-    "evm_route_bsquared": {
-      "candid": "route/evm/evm_route.did",
-      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
-      "package": "evm_route",
-      "type": "custom"
-    },
-    "evm_route_merlin": {
-      "candid": "route/evm/evm_route.did",
-      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
-      "package": "evm_route",
-      "type": "custom"
-    },
-    "evm_route_bob": {
-      "candid": "route/evm/evm_route.did",
-      "wasm": "route/evm/target/wasm32-unknown-unknown/release/evm_route.wasm",
-      "package": "evm_route",
-      "type": "custom"
-    },
-    "evm_rpc": {
-      "type": "custom",
-      "candid": "https://github.com/internet-computer-protocol/evm-rpc-canister/releases/download/release-2024-05-23/evm_rpc.did",
-      "wasm": "https://github.com/internet-computer-protocol/evm-rpc-canister/releases/download/release-2024-05-23/evm_rpc.wasm.gz",
-      "remote": {
-        "id": {
-          "ic": "xhcuo-6yaaa-aaaar-qacqq-cai"
-        }
-      }
-    },
-    "rune_oracle": {
+    "runes_oracle": {
       "gzip": true,
       "candid": "customs/oracle_canister/oracle.did",
       "package": "rune_oracle_canister",
       "type": "rust"
-    },
-    "schnorr_canister": {
-      "type": "custom",
-      "candid": "https://github.com/domwoe/schnorr_canister/releases/latest/download/schnorr_canister.did",
-      "wasm": "https://github.com/domwoe/schnorr_canister/releases/latest/download/schnorr_canister.wasm.gz",
-      "remote": {
-        "id": {
-          "ic": "6fwhw-fyaaa-aaaap-qb7ua-cai",
-          "playground": "6fwhw-fyaaa-aaaap-qb7ua-cai"
-        }
-      }
     },
     "solana_route": {
       "type": "custom",
@@ -129,6 +111,30 @@
       "candid": "route/solana/assets/ic-solana-provider.did",
       "package": "ic-solana-provider",
       "wasm": "route/solana/assets/ic-solana-provider.wasm.gz"
+    },
+    "ckbtc_minter": {
+      "gzip": true,
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-minter.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-minter.did"
+    },
+    "ckbtc_ledger": {
+      "gzip": true,
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-ledger.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-ledger.did"
+    },
+    "ckbtc_index": {
+      "gzip": true,
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-index-ng.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-index-ng.did"
+    },
+    "ckbtc_archive": {
+      "gzip": true,
+      "type": "custom",
+      "wasm": "assets/ckbtc/ic-ckbtc-archive.wasm",
+      "candid": "assets/ckbtc/ic-ckbtc-archive.did"
     }
   },
   "defaults": {
@@ -139,7 +145,7 @@
   },
   "networks": {
     "local": {
-      "bind": "localhost:4943",
+      "bind": "127.0.0.1:4943",
       "type": "ephemeral",
       "replica": {
         "subnet_type": "system"

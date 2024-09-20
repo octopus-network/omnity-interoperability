@@ -1,5 +1,8 @@
 type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
   chain_id : text;
+  counterparties : opt vec text;
   chain_state : ChainState;
   chain_type : ChainType;
   contract_address : opt text;
@@ -7,10 +10,12 @@ type Chain = record {
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type Directive = variant {
-  UpdateFee : Fee;
+  UpdateChain : Chain;
+  UpdateFee : Factor;
   AddToken : Token;
   AddChain : Chain;
   ToggleChainState : ToggleState;
+  UpdateToken : Token;
 };
 type Error = variant {
   AlreadyExistingTicketId : text;
@@ -18,54 +23,78 @@ type Error = variant {
   NotFoundChain : text;
   DeactiveChain : text;
   ChainAlreadyExisting : text;
+  ResubmitTicketIdMustExist;
   ProposalError : text;
+  ResubmitTicketMustSame;
   NotFoundAccountToken : record { text; text; text };
+  NotFoundTicketId : text;
   NotSupportedProposal;
-  NotFoundAccount : text;
+  SighWithEcdsaError : text;
   Unauthorized;
   TicketAmountParseError : record { text; text };
   NotFoundChainToken : record { text; text };
   TokenAlreadyExisting : text;
+  ResubmitTicketSentTooOften;
+  GenerateDirectiveError : text;
+  EcdsaPublicKeyError : text;
+  RepeatSubscription : text;
+  NotFoundToken : text;
   CustomError : text;
   NotSufficientTokens : record { text; text };
 };
-type Fee = record { fee_token : text; dst_chain_id : text; factor : int64 };
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type Result = variant { Ok; Err : Error };
 type Result_1 = variant { Ok : vec record { nat64; Directive }; Err : Error };
 type Result_2 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
 type Ticket = record {
   token : text;
   action : TxAction;
   dst_chain : text;
-  memo : opt vec nat8;
+  memo : opt blob;
   ticket_id : text;
-  sender : text;
+  sender : opt text;
   ticket_time : nat64;
+  ticket_type : TicketType;
   src_chain : text;
   amount : text;
   receiver : text;
 };
+type TicketType = variant { Resubmit; Normal };
 type ToggleAction = variant { Deactivate; Activate };
 type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
+  metadata : vec record { text; text };
   icon : opt text;
-  issue_chain : text;
+  name : text;
   symbol : text;
 };
 type Topic = variant {
-  UpdateFee : opt text;
-  ActivateChain;
-  AddToken : opt text;
-  DeactivateChain;
-  AddChain : opt ChainType;
+  UpdateChain;
+  UpdateFee;
+  AddToken;
+  AddChain;
+  ToggleChainState;
+  UpdateToken;
 };
-type TxAction = variant { Redeem; Transfer };
+type TxAction = variant { Burn; Redeem; Mint; Transfer };
 service : () -> {
-  push_directive : (Directive) -> (Result);
+  batch_update_tx_hash : (vec text, text) -> (Result);
+  finalize_ticket : (text) -> (Result);
+  pending_ticket : (Ticket) -> (Result);
+  push_directives : (vec Directive) -> (Result);
   push_ticket : (Ticket) -> (Result);
   query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_1) query;
   query_tickets : (opt text, nat64, nat64) -> (Result_2) query;
   send_ticket : (Ticket) -> (Result);
+  update_tx_hash : (text, text) -> (Result);
 }

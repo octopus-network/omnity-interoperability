@@ -22,7 +22,7 @@ Omnity is an omni-chain interoperability protocol built by Octopus Network on th
 * Bitcoin Token Canister:  A solution for fetching the Runes information detail. We have finished transplanting the ord indexer to ICP. The Bitcoin header API will help the ord canister remove its trust assumption on RPC services.
 * Bitcoin Canister: A native Bitcoin integration on ICP, the gateway where the bitcoin address can fetch its status like balance and make transactions through the provided APIs.
 
-## Current Support Chains
+## Current Supported Chains
 
 * Bitcoin (https://bitcoin.org/en/)
 * ICP (https://internetcomputer.org/)
@@ -31,6 +31,8 @@ Omnity is an omni-chain interoperability protocol built by Octopus Network on th
 * B² Network (https://www.bsquared.network/)
 * X Layer (https://www.okx.com/xlayer)
 * Merlin (https://merlinchain.io/)
+* Bob (https://www.gobob.xyz/)
+* Rootstock (https://rootstock.io/)
 
 ## Social Media
 

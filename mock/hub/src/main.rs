@@ -8,6 +8,7 @@ fn main() {}
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct State {
+    pending_tickets: BTreeMap<TicketId, Ticket>,
     tickets: BTreeMap<Seq, Ticket>,
     directives: BTreeMap<Seq, Directive>,
     next_ticket_seq: Seq,
@@ -17,6 +18,7 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         State {
+            pending_tickets: BTreeMap::default(),
             tickets: BTreeMap::default(),
             directives: BTreeMap::default(),
             next_ticket_seq: 0,
@@ -47,6 +49,7 @@ thread_local! {
 fn init() {
     STATE.with(|s| {
         let state = State {
+            pending_tickets: BTreeMap::default(),
             tickets: BTreeMap::default(),
             directives: BTreeMap::default(),
             next_ticket_seq: 0,
@@ -127,6 +130,25 @@ pub async fn update_tx_hash(_: TicketId, _: String) -> Result<(), omnity_types::
 #[update]
 pub async fn batch_update_tx_hash(_: Vec<TicketId>, _: String) -> Result<(), omnity_types::Error> {
     Ok(())
+}
+
+#[candid_method(update)]
+#[update]
+pub async fn pending_ticket(ticket: Ticket) -> Result<(), omnity_types::Error> {
+    mutate_state(|s| s.pending_tickets.insert(ticket.ticket_id.clone(), ticket));
+    Ok(())
+}
+
+#[candid_method(update)]
+#[update]
+pub async fn finalize_ticket(ticket_id: String) -> Result<(), omnity_types::Error> {
+    mutate_state(|s| match s.pending_tickets.remove(&ticket_id) {
+        Some(ticket) => {
+            s.tickets.insert(s.next_ticket_seq, ticket);
+            Ok(())
+        }
+        None => Err(omnity_types::Error::NotFoundTicketId(ticket_id)),
+    })
 }
 
 // Enable Candid export

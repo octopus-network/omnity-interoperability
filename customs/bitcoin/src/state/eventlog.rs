@@ -69,6 +69,14 @@ pub enum Event {
     #[serde(rename = "accepted_generate_ticket_request_v2")]
     AcceptedGenTicketRequestV2(GenTicketRequestV2),
 
+    /// The difference from V2 is that the transaction accepts the request
+    /// when it enters the memory pool and puts it into the init_gen_ticket_requests queue.
+    #[serde(rename = "accepted_generate_ticket_request_v3")]
+    AcceptedGenTicketRequestV3(GenTicketRequestV2),
+
+    #[serde(rename = "confirmed_generate_ticket_request")]
+    ConfirmedGenTicketRequest(GenTicketRequestV2),
+
     /// Indicates that the customs accepted a new release_token request.
     /// The customs emits this event _after_ it send to hub.
     #[serde(rename = "accepted_release_token_request")]
@@ -156,6 +164,12 @@ pub enum Event {
 
     #[serde(rename = "added_runes_oracle")]
     AddedRunesOracle { principal: Principal },
+
+    #[serde(rename = "removed_runes_oracle")]
+    RemovedRunesOracle { principal: Principal },
+
+    #[serde(rename = "updated_rpc_url")]
+    UpdatedRpcURL { rpc_url: String },
 }
 
 #[derive(Debug)]
@@ -220,7 +234,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 // There is no need to add utxos here, because in previous versions,
                 // A ReceivedUtxos Event will be emitted at the same time.
                 state
-                    .pending_gen_ticket_requests
+                    .confirmed_gen_ticket_requests
                     .insert(req.txid, req.into());
             }
             Event::AcceptedGenTicketRequestV2(req) => {
@@ -230,12 +244,34 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                     receiver: req.receiver.clone(),
                     token: Some(RUNES_TOKEN.into()),
                 };
+                state.confirmed_gen_ticket_requests.insert(req.txid, req);
+                state.add_utxos(dest, new_utxos, true);
+            }
+            Event::AcceptedGenTicketRequestV3(req) => {
                 state.pending_gen_ticket_requests.insert(req.txid, req);
+            }
+            Event::ConfirmedGenTicketRequest(req) => {
+                state
+                    .pending_gen_ticket_requests
+                    .remove(&req.txid)
+                    .ok_or_else(|| {
+                        ReplayLogError::InconsistentLog(format!(
+                            "Attempted to remove a non-init generate ticket request {}",
+                            req.txid
+                        ))
+                    })?;
+                let new_utxos = req.new_utxos.clone();
+                let dest = Destination {
+                    target_chain_id: req.target_chain_id.clone(),
+                    receiver: req.receiver.clone(),
+                    token: Some(RUNES_TOKEN.into()),
+                };
+                state.confirmed_gen_ticket_requests.insert(req.txid, req);
                 state.add_utxos(dest, new_utxos, true);
             }
             Event::RemovedTicketRequest { txid } => {
                 let req = state
-                    .pending_gen_ticket_requests
+                    .confirmed_gen_ticket_requests
                     .remove(&txid)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
@@ -249,7 +285,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::FinalizedTicketRequest { txid, balances } => {
                 let request = state
-                    .pending_gen_ticket_requests
+                    .confirmed_gen_ticket_requests
                     .remove(&txid)
                     .ok_or_else(|| {
                         ReplayLogError::InconsistentLog(format!(
@@ -355,6 +391,12 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::AddedRunesOracle { principal } => {
                 state.runes_oracles.insert(principal);
+            }
+            Event::RemovedRunesOracle { principal } => {
+                state.runes_oracles.remove(&principal);
+            }
+            Event::UpdatedRpcURL { rpc_url } => {
+                state.rpc_url = Some(rpc_url);
             }
         }
     }

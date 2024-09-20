@@ -1,0 +1,51 @@
+type Account = record { owner : principal; subaccount : opt blob };
+type InitArgs = record {
+  ckbtc_ledger_principal : principal;
+  token_id : text;
+  ckbtc_minter_principal : principal;
+  icp_customs_principal : principal;
+  target_chain_id : text;
+};
+type MintedUtxo = record {
+  minted_amount : nat64;
+  block_index : nat64;
+  utxo : Utxo;
+};
+type OutPoint = record { txid : blob; vout : nat32 };
+type Result = variant { Ok : text; Err : text };
+type Result_1 = variant { Ok : Account; Err : text };
+type Settings = record {
+  ckbtc_ledger_principal : principal;
+  update_balances_jobs : vec UpdateBalanceJob;
+  token_id : text;
+  is_timer_running : vec text;
+  ckbtc_minter_principal : principal;
+  icp_customs_principal : principal;
+  target_chain_id : text;
+};
+type TicketRecord = record { ticket_id : text; minted_utxos : vec MintedUtxo };
+type UpdateBalanceJob = record {
+  osmosis_account_id : text;
+  failed_times : nat32;
+  next_execute_time : nat64;
+};
+type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
+type UtxoRecord = record { ticket_id : opt text; minted_utxo : MintedUtxo };
+service : (InitArgs) -> {
+  generate_ticket_from_subaccount : (text) -> (Result);
+  get_btc_mint_address : (text) -> (Result);
+  get_identity_by_osmosis_account_id : (text) -> (Result_1) query;
+  query_scheduled_osmosis_account_id_list : () -> (vec text) query;
+  query_settings : () -> (Settings) query;
+  query_ticket_records : (text) -> (vec TicketRecord) query;
+  query_utxo_records : (text) -> (vec UtxoRecord) query;
+  trigger_update_balance : (text) -> (Result);
+  update_balance_after_finalization : (text) -> ();
+  update_settings : (
+      opt principal,
+      opt principal,
+      opt principal,
+      opt text,
+      opt text,
+    ) -> ();
+}
