@@ -61,20 +61,35 @@ done
 echo "The dest address: $SOL_RECEIVER and the token address: $TOKEN_MINT aossicated account is: $ATA"
 
 sleep 15
+
 echo "mock: redeem from solana to customs... "
-# first, burn token
+# first collect fee
+# get fee account
+FEE_ACCOUNT=$(dfx canister call solana_route get_fee_account '()' --ic)
+FEE_ACCOUNT=$(echo "$FEE_ACCOUNT" | awk -F'"' '{print $2}')
+echo "fee account: $FEE_ACCOUNT"
+# get fee amount
+FEE_AMOUNT=$(dfx canister call solana_route get_redeem_fee "(\"${BITCOIN_CHAIN_ID}\")" --ic)
+FEE_AMOUNT=$(echo "$FEE_AMOUNT" | grep -oE '[0-9_]+ ' | sed 's/_//g' | awk '{printf "%.9f\n", $1 / 1000000000}')
+echo "fee account: $FEE_AMOUNT"
+# collect fee
+WALLET_ADDRESS=$(solana address)
+echo "collect fee to $FEE_ACCOUNT from $WALLET_ADDRESS"
+solana transfer $FEE_ACCOUNT $FEE_AMOUNT 
+
+# second, burn token
 CUSTOMS_RECEIVER="D58qMHmDAoEaviG8s9VmGwRhcw2z1apJHt6RnPtgxdVj"
-OWNER=~/.config/solana/boern.json
+WALLET_ADDRESS=~/.config/solana/boern.json
 BURN_AMOUNT=111111
-echo spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER
+echo spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $WALLET_ADDRESS
 # echo $(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
-SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
+SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $WALLET_ADDRESS)
 SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
 echo "burn signature: $SIGNAURE"
 
 sleep 10
 
-# secord,generate ticket
+# finally,generate ticket and send to hub
 dfx canister call solana_route generate_ticket "(record {
         signature=\"$SIGNAURE\";
         action = variant { Redeem };

@@ -95,15 +95,15 @@ dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record {
     --ic 
 
 # echo "upgrade $SOL_PROVIDER_CANISTER_ID ..."
-# dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
-#     rpc_url = opt \"${SOLANA_RPC_URL}\"; 
-#     nodesInSubnet = opt 28; 
-#     schnorr_canister = opt \"${SCHNORR_CANISTER_ID}\"; 
-#     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
-#     } )" \
-#     --mode=upgrade -y \
-#     --wasm=./assets/ic_solana_provider.wasm.gz \
-#     --ic 
+dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
+    rpc_url = opt \"${SOLANA_RPC_URL}\"; 
+    nodesInSubnet = opt 28; 
+    schnorr_canister = opt \"${SCHNORR_CANISTER_ID}\"; 
+    schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
+    } )" \
+    --mode=upgrade -y \
+    --wasm=./assets/ic_solana_provider.wasm.gz \
+    --ic 
 
 dfx canister status $SOL_PROVIDER_CANISTER_ID --ic
 # test get blockhash
@@ -115,7 +115,7 @@ echo
 
 
 # solana_route canister
-SOL_CHAIN_ID="Solana"
+SOL_CHAIN_ID="eSolana"
 SOL_FEE="SOL"
 FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 

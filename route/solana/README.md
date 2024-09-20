@@ -50,7 +50,7 @@ HUB_CANISTER_ID=7wupf-wiaaa-aaaar-qaeya-cai
 echo "Omnity hub canister id: $HUB_CANISTER_ID"
 echo 
 
-SOL_CHAIN_ID="Solana"
+SOL_CHAIN_ID="eSolana"
 # TODO:replace the fee account
 FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 dfx deploy solana_route --argument "(variant { Init = record { \
@@ -118,7 +118,7 @@ dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${COUNTERPARTY_CHAIN
 ```bash
 # TODO: replace real counterparty chain info
 COUNTERPARTY_CHAIN_ID="Bitcoin"
-COUNTERPARTY_CHAIN_CANISTER_ID="xykho-eiaaa-aaaag-qjrka-cai"
+COUNTERPARTY_CHAIN_CANISTER_ID="7rvjr-3qaaa-aaaar-qaeyq-cai"
 dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
         UpdateChain = record { chain_state=variant { Active }; 
         chain_id = \"${COUNTERPARTY_CHAIN_ID}\"; 
@@ -127,12 +127,17 @@ dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant {
         contract_address=null; 
         counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
                                 \"eICP\";
-                                \"bevm_testnet\";
-                                \"bitlayer_testnet\";
-                                \"B²_testnet\";
-                                \"xlayer_testnet\";
-                                }; 
-        fee_token=null}}})" \
+                                \"bevm\";
+                                \"Bitlayer\";
+                                \"B² Network\";
+                                \"X Layer\";
+				                \"Merlin\";
+				                \"Bob\";
+				                \"RootStock\";
+				                \"Bitfinity\";
+				                \"AILayer\";
+                                }; \
+                        fee_token=null}}})" \
         --ic 
         
 dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant { 
@@ -143,12 +148,17 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant {
         contract_address=null; 
         counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
                                 \"eICP\";
-                                \"bevm_testnet\";
-                                \"bitlayer_testnet\";
-                                \"B²_testnet\";
-                                \"xlayer_testnet\";
-                                }; 
-        fee_token=null}}})" \
+                                \"bevm\";
+                                \"Bitlayer\";
+                                \"B² Network\";
+                                \"X Layer\";
+				                \"Merlin\";
+				                \"Bob\";
+				                \"RootStock\";
+				                \"Bitfinity\";
+				                \"AILayer\";
+                                }; \
+                        fee_token=null}}})" \
         --ic 
 
 ```
@@ -158,10 +168,9 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant {
 # token info
 TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
 TOKEN_NAME="HOPE•YOU•GET•RICH"
-TOKEN_SYMBOL="RICH"
+TOKEN_SYMBOL="RICH.OT"
 DECIMALS=2
-ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
-
+ICON="https://github.com/ordinals/ord/assets/14307069/f1307be5-84fb-4b58-81d0-6521196a2406"
 ISSUE_CHAIN_ID="Bitcoin"
 
 dfx canister call $HUB_CANISTER_ID validate_proposal "( vec {variant { UpdateToken = record { 
@@ -181,7 +190,7 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "( vec {variant { UpdateToke
         symbol = \"${TOKEN_SYMBOL}\"; 
         decimals = ${DECIMALS};
         icon = opt \"${ICON}\"; 
-        metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
+        metadata =  vec{ record {\"rune_id\"; \"840000:846\"}}; 
         dst_chains = vec {\"${ISSUE_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})" \
         --ic 
 
@@ -199,13 +208,20 @@ dfx canister call $HUB_CANISTER_ID query_directives "(
 
 ### Push fee info to solana
 ```bash
+TARGET_CHAIN_ID=“Bitcoin”
+TARGET_CHAIN_FACTOR=5000
+SOL_CHAIN_ID="eSolana"
+FEE_TOKEN_FACTOR=2876
+SOL_FEE="SOL"
+
 dfx canister call $HUB_CANISTER_ID update_fee "vec {variant { UpdateTargetChainFactor = 
-        record { target_chain_id=\"${BITCOIN_CHAIN_ID}\"; 
-                 target_chain_factor=10000 : nat}}; 
+        record { target_chain_id=\"${TARGET_CHAIN_ID}\"; 
+                 target_chain_factor=$TARGET_CHAIN_FACTOR : nat}}; 
                  variant { UpdateFeeTokenFactor = record { fee_token=\"${SOL_FEE}\"; 
-                                                 fee_token_factor=1 : nat}}}" \
+                                                 fee_token_factor=$FEE_TOKEN_FACTOR : nat}}}" \
         --ic 
 
+# check
 dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateFee},0:nat64,12:nat64)" --ic 
 
 
@@ -229,7 +245,7 @@ echo "$SIGNER balance: $(solana balance $SIGNER -u m)"
 
 ### Start solana route schedule to query directives and tickets from hub 
 ```bash
-dfx canister call solana_route start_schedule '()' --ic 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic 
 ```
 
 ### Upgrade the solana route canister

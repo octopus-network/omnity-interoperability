@@ -27,7 +27,23 @@ content-type: application/json
    "id": 1,
    "method": "getAccountInfo",
    "params": [
-     "7RJgsvM5jkMLKqeCUXbYYbeqwd5v9o1JBQER1dTsPDqQ",
+     "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+     {
+       "encoding": "jsonParsed"
+     }
+   ]
+}
+
+### query account info
+POST {{mainnet}}
+content-type: application/json
+
+{
+   "jsonrpc": "2.0",
+   "id": 1,
+   "method": "getAccountInfo",
+   "params": [
+     "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
      {
        "encoding": "jsonParsed"
      }
@@ -164,6 +180,21 @@ content-type: application/json
     ]
   }
 
+### req tx detail
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "4QFCua1ZQzPffEXzFvvW5H3FsGcpMUgeRLuUQCZy1pJJQ7H4rMZULh23Qi94ujX88ymYcmrUpHLPskRrF2sZps1g",
+      "jsonParsed"
+    ]
+  }
+
+
 ### getSignatureStatuses
 # for i in {1..100}; do  curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
 #     "jsonrpc": "2.0",
@@ -189,6 +220,24 @@ content-type: application/json
     "params": [
       [
         "29xgU6hKxajDskDLiCBYmJ3rL4vpAujAz6vQ51T91Mqq4iPmXrgq9vrbSq2L59ysgyNQMZLBrrDmFMnKt5R91Sis"
+      ],
+      {
+        "searchTransactionHistory": true
+      }
+    ]
+  }
+
+### getSignatureStatuses
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getSignatureStatuses",
+    "params": [
+      [
+        "4QFCua1ZQzPffEXzFvvW5H3FsGcpMUgeRLuUQCZy1pJJQ7H4rMZULh23Qi94ujX88ymYcmrUpHLPskRrF2sZps1g"
       ],
       {
         "searchTransactionHistory": true

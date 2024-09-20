@@ -4,6 +4,7 @@ use crate::types::{ChainId, ChainState, Error, Seq, Ticket, TicketId, TicketType
 use candid::{CandidType, Principal};
 use ic_solana::token::associated_account::get_associated_token_address_with_program_id;
 use ic_solana::token::constants::token22_program_id;
+use ic_solana::token::SolanaClient;
 use ic_solana::types::Pubkey;
 use ic_stable_structures::Storable;
 
@@ -668,32 +669,12 @@ pub async fn generate_ticket(
 
     //parsed tx via signature
     let mut receiver = String::from("");
-    let mut tx = String::from("");
+    // let mut tx = String::from("");
     let client = solana_client().await;
-    // retry 3 to get tx detail
-    for n in 0..=2 {
-        let tx_resp = client
-        .query_transaction(req.signature.to_owned(),None)
-        .await
-        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()));
-        match tx_resp {
-            Ok(tx_detail)=>{
-                tx=tx_detail;
-                break;
-            },
-            Err(e)=>{
-                log!(DEBUG, "query_transaction error: {:?}", e);
-                if n==2{
-                    return Err(e);
-                }
-                continue;
-            }
-        }
-
-    }
-
-    let json_response = serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&tx)
-        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
+    let multi_rpc_config = read_state(|s| s.multi_rpc_config.clone());
+    multi_rpc_config.check_config_valid().map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
+    let tx_response = query_tx_from_multi_rpc(&client,req.signature.to_owned(), multi_rpc_config.rpc_list.clone()).await;
+    let json_response = multi_rpc_config.valid_and_get_result(&tx_response).map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
 
     if let Some(e) = json_response.error {
         return Err(GenerateTicketError::TemporarilyUnavailable(e.message));
@@ -776,8 +757,8 @@ pub async fn generate_ticket(
             } else {
                 log!(DEBUG, "Unknown Parsed Value: {:#?}", instruction.parsed);
                 return Err(GenerateTicketError::TemporarilyUnavailable(format!(
-                    "tx parsed error:{}",
-                    tx
+                    "instruction parsed error:{:?}",
+                    instruction
                 )));
             }
         }
@@ -832,4 +813,16 @@ pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(),
         reason: Reason::CanisterError(err.to_string()),
     })?;
     Ok(data)
+}
+
+pub async fn query_tx_from_multi_rpc(
+    client: &SolanaClient, 
+    signature: String,
+    rpc_url_vec: Vec<String>,
+) -> Vec<anyhow::Result<String>> {
+    let mut fut = Vec::with_capacity(rpc_url_vec.len());
+    for rpc_url in rpc_url_vec {
+        fut.push(async { client.query_transaction(signature.clone(), Some(rpc_url)).await });
+    }
+    futures::future::join_all(fut).await
 }

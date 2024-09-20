@@ -96,7 +96,7 @@ pub async fn signer() -> Result<String, String> {
 }
 
 #[update]
-pub async fn sign(msg: String) -> Result<String, String> {
+pub async fn sign(msg: String) -> Result<Vec<u8>, String> {
     let signature = sol_call::sign(msg).await?;
     Ok(signature)
 }
@@ -147,7 +147,7 @@ async fn get_transaction(signature: String, forward: Option<String>) -> Result<S
     use crate::service::sol_call::solana_client;
     let client = solana_client().await;
     client
-        .query_transaction(signature,forward)
+        .query_transaction(signature, forward)
         .await
         .map_err(|err| CallError {
             method: "get_transaction".to_string(),

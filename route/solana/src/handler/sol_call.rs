@@ -9,6 +9,7 @@ use ic_solana::logs::DEBUG;
 use ic_solana::rpc_client::RpcResult;
 use ic_solana::token::{SolanaClient, TokenInfo};
 use ic_solana::types::{Pubkey, TransactionStatus};
+use ic_stable_structures::vec;
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use serde_json::Value;
@@ -231,7 +232,7 @@ pub async fn eddsa_public_key() -> Result<Pubkey, String> {
     Pubkey::try_from(pk.as_slice()).map_err(|e| e.to_string())
 }
 
-pub async fn sign(msg: String) -> Result<String, String> {
+pub async fn sign(msg: String) -> Result<Vec<u8>, String> {
     let (chain_id, schnorr_key_name, schnorr_canister) = read_state(|s| {
         (
             s.chain_id.to_owned(),
@@ -244,11 +245,11 @@ pub async fn sign(msg: String) -> Result<String, String> {
     let signature =
         ic_solana::eddsa::sign_with_eddsa(schnorr_canister, schnorr_key_name, derived_path, msg)
             .await;
-    let sig = String::from_utf8_lossy(&signature).to_string();
-    Ok(sig)
+    // let sig = String::from_utf8_lossy(&signature).to_string();
+    Ok(signature)
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionDetail {
     pub block_time: Option<u64>,
@@ -257,7 +258,7 @@ pub struct TransactionDetail {
     pub transaction: Transaction,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Meta {
     pub compute_units_consumed: u64,
@@ -273,19 +274,19 @@ pub struct Meta {
     pub status: Status,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Status {
     #[serde(rename = "Ok")]
     pub ok: Option<Value>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Transaction {
     pub message: Message,
     pub signatures: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
     pub account_keys: Vec<AccountKey>,
@@ -293,7 +294,7 @@ pub struct Message {
     pub recent_blockhash: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AccountKey {
     pub pubkey: String,
     pub signer: bool,
@@ -301,7 +302,7 @@ pub struct AccountKey {
     pub writable: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Instruction {
     #[serde(flatten)]

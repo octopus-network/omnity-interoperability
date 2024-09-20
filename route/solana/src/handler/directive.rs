@@ -176,7 +176,7 @@ pub async fn create_token_mint() {
         log!(
             DEBUG,
             "[directive::create_token_mint] token mint: {:?}  account_info from solana: {:?} ",
-            mint_account,mint_account_info,
+            mint_account.account.to_string(),mint_account_info,
         );
         if let Ok(account_info) = mint_account_info {
             if matches!(account_info,Some(..)){

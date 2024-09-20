@@ -1,3 +1,4 @@
+use crate::handler::sol_call::TransactionDetail;
 use crate::memory::Memory;
 use crate::{
     auth::Permission,
@@ -7,6 +8,7 @@ use crate::{
 };
 use candid::{CandidType, Principal};
 
+use ic_solana::rpc_client::JsonRpcResponse;
 use ic_stable_structures::StableBTreeMap;
 
 use crate::handler::ticket::MintTokenRequest;
@@ -70,6 +72,85 @@ impl From<Token> for TokenResp {
     }
 }
 
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, Default, PartialEq, Eq)]
+pub struct MultiRpcConfig {
+    pub rpc_list: Vec<String>,
+    pub minimum_response_count: u32,
+}
+
+impl MultiRpcConfig {
+    pub fn new(rpc_list: Vec<String>, minimum_response_count: u32) -> Result<Self, String> {
+        let s = Self {
+            rpc_list,
+            minimum_response_count,
+        };
+        s.check_config_valid()?;
+
+        Ok(s)
+    }
+
+    pub fn check_config_valid(&self) -> Result<(), String> {
+        if self.minimum_response_count == 0 {
+            return Err("minimum_response_count should be greater than 0".to_string());
+        }
+        if self.rpc_list.len() < self.minimum_response_count as usize {
+            return Err(
+                "rpc_list length should be greater than minimum_response_count".to_string(),
+            );
+        }
+        Ok(())
+    }
+
+    pub fn valid_and_get_result(
+        &self,
+        response_list: &Vec<anyhow::Result<String>>,
+    ) -> Result<JsonRpcResponse<TransactionDetail>, String> {
+        self.check_config_valid()?;
+        let mut success_response_list = vec![];
+        let mut success_response_body_list = vec![];
+
+        for response in response_list {
+            if response.is_err() {
+                continue;
+            }
+            match response {
+                Ok(resp) => match serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&resp)
+                {
+                    Ok(t) => {
+                        success_response_list.push(t);
+                        success_response_body_list.push(resp.clone())
+                    }
+                    Err(_) => {
+                        continue;
+                    }
+                },
+                Err(_) => {
+                    continue;
+                }
+            }
+        }
+
+        if success_response_list.len() < self.minimum_response_count as usize {
+            return Err(format!(
+                "Not enough valid response, expected: {}, actual: {}",
+                self.minimum_response_count,
+                success_response_list.len()
+            ));
+        }
+
+        // The minimum_response_count should greater than 0
+        let mut i = 1;
+        while i < success_response_list.len() {
+            if success_response_body_list[i - 1] != success_response_body_list[i] {
+                return Err("Response mismatch".to_string());
+            }
+            i += 1;
+        }
+
+        Ok(success_response_list[0].clone())
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct SolanaRouteState {
     pub chain_id: String,
@@ -115,6 +196,7 @@ pub struct SolanaRouteState {
 
     #[serde(skip, default = "crate::memory::init_ticket_queue")]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
+    pub multi_rpc_config: MultiRpcConfig,
 }
 
 impl From<InitArgs> for SolanaRouteState {
@@ -148,6 +230,7 @@ impl From<InitArgs> for SolanaRouteState {
             tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
             associated_accounts: Default::default(),
             fee_account: args.fee_account.unwrap_or(FEE_ACCOUNT.to_string()),
+            multi_rpc_config: args.multi_rpc_config,
         }
     }
 }

@@ -1536,6 +1536,7 @@ dependencies = [
  "anyhow",
  "candid",
  "ciborium",
+ "futures",
  "hex",
  "ic-canister-log",
  "ic-canisters-http-types",
