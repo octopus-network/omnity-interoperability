@@ -62,14 +62,6 @@ pub struct Brc20Event {
     pub blocktime: u64,
 }
 
-
-/*
-    pub tx_id: String,
-    pub from_addr: String,
-    pub ticker: String,
-    pub to_addr: String,
-    pub amt: u128,
-*/
 impl Brc20Event {
     pub fn check(&self, query_transfer_args: &QueryTransferArgs) -> bool {
         self.txid == query_transfer_args.tx_id &&
@@ -81,17 +73,28 @@ impl Brc20Event {
     }
 }
 
+impl Into<Brc20TransferEvent> for Brc20Event {
+    fn into(self) -> Brc20TransferEvent {
+        Brc20TransferEvent {
+            amout: self.amount.parse().unwrap(),
+            from: self.from,
+            to: self.to,
+            valid: true,
+        }
+    }
+}
 
-pub async fn query_transfer_event(query_transfer_args: QueryTransferArgs) -> Option<Brc20Event> {
+pub async fn query_transfer_event(query_transfer_args: QueryTransferArgs) -> Option<Brc20TransferEvent> {
 
     let r = query(&query_transfer_args).await;
     match r {
         Ok(c) => {
             if c.is_ok() {
-                let resp = c.data.unwrap().detail;
+                let data = c.data.unwrap();
+                let resp = data.detail;
                 for event in resp {
-                    if event.check(&query_transfer_args) {
-                        return Some(event);
+                    if event.check(&query_transfer_args)  && data.height - event.height >= 4 {
+                        return Some(event.into());
                     }
                 }
                 None
