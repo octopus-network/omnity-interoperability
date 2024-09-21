@@ -1,0 +1,11 @@
+type InitArgs = record {
+  hub_principal : principal;
+  network : Network;
+  chain_id : text;
+  admins : vec principal;
+};
+type Network = variant { mainnet; local; testnet };
+service : (InitArgs) -> {
+  generate_deposit_addr : () -> (opt text, opt text);
+  test_create_tx : () -> (text);
+}

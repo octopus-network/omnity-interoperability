@@ -28,6 +28,18 @@
         }
       ]
     },
+    "brc20_customs": {
+      "gzip": true,
+      "candid": "customs/brc20/brc20_customs.did",
+      "package": "brc20_customs",
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/brc20_customs.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
     "icp_customs": {
       "gzip": true,
       "candid": "customs/icp/icp_customs.did",
