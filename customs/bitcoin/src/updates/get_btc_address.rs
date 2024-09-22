@@ -1,7 +1,6 @@
 use crate::{
     address::main_bitcoin_address,
     destination::Destination,
-    logs::P1,
     state::{mutate_state, read_state, CustomsState, PROD_KEY, RUNES_TOKEN},
     ECDSAPublicKey,
 };
@@ -9,6 +8,7 @@ use candid::{CandidType, Deserialize};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use serde::Serialize;
+use omnity_types::ic_log::INFO;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GetBtcAddressArgs {
@@ -86,13 +86,13 @@ pub async fn init_ecdsa_public_key() -> ECDSAPublicKey {
             })
     };
     log!(
-        P1,
+        INFO,
         "ECDSA public key set to {}, chain code to {}",
         hex::encode(&pub_key.public_key),
         hex::encode(&pub_key.chain_code)
     );
     log!(
-        P1,
+        INFO,
         "Prod ECDSA public key set to {}, chain code to {}",
         hex::encode(&prod_pub_key.public_key),
         hex::encode(&prod_pub_key.chain_code)

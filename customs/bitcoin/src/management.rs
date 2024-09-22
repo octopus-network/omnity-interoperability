@@ -1,7 +1,6 @@
 //! This module contains async functions for interacting with the management canister.
 
 use crate::call_error::{CallError, Reason};
-use crate::logs::P0;
 use crate::tx;
 use crate::ECDSAPublicKey;
 use candid::{CandidType, Principal};
@@ -15,6 +14,7 @@ use ic_ic00_types::{
     SignWithECDSAArgs, SignWithECDSAReply,
 };
 use serde::de::DeserializeOwned;
+use omnity_types::ic_log::CRITICAL;
 
 async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallError>
 where
@@ -24,7 +24,7 @@ where
     let balance = ic_cdk::api::canister_balance128();
     if balance < payment as u128 {
         log!(
-            P0,
+            CRITICAL,
             "Failed to call {}: need {} cycles, the balance is only {}",
             method,
             payment,
