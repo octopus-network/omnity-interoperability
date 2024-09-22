@@ -85,7 +85,6 @@ impl Into<Brc20TransferEvent> for Brc20Event {
 }
 
 pub async fn query_transfer_event(query_transfer_args: QueryTransferArgs) -> Option<Brc20TransferEvent> {
-
     let r = query(&query_transfer_args).await;
     match r {
         Ok(c) => {

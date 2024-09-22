@@ -1,5 +1,5 @@
 [package]
-name = "brc20-indexer"
+name = "brc20_indexer"
 version = "0.1.0"
 edition.workspace = true
 
