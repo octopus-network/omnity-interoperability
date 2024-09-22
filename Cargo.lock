@@ -962,50 +962,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "brc20-indexer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bech32 0.9.1",
- "bitcoin 0.31.2",
- "bs58",
- "candid",
- "ciborium",
- "hex",
- "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
- "ic-btc-interface 0.1.0",
- "ic-canister-log",
- "ic-canisters-http-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
- "ic-cdk 0.12.2",
- "ic-cdk-macros 0.8.4",
- "ic-cdk-timers 0.6.0",
- "ic-crypto-extended-bip32 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
- "ic-crypto-getrandom-for-wasm 0.9.0",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
- "ic-ic00-types",
- "ic-icrc1",
- "ic-metrics-encoder",
- "ic-stable-structures 0.6.5",
- "ic-utils-ensure",
- "ic0 0.18.11",
- "lazy_static",
- "log",
- "minicbor",
- "minicbor-derive",
- "num-traits",
- "omnity_types",
- "rand 0.8.5",
- "ripemd",
- "scopeguard",
- "serde",
- "serde_bytes",
- "serde_json",
- "serde_with 3.9.0",
- "thiserror",
-]
-
-[[package]]
 name = "brc20_customs"
 version = "0.1.0"
 dependencies = [
@@ -1035,6 +991,50 @@ dependencies = [
  "ic-utils-ensure",
  "ic0 0.18.11",
  "k256 0.13.3 (git+https://github.com/altkdf/elliptic-curves?branch=schnorr_canister)",
+ "lazy_static",
+ "log",
+ "minicbor",
+ "minicbor-derive",
+ "num-traits",
+ "omnity_types",
+ "rand 0.8.5",
+ "ripemd",
+ "scopeguard",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "serde_with 3.9.0",
+ "thiserror",
+]
+
+[[package]]
+name = "brc20_indexer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bech32 0.9.1",
+ "bitcoin 0.31.2",
+ "bs58",
+ "candid",
+ "ciborium",
+ "hex",
+ "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
+ "ic-btc-interface 0.1.0",
+ "ic-canister-log",
+ "ic-canisters-http-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
+ "ic-cdk 0.12.2",
+ "ic-cdk-macros 0.8.4",
+ "ic-cdk-timers 0.6.0",
+ "ic-crypto-extended-bip32 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
+ "ic-crypto-getrandom-for-wasm 0.9.0",
+ "ic-crypto-sha2 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
+ "ic-ic00-types",
+ "ic-icrc1",
+ "ic-metrics-encoder",
+ "ic-stable-structures 0.6.5",
+ "ic-utils-ensure",
+ "ic0 0.18.11",
  "lazy_static",
  "log",
  "minicbor",
