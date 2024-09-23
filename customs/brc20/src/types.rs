@@ -5,6 +5,7 @@ use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
 use serde::Serialize;
 use omnity_types::{TicketId, TokenId};
+use omnity_types::brc20::QueryBrc20TransferArgs;
 use omnity_types::rune_id::RuneId;
 
 pub type Brc20Ticker = String;
@@ -47,6 +48,15 @@ pub struct GenTicketRequest {
     pub received_at: u64,
 }
 
+pub fn create_query_brc20_transfer_args(gen_ticket_request: GenTicketRequest, ticker_decimals: u8) -> QueryBrc20TransferArgs{
+    QueryBrc20TransferArgs {
+        tx_id: gen_ticket_request.txid.to_string(),
+        ticker: gen_ticket_request.ticker,
+        to_addr: gen_ticket_request.receiver,
+        amt: gen_ticket_request.amount,
+        decimals: ticker_decimals,
+    }
+}
 
 impl Storable for PendingDirectiveStatus {
     fn to_bytes(&self) -> Cow<[u8]> {

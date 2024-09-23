@@ -13,6 +13,7 @@ use thiserror::Error;
 pub mod rune_id;
 pub mod signer;
 pub mod ic_log;
+pub mod brc20;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;

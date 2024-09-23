@@ -5,7 +5,7 @@ use crate::state::{BitcoinNetwork, IndexerState};
 use crate::state::replace_state;
 use crate::state::read_state;
 use crate::unisat::query_transfer_event;
-
+pub use omnity_types::brc20::*;
 #[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
 pub struct InitArgs {
     pub api_key: String,
@@ -28,28 +28,10 @@ fn post_upgrade() {
 }
 
 #[update]
-pub async fn get_indexed_transfer(args: QueryTransferArgs) -> Option<Brc20TransferEvent>{
+pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
     query_transfer_event(args).await
 }
 
-
-#[derive(CandidType, Serialize, Deserialize, Default, Debug)]
-pub struct Brc20TransferEvent {
-    pub amout: u128,
-    pub from: String,
-    pub to: String,
-    pub valid: bool,
-
-}
-
-#[derive(CandidType, Serialize, Deserialize, Default, Debug)]
-pub struct QueryTransferArgs {
-    pub tx_id: String,
-    pub from_addr: String,
-    pub ticker: String,
-    pub to_addr: String,
-    pub amt: u128,
-}
 
 ic_cdk::export_candid!();
 

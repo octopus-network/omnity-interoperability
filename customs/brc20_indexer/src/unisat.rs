@@ -5,7 +5,7 @@ use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use serde::{Deserialize, Serialize};
 use omnity_types::ic_log::ERROR;
-use crate::service::{Brc20TransferEvent, QueryTransferArgs};
+use crate::service::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use crate::state::{api_key, BitcoinNetwork, read_state};
 
 const TESTNET_BASE_URL: &str = "https://open-api-testnet.unisat.io";
@@ -63,7 +63,7 @@ pub struct Brc20Event {
 }
 
 impl Brc20Event {
-    pub fn check(&self, query_transfer_args: &QueryTransferArgs) -> bool {
+    pub fn check(&self, query_transfer_args: &QueryBrc20TransferArgs) -> bool {
         self.txid == query_transfer_args.tx_id &&
             self.valid == true &&
             self.from == query_transfer_args.from_addr &&
@@ -84,7 +84,7 @@ impl Into<Brc20TransferEvent> for Brc20Event {
     }
 }
 
-pub async fn query_transfer_event(query_transfer_args: QueryTransferArgs) -> Option<Brc20TransferEvent> {
+pub async fn query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
     let r = query(&query_transfer_args).await;
     match r {
         Ok(c) => {
@@ -109,7 +109,7 @@ pub async fn query_transfer_event(query_transfer_args: QueryTransferArgs) -> Opt
     }
 }
 
-pub async fn query(query_transfer_args: &QueryTransferArgs) -> Result<CommonResponse<QueryBrc20EventResponse>, UnisatError> {
+pub async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonResponse<QueryBrc20EventResponse>, UnisatError> {
     let base_url = match read_state(|s|s.network) {
         BitcoinNetwork::Mainnet => {MAINNET_BASE_URL}
         BitcoinNetwork::Testnet => {TESTNET_BASE_URL}
