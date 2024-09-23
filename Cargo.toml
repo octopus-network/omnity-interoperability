@@ -13,7 +13,8 @@ members = [
     "mock/hub",
     "customs/icp",
     "proxy/cosmwasm",
-     "customs/brc20", "customs/brc20-indexer",
+    "customs/brc20",
+    "customs/brc20_indexer",
 ]
 resolver = "2"
 
