@@ -4,6 +4,7 @@ use std::time::Duration;
 use bitcoin::{Address, Amount, Network, PublicKey, Transaction, Txid};
 use bitcoin::consensus::Encodable;
 use bitcoin::hashes::Hash;
+use candid::CandidType;
 use ic_btc_interface::GetUtxosResponse;
 use ic_canister_log::log;
 use ic_cdk::api::call::RejectionCode;

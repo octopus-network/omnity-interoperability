@@ -1,12 +1,12 @@
 use candid::{CandidType, Deserialize, Principal};
-use ic_cdk_macros::{init, post_upgrade, pre_upgrade, update};
+use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
 use omnity_types::{Network, Ticket, TicketType, TxAction};
 use omnity_types::TxAction::Redeem;
 use crate::custom_to_bitcoin::test_send_ticket;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 
-use crate::state::{Brc20State, init_ecdsa_public_key, read_state, replace_state};
+use crate::state::{Brc20State, init_ecdsa_public_key, mutate_state, read_state, replace_state, StateProfile};
 
 #[init]
 fn init(args: InitArgs) {
@@ -32,6 +32,12 @@ pub async fn generate_ticket(req: GenerateTicketArgs)  {
 pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
     init_ecdsa_public_key().await;
     read_state(|s|(s.deposit_addr.clone(), s.deposit_pubkey.clone()))
+}
+
+
+#[query]
+pub fn brc20_state() -> StateProfile {
+    read_state(|s|StateProfile::from(s.clone()))
 }
 
 #[update]
@@ -60,6 +66,7 @@ pub struct InitArgs {
     pub hub_principal: Principal,
     pub network: Network,
     pub chain_id: String,
+    pub indexer_principal: Principal,
 }
 
 ic_cdk::export_candid!();

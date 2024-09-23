@@ -66,7 +66,6 @@ impl Brc20Event {
     pub fn check(&self, query_transfer_args: &QueryBrc20TransferArgs) -> bool {
         self.txid == query_transfer_args.tx_id &&
             self.valid == true &&
-            self.from == query_transfer_args.from_addr &&
             self.to == query_transfer_args.to_addr &&
             self.ticker == query_transfer_args.ticker &&
             self.amount == query_transfer_args.amt.to_string()
