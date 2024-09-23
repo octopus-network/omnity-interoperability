@@ -6,6 +6,7 @@ use bitcoin::{
     secp256k1, Address, Amount, FeeRate, Network, OutPoint, PublicKey, ScriptBuf, Sequence,
     Transaction, TxIn, TxOut, Txid, Witness, XOnlyPublicKey,
 };
+use candid::CandidType;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use crate::ord::builder::fees::MultisigConfig;

@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use bitcoin::Address;
 
-use candid::Principal;
+use candid::{CandidType, Principal};
 use ic_btc_interface::{Network, Txid};
 use ic_ic00_types::{BitcoinNetwork, DerivationPath};
 use ic_stable_structures::StableBTreeMap;
@@ -12,10 +12,13 @@ use ic_stable_structures::writer::Writer;
 use serde::{Deserialize, Serialize};
 
 use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
+use omnity_types::ChainState::Active;
+use omnity_types::ChainType::ExecutionChain;
 use crate::bitcoin::{ECDSAPublicKey, main_bitcoin_address};
 use crate::constants::{MIN_NANOS, SEC_NANOS};
 use crate::custom_to_bitcoin::SendTicketResult;
 use crate::ord::builder::Utxo;
+use crate::ord::inscription::brc20::Brc20;
 use crate::service::InitArgs;
 use crate::stable_memory;
 
@@ -53,14 +56,66 @@ pub struct Brc20State {
     #[serde(skip, default = "crate::stable_memory::init_pending_ticket_map")]
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
     pub flight_to_bitcoin_ticket_map: BTreeMap<Seq, SendTicketResult>,
+
     pub finalized_to_bitcoin_ticket_map: BTreeMap<Seq, SendTicketResult>,
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
+
     pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
     pub finalized_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
     pub deposit_addr_utxo: Vec<Utxo>,
 }
 
+#[derive(Serialize, Deserialize, CandidType, Clone)]
+pub struct StateProfile {
+    pub admins: Vec<Principal>,
+    pub min_confirmations: u8,
+    pub btc_network: Network,
+    pub ecdsa_key_name: String,
+    pub ecdsa_public_key: Option<ECDSAPublicKey>,
+    pub deposit_addr: Option<String>,
+    pub deposit_pubkey: Option<String>,
+    pub indexer_principal: Principal,
+    pub hub_principal: Principal,
+    pub chain_id: String,
+    pub tokens: BTreeMap<TokenId, Token>,
+    pub counterparties: BTreeMap<ChainId, Chain>,
+    pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
+    pub chain_state: ChainState,
+    pub next_ticket_seq: u64,
+    pub next_directive_seq: u64,
+    pub next_consume_ticket_seq: u64,
+    pub next_consume_directive_seq: u64,
+    pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
+    pub finalized_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
+}
+
+impl From<&Brc20State> for StateProfile {
+    fn from(value: &Brc20State) -> Self {
+        StateProfile {
+            admins: value.admins.clone(),
+            min_confirmations: value.min_confirmations.clone(),
+            btc_network: value.btc_network.clone(),
+            ecdsa_key_name: value.ecdsa_key_name.clone(),
+            ecdsa_public_key: value.ecdsa_public_key.clone(),
+            deposit_addr: value.deposit_addr.clone(),
+            deposit_pubkey: value.deposit_pubkey.clone(),
+            indexer_principal: value.indexer_principal.clone(),
+            hub_principal: value.hub_principal.clone(),
+            chain_id: value.chain_id.clone(),
+            tokens: value.tokens.clone(),
+            counterparties: value.counterparties.clone(),
+            finalized_mint_token_requests: value.finalized_mint_token_requests.clone(),
+            chain_state: value.chain_state.clone(),
+            next_ticket_seq: value.next_ticket_seq,
+            next_directive_seq: value.next_directive_seq,
+            next_consume_ticket_seq: value.next_consume_ticket_seq,
+            next_consume_directive_seq: value.next_consume_directive_seq,
+            pending_gen_ticket_requests: value.pending_gen_ticket_requests.clone(),
+            finalized_gen_ticket_requests: value.finalized_gen_ticket_requests.clone(),
+        }
+    }
+}
 
 impl Brc20State {
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
@@ -97,11 +152,34 @@ impl Brc20State {
             pending_gen_ticket_requests: Default::default(),
             finalized_gen_ticket_requests: Default::default(),
             btc_network,
-            indexer_principal: Principal::anonymous(), //TODO
+            indexer_principal: args.indexer_principal, //TODO
             deposit_addr_utxo: vec![],
             min_confirmations: 4,
             finalized_to_bitcoin_ticket_map: Default::default(),
         };
+
+        //TODO. open for test below codes;
+        mutate_state(|s| {
+            s.counterparties.insert("Bitfinity".to_string(), Chain{
+                chain_id: "Bitfinity".to_string(),
+                canister_id: "".to_string(),
+                chain_type: ExecutionChain,
+                chain_state: Active,
+                contract_address: None,
+                counterparties: None,
+                fee_token: None,
+            });
+            s.tokens.insert("BRC2O-brc20-NBCI".to_string(), Token {
+                token_id: "BRC2O-brc20-NBCI".to_string(),
+                name: "NBCI".to_string(),
+                symbol: "NBCI".to_string(),
+                decimals: 18,
+                icon: None,
+                metadata: Default::default(),
+            });
+
+        });
+
         Ok(ret)
     }
 
@@ -182,7 +260,9 @@ pub async fn init_ecdsa_public_key() -> ECDSAPublicKey {
         s.deposit_pubkey = Some(hex::encode(pub_key.public_key.clone()));
         let address = main_bitcoin_address(&pub_key.clone());
         let deposit_addr = address.display(s.btc_network);
-        s.deposit_addr = Some(deposit_addr)
+        s.deposit_addr = Some(deposit_addr);
+        //TODO delete for prd
+        s.deposit_addr = Some("tb1q5vlapn2c6at8rtx0dnp9ytxjwhqgs9y042t9rw".to_string());
     });
 
     pub_key

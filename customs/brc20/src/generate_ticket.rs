@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
+use serde::Serialize;
 
 use omnity_types::{ChainState, Ticket, TicketType, TxAction};
 
@@ -29,7 +30,7 @@ pub enum GenerateTicketError {
     InvalidArgs,
 }
 
-#[derive(Clone, CandidType)]
+#[derive(Clone, CandidType, Serialize, Deserialize)]
 pub struct GenerateTicketArgs {
     pub txid: String,
     pub amount: u128,
