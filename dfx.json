@@ -58,6 +58,18 @@
       "package": "bitfinity_route",
       "type": "rust"
     },
+    "brc20_indexer": {
+      "gzip": true,
+      "candid": "customs/brc20_indexer/brc20_indexer.did",
+      "package": "brc20_indexer",
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/brc20_indexer.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
     "omnity_hub": {
       "gzip": true,
       "candid": "hub/omnity_hub.did",
