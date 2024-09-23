@@ -69,6 +69,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         GenTicketStatus::Finalized(_) => Err(GenerateTicketError::AlreadyProcessed),
         GenTicketStatus::Unknown => Ok(()),
     })?;
+
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
     check_transaction(args.clone()).await?;
     hub::pending_ticket(
