@@ -28,7 +28,7 @@ use crate::ord::builder::spend_transaction::spend_utxo_transaction;
 use crate::ord::inscription::brc20::Brc20;
 use crate::ord::mempool_rpc_types::TxInfo;
 use crate::ord::parser::POSTAGE;
-use crate::state::{bitcoin_network, deposit_addr, deposit_pubkey, mutate_state, read_state};
+use crate::state::{bitcoin_network, deposit_addr, deposit_pubkey, finalization_time_estimate, mutate_state, read_state};
 
 #[derive(Error, Debug)]
 pub enum CustomToBitcoinError {
@@ -54,17 +54,6 @@ pub struct  SendTicketResult {
     pub err_step: Option<u8>,
     pub err_info: Option<CallError>,
     pub time_at: u64
-}
-
-fn finalization_time_estimate(min_confirmations: u8, network: ic_btc_interface::Network) -> Duration {
-    Duration::from_nanos(
-        min_confirmations as u64
-            * match network {
-            ic_btc_interface::Network::Mainnet => 10 * MIN_NANOS,
-            ic_btc_interface::Network::Testnet => MIN_NANOS,
-            ic_btc_interface::Network::Regtest => SEC_NANOS,
-        },
-    )
 }
 
 pub async fn send_tickets_to_bitcoin() {
@@ -153,6 +142,7 @@ pub async fn finalize_flight_tickets(){
     }
 }
 
+//TODO remove when prod
 pub async fn test_send_ticket(t: Ticket) -> Result<SendTicketResult, CustomToBitcoinError> {
 
   //  let token = read_state(|s|s.tokens.get(&t.token).cloned().unwrap());

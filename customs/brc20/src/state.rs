@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::str::FromStr;
+use std::time::Duration;
 use bitcoin::Address;
 
 use candid::Principal;
@@ -12,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
 use crate::bitcoin::{ECDSAPublicKey, main_bitcoin_address};
+use crate::constants::{MIN_NANOS, SEC_NANOS};
 use crate::custom_to_bitcoin::SendTicketResult;
 use crate::ord::builder::Utxo;
 use crate::service::InitArgs;
@@ -52,14 +54,10 @@ pub struct Brc20State {
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
     pub flight_to_bitcoin_ticket_map: BTreeMap<Seq, SendTicketResult>,
     pub finalized_to_bitcoin_ticket_map: BTreeMap<Seq, SendTicketResult>,
-
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
-
     pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
-    pub confirmed_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
-    pub finalized_gen_ticket_requests: VecDeque<GenTicketRequest>,
-
+    pub finalized_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
     pub deposit_addr_utxo: Vec<Utxo>,
 }
 
@@ -95,11 +93,8 @@ impl Brc20State {
             pending_tickets_map: StableBTreeMap::init(
                 crate::stable_memory::get_pending_ticket_map_memory(),
             ),
-
             is_timer_running: Default::default(),
-
             pending_gen_ticket_requests: Default::default(),
-            confirmed_gen_ticket_requests: Default::default(),
             finalized_gen_ticket_requests: Default::default(),
             btc_network,
             indexer_principal: Principal::anonymous(), //TODO
@@ -160,15 +155,13 @@ impl Brc20State {
         if let Some(req) = self.pending_gen_ticket_requests.get(&tx_id) {
             return GenTicketStatus::Pending(req.clone());
         }
-        if let Some(req) = self.confirmed_gen_ticket_requests.get(&tx_id) {
-            return GenTicketStatus::Confirmed(req.clone());
-        }
+
         match self
             .finalized_gen_ticket_requests
             .iter()
-            .find(|req| req.txid == tx_id)
+            .find(|req| req.1.txid == tx_id)
         {
-            Some(req) => GenTicketStatus::Finalized(req.clone()),
+            Some(req) => GenTicketStatus::Finalized(req.1.clone()),
             None => GenTicketStatus::Unknown,
         }
     }
@@ -209,6 +202,18 @@ pub fn bitcoin_network() -> bitcoin::Network {
         Network::Regtest => {bitcoin::Network::Regtest}
     }
 }
+
+pub fn finalization_time_estimate(min_confirmations: u8, network: ic_btc_interface::Network) -> Duration {
+    Duration::from_nanos(
+        min_confirmations as u64
+            * match network {
+            ic_btc_interface::Network::Mainnet => 10 * MIN_NANOS,
+            ic_btc_interface::Network::Testnet => MIN_NANOS,
+            ic_btc_interface::Network::Regtest => SEC_NANOS,
+        },
+    )
+}
+
 pub fn deposit_pubkey() -> String {
     read_state(|s|s.deposit_pubkey.clone().unwrap())
 }
