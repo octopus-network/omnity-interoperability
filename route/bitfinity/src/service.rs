@@ -19,9 +19,8 @@ use crate::state::{
     StateProfile,
 };
 use omnity_types::{
-    Chain, ChainId, Directive, Network, Seq, Ticket, TicketId,
+    Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}
 };
-use crate::logs::P0;
 use crate::types::{TokenResp, PendingDirectiveStatus, PendingTicketStatus, MetricsStatus};
 use omnity_types::MintTokenStatus;
 
@@ -40,7 +39,7 @@ fn pre_upgrade() {
 fn post_upgrade() {
     EvmRouteState::post_upgrade();
     start_tasks();
-    log!(P0, "[bitfinity_route] upgraded successed at {}", ic_cdk::api::time());
+    log!(INFO, "[bitfinity_route] upgraded successed at {}", ic_cdk::api::time());
 }
 
 
@@ -49,7 +48,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     if ic_cdk::api::data_certificate().is_none() {
         ic_cdk::trap("update call rejected");
     }
-    crate::logs::http_request(req)
+    omnity_types::ic_log::http_request(req)
 }
 
 #[update(guard = "is_admin")]
@@ -233,6 +232,7 @@ async fn metrics() -> MetricsStatus {
 
 #[update]
 async fn generate_ticket(hash: String) -> Result<(), String> {
+    log!(INFO, "received generate_ticket request {}", &hash);
     let tx_hash = hash.to_lowercase();
     if read_state(|s| s.pending_events_on_chain.get(&tx_hash).is_some()) {
         return Ok(());
@@ -252,7 +252,7 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
     hub::pending_ticket(hub_principal, ticket)
         .await
         .map_err(|e| {
-            log!(P0, "call hub error:{}", e.to_string());
+            log!(ERROR, "call hub error:{}", e.to_string());
             "call hub error".to_string()
         })?;
     mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
@@ -272,7 +272,7 @@ pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
             tickets
         }
         Err(err) => {
-            log!(P0, "[process tickets] failed to query tickets, err: {}", err);
+            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
             vec![]
         }
     }
@@ -296,7 +296,7 @@ pub async fn resend_ticket_to_hub(tx_hash: String) {
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))
         .unwrap();
-    log!(P0, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
+    log!(INFO, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
 }
 
 #[derive(CandidType, Deserialize)]

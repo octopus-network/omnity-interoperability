@@ -31,7 +31,7 @@ k256 = "0.13"
 #ic-log = { git = "https://github.com/octopus-network/canister-sdk.git", branch = "v0.12.x-stablelog" }
 ethers-core = "2.0.11"
 itertools = "0.12.1"
-omnity_types = { path = "../../types", default-features = false }
+omnity_types = { path = "../../types" }
 sha2 = "0.10.8"
 ethers-contract = "2.0.14"
 ethers-providers = "2.0.14"
