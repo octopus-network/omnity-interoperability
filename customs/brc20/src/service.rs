@@ -4,6 +4,7 @@ use ic_cdk_macros::{init, post_upgrade, pre_upgrade, update};
 use omnity_types::{Network, Ticket, TicketType, TxAction};
 use omnity_types::TxAction::Redeem;
 use crate::custom_to_bitcoin::test_send_ticket;
+use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 
 use crate::state::{Brc20State, init_ecdsa_public_key, read_state, replace_state};
 
@@ -22,6 +23,11 @@ fn post_upgrade() {
     Brc20State::post_upgrade();
 }
 
+
+#[update]
+pub async fn generate_ticket(req: GenerateTicketArgs)  {
+    crate::generate_ticket::generate_ticket(req).await.unwrap();
+}
 #[update]
 pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
     init_ecdsa_public_key().await;
