@@ -4,12 +4,12 @@ use serde::{Deserialize, Serialize};
 use crate::state::{BitcoinNetwork, IndexerState};
 use crate::state::replace_state;
 use crate::state::read_state;
+use crate::unisat::query_transfer_event;
 
 #[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
 pub struct InitArgs {
     pub api_key: String,
     pub network: BitcoinNetwork,
-
 }
 
 #[init]
@@ -29,8 +29,7 @@ fn post_upgrade() {
 
 #[update]
 pub async fn get_indexed_transfer(args: QueryTransferArgs) -> Option<Brc20TransferEvent>{
-
-    Some(Default::default())
+    query_transfer_event(args).await
 }
 
 
