@@ -5,16 +5,16 @@ use std::io::Cursor;
 use std::mem;
 use std::str::FromStr;
 
-use bitcoin::constants::MAX_SCRIPT_ELEMENT_SIZE;
-use bitcoin::opcodes;
-use bitcoin::opcodes::all::OP_CHECKSIG;
-use bitcoin::script::{Builder as ScriptBuilder, PushBytes, PushBytesBuf, ScriptBuf};
-use serde::{Deserialize, Serialize};
 use crate::ord::builder::RedeemScriptPubkey;
 use crate::ord::inscription::Inscription;
 use crate::ord::parser::constants;
 use crate::ord::parser::push_bytes::bytes_to_push_bytes;
 use crate::ord::result::{InscriptionParseError, OrdError, OrdResult};
+use bitcoin::constants::MAX_SCRIPT_ELEMENT_SIZE;
+use bitcoin::opcodes;
+use bitcoin::opcodes::all::OP_CHECKSIG;
+use bitcoin::script::{Builder as ScriptBuilder, PushBytes, PushBytesBuf, ScriptBuf};
+use serde::{Deserialize, Serialize};
 
 /// Represents an arbitrary Ordinal inscription. We're "unofficially" referring to this as an NFT
 /// (e.g., like an ERC721 token). Ordinal inscriptions allow for the embedding of data directly

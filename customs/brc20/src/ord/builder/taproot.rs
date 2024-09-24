@@ -1,3 +1,6 @@
+use crate::custom_to_bitcoin::CustomToBitcoinResult;
+use crate::management;
+use crate::ord::result::{OrdError, OrdResult};
 use bitcoin::key::UntweakedKeypair;
 use bitcoin::secp256k1::{All, Secp256k1};
 use bitcoin::taproot::{ControlBlock, LeafVersion, TaprootBuilder};
@@ -5,10 +8,6 @@ use bitcoin::{Address, Amount, Network, ScriptBuf, TxOut, XOnlyPublicKey};
 use ic_cdk::api::call::CallResult;
 use rand::prelude::StdRng;
 use rand::{RngCore, SeedableRng};
-use crate::custom_to_bitcoin::CustomToBitcoinResult;
-use crate::management;
-use crate::ord::result::{OrdError, OrdResult};
-
 
 #[derive(Debug, Clone)]
 pub struct TaprootPayload {
@@ -51,7 +50,9 @@ impl TaprootPayload {
     }
 }
 
-pub async fn generate_keypair(secp: &Secp256k1<All>) -> CallResult<(UntweakedKeypair, XOnlyPublicKey)> {
+pub async fn generate_keypair(
+    secp: &Secp256k1<All>,
+) -> CallResult<(UntweakedKeypair, XOnlyPublicKey)> {
     let seed = management::raw_rand().await?;
     let mut std_rng = StdRng::from_seed(seed);
     let keypair = UntweakedKeypair::new(secp, &mut std_rng);
@@ -59,10 +60,9 @@ pub async fn generate_keypair(secp: &Secp256k1<All>) -> CallResult<(UntweakedKey
     Ok((keypair, x_public_key))
 }
 
-
 #[test]
 pub fn test_stdrng() {
-    let seed = [1u8;32];
+    let seed = [1u8; 32];
     let mut rng0 = StdRng::from_seed(seed);
     let x0 = rng0.next_u64();
     println!("{x0}");

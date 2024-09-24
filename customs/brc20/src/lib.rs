@@ -1,19 +1,19 @@
-pub(crate) mod state;
-mod hub;
-mod stable_memory;
-mod types;
-mod custom_to_bitcoin;
-mod bitcoin_to_custom;
-mod generate_ticket;
-mod call_error;
-mod ord;
-mod tasks;
-mod guard;
-mod hub_to_custom;
 mod audit;
-mod management;
 mod bitcoin;
+mod bitcoin_to_custom;
+mod call_error;
+mod custom_to_bitcoin;
+mod generate_ticket;
+mod guard;
+mod hub;
+mod hub_to_custom;
+mod management;
+mod ord;
 pub mod service;
+mod stable_memory;
+pub(crate) mod state;
+mod tasks;
+mod types;
 
 pub mod constants {
     pub const FETCH_HUB_TICKET_INTERVAL: u64 = 5;

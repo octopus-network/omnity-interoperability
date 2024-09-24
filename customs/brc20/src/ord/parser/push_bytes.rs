@@ -1,6 +1,5 @@
-use bitcoin::script::PushBytesBuf;
 use crate::ord::result::OrdResult;
-
+use bitcoin::script::PushBytesBuf;
 
 pub fn bytes_to_push_bytes(bytes: &[u8]) -> OrdResult<PushBytesBuf> {
     let mut push_bytes = PushBytesBuf::with_capacity(bytes.len());

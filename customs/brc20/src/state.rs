@@ -1,29 +1,31 @@
+use bitcoin::Address;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::str::FromStr;
 use std::time::Duration;
-use bitcoin::Address;
 
 use candid::{CandidType, Principal};
 use ic_btc_interface::{Network, Txid};
 use ic_ic00_types::{BitcoinNetwork, DerivationPath};
-use ic_stable_structures::StableBTreeMap;
 use ic_stable_structures::writer::Writer;
+use ic_stable_structures::StableBTreeMap;
 use serde::{Deserialize, Serialize};
 
-use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
-use omnity_types::ChainState::Active;
-use omnity_types::ChainType::ExecutionChain;
-use crate::bitcoin::{ECDSAPublicKey, main_bitcoin_address};
+use crate::bitcoin::{main_bitcoin_address, ECDSAPublicKey};
 use crate::constants::{MIN_NANOS, SEC_NANOS};
 use crate::custom_to_bitcoin::SendTicketResult;
 use crate::ord::builder::Utxo;
 use crate::ord::inscription::brc20::Brc20;
 use crate::service::InitArgs;
 use crate::stable_memory;
+use omnity_types::ChainState::Active;
+use omnity_types::ChainType::ExecutionChain;
+use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
 
 use crate::stable_memory::Memory;
-use crate::types::{Brc20Ticker, GenTicketRequest, GenTicketStatus, PendingDirectiveStatus, PendingTicketStatus};
+use crate::types::{
+    Brc20Ticker, GenTicketRequest, GenTicketStatus, PendingDirectiveStatus, PendingTicketStatus,
+};
 
 thread_local! {
     static STATE: RefCell<Option<Brc20State >> = RefCell::new(None);
@@ -120,9 +122,9 @@ impl From<&Brc20State> for StateProfile {
 impl Brc20State {
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
         let btc_network = match args.network {
-            omnity_types::Network::Local => { ic_btc_interface::Network::Testnet}
-            omnity_types::Network::Testnet => {ic_btc_interface::Network::Testnet}
-            omnity_types::Network::Mainnet => {ic_btc_interface::Network::Mainnet}
+            omnity_types::Network::Local => ic_btc_interface::Network::Testnet,
+            omnity_types::Network::Testnet => ic_btc_interface::Network::Testnet,
+            omnity_types::Network::Mainnet => ic_btc_interface::Network::Mainnet,
         };
         let mut ret = Brc20State {
             admins: args.admins,
@@ -159,25 +161,29 @@ impl Brc20State {
         };
 
         //TODO. open for test below codes;
-        ret.counterparties.insert("Bitfinity".to_string(), Chain{
-            chain_id: "Bitfinity".to_string(),
-            canister_id: "".to_string(),
-            chain_type: ExecutionChain,
-            chain_state: Active,
-            contract_address: None,
-            counterparties: None,
-            fee_token: None,
-        });
-        ret.tokens.insert("BRC20-brc20-NBCI".to_string(), Token {
-            token_id: "BRC20-brc20-NBCI".to_string(),
-            name: "NBCI".to_string(),
-            symbol: "NBCI".to_string(),
-            decimals: 18,
-            icon: None,
-            metadata: Default::default(),
-        });
-
-
+        ret.counterparties.insert(
+            "Bitfinity".to_string(),
+            Chain {
+                chain_id: "Bitfinity".to_string(),
+                canister_id: "".to_string(),
+                chain_type: ExecutionChain,
+                chain_state: Active,
+                contract_address: None,
+                counterparties: None,
+                fee_token: None,
+            },
+        );
+        ret.tokens.insert(
+            "BRC20-brc20-NBCI".to_string(),
+            Token {
+                token_id: "BRC20-brc20-NBCI".to_string(),
+                name: "NBCI".to_string(),
+                symbol: "NBCI".to_string(),
+                decimals: 18,
+                icon: None,
+                metadata: Default::default(),
+            },
+        );
 
         Ok(ret)
     }
@@ -244,8 +250,6 @@ impl Brc20State {
     }
 }
 
-
-
 pub async fn init_ecdsa_public_key() -> ECDSAPublicKey {
     if let Some(pub_key) = read_state(|s| s.ecdsa_public_key.clone()) {
         return pub_key;
@@ -267,46 +271,48 @@ pub async fn init_ecdsa_public_key() -> ECDSAPublicKey {
     pub_key
 }
 
-
 pub fn deposit_addr() -> Address {
-    let r = read_state(|s|s.deposit_addr.clone().unwrap());
+    let r = read_state(|s| s.deposit_addr.clone().unwrap());
     Address::from_str(&r).unwrap().assume_checked()
 }
 
 pub fn bitcoin_network() -> bitcoin::Network {
-    let n =  read_state(|s|s.btc_network);
+    let n = read_state(|s| s.btc_network);
     match n {
-        Network::Mainnet => {bitcoin::Network::Bitcoin}
-        Network::Testnet => {bitcoin::Network::Testnet}
-        Network::Regtest => {bitcoin::Network::Regtest}
+        Network::Mainnet => bitcoin::Network::Bitcoin,
+        Network::Testnet => bitcoin::Network::Testnet,
+        Network::Regtest => bitcoin::Network::Regtest,
     }
 }
 
-pub fn finalization_time_estimate(min_confirmations: u8, network: ic_btc_interface::Network) -> Duration {
+pub fn finalization_time_estimate(
+    min_confirmations: u8,
+    network: ic_btc_interface::Network,
+) -> Duration {
     Duration::from_nanos(
         min_confirmations as u64
             * match network {
-            ic_btc_interface::Network::Mainnet => 10 * MIN_NANOS,
-            ic_btc_interface::Network::Testnet => MIN_NANOS,
-            ic_btc_interface::Network::Regtest => SEC_NANOS,
-        },
+                ic_btc_interface::Network::Mainnet => 10 * MIN_NANOS,
+                ic_btc_interface::Network::Testnet => MIN_NANOS,
+                ic_btc_interface::Network::Regtest => SEC_NANOS,
+            },
     )
 }
 
 pub fn deposit_pubkey() -> String {
-    read_state(|s|s.deposit_pubkey.clone().unwrap())
+    read_state(|s| s.deposit_pubkey.clone().unwrap())
 }
 
 pub fn mutate_state<F, R>(f: F) -> R
-    where
-        F: FnOnce(&mut Brc20State) -> R,
+where
+    F: FnOnce(&mut Brc20State) -> R,
 {
     STATE.with(|s| f(s.borrow_mut().as_mut().expect("State not initialized!")))
 }
 
 pub fn read_state<F, R>(f: F) -> R
-    where
-        F: FnOnce(&Brc20State) -> R,
+where
+    F: FnOnce(&Brc20State) -> R,
 {
     STATE.with(|s| f(s.borrow().as_ref().expect("State not initialized!")))
 }
@@ -319,8 +325,8 @@ pub fn replace_state(state: Brc20State) {
 }
 
 pub fn take_state<F, R>(f: F) -> R
-    where
-        F: FnOnce(Brc20State) -> R,
+where
+    F: FnOnce(Brc20State) -> R,
 {
     STATE.with(|s| f(s.take().expect("State not initialized!")))
 }

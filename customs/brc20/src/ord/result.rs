@@ -41,7 +41,7 @@ pub enum OrdError {
     #[error("Invalid script type")]
     InvalidScriptType,
     #[error("management error: rs:{0}")]
-    ManagementError(String)
+    ManagementError(String),
 }
 
 /// Inscription parsing errors.

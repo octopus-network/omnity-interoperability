@@ -17,7 +17,7 @@ pub async fn query_tickets(
         "query_tickets".into(),
         (None::<Option<ChainId>>, offset, limit),
     )
-        .await
+    .await
 }
 
 pub async fn update_tx_hash(
@@ -30,9 +30,8 @@ pub async fn update_tx_hash(
         "update_tx_hash".into(),
         (ticket_id, mint_tx_hash),
     )
-        .await
+    .await
 }
-
 
 pub async fn query_directives(
     hub_principal: Principal,
@@ -49,7 +48,7 @@ pub async fn query_directives(
             limit,
         ),
     )
-        .await
+    .await
 }
 
 pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
@@ -66,7 +65,7 @@ pub async fn batch_update_tx_hash(
         "batch_update_tx_hash".into(),
         (ticket_ids, tx_hash),
     )
-        .await
+    .await
 }
 
 pub async fn pending_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
@@ -82,8 +81,8 @@ async fn call<T: ArgumentEncoder, R>(
     method: String,
     args: T,
 ) -> Result<R, CallError>
-    where
-        R: for<'a> candid::Deserialize<'a> + CandidType,
+where
+    R: for<'a> candid::Deserialize<'a> + CandidType,
 {
     let resp: (Result<R, omnity_types::Error>,) =
         ic_cdk::api::call::call(hub_principal, &method, args)

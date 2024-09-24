@@ -1,13 +1,15 @@
 use candid::{CandidType, Deserialize, Principal};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
-use omnity_types::{Network, Ticket, TicketType, TxAction};
-use omnity_types::TxAction::Redeem;
 use crate::bitcoin_to_custom::finalize_generate_ticket_request;
 use crate::custom_to_bitcoin::test_send_ticket;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
+use omnity_types::TxAction::Redeem;
+use omnity_types::{Network, Ticket, TicketType, TxAction};
 
-use crate::state::{Brc20State, init_ecdsa_public_key, mutate_state, read_state, replace_state, StateProfile};
+use crate::state::{
+    init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
+};
 
 #[init]
 fn init(args: InitArgs) {
@@ -24,15 +26,14 @@ fn post_upgrade() {
     Brc20State::post_upgrade();
 }
 
-
 #[update]
-pub async fn generate_ticket(req: GenerateTicketArgs)  {
+pub async fn generate_ticket(req: GenerateTicketArgs) {
     crate::generate_ticket::generate_ticket(req).await.unwrap();
 }
 #[update]
 pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
     init_ecdsa_public_key().await;
-    read_state(|s|(s.deposit_addr.clone(), s.deposit_pubkey.clone()))
+    read_state(|s| (s.deposit_addr.clone(), s.deposit_pubkey.clone()))
 }
 
 #[update]
@@ -42,7 +43,7 @@ pub async fn finalize_gen() {
 
 #[query]
 pub fn brc20_state() -> StateProfile {
-    read_state(|s|StateProfile::from(s.clone()))
+    read_state(|s| StateProfile::from(s.clone()))
 }
 
 #[update]
@@ -63,7 +64,6 @@ pub async fn test_create_tx() -> String {
     let r = test_send_ticket(ticket).await.unwrap();
     serde_json::to_string(&r).unwrap()
 }
-
 
 #[derive(CandidType, Deserialize)]
 pub struct InitArgs {

@@ -1,7 +1,7 @@
 use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
-use omnity_types::{Directive, Seq, Ticket, TicketId};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
+use omnity_types::{Directive, Seq, Ticket, TicketId};
 use std::cell::RefCell;
 
 pub type InnerMemory = DefaultMemoryImpl;
@@ -31,12 +31,12 @@ fn with_memory_manager<R>(f: impl FnOnce(&MemoryManager<InnerMemory>) -> R) -> R
     })
 }
 
-pub fn get_brc20_utxos_memory() -> Memory{
+pub fn get_brc20_utxos_memory() -> Memory {
     with_memory_manager(|m| m.get(BRC20_UTXOS_MEMORY_ID))
 }
 
 pub fn get_brc20_balance_memory() -> Memory {
-    with_memory_manager(|m|m.get(BRC20_BALANCE_MEMORY_ID))
+    with_memory_manager(|m| m.get(BRC20_BALANCE_MEMORY_ID))
 }
 
 pub fn get_to_evm_tickets_memory() -> Memory {

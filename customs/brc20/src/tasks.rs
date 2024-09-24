@@ -1,7 +1,7 @@
-use std::time::Duration;
-use ic_cdk_timers::set_timer_interval;
 use crate::constants::*;
 use crate::hub_to_custom::{fetch_hub_directive_task, fetch_hub_ticket_task};
+use ic_cdk_timers::set_timer_interval;
+use std::time::Duration;
 
 fn start_tasks() {
     set_timer_interval(

@@ -2,11 +2,10 @@
 
 use std::str::FromStr;
 
+use crate::ord::result::{InscriptionParseError, OrdError, OrdResult};
 use bitcoin::hashes::Hash;
 use bitcoin::{OutPoint, Txid};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use crate::ord::result::{InscriptionParseError, OrdError, OrdResult};
-
 
 /// Represents an Ordinal/BRC20 inscription identifier,
 /// derived from the transaction ID and the associated `vout` (index) of the UTXO
@@ -66,8 +65,8 @@ impl std::fmt::Display for InscriptionId {
 
 impl Serialize for InscriptionId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         serializer.collect_str(self)
     }
@@ -75,8 +74,8 @@ impl Serialize for InscriptionId {
 
 impl<'de> Deserialize<'de> for InscriptionId {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         DeserializeFromStr::with(deserializer)
     }
@@ -85,24 +84,24 @@ impl<'de> Deserialize<'de> for InscriptionId {
 struct DeserializeFromStr<T: FromStr>(pub T);
 
 impl<'de, T: FromStr> DeserializeFromStr<T>
-    where
-        T::Err: std::fmt::Display,
+where
+    T::Err: std::fmt::Display,
 {
     pub fn with<D>(deserializer: D) -> Result<T, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         Ok(DeserializeFromStr::<T>::deserialize(deserializer)?.0)
     }
 }
 
 impl<'de, T: FromStr> Deserialize<'de> for DeserializeFromStr<T>
-    where
-        T::Err: std::fmt::Display,
+where
+    T::Err: std::fmt::Display,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         Ok(Self(
             FromStr::from_str(&String::deserialize(deserializer)?)

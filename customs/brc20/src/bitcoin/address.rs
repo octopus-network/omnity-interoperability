@@ -1,13 +1,13 @@
 //! Utilities to derive, display, and parse bitcoin addresses.
 
 use bech32::Variant;
+use candid::CandidType;
 use ic_btc_interface::Network;
 use ic_crypto_extended_bip32::{DerivationIndex, DerivationPath, ExtendedBip32DerivationOutput};
 use ic_crypto_sha2::Sha256;
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use std::fmt;
-use candid::CandidType;
 
 // See https://en.bitcoin.it/wiki/List_of_address_prefixes.
 const BTC_MAINNET_PREFIX: u8 = 0;
@@ -97,9 +97,7 @@ impl BitcoinAddress {
     }
 }
 
-pub fn main_bitcoin_address(
-    ecdsa_public_key: &ECDSAPublicKey,
-) -> BitcoinAddress {
+pub fn main_bitcoin_address(ecdsa_public_key: &ECDSAPublicKey) -> BitcoinAddress {
     pubkey_to_bitcoin_address(ecdsa_public_key)
 }
 
@@ -109,16 +107,11 @@ pub fn network_publich_to_p2wpkh_address(
     network: Network,
     ecdsa_public_key: &ECDSAPublicKey,
 ) -> String {
-    network_and_public_key_to_p2wpkh(
-        network,
-        &ecdsa_public_key.public_key,
-    )
+    network_and_public_key_to_p2wpkh(network, &ecdsa_public_key.public_key)
 }
 
 /// Constructs the bitcoin address corresponding to the specified destination.
-pub fn pubkey_to_bitcoin_address(
-    ecdsa_public_key: &ECDSAPublicKey,
-) -> BitcoinAddress {
+pub fn pubkey_to_bitcoin_address(ecdsa_public_key: &ECDSAPublicKey) -> BitcoinAddress {
     use ripemd::{Digest, Ripemd160};
     BitcoinAddress::P2wpkhV0(Ripemd160::digest(Sha256::hash(&ecdsa_public_key.public_key)).into())
 }
@@ -165,7 +158,7 @@ pub fn network_and_public_key_to_p2wpkh(network: Network, public_key: &[u8]) -> 
     assert_eq!(public_key.len(), 33);
     assert!(public_key[0] == 0x02 || public_key[0] == 0x03);
     use ripemd::{Digest, Ripemd160};
-    let hash: [u8;20] =Ripemd160::digest(Sha256::hash(public_key)).into();
+    let hash: [u8; 20] = Ripemd160::digest(Sha256::hash(public_key)).into();
     encode_bech32(network, hash.as_ref(), WitnessVersion::V0)
 }
 
@@ -336,12 +329,12 @@ fn parse_bip173_address(
                 /*to=*/ 8,
                 /*pad=*/ false,
             )
-                .map_err(|e| {
-                    ParseAddressError::MalformedAddress(format!(
-                        "failed to decode witness from address {}: {}",
-                        address, e
-                    ))
-                })?;
+            .map_err(|e| {
+                ParseAddressError::MalformedAddress(format!(
+                    "failed to decode witness from address {}: {}",
+                    address, e
+                ))
+            })?;
 
             match data.len() {
                 20 => {
@@ -375,12 +368,12 @@ fn parse_bip173_address(
                 /*to=*/ 8,
                 /*pad=*/ false,
             )
-                .map_err(|e| {
-                    ParseAddressError::MalformedAddress(format!(
-                        "failed to decode witness from address {}: {}",
-                        address, e
-                    ))
-                })?;
+            .map_err(|e| {
+                ParseAddressError::MalformedAddress(format!(
+                    "failed to decode witness from address {}: {}",
+                    address, e
+                ))
+            })?;
 
             if data.len() != 32 {
                 return Err(ParseAddressError::BadWitnessLength {
