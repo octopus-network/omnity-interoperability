@@ -90,7 +90,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     omnity_types::ic_log::http_request(req)
 }
 
-#[update]
+#[update(guard = "is_controller")]
 pub async fn update_settings(
     ckbtc_ledger_principal: Option<Principal>,
     ckbtc_minter_principal: Option<Principal>,
