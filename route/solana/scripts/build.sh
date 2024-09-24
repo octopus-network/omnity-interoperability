@@ -18,5 +18,7 @@ candid-extractor $CANISTER_WASM > ./assets/$CANISTER.did
 dfx canister create solana_route
 dfx build solana_route
 cp ./.dfx/local/canisters/solana_route/solana_route.wasm.gz ./assets/solana_route.wasm.gz
+cp ./.dfx/local/canisters/solana_route/service.did.d.ts ./assets/service.did.d.ts
+cp ./.dfx/local/canisters/solana_route/service.did.js ./assets/service.did.js
 
 echo "Build done !"
