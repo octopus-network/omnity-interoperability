@@ -188,6 +188,7 @@ service : (RouteArg) -> {
   mint_token : (MintTokenRequest) -> (Result_6);
   mint_token_req : (text) -> (Result_7) query;
   mint_token_status : (text) -> (Result_6) query;
+  mint_token_tx_hash : (text) -> (Result_3) query;
   query_aossicated_account : (text, text) -> (opt AccountInfo) query;
   query_aossicated_account_address : (text, text) -> (opt text) query;
   query_mint_account : (text) -> (opt AccountInfo) query;

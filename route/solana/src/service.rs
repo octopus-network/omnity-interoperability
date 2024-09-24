@@ -147,7 +147,7 @@ async fn get_transaction(signature: String, forward: Option<String>) -> Result<S
     use crate::service::sol_call::solana_client;
     let client = solana_client().await;
     client
-        .query_transaction(signature,forward)
+        .query_transaction(signature, forward)
         .await
         .map_err(|err| CallError {
             method: "get_transaction".to_string(),
@@ -491,6 +491,22 @@ pub async fn mint_token_status(ticket_id: String) -> Result<TxStatus, CallError>
         }),
 
         Some(req) => Ok(req.status),
+    }
+}
+
+#[query]
+pub async fn mint_token_tx_hash(ticket_id: String) -> Result<Option<String>, CallError> {
+    let req = read_state(|s| s.mint_token_requests.get(&ticket_id).cloned());
+    match req {
+        None => Err(CallError {
+            method: "[service::mint_token_tx_hash] mint_token_tx_hash".to_string(),
+            reason: Reason::CanisterError(format!(
+                "Not found ticket({}) mint token tx hash",
+                ticket_id.to_string()
+            )),
+        }),
+
+        Some(req) => Ok(req.signature),
     }
 }
 
