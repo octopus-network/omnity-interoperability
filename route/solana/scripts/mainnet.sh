@@ -458,11 +458,30 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 
 # SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
 # create aossicated account for user
-# dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
-#         \"${TOKEN_MINT}\")" --ic  
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
+        \"${TOKEN_MINT}\")" --ic  
 
-# dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_RECEIVER}\",
-#         \"${TOKEN_MINT}\")" --ic  
+dfx canister call $SOLANA_ROUTE_CANISTER_ID derive_aossicated_account "(\"${SOL_RECEIVER}\",
+        \"${TOKEN_MINT}\")" --ic  
+
+#   opt record {
+#     status = variant { Unknown };
+#     signature = opt "41VdtuNiKLpC4eEW6d6D4yVr3RzFbLDE7Wm8UPvzUC9hRdQa5wcsNeyJoQ7sv95KLtszLQBmj6HRNVUCb5zPAxDq";
+#     account = "BbDheYkCrEbvHj3QswhBTMmcDM4aQ7r9cG9fxzpdfSXM";
+#     retry = 1 : nat64;
+#   },
+ATA="BbDheYkCrEbvHj3QswhBTMmcDM4aQ7r9cG9fxzpdfSXM"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_associated_account "(
+        \"${SOL_RECEIVER}\",
+        \"${TOKEN_MINT}\",
+        record {account=\"${ATA}\";
+                signature=null;
+                status=variant { Unknown };
+                retry=0:nat64;}
+        )" --ic   
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_RECEIVER}\",
+        \"${TOKEN_MINT}\")" --ic  
 
 # get ata
 # ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account_address "(\"${SOL_RECEIVER}\",
@@ -477,14 +496,23 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_req "(\"${TID}\")" --ic
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --ic
 
-# dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token "(record{
-#         ticket_id=\"${TID}\";
-#         associated_account=\"${ATA}\";
-#         amount=${MINT_AMOUNT}:nat64;
-#         token_mint=\"${TOKEN_MINT}\";
-#         status=variant { Unknown };
-#         signature=null;
-#         retry=0;})" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_mint_token_req "(record{
+        ticket_id=\"${TID}\";
+        associated_account=\"${ATA}\";
+        amount=${MINT_AMOUNT}:nat64;
+        token_mint=\"${TOKEN_MINT}\";
+        status=variant { Unknown };
+        signature=null;
+        retry=0;})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token "(record{
+        ticket_id=\"${TID}\";
+        associated_account=\"${ATA}\";
+        amount=${MINT_AMOUNT}:nat64;
+        token_mint=\"${TOKEN_MINT}\";
+        status=variant { Unknown };
+        signature=null;
+        retry=0;})" --ic
 
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --ic
 

@@ -3,6 +3,7 @@ use crate::call_error::{CallError, Reason};
 use crate::handler::directive::update_mint_account_status;
 use candid::Principal;
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_solana::ic_log;
 use ic_solana::types::TransactionStatus;
 
 use crate::handler::ticket::{
@@ -23,7 +24,7 @@ use crate::state::Owner;
 use crate::state::{mutate_state, read_state, TxStatus};
 use crate::types::ChainState;
 use crate::types::{Chain, ChainId, Ticket};
-use ic_canister_log::export as export_logs;
+
 use ic_canister_log::log;
 use ic_solana::token::associated_account::get_associated_token_address_with_program_id;
 use ic_solana::token::constants::token22_program_id;
@@ -31,8 +32,8 @@ use ic_solana::types::Pubkey;
 use ic_solana::types::TransactionConfirmationStatus;
 use std::str::FromStr;
 
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use ic_solana::logs::{DEBUG, ERROR};
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_solana::ic_log::{DEBUG, ERROR};
 
 #[init]
 fn init(args: RouteArg) {
@@ -358,7 +359,7 @@ pub async fn derive_aossicated_account(
     );
     log!(
         DEBUG,
-        "[ticket::create_associated_account] get_associated_token_address_with_program_id : {:?}",
+        "[service::derive_aossicated_account] get_associated_token_address_with_program_id : {:?}",
         associated_account
     );
 
@@ -478,6 +479,54 @@ pub async fn create_aossicated_account(
     }
 }
 
+#[update(guard = "is_admin")]
+pub async fn update_associated_account(
+    owner: String,
+    token_mint: String,
+    associated_account: AccountInfo,
+) -> Result<AccountInfo, CallError> {
+    // let to_account_pk = Pubkey::from_str(&owner).expect("Invalid to_account address");
+    // let token_mint_pk = Pubkey::from_str(&token_mint).expect("Invalid token mint address");
+    // let associated_account = get_associated_token_address_with_program_id(
+    //     &to_account_pk,
+    //     &token_mint_pk,
+    //     &token22_program_id(),
+    // );
+    log!(
+        DEBUG,
+        "[service::update_associated_account] owner: {} and token_mint: {}  associated_account: {:?}",
+        owner,token_mint,associated_account
+    );
+    // let new_account_info = AccountInfo {
+    //     account: associated_account.to_string(),
+    //     retry: 0,
+    //     signature: None,
+    //     status: TxStatus::Unknown,
+    // };
+    mutate_state(|s| {
+        s.associated_accounts.insert(
+            (owner.to_string(), token_mint.to_string()),
+            associated_account,
+        )
+    });
+
+    match read_state(|s| {
+        s.associated_accounts
+            .get(&(owner.to_string(), token_mint.to_string()))
+            .cloned()
+    }) {
+        None => Err(CallError {
+            method: "[service::update_associated_account] update_associated_account".to_string(),
+            reason: Reason::CanisterError(format!(
+                "Not found account for {} and {}",
+                owner.to_string(),
+                token_mint.to_string()
+            )),
+        }),
+        Some(account) => Ok(account),
+    }
+}
+
 #[query]
 pub async fn mint_token_status(ticket_id: String) -> Result<TxStatus, CallError> {
     let req = read_state(|s| s.mint_token_requests.get(&ticket_id).cloned());
@@ -522,6 +571,25 @@ pub async fn mint_token_req(ticket_id: String) -> Result<MintTokenRequest, CallE
             )),
         }),
 
+        Some(req) => Ok(req),
+    }
+}
+
+#[update(guard = "is_admin")]
+pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenRequest, CallError> {
+    mutate_state(|s| {
+        s.mint_token_requests
+            .insert(req.ticket_id.to_string(), req.clone())
+    });
+
+    match read_state(|s| s.mint_token_requests.get(&req.ticket_id).cloned()) {
+        None => Err(CallError {
+            method: "[service::update_mint_token_req] update_mint_token_req".to_string(),
+            reason: Reason::CanisterError(format!(
+                "Not found ticket({}) mint token request",
+                req.ticket_id.to_string()
+            )),
+        }),
         Some(req) => Ok(req),
     }
 }
@@ -729,40 +797,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     if ic_cdk::api::data_certificate().is_none() {
         ic_cdk::trap("update call rejected");
     }
-
-    if req.path() == "/logs" {
-        use serde_json;
-        use std::str::FromStr;
-
-        let max_skip_timestamp = match req.raw_query_param("time") {
-            Some(arg) => match u64::from_str(arg) {
-                Ok(value) => value,
-                Err(_) => {
-                    return HttpResponseBuilder::bad_request()
-                        .with_body_and_content_length("failed to parse the 'time' parameter")
-                        .build()
-                }
-            },
-            None => 0,
-        };
-
-        let mut entries = vec![];
-
-        for entry in export_logs(&ic_solana::logs::ERROR_BUF) {
-            entries.push(entry);
-        }
-        for entry in export_logs(&ic_solana::logs::DEBUG_BUF) {
-            entries.push(entry);
-        }
-
-        entries.retain(|entry| entry.timestamp >= max_skip_timestamp);
-        HttpResponseBuilder::ok()
-            .header("Content-Type", "application/json; charset=utf-8")
-            .with_body_and_content_length(serde_json::to_string(&entries).unwrap_or_default())
-            .build()
-    } else {
-        HttpResponseBuilder::not_found().build()
-    }
+    ic_log::http_request(req)
 }
 
 // Enable Candid export

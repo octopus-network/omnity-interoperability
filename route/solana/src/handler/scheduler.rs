@@ -9,7 +9,7 @@ use crate::{
 };
 use ic_canister_log::log;
 use ic_cdk_timers::TimerId;
-use ic_solana::logs::DEBUG;
+use ic_solana::ic_log::DEBUG;
 use std::cell::RefCell;
 use std::collections::HashMap;
 thread_local! {

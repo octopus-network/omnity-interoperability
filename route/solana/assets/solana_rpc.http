@@ -34,15 +34,31 @@ content-type: application/json
    ]
 }
 
+### query account info
+POST {{mainnet}}
+content-type: application/json
+
+{
+   "jsonrpc": "2.0",
+   "id": 1,
+   "method": "getAccountInfo",
+   "params": [
+     "BbDheYkCrEbvHj3QswhBTMmcDM4aQ7r9cG9fxzpdfSXM",
+     {
+       "encoding": "jsonParsed"
+     }
+   ]
+}
+
 ### get balance
-POST {{devnet}}
+POST {{mainnet}}
 content-type: application/json
 
 {
     "jsonrpc": "2.0", "id": 1,
     "method": "getBalance",
     "params": [
-      "74SqAGc8wHgkwNx2Hqiz1UdKkZL1gCCvsRRwN2tSm8Ny"
+      "BbDheYkCrEbvHj3QswhBTMmcDM4aQ7r9cG9fxzpdfSXM"
     ]
 }
 
@@ -159,7 +175,7 @@ content-type: application/json
     "id": 1,
     "method": "getTransaction",
     "params": [
-      "2dKehWeXEjCPpBnLrNpsAxPCMnJzLAxQy8tgrsXj8uaNCB9M7JygLDCJWXkUBHsY94VrqYRBRf3f5pJGp6c9k63F",
+      "5KpgaXdnoQbTC9jm2ZNknKkyjCUNuKnhDnSPFbwZXUjqQCq6pgtgSCBq6boHxMs7Ld2Wn1ktP3ntyLeiYRMfx8K7",
       "jsonParsed"
     ]
   }
@@ -174,7 +190,7 @@ content-type: application/json
     "id": 1,
     "method": "getTransaction",
     "params": [
-      "5c3paA9PKmZk8LZ4Xhnb7dbmqNWifj2Et7Y2riMivc2tKFCYHvwb21iPTAV7g28fic1fpSeRS5SJ4fAWaig8Aq6i",
+      "5FYcQ5ksNcAWAahMRkBRKHho2Bn1XBZhZSBjHJw2UqXZhr9ohdjzQa5pbU59zr1n7GaTLmPGSHSXDkFpzpXw7wPj",
       "jsonParsed"
     ]
   }
@@ -204,6 +220,25 @@ content-type: application/json
     "params": [
       [
         "29xgU6hKxajDskDLiCBYmJ3rL4vpAujAz6vQ51T91Mqq4iPmXrgq9vrbSq2L59ysgyNQMZLBrrDmFMnKt5R91Sis"
+      ],
+      {
+        "searchTransactionHistory": true
+      }
+    ]
+  }
+
+### getSignatureStatuses
+
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getSignatureStatuses",
+    "params": [
+      [
+        "5FYcQ5ksNcAWAahMRkBRKHho2Bn1XBZhZSBjHJw2UqXZhr9ohdjzQa5pbU59zr1n7GaTLmPGSHSXDkFpzpXw7wPj"
       ],
       {
         "searchTransactionHistory": true

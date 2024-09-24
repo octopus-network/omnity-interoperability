@@ -200,6 +200,8 @@ service : (RouteArg) -> {
   signer : () -> (Result_9);
   start_schedule : () -> ();
   transfer_to : (text, nat64) -> (Result_1);
+  update_associated_account : (text, text, AccountInfo) -> (Result);
+  update_mint_token_req : (MintTokenRequest) -> (Result_7);
   update_schnorr_info : (principal, text) -> ();
   update_token_metadata : (TokenInfo) -> (Result_1);
 }

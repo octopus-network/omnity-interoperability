@@ -5,7 +5,7 @@ use crate::call_error::Reason;
 use crate::{call_error::CallError, state::read_state};
 
 use ic_canister_log::log;
-use ic_solana::logs::DEBUG;
+use ic_solana::ic_log::DEBUG;
 use ic_solana::rpc_client::RpcResult;
 use ic_solana::token::{SolanaClient, TokenInfo};
 use ic_solana::types::{Pubkey, TransactionStatus};

@@ -13,7 +13,7 @@ use crate::{
     state::{mutate_state, read_state},
 };
 use ic_canister_log::log;
-use ic_solana::logs::{DEBUG, ERROR};
+use ic_solana::ic_log::{DEBUG, ERROR};
 use ic_solana::token::{SolanaClient, TokenInfo};
 
 use super::sol_call::solana_client;

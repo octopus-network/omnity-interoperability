@@ -30,7 +30,7 @@ pub const TICKET_LIMIT_SIZE: u64 = 20;
 pub const COUNTER_SIZE: u64 = 5;
 use crate::constants::RETRY_LIMIT_SIZE;
 use ic_canister_log::log;
-use ic_solana::logs::{ERROR, DEBUG};
+use ic_solana::ic_log::{ERROR, DEBUG};
 
 /// handler tickets from customs to solana
 pub async fn query_tickets() {
