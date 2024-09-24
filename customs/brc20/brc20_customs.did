@@ -67,6 +67,7 @@ type Token = record {
 };
 service : (InitArgs) -> {
   brc20_state : () -> (StateProfile) query;
+  finalize_gen : () -> ();
   generate_deposit_addr : () -> (opt text, opt text);
   generate_ticket : (GenerateTicketArgs) -> ();
   test_create_tx : () -> (text);

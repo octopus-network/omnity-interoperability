@@ -21,8 +21,8 @@ use crate::state::{deposit_addr, finalization_time_estimate, mutate_state, read_
 use crate::types::{create_query_brc20_transfer_args, GenTicketRequest};
 
 pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
-    let token = read_state(|s|s.tokens.get(&req.token_id).cloned()).ok_or(InvalidArgs)?;
-    let chain = read_state(|s|s.counterparties.get(&req.token_id).cloned()).ok_or(InvalidArgs)?;
+    let token = read_state(|s|s.tokens.get(&req.token_id).cloned()).ok_or(InvalidArgs("1".to_string()))?;
+    let chain = read_state(|s|s.counterparties.get(&req.target_chain_id).cloned()).ok_or(InvalidArgs("2".to_string()))?;
     let transfer_transfer = query_transaction(&req.txid).await?;
     let receiver = transfer_transfer.vout.first().cloned().unwrap().scriptpubkey_address.unwrap();
     if receiver != deposit_addr().to_string() {
@@ -40,7 +40,7 @@ pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTi
                 || t.tick != token.name
                 || t.refx != req.receiver
                 || t.chain != chain.chain_id {
-                return Err(InvalidArgs);
+                return Err(InvalidArgs(serde_json::to_string(&t).unwrap()));
             }else {
                 return Ok(());
             }
@@ -72,13 +72,13 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
         method: HttpMethod::GET,
         body: None,
         max_response_bytes: None,
-        transform: Some(TransformContext {
+        transform: None /*//TODO Some(TransformContext {
             function: TransformFunc(candid::Func {
                 principal: ic_cdk::api::id(),
                 method: "transform".to_string(),
             }),
             context: vec![],
-        }),
+        })*/,
         headers: vec![HttpHeader {
             name: "Content-Type".to_string(),
             value: "application/json".to_string(),
@@ -121,7 +121,6 @@ pub async fn finalize_generate_ticket_request(){
             .map(|req| (req.0.clone(), req.1.clone()))
             .collect::<Vec<(Txid, GenTicketRequest)>>()
     });
-
     let (network, deposit_addr, min_confirmations) = read_state(|s|
         (
             s.btc_network,
@@ -129,7 +128,6 @@ pub async fn finalize_generate_ticket_request(){
             s.min_confirmations as u32,
         )
     );
-
     for (seq, gen_ticket_request) in can_check_finalizations.clone() {
         let token = read_state(|s|s.tokens.get(&gen_ticket_request.token_id).cloned());
         match token {
@@ -137,21 +135,23 @@ pub async fn finalize_generate_ticket_request(){
                 log!(WARNING, "don't found a token named {}", &gen_ticket_request.token_id);
             }
             Some(token) => {
-                let args = create_query_brc20_transfer_args(gen_ticket_request.clone(), token.decimals);
+                let args = create_query_brc20_transfer_args(gen_ticket_request.clone(), deposit_addr.clone(), token.decimals);
                 let query = query_indexed_transfer(args).await;
                 if let Ok(Some(t)) = query {
                     //Check success
-                    mutate_state(|s|{
-                            let v =  s.pending_gen_ticket_requests.remove(&seq);
-                            s.finalized_gen_ticket_requests.insert(seq, v.unwrap());
-                        }
-                    );
                     //FINALIZED TO HUB:
                     let hub_principal = read_state(|s|s.hub_principal);
                     let _r = hub::finalize_ticket(hub_principal, gen_ticket_request.txid.to_string())
                         .await.map_err(|e|{
                         log!(CRITICAL, "finalize gen ticket to hub error: {:?}", &e);
                     });
+                    mutate_state(|s|{
+                            let v =  s.pending_gen_ticket_requests.remove(&seq);
+                            s.finalized_gen_ticket_requests.insert(seq, v.unwrap());
+                        }
+                    );
+                }else {
+                    log!(WARNING, "query indexer failed, will retry. {}", serde_json::to_string(&gen_ticket_request).unwrap());
                 }
             }
         }
