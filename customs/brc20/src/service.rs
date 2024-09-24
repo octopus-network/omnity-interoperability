@@ -1,13 +1,16 @@
+use bitcoin::{Amount, Txid};
 use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::{Address, GetUtxosResponse};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
 use crate::bitcoin_to_custom::finalize_generate_ticket_request;
-use crate::custom_to_bitcoin::test_send_ticket;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use omnity_types::TxAction::Redeem;
-use omnity_types::{Network, Ticket, TicketType, TxAction};
+use omnity_types::{Network, Seq, Ticket, TicketType, TxAction};
 use crate::management::get_utxos;
+use crate::ord::builder::Utxo;
+use bitcoin::hashes::Hash;
+use bitcoin::consensus::Encodable;
 
 use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
@@ -38,10 +41,6 @@ pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
     read_state(|s| (s.deposit_addr.clone(), s.deposit_pubkey.clone()))
 }
 
-#[update]
-pub async fn finalize_gen() {
-    finalize_generate_ticket_request().await;
-}
 
 #[query]
 pub fn brc20_state() -> StateProfile {
@@ -49,29 +48,38 @@ pub fn brc20_state() -> StateProfile {
 }
 
 #[update]
-pub async fn test_create_tx() -> String {
-    let ticket = Ticket {
-        ticket_id: "sfisdiasddssfsdf".to_string(),
-        ticket_type: TicketType::Normal,
-        ticket_time: 0,
-        src_chain: "Bitlayer".to_string(),
-        dst_chain: "brc20".to_string(),
-        action: TxAction::Redeem,
-        token: "nbcs".to_string(),
-        amount: "1000000".to_string(),
-        sender: None,
-        receiver: "tb1qyelgkxpfhfjrg6hg8hlr9t4dzn7n88eacqjh0t".to_string(),
-        memo: None,
-    };
-    let r = test_send_ticket(ticket).await.unwrap();
-    serde_json::to_string(&r).unwrap()
+pub async fn test_create_tx(ticket: Ticket, seq: Seq) {
+    mutate_state(|s|s.tickets_queue.insert(seq, ticket));
 }
 
 #[update]
-pub async fn update_utxos(addr: String) -> GetUtxosResponse{
+pub async fn update_utxos(addr: String) -> String {
+    let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
+    let utxos = get_utxos(nw, &deposit_addr, 0u32).await;
+    match utxos.clone() {
+        Ok(r) => {
+            let v = r
+                .utxos
+                .into_iter()
+                .map(|u| Utxo {
+                    id: Txid::from_slice(u.outpoint.txid.as_ref()).unwrap(),
+                    index: u.outpoint.vout,
+                    amount: Amount::from_sat(u.value),
+                })
+                .collect::<Vec<Utxo>>();
+            mutate_state(|s| s.deposit_addr_utxo = v.clone());
+            return serde_json::to_string(&v).unwrap()
+        }
+        Err(e) => {
+            panic!("query utxo error {:?}", e);
+        }
+    }
+}
 
-    let r = get_utxos(ic_btc_interface::Network::Mainnet, &Address::from(addr), 0).await.unwrap();
-    r
+
+#[update]
+pub async fn send_ticket_to_bitcoin(seq: Seq) {
+    crate::custom_to_bitcoin::send_ticket_to_bitcoin(seq).await.unwrap();
 }
 
 #[derive(CandidType, Deserialize)]
