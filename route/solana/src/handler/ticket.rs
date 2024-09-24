@@ -14,9 +14,9 @@ use crate::handler::sol_call::solana_client;
 
 use crate::handler::sol_call::ParsedValue;
 use crate::handler::sol_call::TransactionDetail;
-use crate::handler::sol_call::{Burn, ParsedIns, Transfer};
+use crate::handler::sol_call::{BurnChecked, ParsedIns, Transfer};
 use crate::state::AccountInfo;
-
+use crate::handler::sol_call::Burn;
 use crate::state::TxStatus;
 use crate::{
     call_error::{CallError, Reason},
@@ -692,6 +692,9 @@ pub async fn generate_ticket(
 
     }
 
+    let mut transfer_ok = false;
+    let mut burn_ok = false;
+    let mut memo_ok =false;
     let json_response = serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&tx)
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
 
@@ -704,62 +707,102 @@ pub async fn generate_ticket(
                 "tx result is None".to_string(),
             ))?;
         // parse instruction
-        // TODO: check instruction size == 3(must includes: transfer,burned and memo)
         for instruction in &tx_detail.transaction.message.instructions {
-            if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.to_owned()) {
+            if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.to_owned().unwrap()) {
                 if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.to_owned()) {
                     log!(DEBUG, "Parsed instruction: {:#?}", pi);
-                    if pi.instr_type.eq("transfer") {
-                        let transfer = from_value::<Transfer>(pi.info.to_owned()).map_err(|e| {
+                
+                    match pi.instr_type.as_str() {
+                        "transfer" => {
+     
+                            let transfer = from_value::<Transfer>(pi.info.to_owned()).map_err(|e| {
                             GenerateTicketError::TemporarilyUnavailable(e.to_string())
-                        })?;
-                        log!(DEBUG, "Parsed transfer: {:#?}", transfer);
-                        let fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).ok_or(
-                            GenerateTicketError::TemporarilyUnavailable(format!(
-                                "No found fee for {}",
-                                req.target_chain_id
-                            )),
-                        )?;
-                        let lamports = transfer.lamports as u128;
-                        //TODO: verify: transfer.destination == omnity.solana_fee_account and transfer.lamports == omnity.solana_fee_account_received_amount
-                        if !(transfer.source.eq(&req.sender) && lamports == fee) {
-                            return Err(GenerateTicketError::TemporarilyUnavailable(format!(
-                                "Unable to verify the fee info",
-                            )));
+                             })?;
+                            log!(DEBUG, "Parsed transfer: {:#?}", transfer);
+                            let fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).ok_or(
+                                GenerateTicketError::TemporarilyUnavailable(format!(
+                                    "No found fee for {}",
+                                    req.target_chain_id
+                                )),
+                            )?;
+                            let fee_account=read_state(|s| s.fee_account.to_string());
+                            let lamports = transfer.lamports as u128;
+                            if !(transfer.source.eq(&req.sender) &&transfer.destination.eq(&fee_account)&& lamports == fee) {
+                                    return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                                        "Unable to verify the collect fee info",
+                                    )));
+                            }
+                            transfer_ok = true;
+
                         }
-                    }
-                    if pi.instr_type.eq("burnChecked") {
-                        let burn = from_value::<Burn>(pi.info.to_owned()).map_err(|e| {
-                            GenerateTicketError::TemporarilyUnavailable(e.to_string())
-                        })?;
-                        log!(DEBUG, "Parsed burn: {:#?}", burn);
-                        let burned_amount = burn
-                            .token_amount
-                            .ui_amount_string
-                            .parse::<u64>()
-                            .map_err(|e| {
+                        "burnChecked" => {
+       
+                            let burn_checked = from_value::<BurnChecked>(pi.info.to_owned()).map_err(|e| {
                                 GenerateTicketError::TemporarilyUnavailable(e.to_string())
                             })?;
-                        let mint_address =
-                            read_state(|s| s.token_mint_accounts.get(&req.token_id).cloned())
-                                .ok_or(GenerateTicketError::TemporarilyUnavailable(format!(
-                                    "No found token mint address for {}",
-                                    req.token_id
-                                )))?;
-                        if !(burn.authority.eq(&req.sender)
-                            && burn.mint.eq(&mint_address.account)
-                            && burned_amount == req.amount)
-                        {
-                            return Err(GenerateTicketError::TemporarilyUnavailable(format!(
-                                "Unable to verify the token burned info",
-                            )));
+                            log!(DEBUG, "Parsed burn_checked: {:#?}", burn_checked);
+                            let burned_amount = burn_checked
+                                .token_amount
+                                .ui_amount_string
+                                .parse::<u64>()
+                                .map_err(|e| {
+                                    GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                                })?;
+                            let mint_address =
+                                read_state(|s| s.token_mint_accounts.get(&req.token_id).cloned())
+                                    .ok_or(GenerateTicketError::TemporarilyUnavailable(format!(
+                                        "No found token mint address for {}",
+                                        req.token_id
+                                    )))?;
+                            if !(burn_checked.authority.eq(&req.sender)
+                                && burn_checked.mint.eq(&mint_address.account)
+                                && burned_amount == req.amount)
+                            {
+                                return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                                    "Unable to verify the token burned info",
+                                )));
+                            }
+                            burn_ok = true;
+                        }
+                        "burn" => {
+                  
+                            let burn = from_value::<Burn>(pi.info.to_owned()).map_err(|e| {
+                                GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                            })?;
+                            log!(DEBUG, "Parsed burn: {:#?}", burn);
+                            let burned_amount = burn
+                                .amount
+                                .parse::<u64>()
+                                .map_err(|e| {
+                                    GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                                })?;
+                            let mint_address =
+                                read_state(|s| s.token_mint_accounts.get(&req.token_id).cloned())
+                                    .ok_or(GenerateTicketError::TemporarilyUnavailable(format!(
+                                        "No found token mint address for {}",
+                                        req.token_id
+                                    )))?;
+                            if !(burn.authority.eq(&req.sender)
+                                && burn.mint.eq(&mint_address.account)
+                                && burned_amount == req.amount)
+                            {
+                                return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                                    "Unable to verify the token burned info",
+                                )));
+                            }
+                            burn_ok = true;
+                        }
+                        _ => {
+                            log!(DEBUG,"Skipped non-relevant instruction: {:#?}", pi.instr_type);
                         }
                     }
+
                 } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.to_owned()) {
                     log!(DEBUG, "Parsed memo: {:?}", memo);
                     //verify memo.eq(req.receiver.)
                     if memo.eq(&req.receiver) {
                         receiver = memo;
+                        memo_ok = true;
                     } else {
                         return Err(GenerateTicketError::TemporarilyUnavailable(format!(
                             "receiver({}) from memo not match req.receiver({})",
@@ -775,12 +818,18 @@ pub async fn generate_ticket(
                 }
             } else {
                 log!(DEBUG, "Unknown Parsed Value: {:#?}", instruction.parsed);
-                return Err(GenerateTicketError::TemporarilyUnavailable(format!(
-                    "tx parsed error:{}",
-                    tx
-                )));
+             
             }
         }
+    }
+
+    if transfer_ok && burn_ok && memo_ok {
+        log!(DEBUG, "The tx ({}) verified sucessfully !",  req.signature);
+    } else {
+        return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+            "Unable to verify the tx ({}) ",
+            req.signature,
+        )));
     }
 
     let ticket = Ticket {

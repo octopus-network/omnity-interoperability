@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 BITCOIN_CHAIN_ID="Bitcoin"
-SOL_CHAIN_ID="Solana"
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•FIVE"
+SOL_CHAIN_ID="eSolana"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•201409182"
 
 # start schedule 
 dfx canister call solana_route start_schedule '()' 

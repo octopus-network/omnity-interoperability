@@ -148,10 +148,11 @@ dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(opt variant { Upgrad
     --mode=upgrade -y \
     --wasm=./assets/solana_route.wasm.gz \
     --ic 
-# dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument '(null)' \
-#     --mode=upgrade -y \
-#     --wasm=./assets/solana_route.wasm.gz \
-#     --ic 
+    
+dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument '(null)' \
+    --mode=upgrade -y \
+    --wasm=./assets/solana_route.wasm.gz \
+    --ic 
 
 dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
 

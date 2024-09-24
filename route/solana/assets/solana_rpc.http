@@ -159,7 +159,22 @@ content-type: application/json
     "id": 1,
     "method": "getTransaction",
     "params": [
-      "29xgU6hKxajDskDLiCBYmJ3rL4vpAujAz6vQ51T91Mqq4iPmXrgq9vrbSq2L59ysgyNQMZLBrrDmFMnKt5R91Sis",
+      "2dKehWeXEjCPpBnLrNpsAxPCMnJzLAxQy8tgrsXj8uaNCB9M7JygLDCJWXkUBHsY94VrqYRBRf3f5pJGp6c9k63F",
+      "jsonParsed"
+    ]
+  }
+
+### req tx detail
+
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "5c3paA9PKmZk8LZ4Xhnb7dbmqNWifj2Et7Y2riMivc2tKFCYHvwb21iPTAV7g28fic1fpSeRS5SJ4fAWaig8Aq6i",
       "jsonParsed"
     ]
   }

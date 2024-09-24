@@ -39,7 +39,7 @@ SOL_PROVIDER_CANISTER_ID=$(dfx canister id ic-solana-provider)
 echo "solana provide canister id: $SOL_PROVIDER_CANISTER_ID"
 echo 
 
-CHAIN_ID="Solana"
+CHAIN_ID="eSolana"
 FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 # Deploy solana_route
 dfx deploy solana_route --argument "(variant { Init = record { \
