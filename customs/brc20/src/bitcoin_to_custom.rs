@@ -24,9 +24,9 @@ use omnity_types::{Seq, Token};
 
 pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     let token =
-        read_state(|s| s.tokens.get(&req.token_id).cloned()).ok_or(InvalidArgs("1".to_string()))?;
+        read_state(|s| s.tokens.get(&req.token_id).cloned()).ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
     let chain = read_state(|s| s.counterparties.get(&req.target_chain_id).cloned())
-        .ok_or(InvalidArgs("2".to_string()))?;
+        .ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
     let transfer_transfer = query_transaction(&req.txid).await?;
     let receiver = transfer_transfer
         .vout
