@@ -417,7 +417,7 @@ pub fn determine_transfer_fee_txins(
 }
 
 pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
-    /* let mut selected_utxos: Vec<Utxo> = vec![];
+    let mut selected_utxos: Vec<Utxo> = vec![];
     let mut selected_amount = 0u64;
     mutate_state(|s| {
         loop {
@@ -435,13 +435,5 @@ pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
                 }
             }
         }
-    })*/
- // comment for test
- //TODO
-    Ok(vec![Utxo {
-        id: Txid::from_str("cce6b27788b89ff1f988a2bcf17ce021f41d9ed54a8cb5bc143ef8b954375bb2")
-            .unwrap(),
-        index: 0,
-        amount: Amount::from_sat(200000),
-    }])
+    })
 }
