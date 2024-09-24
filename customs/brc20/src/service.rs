@@ -3,6 +3,7 @@ use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
 use omnity_types::{Network, Ticket, TicketType, TxAction};
 use omnity_types::TxAction::Redeem;
+use crate::bitcoin_to_custom::finalize_generate_ticket_request;
 use crate::custom_to_bitcoin::test_send_ticket;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 
@@ -34,6 +35,10 @@ pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
     read_state(|s|(s.deposit_addr.clone(), s.deposit_pubkey.clone()))
 }
 
+#[update]
+pub async fn finalize_gen() {
+    finalize_generate_ticket_request().await;
+}
 
 #[query]
 pub fn brc20_state() -> StateProfile {

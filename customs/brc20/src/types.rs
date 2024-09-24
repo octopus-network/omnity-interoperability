@@ -48,11 +48,11 @@ pub struct GenTicketRequest {
     pub received_at: u64,
 }
 
-pub fn create_query_brc20_transfer_args(gen_ticket_request: GenTicketRequest, ticker_decimals: u8) -> QueryBrc20TransferArgs{
+pub fn create_query_brc20_transfer_args(gen_ticket_request: GenTicketRequest, deposit_addr: String,ticker_decimals: u8) -> QueryBrc20TransferArgs{
     QueryBrc20TransferArgs {
         tx_id: gen_ticket_request.txid.to_string(),
         ticker: gen_ticket_request.ticker,
-        to_addr: gen_ticket_request.receiver,
+        to_addr: deposit_addr,
         amt: gen_ticket_request.amount,
         decimals: ticker_decimals,
     }

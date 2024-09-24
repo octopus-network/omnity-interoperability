@@ -124,7 +124,7 @@ impl Brc20State {
             omnity_types::Network::Testnet => {ic_btc_interface::Network::Testnet}
             omnity_types::Network::Mainnet => {ic_btc_interface::Network::Mainnet}
         };
-        let ret = Brc20State {
+        let mut ret = Brc20State {
             admins: args.admins,
             hub_principal: args.hub_principal,
             chain_id: args.chain_id,
@@ -159,26 +159,25 @@ impl Brc20State {
         };
 
         //TODO. open for test below codes;
-        mutate_state(|s| {
-            s.counterparties.insert("Bitfinity".to_string(), Chain{
-                chain_id: "Bitfinity".to_string(),
-                canister_id: "".to_string(),
-                chain_type: ExecutionChain,
-                chain_state: Active,
-                contract_address: None,
-                counterparties: None,
-                fee_token: None,
-            });
-            s.tokens.insert("BRC2O-brc20-NBCI".to_string(), Token {
-                token_id: "BRC2O-brc20-NBCI".to_string(),
-                name: "NBCI".to_string(),
-                symbol: "NBCI".to_string(),
-                decimals: 18,
-                icon: None,
-                metadata: Default::default(),
-            });
-
+        ret.counterparties.insert("Bitfinity".to_string(), Chain{
+            chain_id: "Bitfinity".to_string(),
+            canister_id: "".to_string(),
+            chain_type: ExecutionChain,
+            chain_state: Active,
+            contract_address: None,
+            counterparties: None,
+            fee_token: None,
         });
+        ret.tokens.insert("BRC20-brc20-NBCI".to_string(), Token {
+            token_id: "BRC20-brc20-NBCI".to_string(),
+            name: "NBCI".to_string(),
+            symbol: "NBCI".to_string(),
+            decimals: 18,
+            icon: None,
+            metadata: Default::default(),
+        });
+
+
 
         Ok(ret)
     }

@@ -6,13 +6,13 @@ type Brc20TransferEvent = record {
   from : text;
 };
 type InitArgs = record { api_key : text; network : BitcoinNetwork };
-type QueryTransferArgs = record {
+type QueryBrc20TransferArgs = record {
   amt : nat;
-  from_addr : text;
+  decimals : nat8;
   ticker : text;
   tx_id : text;
   to_addr : text;
 };
 service : (InitArgs) -> {
-  get_indexed_transfer : (QueryTransferArgs) -> (opt Brc20TransferEvent);
+  get_indexed_transfer : (QueryBrc20TransferArgs) -> (opt Brc20TransferEvent);
 }

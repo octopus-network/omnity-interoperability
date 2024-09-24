@@ -27,7 +27,7 @@ pub enum GenerateTicketError {
     AmountIsZero,
     OrdTxError(String),
     NotBridgeTx,
-    InvalidArgs,
+    InvalidArgs(String),
 }
 
 #[derive(Clone, CandidType, Serialize, Deserialize)]
@@ -73,7 +73,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
     check_transaction(args.clone()).await?;
-    hub::pending_ticket(
+  /* //TODO comment for test
+  hub::pending_ticket(
         hub_principal,
         Ticket {
             ticket_id: args.txid.clone(),
@@ -91,7 +92,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     )
         .await
         .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
-
+*/
     let request = GenTicketRequest {
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
