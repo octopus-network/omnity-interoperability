@@ -43,7 +43,7 @@ pub async fn finalize_gen() {
 
 #[query]
 pub fn brc20_state() -> StateProfile {
-    read_state(|s| StateProfile::from(s.clone()))
+    read_state(|s| StateProfile::from(s))
 }
 
 #[update]
