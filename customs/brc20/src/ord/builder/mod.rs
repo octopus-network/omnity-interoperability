@@ -1,3 +1,11 @@
+use crate::ord::builder::fees::MultisigConfig;
+use crate::ord::builder::signer::MixSigner;
+use crate::ord::builder::taproot::{generate_keypair, TaprootPayload};
+use crate::ord::builder::wallet::Wallet;
+use crate::ord::inscription::Inscription;
+use crate::ord::parser::push_bytes::bytes_to_push_bytes;
+use crate::ord::parser::POSTAGE;
+use crate::ord::result::{OrdError, OrdResult};
 use bitcoin::absolute::LockTime;
 use bitcoin::bip32::DerivationPath;
 use bitcoin::script::{Builder as ScriptBuilder, PushBytesBuf};
@@ -9,20 +17,12 @@ use bitcoin::{
 use candid::CandidType;
 use log::debug;
 use serde::{Deserialize, Serialize};
-use crate::ord::builder::fees::MultisigConfig;
-use crate::ord::builder::signer::MixSigner;
-use crate::ord::builder::wallet::Wallet;
-use crate::ord::builder::taproot::{generate_keypair, TaprootPayload};
-use crate::ord::inscription::Inscription;
-use crate::ord::parser::POSTAGE;
-use crate::ord::parser::push_bytes::bytes_to_push_bytes;
-use crate::ord::result::{OrdError, OrdResult};
 
-pub mod wallet;
-pub mod taproot;
 pub mod fees;
 pub mod signer;
 pub mod spend_transaction;
+pub mod taproot;
+pub mod wallet;
 
 /// Ordinal-aware transaction builder for arbitrary (`Nft`)
 /// and `Brc20` inscriptions.
@@ -37,8 +37,8 @@ pub struct OrdTransactionBuilder {
 #[derive(Debug)]
 /// Arguments for creating a commit transaction
 pub struct CreateCommitTransactionArgs<T>
-    where
-        T: Inscription,
+where
+    T: Inscription,
 {
     /// UTXOs to be used as inputs of the transaction
     pub inputs: Vec<Utxo>,
@@ -147,7 +147,6 @@ impl OrdTransactionBuilder {
         self.taproot_payload.as_ref()
     }
 
-
     /// Sign the commit transaction
     pub async fn sign_commit_transaction(
         &mut self,
@@ -164,8 +163,6 @@ impl OrdTransactionBuilder {
             )
             .await
     }
-
-
 
     /// Create the reveal transaction
     pub async fn build_reveal_transaction(
@@ -207,7 +204,7 @@ impl OrdTransactionBuilder {
                 unsigned_tx,
             ),
             None => {
-               panic!("taproot error");
+                panic!("taproot error");
             }
         }?;
 
@@ -220,8 +217,8 @@ impl OrdTransactionBuilder {
         inscription: &T,
         pubkey: RedeemScriptPubkey,
     ) -> OrdResult<ScriptBuf>
-        where
-            T: Inscription,
+    where
+        T: Inscription,
     {
         Ok(inscription
             .generate_redeem_script(ScriptBuilder::new(), pubkey)?
@@ -230,7 +227,8 @@ impl OrdTransactionBuilder {
 
     /// Initialize a new `OrdTransactionBuilder` with the given private key and use P2TR as script type (preferred).
     pub fn p2tr(public_key: PublicKey, key_id: String, address: Address) -> Self {
-        let wallet = Wallet::new_with_signer(signer::MixSigner::new(key_id, public_key.clone(),address));
+        let wallet =
+            Wallet::new_with_signer(signer::MixSigner::new(key_id, public_key.clone(), address));
         Self::new(public_key, ScriptType::P2TR, wallet)
     }
 
@@ -240,17 +238,19 @@ impl OrdTransactionBuilder {
         network: Network,
         args: CreateCommitTransactionArgsV2<T>,
     ) -> OrdResult<CreateCommitTransaction>
-        where
-            T: Inscription,
+    where
+        T: Inscription,
     {
         let secp_ctx = secp256k1::Secp256k1::new();
 
         // generate P2TR keyts
-        let p2tr_keys = match self.script_type {
-            ScriptType::P2WSH => None,
-            ScriptType::P2TR => Some(generate_keypair(&secp_ctx).await
-                .map_err(|e| OrdError::ManagementError(format!("code: {:?}, msg:{}", e.0, e.1)))?),
-        };
+        let p2tr_keys =
+            match self.script_type {
+                ScriptType::P2WSH => None,
+                ScriptType::P2TR => Some(generate_keypair(&secp_ctx).await.map_err(|e| {
+                    OrdError::ManagementError(format!("code: {:?}, msg:{}", e.0, e.1))
+                })?),
+            };
 
         // generate redeem script pubkey based on the current script type
         let redeem_script_pubkey = match self.script_type {
@@ -300,14 +300,12 @@ impl OrdTransactionBuilder {
         };
         debug!("script_output_address: {script_output_address}");
 
-        let mut tx_out = vec![
-            TxOut {
-                value: Amount::from_sat(reveal_balance),
-                script_pubkey: script_output_address.script_pubkey(),
-            }
-        ];
+        let mut tx_out = vec![TxOut {
+            value: Amount::from_sat(reveal_balance),
+            script_pubkey: script_output_address.script_pubkey(),
+        }];
         if leftover_amount > 0 {
-            tx_out.push( TxOut {
+            tx_out.push(TxOut {
                 value: Amount::from_sat(leftover_amount),
                 script_pubkey: args.txin_script_pubkey.clone(),
             });
@@ -350,8 +348,8 @@ impl OrdTransactionBuilder {
 #[derive(Debug)]
 /// Arguments for creating a commit transaction
 pub struct CreateCommitTransactionArgsV2<T>
-    where
-        T: Inscription,
+where
+    T: Inscription,
 {
     /// UTXOs to be used as inputs of the transaction
     pub inputs: Vec<Utxo>,

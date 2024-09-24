@@ -1,6 +1,6 @@
 use ic_cdk::api::call::RejectionCode;
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Represents an error from a management canister call, such as
 /// `sign_with_ecdsa` or `bitcoin_send_transaction`.

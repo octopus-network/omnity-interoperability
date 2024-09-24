@@ -8,7 +8,7 @@ use ic_btc_interface::{
 };
 use ic_cdk::api::call::CallResult;
 use ic_ic00_types::{
-    DerivationPath, EcdsaCurve, EcdsaKeyId, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse,
+    DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
     SignWithECDSAArgs, SignWithECDSAReply,
 };
 use serde::de::DeserializeOwned;
@@ -18,9 +18,9 @@ use crate::bitcoin::ECDSAPublicKey;
 use crate::call_error::{CallError, Reason};
 
 async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallError>
-    where
-        I: CandidType,
-        O: CandidType + DeserializeOwned,
+where
+    I: CandidType,
+    O: CandidType + DeserializeOwned,
 {
     let balance = ic_cdk::api::canister_balance128();
     if balance < payment as u128 {
@@ -36,7 +36,7 @@ async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallErro
         (input,),
         payment,
     )
-        .await;
+    .await;
 
     match res {
         Ok((output,)) => Ok(output),
@@ -46,7 +46,6 @@ async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallErro
         }),
     }
 }
-
 
 /// Fetches the full list of UTXOs for the specified address.
 pub async fn get_utxos(
@@ -79,7 +78,7 @@ pub async fn get_utxos(
         },
         get_utxos_cost_cycles,
     )
-        .await?;
+    .await?;
 
     let mut utxos = std::mem::take(&mut response.utxos);
 
@@ -93,7 +92,7 @@ pub async fn get_utxos(
             },
             get_utxos_cost_cycles,
         )
-            .await?;
+        .await?;
 
         utxos.append(&mut response.utxos);
     }
@@ -118,7 +117,7 @@ pub async fn get_current_fees(network: Network) -> Result<Vec<MillisatoshiPerByt
             network: network.into(),
         },
     )
-        .await
+    .await
 }
 
 /// Sends the transaction to the network the management canister interacts with.
@@ -140,11 +139,11 @@ pub async fn send_transaction(
             network: cdk_network,
         },
     )
-        .await
-        .map_err(|(code, msg)| CallError {
-            method: "bitcoin_send_transaction".to_string(),
-            reason: Reason::from_reject(code, msg),
-        })
+    .await
+    .map_err(|(code, msg)| CallError {
+        method: "bitcoin_send_transaction".to_string(),
+        reason: Reason::from_reject(code, msg),
+    })
 }
 
 pub async fn ecdsa_public_key(
@@ -165,17 +164,17 @@ pub async fn ecdsa_public_key(
             },
         },
     )
-        .await
-        .map(|response: ECDSAPublicKeyResponse| ECDSAPublicKey {
-            public_key: response.public_key,
-            chain_code: response.chain_code,
-        })
+    .await
+    .map(|response: ECDSAPublicKeyResponse| ECDSAPublicKey {
+        public_key: response.public_key,
+        chain_code: response.chain_code,
+    })
 }
 
-pub async fn raw_rand() -> CallResult<[u8;32]> {
-    let (randomBytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(),
-                                                             "raw_rand", ()).await?;
-    let mut v = [0u8;32];
+pub async fn raw_rand() -> CallResult<[u8; 32]> {
+    let (randomBytes,): (Vec<u8>,) =
+        ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await?;
+    let mut v = [0u8; 32];
     v.copy_from_slice(randomBytes.as_slice());
     Ok(v)
 }
@@ -199,6 +198,6 @@ pub async fn sign_with_ecdsa(
             },
         },
     )
-        .await?;
+    .await?;
     Ok(reply.signature)
 }

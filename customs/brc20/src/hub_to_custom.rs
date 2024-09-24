@@ -1,9 +1,9 @@
+use crate::constants::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME};
 use crate::state::{mutate_state, read_state};
-use omnity_types::{ChainState, Directive, Seq, Ticket};
 use crate::{audit, hub};
 use log::{self};
+use omnity_types::{ChainState, Directive, Seq, Ticket};
 use std::str::FromStr;
-use crate::constants::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME};
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
@@ -52,20 +52,18 @@ async fn process_directives() {
                             if let Some(chain) = s.counterparties.get_mut(&t.chain_id) {
                                 chain.chain_state = t.action.clone().into();
                             }
-                            if t.chain_id == s.chain_id   {
+                            if t.chain_id == s.chain_id {
                                 s.chain_state = t.action.into();
                             }
                         });
                     }
-                    Directive::UpdateToken(token)  => {
+                    Directive::UpdateToken(token) => {
                         mutate_state(|s| audit::add_token(s, token.clone()));
                     }
                     Directive::AddToken(token) => {
-                        mutate_state(|s|audit::add_token(s, token));
+                        mutate_state(|s| audit::add_token(s, token));
                     }
-                    Directive::UpdateFee(_) => {
-
-                    }
+                    Directive::UpdateFee(_) => {}
                 }
                 mutate_state(|s| s.directives_queue.insert(*seq, final_directive));
             }

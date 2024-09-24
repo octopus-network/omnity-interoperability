@@ -1,3 +1,5 @@
+use crate::ord::builder::signer::MixSigner;
+use crate::ord::result::{OrdError, OrdResult};
 use bitcoin::hashes::Hash as _;
 use bitcoin::key::Secp256k1;
 use bitcoin::secp256k1::ecdsa::Signature;
@@ -10,8 +12,6 @@ use bitcoin::{
 };
 use ic_ic00_types::DerivationPath;
 use log::debug;
-use crate::ord::builder::signer::MixSigner;
-use crate::ord::result::{OrdError, OrdResult};
 
 use super::taproot::TaprootPayload;
 use super::{TxInputInfo, Utxo};
@@ -44,7 +44,7 @@ impl Wallet {
             txin_script,
             TransactionType::Commit,
         )
-            .await
+        .await
     }
 
     pub async fn sign_reveal_transaction_ecdsa(
@@ -61,7 +61,7 @@ impl Wallet {
             redeem_script,
             TransactionType::Reveal,
         )
-            .await
+        .await
     }
 
     pub fn sign_reveal_transaction_schnorr(
@@ -93,7 +93,7 @@ impl Wallet {
             sig,
             hash_ty: TapSighashType::Default,
         }
-            .into();
+        .into();
         self.append_witness_to_input(
             &mut sighash_cache,
             signature,
@@ -105,7 +105,6 @@ impl Wallet {
 
         Ok(sighash_cache.into_transaction())
     }
-
 
     async fn sign_ecdsa(
         &mut self,
@@ -133,10 +132,7 @@ impl Wallet {
             };
 
             let message = Message::from(sighash);
-            let signature = self
-                .signer
-                .sign_with_ecdsa(message,)
-                .await?;
+            let signature = self.signer.sign_with_ecdsa(message).await?;
 
             // append witness
             let signature = bitcoin::ecdsa::Signature::sighash_all(signature).into();

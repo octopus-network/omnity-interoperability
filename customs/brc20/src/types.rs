@@ -1,12 +1,12 @@
-use std::borrow::Cow;
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{Txid, Utxo};
-use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
-use serde::Serialize;
-use omnity_types::{TicketId, TokenId};
+use ic_stable_structures::Storable;
 use omnity_types::brc20::QueryBrc20TransferArgs;
 use omnity_types::rune_id::RuneId;
+use omnity_types::{TicketId, TokenId};
+use serde::Serialize;
+use std::borrow::Cow;
 
 pub type Brc20Ticker = String;
 
@@ -36,7 +36,6 @@ pub enum GenTicketStatus {
     Finalized(GenTicketRequest),
 }
 
-
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GenTicketRequest {
     pub target_chain_id: String,
@@ -48,7 +47,11 @@ pub struct GenTicketRequest {
     pub received_at: u64,
 }
 
-pub fn create_query_brc20_transfer_args(gen_ticket_request: GenTicketRequest, deposit_addr: String,ticker_decimals: u8) -> QueryBrc20TransferArgs{
+pub fn create_query_brc20_transfer_args(
+    gen_ticket_request: GenTicketRequest,
+    deposit_addr: String,
+    ticker_decimals: u8,
+) -> QueryBrc20TransferArgs {
     QueryBrc20TransferArgs {
         tx_id: gen_ticket_request.txid.to_string(),
         ticker: gen_ticket_request.ticker,

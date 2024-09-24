@@ -1,5 +1,5 @@
-use omnity_types::{Chain, Token};
 use crate::state::Brc20State;
+use omnity_types::{Chain, Token};
 
 pub fn add_chain(state: &mut Brc20State, chain: Chain) {
     state.counterparties.insert(chain.chain_id.clone(), chain);

@@ -10,15 +10,15 @@
 
 use std::str::FromStr;
 
+use crate::ord::builder::RedeemScriptPubkey;
+use crate::ord::inscription::Inscription;
+use crate::ord::parser::push_bytes::bytes_to_push_bytes;
+use crate::ord::result::{OrdError, OrdResult};
 use bitcoin::opcodes::all::{OP_CHECKSIG, OP_ENDIF, OP_IF};
 use bitcoin::opcodes::{OP_0, OP_FALSE};
 use bitcoin::script::{Builder as ScriptBuilder, PushBytesBuf};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use crate::ord::builder::RedeemScriptPubkey;
-use crate::ord::inscription::Inscription;
-use crate::ord::parser::push_bytes::bytes_to_push_bytes;
-use crate::ord::result::{OrdError, OrdResult};
 use serde_with::DisplayFromStr;
 const PROTOCOL: &str = "brc-20";
 

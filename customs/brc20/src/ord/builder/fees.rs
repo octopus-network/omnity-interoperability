@@ -18,9 +18,7 @@ pub struct MultisigConfig {
     pub total: usize,
 }
 
-
 pub fn calc_fees(network: Network) -> Fees {
-
     match network {
         Network::Bitcoin => Fees {
             commit_fee: Amount::from_sat(1000),

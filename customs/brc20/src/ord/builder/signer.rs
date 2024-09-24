@@ -1,16 +1,15 @@
-use std::str::FromStr;
-use bitcoin::bip32::ChainCode;
-use bitcoin::key::Secp256k1;
-use bitcoin::{Address, PublicKey};
-use bitcoin::secp256k1::{All, Error, Message};
-use bitcoin::secp256k1::ecdsa::Signature;
-use ic_ic00_types::DerivationPath;
-use log::{error, info};
 use crate::custom_to_bitcoin::CustomToBitcoinError;
 use crate::management;
 use crate::ord::result::{OrdError, OrdResult};
 use crate::state::read_state;
-
+use bitcoin::bip32::ChainCode;
+use bitcoin::key::Secp256k1;
+use bitcoin::secp256k1::ecdsa::Signature;
+use bitcoin::secp256k1::{All, Error, Message};
+use bitcoin::{Address, PublicKey};
+use ic_ic00_types::DerivationPath;
+use log::{error, info};
+use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct MixSigner {
@@ -18,11 +17,10 @@ pub struct MixSigner {
     pub derive_path: DerivationPath,
     pub secp: Secp256k1<All>,
     pub pubkey: PublicKey,
-    pub signer_addr: Address
+    pub signer_addr: Address,
 }
 
 impl MixSigner {
-
     pub fn chain_code() -> ChainCode {
         ChainCode::from([0; 32])
     }
@@ -44,13 +42,17 @@ impl MixSigner {
     }
 
     pub async fn sign_with_ecdsa(&self, message: Message) -> OrdResult<Signature> {
-        let key_name = read_state(|s|s.ecdsa_key_name.clone());
+        let key_name = read_state(|s| s.ecdsa_key_name.clone());
         let sighash = message.as_ref().clone();
         let sec1_signature =
             management::sign_with_ecdsa(key_name, DerivationPath::new(vec![]), sighash)
-                .await.map_err(|e| OrdError::UnexpectedSignature)?;
-        info!("len: {} content: {:?}", sec1_signature.len(), sec1_signature.clone() );
-       Signature::from_compact(sec1_signature.as_slice()).map_err(|e|OrdError::Signature(e))
+                .await
+                .map_err(|e| OrdError::UnexpectedSignature)?;
+        info!(
+            "len: {} content: {:?}",
+            sec1_signature.len(),
+            sec1_signature.clone()
+        );
+        Signature::from_compact(sec1_signature.as_slice()).map_err(|e| OrdError::Signature(e))
     }
-
 }

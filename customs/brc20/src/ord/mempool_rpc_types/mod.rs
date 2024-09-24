@@ -1,8 +1,8 @@
-use std::str::FromStr;
 use bitcoin::absolute::LockTime;
-use bitcoin::{Amount, OutPoint, ScriptBuf, Sequence, Transaction, Txid, TxIn, TxOut, Witness};
 use bitcoin::transaction::Version;
+use bitcoin::{Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Txid, Witness};
 use serde::Deserialize;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct TxInfo {
@@ -52,7 +52,6 @@ pub struct Vout {
     pub scriptpubkey_address: Option<String>,
     pub value: u64,
 }
-
 
 impl TryFrom<TxInfo> for Transaction {
     type Error = anyhow::Error;

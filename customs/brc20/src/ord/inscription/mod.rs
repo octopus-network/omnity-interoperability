@@ -2,12 +2,11 @@ pub mod brc20;
 pub mod iid;
 pub mod nft;
 
+use crate::ord::builder::RedeemScriptPubkey;
+use crate::ord::result::{OrdError, OrdResult};
 use bitcoin::script::{Builder as ScriptBuilder, PushBytesBuf};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use crate::ord::builder::RedeemScriptPubkey;
-use crate::ord::result::{OrdError, OrdResult};
-
 
 /// The `Inscription` trait defines the behavior necessary for handling
 /// Bitcoin Ordinal inscriptions within the context of commit and reveal transactions.
@@ -33,8 +32,8 @@ pub trait Inscription: DeserializeOwned {
     ///
     /// May return an `OrdError` if serialization fails.
     fn encode(&self) -> OrdResult<String>
-        where
-            Self: Serialize,
+    where
+        Self: Serialize,
     {
         serde_json::to_string(self).map_err(OrdError::from)
     }
@@ -76,8 +75,8 @@ pub trait Inscription: DeserializeOwned {
     ///
     /// May return an `OrdError` if parsing fails.
     fn parse(data: &[u8]) -> OrdResult<Self>
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         serde_json::from_slice(data).map_err(OrdError::Codec)
     }

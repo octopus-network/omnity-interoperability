@@ -4,11 +4,13 @@
 use std::collections::BTreeMap;
 use std::iter::Peekable;
 
+use crate::ord::inscription::nft::Nft;
+use crate::ord::parser::{
+    CONTENT_ENCODING_TAG, CONTENT_TYPE_TAG, DELEGATE_TAG, METADATA_TAG, METAPROTOCOL_TAG,
+    PARENT_TAG, POINTER_TAG, PROTOCOL_ID, RUNE_TAG,
+};
 use bitcoin::script::{Error as ScriptError, Instruction, Instructions};
 use bitcoin::{opcodes, Script, Transaction};
-use crate::ord::inscription::nft::Nft;
-use crate::ord::parser::{CONTENT_ENCODING_TAG, CONTENT_TYPE_TAG, DELEGATE_TAG, METADATA_TAG, METAPROTOCOL_TAG, PARENT_TAG, POINTER_TAG, PROTOCOL_ID, RUNE_TAG};
-
 
 type ParseResult<T> = std::result::Result<T, ScriptError>;
 type RawEnvelope = Envelope<Vec<Vec<u8>>>;

@@ -39,7 +39,7 @@ pub struct GenerateTicketArgs {
     pub receiver: String,
 }
 
-pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError>  {
+pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
@@ -60,7 +60,10 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     }
 
     let token = read_state(|s| {
-        s.tokens.get(&args.token_id).cloned().ok_or(GenerateTicketError::UnsupportedToken(args.token_id.clone()))
+        s.tokens
+            .get(&args.token_id)
+            .cloned()
+            .ok_or(GenerateTicketError::UnsupportedToken(args.token_id.clone()))
     })?;
 
     read_state(|s| match s.generate_ticket_status(txid) {
@@ -73,26 +76,26 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
     check_transaction(args.clone()).await?;
-  /* //TODO comment for test
-  hub::pending_ticket(
-        hub_principal,
-        Ticket {
-            ticket_id: args.txid.clone(),
-            ticket_type: TicketType::Normal,
-            ticket_time: ic_cdk::api::time(),
-            src_chain: chain_id,
-            dst_chain: args.target_chain_id.clone(),
-            action: TxAction::Transfer,
-            token: token.token_id.clone(),
-            amount: args.amount.to_string(),
-            sender: None,
-            receiver: args.receiver.clone(),
-            memo: None,
-        },
-    )
-        .await
-        .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
-*/
+    /* //TODO comment for test
+      hub::pending_ticket(
+            hub_principal,
+            Ticket {
+                ticket_id: args.txid.clone(),
+                ticket_type: TicketType::Normal,
+                ticket_time: ic_cdk::api::time(),
+                src_chain: chain_id,
+                dst_chain: args.target_chain_id.clone(),
+                action: TxAction::Transfer,
+                token: token.token_id.clone(),
+                amount: args.amount.to_string(),
+                sender: None,
+                receiver: args.receiver.clone(),
+                memo: None,
+            },
+        )
+            .await
+            .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
+    */
     let request = GenTicketRequest {
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
@@ -104,10 +107,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     };
 
     mutate_state(|s| {
-        s
-            .pending_gen_ticket_requests
-            .insert(request.txid, request);
+        s.pending_gen_ticket_requests.insert(request.txid, request);
     });
     Ok(())
-
 }
