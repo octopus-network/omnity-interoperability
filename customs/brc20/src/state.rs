@@ -174,11 +174,11 @@ impl Brc20State {
             },
         );
         ret.tokens.insert(
-            "BRC20-brc20-NBCI".to_string(),
+            "BRC20-brc20-YCBS".to_string(),
             Token {
-                token_id: "BRC20-brc20-NBCI".to_string(),
-                name: "NBCI".to_string(),
-                symbol: "NBCI".to_string(),
+                token_id: "BRC20-brc20-YCBS".to_string(),
+                name: "YCBS".to_string(),
+                symbol: "YCBS".to_string(),
                 decimals: 18,
                 icon: None,
                 metadata: Default::default(),
@@ -264,10 +264,7 @@ pub async fn init_ecdsa_public_key() -> ECDSAPublicKey {
         let address = main_bitcoin_address(&pub_key.clone());
         let deposit_addr = address.display(s.btc_network);
         s.deposit_addr = Some(deposit_addr);
-        //TODO delete for prd
-        s.deposit_addr = Some("tb1q5vlapn2c6at8rtx0dnp9ytxjwhqgs9y042t9rw".to_string());
     });
-
     pub_key
 }
 
