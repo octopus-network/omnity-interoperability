@@ -23,7 +23,7 @@ pub fn calc_fees(network: Network) -> Fees {
         Network::Bitcoin => Fees {
             commit_fee: Amount::from_sat(1000),
             reveal_fee: Amount::from_sat(1000),
-            utxo_fee: Amount::from_sat(10_000),
+            utxo_fee: Amount::from_sat(1000),
         },
         Network::Testnet | Network::Regtest | Network::Signet => Fees {
             commit_fee: Amount::from_sat(2_500),

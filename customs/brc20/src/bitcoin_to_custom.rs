@@ -48,7 +48,7 @@ pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTi
     let brc20 = Brc20::try_from(parsed_inscription)
         .map_err(|e| GenerateTicketError::OrdTxError(e.to_string()))?;
     match brc20 {
-        Brc20::Transfer(t) => {
+        Brc20::Brc201Transfer(t) => {
             if t.amt as u128 != req.amount
                 || t.tick != token.name
                 || t.refx != req.receiver

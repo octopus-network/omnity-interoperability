@@ -93,5 +93,5 @@ service : (InitArgs) -> {
   generate_ticket : (GenerateTicketArgs) -> ();
   send_ticket_to_bitcoin : (nat64) -> ();
   test_create_tx : (Ticket, nat64) -> ();
-  update_utxos : (text) -> ();
+  update_utxos : (text) -> (text);
 }

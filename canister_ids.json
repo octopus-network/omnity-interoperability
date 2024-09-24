@@ -5,8 +5,9 @@
   "bitfinity_route": {
     "ic": "pw3ee-pyaaa-aaaar-qahva-cai"
   },
-  "brc20_customs": {},
-
+  "brc20_customs": {
+    "ic": "oejud-wyaaa-aaaal-ame6a-cai"
+  },
   "cosmwasm_proxy": {
     "ic": "ncfbq-kyaaa-aaaar-qah3a-cai"
   },

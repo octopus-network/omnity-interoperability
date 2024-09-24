@@ -190,8 +190,6 @@ pub async fn send_ticket_to_bitcoin(seq: Seq) -> Result<Option<SendTicketResult>
                         inscription: Brc20::transfer(
                             token.name.clone(),
                             amount,
-                            "bridge-in".to_string(),
-                            "bitcoin".to_string(),
                         ),
                         txin_script_pubkey: deposit_addr().script_pubkey(),
                         leftovers_recipient: deposit_addr().clone(),

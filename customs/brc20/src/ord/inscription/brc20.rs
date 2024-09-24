@@ -35,7 +35,12 @@ pub enum Brc20 {
     /// Transfer BRC-20 tokens
     #[serde(rename = "transfer")]
     Transfer(Brc20Transfer),
+    #[serde(rename = "transfer")]
+    Brc201Transfer(Brc20Transfer201),
+
 }
+
+
 
 impl Brc20 {
     /// Create a new BRC-20 deploy operation
@@ -67,14 +72,11 @@ impl Brc20 {
     }
 
     /// Create a new BRC-20 transfer operation
-    pub fn transfer(tick: impl ToString, amt: u64, receiver: String, chainid: String) -> Self {
+    pub fn transfer(tick: impl ToString, amt: u64) -> Self {
         Self::Transfer(Brc20Transfer {
             protocol: PROTOCOL.to_string(),
             tick: tick.to_string(),
             amt,
-            refx: receiver,
-            chain: chainid,
-            ext: "bridge-in".to_string(),
         })
     }
 
@@ -171,7 +173,7 @@ pub struct Brc20Mint {
 /// `transfer` op
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Brc20Transfer {
+pub struct Brc20Transfer201 {
     /// Protocol (required): Helps other systems identify and process brc-20 events
     #[serde(rename = "p")]
     protocol: String,
@@ -184,4 +186,17 @@ pub struct Brc20Transfer {
     pub refx: String,
     pub chain: String,
     pub ext: String,
+}
+
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Brc20Transfer {
+    /// Protocol (required): Helps other systems identify and process brc-20 events
+    #[serde(rename = "p")]
+    protocol: String,
+    /// Ticker (required): 4 or 5 letter identifier of the brc-20
+    pub tick: String,
+    /// Amount to transfer (required): States the amount of the brc-20 to transfer.
+    #[serde_as(as = "DisplayFromStr")]
+    pub amt: u64,
 }
