@@ -91,7 +91,7 @@ pub async fn send_tickets_to_bitcoin() {
         }
     }
     for seq in from..to {
-        let res = send_ticket(seq).await;
+        let res = send_ticket_to_bitcoin(seq).await;
         if res.is_err() {
             log!(
                 CRITICAL,
@@ -162,84 +162,7 @@ pub async fn finalize_flight_tickets() {
     }
 }
 
-//TODO remove when prod
-pub async fn test_send_ticket(t: Ticket) -> Result<SendTicketResult, CustomToBitcoinError> {
-    //  let token = read_state(|s|s.tokens.get(&t.token).cloned().unwrap());
-    let fees = calc_fees(bitcoin_network());
-    let vins = select_inscribe_txins(&fees)?;
-    let key_id = read_state(|s| s.ecdsa_key_name.clone());
-    let mut builder = OrdTransactionBuilder::p2tr(
-        PublicKey::from_str(deposit_pubkey().as_str()).unwrap(),
-        key_id,
-        deposit_addr(),
-    );
-    let amount: u64 = t.amount.parse().unwrap();
-    let commit_tx = builder
-        .build_commit_transaction_with_fixed_fees(
-            bitcoin_network(),
-            CreateCommitTransactionArgsV2 {
-                inputs: vins.clone(),
-                inscription: Brc20::transfer(
-                    "nvcs",
-                    amount,
-                    "bridge-in".to_string(),
-                    "bitcoin".to_string(),
-                ),
-                txin_script_pubkey: deposit_addr().script_pubkey(),
-                leftovers_recipient: deposit_addr().clone(),
-                commit_fee: fees.commit_fee,
-                reveal_fee: fees.reveal_fee,
-            },
-        )
-        .await
-        .map_err(|_| BuildTransactionFailed)?;
-    let signed_commit_tx = builder
-        .sign_commit_transaction(
-            commit_tx.unsigned_tx,
-            SignCommitTransactionArgs {
-                inputs: vins,
-                txin_script_pubkey: deposit_addr().script_pubkey(),
-            },
-        )
-        .await
-        .map_err(|e| SignFailed(e.to_string()))?;
-
-    let reveal_transaction = builder
-        .build_reveal_transaction(RevealTransactionArgs {
-            input: Utxo {
-                id: signed_commit_tx.txid(),
-                index: 0,
-                amount: commit_tx.reveal_balance,
-            },
-            recipient_address: deposit_addr(), // NOTE: it's correct, see README.md to read about how transfer works
-            redeem_script: commit_tx.redeem_script,
-        })
-        .await
-        .map_err(|_| BuildTransactionFailed)?;
-
-    let real_utxo = Utxo {
-        id: reveal_transaction.txid(),
-        index: 0,
-        amount: Amount::from_sat(POSTAGE),
-    };
-    let commit_remain_fee = find_commit_remain_fee(&signed_commit_tx);
-    let transfer_trasaction =
-        build_transfer_transfer(&t, &fees, real_utxo, &builder.signer(), commit_remain_fee).await?;
-    let network = read_state(|s| s.btc_network);
-    let tx_vec = vec![signed_commit_tx, reveal_transaction, transfer_trasaction];
-
-    let mut index = 0u8;
-    let mut send_res = SendTicketResult {
-        txs: tx_vec.clone(),
-        success: true,
-        err_step: None,
-        err_info: None,
-        time_at: ic_cdk::api::time(),
-    };
-    Ok(send_res)
-}
-
-async fn send_ticket(seq: Seq) -> Result<Option<SendTicketResult>, CustomToBitcoinError> {
+pub async fn send_ticket_to_bitcoin(seq: Seq) -> Result<Option<SendTicketResult>, CustomToBitcoinError> {
     let ticket = read_state(|s| s.tickets_queue.get(&seq));
     match ticket {
         None => {

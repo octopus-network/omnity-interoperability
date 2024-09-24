@@ -26,12 +26,7 @@ type GenerateTicketArgs = record {
   amount : nat;
   receiver : text;
 };
-type GetUtxosResponse = record {
-  next_page : opt blob;
-  tip_height : nat32;
-  tip_block_hash : blob;
-  utxos : vec Utxo;
-};
+type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record {
   hub_principal : principal;
   network : Network_1;
@@ -41,7 +36,6 @@ type InitArgs = record {
 };
 type Network = variant { mainnet; regtest; testnet };
 type Network_1 = variant { mainnet; local; testnet };
-type OutPoint = record { txid : blob; vout : nat32 };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
   pending_gen_ticket_requests : vec record { blob; GenTicketRequest };
@@ -64,6 +58,20 @@ type StateProfile = record {
   indexer_principal : principal;
   deposit_pubkey : opt text;
 };
+type Ticket = record {
+  token : text;
+  action : TxAction;
+  dst_chain : text;
+  memo : opt blob;
+  ticket_id : text;
+  sender : opt text;
+  ticket_time : nat64;
+  ticket_type : TicketType;
+  src_chain : text;
+  amount : text;
+  receiver : text;
+};
+type TicketType = variant { Resubmit; Normal };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -72,12 +80,18 @@ type Token = record {
   name : text;
   symbol : text;
 };
-type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
+type TxAction = variant {
+  Burn;
+  Redeem;
+  Mint;
+  RedeemIcpChainKeyAssets : IcpChainKeyToken;
+  Transfer;
+};
 service : (InitArgs) -> {
   brc20_state : () -> (StateProfile) query;
-  finalize_gen : () -> ();
   generate_deposit_addr : () -> (opt text, opt text);
   generate_ticket : (GenerateTicketArgs) -> ();
-  test_create_tx : () -> (text);
-  update_utxos : (text) -> (GetUtxosResponse);
+  send_ticket_to_bitcoin : (nat64) -> ();
+  test_create_tx : (Ticket, nat64) -> ();
+  update_utxos : (text) -> ();
 }
