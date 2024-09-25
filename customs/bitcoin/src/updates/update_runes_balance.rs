@@ -1,11 +1,11 @@
 use crate::hub;
-use crate::logs::{P0, P1};
 use crate::state::{audit, GenTicketStatus, RunesBalance};
 use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
 use ic_canister_log::log;
 use serde::Serialize;
+use omnity_types::ic_log::{ERROR, INFO};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UpdateRunesBalanceArgs {
@@ -57,7 +57,7 @@ pub async fn update_runes_balance(
     if amount != req.amount || args.balances.iter().any(|b| b.rune_id != req.rune_id) {
         mutate_state(|s| audit::remove_confirmed_request(s, &req.txid));
         log!(
-            P0,
+            ERROR,
             "[update_runes_balance] amount mismatch for ticket_id: {}, request amount: {}, oracle amount: {}, oracle: {}",
             args.txid.to_string(),
             req.amount,
@@ -73,7 +73,7 @@ pub async fn update_runes_balance(
         .map_err(|err| UpdateRunesBalanceError::FinalizeTicketErr(format!("{}", err)))?;
 
     log!(
-        P1,
+        INFO,
         "[update_runes_balance] send ticket to hub: {}",
         args.txid.to_string()
     );

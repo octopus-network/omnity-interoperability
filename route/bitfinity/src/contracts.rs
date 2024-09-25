@@ -9,8 +9,8 @@ use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenC
 use crate::eth_common::{EvmAddress};
 use crate::state::read_state;
 use omnity_types::{Directive, Factor, Ticket};
+use omnity_types::ic_log::INFO;
 use crate::convert::{convert_factor_to_port_factor_type_index, directive_to_port_command_index};
-use crate::logs::P0;
 
 pub type PortContractCommandIndex = u8;
 pub type PortContractFactorTypeIndex = u8;
@@ -22,7 +22,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
         }
         Directive::AddToken(token) => {
             if read_state(|s| s.tokens.get(&token.token_id).is_some()) {
-                log!(P0, "duplicate issue token id: {}", token.token_id);
+                log!(INFO, "duplicate issue token id: {}", token.token_id);
                 return vec![];
             }
             Bytes::from(

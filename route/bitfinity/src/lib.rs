@@ -19,7 +19,6 @@ pub mod updates;
 pub mod state;
 pub mod stable_memory;
 pub mod types;
-mod logs;
 //mod upgrade;
 
 #[derive(Error, Debug)]

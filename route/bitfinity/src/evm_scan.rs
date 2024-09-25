@@ -7,6 +7,7 @@ use ic_canister_log::log;
 use itertools::Itertools;
 
 use omnity_types::{ChainState, Directive, Ticket};
+use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 
 use crate::*;
 use crate::const_args::{SCAN_EVM_TASK_NAME};
@@ -15,7 +16,6 @@ use crate::contract_types::{
     TokenBurned, TokenMinted, TokenTransportRequested,
 };
 use crate::convert::{ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event};
-use crate::logs::P0;
 use crate::state::{mutate_state, read_state};
 
 pub fn scan_evm_task() {
@@ -39,7 +39,7 @@ pub fn scan_evm_task() {
             let receipt = crate::eth_common::get_transaction_receipt(&hash)
                 .await
                 .map_err(|e| {
-                    log!(P0, "user query transaction receipt error: {:?}", e);
+                    log!(ERROR, "user query transaction receipt error: {:?}", e);
                     "rpc".to_string()
                 });
             if let Ok(Some(tr)) = receipt {
@@ -59,7 +59,7 @@ pub fn scan_evm_task() {
                         mutate_state(|s| s.handled_evm_event.insert(hash));
                     }
                     Err(e) => {
-                        log!(P0, "[bitfinity route] handle evm logs error: {}", e.to_string());
+                        log!(ERROR, "[bitfinity route] handle evm logs error: {}", e.to_string());
                     }
                 }
             }
@@ -107,7 +107,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
             if dst_check_result {
                 handle_token_transport(&l, token_transport).await?;
             } else {
-                log!(P0, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,&tx_hash);
+                log!(INFO, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,&tx_hash);
             }
         } else if topic1 == DirectiveExecuted::signature_hash() {
             let directive_executed = DirectiveExecuted::decode_log(&raw_log)
@@ -120,13 +120,13 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
                 Directive::AddToken(token) => {
                     match crate::updates::add_new_token(token.clone()).await {
                         Ok(_) => {
-                            log!(P0,
+                            log!(INFO,
                                 "[process directives] add token successful, token id: {}",
                                 token.token_id
                             );
                         }
                         Err(err) => {
-                            log!(P0,
+                            log!(ERROR,
                                 "[process directives] failed to add token: token id: {}, err: {:?}",
                                 token.token_id,
                                 err
@@ -139,7 +139,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
                 }
                 Directive::UpdateFee(fee) => {
                     mutate_state(|s| audit::update_fee(s, fee.clone()));
-                    log!(P0, "[process_directives] success to update fee, fee: {}", fee);
+                    log!(INFO, "[process_directives] success to update fee, fee: {}", fee);
                 }
                 Directive::UpdateChain(_) | Directive::UpdateToken(_) | Directive::AddChain(_) => {
                     //the directive need not send to port, it had been processed in fetch hub task.
@@ -171,7 +171,7 @@ pub async fn handle_runes_mint(
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))?;
-    log!(P0,
+    log!(INFO,
         "[bitfinity route] rune_mint_ticket sent to hub success: {:?}",
         ticket
     );
@@ -183,7 +183,7 @@ pub async fn handle_token_burn(log_entry: &TransactionReceiptLog, event: TokenBu
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))?;
-    log!(P0, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
+    log!(INFO, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
     Ok(())
 }
 
@@ -195,7 +195,7 @@ pub async fn handle_token_transport(
     ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))?;
-    log!(P0,
+    log!(INFO,
         "[bitfinity route] transport_ticket sent to hub success: {:?}",
         ticket
     );
@@ -207,7 +207,7 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
     let receipt = crate::eth_common::get_transaction_receipt(tx_hash)
         .await
         .map_err(|e| {
-            log!(P0, "user query transaction receipt error: {:?}", e);
+            log!(CRITICAL, "user query transaction receipt error: {:?}", e);
             "rpc".to_string()
         })?;
     match receipt {
@@ -250,7 +250,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
                 return Ok(ticket_from_transport_event(&l, token_transport));
             } else {
                 let tx_hash = l.transaction_hash.to_hex_str();
-                log!(P0, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
+                log!(INFO, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
             }
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)

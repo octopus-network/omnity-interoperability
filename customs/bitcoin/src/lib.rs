@@ -1,5 +1,4 @@
 use crate::address::{main_bitcoin_address, main_destination, BitcoinAddress};
-use crate::logs::{P0, P1};
 use crate::queries::RedeemFee;
 use crate::runestone::{Edict, Runestone};
 use crate::state::{audit, mutate_state, BtcChangeOutput};
@@ -22,6 +21,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::iter::Sum;
 use std::str::FromStr;
 use std::time::Duration;
+use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use updates::rune_tx::{generate_rune_tx_request, GenRuneTxReqError, RuneTxArgs};
 
 pub mod address;
@@ -30,7 +30,6 @@ pub mod destination;
 pub mod guard;
 pub mod hub;
 pub mod lifecycle;
-pub mod logs;
 pub mod management;
 pub mod metrics;
 pub mod queries;
@@ -165,7 +164,7 @@ async fn fetch_main_utxos(
             Ok(response) => response.utxos,
             Err(e) => {
                 log!(
-                    P0,
+                    ERROR,
                     "[fetch_main_utxos]: failed to fetch UTXOs for the main address {}: {}",
                     main_address.display(btc_network),
                     e
@@ -209,7 +208,7 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
                 Some(fees[50])
             } else {
                 log!(
-                    P0,
+                    ERROR,
                     "[estimate_fee_per_vbyte]: not enough data points ({}) to compute the fee",
                     fees.len()
                 );
@@ -218,7 +217,7 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
         }
         Err(err) => {
             log!(
-                P0,
+                ERROR,
                 "[estimate_fee_per_vbyte]: failed to get median fee per vbyte: {}",
                 err
             );
@@ -236,7 +235,7 @@ async fn process_tickets() {
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {
             log!(
-                P0,
+                ERROR,
                 "[submit_release_token_requests] temporarily unavailable: {}",
                 err
             );
@@ -249,7 +248,7 @@ async fn process_tickets() {
                 } else {
                     // Shouldn't happen, the hub must ensure the correctness of the data.
                     log!(
-                        P0,
+                        CRITICAL,
                         "[submit_release_token_requests]: failed to parse amount of ticket"
                     );
                     next_seq = seq + 1;
@@ -270,13 +269,13 @@ async fn process_tickets() {
                     | Ok(_) => {}
                     Err(GenRuneTxReqError::TemporarilyUnavailable(_)) => {
                         log!(
-                            P0,
+                            ERROR,
                             "[submit_release_token_requests] temporarily unavailable"
                         );
                         break;
                     }
                     Err(err) => {
-                        log!(P0, "[submit_release_token_requests] err: {:?}", err);
+                        log!(CRITICAL, "[submit_release_token_requests] err: {:?}", err);
                     }
                 }
                 next_seq = seq + 1;
@@ -290,7 +289,7 @@ async fn process_directive() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
     match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {
-            log!(P0, "[process_directive] temporarily unavailable: {}", err);
+            log!(ERROR, "[process_directive] temporarily unavailable: {}", err);
         }
         Ok(directives) => mutate_state(|s| {
             for (_, directive) in &directives {
@@ -303,7 +302,7 @@ async fn process_directive() {
                             match RuneId::from_str(rune_id) {
                                 Err(err) => {
                                     log!(
-                                        P0,
+                                        CRITICAL,
                                         "[process_directive] failed to parse rune id: {}",
                                         err
                                     );
@@ -312,7 +311,7 @@ async fn process_directive() {
                             }
                         } else {
                             log!(
-                                P0,
+                                INFO,
                                 "[process_directive] token {} not found rune_id in metadata",
                                 token.token_id
                             );
@@ -408,7 +407,7 @@ async fn submit_rune_txs() {
                     })
                 }
                 Err(err) => {
-                    log!(P0,
+                    log!(CRITICAL,
                         "[submit_pending_requests]: {:?} to unsigned transaction for requests at ticket ids [{}]",
                         err,
                         batch.iter().map(|req| req.ticket_id.clone()).collect::<Vec<_>>().join(",")
@@ -422,7 +421,7 @@ async fn submit_rune_txs() {
 
         if let Some(req) = maybe_sign_request {
             log!(
-                P1,
+                INFO,
                 "[submit_pending_requests]: signing a new transaction: {}",
                 hex::encode(tx::encode_into(&req.unsigned_tx, Vec::new()))
             );
@@ -450,14 +449,14 @@ async fn submit_rune_txs() {
                     });
 
                     log!(
-                        P0,
+                        INFO,
                         "[submit_pending_requests]: sending a signed transaction {}",
                         hex::encode(tx::encode_into(&signed_tx, Vec::new()))
                     );
                     match management::send_transaction(&signed_tx, req.network).await {
                         Ok(()) => {
                             log!(
-                                P1,
+                                INFO,
                                 "[submit_pending_requests]: successfully sent transaction {}",
                                 &txid,
                             );
@@ -486,7 +485,7 @@ async fn submit_rune_txs() {
                         }
                         Err(err) => {
                             log!(
-                                P0,
+                                CRITICAL,
                                 "[submit_pending_requests]: failed to send a bitcoin transaction: {}",
                                 err
                             );
@@ -495,7 +494,7 @@ async fn submit_rune_txs() {
                 }
                 Err(err) => {
                     log!(
-                        P0,
+                        ERROR,
                         "[submit_pending_requests]: failed to sign a BTC transaction: {}",
                         err
                     );
@@ -641,7 +640,7 @@ async fn finalize_rune_txs() {
     state::mutate_state(|s| {
         for tx in unstuck_transactions {
             log!(
-                P0,
+                INFO,
                 "[finalize_requests]: finalized transaction {} assumed to be stuck",
                 &tx.txid
             );
@@ -694,7 +693,7 @@ async fn finalize_rune_txs() {
     //
     // Let's resubmit these transactions.
     log!(
-        P0,
+        INFO,
         "[finalize_requests]: found {} stuck transactions: {}",
         maybe_finalized_transactions.len(),
         maybe_finalized_transactions
@@ -749,7 +748,7 @@ async fn finalize_rune_txs() {
                 // Let's ignore this transaction and wait for fees to go down.
                 Err(err) => {
                     log!(
-                        P1,
+                        ERROR,
                         "[finalize_requests]: failed to rebuild stuck transaction {}: {:?}",
                         &submitted_tx.txid,
                         err
@@ -775,7 +774,7 @@ async fn finalize_rune_txs() {
             Ok(tx) => tx,
             Err(err) => {
                 log!(
-                    P0,
+                    ERROR,
                     "[finalize_requests]: failed to sign a BTC transaction: {}",
                     err
                 );
@@ -790,14 +789,14 @@ async fn finalize_rune_txs() {
                     // replacement transactions with each resubmission. However, since replacing a
                     // transaction with itself is not allowed, we still handle the transaction
                     // equality in case the fee computation rules change in the future.
-                    log!(P0,
+                    log!(INFO,
                         "[finalize_requests]: resent transaction {} with a new signature. TX bytes: {}",
                         &new_txid,
                         hex::encode(tx::encode_into(&signed_tx, Vec::new()))
                     );
                     continue;
                 }
-                log!(P0,
+                log!(INFO,
                     "[finalize_requests]: sent transaction {} to replace stuck transaction {}. TX bytes: {}",
                     &new_txid,
                     &old_txid,
@@ -820,7 +819,7 @@ async fn finalize_rune_txs() {
                 });
             }
             Err(err) => {
-                log!(P0, "[finalize_requests]: failed to send transaction bytes {} to replace stuck transaction {}: {}",
+                log!(ERROR, "[finalize_requests]: failed to send transaction bytes {} to replace stuck transaction {}: {}",
                     hex::encode(tx::encode_into(&signed_tx, Vec::new())),
                     &old_txid,
                     err,
@@ -859,7 +858,7 @@ async fn finalize_gen_ticket_txs() {
         .map_or_else(
             |err| {
                 log!(
-                    P0,
+                    ERROR,
                     "failed to call get_utxos in finalize_gen_ticket_txs: {}",
                     err
                 );
@@ -893,7 +892,7 @@ async fn update_tx_hash_to_hub(tx: &SubmittedBtcTransactionV2) {
     if let Err(err) =
         hub::batch_update_tx_hash(hub_principal, ticket_ids, tx.txid.to_string()).await
     {
-        log!(P0, "failed to update tx hash to hub: {}", err)
+        log!(ERROR, "failed to update tx hash to hub: {}", err)
     }
 }
 
@@ -1301,7 +1300,7 @@ pub fn build_unsigned_transaction(
         btc_utxos = greedy(target_fee, available_btc_utxos, |u| u.value);
         if btc_utxos.is_empty() {
             log!(
-                P0,
+                CRITICAL,
                 "[select_btc_utxos]: target fee required: {}: available fee: {}",
                 target_fee,
                 available_btc_utxos.iter().map(|u| u.value).sum::<u64>()
@@ -1351,7 +1350,7 @@ pub fn build_unsigned_transaction(
     let btc_consumed = real_fee + MIN_OUTPUT_AMOUNT * non_op_return_outputs_sz;
     if input_btc_amount < btc_consumed {
         log!(
-            P0,
+            CRITICAL,
             "input btc amount: {} greater than btc consumed: {}",
             input_btc_amount,
             btc_consumed,
