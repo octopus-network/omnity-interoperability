@@ -12,4 +12,9 @@ fn start_tasks() {
         Duration::from_secs(FETCH_HUB_DIRECTIVE_INTERVAL),
         fetch_hub_directive_task,
     );
+
+    set_timer_interval()
+
 }
+
+
