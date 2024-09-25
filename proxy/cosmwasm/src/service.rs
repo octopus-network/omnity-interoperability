@@ -1,20 +1,17 @@
 use std::time::Duration;
 
 use crate::*;
-use std::result::Result;
 use business::update_balance::{process_update_balance_jobs, update_balance_and_generate_ticket};
-use candid::Nat;
-use external::{
-    ckbtc,
-    custom::generate_ticket,
-};
+use external::{ckbtc, custom::generate_ticket};
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::post_upgrade;
 use ic_cdk_timers::set_timer_interval;
 use icrc_ledger_types::icrc1::account::Account;
 use state::{
-    extend_ticket_records, get_settings, get_ticket_records, get_utxo_records, init_stable_log, mutate_settings, Settings, TicketRecord, UtxoRecord
+    extend_ticket_records, get_settings, get_ticket_records, get_utxo_records,
+    mutate_settings, Settings, TicketRecord, UtxoRecord,
 };
+use std::result::Result;
 use utils::nat_to_u128;
 
 pub fn is_controller() -> Result<(), String> {
@@ -93,7 +90,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     omnity_types::ic_log::http_request(req)
 }
 
-#[update]
+#[update(guard = "is_controller")]
 pub async fn update_settings(
     ckbtc_ledger_principal: Option<Principal>,
     ckbtc_minter_principal: Option<Principal>,
@@ -143,19 +140,22 @@ pub async fn generate_ticket_from_subaccount(
 
     let setting = get_settings();
 
+    let ticket_amount = nat_to_u128(balance)
+        .and_then(|u| u.checked_sub(2 * CKBTC_FEE as u128).ok_or(Errors::CustomError("overflow".to_string())))
+        .map_err(|e| e.to_string())?;
     let ticket_id = generate_ticket(
         setting.token_id,
         setting.target_chain_id,
-        nat_to_u128(balance - Nat::from(2_u8) * Nat::from(10_u8)),
+        ticket_amount,
         subaccount,
     )
     .await
     .map_err(|e| e.to_string())?;
 
     extend_ticket_records(osmosis_account_id, vec![TicketRecord {
-        ticket_id: ticket_id.clone(),
-        minted_utxos: vec![],
-    }]);
+            ticket_id: ticket_id.clone(),
+            minted_utxos: vec![],
+        }]);
     Ok(ticket_id)
 }
 

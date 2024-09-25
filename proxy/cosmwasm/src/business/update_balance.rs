@@ -1,4 +1,3 @@
-use candid::Nat;
 use icrc_ledger_types::icrc1::account::Subaccount;
 use itertools::Itertools;
 use omnity_types::ic_log::WARNING;
@@ -14,7 +13,6 @@ use crate::{
     state::{
         extend_ticket_records, get_settings, get_utxo_records, insert_utxo_records, pop_first_scheduled_osmosis_account_id, set_settings, MintedUtxo, TicketRecord, UtxoRecord
     },
-    utils::nat_to_u128,
     AddressData, Errors, UpdateBalanceArgs, UtxoStatus,
 };
 
@@ -128,10 +126,12 @@ pub async fn update_balance_and_generate_ticket(
         .map_err(|e| e.to_string())?;
 
     let settings = get_settings();
+    let ticket_amount = minted_success_amount.checked_sub(2 * CKBTC_FEE)
+    .ok_or("overflow".to_string())?;
     let ticket_id = generate_ticket(
         settings.token_id.to_string(),
         settings.target_chain_id.to_string(),
-        nat_to_u128(minted_success_amount - Nat::from(2_u8) * Nat::from(10_u8)),
+        ticket_amount as u128,
         subaccount,
     )
     .await
