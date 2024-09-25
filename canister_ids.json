@@ -19,5 +19,8 @@
   },
   "ckbtc_minter": {
     "ic": "mqygn-kiaaa-aaaar-qaadq-cai"
+  },
+  "runes_oracle": {
+    "ic": "r3teu-uiaaa-aaaal-ajlvq-cai"
   }
 }

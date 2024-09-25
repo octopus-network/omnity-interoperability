@@ -1,6 +1,7 @@
 use crate::types::*;
 use candid::Principal;
-use omnity_types::rune_id::RuneId;
+use ic_canister_log::log;
+use omnity_types::{ic_log::*, rune_id::RuneId};
 
 /// this could be empty since even some errors occur, we can't do anything but waiting for the next timer
 async fn query_pending_task(principal: Principal) -> Vec<GenTicketRequestV2> {
@@ -11,7 +12,7 @@ async fn query_pending_task(principal: Principal) -> Vec<GenTicketRequestV2> {
     let (v,): (Vec<GenTicketRequestV2>,) =
         ic_cdk::call(principal, "get_pending_gen_ticket_requests", (args,))
             .await
-            .inspect_err(|e| log::error!("fetch error: {:?}", e))
+            .inspect_err(|e| log!(WARNING, "fetch error: {:?}", e))
             .unwrap_or_default();
     v
 }
@@ -26,10 +27,10 @@ async fn query_indexer(
     let (balances,): (Result<Vec<Balance>, OrdError>,) =
         ic_cdk::call(principal, "get_runes_by_utxo", (txid, vout))
             .await
-            .inspect_err(|e| log::error!("query indexer error {:?}", e))
+            .inspect_err(|e| log!(WARNING, "query indexer error {:?}", e))
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
     let balances = balances
-        .inspect_err(|e| log::error!("indexer returns err: {:?}", e))
+        .inspect_err(|e| log!(WARNING, "indexer returns err: {:?}", e))
         .map_err(|e| anyhow::anyhow!("{:?}", e))?;
     let rune = balances
         .into_iter()
@@ -51,7 +52,7 @@ async fn update_runes_balance(
     let args = UpdateRunesBalanceArgs { txid, balances };
     let _: () = ic_cdk::call(principal, "update_runes_balance", (args,))
         .await
-        .inspect_err(|e| log::error!("update error: {:?}", e))
+        .inspect_err(|e| log!(WARNING, "update error: {:?}", e))
         .map_err(|e| anyhow::anyhow!("{:?}", e))?;
     Ok(())
 }
@@ -80,9 +81,9 @@ pub(crate) fn fetch_then_submit(secs: u64) {
                     .await
                     {
                         Ok(Some(balance)) => balances.push(balance),
-                        Ok(None) => log::info!("no rune found for utxo {:?}", utxo.outpoint),
+                        Ok(None) => log!(INFO, "no rune found for utxo {:?}", utxo.outpoint),
                         Err(e) => {
-                            log::error!("{:?}", e);
+                            log!(ERROR, "{:?}", e);
                             error = true;
                             break;
                         }
@@ -92,13 +93,14 @@ pub(crate) fn fetch_then_submit(secs: u64) {
                 if error {
                     continue;
                 }
-                log::info!(
+                log!(
+                    INFO,
                     "prepare to submit {:?} rune balances for task {}",
                     balances,
                     task.txid.to_string()
                 );
                 if let Err(e) = update_runes_balance(customs, task.txid, balances).await {
-                    log::error!("{:?}", e);
+                    log!(ERROR, "{:?}", e);
                 }
             }
             if pending.len() < 50 {
