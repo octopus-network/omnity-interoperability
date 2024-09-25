@@ -1,4 +1,4 @@
-use crate::constants::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME};
+use crate::constants::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME, FINALIZE_GENERATE_TICKET_NAME};
 use crate::state::{mutate_state, read_state};
 use crate::{audit, hub};
 use log::{self};
@@ -101,3 +101,16 @@ pub fn fetch_hub_directive_task() {
         process_directives().await;
     });
 }
+
+pub fn finalize_generate_ticket_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_GENERATE_TICKET_NAME.to_string())
+        {
+            Some(guard) => guard,
+            None => return,
+        };
+        process_directives().await;
+    });
+
+}
+
