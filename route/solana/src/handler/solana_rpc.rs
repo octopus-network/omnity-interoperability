@@ -33,12 +33,6 @@ pub async fn solana_client() -> SolanaClient {
         })
         .unwrap();
 
-    // log!(
-    //     DEBUG,
-    //     "[tickets::solana_client] payer pub key: {:?} ",
-    //     payer.to_string()
-    // );
-
     let derived_path = vec![ByteBuf::from(chain_id.as_bytes())];
     let forward = read_state(|s| s.forward.to_owned());
     SolanaClient {

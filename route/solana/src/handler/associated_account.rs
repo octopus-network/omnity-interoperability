@@ -139,7 +139,7 @@ pub async fn create_associated_account() {
                     Some(sig) => {
                         log!(
                             DEBUG,
-                            "[associated_account::create_associated_account] The ata ({:?}) already created and waiting for the signature({:?}) to be finallized! ",
+                            "[associated_account::create_associated_account] The ata ({:?}) already submited and waiting for the tx({:?}) to be finallized! ",
                             associated_account.account.to_string(),
                             sig
                         );
@@ -162,7 +162,7 @@ pub async fn create_associated_account() {
                    Some(sig) => {
                        log!(
                            DEBUG,
-                           "[associated_account::create_associated_account] {:?} already created and waiting for the signature({:?}) to be finallized! ",
+                           "[associated_account::create_associated_account] the ata {:?} already submited and waiting for the tx({:?}) to be finallized! ",
                            associated_account.account.to_string(),
                            sig
                        );
@@ -193,7 +193,7 @@ pub async fn create_associated_account() {
                    Some(sig) => {
                        log!(
                            DEBUG,
-                           "[associated_account::create_associated_account] {:?} already created and waiting for the signature({:?}) to be finallized! ",
+                           "[associated_account::create_associated_account] the ata {:?} already submited and waiting for the tx({:?}) to be finallized! ",
                            associated_account.account.to_string(),
                            sig
                        );
@@ -224,12 +224,7 @@ pub async fn handle_creating_ata(owner:String,mint_address:String) {
             );
             // update account created signature and retry ,but not confirmed
             mutate_state(|s| {
-                // s.associated_accounts
-                //     .get_mut(&(owner.to_string(), mint_address.to_string()))
-                //     .map(|account| {
-                //         account.signature = Some(sig.to_string());
-                //         account.retry += 1;
-                //     })
+  
                 let ata_key = AtaKey{owner:owner.to_string(), token_mint:mint_address.to_string()};
                 if let Some(account) = s.associated_accounts
                 .get(&ata_key              
@@ -250,24 +245,18 @@ pub async fn handle_creating_ata(owner:String,mint_address:String) {
                 "[associated_account::handle_creating_ata] create_ata for owner: {:} and token_mint: {:}, error: {:?}  ",
                 owner.to_string(), mint_address.to_string(), e
             );
-            // update account retry 
+           // update account retry 
             mutate_state(|s| {
-                // s.associated_accounts
-                //     .get_mut(&(owner.to_string(), mint_address.to_string()))
-                //     .map(|account| {
-                //         account.status =
-                //             TxStatus::TxFailed { e: e.to_string() };
-                //         account.retry += 1;
-                //     })
                 let ata_key = AtaKey{owner:owner.to_string(), token_mint:mint_address.to_string()};
-               if let Some(account)= s.associated_accounts
-                    .get(& ata_key
-                ).as_mut() {
+                if let Some(account)= s.associated_accounts
+                    .get(& ata_key).as_mut() {
                         account.status =
                             TxStatus::TxFailed { e: e.to_string() };
                         account.retry += 1;
-                        s.associated_accounts.insert(ata_key, account.to_owned());
-                    }
+                        //reset signature
+                        account.signature = None;
+                         s.associated_accounts.insert(ata_key, account.to_owned());
+                }
                    
             });
            
@@ -287,8 +276,21 @@ pub async fn update_ata_status(sig:String,owner:String,mint_address:String) {
              sig.to_string(),
              e
          );
-            //TOOD: retry?
-       
+        
+       //TOOD: update account and retry ?
+       mutate_state(|s| {
+        let ata_key = AtaKey{owner:owner.to_string(), token_mint:mint_address.to_string()};
+        if let Some(account)= s.associated_accounts
+            .get(& ata_key).as_mut() {
+                account.status =
+                    TxStatus::TxFailed { e: e.to_string() };
+                account.retry += 1;
+                //reset signature
+                account.signature = None;
+                s.associated_accounts.insert(ata_key, account.to_owned());
+        }
+           
+        });
     }
     Ok(status_vec) => {
         status_vec.first().map(|tx_status| {
@@ -300,17 +302,11 @@ pub async fn update_ata_status(sig:String,owner:String,mint_address:String) {
              );
              if let Some(status) = &tx_status.confirmation_status {
                  if matches!(status, TransactionConfirmationStatus::Finalized) {
-                    // update account status to confimed
+                    // update account status to Finalized
                     mutate_state(|s| {
-                        // s.associated_accounts
-                        //     .get_mut(&(owner.to_string(), mint_address.to_string()))
-                        //     .map(|account| {
-                        //         account.status = TxStatus::Finalized;
-                        //     })
                         let ata_key=AtaKey{owner:owner.to_string(), token_mint:mint_address.to_string()};
-                       if let Some(account)  =         s.associated_accounts
-                            .get(&ata_key                            
-                        ).as_mut() {
+                       if let Some(account)  = s.associated_accounts
+                            .get(&ata_key).as_mut() {
                                 account.status = TxStatus::Finalized;
                                 s.associated_accounts.insert(ata_key, account.to_owned());
                             }

@@ -195,9 +195,9 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant {
 #     --ic 
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE202409242101"
-TOKEN_NAME="HOPE•YOU•GET•NICE202409242101"
-TOKEN_SYMBOL="NICE202409242101"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE202409251145"
+TOKEN_NAME="HOPE•YOU•GET•NICE202409251145"
+TOKEN_SYMBOL="NICE202409251145"
 DECIMALS=2
 ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
 
@@ -340,7 +340,11 @@ echo "fee account: $FEE_AMOUNT"
 # collect fee
 WALLET_ADDRESS=$(solana address)
 echo "collect fee to $FEE_ACCOUNT from $WALLET_ADDRESS"
-solana transfer $FEE_ACCOUNT $FEE_AMOUNT 
+SIGNAURE=$(solana transfer $FEE_ACCOUNT $FEE_AMOUNT)
+SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
+echo "collect fee signature: $SIGNAURE"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIGNAURE}\",opt \"${ankr}\")" --ic
+
 
 # second, burn token
 CUSTOMS_RECEIVER="bc1qmh0chcr9f73a3ynt90k0w8qsqlydr4a6espnj6"
@@ -351,8 +355,7 @@ echo spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $O
 SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
 SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
 echo "burn signature: $SIGNAURE"
-sleep 10
-
+sleep 5
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIGNAURE}\",opt \"${ankr}\")" --ic
 
 

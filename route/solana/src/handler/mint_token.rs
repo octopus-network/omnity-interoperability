@@ -63,6 +63,7 @@ pub async fn mint_token() {
             .map(|(seq, ticket)| (seq, ticket))
             .collect::<Vec<_>>()
     });
+    
     // TODO: check mint_token_requests 
     // if ticket id already exits in mint_token_requests,skip it
     
@@ -72,7 +73,7 @@ pub async fn mint_token() {
             Some(token_mint) => {
                 if !matches!(token_mint.status,TxStatus::Finalized) {
                     log!(DEBUG,
-                        "[mint_token::mint_token] token_mint ({:?}) not comfired, waiting for comfire ...",
+                        "[mint_token::mint_token] token_mint ({:?}) not finalized, waiting for finalized ...",
                         token_mint
                     );
                     continue;
@@ -100,7 +101,7 @@ pub async fn mint_token() {
             Some(associated_account) => {
                 if !matches!(associated_account.status,TxStatus::Finalized) {
                     log!(DEBUG,
-                        "[mint_token::mint_token] associated_account ({:?}) not comfired, waiting for comfire ...",
+                        "[mint_token::mint_token] associated_account ({:?}) not finalized, waiting for finalized ...",
                         associated_account
                     );
                     continue;
@@ -109,7 +110,7 @@ pub async fn mint_token() {
             }
             None => {
                 log!(DEBUG,
-                 "[mint_token::mint_token] the associated_account for owner: ({}) and token_mint: ({}) is not exists,waiting for create associated account ...",
+                 "[mint_token::mint_token] the associated_account for owner: ({}) and token_mint: ({}) is not exists, waiting for create associated account ...",
                  ticket.receiver.to_string(),token_mint.account.to_string()
              );
                 continue;
@@ -152,7 +153,7 @@ pub async fn mint_token() {
                     Some(sig) => {
                         log!(
                             DEBUG,
-                            "[mint_token::mint_token] mint req  tx ( {:?} ) already sent and waiting for the signature({:?}) to be finallized! ",
+                            "[mint_token::mint_token] mint req tx({:?}) already submited and waiting for the tx({:?}) to be finallized! ",
                           mint_req,sig
                         );
                         update_mint_token_req(mint_req.to_owned(), sig).await;
@@ -167,14 +168,14 @@ pub async fn mint_token() {
                         // handle_mint_token(mint_req).await;
                         log!(
                             DEBUG,
-                            "[mint_token::mint_token] the  mint token request ({:?}) is handling,pls wait ...",
+                            "[mint_token::mint_token] the mint token request ({:?}) is handling, pls wait ...",
                             mint_req
                         );
                     },
                     Some(sig) => {
                         log!(
                             DEBUG,
-                            "[mint_token::mint_token] mint req  tx ( {:?} ) already sent and waiting for the signature({:?}) to be finallized! ",
+                            "[mint_token::mint_token] mint req tx({:?}) already submited and waiting for the tx({:?}) to be finallized! ",
                           mint_req,sig
                         );
                         update_mint_token_req(mint_req.to_owned(), sig).await;
@@ -204,7 +205,7 @@ pub async fn mint_token() {
                    "[mint_token::mint_token] failed to mint token for ticket id: {}, error: {:} and retry mint ..",
                     ticket.ticket_id,e 
                 );
-                 //retry mint_to 
+                 //retry mint_to ?
                 //  handle_mint_token(mint_req).await;
  
             },
@@ -214,59 +215,18 @@ pub async fn mint_token() {
     }
 }
 
-pub async fn update_mint_token_req(mut mint_req:MintTokenRequest,sig:String) {
-
-     // query signature status
-     let tx_status_ret = solana_rpc::get_signature_status(vec![sig.to_string()]).await;
-     match tx_status_ret {
-         Err(e) => {
-             log!(
-                 ERROR,
-                 "[mint_token::update_mint_token_req] get_signature_status for {} ,err: {:?}",
-                 sig.to_string(),
-                 e
-             );
-             //TOOD: retry?
-            
-         }
-         Ok(status_vec) => {
-             status_vec.first().map(|tx_status| {
-                 log!(
-                     DEBUG,
-                     "[mint_token::update_mint_token_req] signature {}  status : {:?} ",
-                     sig.to_string(),
-                     tx_status,
-                 );
-                 if let Some(status) = &tx_status.confirmation_status {
-                     if matches!(status, TransactionConfirmationStatus::Finalized) {
-                         // update mint token req status
-                         mint_req.status = TxStatus::Finalized;
-                         mutate_state(|s| {
-                             s.update_mint_token_req(mint_req.ticket_id.to_owned(), mint_req)
-                         });
-     
-                     }
-                 }
-             });
-         
-         }
-     }
-
-}
 pub async fn handle_mint_token(mint_req: MintTokenRequest){
     match mint_to(mint_req.to_owned()).await {
         Ok(signature) => {
             log!(
                 DEBUG,
-                "[mint_token::mint_token] mint token successful for ticket id: {} and signature is :{}",
+                "[mint_token::mint_token] mint token req was submited for ticket id: {} and signature is :{}",
                 mint_req.ticket_id.to_string(),
                 signature
             );
             // update req signature,but not comfirmed
             mutate_state(|s| {
-                  // s.mint_token_requests.get_mut(&mint_req.ticket_id).map(|req|{
-                // req.signature = Some(signature.to_string());
-                // req.retry +=1;
+   
                 if let Some(req)=s.mint_token_requests.get(&mint_req.ticket_id).as_mut() {
                     req.signature = Some(signature.to_string());
                     req.retry +=1;
@@ -283,12 +243,11 @@ pub async fn handle_mint_token(mint_req: MintTokenRequest){
             log!(CRITICAL,"{}", err_info.to_string());
             // if err, update req status 
             mutate_state(|s| {
-                    // s.mint_token_requests.get_mut(&mint_req.ticket_id).map(|req|{
-                    //     req.status =TxStatus::TxFailed { e: err_info };
-                    //     req.retry +=1;
                     if let Some(req)=s.mint_token_requests.get(&mint_req.ticket_id).as_mut() {
                         req.status =TxStatus::TxFailed { e: err_info };
                         req.retry +=1;
+                        //reset signature
+                        req.signature = None;
                         s.mint_token_requests.insert(mint_req.ticket_id.to_string(),req.to_owned());
                     }
                 });
@@ -298,6 +257,54 @@ pub async fn handle_mint_token(mint_req: MintTokenRequest){
          
         }
     }
+}
+
+pub async fn update_mint_token_req(mut mint_req:MintTokenRequest,sig:String) {
+    // query signature status
+    let tx_status_ret = solana_rpc::get_signature_status(vec![sig.to_string()]).await;
+    match tx_status_ret {
+        Err(e) => {
+            log!(
+                ERROR,
+                "[mint_token::update_mint_token_req] get_signature_status for {} ,err: {:?}",
+                sig.to_string(),
+                e
+            );
+            //TOOD: retry?
+            mutate_state(|s| {
+               if let Some(req)=s.mint_token_requests.get(&mint_req.ticket_id).as_mut() {
+                   req.status =TxStatus::TxFailed { e: e.to_string() };
+                   req.retry +=1;
+                   //reset signature
+                   // req.signature = None;
+                   s.mint_token_requests.insert(mint_req.ticket_id.to_string(),req.to_owned());
+               }
+           });
+           
+        }
+        Ok(status_vec) => {
+            status_vec.first().map(|tx_status| {
+                log!(
+                    DEBUG,
+                    "[mint_token::update_mint_token_req] signature {}  status : {:?} ",
+                    sig.to_string(),
+                    tx_status,
+                );
+                if let Some(status) = &tx_status.confirmation_status {
+                    if matches!(status, TransactionConfirmationStatus::Finalized) {
+                        // update mint token req status
+                        mint_req.status = TxStatus::Finalized;
+                        mutate_state(|s| {
+                            s.update_mint_token_req(mint_req.ticket_id.to_owned(), mint_req)
+                        });
+    
+                    }
+                }
+            });
+        
+        }
+    }
+
 }
 
 /// send tx to solana for mint token

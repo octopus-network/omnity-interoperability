@@ -364,7 +364,7 @@ pub async fn create_mint_account(req: TokenInfo) -> Result<AccountInfo, CallErro
                 Some(sig) => {
                     log!(
                         DEBUG,
-                        "[directive::create_token_mint] {:?} already created and waiting for {:} finallized ... ",
+                        "[directive::create_token_mint]the token mint ({:?}) was already submited and waiting for the tx({:}) to be finallized ... ",
                         mint_account,sig
                         
                     );
@@ -473,7 +473,7 @@ pub async fn query_aossicated_account_address(
         |s| match s.associated_accounts.get(&AtaKey { owner, token_mint }) {
             None => None,
             Some(ata) => {
-                if matches!(ata.status, TxStatus::Finalized { .. }) {
+                if matches!(ata.status, TxStatus::Finalized) {
                     Some(ata.account.to_string())
                 } else {
                     None
@@ -776,7 +776,7 @@ pub async fn mint_token(req: MintTokenRequest) -> Result<TxStatus, CallError> {
         TxStatus::Pending => {
             match req.signature.to_owned() {
                 None => {
-                    log!(DEBUG, "[service::mint_token] the  mint token request ({:?}) is creating,pls wait ...", req);
+                    log!(DEBUG, "[service::mint_token] the  mint token request ({:?}) is handling,pls wait ...", req);
                 }
                 Some(sig) => update_mint_req(sig, req.ticket_id.to_string()).await?,
             }
@@ -939,7 +939,7 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
                     .tickets_failed_to_hub
                     .insert(ticket_id, ticket.to_owned());
             });
-            log!(ERROR, "resend ticket: {}", ticket.ticket_id);
+            log!(ERROR, "failed to resend ticket: {}", ticket.ticket_id);
             return Err(err);
         }
     }

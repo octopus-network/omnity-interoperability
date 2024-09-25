@@ -212,3 +212,31 @@ echo "The dest address: $SOL_RECEIVER and the token address: $TOKEN_MINT aossica
 
 # SIG=2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\,null")" --ic
+
+# update_mint_token_req and remint 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
+TID=67369fa6214248ea4f8a539c134bbd1e1b47bf34e5e7a2fb16db82af909025bf
+ATA=BbDheYkCrEbvHj3QswhBTMmcDM4aQ7r9cG9fxzpdfSXM
+MINT_AMOUNT=120000
+TOKEN_MINT=5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_mint_token_req "(record{
+        ticket_id=\"${TID}\";
+        associated_account=\"${ATA}\";
+        amount=${MINT_AMOUNT}:nat64;
+        token_mint=\"${TOKEN_MINT}\";
+        status=variant { New };
+        signature=null;
+        retry=0;})" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_req "(\"${TID}\")" --ic
+
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token "(record{
+        ticket_id=\"${TID}\";
+        associated_account=\"${ATA}\";
+        amount=${MINT_AMOUNT}:nat64;
+        token_mint=\"${TOKEN_MINT}\";
+        status=variant { New };
+        signature=null;
+        retry=0;})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic

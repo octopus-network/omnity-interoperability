@@ -111,10 +111,6 @@ pub async fn create_token_mint() {
             
         }
 
-        // retry < RETRY_LIMIT_SIZE,or skip
-        // if mint_account_account.retry >= RETRY_LIMIT_SIZE {
-        //     continue;
-        // }
         match &mint_account.status {
             TxStatus::New => {
                 match &mint_account.signature {
@@ -130,7 +126,7 @@ pub async fn create_token_mint() {
                     Some(sig) => {
                         log!(
                             DEBUG,
-                            "[token_account::create_token_mint] {:?} already created and waiting for {:} finallized ... ",
+                            "[token_account::create_token_mint] the token mint ({:?}) already submited and waiting for the tx({:}) to be finallized ... ",
                             mint_account,sig
                             
                         );
@@ -155,7 +151,7 @@ pub async fn create_token_mint() {
                     Some(sig) => {
                         log!(
                             DEBUG,
-                            "[token_account::create_token_mint] {:?} already created and waiting for {:} finallized ... ",
+                            "[token_account::create_token_mint] the token mint ({:?}) already submited and waiting for the tx({:}) to be finallized ... ",
                             mint_account,sig
                             
                         );
@@ -195,7 +191,7 @@ pub async fn create_token_mint() {
                     Some(sig) => {
                         log!(
                             DEBUG,
-                            "[token_account::create_token_mint] {:?} already created and waiting for {:} finallized ... ",
+                            "[token_account::create_token_mint] the token mint ({:?}) was already submited and waiting for the tx({:}) to be finallized ... ",
                             mint_account,sig
                             
                         );
@@ -245,6 +241,8 @@ pub async fn handle_creating_mint_account(account_address: String, token_info: T
                     .get(&token_info.token_id).as_mut() {
                         account.status = TxStatus::TxFailed { e: e.to_string() };
                         account.retry += 1;
+                        //TODO: reset signature
+                        account.signature = None;
                         s.token_mint_accounts.insert(token_info.token_id.to_string(),account.to_owned());
                     }
             });
@@ -263,7 +261,17 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
                 sig.to_string(),
                 e
             );
-            //TOOD: retry?
+            //TOOD: update account info and retry?
+            mutate_state(|s| {
+                if let Some(account) = s.token_mint_accounts
+                    .get(&token_id).as_mut() {
+                        account.status = TxStatus::TxFailed { e: e.to_string() };
+                        account.retry += 1;
+                        //reset signature
+                        account.signature = None;
+                        s.token_mint_accounts.insert(token_id.to_string(),account.to_owned());
+                    }
+            });
         }
         Ok(status_vec) => {
             status_vec.first().map(|tx_status| {
@@ -325,7 +333,7 @@ pub async fn update_token() {
             log!(DEBUG,"[token_account::update_token] token_update_info: {:?} ",token_update_info);
             match update_token_metadata(account_info.account, token_update_info).await {
                 Ok(signature) => {
-                    log!(DEBUG,"[token_account::update_token] {:?} update token metadata on solana sucessfully ! \n{:?} ",
+                    log!(DEBUG,"[token_account::update_token]  update token metadata for {:?} already submited to solana and waiting for the tx({:}) to be finallized ...",
                     update_token.token.token_id.to_string(),
                     signature
                 );

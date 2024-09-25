@@ -142,14 +142,14 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
     // let mut receiver = String::from("");
     // let mut tx = String::from("");
     let client = solana_client().await;
-    let multi_rpc_config = read_state(|s| s.multi_rpc_config.clone());
+    let multi_rpc_config = read_state(|s| s.multi_rpc_config.to_owned());
     multi_rpc_config
         .check_config_valid()
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
     let tx_response = query_tx_from_multi_rpc(
         &client,
         req.signature.to_owned(),
-        multi_rpc_config.rpc_list.clone(),
+        multi_rpc_config.rpc_list.to_owned(),
     )
     .await;
     let json_response = multi_rpc_config
@@ -323,7 +323,7 @@ pub async fn query_tx_from_multi_rpc(
     for rpc_url in rpc_url_vec {
         fut.push(async {
             client
-                .query_transaction(signature.clone(), Some(rpc_url))
+                .query_transaction(signature.to_owned(), Some(rpc_url))
                 .await
         });
     }
