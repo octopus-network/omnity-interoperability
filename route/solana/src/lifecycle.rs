@@ -1,3 +1,4 @@
+use crate::migration::{migrate, PreState};
 use crate::state::MultiRpcConfig;
 use crate::types::ChainState;
 use crate::{
@@ -20,11 +21,12 @@ pub struct InitArgs {
     pub chain_id: String,
     pub hub_principal: Principal,
     pub chain_state: ChainState,
-    pub schnorr_canister: Option<Principal>,
+
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Principal,
     pub fee_account: Option<String>,
     pub multi_rpc_config: MultiRpcConfig,
+    pub forward: Option<String>,
 }
 
 pub fn init(args: InitArgs) {
@@ -57,11 +59,11 @@ pub struct UpgradeArgs {
     pub chain_id: Option<String>,
     pub hub_principal: Option<Principal>,
     pub chain_state: Option<ChainState>,
-    pub schnorr_canister: Option<Principal>,
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Option<Principal>,
     pub fee_account: Option<String>,
     pub multi_rpc_config: Option<MultiRpcConfig>,
+    pub forward: Option<String>,
 }
 
 pub fn post_upgrade(args: Option<UpgradeArgs>) {
@@ -76,9 +78,13 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     memory.read(4, &mut state_bytes);
 
     // Deserialize pre state
-    let mut state: SolanaRouteState =
+    let pre_state: PreState =
         ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
+    // migrate
+    let mut state = migrate(pre_state);
+
+    // update state
     if let Some(args) = args {
         if let Some(admin) = args.admin {
             state.admin = admin;
@@ -92,9 +98,6 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         if let Some(chain_state) = args.chain_state {
             state.chain_state = chain_state;
         }
-        if let Some(schnorr_canister) = args.schnorr_canister {
-            state.schnorr_canister = schnorr_canister;
-        }
         if let Some(schnorr_key_name) = args.schnorr_key_name {
             state.schnorr_key_name = schnorr_key_name;
         }
@@ -107,6 +110,10 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         if let Some(multi_rpc_config) = args.multi_rpc_config {
             state.multi_rpc_config = multi_rpc_config;
         }
+        if let Some(forward) = args.forward {
+            state.forward = Some(forward);
+        }
     }
+
     replace_state(state);
 }

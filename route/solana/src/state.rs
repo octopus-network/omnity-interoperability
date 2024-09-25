@@ -1,4 +1,4 @@
-use crate::handler::sol_call::TransactionDetail;
+use crate::handler::gen_ticket::TransactionDetail;
 use crate::memory::Memory;
 use crate::{
     auth::Permission,
@@ -11,16 +11,18 @@ use candid::{CandidType, Principal};
 use ic_solana::rpc_client::JsonRpcResponse;
 use ic_stable_structures::StableBTreeMap;
 
-use crate::handler::ticket::MintTokenRequest;
+use crate::handler::mint_token::MintTokenRequest;
 use crate::types::{
     Chain, ChainId, ChainState, Factor, Ticket, TicketId, ToggleState, Token, TokenId,
 };
+use ic_stable_structures::storable::Bound;
+use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
 };
-
 pub type CanisterId = Principal;
 pub type Owner = String;
 pub type MintAccount = String;
@@ -32,8 +34,9 @@ thread_local! {
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TxStatus {
+    New,
+    Pending,
     Finalized,
-    Unknown,
     TxFailed { e: String },
 }
 
@@ -43,12 +46,85 @@ pub enum AccountStatus {
     Unknown,
 }
 
-#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccountInfo {
     pub account: String,
     pub retry: u64,
     pub signature: Option<String>,
     pub status: TxStatus,
+}
+
+impl Storable for AccountInfo {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenMeta");
+        tm
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AtaKey {
+    pub owner: String,
+    pub token_mint: String,
+}
+
+impl Storable for AtaKey {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenMeta");
+        tm
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl AtaKey {
+    pub fn new(owner: String, token_mint: String) -> Self {
+        Self { owner, token_mint }
+    }
+}
+
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+pub struct UpdateToken {
+    pub token: Token,
+    pub retry: u64,
+}
+
+impl Storable for UpdateToken {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenMeta");
+        tm
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl UpdateToken {
+    pub fn new(token: Token, retry: u64) -> Self {
+        Self { token, retry }
+    }
+    pub fn update_token(&mut self, token: Token, retry: u64) {
+        self.token = token;
+        self.retry = retry;
+    }
 }
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
@@ -117,8 +193,8 @@ impl MultiRpcConfig {
                 Ok(resp) => match serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&resp)
                 {
                     Ok(t) => {
-                        success_response_list.push(t);
-                        success_response_body_list.push(resp.clone())
+                        success_response_list.push(t.clone());
+                        success_response_body_list.push(t.result.to_owned())
                     }
                     Err(_) => {
                         continue;
@@ -154,49 +230,42 @@ impl MultiRpcConfig {
 #[derive(Deserialize, Serialize)]
 pub struct SolanaRouteState {
     pub chain_id: String,
-
     pub hub_principal: Principal,
-
     // Next index of query tickets from hub
     pub next_ticket_seq: u64,
     pub next_consume_ticket_seq: u64,
-
     // Next index of query directives from hub
     pub next_directive_seq: u64,
-
-    pub counterparties: BTreeMap<ChainId, Chain>,
-
-    pub tokens: BTreeMap<TokenId, Token>,
-    pub update_token_queue: BTreeMap<TokenId, (Token, u64)>,
-
-    pub token_mint_accounts: BTreeMap<TokenId, AccountInfo>,
-
-    pub associated_accounts: BTreeMap<(Owner, MintAccount), AccountInfo>,
-
-    pub mint_token_requests: BTreeMap<TicketId, MintTokenRequest>,
-
     pub fee_token_factor: Option<u128>,
-
     pub target_chain_factor: BTreeMap<ChainId, u128>,
-
     pub chain_state: ChainState,
-
-    pub tickets_failed_to_hub: Vec<Ticket>,
-
-    pub schnorr_canister: Principal,
     pub schnorr_key_name: String,
-
     pub sol_canister: Principal,
     pub fee_account: String,
-
     // Locks preventing concurrent execution timer tasks
     pub active_tasks: HashSet<TaskType>,
     pub admin: Principal,
     pub caller_perms: HashMap<String, Permission>,
+    pub multi_rpc_config: MultiRpcConfig,
+    pub forward: Option<String>,
 
+    // stable storage
     #[serde(skip, default = "crate::memory::init_ticket_queue")]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
-    pub multi_rpc_config: MultiRpcConfig,
+    #[serde(skip, default = "crate::memory::init_failed_tickets")]
+    pub tickets_failed_to_hub: StableBTreeMap<String, Ticket, Memory>,
+    #[serde(skip, default = "crate::memory::init_counterparties")]
+    pub counterparties: StableBTreeMap<ChainId, Chain, Memory>,
+    #[serde(skip, default = "crate::memory::init_tokens")]
+    pub tokens: StableBTreeMap<TokenId, Token, Memory>,
+    #[serde(skip, default = "crate::memory::init_update_tokens")]
+    pub update_token_queue: StableBTreeMap<TokenId, UpdateToken, Memory>,
+    #[serde(skip, default = "crate::memory::init_token_mint_accounts")]
+    pub token_mint_accounts: StableBTreeMap<TokenId, AccountInfo, Memory>,
+    #[serde(skip, default = "crate::memory::init_associated_accounts")]
+    pub associated_accounts: StableBTreeMap<AtaKey, AccountInfo, Memory>,
+    #[serde(skip, default = "crate::memory::init_mint_token_requests")]
+    pub mint_token_requests: StableBTreeMap<TicketId, MintTokenRequest, Memory>,
 }
 
 impl From<InitArgs> for SolanaRouteState {
@@ -204,22 +273,12 @@ impl From<InitArgs> for SolanaRouteState {
         Self {
             chain_id: args.chain_id,
             hub_principal: args.hub_principal,
-            token_mint_accounts: Default::default(),
-
             next_ticket_seq: 0,
             next_consume_ticket_seq: 0,
             next_directive_seq: 0,
-            counterparties: Default::default(),
-            tokens: Default::default(),
-            update_token_queue: Default::default(),
-            mint_token_requests: Default::default(),
             fee_token_factor: None,
             target_chain_factor: Default::default(),
             chain_state: args.chain_state,
-            tickets_failed_to_hub: Default::default(),
-            schnorr_canister: args
-                .schnorr_canister
-                .unwrap_or(Principal::management_canister()),
             schnorr_key_name: args
                 .schnorr_key_name
                 .unwrap_or(SCHNORR_KEY_NAME.to_string()),
@@ -227,10 +286,25 @@ impl From<InitArgs> for SolanaRouteState {
             active_tasks: Default::default(),
             admin: args.admin,
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
-            tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
-            associated_accounts: Default::default(),
             fee_account: args.fee_account.unwrap_or(FEE_ACCOUNT.to_string()),
             multi_rpc_config: args.multi_rpc_config,
+            forward: args.forward,
+
+            // init stable storage
+            tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
+            tickets_failed_to_hub: StableBTreeMap::init(crate::memory::get_failed_tickets_memory()),
+            counterparties: StableBTreeMap::init(crate::memory::get_counterparties_memory()),
+            tokens: StableBTreeMap::init(crate::memory::get_tokens_memory()),
+            update_token_queue: StableBTreeMap::init(crate::memory::get_update_tokens_memory()),
+            token_mint_accounts: StableBTreeMap::init(
+                crate::memory::get_token_mint_accounts_memory(),
+            ),
+            associated_accounts: StableBTreeMap::init(
+                crate::memory::get_associated_accounts_memory(),
+            ),
+            mint_token_requests: StableBTreeMap::init(
+                crate::memory::get_mint_token_requests_memory(),
+            ),
         }
     }
 }
@@ -250,13 +324,16 @@ impl SolanaRouteState {
     pub fn toggle_chain_state(&mut self, toggle: ToggleState) {
         if toggle.chain_id == self.chain_id {
             self.chain_state = toggle.action.into();
-        } else if let Some(chain) = self.counterparties.get_mut(&toggle.chain_id) {
+        } else if let Some(chain) = self.counterparties.get(&toggle.chain_id).as_mut() {
             chain.chain_state = toggle.action.into();
+            // update chain state
+            self.counterparties
+                .insert(chain.chain_id.to_string(), chain.to_owned());
         }
     }
 
     pub fn sol_token_account(&self, ticket_id: &String) -> Option<AccountInfo> {
-        self.token_mint_accounts.get(ticket_id).cloned()
+        self.token_mint_accounts.get(ticket_id)
     }
 
     pub fn update_mint_token_req(&mut self, ticket_id: String, req: MintTokenRequest) {
@@ -289,11 +366,6 @@ impl SolanaRouteState {
                 })
         })
     }
-}
-
-// just for test or dev, replace it for production with Principal::management_canister()
-pub fn management_canister() -> CanisterId {
-    read_state(|s| s.schnorr_canister)
 }
 
 pub fn take_state<F, R>(f: F) -> R

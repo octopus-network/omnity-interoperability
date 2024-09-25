@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 BITCOIN_CHAIN_ID="Bitcoin"
-SOL_CHAIN_ID="Solana"
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•FIVE"
+SOL_CHAIN_ID="eSolana"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH202409242036"
 
 # start schedule 
 dfx canister call solana_route start_schedule '()' 
@@ -87,7 +87,7 @@ SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --ow
 SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
 echo "burn signature: $SIGNAURE"
 
-sleep 10
+sleep 15
 
 # finally,generate ticket and send to hub
 dfx canister call solana_route generate_ticket "(record {
@@ -104,11 +104,11 @@ dfx canister call solana_route generate_ticket "(record {
 dfx canister call omnity_hub query_tickets "(opt \"${BITCOIN_CHAIN_ID}\",0:nat64,5:nat64)"
 
 # update token
-# TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE"
-# TOKEN_NAME="HOPE•YOU•GET•DDDDDD"
-# TOKEN_SYMBOL="DDDDDD"
-# DECIMALS=5
-# ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/image.png"
+# TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH66"
+# TOKEN_NAME="HOPE•YOU•GET•URICH66"
+# TOKEN_SYMBOL="URICH66"
+# DECIMALS=2
+# ICON="https://github.com/ordinals/ord/assets/14307069/f1307be5-84fb-4b58-81d0-6521196a2406"
 # dfx canister call omnity_hub validate_proposal "( vec {variant { UpdateToken = record { 
 #         token_id = \"${TOKEN_ID}\"; 
 #         name = \"${TOKEN_NAME}\";
@@ -129,8 +129,7 @@ dfx canister call omnity_hub query_tickets "(opt \"${BITCOIN_CHAIN_ID}\",0:nat64
 #         dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
 # dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateToken},0:nat64,5:nat64)"
 
-# sleep 30
-
+# sleep 50
 # dfx canister call solana_route get_token_list '()' 
 
 
@@ -167,4 +166,25 @@ dfx canister call solana_route cancel_schedule '()'
 #dfx canister install --mode upgrade --argument '(variant { Upgrade = null })'  --upgrade-unchanged --yes solana_route
 
 
+# update muti rpc config
+# rpc1=https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
+# rpc2=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
+# rpc3=https://nd-471-475-490.p2pify.com/6de0b91c609fb3bd459e043801aa6aa4
+# rpc4=https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
 
+# dfx canister call solana_route update_multi_rpc "(record {
+#     rpc_list = vec {\"${rpc1}\";\"${rpc2}\";\"${rpc3}\"};\
+#     minimum_response_count = 2;
+# })"
+
+# dfx canister call solana_route multi_rpc_config '()'
+
+# valid_tx_from_multi_rpc
+# sig=4e1gA4YvTt95DYY5kdwSWpGr2oiMqRX2nk4XenF1aiJSz69cbLBMeTfV6HG4jG7jHtdcHwwjGCSw5zepgpC8n5g7
+# dfx canister call solana_route valid_tx_from_multi_rpc "(\"${sig}\")"
+
+# update provider rpc 
+# dfx canister call ic-solana-provider update_rpc "(\"${rpc1}\")"
+
+# query tx detail
+# dfx canister call solana_route get_transaction "(\"${sig}\",null)"

@@ -33,6 +33,22 @@ content-type: application/json
      }
    ]
 }
+### query account info
+POST {{alchemy}}
+content-type: application/json
+
+{
+   "jsonrpc": "2.0",
+   "id": 1,
+   "method": "getAccountInfo",
+   "params": [
+     "BbDheYkCrEbvHj3QswhBTMmcDM4aQ7r9cG9fxzpdfSXM",
+     {
+       "encoding": "jsonParsed"
+     }
+   ]
+}
+
 
 ### query account info
 POST {{mainnet}}
@@ -43,7 +59,7 @@ content-type: application/json
    "id": 1,
    "method": "getAccountInfo",
    "params": [
-     "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+     "BbDheYkCrEbvHj3QswhBTMmcDM4aQ7r9cG9fxzpdfSXM",
      {
        "encoding": "jsonParsed"
      }
@@ -64,6 +80,7 @@ content-type: application/json
 
 ### req airdrop
 POST {{alchemy}}
+# POST {{devnet}}
 content-type: application/json
 
   {
@@ -175,7 +192,7 @@ content-type: application/json
     "id": 1,
     "method": "getTransaction",
     "params": [
-      "29xgU6hKxajDskDLiCBYmJ3rL4vpAujAz6vQ51T91Mqq4iPmXrgq9vrbSq2L59ysgyNQMZLBrrDmFMnKt5R91Sis",
+      "2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK",
       "jsonParsed"
     ]
   }
@@ -189,7 +206,7 @@ content-type: application/json
     "id": 1,
     "method": "getTransaction",
     "params": [
-      "4QFCua1ZQzPffEXzFvvW5H3FsGcpMUgeRLuUQCZy1pJJQ7H4rMZULh23Qi94ujX88ymYcmrUpHLPskRrF2sZps1g",
+      "5c3paA9PKmZk8LZ4Xhnb7dbmqNWifj2Et7Y2riMivc2tKFCYHvwb21iPTAV7g28fic1fpSeRS5SJ4fAWaig8Aq6i",
       "jsonParsed"
     ]
   }
@@ -219,7 +236,7 @@ content-type: application/json
     "method": "getSignatureStatuses",
     "params": [
       [
-        "29xgU6hKxajDskDLiCBYmJ3rL4vpAujAz6vQ51T91Mqq4iPmXrgq9vrbSq2L59ysgyNQMZLBrrDmFMnKt5R91Sis"
+        "2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK"
       ],
       {
         "searchTransactionHistory": true
@@ -237,7 +254,7 @@ content-type: application/json
     "method": "getSignatureStatuses",
     "params": [
       [
-        "4QFCua1ZQzPffEXzFvvW5H3FsGcpMUgeRLuUQCZy1pJJQ7H4rMZULh23Qi94ujX88ymYcmrUpHLPskRrF2sZps1g"
+        "41VdtuNiKLpC4eEW6d6D4yVr3RzFbLDE7Wm8UPvzUC9hRdQa5wcsNeyJoQ7sv95KLtszLQBmj6HRNVUCb5zPAxDq"
       ],
       {
         "searchTransactionHistory": true

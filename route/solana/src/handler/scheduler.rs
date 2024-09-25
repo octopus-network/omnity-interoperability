@@ -1,6 +1,9 @@
-use super::{directive, ticket};
+use super::{fecth_directive, mint_token};
 use crate::constants::CREATE_ATA_INTERVAL;
 use crate::constants::CREATE_MINT_INTERVAL;
+use crate::handler::associated_account;
+use crate::handler::fetch_ticket;
+use crate::handler::token_account;
 use crate::{
     constants::{
         MINT_TOKEN_INTERVAL, QUERY_DERECTIVE_INTERVAL, QUERY_TICKET_INTERVAL, UPDATE_TOKEN_INTERVAL,
@@ -9,7 +12,7 @@ use crate::{
 };
 use ic_canister_log::log;
 use ic_cdk_timers::TimerId;
-use ic_solana::logs::DEBUG;
+use ic_solana::ic_log::DEBUG;
 use std::cell::RefCell;
 use std::collections::HashMap;
 thread_local! {
@@ -24,7 +27,7 @@ pub fn start_schedule() {
                 Ok(guard) => guard,
                 Err(_) => return,
             };
-            directive::query_directives().await;
+            fecth_directive::query_directives().await;
         });
     });
     log!(
@@ -43,7 +46,7 @@ pub fn start_schedule() {
                 Ok(guard) => guard,
                 Err(_) => return,
             };
-            directive::create_token_mint().await;
+            token_account::create_token_mint().await;
         });
     });
     log!(
@@ -62,7 +65,7 @@ pub fn start_schedule() {
                 Ok(guard) => guard,
                 Err(_) => return,
             };
-            directive::update_token().await;
+            token_account::update_token().await;
         });
     });
     log!(
@@ -82,7 +85,7 @@ pub fn start_schedule() {
                 Err(_) => return,
             };
 
-            ticket::query_tickets().await;
+            fetch_ticket::query_tickets().await;
         });
     });
     log!(
@@ -103,7 +106,7 @@ pub fn start_schedule() {
                     Err(_) => return,
                 };
 
-                ticket::create_associated_account().await;
+                associated_account::create_associated_account().await;
             });
         });
     log!(
@@ -126,7 +129,7 @@ pub fn start_schedule() {
                 Err(_) => return,
             };
 
-            ticket::mint_token().await;
+            mint_token::mint_token().await;
         });
     });
     log!(

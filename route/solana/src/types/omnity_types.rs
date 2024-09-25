@@ -1,4 +1,3 @@
-
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::{self, Display, Formatter},
@@ -458,6 +457,21 @@ impl Chain {
     }
 }
 
+impl Storable for Chain {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let cm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode ChainMeta");
+        cm
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
 impl core::fmt::Display for Chain {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
@@ -467,7 +481,6 @@ impl core::fmt::Display for Chain {
         )
     }
 }
-
 
 #[derive(CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct ToggleState {
@@ -503,6 +516,22 @@ impl Token {
         self.token_id.split('-').collect()
     }
 }
+
+impl Storable for Token {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenMeta");
+        tm
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
 impl core::fmt::Display for Token {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(

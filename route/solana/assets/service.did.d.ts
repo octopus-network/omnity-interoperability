@@ -51,9 +51,10 @@ export interface InitArgs {
   'fee_account' : [] | [string],
   'sol_canister' : Principal,
   'chain_id' : string,
-  'schnorr_canister' : [] | [Principal],
   'schnorr_key_name' : [] | [string],
+  'multi_rpc_config' : MultiRpcConfig,
   'chain_state' : ChainState,
+  'forward' : [] | [string],
 }
 export interface MintTokenRequest {
   'status' : TxStatus,
@@ -63,6 +64,10 @@ export interface MintTokenRequest {
   'amount' : bigint,
   'token_mint' : string,
   'retry' : bigint,
+}
+export interface MultiRpcConfig {
+  'rpc_list' : Array<string>,
+  'minimum_response_count' : number,
 }
 export type Permission = { 'Update' : null } |
   { 'Query' : null };
@@ -74,6 +79,8 @@ export type Result = { 'Ok' : AccountInfo } |
   { 'Err' : CallError };
 export type Result_1 = { 'Ok' : string } |
   { 'Err' : CallError };
+export type Result_10 = { 'Ok' : string } |
+  { 'Err' : string };
 export type Result_2 = { 'Ok' : GenerateTicketOk } |
   { 'Err' : GenerateTicketError };
 export type Result_3 = { 'Ok' : [] | [string] } |
@@ -88,7 +95,7 @@ export type Result_7 = { 'Ok' : MintTokenRequest } |
   { 'Err' : CallError };
 export type Result_8 = { 'Ok' : null } |
   { 'Err' : GenerateTicketError };
-export type Result_9 = { 'Ok' : string } |
+export type Result_9 = { 'Ok' : Uint8Array | number[] } |
   { 'Err' : string };
 export type RouteArg = { 'Upgrade' : [] | [UpgradeArgs] } |
   { 'Init' : InitArgs };
@@ -172,18 +179,20 @@ export type TxAction = { 'Burn' : null } |
   { 'Redeem' : null } |
   { 'Mint' : null } |
   { 'Transfer' : null };
-export type TxStatus = { 'Finalized' : null } |
+export type TxStatus = { 'New' : null } |
+  { 'Finalized' : null } |
   { 'TxFailed' : { 'e' : string } } |
-  { 'Unknown' : null };
+  { 'Pending' : null };
 export interface UpgradeArgs {
   'admin' : [] | [Principal],
   'hub_principal' : [] | [Principal],
   'fee_account' : [] | [string],
   'sol_canister' : [] | [Principal],
   'chain_id' : [] | [string],
-  'schnorr_canister' : [] | [Principal],
   'schnorr_key_name' : [] | [string],
+  'multi_rpc_config' : [] | [MultiRpcConfig],
   'chain_state' : [] | [ChainState],
+  'forward' : [] | [string],
 }
 export interface _SERVICE {
   'cancel_schedule' : ActorMethod<[], undefined>,
@@ -206,6 +215,8 @@ export interface _SERVICE {
   'mint_token' : ActorMethod<[MintTokenRequest], Result_6>,
   'mint_token_req' : ActorMethod<[string], Result_7>,
   'mint_token_status' : ActorMethod<[string], Result_6>,
+  'mint_token_tx_hash' : ActorMethod<[string], Result_3>,
+  'multi_rpc_config' : ActorMethod<[], MultiRpcConfig>,
   'query_aossicated_account' : ActorMethod<
     [string, string],
     [] | [AccountInfo]
@@ -220,11 +231,19 @@ export interface _SERVICE {
   'resend_tickets' : ActorMethod<[], Result_8>,
   'set_permissions' : ActorMethod<[Principal, Permission], undefined>,
   'sign' : ActorMethod<[string], Result_9>,
-  'signer' : ActorMethod<[], Result_9>,
+  'signer' : ActorMethod<[], Result_10>,
   'start_schedule' : ActorMethod<[], undefined>,
   'transfer_to' : ActorMethod<[string, bigint], Result_1>,
-  'update_schnorr_info' : ActorMethod<[Principal, string], undefined>,
+  'update_associated_account' : ActorMethod<
+    [string, string, AccountInfo],
+    Result
+  >,
+  'update_forward' : ActorMethod<[[] | [string]], undefined>,
+  'update_mint_token_req' : ActorMethod<[MintTokenRequest], Result_7>,
+  'update_multi_rpc' : ActorMethod<[MultiRpcConfig], undefined>,
+  'update_schnorr_key' : ActorMethod<[string], undefined>,
   'update_token_metadata' : ActorMethod<[TokenInfo], Result_1>,
+  'valid_tx_from_multi_rpc' : ActorMethod<[string], Result_1>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

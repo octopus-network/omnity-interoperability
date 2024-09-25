@@ -19,7 +19,6 @@ candid-extractor ./target/wasm32-unknown-unknown/release/solana_route.wasm > ./a
 
 ### Deploy solana route and it`s deps
 ```bash
-SCHNORR_CANISTER_ID="aaaaa-aa"
 SCHNORR_KEY_NAME="key_1"
 SOLANA_RPC_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
 
@@ -27,18 +26,11 @@ SOLANA_RPC_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
 dfx deploy ic-solana-provider --argument "( record { 
     rpc_url = opt \"${SOLANA_RPC_URL}\"; 
     nodesInSubnet = opt 28; 
-    schnorr_canister = opt \"${SCHNORR_CANISTER_ID}\"; 
     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
     } )" --ic 
 SOL_PROVIDER_CANISTER_ID=$(dfx canister id ic-solana-provider --ic)
 echo "solana provide canister id: $SOL_PROVIDER_CANISTER_ID"
 
-# test solana provider
-dfx canister status $SOL_PROVIDER_CANISTER_ID --ic
-dfx canister call $SOL_PROVIDER_CANISTER_ID sol_latestBlockhash '()' --ic
-dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getAccountInfo '("3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia")' --ic
-dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getSignatureStatuses '(vec {"4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4"})' --ic
-echo 
 
 # deploy solana_route
 # get admin id
@@ -53,25 +45,23 @@ echo
 SOL_CHAIN_ID="eSolana"
 # TODO:replace the fee account
 FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
+rpc=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
+
 dfx deploy solana_route --argument "(variant { Init = record { \
     admin = principal \"${ADMIN}\";\
     chain_id=\"${SOL_CHAIN_ID}\";\
     hub_principal= principal \"${HUB_CANISTER_ID}\";\
     chain_state= variant { Active }; \
-    schnorr_canister = opt principal \"${SCHNORR_CANISTER_ID}\";\
-    schnorr_key_name = null; \
+    schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
-    fee_account= opt \"${FEE_ACCOUNT}\"; 
+    fee_account= opt \"${FEE_ACCOUNT}\";\
+    multi_rpc_config = record { rpc_list = vec {\"${rpc}\"};\
+    minimum_response_count = 1:nat32;}; \
+    forward = null
 } })" --ic 
 
 SOLANA_ROUTE_CANISTER_ID=$(dfx canister id solana_route --ic)
 echo "Solana route canister id: $SOLANA_ROUTE_CANISTER_ID"
-
-# test solana route
-dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction '("4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4",null)' --ic
 
 ```
 

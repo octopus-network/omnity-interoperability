@@ -1,4 +1,8 @@
 export const idlFactory = ({ IDL }) => {
+  const MultiRpcConfig = IDL.Record({
+    'rpc_list' : IDL.Vec(IDL.Text),
+    'minimum_response_count' : IDL.Nat32,
+  });
   const ChainState = IDL.Variant({
     'Active' : IDL.Null,
     'Deactive' : IDL.Null,
@@ -9,9 +13,10 @@ export const idlFactory = ({ IDL }) => {
     'fee_account' : IDL.Opt(IDL.Text),
     'sol_canister' : IDL.Opt(IDL.Principal),
     'chain_id' : IDL.Opt(IDL.Text),
-    'schnorr_canister' : IDL.Opt(IDL.Principal),
     'schnorr_key_name' : IDL.Opt(IDL.Text),
+    'multi_rpc_config' : IDL.Opt(MultiRpcConfig),
     'chain_state' : IDL.Opt(ChainState),
+    'forward' : IDL.Opt(IDL.Text),
   });
   const InitArgs = IDL.Record({
     'admin' : IDL.Principal,
@@ -19,18 +24,20 @@ export const idlFactory = ({ IDL }) => {
     'fee_account' : IDL.Opt(IDL.Text),
     'sol_canister' : IDL.Principal,
     'chain_id' : IDL.Text,
-    'schnorr_canister' : IDL.Opt(IDL.Principal),
     'schnorr_key_name' : IDL.Opt(IDL.Text),
+    'multi_rpc_config' : MultiRpcConfig,
     'chain_state' : ChainState,
+    'forward' : IDL.Opt(IDL.Text),
   });
   const RouteArg = IDL.Variant({
     'Upgrade' : IDL.Opt(UpgradeArgs),
     'Init' : InitArgs,
   });
   const TxStatus = IDL.Variant({
+    'New' : IDL.Null,
     'Finalized' : IDL.Null,
     'TxFailed' : IDL.Record({ 'e' : IDL.Text }),
-    'Unknown' : IDL.Null,
+    'Pending' : IDL.Null,
   });
   const AccountInfo = IDL.Record({
     'status' : TxStatus,
@@ -202,7 +209,8 @@ export const idlFactory = ({ IDL }) => {
     'Err' : GenerateTicketError,
   });
   const Permission = IDL.Variant({ 'Update' : IDL.Null, 'Query' : IDL.Null });
-  const Result_9 = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
+  const Result_9 = IDL.Variant({ 'Ok' : IDL.Vec(IDL.Nat8), 'Err' : IDL.Text });
+  const Result_10 = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
   return IDL.Service({
     'cancel_schedule' : IDL.Func([], [], []),
     'create_aossicated_account' : IDL.Func([IDL.Text, IDL.Text], [Result], []),
@@ -236,6 +244,8 @@ export const idlFactory = ({ IDL }) => {
     'mint_token' : IDL.Func([MintTokenRequest], [Result_6], []),
     'mint_token_req' : IDL.Func([IDL.Text], [Result_7], ['query']),
     'mint_token_status' : IDL.Func([IDL.Text], [Result_6], ['query']),
+    'mint_token_tx_hash' : IDL.Func([IDL.Text], [Result_3], ['query']),
+    'multi_rpc_config' : IDL.Func([], [MultiRpcConfig], ['query']),
     'query_aossicated_account' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Opt(AccountInfo)],
@@ -256,14 +266,27 @@ export const idlFactory = ({ IDL }) => {
     'resend_tickets' : IDL.Func([], [Result_8], []),
     'set_permissions' : IDL.Func([IDL.Principal, Permission], [], []),
     'sign' : IDL.Func([IDL.Text], [Result_9], []),
-    'signer' : IDL.Func([], [Result_9], []),
+    'signer' : IDL.Func([], [Result_10], []),
     'start_schedule' : IDL.Func([], [], []),
     'transfer_to' : IDL.Func([IDL.Text, IDL.Nat64], [Result_1], []),
-    'update_schnorr_info' : IDL.Func([IDL.Principal, IDL.Text], [], []),
+    'update_associated_account' : IDL.Func(
+        [IDL.Text, IDL.Text, AccountInfo],
+        [Result],
+        [],
+      ),
+    'update_forward' : IDL.Func([IDL.Opt(IDL.Text)], [], []),
+    'update_mint_token_req' : IDL.Func([MintTokenRequest], [Result_7], []),
+    'update_multi_rpc' : IDL.Func([MultiRpcConfig], [], []),
+    'update_schnorr_key' : IDL.Func([IDL.Text], [], []),
     'update_token_metadata' : IDL.Func([TokenInfo], [Result_1], []),
+    'valid_tx_from_multi_rpc' : IDL.Func([IDL.Text], [Result_1], []),
   });
 };
 export const init = ({ IDL }) => {
+  const MultiRpcConfig = IDL.Record({
+    'rpc_list' : IDL.Vec(IDL.Text),
+    'minimum_response_count' : IDL.Nat32,
+  });
   const ChainState = IDL.Variant({
     'Active' : IDL.Null,
     'Deactive' : IDL.Null,
@@ -274,9 +297,10 @@ export const init = ({ IDL }) => {
     'fee_account' : IDL.Opt(IDL.Text),
     'sol_canister' : IDL.Opt(IDL.Principal),
     'chain_id' : IDL.Opt(IDL.Text),
-    'schnorr_canister' : IDL.Opt(IDL.Principal),
     'schnorr_key_name' : IDL.Opt(IDL.Text),
+    'multi_rpc_config' : IDL.Opt(MultiRpcConfig),
     'chain_state' : IDL.Opt(ChainState),
+    'forward' : IDL.Opt(IDL.Text),
   });
   const InitArgs = IDL.Record({
     'admin' : IDL.Principal,
@@ -284,9 +308,10 @@ export const init = ({ IDL }) => {
     'fee_account' : IDL.Opt(IDL.Text),
     'sol_canister' : IDL.Principal,
     'chain_id' : IDL.Text,
-    'schnorr_canister' : IDL.Opt(IDL.Principal),
     'schnorr_key_name' : IDL.Opt(IDL.Text),
+    'multi_rpc_config' : MultiRpcConfig,
     'chain_state' : ChainState,
+    'forward' : IDL.Opt(IDL.Text),
   });
   const RouteArg = IDL.Variant({
     'Upgrade' : IDL.Opt(UpgradeArgs),

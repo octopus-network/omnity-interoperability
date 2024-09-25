@@ -1,5 +1,5 @@
 {
-  "dfx": "0.22.0",
+  "dfx": "0.23.0",
   "canisters": {
     "icp_customs": {
       "package": "icp_customs",

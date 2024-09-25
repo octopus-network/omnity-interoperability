@@ -1,12 +1,5 @@
-type HttpHeader = record { value : text; name : text };
-type HttpResponse = record {
-  status : nat;
-  body : blob;
-  headers : vec HttpHeader;
-};
 type InitArgs = record {
   rpc_url : opt text;
-  schnorr_canister : opt text;
   schnorr_key_name : opt text;
   nodes_in_subnet : opt nat32;
 };
@@ -32,16 +25,16 @@ type UiTokenAmount = record {
 };
 service : (InitArgs) -> {
   get_address : () -> (text);
-  get_responses : () -> (vec record { nat64; HttpResponse }) query;
-  request : (text, text, nat64) -> (Result);
+  request : (text, text, nat64, opt text) -> (Result);
   requestCost : (text, nat64) -> (nat) query;
-  sol_getAccountInfo : (text) -> (Result_1);
-  sol_getBalance : (text) -> (Result_2);
-  sol_getSignatureStatuses : (vec text) -> (Result);
-  sol_getTokenBalance : (text) -> (Result_3);
+  sol_getAccountInfo : (text, opt text) -> (Result_1);
+  sol_getBalance : (text, opt text) -> (Result_2);
+  sol_getSignatureStatuses : (vec text, opt text) -> (Result);
+  sol_getTokenBalance : (text, opt text) -> (Result_3);
   sol_getTransaction : (text, opt text) -> (Result);
-  sol_getminimumbalanceforrentexemption : (nat64) -> (Result_2);
-  sol_latestBlockhash : () -> (Result);
-  sol_sendRawTransaction : (text) -> (Result);
-  sol_sendTransaction : (SendTransactionRequest) -> (Result);
+  sol_getminimumbalanceforrentexemption : (nat64, opt text) -> (Result_2);
+  sol_latestBlockhash : (opt text) -> (Result);
+  sol_sendRawTransaction : (text, opt text) -> (Result);
+  sol_sendTransaction : (SendTransactionRequest, opt text) -> (Result);
+  update_rpc : (text) -> ();
 }

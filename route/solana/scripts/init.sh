@@ -3,7 +3,7 @@
 BITCOIN_CHAIN_ID="Bitcoin"
 BITCOIN_CID="be2us-64aaa-aaaaa-qaabq-cai"
 
-SOL_CHAIN_ID="Solana"
+SOL_CHAIN_ID="eSolana"
 SOL_CID=$(dfx canister id solana_route)
 SOL_FEE="SOL"
 
@@ -56,9 +56,9 @@ dfx canister call omnity_hub execute_proposal "(vec {variant {
 dfx canister call omnity_hub query_directives "(opt \"${BITCOIN_CHAIN_ID}\",opt variant {AddChain},0:nat64,5:nat64)"
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•FIVE"
-TOKEN_NAME="HOPE•YOU•GET•FIVE"
-TOKEN_SYMBOL="FIVE"
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH202409242036"
+TOKEN_NAME="HOPE•YOU•GET•RICH202409242036"
+TOKEN_SYMBOL="RICH202409242036"
 DECIMALS=2
 ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
 dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = record { 
@@ -84,9 +84,9 @@ dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",opt vari
 # update fee
 dfx canister call omnity_hub update_fee "vec {variant { UpdateTargetChainFactor = 
         record { target_chain_id=\"${BITCOIN_CHAIN_ID}\"; 
-                 target_chain_factor=10000 : nat}}; 
+                 target_chain_factor=5000 : nat}}; 
                  variant { UpdateFeeTokenFactor = record { fee_token=\"${SOL_FEE}\"; 
-                                                 fee_token_factor=1 : nat}}}"
+                                                 fee_token_factor=2876 : nat}}}"
 
 dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",null,0:nat64,12:nat64)"
 

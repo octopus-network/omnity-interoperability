@@ -45,10 +45,9 @@ type InitArgs = record {
   fee_account : opt text;
   sol_canister : principal;
   chain_id : text;
+  schnorr_canister : opt principal;
   schnorr_key_name : opt text;
-  multi_rpc_config : MultiRpcConfig;
   chain_state : ChainState;
-  forward : opt text;
 };
 type MintTokenRequest = record {
   status : TxStatus;
@@ -59,10 +58,6 @@ type MintTokenRequest = record {
   token_mint : text;
   retry : nat64;
 };
-type MultiRpcConfig = record {
-  rpc_list : vec text;
-  minimum_response_count : nat32;
-};
 type Permission = variant { Update; Query };
 type Reason = variant {
   QueueIsFull;
@@ -72,7 +67,6 @@ type Reason = variant {
 };
 type Result = variant { Ok : AccountInfo; Err : CallError };
 type Result_1 = variant { Ok : text; Err : CallError };
-type Result_10 = variant { Ok : text; Err : text };
 type Result_2 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_3 = variant { Ok : opt text; Err : CallError };
 type Result_4 = variant { Ok; Err : TransactionError };
@@ -80,7 +74,7 @@ type Result_5 = variant { Ok : vec TransactionStatus; Err : CallError };
 type Result_6 = variant { Ok : TxStatus; Err : CallError };
 type Result_7 = variant { Ok : MintTokenRequest; Err : CallError };
 type Result_8 = variant { Ok; Err : GenerateTicketError };
-type Result_9 = variant { Ok : blob; Err : text };
+type Result_9 = variant { Ok : text; Err : text };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type Ticket = record {
   token : text;
@@ -162,22 +156,16 @@ type TransactionStatus = record {
   confirmation_status : opt TransactionConfirmationStatus;
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
-type TxStatus = variant {
-  New;
-  Finalized;
-  TxFailed : record { e : text };
-  Pending;
-};
+type TxStatus = variant { Finalized; TxFailed : record { e : text }; Unknown };
 type UpgradeArgs = record {
   admin : opt principal;
   hub_principal : opt principal;
   fee_account : opt text;
   sol_canister : opt principal;
   chain_id : opt text;
+  schnorr_canister : opt principal;
   schnorr_key_name : opt text;
-  multi_rpc_config : opt MultiRpcConfig;
   chain_state : opt ChainState;
-  forward : opt text;
 };
 service : (RouteArg) -> {
   cancel_schedule : () -> ();
@@ -200,8 +188,6 @@ service : (RouteArg) -> {
   mint_token : (MintTokenRequest) -> (Result_6);
   mint_token_req : (text) -> (Result_7) query;
   mint_token_status : (text) -> (Result_6) query;
-  mint_token_tx_hash : (text) -> (Result_3) query;
-  multi_rpc_config : () -> (MultiRpcConfig) query;
   query_aossicated_account : (text, text) -> (opt AccountInfo) query;
   query_aossicated_account_address : (text, text) -> (opt text) query;
   query_mint_account : (text) -> (opt AccountInfo) query;
@@ -210,14 +196,9 @@ service : (RouteArg) -> {
   resend_tickets : () -> (Result_8);
   set_permissions : (principal, Permission) -> ();
   sign : (text) -> (Result_9);
-  signer : () -> (Result_10);
+  signer : () -> (Result_9);
   start_schedule : () -> ();
   transfer_to : (text, nat64) -> (Result_1);
-  update_associated_account : (text, text, AccountInfo) -> (Result);
-  update_forward : (opt text) -> ();
-  update_mint_token_req : (MintTokenRequest) -> (Result_7);
-  update_multi_rpc : (MultiRpcConfig) -> ();
-  update_schnorr_key : (text) -> ();
+  update_schnorr_info : (principal, text) -> ();
   update_token_metadata : (TokenInfo) -> (Result_1);
-  valid_tx_from_multi_rpc : (text) -> (Result_1);
 }
