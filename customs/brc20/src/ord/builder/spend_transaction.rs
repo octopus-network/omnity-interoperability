@@ -9,6 +9,7 @@ use crate::custom_to_bitcoin::CustomToBitcoinError;
 use crate::custom_to_bitcoin::CustomToBitcoinError::{InsufficientFunds, SignFailed};
 use crate::ord::builder::signer::MixSigner;
 use crate::ord::builder::Utxo;
+use crate::ord::parser::POSTAGE;
 
 #[allow(dead_code)]
 pub async fn spend_utxo_transaction(
@@ -25,6 +26,7 @@ pub async fn spend_utxo_transaction(
         .map(|input| input.amount.to_sat())
         .sum::<u64>()
         .checked_sub(fee.to_sat())
+        .and_then(|v|v.checked_sub(POSTAGE))
         .ok_or_else(|| InsufficientFunds)?;
 
     let tx_out = vec![

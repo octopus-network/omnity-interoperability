@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use bitcoin::hashes::Hash;
 use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
+use ic_btc_interface::{MillisatoshiPerByte, Network};
 
 
 use ic_canister_log::log;
@@ -23,6 +24,7 @@ use crate::custom_to_bitcoin::CustomToBitcoinError::{
 
 
 use crate::hub::update_tx_hash;
+use crate::{management, state};
 use crate::management::{get_fee_utxos, get_utxos};
 use crate::ord::builder::fees::{calc_fees, Fees};
 use crate::ord::builder::signer::MixSigner;
@@ -90,17 +92,18 @@ pub async fn send_tickets_to_bitcoin() {
                 return;
             }
         }
-    }
-    for seq in from..to {
-        if let Err(_) = process_to_bitcoin_ticket(seq).await {
-            break;
+        let fees = calc_fees(bitcoin_network()).await;
+        for seq in from..to {
+            if let Err(_) = process_to_bitcoin_ticket(seq, &fees).await {
+                break;
+            }
+            mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
         }
-        mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
     }
 }
 
-pub async fn process_to_bitcoin_ticket(seq: Seq) -> Result<(), CustomToBitcoinError> {
-    let res = send_ticket_to_bitcoin(seq).await;
+pub async fn process_to_bitcoin_ticket(seq: Seq, fees: &Fees) -> Result<(), CustomToBitcoinError> {
+    let res = send_ticket_to_bitcoin(seq,fees).await;
     if res.is_err() {
         let err = res.err().unwrap();
         log!(
@@ -177,7 +180,7 @@ pub async fn finalize_flight_tickets() {
     }
 }
 
-pub async fn send_ticket_to_bitcoin(seq: Seq) -> Result<Option<SendTicketResult>, CustomToBitcoinError> {
+pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<SendTicketResult>, CustomToBitcoinError> {
     let ticket = read_state(|s| s.tickets_queue.get(&seq));
     match ticket {
         None => {
@@ -191,7 +194,6 @@ pub async fn send_ticket_to_bitcoin(seq: Seq) -> Result<Option<SendTicketResult>
                 return Ok(None);
             }
             let token = read_state(|s| s.tokens.get(&t.token).cloned().unwrap());
-            let fees = calc_fees(bitcoin_network());
             let vins = select_inscribe_txins(&fees)?;
             let key_id = read_state(|s| s.ecdsa_key_name.clone());
             let mut builder = OrdTransactionBuilder::p2tr(
@@ -387,3 +389,39 @@ pub fn finalize_to_bitcoin_tickets_task() {
     });
 }
 
+
+/// Returns an estimate for transaction fees in millisatoshi per vbyte. Returns
+/// None if the bitcoin canister is unavailable or does not have enough data for
+/// an estimate yet.
+pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
+    /// The default fee we use on regtest networks if there are not enough data
+    /// to compute the median fee.
+    const DEFAULT_FEE: MillisatoshiPerByte = 5_000;
+
+    let btc_network = state::read_state(|s| s.btc_network);
+    match management::get_current_fees(btc_network).await {
+        Ok(fees) => {
+            if btc_network == Network::Regtest {
+                return Some(DEFAULT_FEE);
+            }
+            if fees.len() >= 100 {
+                Some(fees[50])
+            } else {
+                log!(
+                    ERROR,
+                    "[estimate_fee_per_vbyte]: not enough data points ({}) to compute the fee",
+                    fees.len()
+                );
+                None
+            }
+        }
+        Err(err) => {
+            log!(
+                ERROR,
+                "[estimate_fee_per_vbyte]: failed to get median fee per vbyte: {}",
+                err
+            );
+            None
+        }
+    }
+}

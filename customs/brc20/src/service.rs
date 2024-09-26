@@ -11,6 +11,7 @@ use crate::management::get_utxos;
 use crate::ord::builder::Utxo;
 use bitcoin::hashes::Hash;
 use bitcoin::consensus::Encodable;
+use crate::constants::DEFAULT_FEE;
 
 use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
@@ -79,7 +80,7 @@ pub async fn update_utxos(addr: String) -> String {
 
 #[update]
 pub async fn send_ticket_to_bitcoin(seq: Seq) {
-    crate::custom_to_bitcoin::send_ticket_to_bitcoin(seq).await.unwrap();
+    crate::custom_to_bitcoin::send_ticket_to_bitcoin(seq, &DEFAULT_FEE).await.unwrap();
 }
 
 #[derive(CandidType, Deserialize)]
