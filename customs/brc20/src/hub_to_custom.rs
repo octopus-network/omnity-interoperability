@@ -4,6 +4,7 @@ use crate::{audit, hub};
 use log::{self};
 use omnity_types::{ChainState, Directive, Seq, Ticket};
 use std::str::FromStr;
+use crate::bitcoin_to_custom::finalize_generate_ticket_request;
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
@@ -101,16 +102,3 @@ pub fn fetch_hub_directive_task() {
         process_directives().await;
     });
 }
-
-pub fn finalize_generate_ticket_task() {
-    ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_GENERATE_TICKET_NAME.to_string())
-        {
-            Some(guard) => guard,
-            None => return,
-        };
-        process_directives().await;
-    });
-
-}
-
