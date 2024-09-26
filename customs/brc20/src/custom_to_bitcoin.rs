@@ -1,29 +1,29 @@
 use std::str::FromStr;
-use std::time::Duration;
 
-use bitcoin::consensus::Encodable;
+
+
 use bitcoin::hashes::Hash;
-use bitcoin::{Address, Amount, Network, PublicKey, Transaction, Txid};
-use candid::CandidType;
-use ic_btc_interface::GetUtxosResponse;
+use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
+
+
 use ic_canister_log::log;
-use ic_cdk::api::call::RejectionCode;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::bitcoin_to_custom::{finalize_generate_ticket_request, query_transaction};
 use crate::call_error::CallError;
-use crate::constants::{FINALIZE_GENERATE_TICKET_NAME, FINALIZE_TO_BITCOIN_TICKET_NAME, MIN_NANOS, SEC_NANOS};
+use crate::constants::{FINALIZE_TO_BITCOIN_TICKET_NAME};
 use omnity_types::ic_log::{CRITICAL, ERROR};
 use omnity_types::{Seq, Ticket};
 
 use crate::custom_to_bitcoin::CustomToBitcoinError::{
     ArgumentError, BuildTransactionFailed, SignFailed,
 };
-use crate::generate_ticket::GenerateTicketError;
-use crate::hub;
+
+
 use crate::hub::update_tx_hash;
-use crate::management::get_utxos;
+use crate::management::{get_fee_utxos, get_utxos};
 use crate::ord::builder::fees::{calc_fees, Fees};
 use crate::ord::builder::signer::MixSigner;
 use crate::ord::builder::spend_transaction::spend_utxo_transaction;
@@ -32,7 +32,7 @@ use crate::ord::builder::{
     SignCommitTransactionArgs, Utxo,
 };
 use crate::ord::inscription::brc20::Brc20;
-use crate::ord::mempool_rpc_types::TxInfo;
+
 use crate::ord::parser::POSTAGE;
 use crate::state::{
     bitcoin_network, deposit_addr, deposit_pubkey, finalization_time_estimate, mutate_state,
@@ -70,7 +70,7 @@ pub async fn send_tickets_to_bitcoin() {
     let to = read_state(|s| s.next_ticket_seq);
     if from < to {
         let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
-        let utxos = get_utxos(nw, &deposit_addr, 0u32).await;
+        let utxos = get_fee_utxos(nw, &deposit_addr, 0u32).await;
         match utxos {
             Ok(r) => {
                 let v = r
@@ -83,6 +83,7 @@ pub async fn send_tickets_to_bitcoin() {
                         amount: Amount::from_sat(u.value),
                     })
                     .collect();
+
                 mutate_state(|s| s.deposit_addr_utxo = v);
             }
             Err(_) => {
@@ -91,27 +92,35 @@ pub async fn send_tickets_to_bitcoin() {
         }
     }
     for seq in from..to {
-        let res = send_ticket_to_bitcoin(seq).await;
-        if res.is_err() {
-            log!(
-                CRITICAL,
-                "send ticket to bitcoin failed {}, {}",
-                seq,
-                res.err().unwrap()
-            );
+        if let Err(_) = process_to_bitcoin_ticket(seq).await {
             break;
-        } else {
-            let r = res.ok().unwrap();
-            match r {
-                None => {}
-                Some(info) => {
-                    mutate_state(|s| s.flight_to_bitcoin_ticket_map.insert(seq, info));
-                    //TODO send commit info to hub
-                }
-            }
         }
         mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
     }
+}
+
+pub async fn process_to_bitcoin_ticket(seq: Seq) -> Result<(), CustomToBitcoinError> {
+    let res = send_ticket_to_bitcoin(seq).await;
+    if res.is_err() {
+        let err = res.err().unwrap();
+        log!(
+                CRITICAL,
+                "send ticket to bitcoin failed {}, {}",
+                seq,
+                &err
+            );
+        return Err(err);
+    } else {
+        let r = res.ok().unwrap();
+        match r {
+            None => {}
+            Some(info) => {
+                mutate_state(|s| s.flight_to_bitcoin_ticket_map.insert(seq, info));
+                //TODO send commit info to hub
+            }
+        }
+    }
+    Ok(())
 }
 
 pub async fn finalize_flight_tickets() {
@@ -124,7 +133,7 @@ pub async fn finalize_flight_tickets() {
             .map(|req| (req.0.clone(), req.1.clone()))
             .collect::<Vec<(Seq, SendTicketResult)>>()
     });
-    let (network, deposit_addr, min_confirmations) = read_state(|s| {
+    let (_network, _deposit_addr, _min_confirmations) = read_state(|s| {
         (
             s.btc_network,
             s.deposit_addr.clone().unwrap(),
@@ -307,8 +316,8 @@ pub async fn build_transfer_transfer(
         all_inputs,
         fee.utxo_fee,
     )
-    .await
-    .map_err(|_| SignFailed("sgk".to_string()))?;
+        .await
+        .map_err(|_| SignFailed("sgk".to_string()))?;
     Ok(transfer)
 }
 
@@ -359,8 +368,6 @@ pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
     })
 }
 
-
-
 pub fn finalize_to_bitcoin_tickets_task() {
     ic_cdk::spawn(async {
         let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_TO_BITCOIN_TICKET_NAME.to_string())
@@ -370,6 +377,4 @@ pub fn finalize_to_bitcoin_tickets_task() {
         };
         finalize_generate_ticket_request().await;
     });
-
 }
-

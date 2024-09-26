@@ -2,10 +2,7 @@
 
 use bitcoin::Transaction;
 use candid::{CandidType, Principal};
-use ic_btc_interface::{
-    Address, GetCurrentFeePercentilesRequest, GetUtxosRequest, GetUtxosResponse,
-    MillisatoshiPerByte, Network, UtxosFilterInRequest,
-};
+use ic_btc_interface::{Address, GetCurrentFeePercentilesRequest, GetUtxosRequest, GetUtxosResponse, MillisatoshiPerByte, Network, Txid, UtxosFilterInRequest};
 use ic_cdk::api::call::CallResult;
 use ic_ic00_types::{
     DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
@@ -16,6 +13,7 @@ use serde::Serialize;
 
 use crate::bitcoin::ECDSAPublicKey;
 use crate::call_error::{CallError, Reason};
+use crate::state::read_state;
 
 async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallError>
 where
@@ -47,22 +45,33 @@ where
     }
 }
 
+pub async fn get_fee_utxos(
+    network: Network,
+    address: &Address,
+    min_confirmations: u32,
+) -> Result<GetUtxosResponse, CallError> {
+    let mut resp = get_utxos(network, address, min_confirmations).await?;
+
+    let reveal_indexs = read_state(|s|s.reveal_utxo_index.clone());
+    let utxos = resp.utxos.into_iter().filter(|u|{
+        let index = format!("{}:{}", u.outpoint.txid.clone(), u.outpoint.vout);
+        !reveal_indexs.contains(&index)
+    }).collect();
+    resp.utxos = utxos;
+    Ok(resp)
+}
+
 /// Fetches the full list of UTXOs for the specified address.
 pub async fn get_utxos(
     network: Network,
     address: &Address,
     min_confirmations: u32,
 ) -> Result<GetUtxosResponse, CallError> {
-    // NB. The minimum number of cycles that need to be sent with the call is 10B (4B) for
-    // Bitcoin mainnet (Bitcoin testnet):
-    // https://internetcomputer.org/docs/current/developer-docs/integrations/bitcoin/bitcoin-how-it-works#api-fees--pricing
     let get_utxos_cost_cycles = match network {
         Network::Mainnet => 10_000_000_000,
         Network::Testnet | Network::Regtest => 4_000_000_000,
     };
 
-    // Calls "bitcoin_get_utxos" method with the specified argument on the
-    // management canister.
     async fn bitcoin_get_utxos(
         req: &GetUtxosRequest,
         cycles: u64,
@@ -96,7 +105,6 @@ pub async fn get_utxos(
 
         utxos.append(&mut response.utxos);
     }
-
     response.utxos = utxos;
 
     Ok(response)
@@ -200,4 +208,10 @@ pub async fn sign_with_ecdsa(
     )
     .await?;
     Ok(reply.signature)
+}
+
+#[test]
+pub fn testn() {
+    let tx = Txid::from([11u8;32]);
+    println!("{}:{}", tx, 1);
 }
