@@ -1,6 +1,6 @@
 use bitcoin::Address;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -43,6 +43,7 @@ pub struct Brc20State {
     pub indexer_principal: Principal,
     pub hub_principal: Principal,
     pub chain_id: String,
+    pub reveal_utxo_index: BTreeSet<String>,
     pub tokens: BTreeMap<TokenId, Token>,
     pub counterparties: BTreeMap<ChainId, Chain>,
     pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
@@ -130,6 +131,7 @@ impl Brc20State {
             admins: args.admins,
             hub_principal: args.hub_principal,
             chain_id: args.chain_id,
+            reveal_utxo_index: Default::default(),
             tokens: Default::default(),
             counterparties: Default::default(),
             finalized_mint_token_requests: Default::default(),
