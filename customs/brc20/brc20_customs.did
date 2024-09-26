@@ -26,6 +26,12 @@ type GenerateTicketArgs = record {
   amount : nat;
   receiver : text;
 };
+type GetUtxosResponse = record {
+  next_page : opt blob;
+  tip_height : nat32;
+  tip_block_hash : blob;
+  utxos : vec Utxo;
+};
 type InitArgs = record {
   hub_principal : principal;
   network : Network_1;
@@ -35,6 +41,7 @@ type InitArgs = record {
 };
 type Network = variant { mainnet; regtest; testnet };
 type Network_1 = variant { mainnet; local; testnet };
+type OutPoint = record { txid : blob; vout : nat32 };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
   pending_gen_ticket_requests : vec record { blob; GenTicketRequest };
@@ -65,10 +72,12 @@ type Token = record {
   name : text;
   symbol : text;
 };
+type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 service : (InitArgs) -> {
   brc20_state : () -> (StateProfile) query;
   finalize_gen : () -> ();
   generate_deposit_addr : () -> (opt text, opt text);
   generate_ticket : (GenerateTicketArgs) -> ();
   test_create_tx : () -> (text);
+  update_utxos : (text) -> (GetUtxosResponse);
 }

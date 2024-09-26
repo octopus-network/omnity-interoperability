@@ -47,6 +47,8 @@ pub enum Reason {
     Rejected(String),
 }
 
+
+
 impl fmt::Display for Reason {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
