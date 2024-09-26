@@ -86,13 +86,13 @@ async fn sign_transaction(
                 input.amount,
                 bitcoin::EcdsaSighashType::All,
             )
-            .map_err(|e| SignFailed("sign 1errr".to_string()))?;
+            .map_err(|e| SignFailed(e.to_string()))?;
 
         let message = secp256k1::Message::from_digest(signature_hash.to_byte_array());
         let signature = signer
             .sign_with_ecdsa(message)
             .await
-            .map_err(|e| SignFailed("sgin 2 rtt".to_string()))?;
+            .map_err(|e| SignFailed(e.to_string()))?;
         let signature = bitcoin::ecdsa::Signature::sighash_all(signature);
 
         // append witness to input
