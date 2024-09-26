@@ -43,8 +43,8 @@ use crate::state::{
 pub enum CustomToBitcoinError {
     #[error("bitcoin sign error: {0}")]
     SignFailed(String),
-    #[error("")]
-    BuildTransactionFailed,
+    #[error("build a brc20 transfer error: {0}")]
+    BuildTransactionFailed(String),
     #[error("")]
     ArgumentError(String),
     #[error("")]
@@ -115,7 +115,11 @@ pub async fn process_to_bitcoin_ticket(seq: Seq) -> Result<(), CustomToBitcoinEr
         match r {
             None => {}
             Some(info) => {
-                mutate_state(|s| s.flight_to_bitcoin_ticket_map.insert(seq, info));
+                let reveal_utxo_index = format!("{}:0",info.txs[1].txid());
+                mutate_state(|s| {
+                    s.flight_to_bitcoin_ticket_map.insert(seq, info);
+                    s.reveal_utxo_index.insert(reveal_utxo_index);
+                });
                 //TODO send commit info to hub
             }
         }
@@ -149,6 +153,8 @@ pub async fn finalize_flight_tickets() {
                 if t.status.confirmed {
                     mutate_state(|s| {
                         let r = s.flight_to_bitcoin_ticket_map.remove(&seq).unwrap();
+                        let reveal_utxo_index = format!("{}:0", r.txs[1].txid());
+                        s.reveal_utxo_index.remove(&reveal_utxo_index);
                         s.finalized_to_bitcoin_ticket_map.insert(seq, r);
                     });
                     let (hub_principal, ticket) =
@@ -181,6 +187,9 @@ pub async fn send_ticket_to_bitcoin(seq: Seq) -> Result<Option<SendTicketResult>
             if read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id)) {
                 return Ok(None);
             }
+            if read_state(|s|s.flight_to_bitcoin_ticket_map.get(&seq).is_some()) {
+                return Ok(None);
+            }
             let token = read_state(|s| s.tokens.get(&t.token).cloned().unwrap());
             let fees = calc_fees(bitcoin_network());
             let vins = select_inscribe_txins(&fees)?;
@@ -207,7 +216,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq) -> Result<Option<SendTicketResult>
                     },
                 )
                 .await
-                .map_err(|_| BuildTransactionFailed)?;
+                .map_err(|e| BuildTransactionFailed(e.to_string()))?;
 
             let signed_commit_tx = builder
                 .sign_commit_transaction(
@@ -218,7 +227,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq) -> Result<Option<SendTicketResult>
                     },
                 )
                 .await
-                .map_err(|_| SignFailed("fgeg".to_string()))?;
+                .map_err(|e| SignFailed(e.to_string()))?;
 
             let reveal_transaction = builder
                 .build_reveal_transaction(RevealTransactionArgs {
@@ -231,7 +240,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq) -> Result<Option<SendTicketResult>
                     redeem_script: commit_tx.redeem_script,
                 })
                 .await
-                .map_err(|_| BuildTransactionFailed)?;
+                .map_err(|e| BuildTransactionFailed(e.to_string()))?;
 
             let real_utxo = Utxo {
                 id: reveal_transaction.txid(),
@@ -316,8 +325,7 @@ pub async fn build_transfer_transfer(
         all_inputs,
         fee.utxo_fee,
     )
-        .await
-        .map_err(|_| SignFailed("sgk".to_string()))?;
+        .await?;
     Ok(transfer)
 }
 
@@ -375,6 +383,7 @@ pub fn finalize_to_bitcoin_tickets_task() {
             Some(guard) => guard,
             None => return,
         };
-        finalize_generate_ticket_request().await;
+        finalize_flight_tickets().await;
     });
 }
+
