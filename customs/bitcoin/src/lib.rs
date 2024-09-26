@@ -55,7 +55,7 @@ pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
 pub const INTERVAL_QUERY_DIRECTIVES: Duration = Duration::from_secs(60);
 pub const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
-
+pub const INTERVAL_FINALIZE_BITCOIN_TXS: Duration = Duration::from_secs(60);
 /// The minimum fee increment for transaction resubmission.
 /// See https://en.bitcoin.it/wiki/Miner_fees#Relaying for more detail.
 pub const MIN_RELAY_FEE_PER_VBYTE: MillisatoshiPerByte = 1_000;
@@ -508,7 +508,7 @@ fn finalization_time_estimate(min_confirmations: u32, network: Network) -> Durat
     Duration::from_nanos(
         min_confirmations as u64
             * match network {
-                Network::Mainnet => 10 * MIN_NANOS,
+                Network::Mainnet => 7 * MIN_NANOS,
                 Network::Testnet => MIN_NANOS,
                 Network::Regtest => SEC_NANOS,
             },
@@ -842,7 +842,10 @@ async fn finalize_gen_ticket_txs() {
         let wait_time = finalization_time_estimate(min_confirmations, network);
         s.pending_gen_ticket_requests
             .iter()
-            .filter(|&(_, req)| (req.received_at + (wait_time.as_nanos() as u64) < now))
+            .filter(|&(_, req)| {
+                let time = req.received_at + (wait_time.as_nanos() as u64);
+                ( time < now) && (time + 3*60*MIN_NANOS > now) //don't check after 3hrs
+            })
             .map(|(_, req)| req.clone())
             .collect()
     });
@@ -1381,11 +1384,19 @@ pub fn process_tx_task() {
             None => return,
         };
         submit_rune_txs().await;
+    });
+}
+
+pub fn finalize_bitcoin_txs() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new() {
+            Some(guard) => guard,
+            None => return,
+        };
         finalize_rune_txs().await;
         finalize_gen_ticket_txs().await;
     });
 }
-
 pub fn process_directive_msg_task() {
     ic_cdk::spawn(async {
         let _guard = match crate::guard::ProcessDirectiveMsgGuard::new() {
