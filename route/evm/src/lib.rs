@@ -61,7 +61,7 @@ pub mod const_args {
     pub const EIP1559_TX_ID: u8 = 2;
     pub const EVM_FINALIZED_CONFIRM_HEIGHT: u64 = 15;
     pub const DEFAULT_EVM_TX_FEE: u32 = 200_000u32;
-    pub const ADD_TOKEN_EVM_TX_FEE: u32 = 3_000_000u32;
+    pub const ADD_TOKEN_EVM_TX_FEE: u32 = 1_100_000u32;
     pub const SCAN_EVM_CYCLES: u128 = 10_000_000_000;
     pub const BROADCAST_TX_CYCLES: u128 = 3_000_000_000;
     pub const GET_ACCOUNT_NONCE_CYCLES: u128 = 1_000_000_000;

@@ -24,6 +24,12 @@
       "package": "evm_route",
       "type": "rust"
     },
+    "evm_route_ethereum": {
+      "gzip": true,
+      "candid": "evm_route.did",
+      "package": "evm_route",
+      "type": "rust"
+    },
     "evm_route_xlayer": {
       "gzip": true,
       "candid": "evm_route.did",
