@@ -20,7 +20,6 @@ use ic_cdk::api::management_canister::http_request::{
 };
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::{CRITICAL, ERROR, WARNING};
-use omnity_types::{Seq, Token};
 use crate::constants::FINALIZE_GENERATE_TICKET_NAME;
 
 pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
