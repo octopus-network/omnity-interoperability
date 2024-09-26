@@ -1,4 +1,5 @@
 use candid::{CandidType, Deserialize, Principal};
+use ic_btc_interface::{Address, GetUtxosResponse};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
 use crate::bitcoin_to_custom::finalize_generate_ticket_request;
@@ -6,6 +7,7 @@ use crate::custom_to_bitcoin::test_send_ticket;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use omnity_types::TxAction::Redeem;
 use omnity_types::{Network, Ticket, TicketType, TxAction};
+use crate::management::get_utxos;
 
 use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
@@ -63,6 +65,13 @@ pub async fn test_create_tx() -> String {
     };
     let r = test_send_ticket(ticket).await.unwrap();
     serde_json::to_string(&r).unwrap()
+}
+
+#[update]
+pub async fn update_utxos(addr: String) -> GetUtxosResponse{
+
+    let r = get_utxos(ic_btc_interface::Network::Mainnet, &Address::from(addr), 0).await.unwrap();
+    r
 }
 
 #[derive(CandidType, Deserialize)]
