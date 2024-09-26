@@ -11,9 +11,6 @@ pub const TO_BITCOIN_TICKETS_MEMORY_ID: MemoryId = MemoryId::new(1);
 pub const TO_BITCOIN_DIRECTIVES_MEMORY_ID: MemoryId = MemoryId::new(2);
 pub const PENDING_TICKET_MAP_MEMORY_ID: MemoryId = MemoryId::new(3);
 pub const PENDING_DIRECTIVE_MAP_MEMORY_ID: MemoryId = MemoryId::new(4);
-pub const STABLE_LOG_MEMORY_ID: MemoryId = MemoryId::new(5);
-pub const BRC20_BALANCE_MEMORY_ID: MemoryId = MemoryId::new(6);
-pub const BRC20_UTXOS_MEMORY_ID: MemoryId = MemoryId::new(7);
 
 thread_local! {
     static MEMORY: RefCell<Option<InnerMemory>> = RefCell::new(Some(InnerMemory::default()));
@@ -31,13 +28,6 @@ fn with_memory_manager<R>(f: impl FnOnce(&MemoryManager<InnerMemory>) -> R) -> R
     })
 }
 
-pub fn get_brc20_utxos_memory() -> Memory {
-    with_memory_manager(|m| m.get(BRC20_UTXOS_MEMORY_ID))
-}
-
-pub fn get_brc20_balance_memory() -> Memory {
-    with_memory_manager(|m| m.get(BRC20_BALANCE_MEMORY_ID))
-}
 
 pub fn get_to_evm_tickets_memory() -> Memory {
     with_memory_manager(|m| m.get(TO_BITCOIN_TICKETS_MEMORY_ID))
@@ -73,8 +63,4 @@ pub fn init_pending_directive_map() -> StableBTreeMap<Seq, PendingDirectiveStatu
 
 pub fn init_to_evm_directives_queue() -> StableBTreeMap<u64, Directive, Memory> {
     StableBTreeMap::init(get_to_evm_directives_memory())
-}
-
-pub fn init_stable_log() -> StableBTreeMap<Vec<u8>, Vec<u8>, Memory> {
-    StableBTreeMap::init(with_memory_manager(|m| m.get(STABLE_LOG_MEMORY_ID)))
 }

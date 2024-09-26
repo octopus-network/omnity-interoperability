@@ -172,10 +172,10 @@ pub async fn ecdsa_public_key(
 }
 
 pub async fn raw_rand() -> CallResult<[u8; 32]> {
-    let (randomBytes,): (Vec<u8>,) =
+    let (random_bytes,): (Vec<u8>,) =
         ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await?;
     let mut v = [0u8; 32];
-    v.copy_from_slice(randomBytes.as_slice());
+    v.copy_from_slice(random_bytes.as_slice());
     Ok(v)
 }
 /// Signs a message hash using the tECDSA API.
