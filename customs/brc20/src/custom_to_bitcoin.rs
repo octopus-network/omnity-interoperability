@@ -11,9 +11,9 @@ use ic_cdk::api::call::RejectionCode;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::bitcoin_to_custom::query_transaction;
+use crate::bitcoin_to_custom::{finalize_generate_ticket_request, query_transaction};
 use crate::call_error::CallError;
-use crate::constants::{MIN_NANOS, SEC_NANOS};
+use crate::constants::{FINALIZE_GENERATE_TICKET_NAME, FINALIZE_TO_BITCOIN_TICKET_NAME, MIN_NANOS, SEC_NANOS};
 use omnity_types::ic_log::{CRITICAL, ERROR};
 use omnity_types::{Seq, Ticket};
 
@@ -358,3 +358,18 @@ pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
         }
     })
 }
+
+
+
+pub fn finalize_to_bitcoin_tickets_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_TO_BITCOIN_TICKET_NAME.to_string())
+        {
+            Some(guard) => guard,
+            None => return,
+        };
+        finalize_generate_ticket_request().await;
+    });
+
+}
+

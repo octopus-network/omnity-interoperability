@@ -21,6 +21,7 @@ use ic_cdk::api::management_canister::http_request::{
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::{CRITICAL, ERROR, WARNING};
 use omnity_types::{Seq, Token};
+use crate::constants::FINALIZE_GENERATE_TICKET_NAME;
 
 pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     let token =
@@ -123,6 +124,18 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
         }
         Err((_, m)) => Err(GenerateTicketError::RpcError(m)),
     }
+}
+
+
+pub fn finalize_generate_ticket_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_GENERATE_TICKET_NAME.to_string())
+        {
+            Some(guard) => guard,
+            None => return,
+        };
+        finalize_generate_ticket_request().await;
+    });
 }
 
 pub async fn finalize_generate_ticket_request() {
