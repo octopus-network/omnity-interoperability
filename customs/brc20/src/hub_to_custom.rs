@@ -1,10 +1,10 @@
-use crate::constants::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME, FINALIZE_GENERATE_TICKET_NAME};
+use crate::constants::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME, FINALIZE_LOCK_TICKET_NAME};
 use crate::state::{mutate_state, read_state};
 use crate::{audit, hub};
 use log::{self};
 use omnity_types::{ChainState, Directive, Seq, Ticket};
 use std::str::FromStr;
-use crate::bitcoin_to_custom::finalize_generate_ticket_request;
+use crate::bitcoin_to_custom::finalize_lock_ticket_request;
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {

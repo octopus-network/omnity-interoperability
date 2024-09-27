@@ -20,7 +20,7 @@ use ic_cdk::api::management_canister::http_request::{
 };
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::{CRITICAL, ERROR, WARNING};
-use crate::constants::FINALIZE_GENERATE_TICKET_NAME;
+use crate::constants::FINALIZE_LOCK_TICKET_NAME;
 
 pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     let token =
@@ -126,22 +126,22 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
 }
 
 
-pub fn finalize_generate_ticket_task() {
+pub fn finalize_lock_ticket_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_GENERATE_TICKET_NAME.to_string())
+        let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_LOCK_TICKET_NAME.to_string())
         {
             Some(guard) => guard,
             None => return,
         };
-        finalize_generate_ticket_request().await;
+        finalize_lock_ticket_request().await;
     });
 }
 
-pub async fn finalize_generate_ticket_request() {
+pub async fn finalize_lock_ticket_request() {
     let now = ic_cdk::api::time();
     let can_check_finalizations = read_state(|s| {
         let wait_time = finalization_time_estimate(s.min_confirmations, s.btc_network);
-        s.pending_gen_ticket_requests
+        s.pending_lock_ticket_requests
             .iter()
             .filter(|&req| (req.1.received_at + (wait_time.as_nanos() as u64) < now))
             .map(|req| (req.0.clone(), req.1.clone()))
@@ -182,8 +182,8 @@ pub async fn finalize_generate_ticket_request() {
                                 log!(CRITICAL, "finalize gen ticket to hub error: {:?}", &e);
                             });
                     mutate_state(|s| {
-                        let v = s.pending_gen_ticket_requests.remove(&seq);
-                        s.finalized_gen_ticket_requests.insert(seq, v.unwrap());
+                        let v = s.pending_lock_ticket_requests.remove(&seq);
+                        s.finalized_lock_ticket_requests.insert(seq, v.unwrap());
                     });
                 } else {
                     log!(

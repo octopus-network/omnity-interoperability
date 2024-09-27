@@ -43,33 +43,6 @@ pub enum Brc20 {
 
 
 impl Brc20 {
-    /// Create a new BRC-20 deploy operation
-    pub fn deploy(
-        tick: impl ToString,
-        max: u64,
-        lim: Option<u64>,
-        dec: Option<u64>,
-        self_mint: Option<bool>,
-    ) -> Self {
-        Self::Deploy(Brc20Deploy {
-            protocol: PROTOCOL.to_string(),
-            tick: tick.to_string(),
-            max,
-            lim,
-            dec,
-            self_mint,
-        })
-    }
-
-    /// Create a new BRC-20 mint operation
-    pub fn mint(tick: impl ToString, amt: u64, rf: String) -> Self {
-        Self::Mint(Brc20Mint {
-            protocol: PROTOCOL.to_string(),
-            tick: tick.to_string(),
-            amt,
-            rf,
-        })
-    }
 
     /// Create a new BRC-20 transfer operation
     pub fn transfer(tick: impl ToString, amt: u64) -> Self {

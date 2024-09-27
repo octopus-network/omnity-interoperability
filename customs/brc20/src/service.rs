@@ -3,7 +3,7 @@ use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::{Address, GetUtxosResponse};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
-use crate::bitcoin_to_custom::finalize_generate_ticket_request;
+use crate::bitcoin_to_custom::finalize_lock_ticket_request;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use omnity_types::TxAction::Redeem;
 use omnity_types::{Network, Seq, Ticket, TicketType, TxAction};
@@ -16,10 +16,12 @@ use crate::constants::DEFAULT_FEE;
 use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
 };
+use crate::tasks::start_tasks;
 
 #[init]
 fn init(args: InitArgs) {
     replace_state(Brc20State::init(args).expect("params error"));
+    start_tasks();
 }
 
 #[pre_upgrade]
@@ -30,6 +32,7 @@ fn pre_upgrade() {
 #[post_upgrade]
 fn post_upgrade() {
     Brc20State::post_upgrade();
+    start_tasks();
 }
 
 #[update]

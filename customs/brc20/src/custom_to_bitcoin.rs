@@ -12,9 +12,9 @@ use ic_canister_log::log;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::bitcoin_to_custom::{finalize_generate_ticket_request, query_transaction};
+use crate::bitcoin_to_custom::{query_transaction};
 use crate::call_error::CallError;
-use crate::constants::{FINALIZE_TO_BITCOIN_TICKET_NAME};
+use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME};
 use omnity_types::ic_log::{CRITICAL, ERROR};
 use omnity_types::{Seq, Ticket};
 
@@ -25,7 +25,7 @@ use crate::custom_to_bitcoin::CustomToBitcoinError::{
 
 use crate::hub::update_tx_hash;
 use crate::{management, state};
-use crate::management::{get_fee_utxos, get_utxos};
+use crate::management::{get_fee_utxos};
 use crate::ord::builder::fees::{calc_fees, Fees};
 use crate::ord::builder::signer::MixSigner;
 use crate::ord::builder::spend_transaction::spend_utxo_transaction;
@@ -120,7 +120,7 @@ pub async fn process_to_bitcoin_ticket(seq: Seq, fees: &Fees) -> Result<(), Cust
             Some(info) => {
                 let reveal_utxo_index = format!("{}:0",info.txs[1].txid());
                 mutate_state(|s| {
-                    s.flight_to_bitcoin_ticket_map.insert(seq, info);
+                    s.flight_unlock_ticket_map.insert(seq, info);
                     s.reveal_utxo_index.insert(reveal_utxo_index);
                 });
                 //TODO send commit info to hub
@@ -134,7 +134,7 @@ pub async fn finalize_flight_tickets() {
     let now = ic_cdk::api::time();
     let can_check_finalizations = read_state(|s| {
         let wait_time = finalization_time_estimate(s.min_confirmations, s.btc_network);
-        s.flight_to_bitcoin_ticket_map
+        s.flight_unlock_ticket_map
             .iter()
             .filter(|&req| (req.1.time_at + (wait_time.as_nanos() as u64) < now))
             .map(|req| (req.0.clone(), req.1.clone()))
@@ -155,10 +155,10 @@ pub async fn finalize_flight_tickets() {
             Ok(t) => {
                 if t.status.confirmed {
                     mutate_state(|s| {
-                        let r = s.flight_to_bitcoin_ticket_map.remove(&seq).unwrap();
+                        let r = s.flight_unlock_ticket_map.remove(&seq).unwrap();
                         let reveal_utxo_index = format!("{}:0", r.txs[1].txid());
                         s.reveal_utxo_index.remove(&reveal_utxo_index);
-                        s.finalized_to_bitcoin_ticket_map.insert(seq, r);
+                        s.finalized_unlock_ticket_map.insert(seq, r);
                     });
                     let (hub_principal, ticket) =
                         read_state(|s| (s.hub_principal, s.tickets_queue.get(&seq).unwrap()));
@@ -190,7 +190,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<Send
             if read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id)) {
                 return Ok(None);
             }
-            if read_state(|s|s.flight_to_bitcoin_ticket_map.get(&seq).is_some()) {
+            if read_state(|s|s.flight_unlock_ticket_map.get(&seq).is_some()) {
                 return Ok(None);
             }
             let token = read_state(|s| s.tokens.get(&t.token).cloned().unwrap());
@@ -378,9 +378,9 @@ pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
     })
 }
 
-pub fn finalize_to_bitcoin_tickets_task() {
+pub fn finalize_unlock_tickets_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_TO_BITCOIN_TICKET_NAME.to_string())
+        let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_UNLOCK_TICKET_NAME.to_string())
         {
             Some(guard) => guard,
             None => return,
