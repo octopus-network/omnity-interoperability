@@ -11,7 +11,7 @@ use crate::state::{api_key, BitcoinNetwork, read_state};
 const TESTNET_BASE_URL: &str = "https://open-api-testnet.unisat.io";
 const MAINNET_BASE_URL: &str = "https://open-api.unisat.io";
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
-pub struct CommonResponse<T> {
+struct CommonResponse<T> {
     pub code: i32,
     pub msg: String,
     pub data: Option<T>
