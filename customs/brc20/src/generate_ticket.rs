@@ -4,10 +4,9 @@ use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
 use serde::Serialize;
 
-use omnity_types::{ChainState, Ticket, TicketType, TxAction};
+use omnity_types::{ChainState};
 
 use crate::bitcoin_to_custom::check_transaction;
-use crate::hub;
 use crate::state::{mutate_state, read_state};
 use crate::types::{GenTicketRequest, GenTicketStatus};
 
@@ -107,7 +106,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     };
 
     mutate_state(|s| {
-        s.pending_gen_ticket_requests.insert(request.txid, request);
+        s.pending_lock_ticket_requests.insert(request.txid, request);
     });
     Ok(())
 }

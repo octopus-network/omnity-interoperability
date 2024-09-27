@@ -186,6 +186,7 @@ pub async fn raw_rand() -> CallResult<[u8; 32]> {
     v.copy_from_slice(random_bytes.as_slice());
     Ok(v)
 }
+
 /// Signs a message hash using the tECDSA API.
 pub async fn sign_with_ecdsa(
     key_name: String,
@@ -208,10 +209,4 @@ pub async fn sign_with_ecdsa(
     )
     .await?;
     Ok(reply.signature)
-}
-
-#[test]
-pub fn testn() {
-    let tx = Txid::from([11u8;32]);
-    println!("{}:{}", tx, 1);
 }

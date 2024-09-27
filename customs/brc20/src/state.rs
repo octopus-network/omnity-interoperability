@@ -52,20 +52,21 @@ pub struct Brc20State {
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
-    #[serde(skip, default = "crate::stable_memory::init_to_evm_tickets_queue")]
-    pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
-    #[serde(skip, default = "crate::stable_memory::init_to_evm_directives_queue")]
-    pub directives_queue: StableBTreeMap<u64, Directive, Memory>,
-    #[serde(skip, default = "crate::stable_memory::init_pending_ticket_map")]
-    pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
-    pub flight_to_bitcoin_ticket_map: BTreeMap<Seq, SendTicketResult>,
 
-    pub finalized_to_bitcoin_ticket_map: BTreeMap<Seq, SendTicketResult>,
+    //unlock tickets storage
+    #[serde(skip, default = "crate::stable_memory::init_unlock_tickets_queue")]
+    pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
+    pub flight_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
+    pub finalized_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
+
+    //lock tickets storage
+    pub pending_lock_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
+    pub finalized_lock_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
+
+    #[serde(skip, default = "crate::stable_memory::init_directives_queue")]
+    pub directives_queue: StableBTreeMap<u64, Directive, Memory>,
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
-
-    pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
-    pub finalized_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
     pub deposit_addr_utxo: Vec<Utxo>,
 }
 
@@ -114,8 +115,8 @@ impl From<&Brc20State> for StateProfile {
             next_directive_seq: value.next_directive_seq,
             next_consume_ticket_seq: value.next_consume_ticket_seq,
             next_consume_directive_seq: value.next_consume_directive_seq,
-            pending_gen_ticket_requests: value.pending_gen_ticket_requests.clone(),
-            finalized_gen_ticket_requests: value.finalized_gen_ticket_requests.clone(),
+            pending_gen_ticket_requests: value.pending_lock_ticket_requests.clone(),
+            finalized_gen_ticket_requests: value.finalized_lock_ticket_requests.clone(),
         }
     }
 }
@@ -137,7 +138,7 @@ impl Brc20State {
             finalized_mint_token_requests: Default::default(),
             chain_state: ChainState::Active,
             ecdsa_key_name: args.network.key_id().name,
-            flight_to_bitcoin_ticket_map: BTreeMap::default(),
+            flight_unlock_ticket_map: BTreeMap::default(),
             ecdsa_public_key: None,
             deposit_addr: None,
             deposit_pubkey: None,
@@ -145,21 +146,18 @@ impl Brc20State {
             next_directive_seq: 0,
             next_consume_ticket_seq: 0,
             next_consume_directive_seq: 0,
-            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_evm_tickets_memory()),
+            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_unlock_tickets_memory()),
             directives_queue: StableBTreeMap::init(
-                crate::stable_memory::get_to_evm_directives_memory(),
-            ),
-            pending_tickets_map: StableBTreeMap::init(
-                crate::stable_memory::get_pending_ticket_map_memory(),
+                crate::stable_memory::get_directives_memory(),
             ),
             is_timer_running: Default::default(),
-            pending_gen_ticket_requests: Default::default(),
-            finalized_gen_ticket_requests: Default::default(),
+            pending_lock_ticket_requests: Default::default(),
+            finalized_lock_ticket_requests: Default::default(),
             btc_network,
-            indexer_principal: args.indexer_principal, //TODO
+            indexer_principal: args.indexer_principal,
             deposit_addr_utxo: vec![],
             min_confirmations: 4,
-            finalized_to_bitcoin_ticket_map: Default::default(),
+            finalized_unlock_ticket_map: Default::default(),
         };
 
         //TODO. open for test below codes;
@@ -186,7 +184,6 @@ impl Brc20State {
                 metadata: Default::default(),
             },
         );
-
         Ok(ret)
     }
 
@@ -237,12 +234,12 @@ impl Brc20State {
     }
 
     pub fn generate_ticket_status(&self, tx_id: Txid) -> GenTicketStatus {
-        if let Some(req) = self.pending_gen_ticket_requests.get(&tx_id) {
+        if let Some(req) = self.pending_lock_ticket_requests.get(&tx_id) {
             return GenTicketStatus::Pending(req.clone());
         }
 
         match self
-            .finalized_gen_ticket_requests
+            .finalized_lock_ticket_requests
             .iter()
             .find(|req| req.1.txid == tx_id)
         {
@@ -291,7 +288,7 @@ pub fn finalization_time_estimate(
     Duration::from_nanos(
         min_confirmations as u64
             * match network {
-                ic_btc_interface::Network::Mainnet => 10 * MIN_NANOS,
+                ic_btc_interface::Network::Mainnet => 7 * MIN_NANOS,
                 ic_btc_interface::Network::Testnet => MIN_NANOS,
                 ic_btc_interface::Network::Regtest => SEC_NANOS,
             },
