@@ -3,30 +3,50 @@ use std::str::FromStr;
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
 use serde::Serialize;
+use thiserror::Error;
 
-use omnity_types::{ChainState};
+use omnity_types::{ChainState, Ticket, TicketType, TxAction};
 
 use crate::bitcoin_to_custom::check_transaction;
+use crate::hub;
 use crate::state::{mutate_state, read_state};
-use crate::types::{GenTicketRequest, GenTicketStatus};
+use crate::types::{LockTicketRequest, GenTicketStatus};
 
-#[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(CandidType, Clone,Default, Debug, Deserialize, PartialEq, Eq, Error)]
 pub enum GenerateTicketError {
+    #[error("")]
     TemporarilyUnavailable(String),
+    #[error("")]
     AlreadySubmitted,
+    #[error("")]
     AlreadyProcessed,
+    #[error("")]
     NoNewUtxos,
+    #[error("")]
     TxNotFoundInMemPool,
+    #[error("")]
     InvalidRuneId(String),
+    #[error("")]
     InvalidTxId,
+    #[error("")]
     UnsupportedChainId(String),
+    #[error("")]
     UnsupportedToken(String),
+    #[error("")]
     SendTicketErr(String),
+    #[error("")]
     RpcError(String),
+    #[error("")]
     AmountIsZero,
+    #[error("")]
     OrdTxError(String),
+    #[error("")]
     NotBridgeTx,
+    #[error("")]
     InvalidArgs(String),
+    #[default]
+    #[error("")]
+    Unknown,
 }
 
 #[derive(Clone, CandidType, Serialize, Deserialize)]
@@ -75,7 +95,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
     check_transaction(args.clone()).await?;
-    /* //TODO comment for test
+    //TODO comment for test
       hub::pending_ticket(
             hub_principal,
             Ticket {
@@ -94,8 +114,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         )
             .await
             .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
-    */
-    let request = GenTicketRequest {
+    let request = LockTicketRequest {
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
         token_id: token.token_id,

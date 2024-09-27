@@ -24,7 +24,7 @@ use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId,
 
 use crate::stable_memory::Memory;
 use crate::types::{
-    Brc20Ticker, GenTicketRequest, GenTicketStatus, PendingDirectiveStatus, PendingTicketStatus,
+    Brc20Ticker, LockTicketRequest, GenTicketStatus, PendingDirectiveStatus, PendingTicketStatus,
 };
 
 thread_local! {
@@ -60,8 +60,8 @@ pub struct Brc20State {
     pub finalized_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
 
     //lock tickets storage
-    pub pending_lock_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
-    pub finalized_lock_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
+    pub pending_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
+    pub finalized_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
 
     #[serde(skip, default = "crate::stable_memory::init_directives_queue")]
     pub directives_queue: StableBTreeMap<u64, Directive, Memory>,
@@ -90,8 +90,8 @@ pub struct StateProfile {
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
-    pub pending_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
-    pub finalized_gen_ticket_requests: BTreeMap<Txid, GenTicketRequest>,
+    pub pending_gen_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
+    pub finalized_gen_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
 }
 
 impl From<&Brc20State> for StateProfile {
