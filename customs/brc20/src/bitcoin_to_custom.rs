@@ -1,3 +1,4 @@
+use std::future::Future;
 use crate::call_error::{CallError, Reason};
 use crate::custom_to_bitcoin::SendTicketResult;
 use crate::generate_ticket::GenerateTicketError::InvalidArgs;
@@ -8,7 +9,7 @@ use crate::ord::inscription::brc20::{Brc20, Brc20Transfer};
 use crate::ord::mempool_rpc_types::TxInfo;
 use crate::ord::parser::OrdParser;
 use crate::state::{deposit_addr, finalization_time_estimate, mutate_state, read_state};
-use crate::types::{create_query_brc20_transfer_args, GenTicketRequest};
+use crate::types::{create_query_brc20_transfer_args, LockTicketRequest};
 use bitcoin::Transaction;
 use candid::utils::ArgumentEncoder;
 use candid::{CandidType, Nat, Principal};
@@ -21,13 +22,14 @@ use ic_cdk::api::management_canister::http_request::{
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::{CRITICAL, ERROR, WARNING};
 use crate::constants::FINALIZE_LOCK_TICKET_NAME;
+use crate::retry::call_rpc_with_retry;
 
 pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     let token =
         read_state(|s| s.tokens.get(&req.token_id).cloned()).ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
     let chain = read_state(|s| s.counterparties.get(&req.target_chain_id).cloned())
         .ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
-    let transfer_transfer = query_transaction(&req.txid).await?;
+    let transfer_transfer = call_rpc_with_retry(&req.txid, query_transaction).await?;//query_transaction(&req.txid).await?;
     let receiver = transfer_transfer
         .vout
         .first()
@@ -39,7 +41,7 @@ pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTi
         return Err(GenerateTicketError::InvalidTxId);
     }
     let inscribe_txid = transfer_transfer.vin.first().cloned().unwrap().txid;
-    let inscribe_transfer: Transaction = query_transaction(&inscribe_txid)
+    let inscribe_transfer: Transaction = call_rpc_with_retry(&inscribe_txid, query_transaction)
         .await?
         .try_into()
         .map_err(|e: anyhow::Error| GenerateTicketError::RpcError(e.to_string()))?;
@@ -145,7 +147,7 @@ pub async fn finalize_lock_ticket_request() {
             .iter()
             .filter(|&req| (req.1.received_at + (wait_time.as_nanos() as u64) < now))
             .map(|req| (req.0.clone(), req.1.clone()))
-            .collect::<Vec<(Txid, GenTicketRequest)>>()
+            .collect::<Vec<(Txid, LockTicketRequest)>>()
     });
     let (network, deposit_addr, min_confirmations) = read_state(|s| {
         (
@@ -214,3 +216,4 @@ pub async fn query_indexed_transfer(
             })?;
     Ok(resp.0)
 }
+

@@ -31,13 +31,13 @@ pub enum GenTicketStatus {
     /// The request is either invalid or too old.
     Unknown,
     /// The request is in the queue.
-    Pending(GenTicketRequest),
-    Confirmed(GenTicketRequest),
-    Finalized(GenTicketRequest),
+    Pending(LockTicketRequest),
+    Confirmed(LockTicketRequest),
+    Finalized(LockTicketRequest),
 }
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GenTicketRequest {
+pub struct LockTicketRequest {
     pub target_chain_id: String,
     pub receiver: String,
     pub token_id: TokenId,
@@ -48,7 +48,7 @@ pub struct GenTicketRequest {
 }
 
 pub fn create_query_brc20_transfer_args(
-    gen_ticket_request: GenTicketRequest,
+    gen_ticket_request: LockTicketRequest,
     deposit_addr: String,
     ticker_decimals: u8,
 ) -> QueryBrc20TransferArgs {

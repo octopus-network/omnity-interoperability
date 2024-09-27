@@ -4,7 +4,7 @@ use std::fmt;
 
 /// Represents an error from a management canister call, such as
 /// `sign_with_ecdsa` or `bitcoin_send_transaction`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq,  Deserialize, Serialize)]
 pub struct CallError {
     pub method: String,
     pub reason: Reason,
