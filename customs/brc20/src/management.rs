@@ -2,14 +2,13 @@
 
 use bitcoin::Transaction;
 use candid::{CandidType, Principal};
-use ic_btc_interface::{Address, GetCurrentFeePercentilesRequest, GetUtxosRequest, GetUtxosResponse, MillisatoshiPerByte, Network, Txid, UtxosFilterInRequest};
+use ic_btc_interface::{Address, GetCurrentFeePercentilesRequest, GetUtxosRequest, GetUtxosResponse, MillisatoshiPerByte, Network, UtxosFilterInRequest};
 use ic_cdk::api::call::CallResult;
 use ic_ic00_types::{
     DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
     SignWithECDSAArgs, SignWithECDSAReply,
 };
 use serde::de::DeserializeOwned;
-use serde::Serialize;
 
 use crate::bitcoin::ECDSAPublicKey;
 use crate::call_error::{CallError, Reason};

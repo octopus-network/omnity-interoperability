@@ -1,20 +1,20 @@
 //! NFT
 //! Closely follows https://github.com/ordinals/ord/blob/master/src/inscriptions/inscription.rs
 
-use std::io::Cursor;
 use std::mem;
 use std::str::FromStr;
+
+use bitcoin::constants::MAX_SCRIPT_ELEMENT_SIZE;
+use bitcoin::opcodes;
+use bitcoin::opcodes::all::OP_CHECKSIG;
+use bitcoin::script::{Builder as ScriptBuilder, PushBytes, PushBytesBuf};
+use serde::{Deserialize, Serialize};
 
 use crate::ord::builder::RedeemScriptPubkey;
 use crate::ord::inscription::Inscription;
 use crate::ord::parser::constants;
 use crate::ord::parser::push_bytes::bytes_to_push_bytes;
-use crate::ord::result::{InscriptionParseError, OrdError, OrdResult};
-use bitcoin::constants::MAX_SCRIPT_ELEMENT_SIZE;
-use bitcoin::opcodes;
-use bitcoin::opcodes::all::OP_CHECKSIG;
-use bitcoin::script::{Builder as ScriptBuilder, PushBytes, PushBytesBuf, ScriptBuf};
-use serde::{Deserialize, Serialize};
+use crate::ord::result::{OrdError, OrdResult};
 
 /// Represents an arbitrary Ordinal inscription. We're "unofficially" referring to this as an NFT
 /// (e.g., like an ERC721 token). Ordinal inscriptions allow for the embedding of data directly
@@ -150,46 +150,8 @@ impl Nft {
         mem::swap(&mut tmp, builder);
     }
 
-    /// Validates the NFT's content type.
-    fn validate_content_type(&self) -> OrdResult<Self> {
-        if let Some(content_type) = &self.content_type {
-            let content_type_str =
-                std::str::from_utf8(content_type).map_err(OrdError::Utf8Encoding)?;
-
-            if !content_type_str.contains('/') {
-                return Err(OrdError::InscriptionParser(
-                    InscriptionParseError::ContentType,
-                ));
-            }
-        }
-
-        Ok(self.clone())
-    }
-
-    /// Creates a new `Nft` from JSON-encoded string.
-    pub fn from_json_str(data: &str) -> OrdResult<Self> {
-        Self::from_str(data)?.validate_content_type()
-    }
-
-    /// Returns `Self` as a JSON-encoded data to be pushed to the redeem script.
-    pub fn as_push_bytes(&self) -> OrdResult<PushBytesBuf> {
-        bytes_to_push_bytes(self.encode()?.as_bytes())
-    }
-
-    pub fn body(&self) -> Option<&str> {
-        std::str::from_utf8(self.body.as_ref()?).ok()
-    }
-
     pub fn content_type(&self) -> Option<&str> {
         std::str::from_utf8(self.content_type.as_ref()?).ok()
-    }
-
-    pub fn metadata(&self) -> Option<ciborium::Value> {
-        ciborium::from_reader(Cursor::new(self.metadata.as_ref()?)).ok()
-    }
-
-    pub fn reveal_script_as_scriptbuf(&self, builder: ScriptBuilder) -> OrdResult<ScriptBuf> {
-        Ok(self.append_reveal_script_to_builder(builder)?.into_script())
     }
 }
 

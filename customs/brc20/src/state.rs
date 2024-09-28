@@ -1,31 +1,28 @@
-use bitcoin::Address;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 use std::time::Duration;
 
+use bitcoin::Address;
 use candid::{CandidType, Principal};
 use ic_btc_interface::{Network, Txid};
-use ic_ic00_types::{BitcoinNetwork, DerivationPath};
-use ic_stable_structures::writer::Writer;
+use ic_ic00_types::{DerivationPath};
 use ic_stable_structures::StableBTreeMap;
+use ic_stable_structures::writer::Writer;
 use serde::{Deserialize, Serialize};
 
-use crate::bitcoin::{main_bitcoin_address, ECDSAPublicKey};
+use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
+use omnity_types::ChainState::Active;
+use omnity_types::ChainType::ExecutionChain;
+
+use crate::bitcoin::{ECDSAPublicKey, main_bitcoin_address};
 use crate::constants::{MIN_NANOS, SEC_NANOS};
 use crate::custom_to_bitcoin::SendTicketResult;
 use crate::ord::builder::Utxo;
-use crate::ord::inscription::brc20::Brc20;
 use crate::service::InitArgs;
 use crate::stable_memory;
-use omnity_types::ChainState::Active;
-use omnity_types::ChainType::ExecutionChain;
-use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
-
 use crate::stable_memory::Memory;
-use crate::types::{
-    Brc20Ticker, LockTicketRequest, GenTicketStatus, PendingDirectiveStatus, PendingTicketStatus,
-};
+use crate::types::{GenTicketStatus, LockTicketRequest};
 
 thread_local! {
     static STATE: RefCell<Option<Brc20State >> = RefCell::new(None);

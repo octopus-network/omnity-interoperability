@@ -25,40 +25,6 @@ pub enum OrdParser {
 }
 
 impl OrdParser {
-    /// Parses all inscriptions from a given transaction and categorizes them as either `Self::Brc20` or `Self::Ordinal`.
-    ///
-    /// This function extracts all inscription data from the transaction, attempts to parse each inscription,
-    /// and returns a vector of categorized inscriptions with their corresponding IDs.
-    ///
-    /// # Errors
-    ///
-    /// Will return an error if any inscription data cannot be parsed correctly,
-    /// or if no valid inscriptions are found in the transaction.
-    pub fn parse_all(tx: &Transaction) -> OrdResult<Vec<(InscriptionId, Self)>> {
-        let txid = tx.txid();
-
-        ParsedEnvelope::from_transaction(tx)
-            .into_iter()
-            .map(|envelope| {
-                let inscription_id = InscriptionId {
-                    txid,
-                    index: envelope.input,
-                };
-
-                let raw_body = envelope.payload.body.as_ref().ok_or_else(|| {
-                    OrdError::InscriptionParser(InscriptionParseError::ParsedEnvelope(
-                        "Empty payload body in envelope".to_string(),
-                    ))
-                })?;
-
-                if let Some(brc20) = Self::parse_brc20(raw_body) {
-                    Ok((inscription_id, Self::Brc20(brc20)))
-                } else {
-                    Ok((inscription_id, Self::Ordinal(envelope.payload)))
-                }
-            })
-            .collect::<Result<Vec<(InscriptionId, Self)>, OrdError>>()
-    }
 
     /// Parses a single inscription from a transaction at a specified index, returning the
     /// parsed inscription along with its ID.

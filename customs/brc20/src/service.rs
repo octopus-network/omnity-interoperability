@@ -1,16 +1,12 @@
 use bitcoin::{Amount, Txid};
 use candid::{CandidType, Deserialize, Principal};
-use ic_btc_interface::{Address, GetUtxosResponse};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
-use crate::bitcoin_to_custom::finalize_lock_ticket_request;
-use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
-use omnity_types::TxAction::Redeem;
-use omnity_types::{Network, Seq, Ticket, TicketType, TxAction};
+use crate::generate_ticket::{GenerateTicketArgs};
+use omnity_types::{Network, Seq, Ticket};
 use crate::management::get_utxos;
 use crate::ord::builder::Utxo;
 use bitcoin::hashes::Hash;
-use bitcoin::consensus::Encodable;
 use crate::constants::DEFAULT_FEE;
 
 use crate::state::{
@@ -57,7 +53,7 @@ pub async fn test_create_tx(ticket: Ticket, seq: Seq) {
 }
 
 #[update]
-pub async fn update_utxos(addr: String) -> String {
+pub async fn update_utxos() -> String {
     let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
     let utxos = get_utxos(nw, &deposit_addr, 0u32).await;
     match utxos.clone() {

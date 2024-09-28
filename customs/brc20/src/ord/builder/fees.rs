@@ -1,6 +1,6 @@
 use bitcoin::{Amount, Network};
-use ic_btc_interface::MillisatoshiPerByte;
 use serde::{Deserialize, Serialize};
+
 use crate::constants::{COMMIT_TX_VBYTES, DEFAULT_FEE, REVEAL_TX_VBYTES, TRANSFER_TX_VBYTES};
 use crate::custom_to_bitcoin::estimate_fee_per_vbyte;
 use crate::ord::parser::POSTAGE;

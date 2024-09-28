@@ -14,7 +14,6 @@ use bitcoin::{
     secp256k1, Address, Amount, FeeRate, Network, OutPoint, PublicKey, ScriptBuf, Sequence,
     Transaction, TxIn, TxOut, Txid, Witness, XOnlyPublicKey,
 };
-use candid::CandidType;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
@@ -93,8 +92,8 @@ pub struct RevealTransactionArgs {
 /// So P2TR is preferred
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScriptType {
-    P2WSH,
     P2TR,
+    P2WSH,
 }
 
 #[derive(Debug)]
@@ -127,24 +126,6 @@ impl OrdTransactionBuilder {
 
     pub fn signer(&self) -> MixSigner {
         self.signer.signer.clone()
-    }
-    /// A constructor that allows to set the taproot payload, in case the user wants to resume a previous session
-    pub fn new_with_taproot_payload(
-        public_key: PublicKey,
-        script_type: ScriptType,
-        signer: Wallet,
-        taproot_payload: Option<TaprootPayload>,
-    ) -> Self {
-        Self {
-            public_key,
-            script_type,
-            taproot_payload,
-            signer,
-        }
-    }
-
-    pub fn taproot_payload(&self) -> Option<&TaprootPayload> {
-        self.taproot_payload.as_ref()
     }
 
     /// Sign the commit transaction

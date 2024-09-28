@@ -34,12 +34,6 @@ pub struct Envelope<T> {
 }
 
 impl ParsedEnvelope {
-    pub(crate) fn from_transaction(transaction: &Transaction) -> Vec<Self> {
-        RawEnvelope::from_transaction(transaction)
-            .into_iter()
-            .map(|envelope| envelope.into())
-            .collect()
-    }
 
     /// Fetch a single parsed envelope from a specific transaction input if it exists.
     pub(crate) fn from_transaction_input(transaction: &Transaction, index: usize) -> Option<Self> {
@@ -55,19 +49,6 @@ impl ParsedEnvelope {
 }
 
 impl RawEnvelope {
-    fn from_transaction(transaction: &Transaction) -> Vec<Self> {
-        let mut envelopes = Vec::new();
-
-        for (i, input) in transaction.input.iter().enumerate() {
-            if let Some(tapscript) = input.witness.tapscript() {
-                if let Ok(input_envelopes) = Self::from_tapscript(tapscript, i) {
-                    envelopes.extend(input_envelopes);
-                }
-            }
-        }
-
-        envelopes
-    }
 
     fn from_tapscript(tapscript: &Script, input: usize) -> ParseResult<Vec<Self>> {
         let mut envelopes = Vec::new();

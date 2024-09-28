@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::bitcoin_to_custom::{query_transaction};
 use crate::call_error::CallError;
-use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME};
+use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME, SUBMIT_UNLOCK_TICKETS_NAME};
 use omnity_types::ic_log::{CRITICAL, ERROR};
 use omnity_types::{Seq, Ticket};
 
@@ -51,10 +51,6 @@ pub enum CustomToBitcoinError {
     ArgumentError(String),
     #[error("")]
     InsufficientFunds,
-    #[error("")]
-    UnexpectedSignature,
-    #[error("nest error {0}")]
-    NestError(String),
 }
 pub type CustomToBitcoinResult<T> = Result<T, CustomToBitcoinError>;
 
@@ -389,6 +385,16 @@ pub fn finalize_unlock_tickets_task() {
     });
 }
 
+pub fn submit_unlock_tickets_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(SUBMIT_UNLOCK_TICKETS_NAME.to_string())
+        {
+            Some(guard) => guard,
+            None => return,
+        };
+        send_tickets_to_bitcoin().await;
+    });
+}
 
 /// Returns an estimate for transaction fees in millisatoshi per vbyte. Returns
 /// None if the bitcoin canister is unavailable or does not have enough data for

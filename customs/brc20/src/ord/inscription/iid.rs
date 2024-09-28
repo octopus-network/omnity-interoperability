@@ -2,10 +2,11 @@
 
 use std::str::FromStr;
 
-use crate::ord::result::{InscriptionParseError, OrdError, OrdResult};
 use bitcoin::hashes::Hash;
-use bitcoin::{OutPoint, Txid};
+use bitcoin::Txid;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use crate::ord::result::InscriptionParseError;
 
 /// Represents an Ordinal/BRC20 inscription identifier,
 /// derived from the transaction ID and the associated `vout` (index) of the UTXO
@@ -22,38 +23,6 @@ impl Default for InscriptionId {
             txid: Txid::all_zeros(),
             index: 0,
         }
-    }
-}
-
-impl InscriptionId {
-    /// Retrieves the raw InscriptionId bytes.
-    pub fn get_raw(&self) -> Vec<u8> {
-        let index = self.index.to_le_bytes();
-        let mut index_slice = index.as_slice();
-
-        while index_slice.last().copied() == Some(0) {
-            index_slice = &index_slice[0..index_slice.len() - 1];
-        }
-
-        self.txid
-            .to_byte_array()
-            .iter()
-            .chain(index_slice)
-            .copied()
-            .collect()
-    }
-
-    /// Creates a new InscriptionId from a transaction's output reference.
-    pub fn from_outpoint(outpoint: OutPoint) -> Self {
-        Self {
-            txid: outpoint.txid,
-            index: outpoint.vout,
-        }
-    }
-
-    /// Creates a new InscriptionId from its string representation.
-    pub fn parse_from_str(iid: &str) -> OrdResult<Self> {
-        Self::from_str(iid).map_err(OrdError::InscriptionParser)
     }
 }
 

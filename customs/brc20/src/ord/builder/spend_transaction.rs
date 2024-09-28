@@ -1,6 +1,6 @@
 use bitcoin::absolute::LockTime;
 use bitcoin::hashes::Hash as _;
-use bitcoin::secp256k1::{self, Secp256k1};
+use bitcoin::secp256k1::{self};
 use bitcoin::sighash::SighashCache;
 use bitcoin::transaction::Version;
 use bitcoin::{Address, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness};
@@ -19,8 +19,6 @@ pub async fn spend_utxo_transaction(
     inputs: Vec<Utxo>,
     fee: Amount,
 ) -> Result<Transaction, CustomToBitcoinError> {
-    let secp = Secp256k1::new();
-
     let leftover_amount = inputs
         .iter()
         .map(|input| input.amount.to_sat())
@@ -63,7 +61,6 @@ pub async fn spend_utxo_transaction(
     let tx = sign_transaction(
         &signer,
         unsigned_tx,
-        &secp,
         inputs,
         &signer.signer_addr.script_pubkey(),
     )
@@ -74,7 +71,6 @@ pub async fn spend_utxo_transaction(
 async fn sign_transaction(
     signer: &MixSigner,
     unsigned_tx: Transaction,
-    secp: &Secp256k1<secp256k1::All>,
     inputs: Vec<Utxo>,
     sender_script_pubkey: &ScriptBuf,
 ) -> Result<Transaction, CustomToBitcoinError> {
