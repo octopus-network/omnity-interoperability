@@ -25,7 +25,7 @@ pub async fn spend_utxo_transaction(
         .sum::<u64>()
         .checked_sub(fee.to_sat())
         .and_then(|v|v.checked_sub(POSTAGE))
-        .ok_or_else(|| InsufficientFunds)?;
+        .ok_or(InsufficientFunds)?;
 
     let tx_out = vec![
         TxOut {
@@ -59,7 +59,7 @@ pub async fn spend_utxo_transaction(
     };
 
     let tx = sign_transaction(
-        &signer,
+        signer,
         unsigned_tx,
         inputs,
         &signer.signer_addr.script_pubkey(),

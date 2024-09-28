@@ -90,7 +90,7 @@ pub async fn send_tickets_to_bitcoin() {
         }
         let fees = calc_fees(bitcoin_network()).await;
         for seq in from..to {
-            if let Err(_) = process_to_bitcoin_ticket(seq, &fees).await {
+            if process_to_bitcoin_ticket(seq, &fees).await.is_err() {
                 break;
             }
             mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
@@ -133,7 +133,7 @@ pub async fn finalize_flight_tickets() {
         s.flight_unlock_ticket_map
             .iter()
             .filter(|&req| (req.1.time_at + (wait_time.as_nanos() as u64) < now))
-            .map(|req| (req.0.clone(), req.1.clone()))
+            .map(|req| (*req.0, req.1.clone()))
             .collect::<Vec<(Seq, SendTicketResult)>>()
     });
     let (_network, _deposit_addr, _min_confirmations) = read_state(|s| {
@@ -180,7 +180,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<Send
     let ticket = read_state(|s| s.tickets_queue.get(&seq));
     match ticket {
         None => {
-            return Ok(None);
+            Ok(None)
         }
         Some(t) => {
             if read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id)) {
@@ -190,7 +190,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<Send
                 return Ok(None);
             }
             let token = read_state(|s| s.tokens.get(&t.token).cloned().unwrap());
-            let vins = select_inscribe_txins(&fees)?;
+            let vins = select_inscribe_txins(fees)?;
             let key_id = read_state(|s| s.ecdsa_key_name.clone());
             let mut builder = OrdTransactionBuilder::p2tr(
                 PublicKey::from_str(deposit_pubkey().as_str()).unwrap(),
@@ -248,7 +248,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<Send
 
             let commit_remain_fee = find_commit_remain_fee(&signed_commit_tx);
             let transfer_trasaction =
-                build_transfer_transfer(&t, &fees, real_utxo, &builder.signer(), commit_remain_fee)
+                build_transfer_transfer(&t, fees, real_utxo, &builder.signer(), commit_remain_fee)
                     .await?;
             let network = read_state(|s| s.btc_network);
             let tx_vec = vec![signed_commit_tx, reveal_transaction, transfer_trasaction];
@@ -260,16 +260,14 @@ pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<Send
                 err_info: None,
                 time_at: ic_cdk::api::time(),
             };
-            let mut index = 0u8;
-            for tx in tx_vec {
+            for (index, tx) in tx_vec.into_iter().enumerate() {
                 let r = crate::management::send_transaction(&tx, network).await;
                 if r.is_err() {
                     send_res.success = false;
-                    send_res.err_step = Some(index);
+                    send_res.err_step = Some(index as u8);
                     send_res.err_info = r.err();
                     break;
                 }
-                index += 1;
             }
             if send_res.success {
                 //insert_utxo
@@ -310,16 +308,16 @@ pub async fn build_transfer_transfer(
     signer: &MixSigner,
     commit_return_fee: Option<Utxo>,
 ) -> Result<Transaction, CustomToBitcoinError> {
-    let fees_inputs = determine_transfer_fee_txins(&fee, commit_return_fee)?;
+    let fees_inputs = determine_transfer_fee_txins(fee, commit_return_fee)?;
     let mut all_inputs = vec![reveal_utxo.clone()];
     all_inputs.extend(fees_inputs);
     let recipient = Address::from_str(&ticket.receiver.to_string())
         .map_err(|e| ArgumentError(e.to_string()))?
         .assume_checked();
     let transfer = spend_utxo_transaction(
-        &signer,
+        signer,
         recipient,
-        reveal_utxo.amount.clone(),
+        reveal_utxo.amount,
         all_inputs,
         fee.utxo_fee,
     )
@@ -341,7 +339,7 @@ pub fn determine_transfer_fee_txins(
         None => select_utxos(fee_amount),
         Some(t) => {
             if fee_amount < t.amount.to_sat() {
-                return Ok(vec![t]);
+                Ok(vec![t])
             } else {
                 let re_fee = fee_amount - t.amount.to_sat();
                 let mut v = select_utxos(re_fee)?;

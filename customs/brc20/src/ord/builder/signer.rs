@@ -32,7 +32,7 @@ impl MixSigner {
 
     pub async fn sign_with_ecdsa(&self, message: Message) -> OrdResult<Signature> {
         let key_name = read_state(|s| s.ecdsa_key_name.clone());
-        let sighash = message.as_ref().clone();
+        let sighash = *message.as_ref();
         let sec1_signature =
             management::sign_with_ecdsa(key_name, DerivationPath::new(vec![]), sighash)
                 .await

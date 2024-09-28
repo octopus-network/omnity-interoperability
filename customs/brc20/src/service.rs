@@ -68,7 +68,7 @@ pub async fn update_utxos() -> String {
                 })
                 .collect::<Vec<Utxo>>();
             mutate_state(|s| s.deposit_addr_utxo = v.clone());
-            return serde_json::to_string(&v).unwrap()
+            serde_json::to_string(&v).unwrap()
         }
         Err(e) => {
             panic!("query utxo error {:?}", e);
