@@ -47,9 +47,9 @@ pub enum CustomToBitcoinError {
     SignFailed(String),
     #[error("build a brc20 transfer error: {0}")]
     BuildTransactionFailed(String),
-    #[error("")]
+    #[error("ArgumentError: {0}")]
     ArgumentError(String),
-    #[error("")]
+    #[error("InsufficientFunds")]
     InsufficientFunds,
 }
 pub type CustomToBitcoinResult<T> = Result<T, CustomToBitcoinError>;
