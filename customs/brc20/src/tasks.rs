@@ -20,7 +20,6 @@ pub fn start_tasks() {
         Duration::from_secs(FINALIZE_LOCK_TICKET_INTERVAL),
         finalize_lock_ticket_task
     );
-
     set_timer_interval(
         Duration::from_secs(FINALIZE_UNLOCK_TICKET_INTERVAL),
         finalize_unlock_tickets_task
@@ -29,7 +28,6 @@ pub fn start_tasks() {
         Duration::from_secs(SUBMIT_UNLOCK_TICKETS_INTERVAL),
         submit_unlock_tickets_task
     );
-
 }
 
 
