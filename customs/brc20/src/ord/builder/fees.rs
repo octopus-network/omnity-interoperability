@@ -32,7 +32,7 @@ pub async fn calc_fees(network: Network) -> Fees {
                     DEFAULT_FEE
                 }
                 Some(v_price) => {
-                    return Fees {
+                    Fees {
                         commit_fee: Amount::from_sat(COMMIT_TX_VBYTES*v_price/1000),
                         reveal_fee: Amount::from_sat(REVEAL_TX_VBYTES*v_price/1000),
                         utxo_fee: Amount::from_sat(TRANSFER_TX_VBYTES*v_price/1000 + POSTAGE),

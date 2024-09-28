@@ -80,7 +80,7 @@ impl Directive {
         let mut hasher = sha2::Sha256::new();
         hasher.update(self.to_string().as_bytes());
         let bytes: [u8; 32] = hasher.finalize().into();
-        bytes.iter().map(|byte| format!("{:02x}", byte)).collect()
+        hex::encode(bytes)
     }
 }
 

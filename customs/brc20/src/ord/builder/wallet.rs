@@ -22,7 +22,7 @@ pub struct Wallet {
 impl Wallet {
     pub fn new_with_signer(signer: MixSigner) -> Self {
         Self {
-            signer: signer,
+            signer,
             secp: Secp256k1::new(),
         }
     }
@@ -39,7 +39,6 @@ impl Wallet {
             inputs,
             transaction,
             txin_script,
-            TransactionType::Commit,
         )
         .await
     }
@@ -92,52 +91,28 @@ impl Wallet {
         utxos: &[Utxo],
         transaction: Transaction,
         script: &ScriptBuf,
-        transaction_type: TransactionType,
     ) -> OrdResult<Transaction> {
         let mut hash = SighashCache::new(transaction.clone());
         for (index, input) in utxos.iter().enumerate() {
-            let sighash = match transaction_type {
-                TransactionType::Commit => hash.p2wpkh_signature_hash(
+            let sighash = hash.p2wpkh_signature_hash(
                     index,
                     script,
                     input.amount,
                     bitcoin::EcdsaSighashType::All,
-                )?,
-                TransactionType::Reveal => hash.p2wsh_signature_hash(
-                    index,
-                    script,
-                    input.amount,
-                    bitcoin::EcdsaSighashType::All,
-                )?,
-            };
-
+            )?;
             let message = Message::from(sighash);
             let signature = self.signer.sign_with_ecdsa(message).await?;
 
             // append witness
             let signature = bitcoin::ecdsa::Signature::sighash_all(signature).into();
-            match transaction_type {
-                TransactionType::Commit => {
-                    self.append_witness_to_input(
-                        &mut hash,
-                        signature,
-                        index,
-                        &own_pubkey.inner,
-                        None,
-                        None,
-                    )?;
-                }
-                TransactionType::Reveal => {
-                    self.append_witness_to_input(
-                        &mut hash,
-                        signature,
-                        index,
-                        &own_pubkey.inner,
-                        Some(script),
-                        None,
-                    )?;
-                }
-            }
+            self.append_witness_to_input(
+                &mut hash,
+                signature,
+                index,
+                &own_pubkey.inner,
+                None,
+                None,
+            )?;
         }
 
         Ok(hash.into_transaction())
@@ -186,7 +161,7 @@ impl Wallet {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TransactionType {
     Commit,
-    Reveal
+    //Reveal
 }
 
 enum OrdSignature {

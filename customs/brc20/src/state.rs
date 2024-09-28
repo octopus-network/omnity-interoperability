@@ -95,14 +95,14 @@ impl From<&Brc20State> for StateProfile {
     fn from(value: &Brc20State) -> Self {
         StateProfile {
             admins: value.admins.clone(),
-            min_confirmations: value.min_confirmations.clone(),
-            btc_network: value.btc_network.clone(),
+            min_confirmations: value.min_confirmations,
+            btc_network: value.btc_network,
             ecdsa_key_name: value.ecdsa_key_name.clone(),
             ecdsa_public_key: value.ecdsa_public_key.clone(),
             deposit_addr: value.deposit_addr.clone(),
             deposit_pubkey: value.deposit_pubkey.clone(),
-            indexer_principal: value.indexer_principal.clone(),
-            hub_principal: value.hub_principal.clone(),
+            indexer_principal: value.indexer_principal,
+            hub_principal: value.hub_principal,
             chain_id: value.chain_id.clone(),
             tokens: value.tokens.clone(),
             counterparties: value.counterparties.clone(),

@@ -8,7 +8,6 @@ use crate::ord::parser::OrdParser;
 use crate::state::{deposit_addr, finalization_time_estimate, mutate_state, read_state};
 use crate::types::{create_query_brc20_transfer_args, LockTicketRequest};
 use bitcoin::Transaction;
-use candid::Nat;
 use ic_btc_interface::{Network, Txid};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{
@@ -51,13 +50,13 @@ pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTi
                 || t.refx != req.receiver
                 || t.chain != chain.chain_id
             {
-                return Err(InvalidArgs(serde_json::to_string(&t).unwrap()));
+                Err(InvalidArgs(serde_json::to_string(&t).unwrap()))
             } else {
-                return Ok(());
+                Ok(())
             }
         }
         _ => {
-            return Err(GenerateTicketError::NotBridgeTx);
+            Err(GenerateTicketError::NotBridgeTx)
         }
     }
 }
@@ -75,7 +74,7 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
     let url = format!(
         "https://mempool.space/{}/api/tx/{}",
         network_str,
-        txid.to_string()
+        txid
     );
 
     let request = CanisterHttpRequestArgument {
@@ -99,7 +98,7 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
     match http_request(request, MAX_CYCLES).await {
         Ok((response,)) => {
             let status = response.status;
-            if status == Nat::from(200_u32) {
+            if status == 200_u32 {
                 let body = String::from_utf8(response.body).map_err(|_| {
                     GenerateTicketError::RpcError(
                         "Transformed response is not UTF-8 encoded".to_string(),
@@ -140,7 +139,7 @@ pub async fn finalize_lock_ticket_request() {
         s.pending_lock_ticket_requests
             .iter()
             .filter(|&req| (req.1.received_at + (wait_time.as_nanos() as u64) < now))
-            .map(|req| (req.0.clone(), req.1.clone()))
+            .map(|req| (*req.0, req.1.clone()))
             .collect::<Vec<(Txid, LockTicketRequest)>>()
     });
     let deposit_addr = read_state(|s| {
