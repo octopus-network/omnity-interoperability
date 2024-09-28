@@ -1,4 +1,3 @@
-use ic_cdk::api::call::RejectionCode;
 use thiserror::Error;
 
 pub type OrdResult<T> = std::result::Result<T, OrdError>;
@@ -30,16 +29,10 @@ pub enum OrdError {
     TaprootCompute,
     #[error("Scripterror: {0}")]
     Script(#[from] bitcoin::blockdata::script::Error),
-    #[error("No transaction inputs")]
-    NoInputs,
     #[error("Invalid UTF-8 in: {0}")]
     Utf8Encoding(#[from] std::str::Utf8Error),
     #[error("Inscription parser error: {0}")]
     InscriptionParser(#[from] InscriptionParseError),
-    #[error("Invalid inputs")]
-    InvalidInputs,
-    #[error("Invalid script type")]
-    InvalidScriptType,
     #[error("management error: rs:{0}")]
     ManagementError(String),
 }
@@ -51,16 +44,8 @@ pub enum InscriptionParseError {
     Txid(#[from] bitcoin::hashes::hex::HexToArrayError),
     #[error("invalid character: {0}")]
     Character(char),
-    #[error("invalid MIME type format")]
-    ContentType,
     #[error("invalid length: {0}")]
     InscriptionIdLength(usize),
-    #[error("unexpected opcode token")]
-    UnexpectedOpcode,
-    #[error("unexpected push bytes token")]
-    UnexpectedPushBytes,
-    #[error("bad data syntax")]
-    BadDataSyntax,
     #[error("invalid separator: {0}")]
     CharacterSeparator(char),
     #[error("invalid index: {0}")]

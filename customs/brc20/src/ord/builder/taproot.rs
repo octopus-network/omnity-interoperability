@@ -1,4 +1,3 @@
-use crate::custom_to_bitcoin::CustomToBitcoinResult;
 use crate::management;
 use crate::ord::result::{OrdError, OrdResult};
 use bitcoin::key::UntweakedKeypair;
@@ -7,7 +6,7 @@ use bitcoin::taproot::{ControlBlock, LeafVersion, TaprootBuilder};
 use bitcoin::{Address, Amount, Network, ScriptBuf, TxOut, XOnlyPublicKey};
 use ic_cdk::api::call::CallResult;
 use rand::prelude::StdRng;
-use rand::{RngCore, SeedableRng};
+use rand::{SeedableRng};
 
 #[derive(Debug, Clone)]
 pub struct TaprootPayload {

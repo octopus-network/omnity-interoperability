@@ -2,19 +2,16 @@ use crate::ord::builder::signer::MixSigner;
 use crate::ord::result::{OrdError, OrdResult};
 use bitcoin::hashes::Hash as _;
 use bitcoin::key::Secp256k1;
-use bitcoin::secp256k1::ecdsa::Signature;
-use bitcoin::secp256k1::{self, All, Error, Message};
+use bitcoin::secp256k1::{self, All, Message};
 use bitcoin::sighash::{Prevouts, SighashCache};
 use bitcoin::taproot::{ControlBlock, LeafVersion};
 use bitcoin::{
-    Network, PrivateKey, PublicKey, ScriptBuf, TapLeafHash, TapSighashType, Transaction, TxOut,
-    Witness,
+    PublicKey, ScriptBuf, TapLeafHash, TapSighashType, Transaction, Witness,
 };
-use ic_ic00_types::DerivationPath;
 use log::debug;
 
 use super::taproot::TaprootPayload;
-use super::{TxInputInfo, Utxo};
+use super::{Utxo};
 
 /// An Ordinal-aware Bitcoin wallet.
 pub struct Wallet {
@@ -43,23 +40,6 @@ impl Wallet {
             transaction,
             txin_script,
             TransactionType::Commit,
-        )
-        .await
-    }
-
-    pub async fn sign_reveal_transaction_ecdsa(
-        &mut self,
-        own_pubkey: &PublicKey,
-        input: &Utxo,
-        transaction: Transaction,
-        redeem_script: &bitcoin::ScriptBuf,
-    ) -> OrdResult<Transaction> {
-        self.sign_ecdsa(
-            own_pubkey,
-            &[input.clone()],
-            transaction,
-            redeem_script,
-            TransactionType::Reveal,
         )
         .await
     }
@@ -206,7 +186,7 @@ impl Wallet {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TransactionType {
     Commit,
-    Reveal,
+    Reveal
 }
 
 enum OrdSignature {

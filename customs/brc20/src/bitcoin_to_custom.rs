@@ -1,23 +1,18 @@
-use std::future::Future;
 use crate::call_error::{CallError, Reason};
-use crate::custom_to_bitcoin::SendTicketResult;
 use crate::generate_ticket::GenerateTicketError::InvalidArgs;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use crate::hub;
-use crate::hub::update_tx_hash;
-use crate::ord::inscription::brc20::{Brc20, Brc20Transfer};
+use crate::ord::inscription::brc20::{Brc20};
 use crate::ord::mempool_rpc_types::TxInfo;
 use crate::ord::parser::OrdParser;
 use crate::state::{deposit_addr, finalization_time_estimate, mutate_state, read_state};
 use crate::types::{create_query_brc20_transfer_args, LockTicketRequest};
 use bitcoin::Transaction;
-use candid::utils::ArgumentEncoder;
-use candid::{CandidType, Nat, Principal};
+use candid::Nat;
 use ic_btc_interface::{Network, Txid};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{
-    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext,
-    TransformFunc,
+    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod
 };
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::{CRITICAL, ERROR, WARNING};
@@ -77,7 +72,6 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
         }
     };
     const MAX_CYCLES: u128 = 1_000_000_000;
-    const DERAULT_RPC_URL: &str = "https://mempool.space/api/tx";
     let url = format!(
         "https://mempool.space/{}/api/tx/{}",
         network_str,
@@ -149,12 +143,8 @@ pub async fn finalize_lock_ticket_request() {
             .map(|req| (req.0.clone(), req.1.clone()))
             .collect::<Vec<(Txid, LockTicketRequest)>>()
     });
-    let (network, deposit_addr, min_confirmations) = read_state(|s| {
-        (
-            s.btc_network,
-            s.deposit_addr.clone().unwrap(),
-            s.min_confirmations as u32,
-        )
+    let deposit_addr = read_state(|s| {
+        s.deposit_addr.clone().unwrap()
     });
     for (seq, gen_ticket_request) in can_check_finalizations.clone() {
         let token = read_state(|s| s.tokens.get(&gen_ticket_request.token_id).cloned());
@@ -173,7 +163,7 @@ pub async fn finalize_lock_ticket_request() {
                     token.decimals,
                 );
                 let query = query_indexed_transfer(args).await;
-                if let Ok(Some(t)) = query {
+                if let Ok(Some(_t)) = query {
                     //Check success
                     //FINALIZED TO HUB:
                     let hub_principal = read_state(|s| s.hub_principal);

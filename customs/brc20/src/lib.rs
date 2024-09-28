@@ -24,9 +24,11 @@ pub mod constants {
     pub const FETCH_HUB_TICKET_NAME: &str = "FETCH_HUB_TICKET";
     pub const FETCH_HUB_DIRECTIVE_NAME: &str = "FETCH_HUB_DIRECTIVE";
     pub const FINALIZE_LOCK_TICKET_NAME: &str = "FINALIZE_GENERATE_TICKET_NAME";
-    pub const FINALIZE_LOCK_TICKET_INTERVAL: u64 = 600;
+    pub const FINALIZE_LOCK_TICKET_INTERVAL: u64 = 120;
     pub const FINALIZE_UNLOCK_TICKET_NAME: &str = "FINALIZE_UNLOCK_TICKET_NAME";
     pub const FINALIZE_UNLOCK_TICKET_INTERVAL: u64 = 600;
+    pub const SUBMIT_UNLOCK_TICKETS_NAME: &str = "SUBMIT_UNLOCK_TICKETS_NAME";
+    pub const SUBMIT_UNLOCK_TICKETS_INTERVAL: u64 = 5;
     pub const BATCH_QUERY_LIMIT: u64 = 20;
     pub const PROD_KEY: &str = "key_1";
     pub const RPC_RETRY_TIMES: u8 = 5;
