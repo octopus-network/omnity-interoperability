@@ -14,38 +14,38 @@ use crate::types::{LockTicketRequest, GenTicketStatus};
 
 #[derive(CandidType, Clone,Default, Debug, Deserialize, PartialEq, Eq, Error)]
 pub enum GenerateTicketError {
-    #[error("")]
+    #[error("temp unavailable: {0}")]
     TemporarilyUnavailable(String),
-    #[error("")]
+    #[error("AlreadySubmitted")]
     AlreadySubmitted,
-    #[error("")]
+    #[error("AlreadyProcessed")]
     AlreadyProcessed,
-    #[error("")]
+    #[error("NoNewUtxos")]
     NoNewUtxos,
-    #[error("")]
+    #[error("TxNotFoundInMemPool")]
     TxNotFoundInMemPool,
-    #[error("")]
+    #[error("InvalidRuneId: {0}")]
     InvalidRuneId(String),
-    #[error("")]
+    #[error("InvalidTxId")]
     InvalidTxId,
-    #[error("")]
+    #[error("UnsupportedChainId: {0}")]
     UnsupportedChainId(String),
-    #[error("")]
+    #[error("UnsupportedToken: {0}")]
     UnsupportedToken(String),
-    #[error("")]
+    #[error("SendTicketErr: {0}")]
     SendTicketErr(String),
-    #[error("")]
+    #[error("RpcError: {0}")]
     RpcError(String),
-    #[error("")]
+    #[error("AmountIsZero")]
     AmountIsZero,
-    #[error("")]
+    #[error("OrdTxError: {0}")]
     OrdTxError(String),
-    #[error("")]
+    #[error("NotBridgeTx")]
     NotBridgeTx,
-    #[error("")]
+    #[error("InvalidArgs: {0}")]
     InvalidArgs(String),
     #[default]
-    #[error("")]
+    #[error("Unknown")]
     Unknown,
 }
 
