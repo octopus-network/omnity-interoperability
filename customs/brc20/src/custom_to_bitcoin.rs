@@ -90,7 +90,7 @@ pub async fn send_tickets_to_bitcoin() {
         }
         let fees = calc_fees(bitcoin_network()).await;
         for seq in from..to {
-            if process_to_bitcoin_ticket(seq, &fees).await.is_err() {
+            if process_unlock_ticket(seq, &fees).await.is_err() {
                 break;
             }
             mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
@@ -98,7 +98,7 @@ pub async fn send_tickets_to_bitcoin() {
     }
 }
 
-pub async fn process_to_bitcoin_ticket(seq: Seq, fees: &Fees) -> Result<(), CustomToBitcoinError> {
+pub async fn process_unlock_ticket(seq: Seq, fees: &Fees) -> Result<(), CustomToBitcoinError> {
     let res = send_ticket_to_bitcoin(seq,fees).await;
     if res.is_err() {
         let err = res.err().unwrap();
