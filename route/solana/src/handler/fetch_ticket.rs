@@ -13,6 +13,7 @@ use ic_solana::ic_log::ERROR;
 
 /// handler tickets from customs to solana
 pub async fn query_tickets() {
+
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return;
     }

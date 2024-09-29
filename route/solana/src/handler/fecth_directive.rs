@@ -33,7 +33,7 @@ pub async fn query_directives() {
                             Some(current_token) => {
                                 log!(
                                     DEBUG,
-                                    "[Directive::UpdateToken] \ncurrent token metadata :{:#?} \nupdate token metadata :{:#?} ",
+                                    "[query_directives] \ncurrent token metadata :{:#?} \nupdate token metadata :{:#?} ",
                                     current_token,update_token
                                 );
                                 mutate_state(|s| {
@@ -64,7 +64,7 @@ pub async fn query_directives() {
         Err(err) => {
             log!(
                 ERROR,
-                "[process directives] failed to query directives, err: {:?}",
+                "[query_directives] failed to query directives, err: {:?}",
                 err
             );
         }

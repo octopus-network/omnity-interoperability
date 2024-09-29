@@ -64,8 +64,7 @@ pub async fn mint_token() {
             .collect::<Vec<_>>()
     });
     
-    // TODO: check mint_token_requests 
-    // if ticket id already exits in mint_token_requests,skip it
+    // TODO: check mint_token_requests , if ticket id already exits in mint_token_requests,skip it
     
     for (seq, ticket) in tickets.into_iter() {
         let token_mint = read_state(|s| s.token_mint_accounts.get(&ticket.token));
@@ -132,7 +131,7 @@ pub async fn mint_token() {
                 retry:0
             };
             // save new token req
-            mutate_state(|s| s.update_mint_token_req(mint_req.ticket_id.to_string(), mint_req.clone()));
+            mutate_state(|s| s.mint_token_requests.insert(mint_req.ticket_id.to_string(), mint_req.clone()));
             mint_req
         };
         log!(DEBUG, "[mint_token::mint_token] mint token request: {:?} ", mint_req);
@@ -156,7 +155,7 @@ pub async fn mint_token() {
                             "[mint_token::mint_token] mint req tx({:?}) already submited and waiting for the tx({:?}) to be finallized! ",
                           mint_req,sig
                         );
-                        update_mint_token_req(mint_req.to_owned(), sig).await;
+                        update_mint_token_status(mint_req.to_owned(), sig).await;
                     }
                 }
               
@@ -178,7 +177,7 @@ pub async fn mint_token() {
                             "[mint_token::mint_token] mint req tx({:?}) already submited and waiting for the tx({:?}) to be finallized! ",
                           mint_req,sig
                         );
-                        update_mint_token_req(mint_req.to_owned(), sig).await;
+                        update_mint_token_status(mint_req.to_owned(), sig).await;
                     }
                 }
             }
@@ -186,27 +185,51 @@ pub async fn mint_token() {
                 // update txhash to hub
                let hub_principal = read_state(|s| s.hub_principal);
                let sig = mint_req.signature.unwrap();
-               if let Err(err) =
-                   update_tx_hash(hub_principal, ticket.ticket_id.to_string(), sig).await
-               {
-                   log!(
-                       ERROR,
-                       "[tickets::mint_token] failed to update tx hash after mint token:{}",
-                       err
-                   );
+                     
+               match update_tx_hash(hub_principal, ticket.ticket_id.to_string(), sig.to_owned()).await {
+                Ok(()) =>{
+                    log!(
+                        DEBUG,
+                        "[mint_token::mint_token] mint req tx({:?}) already finallized and update tx hash to hub! ",
+                        sig
+                    );
+                }
+                Err(err) =>  {
+                    log!(
+                        CRITICAL,
+                        "[tickets::mint_token] failed to update tx hash after mint token:{}",
+                        err
+                    );
+                }
                }
                 //only finalized mint_req, remove the handled ticket from queue
                 mutate_state(|s| s.tickets_queue.remove(&seq));
                                       
            }
             TxStatus::TxFailed { e } => {
-                log!(
-                    ERROR,
-                   "[mint_token::mint_token] failed to mint token for ticket id: {}, error: {:} and retry mint ..",
-                    ticket.ticket_id,e 
-                );
-                 //retry mint_to ?
-                //  handle_mint_token(mint_req).await;
+                
+                match mint_req.signature.to_owned() {
+                    
+                    None => {
+                        log!(
+                            ERROR,
+                           "[mint_token::mint_token] failed to mint token for ticket id: {}, error: {:} ,pls check and retry  ",
+                            ticket.ticket_id,e 
+                        );
+                        // retry mint_to ?
+                        // handle_mint_token(mint_req).await;
+
+                    },
+                    Some(sig) => {
+                        log!(
+                            DEBUG,
+                            "[mint_token::mint_token] mint req tx({:?}) already submited and waiting for the tx({:?}) to be finallized! ",
+                          mint_req,sig
+                        );
+                        update_mint_token_status(mint_req.to_owned(), sig).await;
+                    }
+                }
+                 
  
             },
             
@@ -259,13 +282,13 @@ pub async fn handle_mint_token(mint_req: MintTokenRequest){
     }
 }
 
-pub async fn update_mint_token_req(mut mint_req:MintTokenRequest,sig:String) {
+pub async fn update_mint_token_status(mut mint_req:MintTokenRequest,sig:String) {
     // query signature status
     let tx_status_ret = solana_rpc::get_signature_status(vec![sig.to_string()]).await;
     match tx_status_ret {
         Err(e) => {
             log!(
-                ERROR,
+                CRITICAL,
                 "[mint_token::update_mint_token_req] get_signature_status for {} ,err: {:?}",
                 sig.to_string(),
                 e
@@ -295,7 +318,7 @@ pub async fn update_mint_token_req(mut mint_req:MintTokenRequest,sig:String) {
                         // update mint token req status
                         mint_req.status = TxStatus::Finalized;
                         mutate_state(|s| {
-                            s.update_mint_token_req(mint_req.ticket_id.to_owned(), mint_req)
+                            s.mint_token_requests.insert(mint_req.ticket_id.to_owned(), mint_req)
                         });
     
                     }

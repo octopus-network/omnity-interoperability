@@ -10,15 +10,20 @@ ADMIN=$(dfx identity get-principal --ic)
 HUB_CANISTER_ID=arlph-jyaaa-aaaak-ak2oa-cai
 SCHNORR_KEY_NAME="test_key_1"
 # SCHNORR_KEY_NAME="key_1"
-# SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+alchemy_d="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
 # SOLANA_RPC_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
 PROXY_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
 SOL_PROVIDER_CANISTER_ID=lzl57-kyaaa-aaaaj-qa4ya-cai
 SOLANA_ROUTE_CANISTER_ID=4o543-xaaaa-aaaao-a3q3a-cai
+# helius_m=https://mainnet.helius-rpc.com/?api-key=b7fe7483-b790-427e-af31-0095d7f73d4e
+# helius_d=https://devnet.helius-rpc.com/?api-key=b7fe7483-b790-427e-af31-0095d7f73d4e
+# helius_m_proxy=https://rpc-proxy.boern.workers.dev
+
 echo "testnet environment: 
     admin id: $ADMIN
     omnity_hub canister id: $HUB_CANISTER_ID 
     schnorr key name: $SCHNORR_KEY_NAME 
+    alchemy rpc :  ${alchemy_d}
     proxy url: $PROXY_URL
     ic solana provider canister id: $SOL_PROVIDER_CANISTER_ID
     solana route canister id: $SOLANA_ROUTE_CANISTER_ID"
@@ -38,8 +43,17 @@ dfx canister call $HUB_CANISTER_ID set_logger_filter '("debug")' --ic
 echo 
 
 echo "reinstall $SOL_PROVIDER_CANISTER_ID ..."
+# dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
+#     rpc_url = opt \"${PROXY_URL}\"; 
+#     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
+#     nodesInSubnet = opt 28; 
+#     } )" \
+#     --mode=reinstall -y \
+#     --wasm=./assets/ic_solana_provider.wasm.gz \
+#     --ic 
+
 dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
-    rpc_url = opt \"${PROXY_URL}\"; 
+    rpc_url = opt \"${alchemy_d}\"; 
     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
     nodesInSubnet = opt 28; 
     } )" \
@@ -76,14 +90,15 @@ dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Init = rec
     fee_account= opt \"${FEE_ACCOUNT}\";\
     multi_rpc_config = record { rpc_list = vec {\"${rpc1}\";\"${rpc2}\";\"${rpc3}\"};\
     minimum_response_count = 2:nat32;}; \
-    forward = opt \"${rpc1}\"
     } })" \
     --mode=reinstall -y \
     --wasm=./assets/solana_route.wasm.gz \
     --ic 
 
 dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
-
+dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward "(opt \"${alchemy_d}\")" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
 # add perms
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID set_permissions "(
 #     principal \"kp4gp-pefsb-gau5l-p2hf6-pagac-3jusw-lzc2v-nsxtq-46dnk-ntffe-3qe\",\
@@ -195,10 +210,18 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant {
 #     --ic 
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•NICE202409251145"
-TOKEN_NAME="HOPE•YOU•GET•NICE202409251145"
-TOKEN_SYMBOL="NICE202409251145"
+PROTO="Bitcoin-runes"
+PRE_TOKEN_NAME="HOPE•YOU•GET•NICE"
+TIMESTAMP=$(date +"%Y%m%d%H%M")
+TOKEN_NAME="${PRE_TOKEN_NAME}${TIMESTAMP}"
+TOKEN_SYMBOL=$(echo "$TOKEN_NAME" | grep -oE 'NICE[0-9]+')
+TOKEN_ID="${PROTO}-${TOKEN_NAME}"
 DECIMALS=2
+echo $TOKEN_ID
+echo $TOKEN_NAME
+echo $TOKEN_SYMBOL
+echo $DECIMALS
+
 ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
 
 dfx canister call $HUB_CANISTER_ID validate_proposal "( vec {variant { AddToken = record { 

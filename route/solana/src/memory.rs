@@ -5,6 +5,7 @@ use ic_stable_structures::{
 };
 use std::cell::RefCell;
 
+use crate::handler::gen_ticket::GenerateTicketReq;
 use crate::handler::mint_token::MintTokenRequest;
 use crate::state::{AccountInfo, AtaKey, UpdateToken};
 use crate::types::Ticket;
@@ -19,6 +20,7 @@ const COUNTERPARTIES: MemoryId = MemoryId::new(5);
 const TOKEN_MINT_ACCOUNTS: MemoryId = MemoryId::new(6);
 const ASSOCIATED_ACCOUNTS: MemoryId = MemoryId::new(7);
 const MINT_TOKEN_REQUESTS: MemoryId = MemoryId::new(8);
+const GEN_TICKET_REQS: MemoryId = MemoryId::new(9);
 
 type InnerMemory = DefaultMemoryImpl;
 
@@ -76,6 +78,10 @@ pub fn get_mint_token_requests_memory() -> Memory {
     with_memory_manager(|m| m.get(MINT_TOKEN_REQUESTS))
 }
 
+pub fn get_gen_ticket_req_memory() -> Memory {
+    with_memory_manager(|m| m.get(GEN_TICKET_REQS))
+}
+
 pub fn init_ticket_queue() -> StableBTreeMap<u64, Ticket, Memory> {
     StableBTreeMap::init(get_ticket_queue_memory())
 }
@@ -106,4 +112,8 @@ pub fn init_associated_accounts() -> StableBTreeMap<AtaKey, AccountInfo, Memory>
 
 pub fn init_mint_token_requests() -> StableBTreeMap<String, MintTokenRequest, Memory> {
     StableBTreeMap::init(get_mint_token_requests_memory())
+}
+
+pub fn init_gen_ticket_reqs() -> StableBTreeMap<String, GenerateTicketReq, Memory> {
+    StableBTreeMap::init(get_gen_ticket_req_memory())
 }

@@ -14,12 +14,14 @@ use ic_solana::types::TransactionConfirmationStatus;
 
 use crate::constants::{COUNTER_SIZE, RETRY_LIMIT_SIZE};
 use ic_canister_log::log;
-use ic_solana::ic_log::{ERROR, DEBUG};
+use ic_solana::ic_log::{CRITICAL, DEBUG, ERROR};
 
 pub async fn create_associated_account() {
+ 
     let mut creating_atas = vec![];
     read_state(|s| {
         for (_seq, ticket) in s.tickets_queue.iter() {
+
             if let Some(token_mint) = s.token_mint_accounts.get(&ticket.token) {
                 //the token mint account must be confirmed
                 if matches!(token_mint.status,TxStatus::Finalized){
@@ -125,10 +127,6 @@ pub async fn create_associated_account() {
              
          }
         
-        // retry < RETRY_LIMIT_SIZE,or skip
-        // if associated_account.retry >= RETRY_LIMIT_SIZE {
-        //     continue;
-        // }
         match &associated_account.status {
             TxStatus::New => {
                 match &associated_account.signature {
@@ -241,7 +239,7 @@ pub async fn handle_creating_ata(owner:String,mint_address:String) {
         }
         Err(e) => {
             log!(
-                ERROR,
+                CRITICAL,
                 "[associated_account::handle_creating_ata] create_ata for owner: {:} and token_mint: {:}, error: {:?}  ",
                 owner.to_string(), mint_address.to_string(), e
             );
@@ -271,7 +269,7 @@ pub async fn update_ata_status(sig:String,owner:String,mint_address:String) {
    match tx_status_ret {
     Err(e) => {
         log!(
-             ERROR,
+            CRITICAL,
              "[associated_account::update_ata_status] get_signature_status for {} ,err: {:?}",
              sig.to_string(),
              e

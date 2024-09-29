@@ -1,4 +1,4 @@
-use crate::handler::gen_ticket::TransactionDetail;
+use crate::handler::gen_ticket::{GenerateTicketReq, TransactionDetail};
 use crate::memory::Memory;
 use crate::{
     auth::Permission,
@@ -8,9 +8,12 @@ use crate::{
 };
 use candid::{CandidType, Principal};
 
+use ic_canister_log::log;
+use ic_solana::ic_log::{DEBUG, ERROR};
 use ic_solana::rpc_client::JsonRpcResponse;
 use ic_stable_structures::StableBTreeMap;
 
+use crate::handler::gen_ticket::Instruction;
 use crate::handler::mint_token::MintTokenRequest;
 use crate::types::{
     Chain, ChainId, ChainState, Factor, Ticket, TicketId, ToggleState, Token, TokenId,
@@ -23,6 +26,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
 };
+
 pub type CanisterId = Principal;
 pub type Owner = String;
 pub type MintAccount = String;
@@ -62,7 +66,7 @@ impl Storable for AccountInfo {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenMeta");
+        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode AccountInfo");
         tm
     }
 
@@ -83,7 +87,7 @@ impl Storable for AtaKey {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenMeta");
+        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode AtaKey");
         tm
     }
 
@@ -110,7 +114,7 @@ impl Storable for UpdateToken {
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode TokenMeta");
+        let tm = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode UpdateToken");
         tm
     }
 
@@ -180,50 +184,87 @@ impl MultiRpcConfig {
     pub fn valid_and_get_result(
         &self,
         response_list: &Vec<anyhow::Result<String>>,
-    ) -> Result<JsonRpcResponse<TransactionDetail>, String> {
+    ) -> Result<Vec<Instruction>, String> {
         self.check_config_valid()?;
-        let mut success_response_list = vec![];
-        let mut success_response_body_list = vec![];
+        let mut instructions_list = vec![];
+        // let mut success_response_body_list = vec![];
 
         for response in response_list {
-            if response.is_err() {
-                continue;
-            }
+            // if response.is_err() {
+
+            //     continue;
+            // }
+            log!(
+                DEBUG,
+                "[state::valid_and_get_result] input response: {:?}",
+                response
+            );
             match response {
                 Ok(resp) => match serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&resp)
                 {
                     Ok(t) => {
-                        success_response_list.push(t.clone());
-                        success_response_body_list.push(t.result.to_owned())
+                        if let Some(e) = t.error {
+                            return Err(format!("{}", e.message));
+                        } else {
+                            match t.result {
+                                None => {
+                                    return Err(format!(
+                                        "{}",
+                                        "[state::valid_and_get_result] tx result is None"
+                                            .to_string()
+                                    ))
+                                }
+                                Some(tx_detail) => {
+                                    log!(
+                                        DEBUG,
+                                        "[state::valid_and_get_result] tx detail: {:?}",
+                                        tx_detail
+                                    );
+                                    instructions_list
+                                        .push(tx_detail.transaction.message.instructions);
+                                    // success_response_body_list.push(t.result.to_owned())
+                                }
+                            }
+                        }
                     }
-                    Err(_) => {
+                    Err(e) => {
+                        log!(
+                            ERROR,
+                            "[state::valid_and_get_result] serde_json::from_str error: {:?}",
+                            e.to_string()
+                        );
                         continue;
                     }
                 },
-                Err(_) => {
+                Err(e) => {
+                    log!(
+                        ERROR,
+                        "[state::valid_and_get_result] response error: {:?}",
+                        e.to_string()
+                    );
                     continue;
                 }
             }
         }
 
-        if success_response_list.len() < self.minimum_response_count as usize {
+        if instructions_list.len() < self.minimum_response_count as usize {
             return Err(format!(
                 "Not enough valid response, expected: {}, actual: {}",
                 self.minimum_response_count,
-                success_response_list.len()
+                instructions_list.len()
             ));
         }
 
         // The minimum_response_count should greater than 0
         let mut i = 1;
-        while i < success_response_list.len() {
-            if success_response_body_list[i - 1] != success_response_body_list[i] {
+        while i < instructions_list.len() {
+            if instructions_list[i - 1] != instructions_list[i] {
                 return Err("Response mismatch".to_string());
             }
             i += 1;
         }
 
-        Ok(success_response_list[0].clone())
+        Ok(instructions_list[0].to_owned())
     }
 }
 
@@ -266,6 +307,8 @@ pub struct SolanaRouteState {
     pub associated_accounts: StableBTreeMap<AtaKey, AccountInfo, Memory>,
     #[serde(skip, default = "crate::memory::init_mint_token_requests")]
     pub mint_token_requests: StableBTreeMap<TicketId, MintTokenRequest, Memory>,
+    #[serde(skip, default = "crate::memory::init_gen_ticket_reqs")]
+    pub gen_ticket_reqs: StableBTreeMap<TicketId, GenerateTicketReq, Memory>,
 }
 
 impl From<InitArgs> for SolanaRouteState {
@@ -288,7 +331,7 @@ impl From<InitArgs> for SolanaRouteState {
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             fee_account: args.fee_account.unwrap_or(FEE_ACCOUNT.to_string()),
             multi_rpc_config: args.multi_rpc_config,
-            forward: args.forward,
+            forward: None,
 
             // init stable storage
             tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
@@ -305,6 +348,7 @@ impl From<InitArgs> for SolanaRouteState {
             mint_token_requests: StableBTreeMap::init(
                 crate::memory::get_mint_token_requests_memory(),
             ),
+            gen_ticket_reqs: StableBTreeMap::init(crate::memory::get_gen_ticket_req_memory()),
         }
     }
 }

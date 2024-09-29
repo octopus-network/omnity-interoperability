@@ -8,7 +8,6 @@ use crate::{
 use candid::{CandidType, Principal};
 use ic_stable_structures::{writer::Writer, Memory};
 use serde::{Deserialize, Serialize};
-
 #[derive(CandidType, serde::Deserialize, Clone, Debug)]
 pub enum RouteArg {
     Init(InitArgs),
@@ -26,7 +25,7 @@ pub struct InitArgs {
     pub sol_canister: Principal,
     pub fee_account: Option<String>,
     pub multi_rpc_config: MultiRpcConfig,
-    pub forward: Option<String>,
+    // pub forward: Option<String>,
 }
 
 pub fn init(args: InitArgs) {
@@ -63,7 +62,7 @@ pub struct UpgradeArgs {
     pub sol_canister: Option<Principal>,
     pub fee_account: Option<String>,
     pub multi_rpc_config: Option<MultiRpcConfig>,
-    pub forward: Option<String>,
+    // pub forward: Option<String>,
 }
 
 pub fn post_upgrade(args: Option<UpgradeArgs>) {
@@ -83,6 +82,7 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
 
     // migrate
     // let mut state = migrate(pre_state);
+
     let mut state: SolanaRouteState =
         ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
@@ -112,9 +112,9 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         if let Some(multi_rpc_config) = args.multi_rpc_config {
             state.multi_rpc_config = multi_rpc_config;
         }
-        if let Some(forward) = args.forward {
-            state.forward = Some(forward);
-        }
+        // if let Some(forward) = args.forward {
+        //     state.forward = Some(forward);
+        // }
     }
 
     replace_state(state);

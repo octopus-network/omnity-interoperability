@@ -8,7 +8,7 @@ pub enum TaskType {
     GetDirectives,
     GetTickets,
     CreateMint,
-    CreateAssoicatedAccount,
+    CreateATA,
     UpdateToken,
     MintToken,
 }

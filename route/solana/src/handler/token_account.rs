@@ -9,7 +9,7 @@ use crate::handler::solana_rpc::{self, create_mint_account, update_token_metadat
 
 use crate::state::{mutate_state, read_state};
 use ic_canister_log::log;
-use ic_solana::ic_log::{DEBUG, ERROR};
+use ic_solana::ic_log::{CRITICAL, DEBUG, ERROR};
 use ic_solana::token::{SolanaClient, TokenInfo};
 
 use super::solana_rpc::solana_client;
@@ -230,7 +230,7 @@ pub async fn handle_creating_mint_account(account_address: String, token_info: T
         }
         Err(e) => {
             log!(
-                ERROR,
+                CRITICAL,
                 "[token_account::handle_creating_mint_account] create token mint for {:}, error: {:?}  ",
                 token_info.token_id,e
             );
@@ -256,7 +256,7 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
     match tx_status_ret {
         Err(e) => {
             log!(
-                ERROR,
+                CRITICAL,
                 "[token_account::update_mint_account_status] get_signature_status for {} ,err: {:?}",
                 sig.to_string(),
                 e
@@ -285,10 +285,6 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
                     if matches!(status, TransactionConfirmationStatus::Finalized) {
                         // update account status to Finalized
                         mutate_state(|s| {
-                            // s.token_mint_accounts.get_mut(&token_id).map(|account| {
-                            //     account.status = TxStatus::Finalized;
-                            // })
-
                             if let Some(account) = s.token_mint_accounts
                             .get(&token_id).as_mut() {
                                 account.status = TxStatus::Finalized;
@@ -303,6 +299,8 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
 }
 
 pub async fn update_token() {
+    // log!(DEBUG,  "[token_account::update_token] timer to execute update_token ");
+       
     let update_tokens = read_state(|s| {
         s.update_token_queue
             .iter()
@@ -347,7 +345,7 @@ pub async fn update_token() {
                 }
                 Err(e) => {
                     log!(
-                        ERROR,
+                        CRITICAL,
                         "[token_account::update_token] update token metadata error: {:?}  ",
                         e
                     );

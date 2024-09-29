@@ -157,11 +157,6 @@ pub async fn mint_to(req: MintTokenRequest) -> Result<String, CallError> {
             reason: Reason::CanisterError(e.to_string()),
         })?;
 
-    log!(
-        DEBUG,
-        "[solana_rpc::mint_to] mint successful and the signature is : {}",
-        signature
-    );
     Ok(signature)
 }
 
@@ -246,11 +241,11 @@ pub async fn get_signature_status(
             method: "sol_getSignatureStatuses".to_string(),
             reason: Reason::CanisterError(err.to_string()),
         })?;
-    log!(
-        DEBUG,
-        "[solana_rpc::get_signature_status] call sol_getSignatureStatuses status: {:?}",
-        status
-    );
+    // log!(
+    //     DEBUG,
+    //     "[solana_rpc::get_signature_status] call sol_getSignatureStatuses status: {:?}",
+    //     status
+    // );
     Ok(status)
 }
 

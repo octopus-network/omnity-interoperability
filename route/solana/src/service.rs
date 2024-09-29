@@ -1,12 +1,13 @@
 use crate::auth::{is_admin, set_perms, Permission};
 use crate::call_error::{CallError, Reason};
+use crate::guard::TaskType;
 use crate::handler::associated_account::update_ata_status;
 use candid::Principal;
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_solana::types::TransactionStatus;
 
 use crate::handler::mint_token::{
-    self, update_tx_hash, 
+    self, update_tx_hash, update_mint_token_status,
 };
 use crate::handler::gen_ticket::{self,send_ticket,query_tx_from_multi_rpc,GenerateTicketError,
     GenerateTicketOk, GenerateTicketReq};
@@ -29,7 +30,6 @@ use ic_canister_log::log;
 use ic_solana::token::associated_account::get_associated_token_address_with_program_id;
 use ic_solana::token::constants::token22_program_id;
 use ic_solana::types::Pubkey;
-use ic_solana::types::TransactionConfirmationStatus;
 use std::str::FromStr;
 use crate::handler::token_account::update_mint_account_status;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
@@ -71,44 +71,67 @@ fn post_upgrade(args: Option<RouteArg>) {
     log!(DEBUG, "upgrade successfully!");
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub fn start_schedule() {
     log!(DEBUG, "start schedule task ...");
     scheduler::start_schedule();
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub fn cancel_schedule() {
     log!(DEBUG, "cancel schedule task ...");
     scheduler::cancel_schedule();
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[query(guard = "is_admin",hidden = true)]
+pub async fn active_tasks()-> Vec<TaskType> {
+    read_state(|s|
+    s.active_tasks.iter().map(|t| t.to_owned()).collect())
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_schnorr_key(key_name: String) {
     mutate_state(|s| {
         s.schnorr_key_name = key_name;
     })
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_forward(forward: Option<String>) {
     mutate_state(|s| {
-        s.forward = forward;
+        s.forward = forward
     })
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[query(guard = "is_admin",hidden = true)]
+pub async fn forward()-> Option<String> {
+    read_state(|s| {
+        s.forward.to_owned()
+    })
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_multi_rpc(multi_prc_cofig: MultiRpcConfig) {
     mutate_state(|s| {
         s.multi_rpc_config = multi_prc_cofig;
     })
 }
-#[query]
+
+// devops method
+#[query(guard = "is_admin",hidden = true)]
 pub async fn multi_rpc_config() -> MultiRpcConfig {
     read_state(|s| s.multi_rpc_config.to_owned())
 }
 
-#[update]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 async fn valid_tx_from_multi_rpc(signature: String) -> Result<String, CallError> {
     use crate::service::solana_rpc::solana_client;
     let client = solana_client().await;
@@ -128,23 +151,27 @@ async fn valid_tx_from_multi_rpc(signature: String) -> Result<String, CallError>
     Ok(ret)
 }
 
-#[update]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn signer() -> Result<String, String> {
     let pk = solana_rpc::eddsa_public_key().await?;
     Ok(pk.to_string())
 }
 
-#[update]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn sign(msg: String) -> Result<Vec<u8>, String> {
     let signature = solana_rpc::sign(msg).await?;
     Ok(signature)
 }
 
-#[update]
+// query collect fee account 
+#[query]
 pub async fn get_fee_account() -> String {
     read_state(|s| s.fee_account.to_string())
 }
 
+// query supported chain list 
 #[query]
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
@@ -156,6 +183,7 @@ fn get_chain_list() -> Vec<Chain> {
     })
 }
 
+// query supported chain list 
 #[query]
 fn get_token_list() -> Vec<TokenResp> {
     read_state(|s| {
@@ -176,7 +204,8 @@ fn get_token_list() -> Vec<TokenResp> {
     })
 }
 
-#[update]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 async fn get_latest_blockhash() -> Result<String, CallError> {
     use crate::service::solana_rpc::solana_client;
     let client = solana_client().await;
@@ -191,7 +220,8 @@ async fn get_latest_blockhash() -> Result<String, CallError> {
     Ok(block_hash.to_string())
 }
 
-#[update]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 async fn get_transaction(signature: String, forward: Option<String>) -> Result<String, CallError> {
     use crate::service::solana_rpc::solana_client;
     let client = solana_client().await;
@@ -204,14 +234,22 @@ async fn get_transaction(signature: String, forward: Option<String>) -> Result<S
         })
 }
 
-#[update]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 async fn get_signature_status(
     signatures: Vec<String>,
 ) -> Result<Vec<TransactionStatus>, CallError> {
     solana_rpc::get_signature_status(signatures).await
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, CallError> {
+    solana_rpc::transfer_to(to_account, amount).await
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn derive_mint_account(req: TokenInfo) -> Result<String, CallError> {
     let sol_client = solana_client().await;
 
@@ -222,7 +260,8 @@ pub async fn derive_mint_account(req: TokenInfo) -> Result<String, CallError> {
     Ok(mint_account.to_string())
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn get_account_info(account: String) -> Result<Option<String>, CallError> {
     let sol_client = solana_client().await;
 
@@ -243,7 +282,8 @@ pub async fn get_account_info(account: String) -> Result<Option<String>, CallErr
     Ok(account_info)
 }
 
-#[query]
+// devops method
+#[query(hidden = true)]
 pub async fn query_mint_account(token_id: TokenId) -> Option<AccountInfo> {
     read_state(|s| s.token_mint_accounts.get(&token_id))
 }
@@ -262,7 +302,8 @@ pub async fn query_mint_address(token_id: TokenId) -> Option<String> {
     })
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn create_mint_account(req: TokenInfo) -> Result<AccountInfo, CallError> {
     let sol_client = solana_client().await;
 
@@ -389,7 +430,8 @@ pub async fn create_mint_account(req: TokenInfo) -> Result<AccountInfo, CallErro
     }
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_token_metadata(req: TokenInfo) -> Result<String, CallError> {
     // token_mint must be exists
     match read_state(|s| s.token_mint_accounts.get(&req.token_id)) {
@@ -436,7 +478,8 @@ pub async fn update_token_metadata(req: TokenInfo) -> Result<String, CallError> 
     }
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn derive_aossicated_account(
     owner: String,
     token_mint: String,
@@ -457,14 +500,17 @@ pub async fn derive_aossicated_account(
     Ok(associated_account.to_string())
 }
 
-#[query]
+// devops method
+#[query(hidden = true)]
 pub async fn query_aossicated_account(
     owner: Owner,
     token_mint: MintAccount,
 ) -> Option<AccountInfo> {
     read_state(|s| s.associated_accounts.get(&AtaKey { owner, token_mint }))
 }
-#[query]
+
+// devops method
+#[query(hidden = true)]
 pub async fn query_aossicated_account_address(
     owner: Owner,
     token_mint: MintAccount,
@@ -483,7 +529,8 @@ pub async fn query_aossicated_account_address(
     )
 }
 
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn create_aossicated_account(
     owner: String,
     token_mint: String,
@@ -628,8 +675,8 @@ pub async fn create_aossicated_account(
 }
 
 
-
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_associated_account(
     owner: String,
     token_mint: String,
@@ -666,6 +713,47 @@ pub async fn update_associated_account(
     }
 }
 
+
+
+// devops method
+#[query(hidden = true)]
+fn get_ticket_from_queue(ticket_id: String) -> Option<(u64, Ticket)> {
+    read_state(|s| {
+        s.tickets_queue
+            .iter()
+            .find(|(_seq, ticket)| ticket.ticket_id.eq(&ticket_id))
+    })
+}
+
+// devops method
+#[query(hidden = true)]
+fn get_tickets_from_queue() -> Vec<(u64, Ticket)> {
+    read_state(|s| {
+        s.tickets_queue
+            .iter()
+            .map(|(seq, ticket)| (seq, ticket))
+            .collect()
+    })
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn remove_ticket_from_quene(ticket_id: String) -> Option<Ticket> {
+    mutate_state(|s| {
+        let ticket = s
+            .tickets_queue
+            .iter()
+            .find(|(_seq, ticket)| ticket.ticket_id.eq(&ticket_id));
+
+        match ticket {
+            None => None,
+            Some((seq, _ticket)) => s.tickets_queue.remove(&seq),
+        }
+    })
+}
+
+
+// query mint_token_statue for the given ticket id
 #[query]
 pub async fn mint_token_status(ticket_id: String) -> Result<TxStatus, CallError> {
     let req = read_state(|s| s.mint_token_requests.get(&ticket_id));
@@ -682,7 +770,7 @@ pub async fn mint_token_status(ticket_id: String) -> Result<TxStatus, CallError>
     }
 }
 
-
+// query mint token tx hash or signature for the given ticket id
 #[query]
 pub async fn mint_token_tx_hash(ticket_id: String) -> Result<Option<String>, CallError> {
     let req = read_state(|s| s.mint_token_requests.get(&ticket_id).to_owned());
@@ -699,8 +787,7 @@ pub async fn mint_token_tx_hash(ticket_id: String) -> Result<Option<String>, Cal
     }
 }
 
-
-#[query]
+#[query(hidden = true)]
 pub async fn mint_token_req(ticket_id: String) -> Result<MintTokenRequest, CallError> {
     let req = read_state(|s| s.mint_token_requests.get(&ticket_id));
     match req {
@@ -716,8 +803,8 @@ pub async fn mint_token_req(ticket_id: String) -> Result<MintTokenRequest, CallE
     }
 }
 
-
-#[update(guard = "is_admin")]
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenRequest, CallError> {
     mutate_state(|s| {
         s.mint_token_requests
@@ -736,24 +823,33 @@ pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenReq
     }
 }
 
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn mint_token(n_req: MintTokenRequest) -> Result<TxStatus, CallError> {
 
-#[update(guard = "is_admin")]
-pub async fn mint_token(req: MintTokenRequest) -> Result<TxStatus, CallError> {
-    let mut req = if let Some(req) = read_state(|s| s.mint_token_requests.get(&req.ticket_id)) {
-        req
-    } else {
-        log!(
-            DEBUG,
-            "[service::mint_token] not found mint token req for ticket: {:?} ",
-            req.ticket_id
-        );
-        req
+   let mut req =  match read_state(|s| s.mint_token_requests.get(&n_req.ticket_id)) {
+        None => {
+            log!(
+                DEBUG,
+                "[service::mint_token] not found mint token req for ticket: {:?} ",
+                n_req.ticket_id
+            );
+            n_req
+        }
+        Some(o_req) => {
+            if o_req.eq(&n_req) {
+                o_req
+            }else {
+                n_req
+            }
+        }
     };
+
     log!(DEBUG, "[service::mint_token] mint token request: {:?} ", req);
 
     match &req.status {
         TxStatus::New | TxStatus::TxFailed { .. } => {
-            match req.signature.clone() {
+            match req.signature.to_owned() {
                 None => {
                     // new mint req
                     let sig = solana_rpc::mint_to(
@@ -764,46 +860,29 @@ pub async fn mint_token(req: MintTokenRequest) -> Result<TxStatus, CallError> {
                     // update signature
                     req.signature = Some(sig.to_string());
                     mutate_state(|s| {
-                        s.update_mint_token_req(req.ticket_id.to_owned(), req.clone())
+                        s.mint_token_requests.insert(req.ticket_id.to_owned(), req.to_owned())
                     });
 
                     // update req status
-                    update_mint_req(sig, req.ticket_id.to_string()).await?;
+                    update_mint_token_status(req.to_owned(),sig.to_owned()).await
                 }
-                Some(sig) => update_mint_req(sig, req.ticket_id.to_string()).await?,
+                Some(sig) => update_mint_token_status(req.to_owned(),sig.to_owned()).await,
             }
         }
         TxStatus::Pending => {
             match req.signature.to_owned() {
                 None => {
-                    log!(DEBUG, "[service::mint_token] the  mint token request ({:?}) is handling,pls wait ...", req);
+                    log!(DEBUG, "[service::mint_token] the mint token request ({:?}) is handling,pls wait ...", req);
                 }
-                Some(sig) => update_mint_req(sig, req.ticket_id.to_string()).await?,
+                Some(sig) => update_mint_token_status(req.to_owned(),sig.to_owned()).await,
             }
         }
         TxStatus::Finalized => {
             log!(
                 DEBUG,
-                "[service::mint_token] {:?} already finalized !",
+                "[service::mint_token] {:?} already finalized ,pls update tx hash to hub!",
                 req.ticket_id.to_string()
             );
-            // update txhash to hub
-            let hub_principal = read_state(|s| s.hub_principal);
-            if let Err(err) = update_tx_hash(
-                hub_principal,
-                req.ticket_id.to_string(),
-                req.signature.unwrap(),
-            )
-            .await
-            {
-                log!(
-                    ERROR,
-                    "[service::mint_token] failed to update tx hash after mint token:{}",
-                    err
-                );
-            }
-            // remove the handled ticket from queue
-            remove_ticket_from_quene(req.ticket_id.to_string()).await;
         }
     }
 
@@ -821,100 +900,67 @@ pub async fn mint_token(req: MintTokenRequest) -> Result<TxStatus, CallError> {
     }
 }
 
-async fn update_mint_req(sig: String, ticket_id: String) -> Result<(), CallError> {
-    let tx_status_vec = solana_rpc::get_signature_status(vec![sig.to_string()]).await?;
-
-    if let Some(tx_status) = tx_status_vec.first() {
-        log!(
-            DEBUG,
-            "[service::mint_to] signature: {} status: {:?} ",
-            sig.to_string(),
-            tx_status,
-        );
-        if let Some(status) = &tx_status.confirmation_status {
-            if matches!(status, TransactionConfirmationStatus::Finalized) {
-                // update req status
-
-                mutate_state(|s| {
-                    // s.mint_token_requests
-                    //     .get_mut(&ticket_id)
-                    //     .map(|req| req.status = TxStatus::Finalized)
-                    if let Some(req) = s.mint_token_requests.get(&ticket_id).as_mut() {
-                        req.status = TxStatus::Finalized;
-                        s.mint_token_requests
-                            .insert(ticket_id.to_string(), req.to_owned());
-                    }
-                });
-                // update txhash to hub
-                let hub_principal = read_state(|s| s.hub_principal);
-                if let Err(err) =
-                    update_tx_hash(hub_principal, ticket_id.to_string(), sig.to_string()).await
-                {
-                    log!(
-                        ERROR,
-                        "[tickets::mint_token] failed to update tx hash after mint token:{}",
-                        err
-                    );
-                }
-                // remove the handled ticket from queue
-                remove_ticket_from_quene(ticket_id).await;
-            }
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn update_tx_hash_to_hub(sig: String, ticket_id: String) -> Result<(), CallError> {
+    let hub_principal = read_state(|s| s.hub_principal);
+  
+    match update_tx_hash(hub_principal, ticket_id.to_string(),  sig.to_owned()).await {
+        Ok(()) =>{
+            log!(
+                DEBUG,
+                "[service::update_tx_hash_to_hub] successfully update tx hash ({})) to hub! ",
+                sig
+            );
+            //only finalized mint_req, remove the handled ticket from queue
+            // remove_ticket_from_quene(ticket_id.to_string()).await;
         }
-    }
+        Err(err) =>  {
+            log!(
+                ERROR,
+                "[service::update_tx_hash_to_hub] failed to update tx hash ({})) to hub : {}",
+                sig,err
+            );
+        }
+       }
+        
     Ok(())
 }
 
-#[query]
-fn get_ticket_from_queue(ticket_id: String) -> Option<(u64, Ticket)> {
-    read_state(|s| {
-        s.tickets_queue
-            .iter()
-            .find(|(_seq, ticket)| ticket.ticket_id.eq(&ticket_id))
-    })
-}
-
-#[query]
-fn get_tickets_from_queue() -> Vec<(u64, Ticket)> {
-    read_state(|s| {
-        s.tickets_queue
-            .iter()
-            .map(|(seq, ticket)| (seq, ticket))
-            .collect()
-    })
-}
-
-#[update(guard = "is_admin")]
-pub async fn remove_ticket_from_quene(ticket_id: String) -> Option<Ticket> {
-    mutate_state(|s| {
-        let ticket = s
-            .tickets_queue
-            .iter()
-            .find(|(_seq, ticket)| ticket.ticket_id.eq(&ticket_id));
-
-        match ticket {
-            None => None,
-            Some((seq, _ticket)) => s.tickets_queue.remove(&seq),
-        }
-    })
-}
-
-#[update(guard = "is_admin")]
-pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, CallError> {
-    solana_rpc::transfer_to(to_account, amount).await
-}
-
+// query fee account for the dst chain 
 #[query]
 pub fn get_redeem_fee(chain_id: ChainId) -> Option<u128> {
     read_state(|s| s.get_fee(chain_id))
 }
 
+// generate ticket ,called by front end or other sys
 #[update]
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
    gen_ticket::generate_ticket(args).await
 }
 
-#[query]
-pub fn get_tickets_failed_to_hub() -> Vec<Ticket> {
+// devops method
+#[query(guard = "is_admin",hidden = true)]
+pub fn gen_tickets_req(signature:String) -> Option<GenerateTicketReq> {
+    read_state(|s| {
+        s.gen_ticket_reqs.get(&signature)
+    })
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn remove_gen_tickets_req(signature:String) -> Option<GenerateTicketReq> {
+    mutate_state(|state| {
+        state
+            .gen_ticket_reqs
+            .remove(&signature)
+    })
+
+}
+
+// devops method
+#[query(guard = "is_admin",hidden = true)]
+pub fn get_failed_tickets_to_hub() -> Vec<Ticket> {
     read_state(|s| {
         s.tickets_failed_to_hub
             .iter()
@@ -923,8 +969,18 @@ pub fn get_tickets_failed_to_hub() -> Vec<Ticket> {
     })
 }
 
-#[update(guard = "is_admin")]
-pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
+// devops method
+#[query(guard = "is_admin",hidden = true)]
+pub fn get_failed_ticket_to_hub(ticket_id:String) -> Option<Ticket> {
+    read_state(|s| {
+        s.tickets_failed_to_hub.get(&ticket_id)
+    })
+}
+
+// devops method
+// when gen ticket and send it to hub failed ,call this method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn send_failed_tickets_to_hub() -> Result<(), GenerateTicketError> {
     let tickets_size = read_state(|s| s.tickets_failed_to_hub.len());
     while !read_state(|s| s.tickets_failed_to_hub.is_empty()) {
         let (ticket_id, ticket) = mutate_state(|rs| rs.tickets_failed_to_hub.pop_first()).unwrap();
@@ -947,7 +1003,50 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
     Ok(())
 }
 
-#[update(guard = "is_admin")]
+// devops method
+// when gen ticket and send it to hub failed ,call this method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn send_failed_ticket_to_hub(ticket_id:String) -> Result<(), GenerateTicketError> {
+    if let Some(ticket) = read_state(|rs| rs.tickets_failed_to_hub.get(&ticket_id)) {
+        let hub_principal = read_state(|s| (s.hub_principal));
+        match send_ticket(hub_principal, ticket.to_owned())
+            .await
+           
+        {
+           Ok(()) => {
+                mutate_state(|state| {
+                state
+                    .tickets_failed_to_hub
+                    .remove(&ticket_id)});
+                log!(DEBUG, "successfully resend ticket : {} ", ticket_id);
+                return Ok(())
+           },
+           Err(err) =>{
+                log!(ERROR, "failed to resend ticket: {}, error: {:?}", ticket_id,err);
+                return Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
+           }
+        }
+
+    }
+
+    Ok(())
+   
+   
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn remove_failed_tickets_to_hub(ticket_id: String) -> Option<Ticket> {
+    mutate_state(|state| {
+        state
+            .tickets_failed_to_hub
+            .remove(&ticket_id)
+    })
+
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
 pub async fn set_permissions(caller: Principal, perm: Permission) {
     set_perms(caller.to_string(), perm)
 }

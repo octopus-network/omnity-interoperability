@@ -2,11 +2,12 @@ use crate::types::Ticket;
 use crate::types::{ChainState, Error, TicketType, TxAction};
 use candid::{CandidType, Principal};
 
+use crate::handler::solana_rpc::solana_client;
 use ic_solana::token::SolanaClient;
+use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
-
-use crate::handler::solana_rpc::solana_client;
+use std::borrow::Cow;
 
 use crate::{
     call_error::{CallError, Reason},
@@ -53,6 +54,22 @@ pub struct GenerateTicketReq {
     pub memo: Option<String>,
 }
 
+impl Storable for GenerateTicketReq {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let tm =
+            ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode GenerateTicketReq");
+        tm
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct GenerateTicketOk {
     pub ticket_id: String,
@@ -62,6 +79,11 @@ pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     log!(DEBUG, "[generate_ticket] generate_ticket req: {:#?}", req);
+
+    mutate_state(|s| {
+        s.gen_ticket_reqs
+            .insert(req.signature.to_owned(), req.to_owned())
+    });
 
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
@@ -131,6 +153,8 @@ pub async fn generate_ticket(
                 "[generate_ticket] successful to send ticket: {:?}",
                 ticket
             );
+            // remove the req
+            mutate_state(|s| s.gen_ticket_reqs.remove(&req.signature.to_owned()));
             Ok(GenerateTicketOk {
                 ticket_id: req.signature.to_string(),
             })
@@ -152,145 +176,146 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
         multi_rpc_config.rpc_list.to_owned(),
     )
     .await;
-    let json_response = multi_rpc_config
+    log!(
+        DEBUG,
+        "[generate_ticket] query_tx_from_multi_rpc tx_response: {:?}",
+        tx_response
+    );
+
+    let instructions = multi_rpc_config
         .valid_and_get_result(&tx_response)
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
+    log!(
+        DEBUG,
+        "[generate_ticket] valid_and_get_result json_response: {:?}",
+        instructions
+    );
 
     // let mut transfer_ok = false;
     let mut burn_ok = false;
     let mut memo_ok = false;
 
-    if let Some(e) = json_response.error {
-        return Err(GenerateTicketError::TemporarilyUnavailable(e.message));
-    } else {
-        let tx_detail = json_response
-            .result
-            .ok_or(GenerateTicketError::TemporarilyUnavailable(
-                "[generate_ticket] tx result is None".to_string(),
-            ))?;
-        // parse instruction
-        for instruction in &tx_detail.transaction.message.instructions {
-            if let Ok(parsed_value) =
-                from_value::<ParsedValue>(instruction.parsed.to_owned().unwrap())
-            {
-                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.to_owned()) {
-                    log!(DEBUG, "[generate_ticket] Parsed instruction: {:#?}", pi);
+    // parse instruction
+    for instruction in &instructions {
+        if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.to_owned().unwrap())
+        {
+            if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.to_owned()) {
+                log!(DEBUG, "[generate_ticket] Parsed instruction: {:#?}", pi);
 
-                    match pi.instr_type.as_str() {
-                        "transfer" => {
-                            let transfer =
-                                from_value::<Transfer>(pi.info.to_owned()).map_err(|e| {
-                                    GenerateTicketError::TemporarilyUnavailable(e.to_string())
-                                })?;
-                            log!(DEBUG, "[generate_ticket] Parsed transfer: {:#?}", transfer);
-                            let fee = read_state(|s| s.get_fee(req.target_chain_id.clone()))
+                match pi.instr_type.as_str() {
+                    "transfer" => {
+                        let transfer = from_value::<Transfer>(pi.info.to_owned()).map_err(|e| {
+                            GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                        })?;
+                        log!(DEBUG, "[generate_ticket] Parsed transfer: {:#?}", transfer);
+                        let fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).ok_or(
+                            GenerateTicketError::TemporarilyUnavailable(format!(
+                                "[generate_ticket] No found fee for {}",
+                                req.target_chain_id
+                            )),
+                        )?;
+                        let fee_account = read_state(|s| s.fee_account.to_string());
+                        let lamports = transfer.lamports as u128;
+                        if !(transfer.source.eq(&req.sender)
+                            && transfer.destination.eq(&fee_account)
+                            && lamports == fee)
+                        {
+                            return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                                "[generate_ticket] Unable to verify the collect fee info",
+                            )));
+                        }
+                        // transfer_ok = true;
+                    }
+                    "burnChecked" => {
+                        let burn_checked =
+                            from_value::<BurnChecked>(pi.info.to_owned()).map_err(|e| {
+                                GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                            })?;
+                        log!(
+                            DEBUG,
+                            "[generate_ticket] Parsed burn_checked: {:#?}",
+                            burn_checked
+                        );
+                        let burned_amount = burn_checked
+                            .token_amount
+                            .ui_amount_string
+                            .parse::<u64>()
+                            .map_err(|e| {
+                                GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                            })?;
+                        let mint_address =
+                            read_state(|s| s.token_mint_accounts.get(&req.token_id).to_owned())
                                 .ok_or(GenerateTicketError::TemporarilyUnavailable(format!(
-                                    "[generate_ticket] No found fee for {}",
-                                    req.target_chain_id
+                                    "[generate_ticket] No found token mint address for {}",
+                                    req.token_id
                                 )))?;
-                            let fee_account = read_state(|s| s.fee_account.to_string());
-                            let lamports = transfer.lamports as u128;
-                            if !(transfer.source.eq(&req.sender)
-                                && transfer.destination.eq(&fee_account)
-                                && lamports == fee)
-                            {
-                                return Err(GenerateTicketError::TemporarilyUnavailable(format!(
-                                    "[generate_ticket] Unable to verify the collect fee info",
-                                )));
-                            }
-                            // transfer_ok = true;
+                        if !(burn_checked.authority.eq(&req.sender)
+                            && burn_checked.mint.eq(&mint_address.account)
+                            && burned_amount == req.amount)
+                        {
+                            return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                                "[generate_ticket] Unable to verify the token burned info",
+                            )));
                         }
-                        "burnChecked" => {
-                            let burn_checked = from_value::<BurnChecked>(pi.info.to_owned())
-                                .map_err(|e| {
-                                    GenerateTicketError::TemporarilyUnavailable(e.to_string())
-                                })?;
-                            log!(
-                                DEBUG,
-                                "[generate_ticket] Parsed burn_checked: {:#?}",
-                                burn_checked
-                            );
-                            let burned_amount = burn_checked
-                                .token_amount
-                                .ui_amount_string
-                                .parse::<u64>()
-                                .map_err(|e| {
-                                    GenerateTicketError::TemporarilyUnavailable(e.to_string())
-                                })?;
-                            let mint_address =
-                                read_state(|s| s.token_mint_accounts.get(&req.token_id).to_owned())
-                                    .ok_or(GenerateTicketError::TemporarilyUnavailable(format!(
-                                        "[generate_ticket] No found token mint address for {}",
-                                        req.token_id
-                                    )))?;
-                            if !(burn_checked.authority.eq(&req.sender)
-                                && burn_checked.mint.eq(&mint_address.account)
-                                && burned_amount == req.amount)
-                            {
-                                return Err(GenerateTicketError::TemporarilyUnavailable(format!(
-                                    "[generate_ticket] Unable to verify the token burned info",
-                                )));
-                            }
-                            burn_ok = true;
-                        }
-                        "burn" => {
-                            let burn = from_value::<Burn>(pi.info.to_owned()).map_err(|e| {
-                                GenerateTicketError::TemporarilyUnavailable(e.to_string())
-                            })?;
-                            log!(DEBUG, "[generate_ticket] Parsed burn: {:#?}", burn);
-                            let burned_amount = burn.amount.parse::<u64>().map_err(|e| {
-                                GenerateTicketError::TemporarilyUnavailable(e.to_string())
-                            })?;
-                            let mint_address =
-                                read_state(|s| s.token_mint_accounts.get(&req.token_id).to_owned())
-                                    .ok_or(GenerateTicketError::TemporarilyUnavailable(format!(
-                                        "[generate_ticket] No found token mint address for {}",
-                                        req.token_id
-                                    )))?;
-                            if !(burn.authority.eq(&req.sender)
-                                && burn.mint.eq(&mint_address.account)
-                                && burned_amount == req.amount)
-                            {
-                                return Err(GenerateTicketError::TemporarilyUnavailable(format!(
-                                    "[generate_ticket] Unable to verify the token burned info",
-                                )));
-                            }
-                            burn_ok = true;
-                        }
-                        _ => {
-                            log!(
-                                DEBUG,
-                                "[generate_ticket] Skipped non-relevant instruction: {:#?}",
-                                pi.instr_type
-                            );
-                        }
+                        burn_ok = true;
                     }
-                } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.to_owned()) {
-                    log!(DEBUG, "[generate_ticket] Parsed memo: {:?}", memo);
-                    //verify memo.eq(req.receiver.)
-                    if memo.eq(&req.receiver) {
-                        // receiver = memo;
-                        memo_ok = true;
-                    } else {
-                        return Err(GenerateTicketError::TemporarilyUnavailable(format!(
-                            "[generate_ticket] receiver({}) from memo not match req.receiver({})",
-                            memo, req.receiver,
-                        )));
+                    "burn" => {
+                        let burn = from_value::<Burn>(pi.info.to_owned()).map_err(|e| {
+                            GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                        })?;
+                        log!(DEBUG, "[generate_ticket] Parsed burn: {:#?}", burn);
+                        let burned_amount = burn.amount.parse::<u64>().map_err(|e| {
+                            GenerateTicketError::TemporarilyUnavailable(e.to_string())
+                        })?;
+                        let mint_address =
+                            read_state(|s| s.token_mint_accounts.get(&req.token_id).to_owned())
+                                .ok_or(GenerateTicketError::TemporarilyUnavailable(format!(
+                                    "[generate_ticket] No found token mint address for {}",
+                                    req.token_id
+                                )))?;
+                        if !(burn.authority.eq(&req.sender)
+                            && burn.mint.eq(&mint_address.account)
+                            && burned_amount == req.amount)
+                        {
+                            return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                                "[generate_ticket] Unable to verify the token burned info",
+                            )));
+                        }
+                        burn_ok = true;
                     }
+                    _ => {
+                        log!(
+                            DEBUG,
+                            "[generate_ticket] Skipped non-relevant instruction: {:#?}",
+                            pi.instr_type
+                        );
+                    }
+                }
+            } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.to_owned()) {
+                log!(DEBUG, "[generate_ticket] Parsed memo: {:?}", memo);
+                //verify memo.eq(req.receiver.)
+                if memo.eq(&req.receiver) {
+                    // receiver = memo;
+                    memo_ok = true;
                 } else {
-                    log!(
-                        DEBUG,
-                        "[generate_ticket] Unknown Parsed instruction: {:#?}",
-                        parsed_value.parsed
-                    );
+                    return Err(GenerateTicketError::TemporarilyUnavailable(format!(
+                        "[generate_ticket] receiver({}) from memo not match req.receiver({})",
+                        memo, req.receiver,
+                    )));
                 }
             } else {
                 log!(
                     DEBUG,
-                    "[generate_ticket] Unknown Parsed Value: {:#?}",
-                    instruction.parsed
+                    "[generate_ticket] Unknown Parsed instruction: {:#?}",
+                    parsed_value.parsed
                 );
             }
+        } else {
+            log!(
+                DEBUG,
+                "[generate_ticket] Unknown Parsed Value: {:#?}",
+                instruction.parsed
+            );
         }
     }
 
@@ -346,7 +371,7 @@ pub struct Meta {
     pub err: Option<Value>,
     pub fee: u64,
     pub inner_instructions: Vec<Value>,
-    pub log_messages: Vec<String>,
+    pub log_messages: Vec<Value>,
     pub post_balances: Vec<u64>,
     pub post_token_balances: Vec<Value>,
     pub pre_balances: Vec<u64>,
@@ -481,153 +506,422 @@ mod test {
     use serde_json::from_value;
 
     #[test]
-    fn test_parse_transfer_burn_with_memo_tx() {
+    fn test_parse_tx_with_transfer_burn_memo() {
         let json_data = r#"
+            {
+  "jsonrpc": "2.0",
+  "result": {
+    "blockTime": 1727316269,
+    "meta": {
+      "computeUnitsConsumed": 25649,
+      "err": null,
+      "fee": 25000,
+      "innerInstructions": [],
+      "logMessages": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 11111111111111111111111111111111 invoke [1]",
+        "Program 11111111111111111111111111111111 success",
+        "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+        "Program log: Instruction: Burn",
+        "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1519 of 199550 compute units",
+        "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr invoke [1]",
+        "Program log: Memo (len 62): \"bc1p830q5uwpaxpmzaam2t93jgcq55nrs0x2n6xhl70arkzu3gy9w00qwa7pug\"",
+        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr consumed 23680 of 198031 compute units",
+        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr success"
+      ],
+      "postBalances": [
+        163636620,
+        401278600,
+        2074080,
+        3897600,
+        1,
+        1,
+        521498880,
+        1141440
+      ],
+      "postTokenBalances": [
         {
-            "jsonrpc": "2.0",
-            "result": {
-                "blockTime": 1727080782,
-                "meta": {
-                "computeUnitsConsumed": 25649,
-                "err": null,
-                "fee": 25000,
-                "innerInstructions": [],
-                "logMessages": [
-                ],
-                "postBalances": [
-                ],
-                "postTokenBalances": [
-                ],
-                "preBalances": [
-                ],
-                "preTokenBalances": [
-                    {
-                    "accountIndex": 2,
-                    "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
-                    "owner": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
-                    "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-                    "uiTokenAmount": {
-                        "amount": "6300",
-                        "decimals": 2,
-                        "uiAmount": 63.0,
-                        "uiAmountString": "63"
-                    }
-                    }
-                ],
-                "rewards": [],
-                "status": {
-                    "Ok": null
-                }
-                },
-                "slot": 291497540,
-                "transaction": {
-                "message": {
-                    "accountKeys": [
-                    {
-                        "pubkey": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
-                        "signer": true,
-                        "source": "transaction",
-                        "writable": true
-                    },
-                    {
-                        "pubkey": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
-                        "signer": false,
-                        "source": "transaction",
-                        "writable": true
-                    },
-                    {
-                        "pubkey": "3hntCFiY3a3QFUjcYXnbxc1pp4cMFGEsTELNzhK3zvC6",
-                        "signer": false,
-                        "source": "transaction",
-                        "writable": true
-                    },
-                    {
-                        "pubkey": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
-                        "signer": false,
-                        "source": "transaction",
-                        "writable": true
-                    },
-                    {
-                        "pubkey": "11111111111111111111111111111111",
-                        "signer": false,
-                        "source": "transaction",
-                        "writable": false
-                    },
-                    {
-                        "pubkey": "ComputeBudget111111111111111111111111111111",
-                        "signer": false,
-                        "source": "transaction",
-                        "writable": false
-                    },
-                    {
-                        "pubkey": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
-                        "signer": false,
-                        "source": "transaction",
-                        "writable": false
-                    },
-                    {
-                        "pubkey": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-                        "signer": false,
-                        "source": "transaction",
-                        "writable": false
-                    }
-                    ],
-                    "instructions": [
-                    {
-                        "accounts": [],
-                        "data": "3gJqkocMWaMm",
-                        "programId": "ComputeBudget111111111111111111111111111111",
-                        "stackHeight": null
-                    },
-                    {
-                        "accounts": [],
-                        "data": "Fj2Eoy",
-                        "programId": "ComputeBudget111111111111111111111111111111",
-                        "stackHeight": null
-                    },
-                    {
-                        "parsed": {
-                        "info": {
-                            "destination": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
-                            "lamports": 14380000,
-                            "source": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26"
-                        },
-                        "type": "transfer"
-                        },
-                        "program": "system",
-                        "programId": "11111111111111111111111111111111",
-                        "stackHeight": null
-                    },
-                    {
-                        "parsed": {
-                        "info": {
-                            "account": "3hntCFiY3a3QFUjcYXnbxc1pp4cMFGEsTELNzhK3zvC6",
-                            "amount": "300",
-                            "authority": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
-                            "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx"
-                        },
-                        "type": "burn"
-                        },
-                        "program": "spl-token",
-                        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-                        "stackHeight": null
-                    },
-                    {
-                        "parsed": "bc1p830q5uwpaxpmzaam2t93jgcq55nrs0x2n6xhl70arkzu3gy9w00qwa7pug",
-                        "program": "spl-memo",
-                        "programId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
-                        "stackHeight": null
-                    }
-                    ],
-                    "recentBlockhash": "2VY2dSvV4BCe7xRcVoVX38kJFkY4nxKKCBq92M3TYiQf"
-                },
-                "signatures": [
-                    "5c3paA9PKmZk8LZ4Xhnb7dbmqNWifj2Et7Y2riMivc2tKFCYHvwb21iPTAV7g28fic1fpSeRS5SJ4fAWaig8Aq6i"
-                ]
-                }
+          "accountIndex": 2,
+          "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+          "owner": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
+          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "uiTokenAmount": {
+            "amount": "40000",
+            "decimals": 2,
+            "uiAmount": 400.0,
+            "uiAmountString": "400"
+          }
+        }
+      ],
+      "preBalances": [
+        178041620,
+        386898600,
+        2074080,
+        3897600,
+        1,
+        1,
+        521498880,
+        1141440
+      ],
+      "preTokenBalances": [
+        {
+          "accountIndex": 2,
+          "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+          "owner": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
+          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "uiTokenAmount": {
+            "amount": "50000",
+            "decimals": 2,
+            "uiAmount": 500.0,
+            "uiAmountString": "500"
+          }
+        }
+      ],
+      "rewards": [],
+      "status": {
+        "Ok": null
+      }
+    },
+    "slot": 292030024,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
+            "signer": true,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+            "signer": false,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "3hntCFiY3a3QFUjcYXnbxc1pp4cMFGEsTELNzhK3zvC6",
+            "signer": false,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+            "signer": false,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "ComputeBudget111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          }
+        ],
+        "instructions": [
+          {
+            "accounts": [],
+            "data": "3gJqkocMWaMm",
+            "programId": "ComputeBudget111111111111111111111111111111",
+            "stackHeight": null
+          },
+          {
+            "accounts": [],
+            "data": "Fj2Eoy",
+            "programId": "ComputeBudget111111111111111111111111111111",
+            "stackHeight": null
+          },
+          {
+            "parsed": {
+              "info": {
+                "destination": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+                "lamports": 14380000,
+                "source": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26"
+              },
+              "type": "transfer"
             },
-            "id": 1
+            "program": "system",
+            "programId": "11111111111111111111111111111111",
+            "stackHeight": null
+          },
+          {
+            "parsed": {
+              "info": {
+                "account": "3hntCFiY3a3QFUjcYXnbxc1pp4cMFGEsTELNzhK3zvC6",
+                "amount": "10000",
+                "authority": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
+                "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx"
+              },
+              "type": "burn"
+            },
+            "program": "spl-token",
+            "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "stackHeight": null
+          },
+          {
+            "parsed": "bc1p830q5uwpaxpmzaam2t93jgcq55nrs0x2n6xhl70arkzu3gy9w00qwa7pug",
+            "program": "spl-memo",
+            "programId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+            "stackHeight": null
+          }
+        ],
+        "recentBlockhash": "2sZDws5kCHRKoNADzcKwFPNRURFuRBeAszwrzFnXRjbd"
+      },
+      "signatures": [
+        "5ib76kdHiu39h8Tsi7aAJNmwdpz8jMvz7QVuhsuXqCjTAwDop6hJ4TbrwLT7Nfeit6gFN3NYxM2Z2MezMApSfu3d"
+      ]
+    }
+  },
+  "id": 1
+}
+        "#;
+
+        let transaction_response =
+            serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(json_data)
+                .expect("Failed to parse JSON");
+
+        println!("transaction_response: {:#?}", transaction_response);
+        for instruction in &transaction_response
+            .result
+            .unwrap()
+            .transaction
+            .message
+            .instructions
+        {
+            if instruction.parsed.is_none() {
+                println!("Skipped unknown instruction");
+                continue;
             }
+            if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.clone().unwrap())
+            {
+                println!("Parsed value: {:#?}", parsed_value);
+
+                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.clone()) {
+                    match pi.instr_type.as_str() {
+                        "transfer" => {
+                            let transfer = from_value::<Transfer>(pi.info.clone());
+                            println!("Parsed transfer: {:#?}", transfer);
+                        }
+                        "burnChecked" => {
+                            let burn = from_value::<BurnChecked>(pi.info.clone());
+                            println!("Parsed burn: {:#?}", burn);
+                        }
+                        "burn" => {
+                            let burn = from_value::<Burn>(pi.info.clone());
+                            println!("Parsed burn: {:#?}", burn);
+                        }
+                        _ => {
+                            println!("Skipped non-relevant instruction: {:#?}", pi.instr_type);
+                        }
+                    }
+                } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.clone()) {
+                    println!("Parsed memo: {:?}", memo);
+                } else {
+                    println!("Unknown Parsed instruction: {:#?}", parsed_value.parsed);
+                }
+            } else {
+                println!("Unknown Parsed Value: {:#?}", instruction.parsed);
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_tx_without_log_message() {
+        let json_data = r#"
+            {
+  "jsonrpc": "2.0",
+  "result": {
+    "blockTime": 1727316269,
+    "meta": {
+      "computeUnitsConsumed": 25649,
+      "err": null,
+      "fee": 25000,
+      "innerInstructions": [],
+      "logMessages": [      
+      ],
+      "postBalances": [
+        163636620,
+        401278600,
+        2074080,
+        3897600,
+        1,
+        1,
+        521498880,
+        1141440
+      ],
+      "postTokenBalances": [
+        {
+          "accountIndex": 2,
+          "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+          "owner": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
+          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "uiTokenAmount": {
+            "amount": "40000",
+            "decimals": 2,
+            "uiAmount": 400.0,
+            "uiAmountString": "400"
+          }
+        }
+      ],
+      "preBalances": [
+        178041620,
+        386898600,
+        2074080,
+        3897600,
+        1,
+        1,
+        521498880,
+        1141440
+      ],
+      "preTokenBalances": [
+        {
+          "accountIndex": 2,
+          "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+          "owner": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
+          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "uiTokenAmount": {
+            "amount": "50000",
+            "decimals": 2,
+            "uiAmount": 500.0,
+            "uiAmountString": "500"
+          }
+        }
+      ],
+      "rewards": [],
+      "status": {
+        "Ok": null
+      }
+    },
+    "slot": 292030024,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
+            "signer": true,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+            "signer": false,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "3hntCFiY3a3QFUjcYXnbxc1pp4cMFGEsTELNzhK3zvC6",
+            "signer": false,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+            "signer": false,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "ComputeBudget111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          }
+        ],
+        "instructions": [
+          {
+            "accounts": [],
+            "data": "3gJqkocMWaMm",
+            "programId": "ComputeBudget111111111111111111111111111111",
+            "stackHeight": null
+          },
+          {
+            "accounts": [],
+            "data": "Fj2Eoy",
+            "programId": "ComputeBudget111111111111111111111111111111",
+            "stackHeight": null
+          },
+          {
+            "parsed": {
+              "info": {
+                "destination": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+                "lamports": 14380000,
+                "source": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26"
+              },
+              "type": "transfer"
+            },
+            "program": "system",
+            "programId": "11111111111111111111111111111111",
+            "stackHeight": null
+          },
+          {
+            "parsed": {
+              "info": {
+                "account": "3hntCFiY3a3QFUjcYXnbxc1pp4cMFGEsTELNzhK3zvC6",
+                "amount": "10000",
+                "authority": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
+                "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx"
+              },
+              "type": "burn"
+            },
+            "program": "spl-token",
+            "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "stackHeight": null
+          },
+          {
+            "parsed": "bc1p830q5uwpaxpmzaam2t93jgcq55nrs0x2n6xhl70arkzu3gy9w00qwa7pug",
+            "program": "spl-memo",
+            "programId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+            "stackHeight": null
+          }
+        ],
+        "recentBlockhash": "2sZDws5kCHRKoNADzcKwFPNRURFuRBeAszwrzFnXRjbd"
+      },
+      "signatures": [
+        "5ib76kdHiu39h8Tsi7aAJNmwdpz8jMvz7QVuhsuXqCjTAwDop6hJ4TbrwLT7Nfeit6gFN3NYxM2Z2MezMApSfu3d"
+      ]
+    }
+  },
+  "id": 1
+}
         "#;
 
         let transaction_response =
