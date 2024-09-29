@@ -13,12 +13,11 @@ use ic_solana::ic_log::ERROR;
 
 /// handler tickets from customs to solana
 pub async fn query_tickets() {
-
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return;
     }
 
-    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
+    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.seqs.next_ticket_seq));
     match inner_query_tickets(hub_principal, offset, TICKET_LIMIT_SIZE).await {
         Ok(tickets) => {
             let mut next_seq = offset;
@@ -47,7 +46,7 @@ pub async fn query_tickets() {
                 mutate_state(|s| s.tickets_queue.insert(*seq, ticket.to_owned()));
                 next_seq = seq + 1;
             }
-            mutate_state(|s| s.next_ticket_seq = next_seq)
+            mutate_state(|s| s.seqs.next_ticket_seq = next_seq)
         }
         Err(e) => {
             log!(

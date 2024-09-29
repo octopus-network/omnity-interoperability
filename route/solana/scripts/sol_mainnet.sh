@@ -45,14 +45,15 @@ dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record {
 dfx canister status $SOL_PROVIDER_CANISTER_ID --ic
 # test canister api
 nownodes=https://sol.nownodes.io
-ankr_d=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
+# ankr_d=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
+ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
 test_account=3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia
 test_sig=4e1gA4YvTt95DYY5kdwSWpGr2oiMqRX2nk4XenF1aiJSz69cbLBMeTfV6HG4jG7jHtdcHwwjGCSw5zepgpC8n5g7
-dfx canister call $SOL_PROVIDER_CANISTER_ID sol_latestBlockhash "(opt \"${ankr_d}\")" --ic
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_latestBlockhash "(opt \"${ankr_m}\")" --ic
 dfx canister call $SOL_PROVIDER_CANISTER_ID sol_latestBlockhash "(opt \"${nownodes}\")" --ic
-dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getAccountInfo "(\"${test_account}\",opt \"${ankr_d}\")" --ic
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getAccountInfo "(\"${test_account}\",opt \"${ankr_m}\")" --ic
 dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getAccountInfo "(\"${test_account}\",opt \"${nownodes}\")" --ic
-dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getSignatureStatuses "(vec {\"${test_sig}\"},opt \"${ankr_d}\")" --ic
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getSignatureStatuses "(vec {\"${test_sig}\"},opt \"${ankr_m}\")" --ic
 echo 
 
 # solana_route canister
@@ -290,16 +291,30 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward '(null)' --ic
 
 
+
+triton_m=https://png.rpcpool.com/13a5c61c672e6cd88357abf3709a
+dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward "(opt \"${triton_m}\")" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${triton_m}\")" --ic --output json | jq '.Ok | fromjson'
+
+
 snownodes=https://sol.nownodes.io
-ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
 alchemy_m=https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
 SIG=2TSYuw5tmfke2vFkMTWiCd9HQwNtBZPJUBqwLVTrdKunFjS7JNe3ypfox9JfSAuWHbNYVWWXmAkdFzAqxnU63LYS
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${snownodes}\")" --ic
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { rpc_list = vec {\"${alchemy_m}\"};\
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { rpc_list = vec {\"${alchemy_m}\";\"${snownodes}\"};\
     minimum_response_count = 1:nat32;})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
+    rpc_list = vec {\"${triton_m}\";
+                     \"${alchemy_m}\";
+                     \"${snownodes}\";};\
+    minimum_response_count = 2:nat32;})" --ic
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 
@@ -328,4 +343,3 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID generate_ticket "(record {
     memo=opt \"${memo}\";
 })" --ic
 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${triton_m}\")" --ic --output json | jq '.Ok | fromjson'

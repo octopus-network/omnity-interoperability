@@ -153,6 +153,12 @@ impl From<Token> for TokenResp {
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, Default, PartialEq, Eq)]
+pub struct Seqs {
+    pub next_ticket_seq: u64,
+    pub next_directive_seq: u64,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, Default, PartialEq, Eq)]
 pub struct MultiRpcConfig {
     pub rpc_list: Vec<String>,
     pub minimum_response_count: u32,
@@ -272,11 +278,7 @@ impl MultiRpcConfig {
 pub struct SolanaRouteState {
     pub chain_id: String,
     pub hub_principal: Principal,
-    // Next index of query tickets from hub
-    pub next_ticket_seq: u64,
-    pub next_consume_ticket_seq: u64,
-    // Next index of query directives from hub
-    pub next_directive_seq: u64,
+    pub seqs: Seqs,
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub chain_state: ChainState,
@@ -316,9 +318,7 @@ impl From<InitArgs> for SolanaRouteState {
         Self {
             chain_id: args.chain_id,
             hub_principal: args.hub_principal,
-            next_ticket_seq: 0,
-            next_consume_ticket_seq: 0,
-            next_directive_seq: 0,
+            seqs: Seqs::default(),
             fee_token_factor: None,
             target_chain_factor: Default::default(),
             chain_state: args.chain_state,

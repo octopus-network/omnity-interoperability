@@ -13,11 +13,11 @@ pub enum Permission {
 pub fn is_admin() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
     read_state(|s| {
-        if s.admin != caller {
+        if s.admin == caller || ic_cdk::api::is_controller(&caller) {
+            Ok(())
+        } else {
             ic_cdk::eprintln!("{:?} Not Admin!", caller.to_string());
             Err("Not Admin!".into())
-        } else {
-            Ok(())
         }
     })
 }

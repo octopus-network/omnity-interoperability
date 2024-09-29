@@ -12,7 +12,7 @@ use ic_solana::ic_log::{DEBUG, ERROR};
 
 /// query directives from hub and save to route state
 pub async fn query_directives() {
-    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
+    let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.seqs.next_directive_seq));
     match inner_query_directives(hub_principal, offset, DIRECTIVE_LIMIT_SIZE).await {
         Ok(directives) => {
             for (_, directive) in &directives {
@@ -58,7 +58,7 @@ pub async fn query_directives() {
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
             mutate_state(|s| {
-                s.next_directive_seq = next_seq;
+                s.seqs.next_directive_seq = next_seq;
             });
         }
         Err(err) => {

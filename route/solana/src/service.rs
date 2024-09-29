@@ -34,6 +34,7 @@ use std::str::FromStr;
 use crate::handler::token_account::update_mint_account_status;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_solana::ic_log::{self, DEBUG, ERROR};
+use crate::state::Seqs;
 
 #[init]
 fn init(args: RouteArg) {
@@ -1044,6 +1045,23 @@ pub async fn remove_failed_tickets_to_hub(ticket_id: String) -> Option<Ticket> {
     })
 
 }
+
+// devops method
+#[query(guard = "is_admin",hidden = true)]
+pub async fn seqs()-> Seqs {
+    read_state(|s| {
+        s.seqs.to_owned()
+    })
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn update_seqs(seqs: Seqs) {
+    mutate_state(|s| {
+        s.seqs = seqs;
+    })
+}
+
 
 // devops method
 #[update(guard = "is_admin",hidden = true)]
