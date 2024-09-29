@@ -10,9 +10,7 @@ use crate::types::{create_query_brc20_transfer_args, LockTicketRequest};
 use bitcoin::Transaction;
 use ic_btc_interface::{Network, Txid};
 use ic_canister_log::log;
-use ic_cdk::api::management_canister::http_request::{
-    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod
-};
+use ic_cdk::api::management_canister::http_request::{http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::{CRITICAL, ERROR, WARNING};
 use crate::constants::FINALIZE_LOCK_TICKET_NAME;
@@ -82,13 +80,13 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
         method: HttpMethod::GET,
         body: None,
         max_response_bytes: None,
-        transform: None, /*//TODO Some(TransformContext {
+        transform: Some(TransformContext {
                              function: TransformFunc(candid::Func {
                                  principal: ic_cdk::api::id(),
                                  method: "transform".to_string(),
                              }),
                              context: vec![],
-                         })*/
+                         }),
         headers: vec![HttpHeader {
             name: "Content-Type".to_string(),
             value: "application/json".to_string(),
