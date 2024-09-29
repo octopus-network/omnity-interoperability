@@ -187,11 +187,11 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
     log!(
         DEBUG,
-        "[generate_ticket] valid_and_get_result json_response: {:?}",
+        "[generate_ticket] valid_and_get_result result: {:?}",
         instructions
     );
 
-    // let mut transfer_ok = false;
+    let mut transfer_ok = false;
     let mut burn_ok = false;
     let mut memo_ok = false;
 
@@ -224,7 +224,7 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
                                 "[generate_ticket] Unable to verify the collect fee info",
                             )));
                         }
-                        // transfer_ok = true;
+                        transfer_ok = true;
                     }
                     "burnChecked" => {
                         let burn_checked =
@@ -319,8 +319,8 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
         }
     }
 
-    // Ok(transfer_ok && burn_ok && memo_ok)
-    Ok(burn_ok && memo_ok)
+    Ok(transfer_ok && burn_ok && memo_ok)
+    // Ok(burn_ok && memo_ok)
 }
 
 /// send ticket to hub

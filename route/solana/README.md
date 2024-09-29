@@ -45,7 +45,10 @@ echo
 SOL_CHAIN_ID="eSolana"
 # TODO:replace the fee account
 FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
-rpc=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
+
+rpc1=https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
+rpc2=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
+rpc3=https://nd-471-475-490.p2pify.com/6de0b91c609fb3bd459e043801aa6aa4
 
 dfx deploy solana_route --argument "(variant { Init = record { \
     admin = principal \"${ADMIN}\";\
@@ -55,9 +58,8 @@ dfx deploy solana_route --argument "(variant { Init = record { \
     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
     fee_account= opt \"${FEE_ACCOUNT}\";\
-    multi_rpc_config = record { rpc_list = vec {\"${rpc}\"};\
-    minimum_response_count = 1:nat32;}; \
-    forward = null
+    multi_rpc_config = record { rpc_list = vec {\"${rpc1}\";\"${rpc2}\";\"${rpc3}\"};\
+    minimum_response_count = 2:nat32;}; \
 } })" --ic 
 
 SOLANA_ROUTE_CANISTER_ID=$(dfx canister id solana_route --ic)
@@ -246,10 +248,11 @@ dfx deploy solana_route --argument "(opt variant { UpgradeArgs = record { \
     chain_id=\"${SOL_CHAIN_ID}\";\
     hub_principal= principal \"${HUB_CANISTER_ID}\";\
     chain_state= variant { Active }; \
-    schnorr_canister = principal \"${SCHNORR_CANISTER_ID}\";\
-    schnorr_key_name = null; \
+    schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
-     fee_account= opt \"${FEE_ACCOUNT}\"; 
+    fee_account= opt \"${FEE_ACCOUNT}\";\
+    multi_rpc_config = record { rpc_list = vec {\"${rpc1}\";\"${rpc2}\";\"${rpc3}\"};\
+    minimum_response_count = 2:nat32;}; \
 } })" --mode upgrade --ic
 
 # or without parameters

@@ -12,6 +12,10 @@ SCHNORR_KEY_NAME="key_1"
 PROXY_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
 SOL_PROVIDER_CANISTER_ID=l3ka6-4yaaa-aaaar-qahpa-cai
 SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
+triton_m=https://png.rpcpool.com/13a5c61c672e6cd88357abf3709a
+alchemy_m=https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
+snownodes=https://sol.nownodes.io
+ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
 
 echo "product environment: 
     admin id: $ADMIN
@@ -82,22 +86,6 @@ ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f
 #     --ic 
 
 echo "upgrade $SOLANA_ROUTE_CANISTER_ID ..."
-# dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(opt variant { Upgrade = record { \
-#     admin = principal \"${ADMIN}\";\
-#     chain_id=\"${SOL_CHAIN_ID}\";\
-#     hub_principal= principal \"${HUB_CANISTER_ID}\";\
-#     chain_state= variant { Active }; \
-#     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
-#     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
-#     fee_account= opt \"${FEE_ACCOUNT}\";\
-#     multi_rpc_config = record { rpc_list = vec {\"${ankr_m}\"};\
-#     minimum_response_count = 1:nat32;}; \
-#     forward = null
-#     } })" \
-#     --mode=upgrade -y \
-#     --wasm=./assets/solana_route.wasm.gz \
-#     --ic 
-
 dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(opt variant { Upgrade = record { \
     admin = principal \"${ADMIN}\";\
     chain_id=\"${SOL_CHAIN_ID}\";\
@@ -106,7 +94,7 @@ dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(opt variant { Upgrad
     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
     fee_account= opt \"${FEE_ACCOUNT}\";\
-    multi_rpc_config = record { rpc_list = vec {\"${ankr_m}\"};\
+    multi_rpc_config = record { rpc_list = vec {\"${alchemy_m}\"};\
     minimum_response_count = 1:nat32;}; \
     } })" \
     --mode=upgrade -y \
@@ -134,8 +122,43 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction '("4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4",null)' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
+
 # update schnorr info
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID update_schnorr_key '("key_1")' --ic
+
+# update multi_rpc_config
+triton_m=https://png.rpcpool.com/13a5c61c672e6cd88357abf3709a
+alchemy_m=https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
+snownodes=https://sol.nownodes.io
+ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
+SIG=334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${triton_m}\")" --ic --output json | jq '.Ok | fromjson'
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${alchemy_m}\")" --ic --output json | jq '.Ok | fromjson'
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${snownodes}\")" --ic --output json | jq '.Ok | fromjson'
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
+    rpc_list = vec {\"${alchemy_m}\";\"${triton_m}\"};\
+    minimum_response_count = 1:nat32;})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
+    rpc_list = vec {\"${triton_m}\";
+                     \"${alchemy_m}\";
+                     \"${ankr_m}\";};\
+    minimum_response_count = 2:nat32;})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",null)" --ic
+
+# update forward
+dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward "(opt \"${triton_m}\")" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
+
 
 # query signer
 SIGNER=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic)
@@ -172,6 +195,12 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 # manual operation 
 
 # # create token mint account
+# TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+# TOKEN_NAME="HOPE•YOU•GET•RICH"
+# TOKEN_SYMBOL="RICH"
+# DECIMALS=2
+# ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
+
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID create_mint_account "(record {
 #         token_id=\"${TOKEN_ID}\";
@@ -182,6 +211,11 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 # })" --ic
 
 # update token
+# TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+# TOKEN_NAME="HOPE•YOU•GET•RICH"
+# TOKEN_SYMBOL="RICH"
+# DECIMALS=2
+# ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID update_token_metadata "(record {
 #         token_id=\"${TOKEN_ID}\";
@@ -198,8 +232,9 @@ TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"
 TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
 echo "token mint: $TOKEN_MINT"
 
-# SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
 
+# query and create ATA
+# SOL_RECEIVER="FDR2mUpiHKFonnwbUujLyhuNTt7LHEjZ1hDFX4UuCngt"
 # create aossicated account for user
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
 #         \"${TOKEN_MINT}\")" --ic  
@@ -207,7 +242,7 @@ echo "token mint: $TOKEN_MINT"
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_RECEIVER}\",
 #         \"${TOKEN_MINT}\")" --ic  
 SOL_RECEIVER=aboTTUwwPpkfRSiWS7WP97sj9dqtEsrE7kprDos7wj2
-
+SOL_RECEIVER="6fprKjprjWKKLFEyiX7f7kHb2EVxpK1eYfMTSM1SkTkk"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID derive_aossicated_account "(\"${SOL_RECEIVER}\",
         \"${TOKEN_MINT}\")" --ic  
 
@@ -215,7 +250,6 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_R
         \"${TOKEN_MINT}\")" --ic  
 
 # get ata addresss
-SOL_RECEIVER="6fprKjprjWKKLFEyiX7f7kHb2EVxpK1eYfMTSM1SkTkk"
 ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account_address "(\"${SOL_RECEIVER}\",
         \"${TOKEN_MINT}\")" --ic)
 ATA=$(echo "$ATA" | awk -F'"' '{print $2}')
@@ -226,6 +260,7 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_
         \"${TOKEN_MINT}\")" --ic  
 
 
+# manally mint token
 # TID=28b47548-55dc-4e89-b41d-76bc0247828e1
 # ATA=H8ESHFzzCki2c6dKbkUA8y5N7UpnbcW2THx91mhaoGfG
 # MINT_AMOUNT=55555
@@ -244,7 +279,7 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_
 
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --ic
 
-# test send_raw_transaction
+#  send_raw_transaction from ic-solana-provider
 # RAW_TX=4S6Q1Toi7GEWiadHTsc5LT6Q9askJGMp9hBWJZWDNfazH82pFVh6aURGb8MLbas2ezgDgtuj7GbV7R5CsS9aFYwi3tz8oLaScPYT5JALaAEBXJRatFHRfZtJPp4WDJ9bKDpvwD8P4dv23pDD2Kfr8vi9xW9zF4FkZqdEMq3q1J3g5risnCn7FiJkrKxG5Prc2SSPZhDUJpLsFB51SJ3BbNVL59Ztjaz5vTcTr4o7xqmUmUdnR8WBWj9MhQbGCF99T5QsTA8pYw2vviMc1Kjvmao1Wdh49ow1rEemyZPkqEE6vFQwuGTZbgXJH8d5UGcSPwG8FbJqKGsfYb
 # dfx canister call $SOL_PROVIDER_CANISTER_ID sol_sendRawTransaction "(\"${RAW_TX}\")" --ic
 
@@ -255,7 +290,7 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_
 dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_tickets_from_queue '()' --ic
 
-TID=67369fa6214248ea4f8a539c134bbd1e1b47bf34e5e7a2fb16db82af909025bf
+TID=b472a93294435ee522389150251bf58a65c5c5b11c42f3ac25c7b69b41b5ab69
 ATA=BbDheYkCrEbvHj3QswhBTMmcDM4aQ7r9cG9fxzpdfSXM
 MINT_AMOUNT=120000
 TOKEN_MINT=5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx
@@ -284,46 +319,11 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_tx_hash "(\"${TID}\")" --
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic
 
-nownodes=https://sol.nownodes.io
-dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward "(opt \"${nownodes}\")" --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
-
-dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward '(null)' --ic
-
-
-
-triton_m=https://png.rpcpool.com/13a5c61c672e6cd88357abf3709a
-dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward "(opt \"${triton_m}\")" --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
-
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${triton_m}\")" --ic --output json | jq '.Ok | fromjson'
-
-
-snownodes=https://sol.nownodes.io
-alchemy_m=https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
-SIG=2TSYuw5tmfke2vFkMTWiCd9HQwNtBZPJUBqwLVTrdKunFjS7JNe3ypfox9JfSAuWHbNYVWWXmAkdFzAqxnU63LYS
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${snownodes}\")" --ic
-
-dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
-
-dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { rpc_list = vec {\"${alchemy_m}\";\"${snownodes}\"};\
-    minimum_response_count = 1:nat32;})" --ic
-
-dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
-    rpc_list = vec {\"${triton_m}\";
-                     \"${alchemy_m}\";
-                     \"${snownodes}\";};\
-    minimum_response_count = 2:nat32;})" --ic
-
-dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
-
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",null)" --ic
-
 
 SIG=334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE
 dfx canister call $SOLANA_ROUTE_CANISTER_ID valid_tx_from_multi_rpc "(\"${SIG}\")" --ic
 
+# gen ticket and send it to hub
 signature=334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE
 target_chain_id=Bitcoin
 sender=3duAFv2j7VvKUpUWEK1p9itMvCkZxF6P5PArdU2G7z3W
