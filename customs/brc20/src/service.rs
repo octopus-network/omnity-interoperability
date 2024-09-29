@@ -3,10 +3,12 @@ use candid::{CandidType, Deserialize, Principal};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
 use crate::generate_ticket::{GenerateTicketArgs};
-use omnity_types::{Network, Seq, Ticket};
+use omnity_types::{MintTokenStatus, Network, Seq, Ticket};
 use crate::management::get_utxos;
 use crate::ord::builder::Utxo;
 use bitcoin::hashes::Hash;
+use ic_cdk::api::management_canister::http_request;
+use ic_cdk::api::management_canister::http_request::TransformArgs;
 use crate::constants::DEFAULT_FEE;
 
 use crate::state::{
@@ -42,7 +44,7 @@ pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
 }
 
 
-#[query]
+#[query(guard = "is_admin")]
 pub fn brc20_state() -> StateProfile {
     read_state(|s| StateProfile::from(s))
 }
@@ -53,7 +55,7 @@ pub async fn test_create_tx(ticket: Ticket, seq: Seq) {
 }
 
 #[update]
-pub async fn update_utxos() -> String {
+pub async fn test_update_utxos() -> String {
     let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
     let utxos = get_utxos(nw, &deposit_addr, 0u32).await;
     match utxos.clone() {
@@ -76,9 +78,31 @@ pub async fn update_utxos() -> String {
     }
 }
 
+#[query]
+fn mint_token_status(ticket_id: String) -> MintTokenStatus {
+    read_state(|s| {
+        s.finalized_mint_token_requests
+            .get(&ticket_id)
+            .cloned()
+            .map_or(MintTokenStatus::Unknown, |tx_hash| {
+                MintTokenStatus::Finalized { tx_hash }
+            })
+    })
+}
 
-#[update]
-pub async fn send_ticket_to_bitcoin(seq: Seq) {
+
+#[query(hidden = true)]
+fn transform(raw: TransformArgs) -> http_request::HttpResponse {
+    http_request::HttpResponse {
+        status: raw.response.status.clone(),
+        body: raw.response.body.clone(),
+        headers: vec![],
+        ..Default::default()
+    }
+}
+
+#[update(guard = "is_admin")]
+pub async fn resend_unlock_ticket(seq: Seq) {
     crate::custom_to_bitcoin::send_ticket_to_bitcoin(seq, &DEFAULT_FEE).await.unwrap();
 }
 
@@ -89,6 +113,14 @@ pub struct InitArgs {
     pub network: Network,
     pub chain_id: String,
     pub indexer_principal: Principal,
+}
+
+fn is_admin() -> Result<(), String> {
+    let c = ic_cdk::caller();
+    match ic_cdk::api::is_controller(&c) || read_state(|s| s.admins.contains(&c)) {
+        true => Ok(()),
+        false => Err("permission deny".to_string()),
+    }
 }
 
 ic_cdk::export_candid!();

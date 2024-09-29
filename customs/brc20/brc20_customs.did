@@ -10,15 +10,6 @@ type Chain = record {
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type ECDSAPublicKey = record { public_key : blob; chain_code : blob };
-type GenTicketRequest = record {
-  received_at : nat64;
-  ticker : text;
-  token_id : text;
-  txid : blob;
-  target_chain_id : text;
-  amount : nat;
-  receiver : text;
-};
 type GenerateTicketArgs = record {
   token_id : text;
   txid : text;
@@ -34,11 +25,24 @@ type InitArgs = record {
   admins : vec principal;
   indexer_principal : principal;
 };
+type LockTicketRequest = record {
+  received_at : nat64;
+  ticker : text;
+  token_id : text;
+  txid : blob;
+  target_chain_id : text;
+  amount : nat;
+  receiver : text;
+};
+type MintTokenStatus = variant {
+  Finalized : record { tx_hash : text };
+  Unknown;
+};
 type Network = variant { mainnet; regtest; testnet };
 type Network_1 = variant { mainnet; local; testnet };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
-  pending_gen_ticket_requests : vec record { blob; GenTicketRequest };
+  pending_gen_ticket_requests : vec record { blob; LockTicketRequest };
   next_consume_directive_seq : nat64;
   hub_principal : principal;
   ecdsa_key_name : text;
@@ -50,7 +54,7 @@ type StateProfile = record {
   tokens : vec record { text; Token };
   btc_network : Network;
   admins : vec principal;
-  finalized_gen_ticket_requests : vec record { blob; GenTicketRequest };
+  finalized_gen_ticket_requests : vec record { blob; LockTicketRequest };
   counterparties : vec record { text; Chain };
   next_ticket_seq : nat64;
   chain_state : ChainState;
@@ -91,7 +95,8 @@ service : (InitArgs) -> {
   brc20_state : () -> (StateProfile) query;
   generate_deposit_addr : () -> (opt text, opt text);
   generate_ticket : (GenerateTicketArgs) -> ();
-  send_ticket_to_bitcoin : (nat64) -> ();
+  mint_token_status : (text) -> (MintTokenStatus) query;
+  resend_unlock_ticket : (nat64) -> ();
   test_create_tx : (Ticket, nat64) -> ();
-  update_utxos : (text) -> (text);
+  test_update_utxos : () -> (text);
 }
