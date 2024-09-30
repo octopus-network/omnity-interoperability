@@ -59,7 +59,7 @@ pub async fn mint_token() {
     let tickets = read_state(|s| {
         s.tickets_queue
             .iter()
-            .take(5)
+            .take(3)
             .map(|(seq, ticket)| (seq, ticket))
             .collect::<Vec<_>>()
     });

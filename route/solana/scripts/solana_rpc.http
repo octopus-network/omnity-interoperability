@@ -5,8 +5,8 @@
 @localnet = http://127.0.0.1:8899
 @debug = http://34.90.18.145:8899
 @alchemy_d = https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
-@alchemy_m = https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
-
+@alchemy_m=https://solana-mainnet.g.alchemy.com/v2/t25IzpcIjBXhP-LOurqrTWLWmhPuBwsk
+@helius_m=https://mainnet.helius-rpc.com/?api-key=b7fe7483-b790-427e-af31-0095d7f73d4e
 @ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
 @snownodes_m=https://sol.nownodes.io
 ### query account info
@@ -312,7 +312,21 @@ content-type: application/json
     "id": 1,
     "method": "getTransaction",
     "params": [
-      "334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE",
+      "2ZD98V6XEMqmv5hveWyHx29HPjgxCEAvDQnntNxMJYrUq8jffGeKe8varfVEHF9EbScPZruAsWke4k9gfFWo77Wm",
+      "jsonParsed"
+    ]
+  }
+
+### req tx detail
+POST {{helius_m}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "2ZD98V6XEMqmv5hveWyHx29HPjgxCEAvDQnntNxMJYrUq8jffGeKe8varfVEHF9EbScPZruAsWke4k9gfFWo77Wm",
       "jsonParsed"
     ]
   }
@@ -326,7 +340,7 @@ content-type: application/json
     "id": 1,
     "method": "getTransaction",
     "params": [
-      "334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE",
+      "2ZD98V6XEMqmv5hveWyHx29HPjgxCEAvDQnntNxMJYrUq8jffGeKe8varfVEHF9EbScPZruAsWke4k9gfFWo77Wm",
       "jsonParsed"
     ]
   }
@@ -341,7 +355,7 @@ api-key: c358082d-9e68-43da-a0fb-6f7240d01136
     "id": 1,
     "method": "getTransaction",
     "params": [
-      "334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE",
+      "2ZD98V6XEMqmv5hveWyHx29HPjgxCEAvDQnntNxMJYrUq8jffGeKe8varfVEHF9EbScPZruAsWke4k9gfFWo77Wm",
       "jsonParsed"
     ]
   }

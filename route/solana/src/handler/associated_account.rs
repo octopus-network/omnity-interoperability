@@ -23,7 +23,7 @@ pub async fn create_associated_account() {
         for (_seq, ticket) in s.tickets_queue.iter() {
 
             if let Some(token_mint) = s.token_mint_accounts.get(&ticket.token) {
-                //the token mint account must be confirmed
+                //the token mint account must be Finalized
                 if matches!(token_mint.status,TxStatus::Finalized){
                     match s
                     .associated_accounts

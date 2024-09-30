@@ -166,12 +166,6 @@ pub async fn sign(msg: String) -> Result<Vec<u8>, String> {
     Ok(signature)
 }
 
-// query collect fee account 
-#[query]
-pub async fn get_fee_account() -> String {
-    read_state(|s| s.fee_account.to_string())
-}
-
 // query supported chain list 
 #[query]
 fn get_chain_list() -> Vec<Chain> {
@@ -926,6 +920,18 @@ pub async fn update_tx_hash_to_hub(sig: String, ticket_id: String) -> Result<(),
        }
         
     Ok(())
+}
+
+// query collect fee account 
+#[query]
+pub async fn get_fee_account() -> String {
+    read_state(|s| s.fee_account.to_string())
+}
+
+// update collect fee account 
+#[update(guard = "is_admin",hidden = true)]
+pub async fn update_fee_account(fee_account: String)  {
+    mutate_state(|s| s.fee_account = fee_account)
 }
 
 // query fee account for the dst chain 

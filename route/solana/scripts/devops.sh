@@ -13,7 +13,7 @@ PROXY_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
 SOL_PROVIDER_CANISTER_ID=l3ka6-4yaaa-aaaar-qahpa-cai
 SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
 triton_m=https://png.rpcpool.com/13a5c61c672e6cd88357abf3709a
-alchemy_m=https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
+alchemy_m=https://solana-mainnet.g.alchemy.com/v2/t25IzpcIjBXhP-LOurqrTWLWmhPuBwsk
 snownodes=https://sol.nownodes.io
 ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
 
@@ -128,14 +128,18 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
 
 # update multi_rpc_config
 triton_m=https://png.rpcpool.com/13a5c61c672e6cd88357abf3709a
-alchemy_m=https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
+alchemy_m=https://solana-mainnet.g.alchemy.com/v2/t25IzpcIjBXhP-LOurqrTWLWmhPuBwsk
+helius_m=https://mainnet.helius-rpc.com/?api-key=b7fe7483-b790-427e-af31-0095d7f73d4e
 snownodes=https://sol.nownodes.io
 ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
 SIG=334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${triton_m}\")" --ic --output json | jq '.Ok | fromjson'
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${alchemy_m}\")" --ic --output json | jq '.Ok | fromjson'
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${helius_m}\")" --ic --output json | jq '.Ok | fromjson'
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",opt \"${snownodes}\")" --ic --output json | jq '.Ok | fromjson'
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",null)" --ic --output json | jq '.Ok | fromjson'
+
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 
@@ -144,9 +148,17 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record {
     minimum_response_count = 1:nat32;})" --ic
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
-    rpc_list = vec {\"${triton_m}\";
-                     \"${alchemy_m}\";
-                     \"${ankr_m}\";};\
+    rpc_list = vec {\"${alchemy_m}\";\"${helius_m}\"};\
+    minimum_response_count = 1:nat32;})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
+    rpc_list = vec {\"${alchemy_m}\";\"${snownodes}\"};\
+    minimum_response_count = 1:nat32;})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
+    rpc_list = vec {\"${alchemy_m}\";
+                     \"${snownodes}\";
+                     \"${triton_m}\";};\
     minimum_response_count = 2:nat32;})" --ic
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
@@ -324,7 +336,7 @@ SIG=334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQ
 dfx canister call $SOLANA_ROUTE_CANISTER_ID valid_tx_from_multi_rpc "(\"${SIG}\")" --ic
 
 # gen ticket and send it to hub
-signature=334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE
+signature=2ZD98V6XEMqmv5hveWyHx29HPjgxCEAvDQnntNxMJYrUq8jffGeKe8varfVEHF9EbScPZruAsWke4k9gfFWo77Wm
 target_chain_id=Bitcoin
 sender=3duAFv2j7VvKUpUWEK1p9itMvCkZxF6P5PArdU2G7z3W
 receiver=bc1qvtcrsrsgpl443z3s7k0fez0dw7dn08fnqjhaz6
@@ -342,4 +354,10 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID generate_ticket "(record {
     action=variant { Redeem };
     memo=opt \"${memo}\";
 })" --ic
+
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_fee_account '()' --ic
+
+FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_fee_account "(\"${FEE_ACCOUNT}\")" --ic
 
