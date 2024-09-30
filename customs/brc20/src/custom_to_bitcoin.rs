@@ -119,7 +119,6 @@ pub async fn process_unlock_ticket(seq: Seq, fees: &Fees) -> Result<(), CustomTo
                     s.flight_unlock_ticket_map.insert(seq, info);
                     s.reveal_utxo_index.insert(reveal_utxo_index);
                 });
-                //TODO send commit info to hub
             }
         }
     }
