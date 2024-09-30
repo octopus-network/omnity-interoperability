@@ -126,7 +126,7 @@ pub async fn process_unlock_ticket(seq: Seq, fees: &Fees) -> Result<(), CustomTo
     Ok(())
 }
 
-pub async fn finalize_flight_tickets() {
+pub async fn finalize_flight_unlock_tickets() {
     let now = ic_cdk::api::time();
     let can_check_finalizations = read_state(|s| {
         let wait_time = finalization_time_estimate(s.min_confirmations, s.btc_network);
@@ -183,7 +183,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<Send
             Ok(None)
         }
         Some(t) => {
-            if read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id)) {
+            if read_state(|s| s.finalized_unlock_ticket_map.contains_key(&seq)) {
                 return Ok(None);
             }
             if read_state(|s|s.flight_unlock_ticket_map.get(&seq).is_some()) {
@@ -379,7 +379,7 @@ pub fn finalize_unlock_tickets_task() {
             Some(guard) => guard,
             None => return,
         };
-        finalize_flight_tickets().await;
+        finalize_flight_unlock_tickets().await;
     });
 }
 

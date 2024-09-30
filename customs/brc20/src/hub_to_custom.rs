@@ -20,7 +20,7 @@ async fn process_tickets() {
 
 pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
     let mut next_seq = offset;
-    for (seq, ticket) in &tickets {
+    for (seq, ticket) in tickets {
         if ticket.amount.parse::<u128>().is_err() {
             log::error!(
                 "[process tickets] failed to parse ticket amount: {}",
@@ -29,7 +29,11 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
             next_seq = seq + 1;
             continue;
         };
-        mutate_state(|s| s.tickets_queue.insert(*seq, ticket.clone()));
+        mutate_state(|s|{
+            let ticketid = ticket.ticket_id.clone();
+            s.ticket_id_seq_indexer.insert(ticketid, seq);
+            s.tickets_queue.insert(seq, ticket);
+        });
         next_seq = seq + 1;
     }
     mutate_state(|s| s.next_ticket_seq = next_seq)
