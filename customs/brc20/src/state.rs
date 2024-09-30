@@ -22,7 +22,7 @@ use crate::ord::builder::Utxo;
 use crate::service::InitArgs;
 use crate::stable_memory;
 use crate::stable_memory::Memory;
-use crate::types::{GenTicketStatus, LockTicketRequest};
+use crate::types::{GenTicketStatus, LockTicketRequest, ReleaseTokenStatus};
 
 thread_local! {
     static STATE: RefCell<Option<Brc20State >> = RefCell::new(None);
@@ -43,7 +43,7 @@ pub struct Brc20State {
     pub reveal_utxo_index: BTreeSet<String>,
     pub tokens: BTreeMap<TokenId, Token>,
     pub counterparties: BTreeMap<ChainId, Chain>,
-    pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
+
     pub chain_state: ChainState,
     pub next_ticket_seq: u64,
     pub next_directive_seq: u64,
@@ -55,7 +55,7 @@ pub struct Brc20State {
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
     pub flight_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
     pub finalized_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
-
+    pub ticket_id_seq_indexer: BTreeMap<TicketId, Seq>,
     //lock tickets storage
     pub pending_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
     pub finalized_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
@@ -106,7 +106,7 @@ impl From<&Brc20State> for StateProfile {
             chain_id: value.chain_id.clone(),
             tokens: value.tokens.clone(),
             counterparties: value.counterparties.clone(),
-            finalized_mint_token_requests: value.finalized_mint_token_requests.clone(),
+            finalized_mint_token_requests: Default::default(),
             chain_state: value.chain_state.clone(),
             next_ticket_seq: value.next_ticket_seq,
             next_directive_seq: value.next_directive_seq,
@@ -132,7 +132,6 @@ impl Brc20State {
             reveal_utxo_index: Default::default(),
             tokens: Default::default(),
             counterparties: Default::default(),
-            finalized_mint_token_requests: Default::default(),
             chain_state: ChainState::Active,
             ecdsa_key_name: args.network.key_id().name,
             flight_unlock_ticket_map: BTreeMap::default(),
@@ -155,6 +154,7 @@ impl Brc20State {
             deposit_addr_utxo: vec![],
             min_confirmations: 4,
             finalized_unlock_ticket_map: Default::default(),
+            ticket_id_seq_indexer: Default::default(),
         };
 
         //TODO. open for test below codes;
@@ -244,6 +244,31 @@ impl Brc20State {
             None => GenTicketStatus::Unknown,
         }
     }
+
+    pub fn unlock_tx_status(&self, ticket_id: &TicketId) -> ReleaseTokenStatus {
+        let seq = self.ticket_id_seq_indexer.get(ticket_id).cloned();
+
+        if seq.is_none() {
+            return ReleaseTokenStatus::Unknown;
+        }
+        let seq = seq.unwrap();
+        if let Some(status) = self.flight_unlock_ticket_map.get(&seq).cloned() {
+            if status.success  {
+                let txid = status.txs[2].txid();
+                return ReleaseTokenStatus::Submitted(txid.to_string());
+            }else {
+                return ReleaseTokenStatus::Unknown;
+            }
+        }
+        match self.finalized_unlock_ticket_map.get(&seq) {
+            Some(tx) => {
+                let txid = tx.txs[2].txid();
+                return ReleaseTokenStatus::Confirmed(txid.to_string())
+            }
+            None => (),
+        }
+        ReleaseTokenStatus::Pending
+    }
 }
 
 pub async fn init_ecdsa_public_key() -> ECDSAPublicKey {
@@ -268,6 +293,7 @@ pub fn deposit_addr() -> Address {
     let r = read_state(|s| s.deposit_addr.clone().unwrap());
     Address::from_str(&r).unwrap().assume_checked()
 }
+
 
 pub fn bitcoin_network() -> bitcoin::Network {
     let n = read_state(|s| s.btc_network);

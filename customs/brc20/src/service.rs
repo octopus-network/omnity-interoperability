@@ -3,7 +3,7 @@ use candid::{CandidType, Deserialize, Principal};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
 use crate::generate_ticket::{GenerateTicketArgs};
-use omnity_types::{MintTokenStatus, Network, Seq, Ticket};
+use omnity_types::{Network, Seq, Ticket};
 use crate::management::get_utxos;
 use crate::ord::builder::Utxo;
 use bitcoin::hashes::Hash;
@@ -15,6 +15,7 @@ use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
 };
 use crate::tasks::start_tasks;
+use crate::types::ReleaseTokenStatus;
 
 #[init]
 fn init(args: InitArgs) {
@@ -79,14 +80,9 @@ pub async fn test_update_utxos() -> String {
 }
 
 #[query]
-fn mint_token_status(ticket_id: String) -> MintTokenStatus {
+fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
     read_state(|s| {
-        s.finalized_mint_token_requests
-            .get(&ticket_id)
-            .cloned()
-            .map_or(MintTokenStatus::Unknown, |tx_hash| {
-                MintTokenStatus::Finalized { tx_hash }
-            })
+        s.unlock_tx_status(&ticket_id)
     })
 }
 

@@ -95,7 +95,6 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
     check_transaction(args.clone()).await?;
-    //TODO comment for test
       hub::pending_ticket(
             hub_principal,
             Ticket {

@@ -26,6 +26,23 @@ pub struct PendingDirectiveStatus {
     pub error: Option<String>,
 }
 
+#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
+pub enum ReleaseTokenStatus {
+    /// The custom has no data for this request.
+    /// The request id is either invalid or too old.
+    Unknown,
+    /// The request is in the batch queue.
+    Pending,
+    /// Waiting for a signature on a transaction satisfy this request.
+    Signing,
+    /// Sending the transaction satisfying this request.
+    Sending(String),
+    /// Awaiting for confirmations on the transaction satisfying this request.
+    Submitted(String),
+    /// Confirmed a transaction satisfying this request.
+    Confirmed(String),
+}
+
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GenTicketStatus {
     /// The custom has no data for this request.
