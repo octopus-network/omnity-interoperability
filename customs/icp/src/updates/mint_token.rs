@@ -138,7 +138,7 @@ pub async fn retrieve_ckbtc(
         .map_err(|e| MintTokenError::CustomError(format!("{:?}", e)))?;
 
     let arg = RetrieveBtcWithApprovalArgs {
-        amount: nat_to_u64(amount),
+        amount: nat_to_u64(amount - 2 * CKBTC_TRANSFER_FEE),
         address: receiver,
         from_subaccount: None,
     };
@@ -203,6 +203,12 @@ async fn mint(ledger_id: Principal, amount: u128, to: Account) -> Result<u64, Mi
         runtime: CdkRuntime,
         ledger_canister_id: ledger_id,
     };
+    let fee = client.fee()
+    .await
+    .map_err(|e| 
+        MintTokenError::CustomError(
+            format!("Failed to get icrc fee, error: {:?}", e).to_string(), 
+    ))?;
     let block_index = client
         .transfer(TransferArg {
             from_subaccount: None,
@@ -210,7 +216,7 @@ async fn mint(ledger_id: Principal, amount: u128, to: Account) -> Result<u64, Mi
             fee: None,
             created_at_time: None,
             memo: None,
-            amount: Nat::from(amount),
+            amount: Nat::from(amount) - fee,
         })
         .await
         .map_err(|(code, msg)| {

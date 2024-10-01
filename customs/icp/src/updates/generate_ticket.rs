@@ -4,7 +4,7 @@ use icrc_ledger_types::{
     icrc1::account::{Account, Subaccount},
     icrc2::transfer_from::{TransferFromArgs, TransferFromError},
 };
-use ic_ledger_types::{AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID};
+use ic_ledger_types::{AccountIdentifier, BlockIndex, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID};
 use num_traits::cast::ToPrimitive;
 use omnity_types::{ Ticket, TxAction};
 use serde::Serialize;
@@ -47,6 +47,7 @@ pub enum GenerateTicketError {
     },
     SendTicketErr(String),
     TransferIcpFailure(String),
+    CustomError(String),
 }
 
 pub async fn generate_ticket(
@@ -59,10 +60,10 @@ pub async fn generate_ticket(
         ));
     }
 
-    let ticket_id = if is_icp(&req.token_id) {
-        let block_index = lock_icp(ic_cdk::caller(), convert_u128_u64(req.amount)).await?;
+    let (ticket_id, ticket_amount) = if is_icp(&req.token_id) {
+        let (block_index, ticket_amount ) = lock_icp(ic_cdk::caller(), convert_u128_u64(req.amount)).await?;
         let ticket_id = format!("{}_{}", MAINNET_LEDGER_CANISTER_ID.to_string(), block_index.to_string());
-        ticket_id
+        (ticket_id, ticket_amount as u128)
     } else {
         let ledger_id = get_token_principal(&req.token_id).ok_or(GenerateTicketError::UnsupportedToken(req.token_id.clone()))?;
 
@@ -71,9 +72,9 @@ pub async fn generate_ticket(
             subaccount: req.from_subaccount,
         };
     
-        let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
+        let (block_index, ticket_amount) = burn_token_icrc2(ledger_id, user, req.amount).await?;
         let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
-        ticket_id
+        (ticket_id, ticket_amount)
     };
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
@@ -88,7 +89,7 @@ pub async fn generate_ticket(
             dst_chain: req.target_chain_id.clone(),
             action: TxAction::Transfer,
             token: req.token_id.clone(),
-            amount: req.amount.to_string(),
+            amount: ticket_amount.to_string(),
             sender: Some(ic_cdk::caller().to_text()),
             receiver: req.receiver.clone(),
             memo: None,
@@ -114,7 +115,7 @@ async fn ic_balance_of(subaccount: &IcSubaccount) -> Result<Tokens, GenerateTick
 async fn lock_icp(
     user: Principal,
     amount: u64
-)->Result<u64, GenerateTicketError>{
+)->Result<(BlockIndex, u64), GenerateTicketError>{
 
     let subaccount =  IcSubaccount::from(user);
     let ic_balance = ic_balance_of(&subaccount).await?;
@@ -139,19 +140,26 @@ async fn lock_icp(
         .await
         .map_err(|(_, reason)| GenerateTicketError::TemporarilyUnavailable(reason))?
         .map_err(|err| GenerateTicketError::TransferIcpFailure(err.to_string()))?;
-    Ok(index)
+    Ok((index, amount))
 }
 
 async fn burn_token_icrc2(
     ledger_id: Principal,
     user: Account,
     amount: u128,
-) -> Result<u64, GenerateTicketError> {
+) -> Result<(BlockIndex, u128), GenerateTicketError> {
     let client = ICRC1Client {
         runtime: CdkRuntime,
         ledger_canister_id: ledger_id,
     };
+    let fee = client.fee()
+    .await
+    .map_err(|e| 
+        GenerateTicketError::CustomError(
+            format!("Failed to get icrc fee, error: {:?}", e).to_string(), 
+    ))?;
     let route = ic_cdk::id();
+    let transfer_amount = Nat::from(amount) - fee;
     let result = client
         .transfer_from(TransferFromArgs {
             spender_subaccount: None,
@@ -160,7 +168,7 @@ async fn burn_token_icrc2(
                 owner: route,
                 subaccount: None,
             },
-            amount: Nat::from(amount),
+            amount: transfer_amount,
             fee: None,
             memo: None,
             created_at_time: Some(ic_cdk::api::time()),
@@ -174,7 +182,18 @@ async fn burn_token_icrc2(
         })?;
 
     match result {
-        Ok(block_index) => Ok(block_index.0.to_u64().expect("nat does not fit into u64")),
+        Ok(block_index) => Ok((
+            block_index.0
+            .to_u64()
+            .ok_or(
+                GenerateTicketError::CustomError("block index does not fit into u64".to_string())
+            )?, 
+            amount
+            .to_u128()
+            .ok_or(
+                GenerateTicketError::CustomError("amount does not fit into u64".to_string())
+            )?
+        )),
         Err(TransferFromError::InsufficientFunds { balance }) => Err(GenerateTicketError::InsufficientFunds {
             balance: balance.0.to_u64().expect("unreachable: ledger balance does not fit into u64")
         }),
