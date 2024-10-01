@@ -1,10 +1,12 @@
 use candid::Deserialize;
 use serde::Serialize;
 
-pub const BASE_URL: &str = "https://www.oklink.com";
-pub const URI: &str = "/api/v5/explorer/btc/transaction-list";
+pub const BASE_URL: &str = "https://www.oklink.com/api/v5/explorer/btc/transaction-list?txId=";
+
+pub async fn query() {
 
 
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 struct CommonResponse<T> {
@@ -13,25 +15,39 @@ struct CommonResponse<T> {
     pub data: T
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 struct PageInfo<T> {
     pub page: String,
     pub limit: String,
-    pub totalPage: String,
-    pub totalTransaction: String,
-    pub InscriptionsList: T,
+    #[serde(rename = "totalPage")]
+    pub total_page: String,
+    #[serde(rename = "totalTransaction")]
+    pub total_transaction: String,
+    #[serde(rename = "inscriptionsList")]
+    pub inscriptions_list: T,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 struct Brc20TransferEvent {
-    pub txId: String,
-    pub blockHeight: String,
+    #[serde(rename = "txId")]
+    pub tx_id: String,
+    #[serde(rename = "blockHeight")]
+    pub block_height: String,
     pub state: String,
-    pub tokenType: String,
-    pub actionType: String,
-    pub fromAddress: String,
-    pub toAddress: String,
+    #[serde(rename = "tokenType")]
+    pub token_type: String,
+    #[serde(rename = "actionType")]
+    pub action_type: String,
+    #[serde(rename = "fromAddress")]
+    pub from_address: String,
+    #[serde(rename = "toAddress")]
+    pub to_address: String,
     pub amount: String,
     pub token: String,
-    pub inscriptionId:String,
-    pub inscriptionNumber: String,
+    #[serde(rename = "inscriptionId")]
+    pub inscription_id:String,
+    #[serde(rename = "inscriptionNumber")]
+    pub inscription_number: String,
     pub index: String,
     pub location: String,
     pub msg: String,
