@@ -122,13 +122,13 @@ pub async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<Commo
         method: HttpMethod::GET,
         body: None,
         max_response_bytes: None,
-        transform: None /* //TODO Some(TransformContext {
+        transform: Some(TransformContext {
             function: TransformFunc(candid::Func {
                 principal: ic_cdk::api::id(),
                 method: "transform".to_string(),
             }),
             context: vec![],
-        })*/,
+        }),
         headers: vec![HttpHeader {
             name: "Content-Type".to_string(),
             value: "application/json".to_string(),

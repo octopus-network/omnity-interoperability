@@ -1,5 +1,7 @@
 use candid::CandidType;
-use ic_cdk_macros::{export_candid, init, post_upgrade, pre_upgrade, update};
+use ic_cdk::api::management_canister::http_request;
+use ic_cdk::api::management_canister::http_request::TransformArgs;
+use ic_cdk_macros::{export_candid, init, post_upgrade, pre_upgrade, query, update};
 use serde::{Deserialize, Serialize};
 use crate::state::{BitcoinNetwork, IndexerState};
 use crate::state::replace_state;
@@ -30,6 +32,16 @@ fn post_upgrade() {
 #[update]
 pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
     query_transfer_event(args).await
+}
+
+#[query(hidden = true)]
+fn transform(raw: TransformArgs) -> http_request::HttpResponse {
+    http_request::HttpResponse {
+        status: raw.response.status.clone(),
+        body: raw.response.body.clone(),
+        headers: vec![],
+        ..Default::default()
+    }
 }
 
 
