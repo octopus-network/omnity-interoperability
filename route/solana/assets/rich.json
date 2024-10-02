@@ -2,7 +2,7 @@
     "name": "HOPE•YOU•GET•RICH",
     "symbol": "RICH.OT",
     "description": "Bitcoin-runes-HOPE•YOU•GET•RICH",
-    "image": "ttps://raw.githubusercontent.com/octopus-network/omnity-interoperability/feature/solana-route/route/solana/assets/rich.png",
+    "image": "https://raw.githubusercontent.com/octopus-network/omnity-interoperability/feature/solana-route/route/solana/assets/rich.png",
     "attributes": [
         {
             "trait_type": "Item",
