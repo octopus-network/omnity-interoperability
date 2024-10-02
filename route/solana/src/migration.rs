@@ -42,7 +42,7 @@ pub fn migrate(pre_state: PreState) -> SolanaRouteState {
         schnorr_key_name: Some(pre_state.schnorr_key_name),
         sol_canister: pre_state.sol_canister,
         fee_account: Some(pre_state.fee_account),
-        multi_rpc_config: pre_state.multi_rpc_config,
+        // multi_rpc_config: pre_state.multi_rpc_config,
         // forward: pre_state.forward,
     };
     let mut new_state = SolanaRouteState::from(init_args);
@@ -50,6 +50,7 @@ pub fn migrate(pre_state: PreState) -> SolanaRouteState {
     new_state.fee_token_factor = pre_state.fee_token_factor;
     new_state.target_chain_factor = pre_state.target_chain_factor;
     new_state.caller_perms = pre_state.caller_perms;
+    new_state.multi_rpc_config = pre_state.multi_rpc_config;
     new_state.forward = pre_state.forward;
     new_state.seqs = Seqs {
         next_ticket_seq: pre_state.next_ticket_seq,

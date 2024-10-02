@@ -46,12 +46,7 @@ export interface InitArgs {
   'sol_canister' : Principal,
   'chain_id' : string,
   'schnorr_key_name' : [] | [string],
-  'multi_rpc_config' : MultiRpcConfig,
   'chain_state' : ChainState,
-}
-export interface MultiRpcConfig {
-  'rpc_list' : Array<string>,
-  'minimum_response_count' : number,
 }
 export type Reason = { 'QueueIsFull' : null } |
   { 'CanisterError' : string } |
@@ -87,7 +82,6 @@ export interface UpgradeArgs {
   'sol_canister' : [] | [Principal],
   'chain_id' : [] | [string],
   'schnorr_key_name' : [] | [string],
-  'multi_rpc_config' : [] | [MultiRpcConfig],
   'chain_state' : [] | [ChainState],
 }
 export interface _SERVICE {

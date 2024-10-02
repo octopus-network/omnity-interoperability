@@ -40,12 +40,7 @@ type InitArgs = record {
   sol_canister : principal;
   chain_id : text;
   schnorr_key_name : opt text;
-  multi_rpc_config : MultiRpcConfig;
   chain_state : ChainState;
-};
-type MultiRpcConfig = record {
-  rpc_list : vec text;
-  minimum_response_count : nat32;
 };
 type Reason = variant {
   QueueIsFull;
@@ -78,7 +73,6 @@ type UpgradeArgs = record {
   sol_canister : opt principal;
   chain_id : opt text;
   schnorr_key_name : opt text;
-  multi_rpc_config : opt MultiRpcConfig;
   chain_state : opt ChainState;
 };
 service : (RouteArg) -> {

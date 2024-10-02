@@ -129,7 +129,7 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
 # update multi_rpc_config
 triton_m=https://png.rpcpool.com/13a5c61c672e6cd88357abf3709a
 alchemy_m=https://solana-mainnet.g.alchemy.com/v2/t25IzpcIjBXhP-LOurqrTWLWmhPuBwsk
-helius_m=https://mainnet.helius-rpc.com/?api-key=b7fe7483-b790-427e-af31-0095d7f73d4e
+helius_m=https://mainnet.helius-rpc.com/?api-key=174a6ec2-4439-4fca-9277-b12900c71fa5
 snownodes=https://sol.nownodes.io
 ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
 SIG=334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE
@@ -161,15 +161,19 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record {
                      \"${triton_m}\";};\
     minimum_response_count = 2:nat32;})" --ic
 
+signature=334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE
+dfx canister call $SOLANA_ROUTE_CANISTER_ID valid_tx_from_multi_rpc "(\"${signature}\")" --ic
+
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\",null)" --ic
 
 # update forward
 dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward "(opt \"${triton_m}\")" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward "(opt \"${helius_m}\")" --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
+
+
 
 
 # query signer
@@ -223,19 +227,22 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 # })" --ic
 
 # update token
-# TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
-# TOKEN_NAME="HOPE•YOU•GET•RICH"
-# TOKEN_SYMBOL="RICH"
-# DECIMALS=2
-# ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
-# dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
-# dfx canister call $SOLANA_ROUTE_CANISTER_ID update_token_metadata "(record {
-#         token_id=\"${TOKEN_ID}\";
-#         name=\"${TOKEN_NAME}\";
-#         symbol=\"${TOKEN_SYMBOL}\";
-#         decimals=${DECIMALS}:nat8;
-#         uri=\"${ICON}\";
-# })" --ic
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+TOKEN_NAME="HOPE•YOU•GET•RICH"
+TOKEN_SYMBOL="RICH.OT"
+DECIMALS=2
+ICON="https://raw.githubusercontent.com/octopus-network/omnity-interoperability/feature/solana-route/route/solana/assets/rich.json"
+# ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token.png"
+# ICON="https://geniidata.com/content/d66de939cb3ddb4d94f0949612e06e7a84d4d0be381d0220e2903aad68135969i0"
+# ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_token_metadata "(record {
+        token_id=\"${TOKEN_ID}\";
+        name=\"${TOKEN_NAME}\";
+        symbol=\"${TOKEN_SYMBOL}\";
+        decimals=${DECIMALS}:nat8;
+        uri=\"${ICON}\";
+})" --ic
 
 # # get token mint
 TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
@@ -361,3 +368,11 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID get_fee_account '()' --ic
 FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID update_fee_account "(\"${FEE_ACCOUNT}\")" --ic
 
+# schnorr test
+dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic
+SIGNER=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic)
+SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
+echo "current SIGNER: $SIGNER"
+echo "$SIGNER balance: $(solana balance $SIGNER -u m)"
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID sign '("Hi,Boern")' --ic

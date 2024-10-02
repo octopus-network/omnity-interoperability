@@ -1,5 +1,5 @@
 // use crate::migration::{migrate, PreState};
-use crate::state::MultiRpcConfig;
+// use crate::state::MultiRpcConfig;
 use crate::types::ChainState;
 use crate::{
     memory,
@@ -24,7 +24,7 @@ pub struct InitArgs {
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Principal,
     pub fee_account: Option<String>,
-    pub multi_rpc_config: MultiRpcConfig,
+    // pub multi_rpc_config: MultiRpcConfig,
     // pub forward: Option<String>,
 }
 
@@ -61,7 +61,7 @@ pub struct UpgradeArgs {
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Option<Principal>,
     pub fee_account: Option<String>,
-    pub multi_rpc_config: Option<MultiRpcConfig>,
+    // pub multi_rpc_config: Option<MultiRpcConfig>,
     // pub forward: Option<String>,
 }
 
@@ -109,9 +109,9 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         if let Some(fee_account) = args.fee_account {
             state.fee_account = fee_account;
         }
-        if let Some(multi_rpc_config) = args.multi_rpc_config {
-            state.multi_rpc_config = multi_rpc_config;
-        }
+        // if let Some(multi_rpc_config) = args.multi_rpc_config {
+        //     state.multi_rpc_config = multi_rpc_config;
+        // }
         // if let Some(forward) = args.forward {
         //     state.forward = Some(forward);
         // }

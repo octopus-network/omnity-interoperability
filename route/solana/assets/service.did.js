@@ -1,8 +1,4 @@
 export const idlFactory = ({ IDL }) => {
-  const MultiRpcConfig = IDL.Record({
-    'rpc_list' : IDL.Vec(IDL.Text),
-    'minimum_response_count' : IDL.Nat32,
-  });
   const ChainState = IDL.Variant({
     'Active' : IDL.Null,
     'Deactive' : IDL.Null,
@@ -14,7 +10,6 @@ export const idlFactory = ({ IDL }) => {
     'sol_canister' : IDL.Opt(IDL.Principal),
     'chain_id' : IDL.Opt(IDL.Text),
     'schnorr_key_name' : IDL.Opt(IDL.Text),
-    'multi_rpc_config' : IDL.Opt(MultiRpcConfig),
     'chain_state' : IDL.Opt(ChainState),
   });
   const InitArgs = IDL.Record({
@@ -24,7 +19,6 @@ export const idlFactory = ({ IDL }) => {
     'sol_canister' : IDL.Principal,
     'chain_id' : IDL.Text,
     'schnorr_key_name' : IDL.Opt(IDL.Text),
-    'multi_rpc_config' : MultiRpcConfig,
     'chain_state' : ChainState,
   });
   const RouteArg = IDL.Variant({
@@ -114,10 +108,6 @@ export const idlFactory = ({ IDL }) => {
   });
 };
 export const init = ({ IDL }) => {
-  const MultiRpcConfig = IDL.Record({
-    'rpc_list' : IDL.Vec(IDL.Text),
-    'minimum_response_count' : IDL.Nat32,
-  });
   const ChainState = IDL.Variant({
     'Active' : IDL.Null,
     'Deactive' : IDL.Null,
@@ -129,7 +119,6 @@ export const init = ({ IDL }) => {
     'sol_canister' : IDL.Opt(IDL.Principal),
     'chain_id' : IDL.Opt(IDL.Text),
     'schnorr_key_name' : IDL.Opt(IDL.Text),
-    'multi_rpc_config' : IDL.Opt(MultiRpcConfig),
     'chain_state' : IDL.Opt(ChainState),
   });
   const InitArgs = IDL.Record({
@@ -139,7 +128,6 @@ export const init = ({ IDL }) => {
     'sol_canister' : IDL.Principal,
     'chain_id' : IDL.Text,
     'schnorr_key_name' : IDL.Opt(IDL.Text),
-    'multi_rpc_config' : MultiRpcConfig,
     'chain_state' : ChainState,
   });
   const RouteArg = IDL.Variant({

@@ -88,8 +88,6 @@ dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Init = rec
     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
     fee_account= opt \"${FEE_ACCOUNT}\";\
-    multi_rpc_config = record { rpc_list = vec {\"${rpc1}\";\"${rpc2}\";\"${rpc3}\"};\
-    minimum_response_count = 2:nat32;}; \
     } })" \
     --mode=reinstall -y \
     --wasm=./assets/solana_route.wasm.gz \
@@ -99,6 +97,13 @@ dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward "(opt \"${alchemy_d}\")" --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
+    rpc_list = vec {\"${rpc1}\";
+                     \"${rpc2}\";
+                     \"${rpc3}\";};\
+    minimum_response_count = 2:nat32;})" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 # add perms
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID set_permissions "(
 #     principal \"kp4gp-pefsb-gau5l-p2hf6-pagac-3jusw-lzc2v-nsxtq-46dnk-ntffe-3qe\",\

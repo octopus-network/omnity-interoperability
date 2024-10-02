@@ -64,9 +64,6 @@ dfx deploy solana_route --argument "(variant { Init = record { \
     schnorr_key_name = opt \"${SCHNORR_KEY_NAME}\"; \
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
     fee_account= opt \"${FEE_ACCOUNT}\"; 
-    multi_rpc_config = record { rpc_list = vec {\"${SOLANA_RPC_URL}\"};\
-        minimum_response_count = 1;}; \
-    forward = null
 } })" \
 --mode=reinstall -y
 
@@ -76,5 +73,16 @@ dfx canister status $SOLANA_ROUTE_CANISTER_ID
 dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()'
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${test_sig}\",opt \"${ankr}\")" 
+
+# update_multi_rpc 
+rpc1=https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
+rpc2=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
+rpc3=https://nd-471-475-490.p2pify.com/6de0b91c609fb3bd459e043801aa6aa4
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
+    rpc_list = vec {\"${rpc1}\";
+                     \"${rpc2}\";
+                     \"${rpc3}\";};\
+    minimum_response_count = 2:nat32;})"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()'
 
 echo "Deploy done!"

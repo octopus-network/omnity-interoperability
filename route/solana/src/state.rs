@@ -330,7 +330,7 @@ impl From<InitArgs> for SolanaRouteState {
             admin: args.admin,
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             fee_account: args.fee_account.unwrap_or(FEE_ACCOUNT.to_string()),
-            multi_rpc_config: args.multi_rpc_config,
+            multi_rpc_config: MultiRpcConfig::default(),
             forward: None,
 
             // init stable storage
