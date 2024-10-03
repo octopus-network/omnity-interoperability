@@ -153,7 +153,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 "forward new request for X-Idempotency: {} -> {:#?}",
                                 key, req_content
                             );
-
                             let forward_rpc = try_match_cache_header(&req, FORWARD_BRC20_INDEXER_RPC)
                                 .unwrap_or(default_target.to_string());
                             println!("forward url: {}", forward_rpc);
@@ -190,7 +189,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         .map_err(|err| format!("{}", err))
                 }
             };
-
             if let Err(err) = http1::Builder::new()
                 .serve_connection(io, service_fn(f))
                 .await
