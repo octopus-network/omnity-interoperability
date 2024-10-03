@@ -14,11 +14,7 @@ use std::collections::{BTreeMap, HashSet};
 pub struct PreState {
     pub chain_id: String,
     pub hub_principal: Principal,
-    // Next index of query tickets from hub
-    pub next_ticket_seq: u64,
-    pub next_consume_ticket_seq: u64,
-    // Next index of query directives from hub
-    pub next_directive_seq: u64,
+    pub seqs: Seqs,
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub chain_state: ChainState,
@@ -52,10 +48,8 @@ pub fn migrate(pre_state: PreState) -> SolanaRouteState {
     new_state.caller_perms = pre_state.caller_perms;
     new_state.multi_rpc_config = pre_state.multi_rpc_config;
     new_state.forward = pre_state.forward;
-    new_state.seqs = Seqs {
-        next_ticket_seq: pre_state.next_ticket_seq,
-        next_directive_seq: pre_state.next_directive_seq,
-    };
+    new_state.seqs = pre_state.seqs;
+    new_state.enable_debug = false;
 
     new_state
 }

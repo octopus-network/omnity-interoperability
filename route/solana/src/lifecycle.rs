@@ -1,5 +1,4 @@
 // use crate::migration::{migrate, PreState};
-// use crate::state::MultiRpcConfig;
 use crate::types::ChainState;
 use crate::{
     memory,
@@ -76,11 +75,11 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     let mut state_bytes = vec![0; state_len];
     memory.read(4, &mut state_bytes);
 
-    // Deserialize pre state
+    // // Deserialize pre state
     // let pre_state: PreState =
     //     ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
-    // migrate
+    // // migrate
     // let mut state = migrate(pre_state);
 
     let mut state: SolanaRouteState =

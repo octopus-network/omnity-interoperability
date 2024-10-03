@@ -36,5 +36,4 @@ service : (InitArgs) -> {
   sol_latestBlockhash : (opt text) -> (Result);
   sol_sendRawTransaction : (text, opt text) -> (Result);
   sol_sendTransaction : (SendTransactionRequest, opt text) -> (Result);
-  update_rpc : (text) -> ();
 }

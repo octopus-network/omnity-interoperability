@@ -47,6 +47,7 @@ dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record {
 #     --ic 
 
 dfx canister status $SOL_PROVIDER_CANISTER_ID --ic
+dfx canister call $SOL_PROVIDER_CANISTER_ID debug '(true)' --ic
 # test canister api
 nownodes=https://sol.nownodes.io
 # ankr_d=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
@@ -118,10 +119,13 @@ dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
 #     --ic 
 # test 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction '("4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4",null)' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID debug '(true)' --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction '("4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4",null)' --ic
+
 
 # update schnorr info
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID update_schnorr_key '("key_1")' --ic
@@ -231,7 +235,10 @@ TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
 TOKEN_NAME="HOPE•YOU•GET•RICH"
 TOKEN_SYMBOL="RICH.OT"
 DECIMALS=2
-ICON="https://raw.githubusercontent.com/octopus-network/omnity-interoperability/feature/solana-route/route/solana/assets/rich.json"
+ICON="https://arweave.net/zr3QxOefTtsfd_651Q1LlkWcISat5NtyfD9ENPNkXDk"
+
+# ICON="https://arweave.net/G058Vw4fqZqpcCHvYxjmQ_dgK_abkL-GjcR-p3os0Jc"
+# ICON="https://raw.githubusercontent.com/octopus-network/omnity-interoperability/feature/solana-route/route/solana/assets/rich.json"
 # ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token.png"
 # ICON="https://geniidata.com/content/d66de939cb3ddb4d94f0949612e06e7a84d4d0be381d0220e2903aad68135969i0"
 # ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"

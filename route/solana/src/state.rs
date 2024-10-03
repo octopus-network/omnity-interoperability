@@ -291,6 +291,7 @@ pub struct SolanaRouteState {
     pub caller_perms: HashMap<String, Permission>,
     pub multi_rpc_config: MultiRpcConfig,
     pub forward: Option<String>,
+    pub enable_debug: bool,
 
     // stable storage
     #[serde(skip, default = "crate::memory::init_ticket_queue")]
@@ -332,6 +333,7 @@ impl From<InitArgs> for SolanaRouteState {
             fee_account: args.fee_account.unwrap_or(FEE_ACCOUNT.to_string()),
             multi_rpc_config: MultiRpcConfig::default(),
             forward: None,
+            enable_debug: false,
 
             // init stable storage
             tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),

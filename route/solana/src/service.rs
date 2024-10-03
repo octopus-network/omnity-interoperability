@@ -1068,11 +1068,16 @@ pub async fn update_seqs(seqs: Seqs) {
     })
 }
 
-
 // devops method
 #[update(guard = "is_admin",hidden = true)]
 pub async fn set_permissions(caller: Principal, perm: Permission) {
     set_perms(caller.to_string(), perm)
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub fn debug(enable: bool) {
+    mutate_state(|s| s.enable_debug = enable);
 }
 
 #[query(hidden = true)]
@@ -1080,7 +1085,8 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     if ic_cdk::api::data_certificate().is_none() {
         ic_cdk::trap("update call rejected");
     }
-    ic_log::http_request(req)
+    let endable_debug = read_state(|s|s.enable_debug);
+    ic_log::http_request(req,endable_debug)
 }
 
 // Enable Candid export

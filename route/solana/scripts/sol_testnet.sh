@@ -227,7 +227,9 @@ echo $TOKEN_NAME
 echo $TOKEN_SYMBOL
 echo $DECIMALS
 
-ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
+ICON="https://arweave.net/G058Vw4fqZqpcCHvYxjmQ_dgK_abkL-GjcR-p3os0Jc"
+
+# ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
 
 dfx canister call $HUB_CANISTER_ID validate_proposal "( vec {variant { AddToken = record { 
         token_id = \"${TOKEN_ID}\"; 

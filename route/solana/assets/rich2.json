@@ -1,0 +1,14 @@
+{
+    "key": 4,
+    "updateAuthority": "B3zfZ9CvfCHd23jzM7UqrVR2sid4y4eJYtxzZA4azqaD",
+    "data": {
+        "name": "HOPE•YOU•GET•RICH",
+        "symbol": "RICH.OT",
+        "uri": "https://arweave.net/MIvxbV_yLcsDwH-ks3BLNhz2xU8MZm2DvKPystDuA0g",
+        "sellerFeeBasisPoints": 0
+    },
+    "primarySaleHappened": 0,
+    "isMutable": 0,
+    "editionNonce": 255,
+    "tokenStandard": 2
+}
