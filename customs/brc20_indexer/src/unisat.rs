@@ -1,3 +1,4 @@
+use std::ops::Div;
 use bitcoin::Amount;
 use candid::{CandidType, Nat};
 use ic_btc_interface::Network;
@@ -93,9 +94,9 @@ pub async fn query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -
                 let data = c.data.unwrap();
                 let resp = data.detail;
                 for event in resp {
-                    if event.check(&query_transfer_args)  && data.height - event.height >= 4 {
+                    //if event.check(&query_transfer_args)  && data.height - event.height >= 4 {
                         return Some(event.into());
-                    }
+                    //}
                 }
                 None
             }else {
@@ -119,7 +120,7 @@ pub async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<Commo
     let proxy_url = proxy_url();
     let uri = format!("/v1/indexer/address/{}/brc20/{}/history?type=receive&start=0&limit=50",query_transfer_args.to_addr, query_transfer_args.ticker);
     let url = format!("{proxy_url}{}",uri.clone());
-    const MAX_CYCLES: u128 = 1_000_000_000;
+    const MAX_CYCLES: u128 = 25_000_000_000;
 
     let request = CanisterHttpRequestArgument {
         url: url,
@@ -177,4 +178,13 @@ pub async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<Commo
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum UnisatError {
     Rpc(String)
+}
+
+
+#[test]
+pub fn ttx() {
+    let v: f64 = 1520430000000000f64;
+    let d = 10u64.pow(18);
+    let r = v.div(d as f64);
+    print!("{r}");
 }
