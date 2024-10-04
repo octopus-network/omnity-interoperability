@@ -8,22 +8,23 @@
   "brc20_customs": {
     "ic": "oejud-wyaaa-aaaal-ame6a-cai"
   },
+  "brc20_indexer": {
+    "ic": "bjagg-wqaaa-aaaah-qdsvq-cai"
+  },
+  "ckbtc_minter": {
+    "ic": "mqygn-kiaaa-aaaar-qaadq-cai"
+  },
   "cosmwasm_proxy": {
     "ic": "ncfbq-kyaaa-aaaar-qah3a-cai"
   },
   "icp_customs": {
     "ic": "nlgkm-4qaaa-aaaar-qah2q-cai"
   },
-  "ckbtc_minter": {
-    "ic": "mqygn-kiaaa-aaaar-qaadq-cai"
-  },
-  "runes_oracle": {
-    "ic": "r3teu-uiaaa-aaaal-ajlvq-cai"
-  },
   "icp_route": {
     "ic": "7ywcn-nyaaa-aaaar-qaeza-cai"
   },
-  "omnity_hub": {
-    "ic": "7wupf-wiaaa-aaaar-qaeya-cai"
+  "omnity_hub": {},
+  "runes_oracle": {
+    "ic": "r3teu-uiaaa-aaaal-ajlvq-cai"
   }
 }

@@ -8,6 +8,8 @@ use crate::state::replace_state;
 use crate::state::read_state;
 use crate::unisat::query_transfer_event;
 pub use omnity_types::brc20::*;
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
+
 #[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
 pub struct InitArgs {
     pub network: BitcoinNetwork,
@@ -32,6 +34,14 @@ fn post_upgrade() {
 #[update]
 pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
     query_transfer_event(args).await
+}
+
+#[query(hidden = true)]
+fn http_request(req: HttpRequest) -> HttpResponse {
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+    omnity_types::ic_log::http_request(req)
 }
 
 #[update(guard = "is_controller")]
