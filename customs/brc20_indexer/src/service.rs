@@ -3,15 +3,15 @@ use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use ic_cdk_macros::{export_candid, init, post_upgrade, pre_upgrade, query, update};
 use serde::{Deserialize, Serialize};
-use crate::state::{BitcoinNetwork, IndexerState};
+use crate::state::{BitcoinNetwork, IndexerState, mutate_state};
 use crate::state::replace_state;
 use crate::state::read_state;
 use crate::unisat::query_transfer_event;
 pub use omnity_types::brc20::*;
 #[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
 pub struct InitArgs {
-    pub api_key: String,
     pub network: BitcoinNetwork,
+    pub proxy_url: String,
 }
 
 #[init]
@@ -34,6 +34,11 @@ pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20T
     query_transfer_event(args).await
 }
 
+#[update(guard = "is_controller")]
+pub fn set_api_key(rpc_name: String, key: String) {
+    mutate_state(|s|s.api_keys.insert(rpc_name, key));
+}
+
 #[query(hidden = true)]
 fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {
@@ -44,6 +49,13 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     }
 }
 
+pub fn is_controller() -> Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
+}
 
 ic_cdk::export_candid!();
 

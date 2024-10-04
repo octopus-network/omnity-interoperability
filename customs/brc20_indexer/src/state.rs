@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use candid::CandidType;
 use ic_stable_structures::writer::Writer;
 use serde::{Deserialize, Serialize};
@@ -13,15 +14,17 @@ thread_local! {
 
 #[derive(Deserialize, Serialize)]
 pub struct IndexerState {
-    pub api_key: String,
+    pub api_keys: BTreeMap<String, String>,
     pub network: BitcoinNetwork,
+    pub proxy_url: String,
 }
 
 impl IndexerState {
     pub fn init(init_args: InitArgs) -> anyhow::Result<Self> {
         let ret = IndexerState {
-            api_key: init_args.api_key.clone(),
+            api_keys: Default::default(),
             network: init_args.network,
+            proxy_url: init_args.proxy_url,
         };
         Ok(ret)
     }
@@ -59,10 +62,13 @@ impl IndexerState {
 pub enum  BitcoinNetwork {
     Mainnet, Testnet
 }
-pub fn api_key() -> String {
-    read_state(|s|s.api_key.clone())
+pub fn api_key(rpc_name: &str) -> String {
+    read_state(|s|s.api_keys.get(rpc_name).unwrap_or(&"na".to_string()).clone())
 }
 
+pub fn proxy_url() -> String {
+    read_state(|s|s.proxy_url.clone())
+}
 pub fn mutate_state<F, R>(f: F) -> R
     where
         F: FnOnce(&mut IndexerState) -> R,
