@@ -15,7 +15,6 @@ members = [
     "proxy/cosmwasm",
     "customs/brc20",
     "customs/brc20_indexer",
-    "customs/brc20_indexer/brc20_indexer_proxy"
 ]
 resolver = "2"
 

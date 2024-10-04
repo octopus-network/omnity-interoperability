@@ -6,10 +6,12 @@ use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument
 use serde::{Deserialize, Serialize};
 use omnity_types::ic_log::ERROR;
 use crate::service::{Brc20TransferEvent, QueryBrc20TransferArgs};
-use crate::state::{api_key, BitcoinNetwork, read_state};
+use crate::state::{api_key, BitcoinNetwork, proxy_url, read_state};
 
 const TESTNET_BASE_URL: &str = "https://open-api-testnet.unisat.io";
 const MAINNET_BASE_URL: &str = "https://open-api.unisat.io";
+const RPC_NAME: &str = "UNISAT";
+
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 struct CommonResponse<T> {
     pub code: i32,
@@ -109,12 +111,14 @@ pub async fn query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -
 }
 
 pub async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonResponse<QueryBrc20EventResponse>, UnisatError> {
-    let base_url = match read_state(|s|s.network) {
+    let real_rpc_url = match read_state(|s|s.network) {
         BitcoinNetwork::Mainnet => {MAINNET_BASE_URL}
         BitcoinNetwork::Testnet => {TESTNET_BASE_URL}
-    };
-    let api_key = api_key();
-    let url = format!("{base_url}/v1/indexer/address/{}/brc20/{}/history?type=receive&start=0&limit=50", query_transfer_args.to_addr, query_transfer_args.ticker);
+    }.to_string();
+    let api_key = api_key(RPC_NAME);
+    let proxy_url = proxy_url();
+    let uri = format!("/v1/indexer/address/{}/brc20/{}/history?type=receive&start=0&limit=50",query_transfer_args.to_addr, query_transfer_args.ticker);
+    let url = format!("{proxy_url}{}",uri.clone());
     const MAX_CYCLES: u128 = 1_000_000_000;
 
     let request = CanisterHttpRequestArgument {
@@ -136,6 +140,14 @@ pub async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<Commo
         HttpHeader {
             name: "Authorization".to_string(),
             value: api_key,
+        },
+        HttpHeader {
+            name: crate::constant_args::FORWARD_SOLANA_RPC.to_string(),
+            value: real_rpc_url,
+        },
+        HttpHeader {
+            name: crate::constant_args::IDEMPOTENCY_KEY.to_string(),
+            value: uri,
         }],
     };
 
