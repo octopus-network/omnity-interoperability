@@ -5,7 +5,7 @@ type Brc20TransferEvent = record {
   valid : bool;
   from : text;
 };
-type InitArgs = record { api_key : text; network : BitcoinNetwork };
+type InitArgs = record { network : BitcoinNetwork; proxy_url : text };
 type QueryBrc20TransferArgs = record {
   amt : nat;
   decimals : nat8;
@@ -15,4 +15,5 @@ type QueryBrc20TransferArgs = record {
 };
 service : (InitArgs) -> {
   get_indexed_transfer : (QueryBrc20TransferArgs) -> (opt Brc20TransferEvent);
+  set_api_key : (text, text) -> ();
 }
