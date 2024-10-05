@@ -1,19 +1,17 @@
+use bigdecimal::BigDecimal;
 use std::ops::Div;
 use std::str::FromStr;
-use bigdecimal::BigDecimal;
-
 
 use bitcoin::hashes::Hash;
 use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
 use ic_btc_interface::{MillisatoshiPerByte, Network};
-
 
 use ic_canister_log::log;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::bitcoin_to_custom::{query_transaction};
+use crate::bitcoin_to_custom::query_transaction;
 use crate::call_error::CallError;
 use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME, SUBMIT_UNLOCK_TICKETS_NAME};
 use omnity_types::ic_log::{CRITICAL, ERROR};
@@ -23,10 +21,8 @@ use crate::custom_to_bitcoin::CustomToBitcoinError::{
     ArgumentError, BuildTransactionFailed, SignFailed,
 };
 
-
 use crate::hub::update_tx_hash;
-use crate::{management, state};
-use crate::management::{get_fee_utxos};
+use crate::management::get_fee_utxos;
 use crate::ord::builder::fees::{calc_fees, Fees};
 use crate::ord::builder::signer::MixSigner;
 use crate::ord::builder::spend_transaction::spend_utxo_transaction;
@@ -35,6 +31,7 @@ use crate::ord::builder::{
     SignCommitTransactionArgs, Utxo,
 };
 use crate::ord::inscription::brc20::Brc20;
+use crate::{management, state};
 
 use crate::ord::parser::POSTAGE;
 use crate::state::{
@@ -100,22 +97,17 @@ pub async fn send_tickets_to_bitcoin() {
 }
 
 pub async fn process_unlock_ticket(seq: Seq, fees: &Fees) -> Result<(), CustomToBitcoinError> {
-    let res = send_ticket_to_bitcoin(seq,fees).await;
+    let res = send_ticket_to_bitcoin(seq, fees).await;
     if res.is_err() {
         let err = res.err().unwrap();
-        log!(
-                CRITICAL,
-                "send ticket to bitcoin failed {}, {}",
-                seq,
-                &err
-            );
+        log!(CRITICAL, "send ticket to bitcoin failed {}, {}", seq, &err);
         return Err(err);
     } else {
         let r = res.ok().unwrap();
         match r {
             None => {}
             Some(info) => {
-                let reveal_utxo_index = format!("{}:0",info.txs[1].txid());
+                let reveal_utxo_index = format!("{}:0", info.txs[1].txid());
                 mutate_state(|s| {
                     s.flight_unlock_ticket_map.insert(seq, info);
                     s.reveal_utxo_index.insert(reveal_utxo_index);
@@ -176,17 +168,18 @@ pub async fn finalize_flight_unlock_tickets() {
     }
 }
 
-pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<SendTicketResult>, CustomToBitcoinError> {
+pub async fn send_ticket_to_bitcoin(
+    seq: Seq,
+    fees: &Fees,
+) -> Result<Option<SendTicketResult>, CustomToBitcoinError> {
     let ticket = read_state(|s| s.tickets_queue.get(&seq));
     match ticket {
-        None => {
-            Ok(None)
-        }
+        None => Ok(None),
         Some(t) => {
             if read_state(|s| s.finalized_unlock_ticket_map.contains_key(&seq)) {
                 return Ok(None);
             }
-            if read_state(|s|s.flight_unlock_ticket_map.get(&seq).is_some()) {
+            if read_state(|s| s.flight_unlock_ticket_map.get(&seq).is_some()) {
                 return Ok(None);
             }
             let token = read_state(|s| s.tokens.get(&t.token).cloned().unwrap());
@@ -198,16 +191,14 @@ pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<Send
                 deposit_addr(),
             );
             let amount: u64 = t.amount.parse().unwrap();
-            let amt: BigDecimal = BigDecimal::from(amount).div(BigDecimal::from(10u128.pow(token.decimals as u32)));
+            let amt: BigDecimal =
+                BigDecimal::from(amount).div(BigDecimal::from(10u128.pow(token.decimals as u32)));
             let commit_tx = builder
                 .build_commit_transaction_with_fixed_fees(
                     bitcoin_network(),
                     CreateCommitTransactionArgsV2 {
                         inputs: vins.clone(),
-                        inscription: Brc20::transfer(
-                            token.name.clone(),
-                            amt,
-                        ),
+                        inscription: Brc20::transfer(token.name.clone(), amt),
                         txin_script_pubkey: deposit_addr().script_pubkey(),
                         leftovers_recipient: deposit_addr().clone(),
                         commit_fee: fees.commit_fee,
@@ -322,7 +313,7 @@ pub async fn build_transfer_transfer(
         all_inputs,
         fee.utxo_fee,
     )
-        .await?;
+    .await?;
     Ok(transfer)
 }
 
@@ -354,20 +345,18 @@ pub fn determine_transfer_fee_txins(
 pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
     let mut selected_utxos: Vec<Utxo> = vec![];
     let mut selected_amount = 0u64;
-    mutate_state(|s| {
-        loop {
-            if  selected_amount > fee {
-                return Ok(selected_utxos);
+    mutate_state(|s| loop {
+        if selected_amount > fee {
+            return Ok(selected_utxos);
+        }
+        let u = s.deposit_addr_utxo.pop();
+        match u {
+            None => {
+                return Err(CustomToBitcoinError::InsufficientFunds);
             }
-            let u = s.deposit_addr_utxo.pop();
-            match u {
-                None => {
-                    return Err(CustomToBitcoinError::InsufficientFunds);
-                }
-                Some(utxo) => {
-                    selected_amount += utxo.amount.to_sat();
-                    selected_utxos.push(utxo);
-                }
+            Some(utxo) => {
+                selected_amount += utxo.amount.to_sat();
+                selected_utxos.push(utxo);
             }
         }
     })
@@ -375,22 +364,22 @@ pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
 
 pub fn finalize_unlock_tickets_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_UNLOCK_TICKET_NAME.to_string())
-        {
-            Some(guard) => guard,
-            None => return,
-        };
+        let _guard =
+            match crate::guard::TimerLogicGuard::new(FINALIZE_UNLOCK_TICKET_NAME.to_string()) {
+                Some(guard) => guard,
+                None => return,
+            };
         finalize_flight_unlock_tickets().await;
     });
 }
 
 pub fn submit_unlock_tickets_task() {
     ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(SUBMIT_UNLOCK_TICKETS_NAME.to_string())
-        {
-            Some(guard) => guard,
-            None => return,
-        };
+        let _guard =
+            match crate::guard::TimerLogicGuard::new(SUBMIT_UNLOCK_TICKETS_NAME.to_string()) {
+                Some(guard) => guard,
+                None => return,
+            };
         send_tickets_to_bitcoin().await;
     });
 }

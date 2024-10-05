@@ -25,7 +25,6 @@ pub enum OrdParser {
 }
 
 impl OrdParser {
-
     /// Parses a single inscription from a transaction at a specified index, returning the
     /// parsed inscription along with its ID.
     ///

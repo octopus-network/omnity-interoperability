@@ -4,7 +4,7 @@ use std::fmt;
 
 /// Represents an error from a management canister call, such as
 /// `sign_with_ecdsa` or `bitcoin_send_transaction`.
-#[derive(Debug, Clone, PartialEq, Eq,  Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct CallError {
     pub method: String,
     pub reason: Reason,
@@ -46,8 +46,6 @@ pub enum Reason {
     /// cycles, the ECDSA subnet is overloaded, etc.).
     Rejected(String),
 }
-
-
 
 impl fmt::Display for Reason {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {

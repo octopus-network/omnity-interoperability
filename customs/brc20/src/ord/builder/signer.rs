@@ -6,7 +6,7 @@ use bitcoin::secp256k1::ecdsa::Signature;
 use bitcoin::secp256k1::{All, Message};
 use bitcoin::{Address, PublicKey};
 use ic_ic00_types::DerivationPath;
-use log::{ info};
+use log::info;
 
 #[derive(Clone)]
 pub struct MixSigner {

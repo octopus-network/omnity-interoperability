@@ -24,7 +24,7 @@ pub async fn spend_utxo_transaction(
         .map(|input| input.amount.to_sat())
         .sum::<u64>()
         .checked_sub(fee.to_sat())
-        .and_then(|v|v.checked_sub(POSTAGE))
+        .and_then(|v| v.checked_sub(POSTAGE))
         .ok_or(InsufficientFunds)?;
 
     let tx_out = vec![

@@ -1,30 +1,35 @@
-use std::str::FromStr;
-use bigdecimal::BigDecimal;
 use crate::call_error::{CallError, Reason};
+use crate::constants::FINALIZE_LOCK_TICKET_NAME;
 use crate::generate_ticket::GenerateTicketError::InvalidArgs;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use crate::hub;
 use crate::ord::inscription::brc20::{Brc20, Brc20Transfer201};
 use crate::ord::mempool_rpc_types::TxInfo;
 use crate::ord::parser::OrdParser;
+use crate::retry::call_rpc_with_retry;
 use crate::state::{deposit_addr, finalization_time_estimate, mutate_state, read_state};
 use crate::types::{create_query_brc20_transfer_args, LockTicketRequest};
+use bigdecimal::BigDecimal;
 use bitcoin::Transaction;
 use ic_btc_interface::{Network, Txid};
 use ic_canister_log::log;
-use ic_cdk::api::management_canister::http_request::{http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext, TransformFunc};
+use ic_cdk::api::management_canister::http_request::{
+    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext,
+    TransformFunc,
+};
 use num_traits::Zero;
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO, WARNING};
-use crate::constants::FINALIZE_LOCK_TICKET_NAME;
-use crate::retry::call_rpc_with_retry;
+use std::str::FromStr;
 
-pub async fn check_transaction(req: GenerateTicketArgs) -> Result<Brc20Transfer201, GenerateTicketError> {
-    let token =
-        read_state(|s| s.tokens.get(&req.token_id).cloned()).ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
+pub async fn check_transaction(
+    req: GenerateTicketArgs,
+) -> Result<Brc20Transfer201, GenerateTicketError> {
+    let token = read_state(|s| s.tokens.get(&req.token_id).cloned())
+        .ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
     let chain = read_state(|s| s.counterparties.get(&req.target_chain_id).cloned())
         .ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
-    let transfer_transfer = call_rpc_with_retry(&req.txid, query_transaction).await?;//query_transaction(&req.txid).await?;
+    let transfer_transfer = call_rpc_with_retry(&req.txid, query_transaction).await?; //query_transaction(&req.txid).await?;
     let receiver = transfer_transfer
         .vout
         .first()
@@ -57,9 +62,7 @@ pub async fn check_transaction(req: GenerateTicketArgs) -> Result<Brc20Transfer2
                 Ok(t)
             }
         }
-        _ => {
-            Err(GenerateTicketError::NotBridgeTx)
-        }
+        _ => Err(GenerateTicketError::NotBridgeTx),
     }
 }
 
@@ -73,11 +76,7 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
         }
     };
     const MAX_CYCLES: u128 = 30_000_000_000;
-    let url = format!(
-        "https://mempool.space/{}/api/tx/{}",
-        network_str,
-        txid
-    );
+    let url = format!("https://mempool.space/{}/api/tx/{}", network_str, txid);
 
     let request = CanisterHttpRequestArgument {
         url: url.to_string(),
@@ -85,12 +84,12 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
         body: None,
         max_response_bytes: None,
         transform: Some(TransformContext {
-                             function: TransformFunc(candid::Func {
-                                 principal: ic_cdk::api::id(),
-                                 method: "transform".to_string(),
-                             }),
-                             context: vec![],
-                         }),
+            function: TransformFunc(candid::Func {
+                principal: ic_cdk::api::id(),
+                method: "transform".to_string(),
+            }),
+            context: vec![],
+        }),
         headers: vec![HttpHeader {
             name: "Content-Type".to_string(),
             value: "application/json".to_string(),
@@ -122,7 +121,6 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
     }
 }
 
-
 pub fn finalize_lock_ticket_task() {
     ic_cdk::spawn(async {
         let _guard = match crate::guard::TimerLogicGuard::new(FINALIZE_LOCK_TICKET_NAME.to_string())
@@ -144,9 +142,7 @@ pub async fn finalize_lock_ticket_request() {
             .map(|req| (*req.0, req.1.clone()))
             .collect::<Vec<(Txid, LockTicketRequest)>>()
     });
-    let deposit_addr = read_state(|s| {
-        s.deposit_addr.clone().unwrap()
-    });
+    let deposit_addr = read_state(|s| s.deposit_addr.clone().unwrap());
     for (seq, gen_ticket_request) in can_check_finalizations.clone() {
         let token = read_state(|s| s.tokens.get(&gen_ticket_request.token_id).cloned());
         match token {
@@ -207,4 +203,3 @@ pub async fn query_indexed_transfer(
             })?;
     Ok(resp.0)
 }
-
