@@ -35,7 +35,7 @@ pub struct QueryBrc20EventResponse {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
-pub struct Brc20Event {
+struct Brc20Event {
     pub ticker: String,
     #[serde(rename = "type")]
     pub typec:  String,
@@ -86,7 +86,7 @@ impl Into<Brc20TransferEvent> for Brc20Event {
     }
 }
 
-pub async fn query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
+pub async fn unisat_query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
     let r = query(&query_transfer_args).await;
     match r {
         Ok(c) => {
@@ -94,9 +94,9 @@ pub async fn query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -
                 let data = c.data.unwrap();
                 let resp = data.detail;
                 for event in resp {
-                    //if event.check(&query_transfer_args)  && data.height - event.height >= 4 {
+                    if event.check(&query_transfer_args)  && data.height - event.height >= 4 {
                         return Some(event.into());
-                    //}
+                    }
                 }
                 None
             }else {
@@ -111,7 +111,7 @@ pub async fn query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -
     }
 }
 
-pub async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonResponse<QueryBrc20EventResponse>, UnisatError> {
+async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonResponse<QueryBrc20EventResponse>, UnisatError> {
     let real_rpc_url = match read_state(|s|s.network) {
         BitcoinNetwork::Mainnet => {MAINNET_BASE_URL}
         BitcoinNetwork::Testnet => {TESTNET_BASE_URL}
@@ -176,15 +176,6 @@ pub async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<Commo
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
-pub enum UnisatError {
+enum UnisatError {
     Rpc(String)
-}
-
-
-#[test]
-pub fn ttx() {
-    let v: f64 = 1520430000000000f64;
-    let d = 10u64.pow(18);
-    let r = v.div(d as f64);
-    print!("{r}");
 }

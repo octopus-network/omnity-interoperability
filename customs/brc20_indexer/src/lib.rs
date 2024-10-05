@@ -3,6 +3,7 @@ mod unisat;
 mod state;
 mod stable_memory;
 mod okx;
+mod rpc;
 
 pub mod  constant_args {
     pub const IDEMPOTENCY_KEY: &str = "X-Idempotency";

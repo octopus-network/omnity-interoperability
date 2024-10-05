@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::state::{BitcoinNetwork, IndexerState, mutate_state};
 use crate::state::replace_state;
 use crate::state::read_state;
-use crate::unisat::query_transfer_event;
+use crate::unisat::unisat_query_transfer_event;
 pub use omnity_types::brc20::*;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 
@@ -33,7 +33,7 @@ fn post_upgrade() {
 
 #[update]
 pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
-    query_transfer_event(args).await
+    unisat_query_transfer_event(args).await
 }
 
 #[query(hidden = true)]
