@@ -2,22 +2,22 @@ use bitcoin::{Amount, Txid};
 use candid::{CandidType, Deserialize, Principal};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
 
-use crate::generate_ticket::{GenerateTicketArgs};
-use omnity_types::{Network, Seq, Ticket};
+use crate::constants::DEFAULT_FEE;
+use crate::generate_ticket::GenerateTicketArgs;
 use crate::management::get_utxos;
 use crate::ord::builder::Utxo;
-use bitcoin::hashes::Hash;
-use ic_canister_log::log;
-use ic_cdk::api::management_canister::http_request;
-use ic_cdk::api::management_canister::http_request::TransformArgs;
-use crate::constants::DEFAULT_FEE;
-use omnity_types::ic_log::{CRITICAL, ERROR, INFO, WARNING};
-use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
 };
 use crate::tasks::start_tasks;
 use crate::types::ReleaseTokenStatus;
+use bitcoin::hashes::Hash;
+use ic_canister_log::log;
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_cdk::api::management_canister::http_request;
+use ic_cdk::api::management_canister::http_request::TransformArgs;
+use omnity_types::ic_log::{CRITICAL, ERROR, INFO, WARNING};
+use omnity_types::{Network, Seq, Ticket};
 
 #[init]
 fn init(args: InitArgs) {
@@ -35,7 +35,6 @@ fn post_upgrade() {
     Brc20State::post_upgrade();
     start_tasks();
 }
-
 
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
@@ -58,7 +57,7 @@ pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
 
 #[update]
 pub fn test_update_main_addr(addr: String) {
-    mutate_state(|s|s.deposit_addr = Some(addr));
+    mutate_state(|s| s.deposit_addr = Some(addr));
 }
 
 #[query(guard = "is_admin")]
@@ -68,7 +67,7 @@ pub fn brc20_state() -> StateProfile {
 
 #[update]
 pub async fn test_create_tx(ticket: Ticket, seq: Seq) {
-    mutate_state(|s|s.tickets_queue.insert(seq, ticket));
+    mutate_state(|s| s.tickets_queue.insert(seq, ticket));
 }
 
 #[update]
@@ -97,11 +96,8 @@ pub async fn test_update_utxos() -> String {
 
 #[query]
 fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
-    read_state(|s| {
-        s.unlock_tx_status(&ticket_id)
-    })
+    read_state(|s| s.unlock_tx_status(&ticket_id))
 }
-
 
 #[query(hidden = true)]
 fn transform(raw: TransformArgs) -> http_request::HttpResponse {
@@ -115,7 +111,9 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
 
 #[update(guard = "is_admin")]
 pub async fn resend_unlock_ticket(seq: Seq) {
-    crate::custom_to_bitcoin::send_ticket_to_bitcoin(seq, &DEFAULT_FEE).await.unwrap();
+    crate::custom_to_bitcoin::send_ticket_to_bitcoin(seq, &DEFAULT_FEE)
+        .await
+        .unwrap();
 }
 
 #[derive(CandidType, Deserialize)]

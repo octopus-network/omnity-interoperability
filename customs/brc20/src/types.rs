@@ -2,12 +2,12 @@ use std::borrow::Cow;
 
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
-use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
+use ic_stable_structures::Storable;
 use serde::Serialize;
 
-use omnity_types::{TicketId, TokenId};
 use omnity_types::brc20::QueryBrc20TransferArgs;
+use omnity_types::{TicketId, TokenId};
 
 pub type Brc20Ticker = String;
 

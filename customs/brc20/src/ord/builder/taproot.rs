@@ -6,7 +6,7 @@ use bitcoin::taproot::{ControlBlock, LeafVersion, TaprootBuilder};
 use bitcoin::{Address, Amount, Network, ScriptBuf, TxOut, XOnlyPublicKey};
 use ic_cdk::api::call::CallResult;
 use rand::prelude::StdRng;
-use rand::{SeedableRng};
+use rand::SeedableRng;
 
 #[derive(Debug, Clone)]
 pub struct TaprootPayload {

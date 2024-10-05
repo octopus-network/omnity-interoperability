@@ -8,8 +8,8 @@
 //!     - step 1. Sender inscribes the transfer function to sender's (own) address.
 //!     - step 2. Sender transfers transfer function to final destination address.
 
-use std::str::FromStr;
 use bigdecimal::BigDecimal;
+use std::str::FromStr;
 
 use crate::ord::builder::RedeemScriptPubkey;
 use crate::ord::inscription::Inscription;
@@ -35,15 +35,12 @@ pub enum Brc20 {
     Mint(Brc20Mint),
     #[serde(rename = "transfer")]
     Brc201Transfer(Brc20Transfer201),
-  /*  /// Transfer BRC-20 tokens
+    /*  /// Transfer BRC-20 tokens
     #[serde(rename = "transfer")]
     Transfer(Brc20Transfer),*/
 }
 
-
-
 impl Brc20 {
-
     /// Create a new BRC-20 transfer operation
     pub fn transfer(tick: impl ToString, amt: BigDecimal) -> Self {
         Self::Brc201Transfer(Brc20Transfer201 {
@@ -158,7 +155,7 @@ pub struct Brc20Transfer201 {
     /// Amount to transfer (required): States the amount of the brc-20 to transfer.
     #[serde_as(as = "DisplayFromStr")]
     pub amt: BigDecimal,
-    #[serde(rename = "ref", skip_serializing )]
+    #[serde(rename = "ref", skip_serializing)]
     pub refx: String,
     #[serde(skip_serializing)]
     pub chain: String,

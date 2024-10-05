@@ -23,21 +23,16 @@ pub struct MultisigConfig {
 }
 
 pub async fn calc_fees(network: Network) -> Fees {
-
     match network {
         Network::Bitcoin => {
             let r = estimate_fee_per_vbyte().await;
             match r {
-                None => {
-                    DEFAULT_FEE
-                }
-                Some(v_price) => {
-                    Fees {
-                        commit_fee: Amount::from_sat(COMMIT_TX_VBYTES*v_price/1000),
-                        reveal_fee: Amount::from_sat(REVEAL_TX_VBYTES*v_price/1000),
-                        utxo_fee: Amount::from_sat(TRANSFER_TX_VBYTES*v_price/1000 + POSTAGE),
-                    }
-                }
+                None => DEFAULT_FEE,
+                Some(v_price) => Fees {
+                    commit_fee: Amount::from_sat(COMMIT_TX_VBYTES * v_price / 1000),
+                    reveal_fee: Amount::from_sat(REVEAL_TX_VBYTES * v_price / 1000),
+                    utxo_fee: Amount::from_sat(TRANSFER_TX_VBYTES * v_price / 1000 + POSTAGE),
+                },
             }
         }
 

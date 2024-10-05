@@ -1,6 +1,6 @@
+use bigdecimal::BigDecimal;
 use std::ops::Mul;
 use std::str::FromStr;
-use bigdecimal::BigDecimal;
 
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
@@ -13,9 +13,9 @@ use omnity_types::{ChainState, Ticket, TicketType, TxAction};
 use crate::bitcoin_to_custom::check_transaction;
 use crate::hub;
 use crate::state::{mutate_state, read_state};
-use crate::types::{LockTicketRequest, GenTicketStatus};
+use crate::types::{GenTicketStatus, LockTicketRequest};
 
-#[derive(CandidType, Clone,Default, Debug, Deserialize, PartialEq, Eq, Error)]
+#[derive(CandidType, Clone, Default, Debug, Deserialize, PartialEq, Eq, Error)]
 pub enum GenerateTicketError {
     #[error("temp unavailable: {0}")]
     TemporarilyUnavailable(String),
@@ -69,7 +69,10 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     }
     let amt = BigDecimal::from_str(&args.amount);
     if amt.is_err() {
-        return Err(GenerateTicketError::InvalidArgs(format!("amount format error {}", args.amount)));
+        return Err(GenerateTicketError::InvalidArgs(format!(
+            "amount format error {}",
+            args.amount
+        )));
     }
     if amt.unwrap() == BigDecimal::zero() {
         return Err(GenerateTicketError::AmountIsZero);
@@ -101,8 +104,12 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     })?;
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
     let transfer = check_transaction(args.clone()).await?;
-    let token = read_state(|s|s.tokens.get(&args.token_id).cloned().unwrap());
-    let ticket_amount:u128 = transfer.amt.mul(BigDecimal::from(10u128.pow(token.decimals as u32))).to_u128().unwrap();          //(transfer.amt as u128).mul(10u128.pow(token.decimals as u32));
+    let token = read_state(|s| s.tokens.get(&args.token_id).cloned().unwrap());
+    let ticket_amount: u128 = transfer
+        .amt
+        .mul(BigDecimal::from(10u128.pow(token.decimals as u32)))
+        .to_u128()
+        .unwrap(); //(transfer.amt as u128).mul(10u128.pow(token.decimals as u32));
     hub::pending_ticket(
         hub_principal,
         Ticket {
@@ -119,8 +126,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             memo: None,
         },
     )
-        .await
-        .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
+    .await
+    .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
     let request = LockTicketRequest {
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,

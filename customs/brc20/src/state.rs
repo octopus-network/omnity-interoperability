@@ -6,16 +6,16 @@ use std::time::Duration;
 use bitcoin::Address;
 use candid::{CandidType, Principal};
 use ic_btc_interface::{Network, Txid};
-use ic_ic00_types::{DerivationPath};
-use ic_stable_structures::StableBTreeMap;
+use ic_ic00_types::DerivationPath;
 use ic_stable_structures::writer::Writer;
+use ic_stable_structures::StableBTreeMap;
 use serde::{Deserialize, Serialize};
 
-use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
 use omnity_types::ChainState::Active;
 use omnity_types::ChainType::ExecutionChain;
+use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
 
-use crate::bitcoin::{ECDSAPublicKey, main_bitcoin_address};
+use crate::bitcoin::{main_bitcoin_address, ECDSAPublicKey};
 use crate::constants::{MIN_NANOS, SEC_NANOS};
 use crate::custom_to_bitcoin::SendTicketResult;
 use crate::ord::builder::Utxo;
@@ -143,9 +143,7 @@ impl Brc20State {
             next_consume_ticket_seq: 0,
             next_consume_directive_seq: 0,
             tickets_queue: StableBTreeMap::init(crate::stable_memory::get_unlock_tickets_memory()),
-            directives_queue: StableBTreeMap::init(
-                crate::stable_memory::get_directives_memory(),
-            ),
+            directives_queue: StableBTreeMap::init(crate::stable_memory::get_directives_memory()),
             is_timer_running: Default::default(),
             pending_lock_ticket_requests: Default::default(),
             finalized_lock_ticket_requests: Default::default(),
@@ -253,17 +251,17 @@ impl Brc20State {
         }
         let seq = seq.unwrap();
         if let Some(status) = self.flight_unlock_ticket_map.get(&seq).cloned() {
-            if status.success  {
+            if status.success {
                 let txid = status.txs[2].txid();
                 return ReleaseTokenStatus::Submitted(txid.to_string());
-            }else {
+            } else {
                 return ReleaseTokenStatus::Unknown;
             }
         }
         match self.finalized_unlock_ticket_map.get(&seq) {
             Some(tx) => {
                 let txid = tx.txs[2].txid();
-                return ReleaseTokenStatus::Confirmed(txid.to_string())
+                return ReleaseTokenStatus::Confirmed(txid.to_string());
             }
             None => (),
         }
@@ -293,7 +291,6 @@ pub fn deposit_addr() -> Address {
     let r = read_state(|s| s.deposit_addr.clone().unwrap());
     Address::from_str(&r).unwrap().assume_checked()
 }
-
 
 pub fn bitcoin_network() -> bitcoin::Network {
     let n = read_state(|s| s.btc_network);

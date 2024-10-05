@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use ic_cdk_timers::set_timer_interval;
 use crate::bitcoin_to_custom::finalize_lock_ticket_task;
+use ic_cdk_timers::set_timer_interval;
 
 use crate::constants::*;
 use crate::custom_to_bitcoin::{finalize_unlock_tickets_task, submit_unlock_tickets_task};
@@ -18,16 +18,14 @@ pub fn start_tasks() {
     );
     set_timer_interval(
         Duration::from_secs(FINALIZE_LOCK_TICKET_INTERVAL),
-        finalize_lock_ticket_task
+        finalize_lock_ticket_task,
     );
     set_timer_interval(
         Duration::from_secs(FINALIZE_UNLOCK_TICKET_INTERVAL),
-        finalize_unlock_tickets_task
+        finalize_unlock_tickets_task,
     );
     set_timer_interval(
         Duration::from_secs(SUBMIT_UNLOCK_TICKETS_INTERVAL),
-        submit_unlock_tickets_task
+        submit_unlock_tickets_task,
     );
 }
-
-

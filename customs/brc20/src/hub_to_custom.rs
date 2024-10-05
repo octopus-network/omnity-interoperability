@@ -29,7 +29,7 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
             next_seq = seq + 1;
             continue;
         };
-        mutate_state(|s|{
+        mutate_state(|s| {
             let ticketid = ticket.ticket_id.clone();
             s.ticket_id_seq_indexer.insert(ticketid, seq);
             s.tickets_queue.insert(seq, ticket);

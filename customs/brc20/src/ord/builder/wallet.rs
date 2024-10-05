@@ -5,13 +5,11 @@ use bitcoin::key::Secp256k1;
 use bitcoin::secp256k1::{self, All, Message};
 use bitcoin::sighash::{Prevouts, SighashCache};
 use bitcoin::taproot::{ControlBlock, LeafVersion};
-use bitcoin::{
-    PublicKey, ScriptBuf, TapLeafHash, TapSighashType, Transaction, Witness,
-};
+use bitcoin::{PublicKey, ScriptBuf, TapLeafHash, TapSighashType, Transaction, Witness};
 use log::debug;
 
 use super::taproot::TaprootPayload;
-use super::{Utxo};
+use super::Utxo;
 
 /// An Ordinal-aware Bitcoin wallet.
 pub struct Wallet {
@@ -34,13 +32,8 @@ impl Wallet {
         transaction: Transaction,
         txin_script: &ScriptBuf,
     ) -> OrdResult<Transaction> {
-        self.sign_ecdsa(
-            own_pubkey,
-            inputs,
-            transaction,
-            txin_script,
-        )
-        .await
+        self.sign_ecdsa(own_pubkey, inputs, transaction, txin_script)
+            .await
     }
 
     pub fn sign_reveal_transaction_schnorr(
@@ -95,10 +88,10 @@ impl Wallet {
         let mut hash = SighashCache::new(transaction.clone());
         for (index, input) in utxos.iter().enumerate() {
             let sighash = hash.p2wpkh_signature_hash(
-                    index,
-                    script,
-                    input.amount,
-                    bitcoin::EcdsaSighashType::All,
+                index,
+                script,
+                input.amount,
+                bitcoin::EcdsaSighashType::All,
             )?;
             let message = Message::from(sighash);
             let signature = self.signer.sign_with_ecdsa(message).await?;

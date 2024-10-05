@@ -25,7 +25,6 @@ fn with_memory_manager<R>(f: impl FnOnce(&MemoryManager<InnerMemory>) -> R) -> R
     })
 }
 
-
 pub fn get_unlock_tickets_memory() -> Memory {
     with_memory_manager(|m| m.get(UNLOCK_TICKETS_MEMORY_ID))
 }
@@ -41,7 +40,6 @@ pub fn get_upgrade_stash_memory() -> Memory {
 pub fn init_unlock_tickets_queue() -> StableBTreeMap<u64, Ticket, Memory> {
     StableBTreeMap::init(get_unlock_tickets_memory())
 }
-
 
 pub fn init_directives_queue() -> StableBTreeMap<u64, Directive, Memory> {
     StableBTreeMap::init(get_directives_memory())
