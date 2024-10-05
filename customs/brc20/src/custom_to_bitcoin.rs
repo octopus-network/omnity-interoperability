@@ -190,7 +190,7 @@ pub async fn send_ticket_to_bitcoin(
                 key_id,
                 deposit_addr(),
             );
-            let amount: u64 = t.amount.parse().unwrap();
+            let amount: u128 = t.amount.parse().unwrap();
             let amt: BigDecimal =
                 BigDecimal::from(amount).div(BigDecimal::from(10u128.pow(token.decimals as u32)));
             let commit_tx = builder
