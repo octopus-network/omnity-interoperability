@@ -15,6 +15,6 @@ pub struct QueryBrc20TransferArgs {
     pub tx_id: String,
     pub ticker: String,
     pub to_addr: String,
-    pub amt: u128,
+    pub amt: String,
     pub decimals: u8,
 }

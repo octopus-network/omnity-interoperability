@@ -34,12 +34,16 @@ type LockTicketRequest = record {
   amount : nat;
   receiver : text;
 };
-type MintTokenStatus = variant {
-  Finalized : record { tx_hash : text };
-  Unknown;
-};
 type Network = variant { mainnet; regtest; testnet };
 type Network_1 = variant { mainnet; local; testnet };
+type ReleaseTokenStatus = variant {
+  Signing;
+  Confirmed : text;
+  Sending : text;
+  Unknown;
+  Submitted : text;
+  Pending;
+};
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
   pending_gen_ticket_requests : vec record { blob; LockTicketRequest };
@@ -95,8 +99,9 @@ service : (InitArgs) -> {
   brc20_state : () -> (StateProfile) query;
   generate_deposit_addr : () -> (opt text, opt text);
   generate_ticket : (GenerateTicketArgs) -> ();
-  mint_token_status : (text) -> (MintTokenStatus) query;
+  release_token_status : (text) -> (ReleaseTokenStatus) query;
   resend_unlock_ticket : (nat64) -> ();
   test_create_tx : (Ticket, nat64) -> ();
+  test_update_main_addr : (text) -> ();
   test_update_utxos : () -> (text);
 }

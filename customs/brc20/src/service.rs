@@ -7,10 +7,12 @@ use omnity_types::{Network, Seq, Ticket};
 use crate::management::get_utxos;
 use crate::ord::builder::Utxo;
 use bitcoin::hashes::Hash;
+use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use crate::constants::DEFAULT_FEE;
-
+use omnity_types::ic_log::{CRITICAL, ERROR, INFO, WARNING};
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
 };
@@ -34,9 +36,19 @@ fn post_upgrade() {
     start_tasks();
 }
 
+
+#[query(hidden = true)]
+fn http_request(req: HttpRequest) -> HttpResponse {
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+    omnity_types::ic_log::http_request(req)
+}
+
 #[update]
 pub async fn generate_ticket(req: GenerateTicketArgs) {
-    crate::generate_ticket::generate_ticket(req).await.unwrap();
+    let r = crate::generate_ticket::generate_ticket(req).await;
+    log!(INFO, "Fi error: {:?}", r);
 }
 #[update]
 pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
@@ -44,6 +56,10 @@ pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
     read_state(|s| (s.deposit_addr.clone(), s.deposit_pubkey.clone()))
 }
 
+#[update]
+pub fn test_update_main_addr(addr: String) {
+    mutate_state(|s|s.deposit_addr = Some(addr));
+}
 
 #[query(guard = "is_admin")]
 pub fn brc20_state() -> StateProfile {

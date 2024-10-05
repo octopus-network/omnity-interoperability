@@ -19,7 +19,7 @@ derive_more = { workspace = true }
 ciborium = { workspace = true }
 lazy_static = { workspace = true }
 ic-stable-structures = { workspace = true }
-
+bigdecimal = {workspace = true}
 
 k256 = { version = "0.12.0", features = ["ecdsa"] }
 # Enable `custom` feature of k256's getrandom dependency. See lib.rs for more details.

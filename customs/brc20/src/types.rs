@@ -60,7 +60,7 @@ pub struct LockTicketRequest {
     pub receiver: String,
     pub token_id: TokenId,
     pub ticker: Brc20Ticker,
-    pub amount: u128,
+    pub amount: String,
     pub txid: Txid,
     pub received_at: u64,
 }
