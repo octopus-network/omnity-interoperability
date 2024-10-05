@@ -203,3 +203,19 @@ pub async fn query_indexed_transfer(
             })?;
     Ok(resp.0)
 }
+
+#[test]
+pub fn testA() {
+    let s = r#"{
+  "op": "transfer",
+  "p": "brc-20",
+  "tick": "YCBS",
+  "amt": "100.12232456432345",
+  "ref": "0x61359C8034534d4B586AC7E09Bb87Bb8Cb2F1561",
+  "chain": "brc20",
+  "ext": "bridge-out"
+}"#;
+    let r = serde_json::from_str::<Brc20>(s).unwrap();
+    println!("{:?}", r);
+    println!("{}", serde_json::to_string(&r).unwrap());
+}

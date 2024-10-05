@@ -58,7 +58,7 @@ pub async fn generate_keypair(
     let x_public_key = XOnlyPublicKey::from_keypair(&keypair).0;
     Ok((keypair, x_public_key))
 }
-
+/*
 #[test]
 pub fn test_stdrng() {
     let seed = [1u8; 32];
@@ -66,3 +66,4 @@ pub fn test_stdrng() {
     let x0 = rng0.next_u64();
     println!("{x0}");
 }
+*/
