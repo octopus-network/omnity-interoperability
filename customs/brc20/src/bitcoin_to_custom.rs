@@ -1,8 +1,10 @@
+use std::str::FromStr;
+use bigdecimal::BigDecimal;
 use crate::call_error::{CallError, Reason};
 use crate::generate_ticket::GenerateTicketError::InvalidArgs;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use crate::hub;
-use crate::ord::inscription::brc20::{Brc20};
+use crate::ord::inscription::brc20::{Brc20, Brc20Transfer201};
 use crate::ord::mempool_rpc_types::TxInfo;
 use crate::ord::parser::OrdParser;
 use crate::state::{deposit_addr, finalization_time_estimate, mutate_state, read_state};
@@ -11,12 +13,13 @@ use bitcoin::Transaction;
 use ic_btc_interface::{Network, Txid};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext, TransformFunc};
+use num_traits::Zero;
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
-use omnity_types::ic_log::{CRITICAL, ERROR, WARNING};
+use omnity_types::ic_log::{CRITICAL, ERROR, INFO, WARNING};
 use crate::constants::FINALIZE_LOCK_TICKET_NAME;
 use crate::retry::call_rpc_with_retry;
 
-pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
+pub async fn check_transaction(req: GenerateTicketArgs) -> Result<Brc20Transfer201, GenerateTicketError> {
     let token =
         read_state(|s| s.tokens.get(&req.token_id).cloned()).ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
     let chain = read_state(|s| s.counterparties.get(&req.target_chain_id).cloned())
@@ -41,16 +44,17 @@ pub async fn check_transaction(req: GenerateTicketArgs) -> Result<(), GenerateTi
         .map_err(|e| GenerateTicketError::OrdTxError(e.to_string()))?;
     let brc20 = Brc20::try_from(parsed_inscription)
         .map_err(|e| GenerateTicketError::OrdTxError(e.to_string()))?;
+    log!(INFO, "brc20 info:{:?}", serde_json::to_string(&brc20));
     match brc20 {
         Brc20::Brc201Transfer(t) => {
-            if t.amt as u128 != req.amount
+            if t.amt != BigDecimal::from_str(&req.amount).unwrap_or(BigDecimal::zero())
                 || t.tick != token.name
-                || t.refx != req.receiver
+                || t.refx.to_lowercase() != req.receiver.to_lowercase()
                 || t.chain != chain.chain_id
             {
                 Err(InvalidArgs(serde_json::to_string(&t).unwrap()))
             } else {
-                Ok(())
+                Ok(t)
             }
         }
         _ => {
@@ -68,7 +72,7 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
             panic!("unsupported network")
         }
     };
-    const MAX_CYCLES: u128 = 1_000_000_000;
+    const MAX_CYCLES: u128 = 30_000_000_000;
     let url = format!(
         "https://mempool.space/{}/api/tx/{}",
         network_str,

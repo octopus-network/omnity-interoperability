@@ -1,5 +1,6 @@
+use std::ops::Div;
 use std::str::FromStr;
-
+use bigdecimal::BigDecimal;
 
 
 use bitcoin::hashes::Hash;
@@ -197,6 +198,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<Send
                 deposit_addr(),
             );
             let amount: u64 = t.amount.parse().unwrap();
+            let amt: BigDecimal = BigDecimal::from(amount).div(BigDecimal::from(10u128.pow(token.decimals as u32)));
             let commit_tx = builder
                 .build_commit_transaction_with_fixed_fees(
                     bitcoin_network(),
@@ -204,7 +206,7 @@ pub async fn send_ticket_to_bitcoin(seq: Seq, fees: &Fees) -> Result<Option<Send
                         inputs: vins.clone(),
                         inscription: Brc20::transfer(
                             token.name.clone(),
-                            amount,
+                            amt,
                         ),
                         txin_script_pubkey: deposit_addr().script_pubkey(),
                         leftovers_recipient: deposit_addr().clone(),

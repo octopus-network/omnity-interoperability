@@ -9,6 +9,7 @@
 //!     - step 2. Sender transfers transfer function to final destination address.
 
 use std::str::FromStr;
+use bigdecimal::BigDecimal;
 
 use crate::ord::builder::RedeemScriptPubkey;
 use crate::ord::inscription::Inscription;
@@ -20,8 +21,8 @@ use bitcoin::script::{Builder as ScriptBuilder, PushBytesBuf};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::DisplayFromStr;
-const PROTOCOL: &str = "brc-20";
 
+const PROTOCOL: &str = "brc-20";
 /// Represents a BRC-20 operation: (Deploy, Mint, Transfer)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op")]
@@ -32,12 +33,11 @@ pub enum Brc20 {
     /// Mint BRC-20 tokens
     #[serde(rename = "mint")]
     Mint(Brc20Mint),
-    /// Transfer BRC-20 tokens
-    #[serde(rename = "transfer")]
-    Transfer(Brc20Transfer),
     #[serde(rename = "transfer")]
     Brc201Transfer(Brc20Transfer201),
-
+  /*  /// Transfer BRC-20 tokens
+    #[serde(rename = "transfer")]
+    Transfer(Brc20Transfer),*/
 }
 
 
@@ -45,11 +45,14 @@ pub enum Brc20 {
 impl Brc20 {
 
     /// Create a new BRC-20 transfer operation
-    pub fn transfer(tick: impl ToString, amt: u64) -> Self {
-        Self::Transfer(Brc20Transfer {
+    pub fn transfer(tick: impl ToString, amt: BigDecimal) -> Self {
+        Self::Brc201Transfer(Brc20Transfer201 {
             protocol: PROTOCOL.to_string(),
             tick: tick.to_string(),
             amt,
+            refx: "".to_string(),
+            chain: "".to_string(),
+            ext: "".to_string(),
         })
     }
 
@@ -154,10 +157,12 @@ pub struct Brc20Transfer201 {
     pub tick: String,
     /// Amount to transfer (required): States the amount of the brc-20 to transfer.
     #[serde_as(as = "DisplayFromStr")]
-    pub amt: u64,
-    #[serde(rename = "ref")]
+    pub amt: BigDecimal,
+    #[serde(rename = "ref", skip_serializing )]
     pub refx: String,
+    #[serde(skip_serializing)]
     pub chain: String,
+    #[serde(skip_serializing)]
     pub ext: String,
 }
 

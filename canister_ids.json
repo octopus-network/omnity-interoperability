@@ -6,7 +6,7 @@
     "ic": "pw3ee-pyaaa-aaaar-qahva-cai"
   },
   "brc20_customs": {
-    "ic": "oejud-wyaaa-aaaal-ame6a-cai"
+    "ic": "bsf2d-miaaa-aaaah-qdsxa-cai"
   },
   "brc20_indexer": {
     "ic": "bjagg-wqaaa-aaaah-qdsvq-cai"
@@ -23,7 +23,9 @@
   "icp_route": {
     "ic": "7ywcn-nyaaa-aaaar-qaeza-cai"
   },
-  "omnity_hub": {},
+  "omnity_hub": {
+    "ic": "b3gr7-2aaaa-aaaah-qdswq-cai"
+  },
   "runes_oracle": {
     "ic": "r3teu-uiaaa-aaaal-ajlvq-cai"
   }

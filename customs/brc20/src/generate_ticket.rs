@@ -1,7 +1,10 @@
+use std::ops::Mul;
 use std::str::FromStr;
+use bigdecimal::BigDecimal;
 
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
+use num_traits::{ToPrimitive, Zero};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -52,7 +55,7 @@ pub enum GenerateTicketError {
 #[derive(Clone, CandidType, Serialize, Deserialize)]
 pub struct GenerateTicketArgs {
     pub txid: String,
-    pub amount: u128,
+    pub amount: String,
     pub target_chain_id: String,
     pub token_id: String,
     pub receiver: String,
@@ -64,7 +67,11 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             "chain state is deactive!".into(),
         ));
     }
-    if args.amount == 0 {
+    let amt = BigDecimal::from_str(&args.amount);
+    if amt.is_err() {
+        return Err(GenerateTicketError::InvalidArgs(format!("amount format error {}", args.amount)));
+    }
+    if amt.unwrap() == BigDecimal::zero() {
         return Err(GenerateTicketError::AmountIsZero);
     }
     let txid = Txid::from_str(&args.txid).map_err(|_| GenerateTicketError::InvalidTxId)?;
@@ -92,27 +99,28 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         GenTicketStatus::Finalized(_) => Err(GenerateTicketError::AlreadyProcessed),
         GenTicketStatus::Unknown => Ok(()),
     })?;
-
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
-    check_transaction(args.clone()).await?;
-      hub::pending_ticket(
-            hub_principal,
-            Ticket {
-                ticket_id: args.txid.clone(),
-                ticket_type: TicketType::Normal,
-                ticket_time: ic_cdk::api::time(),
-                src_chain: chain_id,
-                dst_chain: args.target_chain_id.clone(),
-                action: TxAction::Transfer,
-                token: token.token_id.clone(),
-                amount: args.amount.to_string(),
-                sender: None,
-                receiver: args.receiver.clone(),
-                memo: None,
-            },
-        )
-            .await
-            .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
+    let transfer = check_transaction(args.clone()).await?;
+    let token = read_state(|s|s.tokens.get(&args.token_id).cloned().unwrap());
+    let ticket_amount:u128 = transfer.amt.mul(BigDecimal::from(10u128.pow(token.decimals as u32))).to_u128().unwrap();          //(transfer.amt as u128).mul(10u128.pow(token.decimals as u32));
+    hub::pending_ticket(
+        hub_principal,
+        Ticket {
+            ticket_id: args.txid.clone(),
+            ticket_type: TicketType::Normal,
+            ticket_time: ic_cdk::api::time(),
+            src_chain: chain_id,
+            dst_chain: args.target_chain_id.clone(),
+            action: TxAction::Transfer,
+            token: token.token_id.clone(),
+            amount: ticket_amount.to_string(),
+            sender: None,
+            receiver: args.receiver.clone(),
+            memo: None,
+        },
+    )
+        .await
+        .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
     let request = LockTicketRequest {
         target_chain_id: args.target_chain_id,
         receiver: args.receiver,
