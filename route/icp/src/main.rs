@@ -279,6 +279,11 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
     })
 }
 
+#[query]
+pub fn get_route_state() -> icp_route::state::RouteState {
+    read_state(|s| s.clone())
+}
+
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
     if ic_cdk::api::data_certificate().is_none() {
