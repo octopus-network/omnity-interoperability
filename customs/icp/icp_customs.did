@@ -28,6 +28,7 @@ type GenerateTicketError = variant {
   TransferIcpFailure : text;
   UnsupportedChainId : text;
   UnsupportedToken : text;
+  CustomError : text;
   InsufficientFunds : record { balance : nat64 };
 };
 type GenerateTicketOk = record { ticket_id : text };
