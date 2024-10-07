@@ -4,7 +4,7 @@ use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument
 use serde::Serialize;
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::ERROR;
-use crate::state::{api_key, BitcoinNetwork, proxy_url, read_state};
+use crate::state::{api_key, proxy_url};
 
 pub const BASE_URL: &str = "https://www.oklink.com";
 pub const RPC_NAME: &str = "OKX";
@@ -102,8 +102,6 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
     }
 }
 
-
-
 impl OkxBrc20TransferEvent {
     pub fn check(&self, query_transfer_args: &QueryBrc20TransferArgs) -> bool {
         self.tx_id == query_transfer_args.tx_id &&
@@ -117,7 +115,7 @@ impl OkxBrc20TransferEvent {
 impl Into<Brc20TransferEvent> for OkxBrc20TransferEvent {
     fn into(self) -> Brc20TransferEvent {
         Brc20TransferEvent {
-            amout: self.amount.parse().unwrap(),
+            amout: self.amount,
             from: self.from_address,
             to: self.to_address,
             valid: true,

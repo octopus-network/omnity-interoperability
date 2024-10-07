@@ -1,7 +1,4 @@
-use std::ops::Div;
-use bitcoin::Amount;
 use candid::{CandidType, Nat};
-use ic_btc_interface::Network;
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use serde::{Deserialize, Serialize};
@@ -78,7 +75,7 @@ impl Brc20Event {
 impl Into<Brc20TransferEvent> for Brc20Event {
     fn into(self) -> Brc20TransferEvent {
         Brc20TransferEvent {
-            amout: self.amount.parse().unwrap(),
+            amout: self.amount,
             from: self.from,
             to: self.to,
             valid: true,

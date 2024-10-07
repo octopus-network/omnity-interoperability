@@ -67,5 +67,5 @@ pub fn is_controller() -> Result<(), String> {
     }
 }
 
-ic_cdk::export_candid!();
+export_candid!();
 
