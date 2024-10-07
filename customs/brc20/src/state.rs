@@ -155,30 +155,6 @@ impl Brc20State {
             ticket_id_seq_indexer: Default::default(),
         };
 
-        //TODO. open for test below codes;
-        ret.counterparties.insert(
-            "Bitfinity".to_string(),
-            Chain {
-                chain_id: "Bitfinity".to_string(),
-                canister_id: "".to_string(),
-                chain_type: ExecutionChain,
-                chain_state: Active,
-                contract_address: None,
-                counterparties: None,
-                fee_token: None,
-            },
-        );
-        ret.tokens.insert(
-            "BRC20-brc20-YCBS".to_string(),
-            Token {
-                token_id: "BRC20-brc20-YCBS".to_string(),
-                name: "YCBS".to_string(),
-                symbol: "YCBS".to_string(),
-                decimals: 18,
-                icon: None,
-                metadata: Default::default(),
-            },
-        );
         Ok(ret)
     }
 
