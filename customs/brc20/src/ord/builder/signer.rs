@@ -19,8 +19,6 @@ pub struct MixSigner {
 
 impl MixSigner {
     pub fn new(key_id: String, public_key: PublicKey, addr: Address) -> Self {
-        // Network is only used for encoding and decoding the private key and is not important for
-        // signing. So we can use any value here.
         Self {
             key_id,
             derive_path: DerivationPath::new(vec![]),
