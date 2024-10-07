@@ -45,3 +45,4 @@ thiserror = "1.0.63"
 rand = "0.8.5"
 serde_with = { version = "3", default-features = false, features = ["macros"] }
 anyhow = "1"
+bigdecimal = {workspace = true}

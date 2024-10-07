@@ -17,7 +17,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use omnity_types::ic_log::{INFO};
-use omnity_types::{ChainId, Network, Seq, Ticket};
+use omnity_types::{Network, Seq, Ticket};
 
 #[init]
 fn init(args: InitArgs) {

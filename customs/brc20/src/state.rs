@@ -11,8 +11,6 @@ use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
 use serde::{Deserialize, Serialize};
 
-use omnity_types::ChainState::Active;
-use omnity_types::ChainType::ExecutionChain;
 use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
 
 use crate::bitcoin::{main_bitcoin_address, ECDSAPublicKey};

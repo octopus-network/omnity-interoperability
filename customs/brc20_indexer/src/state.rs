@@ -5,8 +5,6 @@ use ic_stable_structures::writer::Writer;
 use serde::{Deserialize, Serialize};
 use crate::service::InitArgs;
 use crate::stable_memory;
-use crate::stable_memory::Memory;
-use crate::state::BitcoinNetwork::Mainnet;
 
 thread_local! {
     static STATE: RefCell<Option<IndexerState>> = RefCell::new(None);
