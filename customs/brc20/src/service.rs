@@ -17,7 +17,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use omnity_types::ic_log::{INFO};
-use omnity_types::{Network, Seq, Ticket};
+use omnity_types::{ChainId, Network, Seq, Ticket};
 
 #[init]
 fn init(args: InitArgs) {
@@ -69,6 +69,7 @@ pub fn brc20_state() -> StateProfile {
 pub async fn test_create_tx(ticket: Ticket, seq: Seq) {
     mutate_state(|s| s.tickets_queue.insert(seq, ticket));
 }
+
 
 #[update]
 pub async fn test_update_utxos() -> String {
