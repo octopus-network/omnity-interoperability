@@ -30,7 +30,7 @@ echo "reinstall $SOL_PROVIDER_CANISTER_ID ..."
 dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
     rpc_url = opt \"${PROXY_URL}\"; 
     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
-    nodesInSubnet = opt 28; 
+    nodesInSubnet = opt 34; 
     } )" \
     --mode=reinstall -y \
     --wasm=./assets/ic_solana_provider.wasm.gz \
