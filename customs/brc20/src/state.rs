@@ -41,14 +41,11 @@ pub struct Brc20State {
     pub reveal_utxo_index: BTreeSet<String>,
     pub tokens: BTreeMap<TokenId, Token>,
     pub counterparties: BTreeMap<ChainId, Chain>,
-
     pub chain_state: ChainState,
     pub next_ticket_seq: u64,
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
-
-    //unlock tickets storage
     #[serde(skip, default = "crate::stable_memory::init_unlock_tickets_queue")]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
     pub flight_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
