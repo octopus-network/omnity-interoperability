@@ -1,3 +1,4 @@
+use std::env::args;
 use candid::CandidType;
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
@@ -9,6 +10,8 @@ use crate::state::read_state;
 use crate::unisat::unisat_query_transfer_event;
 pub use omnity_types::brc20::*;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use crate::bestinslot::bestinsolt_query_transfer_event;
+use crate::okx::okx_query_transfer_event;
 
 #[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
 pub struct InitArgs {
@@ -34,6 +37,19 @@ fn post_upgrade() {
 #[update]
 pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
     unisat_query_transfer_event(args).await
+}
+
+#[update]
+pub async fn test_get_indexed_transfer(args: QueryBrc20TransferArgs, rpc_name: String) -> Option<Brc20TransferEvent>{
+    if rpc_name == "UNISAT" {
+        unisat_query_transfer_event(args).await
+    } else if rpc_name == "OKX" {
+        okx_query_transfer_event(args).await
+    }else if rpc_name == "BESTINSLOT" {
+        bestinsolt_query_transfer_event(args).await
+    }else {
+        None
+    }
 }
 
 #[query(hidden = true)]
