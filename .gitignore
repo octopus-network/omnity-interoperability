@@ -28,4 +28,6 @@ dist/
 *.out
 *.txt
 bitcoin_customs.wasm
-*.wasm.gz
+**/*.crt
+**/*.csr
+**/*.key
