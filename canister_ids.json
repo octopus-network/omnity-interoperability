@@ -5,9 +5,7 @@
   "bitfinity_route": {
     "ic": "pw3ee-pyaaa-aaaar-qahva-cai"
   },
-  "brc20_customs": {
-    "ic": "bsf2d-miaaa-aaaah-qdsxa-cai"
-  },
+  "brc20_customs": {},
   "brc20_indexer": {
     "ic": "bjagg-wqaaa-aaaah-qdsvq-cai"
   },
@@ -23,9 +21,7 @@
   "icp_route": {
     "ic": "7ywcn-nyaaa-aaaar-qaeza-cai"
   },
-  "omnity_hub": {
-    "ic": "b3gr7-2aaaa-aaaah-qdswq-cai"
-  },
+  "omnity_hub": {},
   "runes_oracle": {
     "ic": "r3teu-uiaaa-aaaal-ajlvq-cai"
   }
