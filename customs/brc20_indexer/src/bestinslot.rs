@@ -5,7 +5,7 @@ use candid::{CandidType, Nat};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use serde::{Deserialize, Serialize};
-use omnity_types::ic_log::ERROR;
+use omnity_types::ic_log::{ERROR, INFO};
 use crate::service::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use crate::state::{api_key, BitcoinNetwork, proxy_url, read_state};
 
@@ -105,11 +105,12 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<BestInSlo
         BitcoinNetwork::Testnet => {TESTNET_BASE_URL}
     }.to_string();
     let api_key = api_key(RPC_NAME);
+    log!(INFO, "bestinslot api key: {}", api_key.clone());
     let proxy_url = proxy_url();
     let uri = format!("/v3/brc20/event_from_txid?txid={}",query_transfer_args.tx_id);
     let url = format!("{proxy_url}{}",uri.clone());
     const MAX_CYCLES: u128 = 25_000_000_000;
-
+    let idempotency_key = format!("bestinslot-{}",ic_cdk::api::time());
     let request = CanisterHttpRequestArgument {
         url: url,
         method: HttpMethod::GET,
@@ -126,22 +127,23 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<BestInSlo
             name: "Content-Type".to_string(),
             value: "application/json".to_string(),
         },
-                      HttpHeader {
-                          name: "x-api-key".to_string(),
-                          value: api_key,
-                      },
-                      HttpHeader {
-                          name: crate::constant_args::FORWARD_SOLANA_RPC.to_string(),
-                          value: real_rpc_url,
-                      },
-                      HttpHeader {
-                          name: crate::constant_args::IDEMPOTENCY_KEY.to_string(),
-                          value: uri,
-                      }],
+        HttpHeader {
+          name: "x-api-key".to_string(),
+          value: api_key,
+        },
+        HttpHeader {
+          name: crate::constant_args::FORWARD_SOLANA_RPC.to_string(),
+          value: real_rpc_url,
+        },
+        HttpHeader {
+          name: crate::constant_args::IDEMPOTENCY_KEY.to_string(),
+          value: idempotency_key,
+        }],
     };
 
     match http_request(request, MAX_CYCLES).await {
         Ok((response,)) => {
+            log!(INFO, "okx result: {}",serde_json::to_string(&response).unwrap());
             let status = response.status;
             if status == Nat::from(200_u32) {
                 let body = String::from_utf8(response.body).map_err(|_| {
