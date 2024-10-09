@@ -141,10 +141,10 @@ pub async fn get_current_fees(network: Network) -> Result<Vec<MillisatoshiPerByt
 /// Sends the transaction to the network the management canister interacts with.
 pub async fn send_transaction(
     transaction: &Transaction,
-    network: Network,
+
 ) -> Result<(), CallError> {
     use ic_cdk::api::management_canister::bitcoin::BitcoinNetwork;
-
+    let network = read_state(|s|s.btc_network);
     let cdk_network = match network {
         Network::Mainnet => BitcoinNetwork::Mainnet,
         Network::Testnet => BitcoinNetwork::Testnet,
