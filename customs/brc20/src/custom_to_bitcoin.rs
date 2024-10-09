@@ -182,14 +182,12 @@ pub async fn submit_unlock_ticket(
             if read_state(|s| s.flight_unlock_ticket_map.get(&seq).is_some()) {
                 return Ok(None);
             }
-
-            let mut vins = select_inscribe_txins(fees)?;
-            let tx_vec = generate_brc20_transactions(vins.clone(), fees.clone(), t.clone()).await.map_err(|e|{
+            let mut vins = select_fee_txins(fees)?;
+            let tx_vec = generate_brc20_transactions(vins.clone(), fees, &t).await.map_err(|e|{
                     mutate_state(|s|s.deposit_addr_utxo.append(&mut vins));
                     e
                 }
             )?;
-
             let mut send_res = SendTicketResult {
                 txs: tx_vec.clone(),
                 success: true,
@@ -209,9 +207,9 @@ pub async fn submit_unlock_ticket(
             //修改fee utxo列表
             if send_res.err_step.is_none() || send_res.err_step.unwrap() > 0 {
                 //insert_utxo
-                find_commit_remain_fee(&send_res.txs.first().cloned().unwrap()).map(|u|{
+                if let Some(u) = find_commit_remain_fee(&send_res.txs.first().cloned().unwrap()) {
                     mutate_state(|s| s.deposit_addr_utxo.push(u));
-                });
+                }
             }else {
                 mutate_state(|s| s.deposit_addr_utxo.append(&mut vins));
             }
@@ -220,7 +218,7 @@ pub async fn submit_unlock_ticket(
     }
 }
 
-pub async fn generate_brc20_transactions(vins: Vec<Utxo>, fees: Fees, ticket: Ticket) -> CustomToBitcoinResult<Vec<Transaction>> {
+pub async fn generate_brc20_transactions(vins: Vec<Utxo>, fees: &Fees, ticket: &Ticket) -> CustomToBitcoinResult<Vec<Transaction>> {
     let token = read_state(|s| s.tokens.get(&ticket.token).cloned().unwrap());
     let amount: u128 = ticket.amount.parse().unwrap();
     let amt =
@@ -244,7 +242,6 @@ pub async fn generate_brc20_transactions(vins: Vec<Utxo>, fees: Fees, ticket: Ti
         )
         .await
         .map_err(|e| BuildTransactionFailed(e.to_string()))?;
-
     let signed_commit_tx = builder
         .sign_commit_transaction(
             commit_tx.unsigned_tx,
@@ -255,7 +252,6 @@ pub async fn generate_brc20_transactions(vins: Vec<Utxo>, fees: Fees, ticket: Ti
         )
         .await
         .map_err(|e| SignFailed(e.to_string()))?;
-
     let reveal_transaction = builder
         .build_reveal_transaction(RevealTransactionArgs {
             input: Utxo {
@@ -269,17 +265,14 @@ pub async fn generate_brc20_transactions(vins: Vec<Utxo>, fees: Fees, ticket: Ti
         })
         .await
         .map_err(|e| BuildTransactionFailed(e.to_string()))?;
-
     let real_utxo = Utxo {
         id: reveal_transaction.txid(),
         index: 0,
         amount: Amount::from_sat(POSTAGE+fees.spend_fee.to_sat()),
     };
-
     let transfer_trasaction =
-        build_transfer_transfer(&ticket, &fees, real_utxo, &builder.signer())
+        build_transfer_transfer(ticket, real_utxo, &builder.signer())
             .await?;
-    let network = read_state(|s| s.btc_network);
     Ok(vec![signed_commit_tx, reveal_transaction, transfer_trasaction])
 }
 
@@ -299,11 +292,10 @@ pub fn find_commit_remain_fee(t: &Transaction) -> Option<Utxo> {
 
 pub async fn build_transfer_transfer(
     ticket: &Ticket,
-    fee: &Fees,
     reveal_utxo: Utxo,
     signer: &MixSigner,
 ) -> Result<Transaction, CustomToBitcoinError> {
-    let mut all_inputs = vec![reveal_utxo.clone()];
+    let all_inputs = vec![reveal_utxo.clone()];
     let recipient = Address::from_str(&ticket.receiver.to_string())
         .map_err(|e| ArgumentError(e.to_string()))?
         .assume_checked();
@@ -312,35 +304,14 @@ pub async fn build_transfer_transfer(
         recipient,
         Amount::from_sat(POSTAGE),
         all_inputs,
-        fee.spend_fee,
     )
     .await?;
     Ok(transfer)
 }
 
-pub fn select_inscribe_txins(fees: &Fees) -> Result<Vec<Utxo>, CustomToBitcoinError> {
+pub fn select_fee_txins(fees: &Fees) -> Result<Vec<Utxo>, CustomToBitcoinError> {
     let total_reqiured = POSTAGE + fees.commit_fee.to_sat() + fees.reveal_fee.to_sat() + fees.spend_fee.to_sat();
     select_utxos(total_reqiured)
-}
-
-pub fn determine_transfer_fee_txins(
-    fee: &Fees,
-    commit_remain_fee: Option<Utxo>,
-) -> CustomToBitcoinResult<Vec<Utxo>> {
-    let fee_amount = fee.spend_fee.to_sat();
-    match commit_remain_fee {
-        None => select_utxos(fee_amount),
-        Some(t) => {
-            if fee_amount < t.amount.to_sat() {
-                Ok(vec![t])
-            } else {
-                let re_fee = fee_amount - t.amount.to_sat();
-                let mut v = select_utxos(re_fee)?;
-                v.push(t);
-                Ok(v)
-            }
-        }
-    }
 }
 
 pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {

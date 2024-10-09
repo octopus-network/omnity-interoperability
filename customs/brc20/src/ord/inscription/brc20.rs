@@ -23,7 +23,7 @@ pub enum Brc20 {
     #[serde(rename = "mint")]
     Mint(Brc20Mint),
     #[serde(rename = "transfer")]
-    Brc201Transfer(Brc20Transfer201),
+    TransferBrc201(Brc20Transfer201),
     /*  /// Transfer BRC-20 tokens
     #[serde(rename = "transfer")]
     Transfer(Brc20Transfer),*/
@@ -32,7 +32,7 @@ pub enum Brc20 {
 impl Brc20 {
     /// Create a new BRC-20 transfer operation
     pub fn transfer(tick: impl ToString, amt: Decimal) -> Self {
-        Self::Brc201Transfer(Brc20Transfer201 {
+        Self::TransferBrc201(Brc20Transfer201 {
             protocol: PROTOCOL.to_string(),
             tick: tick.to_string(),
             amt: amt.normalize().to_string(),

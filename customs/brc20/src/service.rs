@@ -117,8 +117,7 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {
         status: raw.response.status.clone(),
         body: raw.response.body.clone(),
-        headers: vec![],
-        ..Default::default()
+        headers: vec![]
     }
 }
 

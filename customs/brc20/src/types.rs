@@ -1,30 +1,11 @@
-use std::borrow::Cow;
-
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
-use ic_stable_structures::storable::Bound;
-use ic_stable_structures::Storable;
 use serde::Serialize;
 
 use omnity_types::brc20::QueryBrc20TransferArgs;
-use omnity_types::{TicketId, TokenId};
+use omnity_types::TokenId;
 
 pub type Brc20Ticker = String;
-
-#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
-pub struct PendingTicketStatus {
-    pub bitcoin_tx_hash: Option<String>,
-    pub ticket_id: TicketId,
-    pub seq: u64,
-    pub error: Option<String>,
-}
-
-#[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
-pub struct PendingDirectiveStatus {
-    pub bitcoin_tx_hash: Option<String>,
-    pub seq: u64,
-    pub error: Option<String>,
-}
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
 pub enum ReleaseTokenStatus {
@@ -77,36 +58,4 @@ pub fn create_query_brc20_transfer_args(
         amt: gen_ticket_request.amount,
         decimals: ticker_decimals,
     }
-}
-
-impl Storable for PendingDirectiveStatus {
-    fn to_bytes(&self) -> Cow<[u8]> {
-        let mut bytes = vec![];
-        let _ = ciborium::ser::into_writer(self, &mut bytes);
-        Cow::Owned(bytes)
-    }
-
-    fn from_bytes(bytes: Cow<[u8]>) -> Self {
-        let pds = ciborium::de::from_reader(bytes.as_ref())
-            .expect("failed to decode pending ticket status");
-        pds
-    }
-
-    const BOUND: Bound = Bound::Unbounded;
-}
-
-impl Storable for PendingTicketStatus {
-    fn to_bytes(&self) -> Cow<[u8]> {
-        let mut bytes = vec![];
-        let _ = ciborium::ser::into_writer(self, &mut bytes);
-        Cow::Owned(bytes)
-    }
-
-    fn from_bytes(bytes: Cow<[u8]>) -> Self {
-        let pts = ciborium::de::from_reader(bytes.as_ref())
-            .expect("failed to decode pending ticket status");
-        pts
-    }
-
-    const BOUND: Bound = Bound::Unbounded;
 }

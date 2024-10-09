@@ -6,10 +6,9 @@ use bitcoin::transaction::Version;
 use bitcoin::{Address, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness};
 
 use crate::custom_to_bitcoin::CustomToBitcoinError;
-use crate::custom_to_bitcoin::CustomToBitcoinError::{InsufficientFunds, SignFailed};
+use crate::custom_to_bitcoin::CustomToBitcoinError::SignFailed;
 use crate::ord::builder::signer::MixSigner;
 use crate::ord::builder::Utxo;
-use crate::ord::parser::POSTAGE;
 
 #[allow(dead_code)]
 pub async fn spend_utxo_transaction(
@@ -17,7 +16,6 @@ pub async fn spend_utxo_transaction(
     recipient: Address,
     utxo_value: Amount,
     inputs: Vec<Utxo>,
-    fee: Amount,
 ) -> Result<Transaction, CustomToBitcoinError> {
 
     let tx_out = vec![

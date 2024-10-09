@@ -39,6 +39,6 @@ impl MixSigner {
                     log!(ERROR, "call management signature error: {:?}", e);
                     OrdError::UnexpectedSignature
                 })?;
-        Signature::from_compact(sec1_signature.as_slice()).map_err(|e| OrdError::Signature(e))
+        Signature::from_compact(sec1_signature.as_slice()).map_err(OrdError::Signature)
     }
 }
