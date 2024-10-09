@@ -183,11 +183,12 @@ pub async fn submit_unlock_ticket(
                 return Ok(None);
             }
             let mut vins = select_fee_txins(fees)?;
-            let tx_vec = generate_brc20_transactions(vins.clone(), fees, &t).await.map_err(|e|{
-                    mutate_state(|s|s.deposit_addr_utxo.append(&mut vins));
+            let tx_vec = generate_brc20_transactions(vins.clone(), fees, &t)
+                .await
+                .map_err(|e| {
+                    mutate_state(|s| s.deposit_addr_utxo.append(&mut vins));
                     e
-                }
-            )?;
+                })?;
             let mut send_res = SendTicketResult {
                 txs: tx_vec.clone(),
                 success: true,
@@ -210,7 +211,7 @@ pub async fn submit_unlock_ticket(
                 if let Some(u) = find_commit_remain_fee(&send_res.txs.first().cloned().unwrap()) {
                     mutate_state(|s| s.deposit_addr_utxo.push(u));
                 }
-            }else {
+            } else {
                 mutate_state(|s| s.deposit_addr_utxo.append(&mut vins));
             }
             Ok(Some(send_res))
@@ -218,11 +219,14 @@ pub async fn submit_unlock_ticket(
     }
 }
 
-pub async fn generate_brc20_transactions(vins: Vec<Utxo>, fees: &Fees, ticket: &Ticket) -> CustomToBitcoinResult<Vec<Transaction>> {
+pub async fn generate_brc20_transactions(
+    vins: Vec<Utxo>,
+    fees: &Fees,
+    ticket: &Ticket,
+) -> CustomToBitcoinResult<Vec<Transaction>> {
     let token = read_state(|s| s.tokens.get(&ticket.token).cloned().unwrap());
     let amount: u128 = ticket.amount.parse().unwrap();
-    let amt =
-        Decimal::from(amount).div(Decimal::from(10u128.pow(token.decimals as u32)));
+    let amt = Decimal::from(amount).div(Decimal::from(10u128.pow(token.decimals as u32)));
     let key_id = read_state(|s| s.ecdsa_key_name.clone());
     let mut builder = OrdTransactionBuilder::p2tr(
         PublicKey::from_str(deposit_pubkey().as_str()).unwrap(),
@@ -268,12 +272,14 @@ pub async fn generate_brc20_transactions(vins: Vec<Utxo>, fees: &Fees, ticket: &
     let real_utxo = Utxo {
         id: reveal_transaction.txid(),
         index: 0,
-        amount: Amount::from_sat(POSTAGE+fees.spend_fee.to_sat()),
+        amount: Amount::from_sat(POSTAGE + fees.spend_fee.to_sat()),
     };
-    let transfer_trasaction =
-        build_transfer_transfer(ticket, real_utxo, &builder.signer())
-            .await?;
-    Ok(vec![signed_commit_tx, reveal_transaction, transfer_trasaction])
+    let transfer_trasaction = build_transfer_transfer(ticket, real_utxo, &builder.signer()).await?;
+    Ok(vec![
+        signed_commit_tx,
+        reveal_transaction,
+        transfer_trasaction,
+    ])
 }
 
 pub fn find_commit_remain_fee(t: &Transaction) -> Option<Utxo> {
@@ -299,18 +305,14 @@ pub async fn build_transfer_transfer(
     let recipient = Address::from_str(&ticket.receiver.to_string())
         .map_err(|e| ArgumentError(e.to_string()))?
         .assume_checked();
-    let transfer = spend_utxo_transaction(
-        signer,
-        recipient,
-        Amount::from_sat(POSTAGE),
-        all_inputs,
-    )
-    .await?;
+    let transfer =
+        spend_utxo_transaction(signer, recipient, Amount::from_sat(POSTAGE), all_inputs).await?;
     Ok(transfer)
 }
 
 pub fn select_fee_txins(fees: &Fees) -> Result<Vec<Utxo>, CustomToBitcoinError> {
-    let total_reqiured = POSTAGE + fees.commit_fee.to_sat() + fees.reveal_fee.to_sat() + fees.spend_fee.to_sat();
+    let total_reqiured =
+        POSTAGE + fees.commit_fee.to_sat() + fees.reveal_fee.to_sat() + fees.spend_fee.to_sat();
     select_utxos(total_reqiured)
 }
 

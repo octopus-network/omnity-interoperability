@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use crate::ord::builder::RedeemScriptPubkey;
 use crate::ord::inscription::Inscription;
 use crate::ord::parser::push_bytes::bytes_to_push_bytes;
@@ -10,6 +9,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::DisplayFromStr;
+use std::str::FromStr;
 
 const PROTOCOL: &str = "brc-20";
 /// Represents a BRC-20 operation: (Deploy, Mint, Transfer)

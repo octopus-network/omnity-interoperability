@@ -1,3 +1,6 @@
+use crate::bitcoin::ECDSAPublicKey;
+use crate::call_error::{CallError, Reason};
+use crate::state::read_state;
 use bitcoin::Transaction;
 use candid::{CandidType, Principal};
 use ic_btc_interface::{
@@ -10,9 +13,6 @@ use ic_ic00_types::{
     SignWithECDSAArgs, SignWithECDSAReply,
 };
 use serde::de::DeserializeOwned;
-use crate::bitcoin::ECDSAPublicKey;
-use crate::call_error::{CallError, Reason};
-use crate::state::read_state;
 
 async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallError>
 where
@@ -132,12 +132,9 @@ pub async fn get_current_fees(network: Network) -> Result<Vec<MillisatoshiPerByt
 }
 
 /// Sends the transaction to the network the management canister interacts with.
-pub async fn send_transaction(
-    transaction: &Transaction,
-
-) -> Result<(), CallError> {
+pub async fn send_transaction(transaction: &Transaction) -> Result<(), CallError> {
     use ic_cdk::api::management_canister::bitcoin::BitcoinNetwork;
-    let network = read_state(|s|s.btc_network);
+    let network = read_state(|s| s.btc_network);
     let cdk_network = match network {
         Network::Mainnet => BitcoinNetwork::Mainnet,
         Network::Testnet => BitcoinNetwork::Testnet,
@@ -214,15 +211,13 @@ pub async fn sign_with_ecdsa(
     Ok(reply.signature)
 }
 
-
 #[test]
 pub fn test() {
-
     let r = dec!(100).div(Decimal::from(10u128.pow(18u32)));
     println!("{r}");
     let r = Decimal::from_str("1.002000000000").unwrap();
-    println!("{}",r.normalize())
-/*
+    println!("{}", r.normalize())
+    /*
     let r = BigDecimal::from_str("1.01000000").unwrap();
     println!("{r}");
     println!("{}",r.normalized());

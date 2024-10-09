@@ -17,13 +17,10 @@ pub async fn spend_utxo_transaction(
     utxo_value: Amount,
     inputs: Vec<Utxo>,
 ) -> Result<Transaction, CustomToBitcoinError> {
-
-    let tx_out = vec![
-        TxOut {
-            value: utxo_value,
-            script_pubkey: recipient.script_pubkey(),
-        },
-    ];
+    let tx_out = vec![TxOut {
+        value: utxo_value,
+        script_pubkey: recipient.script_pubkey(),
+    }];
 
     let tx_in = inputs
         .iter()

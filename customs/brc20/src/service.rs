@@ -16,7 +16,7 @@ use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
-use omnity_types::ic_log::{INFO};
+use omnity_types::ic_log::INFO;
 use omnity_types::{Network, Seq, Ticket};
 
 #[init]
@@ -70,7 +70,6 @@ pub async fn test_create_tx(ticket: Ticket, seq: Seq) {
     mutate_state(|s| s.tickets_queue.insert(seq, ticket));
 }
 
-
 #[update]
 pub async fn test_update_utxos() -> String {
     let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
@@ -101,14 +100,14 @@ fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
 }
 
 #[query]
-pub fn pending_unlock_tickets(seq: Seq) -> String{
-    let r = read_state(|s|s.flight_unlock_ticket_map.get(&seq).cloned().unwrap());
+pub fn pending_unlock_tickets(seq: Seq) -> String {
+    let r = read_state(|s| s.flight_unlock_ticket_map.get(&seq).cloned().unwrap());
     serde_json::to_string(&r).unwrap()
 }
 
 #[query]
-pub fn finalized_unlock_tickets(seq: Seq) -> String{
-    let r = read_state(|s|s.finalized_unlock_ticket_map.get(&seq).cloned().unwrap());
+pub fn finalized_unlock_tickets(seq: Seq) -> String {
+    let r = read_state(|s| s.finalized_unlock_ticket_map.get(&seq).cloned().unwrap());
     serde_json::to_string(&r).unwrap()
 }
 
@@ -117,7 +116,7 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {
         status: raw.response.status.clone(),
         body: raw.response.body.clone(),
-        headers: vec![]
+        headers: vec![],
     }
 }
 
@@ -125,9 +124,10 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
 pub async fn resend_unlock_ticket(seq: Seq) -> String {
     let r = crate::custom_to_bitcoin::submit_unlock_ticket(seq, &DEFAULT_FEE)
         .await
-        .unwrap().unwrap();
-     mutate_state(|s|s.flight_unlock_ticket_map.insert(seq, r.clone()));
-     serde_json::to_string(&r).unwrap()
+        .unwrap()
+        .unwrap();
+    mutate_state(|s| s.flight_unlock_ticket_map.insert(seq, r.clone()));
+    serde_json::to_string(&r).unwrap()
 }
 
 #[derive(CandidType, Deserialize)]

@@ -85,7 +85,6 @@ pub struct RevealTransactionArgs {
     pub spend_fee: Amount,
     /// The redeem script returned by `create_commit_transaction`
     pub redeem_script: ScriptBuf,
-
 }
 
 #[derive(Debug)]
@@ -146,7 +145,7 @@ impl OrdTransactionBuilder {
 
         // tx out
         let tx_out = vec![TxOut {
-            value: Amount::from_sat(POSTAGE + args.spend_fee.to_sat()) ,
+            value: Amount::from_sat(POSTAGE + args.spend_fee.to_sat()),
             script_pubkey: args.recipient_address.script_pubkey(),
         }];
 
@@ -212,11 +211,11 @@ impl OrdTransactionBuilder {
         let secp_ctx = secp256k1::Secp256k1::new();
 
         // generate P2TR keyts
-        let p2tr_keys = generate_keypair(&secp_ctx).await.map_err(|e| {
-                    OrdError::ManagementError(format!("code: {:?}, msg:{}", e.0, e.1))
-                })?;
+        let p2tr_keys = generate_keypair(&secp_ctx)
+            .await
+            .map_err(|e| OrdError::ManagementError(format!("code: {:?}, msg:{}", e.0, e.1)))?;
         // generate redeem script pubkey based on the current script type
-        let redeem_script_pubkey =  RedeemScriptPubkey::XPublickey(p2tr_keys.1);
+        let redeem_script_pubkey = RedeemScriptPubkey::XPublickey(p2tr_keys.1);
 
         // calc balance
         // exceeding amount of transaction to send to leftovers recipient
@@ -236,19 +235,19 @@ impl OrdTransactionBuilder {
 
         // get p2wsh or p2tr address for output of inscription
         let redeem_script = self.generate_redeem_script(&args.inscription, redeem_script_pubkey)?;
-        let script_output_address =  {
-                let taproot_payload = TaprootPayload::build(
-                    &secp_ctx,
-                    p2tr_keys.0,
-                    p2tr_keys.1,
-                    &redeem_script,
-                    reveal_balance,
-                    network,
-                )?;
+        let script_output_address = {
+            let taproot_payload = TaprootPayload::build(
+                &secp_ctx,
+                p2tr_keys.0,
+                p2tr_keys.1,
+                &redeem_script,
+                reveal_balance,
+                network,
+            )?;
 
-                let address = taproot_payload.address.clone();
-                self.taproot_payload = Some(taproot_payload);
-                address
+            let address = taproot_payload.address.clone();
+            self.taproot_payload = Some(taproot_payload);
+            address
         };
 
         let mut tx_out = vec![TxOut {

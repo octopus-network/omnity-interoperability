@@ -1,9 +1,9 @@
-use ic_canister_log::log;
 use crate::constants::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME};
 use crate::state::{mutate_state, read_state};
 use crate::{audit, hub};
-use omnity_types::{ChainState, Directive, Seq, Ticket};
+use ic_canister_log::log;
 use omnity_types::ic_log::ERROR;
+use omnity_types::{ChainState, Directive, Seq, Ticket};
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
@@ -15,7 +15,11 @@ async fn process_tickets() {
             store_tickets(tickets, offset);
         }
         Err(err) => {
-            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
+            log!(
+                ERROR,
+                "[process tickets] failed to query tickets, err: {}",
+                err
+            );
         }
     }
 }
@@ -24,7 +28,8 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
     let mut next_seq = offset;
     for (seq, ticket) in tickets {
         if ticket.amount.parse::<u128>().is_err() {
-            log!(ERROR,
+            log!(
+                ERROR,
                 "[process tickets] failed to parse ticket amount: {}",
                 ticket.amount
             );
@@ -77,7 +82,8 @@ async fn process_directives() {
             });
         }
         Err(err) => {
-            log!(ERROR,
+            log!(
+                ERROR,
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );

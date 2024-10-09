@@ -104,7 +104,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     })?;
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
     let transfer = check_transaction(args.clone()).await?;
-    let ticket_amount: u128 = Decimal::from_str(&transfer.amt).unwrap()
+    let ticket_amount: u128 = Decimal::from_str(&transfer.amt)
+        .unwrap()
         .mul(Decimal::from(10u128.pow(token.decimals as u32)))
         .to_u128()
         .unwrap(); //(transfer.amt as u128).mul(10u128.pow(token.decimals as u32));

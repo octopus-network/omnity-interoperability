@@ -8,7 +8,7 @@ use crate::custom_to_bitcoin::{finalize_unlock_tickets_task, submit_unlock_ticke
 use crate::hub_to_custom::{fetch_hub_directive_task, fetch_hub_ticket_task};
 
 pub fn start_tasks() {
-   set_timer_interval(
+    set_timer_interval(
         Duration::from_secs(FETCH_HUB_TICKET_INTERVAL),
         fetch_hub_ticket_task,
     );
