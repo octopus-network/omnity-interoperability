@@ -6,7 +6,6 @@ use bitcoin::secp256k1::{self, All, Message};
 use bitcoin::sighash::{Prevouts, SighashCache};
 use bitcoin::taproot::{ControlBlock, LeafVersion};
 use bitcoin::{PublicKey, ScriptBuf, TapLeafHash, TapSighashType, Transaction, Witness};
-use log::debug;
 
 use super::taproot::TaprootPayload;
 use super::Utxo;
@@ -139,8 +138,6 @@ impl Wallet {
                 OrdSignature::Schnorr(_) => return Err(OrdError::UnexpectedSignature),
             }
         };
-        debug!("witness: {witness:?}");
-
         // append witness
         *sighasher
             .witness_mut(index)

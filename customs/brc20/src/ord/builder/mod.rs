@@ -14,7 +14,6 @@ use bitcoin::{
     secp256k1, Address, Amount, FeeRate, Network, OutPoint, PublicKey, ScriptBuf, Sequence,
     Transaction, TxIn, TxOut, Txid, Witness, XOnlyPublicKey,
 };
-use log::debug;
 use serde::{Deserialize, Serialize};
 
 pub mod fees;
@@ -253,14 +252,10 @@ impl OrdTransactionBuilder {
                 available: input_amount,
                 required: POSTAGE + args.commit_fee.to_sat() + args.reveal_fee.to_sat(),
             })?;
-        debug!("leftover_amount: {leftover_amount}");
-
         let reveal_balance = POSTAGE + args.reveal_fee.to_sat();
-        debug!("reveal_balance: {reveal_balance}");
 
         // get p2wsh or p2tr address for output of inscription
         let redeem_script = self.generate_redeem_script(&args.inscription, redeem_script_pubkey)?;
-        debug!("redeem_script: {redeem_script}");
         let script_output_address = match self.script_type {
             ScriptType::P2WSH => Address::p2wsh(&redeem_script, network),
             ScriptType::P2TR => {
@@ -278,7 +273,6 @@ impl OrdTransactionBuilder {
                 address
             }
         };
-        debug!("script_output_address: {script_output_address}");
 
         let mut tx_out = vec![TxOut {
             value: Amount::from_sat(reveal_balance),

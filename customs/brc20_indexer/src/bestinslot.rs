@@ -1,9 +1,9 @@
 use std::ops::Div;
 use std::str::FromStr;
-use bigdecimal::BigDecimal;
 use candid::{CandidType, Nat};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use omnity_types::ic_log::{ERROR, INFO};
 use crate::service::{Brc20TransferEvent, QueryBrc20TransferArgs};
@@ -63,7 +63,6 @@ impl EventContent {
 impl Into<Brc20TransferEvent> for BestInSlotBrc20Respsonse {
     fn into(self) -> Brc20TransferEvent {
         let event = self.data.first().cloned().unwrap();
-        let amt = BigDecimal::from_str(&event.event.amount).unwrap().div(10);
         Brc20TransferEvent {
             amout: event.event.amount,
             from: event.event.source_wallet.clone(),
@@ -82,7 +81,8 @@ pub async fn bestinsolt_query_transfer_event(query_transfer_args: QueryBrc20Tran
 
                 if c.check(&query_transfer_args) {
                     let mut evt: Brc20TransferEvent = c.into();
-                    let amt = BigDecimal::from_str(&evt.amout).unwrap().div(BigDecimal::from(10u128.pow(query_transfer_args.decimals as u32))).to_string();
+                    let amt = Decimal::from_str(&evt.amout).unwrap()
+                        .div(Decimal::from(10u128.pow(query_transfer_args.decimals as u32))).normalize().to_string();
                     evt.amout = amt;
                     return Some(evt);
                 }

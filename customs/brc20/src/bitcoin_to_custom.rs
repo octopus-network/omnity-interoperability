@@ -9,7 +9,6 @@ use crate::ord::parser::OrdParser;
 use crate::retry::call_rpc_with_retry;
 use crate::state::{deposit_addr, finalization_time_estimate, mutate_state, read_state};
 use crate::types::{create_query_brc20_transfer_args, LockTicketRequest};
-use bigdecimal::BigDecimal;
 use bitcoin::Transaction;
 use ic_btc_interface::{Network, Txid};
 use ic_canister_log::log;
@@ -52,7 +51,7 @@ pub async fn check_transaction(
     log!(INFO, "brc20 info:{:?}", serde_json::to_string(&brc20));
     match brc20 {
         Brc20::Brc201Transfer(t) => {
-            if t.amt != BigDecimal::from_str(&req.amount).unwrap_or(BigDecimal::zero())
+            if t.amt != req.amount
                 || t.tick != token.name
                 || t.refx.to_lowercase() != req.receiver.to_lowercase()
                 || t.chain != chain.chain_id
@@ -202,20 +201,4 @@ pub async fn query_indexed_transfer(
                 }
             })?;
     Ok(resp.0)
-}
-
-#[test]
-pub fn testA() {
-    let s = r#"{
-  "op": "transfer",
-  "p": "brc-20",
-  "tick": "YCBS",
-  "amt": "100.12232456432345",
-  "ref": "0x61359C8034534d4B586AC7E09Bb87Bb8Cb2F1561",
-  "chain": "brc20",
-  "ext": "bridge-out"
-}"#;
-    let r = serde_json::from_str::<Brc20>(s).unwrap();
-    println!("{:?}", r);
-    println!("{}", serde_json::to_string(&r).unwrap());
 }

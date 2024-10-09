@@ -31,7 +31,6 @@ ic-metrics-encoder = "1"
 ic-stable-structures = { workspace = true }
 ic-utils-ensure = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 lazy_static = "1.4.0"
-log = "0.4"
 minicbor = { workspace = true }
 minicbor-derive = { workspace = true }
 num-traits = "0.2.14"
@@ -47,4 +46,5 @@ serde_with = { version = "3", default-features = false, features = ["macros"] }
 anyhow = "1"
 getrandom = "0.2.15"
 k256 = { git = "https://github.com/altkdf/elliptic-curves", branch = "schnorr_canister", features = ["schnorr"] }
-bigdecimal = {workspace = true }
+rust_decimal = {workspace = true }
+rust_decimal_macros = {workspace = true}

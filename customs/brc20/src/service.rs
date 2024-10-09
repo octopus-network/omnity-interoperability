@@ -100,6 +100,18 @@ fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
     read_state(|s| s.unlock_tx_status(&ticket_id))
 }
 
+#[query]
+pub fn pending_unlock_tickets(seq: Seq) -> String{
+    let r = read_state(|s|s.flight_unlock_ticket_map.get(&seq).cloned().unwrap());
+    serde_json::to_string(&r).unwrap()
+}
+
+#[query]
+pub fn finalized_unlock_tickets(seq: Seq) -> String{
+    let r = read_state(|s|s.finalized_unlock_ticket_map.get(&seq).cloned().unwrap());
+    serde_json::to_string(&r).unwrap()
+}
+
 #[query(hidden = true)]
 fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {
@@ -111,10 +123,12 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
 }
 
 #[update(guard = "is_admin")]
-pub async fn resend_unlock_ticket(seq: Seq) {
-    crate::custom_to_bitcoin::send_ticket_to_bitcoin(seq, &DEFAULT_FEE)
+pub async fn resend_unlock_ticket(seq: Seq) -> String {
+    let r = crate::custom_to_bitcoin::send_ticket_to_bitcoin(seq, &DEFAULT_FEE)
         .await
-        .unwrap();
+        .unwrap().unwrap();
+     mutate_state(|s|s.flight_unlock_ticket_map.insert(seq, r.clone()));
+     serde_json::to_string(&r).unwrap()
 }
 
 #[derive(CandidType, Deserialize)]

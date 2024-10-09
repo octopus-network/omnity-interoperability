@@ -1,4 +1,3 @@
-use bigdecimal::BigDecimal;
 use std::ops::Div;
 use std::str::FromStr;
 
@@ -7,6 +6,7 @@ use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
 use ic_btc_interface::{MillisatoshiPerByte, Network};
 
 use ic_canister_log::log;
+use rust_decimal::Decimal;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -191,8 +191,8 @@ pub async fn send_ticket_to_bitcoin(
                 deposit_addr(),
             );
             let amount: u128 = t.amount.parse().unwrap();
-            let amt: BigDecimal =
-                BigDecimal::from(amount).div(BigDecimal::from(10u128.pow(token.decimals as u32)));
+            let amt =
+                Decimal::from(amount).div(Decimal::from(10u128.pow(token.decimals as u32)));
             let commit_tx = builder
                 .build_commit_transaction_with_fixed_fees(
                     bitcoin_network(),

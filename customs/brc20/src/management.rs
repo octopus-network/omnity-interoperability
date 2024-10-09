@@ -1,5 +1,7 @@
 //! This module contains async functions for interacting with the management canister.
 
+use std::ops::Div;
+use std::str::FromStr;
 use bitcoin::Transaction;
 use candid::{CandidType, Principal};
 use ic_btc_interface::{
@@ -11,8 +13,10 @@ use ic_ic00_types::{
     DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
     SignWithECDSAArgs, SignWithECDSAReply,
 };
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::de::DeserializeOwned;
-
+use serde::{Deserialize, Serialize};
 use crate::bitcoin::ECDSAPublicKey;
 use crate::call_error::{CallError, Reason};
 use crate::state::read_state;
@@ -199,7 +203,7 @@ pub async fn sign_with_ecdsa(
     derivation_path: DerivationPath,
     message_hash: [u8; 32],
 ) -> Result<Vec<u8>, CallError> {
-    const CYCLES_PER_SIGNATURE: u64 = 25_000_000_000;
+    const CYCLES_PER_SIGNATURE: u64 = 30_000_000_000;
 
     let reply: SignWithECDSAReply = call(
         "sign_with_ecdsa",
@@ -215,4 +219,22 @@ pub async fn sign_with_ecdsa(
     )
     .await?;
     Ok(reply.signature)
+}
+
+
+#[test]
+pub fn test() {
+
+    let r = dec!(100).div(Decimal::from(10u128.pow(18u32)));
+    println!("{r}");
+    let r = Decimal::from_str("1.002000000000").unwrap();
+    println!("{}",r.normalize())
+/*
+    let r = BigDecimal::from_str("1.01000000").unwrap();
+    println!("{r}");
+    println!("{}",r.normalized());
+    let r = BigDecimal::from(100).div(BigDecimal::from(10u128.pow(18u32))).to_scientific_notation();
+    let
+
+    println!("{}", r);*/
 }

@@ -1,7 +1,6 @@
 use candid::{CandidType, Deserialize, Nat};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
-use log::__private_api::log;
 use serde::Serialize;
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::{ERROR, INFO};

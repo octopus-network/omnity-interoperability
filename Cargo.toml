@@ -35,7 +35,6 @@ debug = false
 
 
 [workspace.dependencies]
-bigdecimal = {version = "0.4.5"}
 candid = { version = "0.10" }
 candid_parser = { version = "0.1.2" }
 ciborium = "0.2.1"
@@ -60,7 +59,8 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "display",
     "try_into",
 ] }
-
+rust_decimal = "1.36"
+rust_decimal_macros = "1.36"
 # log deps
 # ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
 ic-stable-structures = "0.6"

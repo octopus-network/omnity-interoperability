@@ -1,16 +1,4 @@
-//! An implementation of the [BRC20 Token Standard](https://domo-2.gitbook.io/brc-20-experiment),
-//! an experiment to see if [Ordinal Theory](https://docs.ordinals.com/) can facilitate fungibility on Bitcoin.
-//!
-//! 1. Deployments initialize the BRC-20. Do not affect state.
-//! 2. Mints provide a balance to only the first owner of the mint function inscription.
-//! 3. Transfers deduct from the sender's balance and add to the receiver's balance,
-//!     only upon the first transfer of the transfer function. That is,
-//!     - step 1. Sender inscribes the transfer function to sender's (own) address.
-//!     - step 2. Sender transfers transfer function to final destination address.
-
-use bigdecimal::BigDecimal;
 use std::str::FromStr;
-
 use crate::ord::builder::RedeemScriptPubkey;
 use crate::ord::inscription::Inscription;
 use crate::ord::parser::push_bytes::bytes_to_push_bytes;
@@ -18,6 +6,7 @@ use crate::ord::result::{OrdError, OrdResult};
 use bitcoin::opcodes::all::{OP_CHECKSIG, OP_ENDIF, OP_IF};
 use bitcoin::opcodes::{OP_0, OP_FALSE};
 use bitcoin::script::{Builder as ScriptBuilder, PushBytesBuf};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::DisplayFromStr;
@@ -42,11 +31,11 @@ pub enum Brc20 {
 
 impl Brc20 {
     /// Create a new BRC-20 transfer operation
-    pub fn transfer(tick: impl ToString, amt: BigDecimal) -> Self {
+    pub fn transfer(tick: impl ToString, amt: Decimal) -> Self {
         Self::Brc201Transfer(Brc20Transfer201 {
             protocol: PROTOCOL.to_string(),
             tick: tick.to_string(),
-            amt,
+            amt: amt.normalize().to_string(),
             refx: "".to_string(),
             chain: "".to_string(),
             ext: "".to_string(),
@@ -153,8 +142,7 @@ pub struct Brc20Transfer201 {
     /// Ticker (required): 4 or 5 letter identifier of the brc-20
     pub tick: String,
     /// Amount to transfer (required): States the amount of the brc-20 to transfer.
-    #[serde_as(as = "DisplayFromStr")]
-    pub amt: BigDecimal,
+    pub amt: String,
     #[serde(rename = "ref", skip_serializing)]
     pub refx: String,
     #[serde(skip_serializing)]

@@ -14,7 +14,7 @@ type GenerateTicketArgs = record {
   token_id : text;
   txid : text;
   target_chain_id : text;
-  amount : nat;
+  amount : text;
   receiver : text;
 };
 type IcpChainKeyToken = variant { CKBTC };
@@ -31,7 +31,7 @@ type LockTicketRequest = record {
   token_id : text;
   txid : blob;
   target_chain_id : text;
-  amount : nat;
+  amount : text;
   receiver : text;
 };
 type Network = variant { mainnet; regtest; testnet };
@@ -97,10 +97,12 @@ type TxAction = variant {
 };
 service : (InitArgs) -> {
   brc20_state : () -> (StateProfile) query;
+  finalized_unlock_tickets : (nat64) -> (text) query;
   generate_deposit_addr : () -> (opt text, opt text);
   generate_ticket : (GenerateTicketArgs) -> ();
+  pending_unlock_tickets : (nat64) -> (text) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
-  resend_unlock_ticket : (nat64) -> ();
+  resend_unlock_ticket : (nat64) -> (text);
   test_create_tx : (Ticket, nat64) -> ();
   test_update_main_addr : (text) -> ();
   test_update_utxos : () -> (text);
