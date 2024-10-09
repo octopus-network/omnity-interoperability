@@ -83,8 +83,10 @@ pub struct RevealTransactionArgs {
     pub input: Utxo,
     /// Recipient address of the inscription, only support P2PKH
     pub recipient_address: Address,
+    pub spend_fee: Amount,
     /// The redeem script returned by `create_commit_transaction`
     pub redeem_script: ScriptBuf,
+
 }
 
 /// Type of the script to use. Both are supported, but P2WSH may not be supported by all the indexers
@@ -157,7 +159,7 @@ impl OrdTransactionBuilder {
 
         // tx out
         let tx_out = vec![TxOut {
-            value: Amount::from_sat(POSTAGE),
+            value: Amount::from_sat(POSTAGE + args.spend_fee.to_sat()) ,
             script_pubkey: args.recipient_address.script_pubkey(),
         }];
 
@@ -248,11 +250,12 @@ impl OrdTransactionBuilder {
             .checked_sub(POSTAGE)
             .and_then(|v| v.checked_sub(args.commit_fee.to_sat()))
             .and_then(|v| v.checked_sub(args.reveal_fee.to_sat()))
+            .and_then(|v| v.checked_sub(args.spend_fee.to_sat()))
             .ok_or(OrdError::InsufficientBalance {
                 available: input_amount,
-                required: POSTAGE + args.commit_fee.to_sat() + args.reveal_fee.to_sat(),
+                required: POSTAGE + args.commit_fee.to_sat() + args.reveal_fee.to_sat() + args.spend_fee.to_sat(),
             })?;
-        let reveal_balance = POSTAGE + args.reveal_fee.to_sat();
+        let reveal_balance = POSTAGE + args.reveal_fee.to_sat() + args.spend_fee.to_sat();
 
         // get p2wsh or p2tr address for output of inscription
         let redeem_script = self.generate_redeem_script(&args.inscription, redeem_script_pubkey)?;
@@ -335,6 +338,8 @@ where
     pub commit_fee: Amount,
     /// Fee to pay for the reveal transaction
     pub reveal_fee: Amount,
+
+    pub spend_fee: Amount,
     /// Script pubkey of the inputs
     pub txin_script_pubkey: ScriptBuf,
 }
