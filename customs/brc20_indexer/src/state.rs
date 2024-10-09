@@ -87,10 +87,3 @@ pub fn replace_state(state: IndexerState) {
         *s.borrow_mut() = Some(state);
     });
 }
-
-pub fn take_state<F, R>(f: F) -> R
-    where
-        F: FnOnce(IndexerState) -> R,
-{
-    STATE.with(|s| f(s.take().expect("State not initialized!")))
-}

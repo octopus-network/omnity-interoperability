@@ -1,4 +1,3 @@
-use std::env::args;
 use candid::CandidType;
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;

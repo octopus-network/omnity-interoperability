@@ -6,12 +6,16 @@ use std::time::Duration;
 use bitcoin::Address;
 use candid::{CandidType, Principal};
 use ic_btc_interface::{Network, Txid};
+use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
 use serde::{Deserialize, Serialize};
 
 use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId, Token, TokenId};
+use omnity_types::ChainState::Active;
+use omnity_types::ChainType::ExecutionChain;
+use omnity_types::ic_log::ERROR;
 
 use crate::bitcoin::{main_bitcoin_address, ECDSAPublicKey};
 use crate::constants::{MIN_NANOS, SEC_NANOS};
@@ -150,6 +154,30 @@ impl Brc20State {
             ticket_id_seq_indexer: Default::default(),
         };
 
+        //TODO. open for test below codes;
+        ret.counterparties.insert(
+            "Bitfinity".to_string(),
+            Chain {
+                chain_id: "Bitfinity".to_string(),
+                canister_id: "".to_string(),
+                chain_type: ExecutionChain,
+                chain_state: Active,
+                contract_address: None,
+                counterparties: None,
+                fee_token: None,
+            },
+        );
+        ret.tokens.insert(
+            "BRC20-brc20-YCBS".to_string(),
+            Token {
+                token_id: "BRC20-brc20-YCBS".to_string(),
+                name: "YCBS".to_string(),
+                symbol: "YCBS".to_string(),
+                decimals: 18,
+                icon: None,
+                metadata: Default::default(),
+            },
+        );
         Ok(ret)
     }
 
@@ -179,6 +207,7 @@ impl Brc20State {
         let state: Brc20State =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
         replace_state(state);
+        log!(ERROR, "post upgradge sucessed!!");
     }
 
     pub fn pull_tickets(&self, from: usize, limit: usize) -> Vec<(Seq, Ticket)> {

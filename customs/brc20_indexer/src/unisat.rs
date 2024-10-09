@@ -28,7 +28,7 @@ pub struct QueryBrc20EventResponse {
     pub height: u32,
     pub total: u32,
     pub start: u32,
-    pub detail: Vec<Brc20Event>
+    detail: Vec<Brc20Event>
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]

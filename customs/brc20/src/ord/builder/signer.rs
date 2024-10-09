@@ -5,8 +5,9 @@ use bitcoin::key::Secp256k1;
 use bitcoin::secp256k1::ecdsa::Signature;
 use bitcoin::secp256k1::{All, Message};
 use bitcoin::{Address, PublicKey};
+use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
-use log::info;
+use omnity_types::ic_log::ERROR;
 
 #[derive(Clone)]
 pub struct MixSigner {
@@ -34,12 +35,10 @@ impl MixSigner {
         let sec1_signature =
             management::sign_with_ecdsa(key_name, DerivationPath::new(vec![]), sighash)
                 .await
-                .map_err(|_| OrdError::UnexpectedSignature)?;
-        info!(
-            "len: {} content: {:?}",
-            sec1_signature.len(),
-            sec1_signature.clone()
-        );
+                .map_err(|e| {
+                    log!(ERROR, "call management signature error: {:?}", e);
+                    OrdError::UnexpectedSignature
+                })?;
         Signature::from_compact(sec1_signature.as_slice()).map_err(|e| OrdError::Signature(e))
     }
 }

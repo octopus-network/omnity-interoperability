@@ -1,10 +1,10 @@
-use bigdecimal::BigDecimal;
 use std::ops::Mul;
 use std::str::FromStr;
 
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
 use num_traits::{ToPrimitive, Zero};
+use rust_decimal::Decimal;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -67,14 +67,14 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             "chain state is deactive!".into(),
         ));
     }
-    let amt = BigDecimal::from_str(&args.amount);
+    let amt = Decimal::from_str(&args.amount);
     if amt.is_err() {
         return Err(GenerateTicketError::InvalidArgs(format!(
             "amount format error {}",
             args.amount
         )));
     }
-    if amt.unwrap() == BigDecimal::zero() {
+    if amt.unwrap() == Decimal::zero() {
         return Err(GenerateTicketError::AmountIsZero);
     }
     let txid = Txid::from_str(&args.txid).map_err(|_| GenerateTicketError::InvalidTxId)?;
@@ -104,9 +104,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     })?;
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
     let transfer = check_transaction(args.clone()).await?;
-    let ticket_amount: u128 = transfer
-        .amt
-        .mul(BigDecimal::from(10u128.pow(token.decimals as u32)))
+    let ticket_amount: u128 = Decimal::from_str(&transfer.amt).unwrap()
+        .mul(Decimal::from(10u128.pow(token.decimals as u32)))
         .to_u128()
         .unwrap(); //(transfer.amt as u128).mul(10u128.pow(token.decimals as u32));
     hub::pending_ticket(

@@ -18,4 +18,4 @@ pub const DELEGATE_TAG: [u8; 1] = [11];
 /// Tag 13, denoting an optional rune.
 pub const RUNE_TAG: [u8; 1] = [13];
 /// Maximum allowed postage
-pub const POSTAGE: u64 = 10;
+pub const POSTAGE: u64 = 333;
