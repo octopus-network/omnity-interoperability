@@ -311,7 +311,7 @@ pub async fn build_transfer_transfer(
     let transfer = spend_utxo_transaction(
         signer,
         recipient,
-        reveal_utxo.amount,
+        Amount::from_sat(POSTAGE),
         all_inputs,
         fee.utxo_fee,
     )
