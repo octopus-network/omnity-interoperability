@@ -26,7 +26,6 @@ pub mod wallet;
 /// and `Brc20` inscriptions.
 pub struct OrdTransactionBuilder {
     public_key: PublicKey,
-    script_type: ScriptType,
     /// used to sign the reveal transaction when using P2TR
     taproot_payload: Option<TaprootPayload>,
     signer: Wallet,
@@ -89,17 +88,8 @@ pub struct RevealTransactionArgs {
 
 }
 
-/// Type of the script to use. Both are supported, but P2WSH may not be supported by all the indexers
-/// So P2TR is preferred
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ScriptType {
-    P2TR,
-    P2WSH,
-}
-
 #[derive(Debug)]
 pub enum RedeemScriptPubkey {
-    Ecdsa(PublicKey),
     XPublickey(XOnlyPublicKey),
 }
 
@@ -107,19 +97,16 @@ impl RedeemScriptPubkey {
     /// Encode the public key to a push bytes buffer
     pub fn encode(&self) -> OrdResult<PushBytesBuf> {
         let encoded_pubkey = match self {
-            RedeemScriptPubkey::Ecdsa(pubkey) => bytes_to_push_bytes(&pubkey.to_bytes())?,
             RedeemScriptPubkey::XPublickey(pubkey) => bytes_to_push_bytes(&pubkey.serialize())?,
         };
-
         Ok(encoded_pubkey)
     }
 }
 
 impl OrdTransactionBuilder {
-    pub fn new(public_key: PublicKey, script_type: ScriptType, signer: Wallet) -> Self {
+    pub fn new(public_key: PublicKey, signer: Wallet) -> Self {
         Self {
             public_key,
-            script_type,
             taproot_payload: None,
             signer,
         }
@@ -210,7 +197,7 @@ impl OrdTransactionBuilder {
     /// Initialize a new `OrdTransactionBuilder` with the given private key and use P2TR as script type (preferred).
     pub fn p2tr(public_key: PublicKey, key_id: String, address: Address) -> Self {
         let wallet = Wallet::new_with_signer(signer::MixSigner::new(key_id, public_key, address));
-        Self::new(public_key, ScriptType::P2TR, wallet)
+        Self::new(public_key, wallet)
     }
 
     /// Creates the commit transaction with predetermined commit and reveal fees.
@@ -225,19 +212,11 @@ impl OrdTransactionBuilder {
         let secp_ctx = secp256k1::Secp256k1::new();
 
         // generate P2TR keyts
-        let p2tr_keys =
-            match self.script_type {
-                ScriptType::P2WSH => None,
-                ScriptType::P2TR => Some(generate_keypair(&secp_ctx).await.map_err(|e| {
+        let p2tr_keys = generate_keypair(&secp_ctx).await.map_err(|e| {
                     OrdError::ManagementError(format!("code: {:?}, msg:{}", e.0, e.1))
-                })?),
-            };
-
+                })?;
         // generate redeem script pubkey based on the current script type
-        let redeem_script_pubkey = match self.script_type {
-            ScriptType::P2WSH => RedeemScriptPubkey::Ecdsa(self.public_key),
-            ScriptType::P2TR => RedeemScriptPubkey::XPublickey(p2tr_keys.unwrap().1),
-        };
+        let redeem_script_pubkey =  RedeemScriptPubkey::XPublickey(p2tr_keys.1);
 
         // calc balance
         // exceeding amount of transaction to send to leftovers recipient
@@ -257,13 +236,11 @@ impl OrdTransactionBuilder {
 
         // get p2wsh or p2tr address for output of inscription
         let redeem_script = self.generate_redeem_script(&args.inscription, redeem_script_pubkey)?;
-        let script_output_address = match self.script_type {
-            ScriptType::P2WSH => Address::p2wsh(&redeem_script, network),
-            ScriptType::P2TR => {
+        let script_output_address =  {
                 let taproot_payload = TaprootPayload::build(
                     &secp_ctx,
-                    p2tr_keys.unwrap().0,
-                    p2tr_keys.unwrap().1,
+                    p2tr_keys.0,
+                    p2tr_keys.1,
                     &redeem_script,
                     reveal_balance,
                     network,
@@ -272,7 +249,6 @@ impl OrdTransactionBuilder {
                 let address = taproot_payload.address.clone();
                 self.taproot_payload = Some(taproot_payload);
                 address
-            }
         };
 
         let mut tx_out = vec![TxOut {

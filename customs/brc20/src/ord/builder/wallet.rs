@@ -147,13 +147,6 @@ impl Wallet {
     }
 }
 
-/// Type of the transaction to sign
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TransactionType {
-    Commit,
-    //Reveal
-}
-
 enum OrdSignature {
     Schnorr(bitcoin::taproot::Signature),
     Ecdsa(bitcoin::ecdsa::Signature),

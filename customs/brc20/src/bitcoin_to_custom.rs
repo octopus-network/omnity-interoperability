@@ -16,10 +16,8 @@ use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext,
     TransformFunc,
 };
-use num_traits::Zero;
 use omnity_types::brc20::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO, WARNING};
-use std::str::FromStr;
 
 pub async fn check_transaction(
     req: GenerateTicketArgs,
@@ -50,7 +48,7 @@ pub async fn check_transaction(
         .map_err(|e| GenerateTicketError::OrdTxError(e.to_string()))?;
     log!(INFO, "brc20 info:{:?}", serde_json::to_string(&brc20));
     match brc20 {
-        Brc20::Brc201Transfer(t) => {
+        Brc20::TransferBrc201(t) => {
             if t.amt != req.amount
                 || t.tick != token.name
                 || t.refx.to_lowercase() != req.receiver.to_lowercase()

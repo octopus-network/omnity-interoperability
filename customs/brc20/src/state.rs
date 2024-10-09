@@ -258,12 +258,9 @@ impl Brc20State {
                 return ReleaseTokenStatus::Unknown;
             }
         }
-        match self.finalized_unlock_ticket_map.get(&seq) {
-            Some(tx) => {
-                let txid = tx.txs[2].txid();
-                return ReleaseTokenStatus::Confirmed(txid.to_string());
-            }
-            None => (),
+        if let Some(tx) = self.finalized_unlock_ticket_map.get(&seq) {
+            let txid = tx.txs[2].txid();
+            return ReleaseTokenStatus::Confirmed(txid.to_string());
         }
         ReleaseTokenStatus::Pending
     }

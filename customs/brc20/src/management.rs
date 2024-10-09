@@ -1,7 +1,3 @@
-//! This module contains async functions for interacting with the management canister.
-
-use std::ops::Div;
-use std::str::FromStr;
 use bitcoin::Transaction;
 use candid::{CandidType, Principal};
 use ic_btc_interface::{
@@ -13,10 +9,7 @@ use ic_ic00_types::{
     DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
     SignWithECDSAArgs, SignWithECDSAReply,
 };
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 use crate::bitcoin::ECDSAPublicKey;
 use crate::call_error::{CallError, Reason};
 use crate::state::read_state;
