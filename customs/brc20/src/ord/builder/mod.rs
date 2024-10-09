@@ -1,4 +1,4 @@
-use crate::ord::builder::fees::MultisigConfig;
+use crate::ord::builder::fees::{Fees, MultisigConfig};
 use crate::ord::builder::signer::MixSigner;
 use crate::ord::builder::taproot::{generate_keypair, TaprootPayload};
 use crate::ord::builder::wallet::Wallet;
@@ -248,14 +248,12 @@ impl OrdTransactionBuilder {
             .sum::<u64>();
         let leftover_amount = input_amount
             .checked_sub(POSTAGE)
-            .and_then(|v| v.checked_sub(args.commit_fee.to_sat()))
-            .and_then(|v| v.checked_sub(args.reveal_fee.to_sat()))
-            .and_then(|v| v.checked_sub(args.spend_fee.to_sat()))
+            .and_then(|v| v.checked_sub(args.fees.sum()))
             .ok_or(OrdError::InsufficientBalance {
                 available: input_amount,
-                required: POSTAGE + args.commit_fee.to_sat() + args.reveal_fee.to_sat() + args.spend_fee.to_sat(),
+                required: POSTAGE + args.fees.sum(),
             })?;
-        let reveal_balance = POSTAGE + args.reveal_fee.to_sat() + args.spend_fee.to_sat();
+        let reveal_balance = POSTAGE + args.fees.reveal_fee.to_sat() + args.fees.spend_fee.to_sat();
 
         // get p2wsh or p2tr address for output of inscription
         let redeem_script = self.generate_redeem_script(&args.inscription, redeem_script_pubkey)?;
@@ -315,8 +313,8 @@ impl OrdTransactionBuilder {
             unsigned_tx,
             redeem_script,
             reveal_balance: Amount::from_sat(reveal_balance),
-            reveal_fee: args.reveal_fee,
-            commit_fee: args.commit_fee,
+            reveal_fee: args.fees.reveal_fee,
+            commit_fee: args.fees.commit_fee,
             leftover_amount: Amount::from_sat(leftover_amount),
         })
     }
@@ -334,12 +332,7 @@ where
     pub inscription: T,
     /// Address to send the leftovers BTC of the trasnsaction
     pub leftovers_recipient: Address,
-    /// Fee to pay for the commit transaction
-    pub commit_fee: Amount,
-    /// Fee to pay for the reveal transaction
-    pub reveal_fee: Amount,
-
-    pub spend_fee: Amount,
+    pub fees: Fees,
     /// Script pubkey of the inputs
     pub txin_script_pubkey: ScriptBuf,
 }

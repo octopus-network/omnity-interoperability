@@ -6,10 +6,17 @@ use crate::custom_to_bitcoin::estimate_fee_per_vbyte;
 use crate::ord::parser::POSTAGE;
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct Fees {
     pub commit_fee: Amount,
     pub reveal_fee: Amount,
-    pub utxo_fee: Amount,
+    pub spend_fee: Amount,
+}
+
+impl Fees {
+    pub fn sum(&self) -> u64 {
+        self.commit_fee.to_sat() + self.reveal_fee.to_sat() + self.spend_fee.to_sat()
+    }
 }
 
 /// Represents multisig configuration (m of n) for a transaction, if applicable.
@@ -31,7 +38,7 @@ pub async fn calc_fees(network: Network) -> Fees {
                 Some(v_price) => Fees {
                     commit_fee: Amount::from_sat(COMMIT_TX_VBYTES * v_price / 1000),
                     reveal_fee: Amount::from_sat(REVEAL_TX_VBYTES * v_price / 1000),
-                    utxo_fee: Amount::from_sat(TRANSFER_TX_VBYTES * v_price / 1000 + POSTAGE),
+                    spend_fee: Amount::from_sat(TRANSFER_TX_VBYTES * v_price / 1000 + POSTAGE),
                 },
             }
         }
@@ -39,7 +46,7 @@ pub async fn calc_fees(network: Network) -> Fees {
         Network::Testnet | Network::Regtest | Network::Signet => Fees {
             commit_fee: Amount::from_sat(2_500),
             reveal_fee: Amount::from_sat(4_700),
-            utxo_fee: Amount::from_sat(3_000),
+            spend_fee: Amount::from_sat(3_000),
         },
         _ => panic!("unknown network"),
     }

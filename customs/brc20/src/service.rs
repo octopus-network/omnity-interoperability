@@ -124,7 +124,7 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
 
 #[update(guard = "is_admin")]
 pub async fn resend_unlock_ticket(seq: Seq) -> String {
-    let r = crate::custom_to_bitcoin::send_ticket_to_bitcoin(seq, &DEFAULT_FEE)
+    let r = crate::custom_to_bitcoin::submit_unlock_ticket(seq, &DEFAULT_FEE)
         .await
         .unwrap().unwrap();
      mutate_state(|s|s.flight_unlock_ticket_map.insert(seq, r.clone()));

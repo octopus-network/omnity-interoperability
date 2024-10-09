@@ -40,7 +40,7 @@ pub mod constants {
     pub const DEFAULT_FEE: Fees = Fees {
         commit_fee: Amount::from_sat(1000),
         reveal_fee: Amount::from_sat(1000),
-        utxo_fee: Amount::from_sat(1000),
+        spend_fee: Amount::from_sat(1000),
     };
 }
 
