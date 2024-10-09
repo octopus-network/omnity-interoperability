@@ -1,6 +1,6 @@
 use std::ops::Div;
 use std::str::FromStr;
-use candid::{CandidType, Nat};
+use candid::{CandidType};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use rust_decimal::Decimal;
@@ -59,10 +59,9 @@ impl EventContent {
     }
 }
 
-
-impl Into<Brc20TransferEvent> for BestInSlotBrc20Respsonse {
-    fn into(self) -> Brc20TransferEvent {
-        let event = self.data.first().cloned().unwrap();
+impl From<BestInSlotBrc20Respsonse> for Brc20TransferEvent {
+    fn from(value: BestInSlotBrc20Respsonse) -> Self {
+        let event = value.data.first().cloned().unwrap();
         Brc20TransferEvent {
             amout: event.event.amount,
             from: event.event.source_wallet.clone(),
@@ -71,7 +70,6 @@ impl Into<Brc20TransferEvent> for BestInSlotBrc20Respsonse {
         }
     }
 }
-
 
 pub async fn bestinsolt_query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
     let r = query(&query_transfer_args).await;
@@ -112,7 +110,7 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<BestInSlo
     const MAX_CYCLES: u128 = 25_000_000_000;
     let idempotency_key = format!("bestinslot-{}",ic_cdk::api::time());
     let request = CanisterHttpRequestArgument {
-        url: url,
+        url,
         method: HttpMethod::GET,
         body: None,
         max_response_bytes: None,
@@ -145,7 +143,7 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<BestInSlo
         Ok((response,)) => {
             log!(INFO, "okx result: {}",serde_json::to_string(&response).unwrap());
             let status = response.status;
-            if status == Nat::from(200_u32) {
+            if status == 200_u32 {
                 let body = String::from_utf8(response.body).map_err(|_| {
                     BestInSlotError::Rpc(
                         "Transformed response is not UTF-8 encoded".to_string(),

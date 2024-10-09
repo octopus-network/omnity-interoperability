@@ -1,4 +1,4 @@
-use candid::{CandidType, Nat};
+use candid::{CandidType};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ struct CommonResponse<T> {
 
 impl<T> CommonResponse<T> {
     pub fn is_ok(&self) -> bool {
-        return self.code == 0 && self.msg == "ok" && self.data.is_some();
+        self.code == 0 && self.msg == "ok" && self.data.is_some()
     }
 }
 
@@ -65,19 +65,19 @@ struct Brc20Event {
 impl Brc20Event {
     pub fn check(&self, query_transfer_args: &QueryBrc20TransferArgs) -> bool {
         self.txid == query_transfer_args.tx_id &&
-            self.valid == true &&
+            self.valid &&
             self.to == query_transfer_args.to_addr &&
             self.ticker == query_transfer_args.ticker &&
-            self.amount == query_transfer_args.amt.to_string()
+            self.amount == query_transfer_args.amt
     }
 }
 
-impl Into<Brc20TransferEvent> for Brc20Event {
-    fn into(self) -> Brc20TransferEvent {
+impl From<Brc20Event> for Brc20TransferEvent {
+    fn from(value: Brc20Event) -> Self {
         Brc20TransferEvent {
-            amout: self.amount,
-            from: self.from,
-            to: self.to,
+            amout: value.amount,
+            from: value.from,
+            to: value.to,
             valid: true,
         }
     }
@@ -120,7 +120,7 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
     const MAX_CYCLES: u128 = 25_000_000_000;
 
     let request = CanisterHttpRequestArgument {
-        url: url,
+        url,
         method: HttpMethod::GET,
         body: None,
         max_response_bytes: None,
@@ -152,7 +152,7 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
      match http_request(request, MAX_CYCLES).await {
         Ok((response,)) => {
             let status = response.status;
-            if status == Nat::from(200_u32) {
+            if status == 200_u32 {
                 let body = String::from_utf8(response.body).map_err(|_| {
                     UnisatError::Rpc(
                         "Transformed response is not UTF-8 encoded".to_string(),

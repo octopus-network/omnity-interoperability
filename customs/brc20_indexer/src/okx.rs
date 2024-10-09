@@ -1,4 +1,4 @@
-use candid::{CandidType, Deserialize, Nat};
+use candid::{CandidType, Deserialize};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use serde::Serialize;
@@ -51,7 +51,7 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
     const MAX_CYCLES: u128 = 25_000_000_000;
     let idempotency_key = format!("okx-{}",ic_cdk::api::time());
     let request = CanisterHttpRequestArgument {
-        url: url,
+        url,
         method: HttpMethod::GET,
         body: None,
         max_response_bytes: None,
@@ -84,7 +84,7 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
         Ok((response,)) => {
             log!(INFO, "okx result: {}",serde_json::to_string(&response).unwrap());
             let status = response.status;
-            if status == Nat::from(200_u32) {
+            if status == 200_u32 {
                 let body = String::from_utf8(response.body).map_err(|_| {
                     OkxError::Rpc(
                         "Transformed response is not UTF-8 encoded".to_string(),
@@ -114,17 +114,16 @@ impl OkxBrc20TransferEvent {
     }
 }
 
-impl Into<Brc20TransferEvent> for OkxBrc20TransferEvent {
-    fn into(self) -> Brc20TransferEvent {
+impl From<OkxBrc20TransferEvent> for Brc20TransferEvent {
+    fn from(value: OkxBrc20TransferEvent) -> Self {
         Brc20TransferEvent {
-            amout: self.amount,
-            from: self.from_address,
-            to: self.to_address,
+            amout: value.amount,
+            from: value.from_address,
+            to: value.to_address,
             valid: true,
         }
     }
 }
-
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 struct CommonResponse<T> {
@@ -136,7 +135,7 @@ struct CommonResponse<T> {
 
 impl<T> CommonResponse<T> {
     pub fn is_ok(&self) -> bool {
-        return self.code == "0" && self.msg == "";
+        self.code == "0" && self.msg.is_empty()
     }
 }
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
