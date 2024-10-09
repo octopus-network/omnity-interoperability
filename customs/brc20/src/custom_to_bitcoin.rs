@@ -203,6 +203,7 @@ pub async fn send_ticket_to_bitcoin(
                         leftovers_recipient: deposit_addr().clone(),
                         commit_fee: fees.commit_fee,
                         reveal_fee: fees.reveal_fee,
+                        spend_fee: fees.utxo_fee,
                     },
                 )
                 .await
@@ -226,6 +227,7 @@ pub async fn send_ticket_to_bitcoin(
                         index: 0,
                         amount: commit_tx.reveal_balance,
                     },
+                    spend_fee: fees.utxo_fee,
                     recipient_address: deposit_addr(), // NOTE: it's correct, see README.md to read about how transfer works
                     redeem_script: commit_tx.redeem_script,
                 })
@@ -235,10 +237,10 @@ pub async fn send_ticket_to_bitcoin(
             let real_utxo = Utxo {
                 id: reveal_transaction.txid(),
                 index: 0,
-                amount: Amount::from_sat(POSTAGE),
+                amount: Amount::from_sat(POSTAGE+fees.utxo_fee.to_sat()),
             };
 
-            let commit_remain_fee = find_commit_remain_fee(&signed_commit_tx);
+            let commit_remain_fee = None; //find_commit_remain_fee(&signed_commit_tx);
             let transfer_trasaction =
                 build_transfer_transfer(&t, fees, real_utxo, &builder.signer(), commit_remain_fee)
                     .await?;
@@ -261,7 +263,7 @@ pub async fn send_ticket_to_bitcoin(
                     break;
                 }
             }
-            if send_res.success {
+           /* if send_res.success {
                 //insert_utxo
                 let transfer_transaction = send_res.txs.last().cloned().unwrap();
                 let txid = transfer_transaction.txid();
@@ -273,7 +275,7 @@ pub async fn send_ticket_to_bitcoin(
                     amount: value,
                 };
                 mutate_state(|s| s.deposit_addr_utxo.push(utxo));
-            }
+            }*/
             Ok(Some(send_res))
         }
     }
@@ -300,7 +302,7 @@ pub async fn build_transfer_transfer(
     signer: &MixSigner,
     commit_return_fee: Option<Utxo>,
 ) -> Result<Transaction, CustomToBitcoinError> {
-    let fees_inputs = determine_transfer_fee_txins(fee, commit_return_fee)?;
+    let fees_inputs =vec![];// determine_transfer_fee_txins(fee, commit_return_fee)?;
     let mut all_inputs = vec![reveal_utxo.clone()];
     all_inputs.extend(fees_inputs);
     let recipient = Address::from_str(&ticket.receiver.to_string())
@@ -318,7 +320,7 @@ pub async fn build_transfer_transfer(
 }
 
 pub fn select_inscribe_txins(fees: &Fees) -> Result<Vec<Utxo>, CustomToBitcoinError> {
-    let total_reqiured = POSTAGE + fees.commit_fee.to_sat() + fees.reveal_fee.to_sat();
+    let total_reqiured = POSTAGE + fees.commit_fee.to_sat() + fees.reveal_fee.to_sat() + fees.utxo_fee.to_sat();
     select_utxos(total_reqiured)
 }
 
