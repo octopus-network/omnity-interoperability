@@ -58,8 +58,7 @@ dfx deploy solana_route --argument "(variant { Init = record { \
     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
     fee_account= opt \"${FEE_ACCOUNT}\";\
-    multi_rpc_config = record { rpc_list = vec {\"${rpc1}\";\"${rpc2}\";\"${rpc3}\"};\
-    minimum_response_count = 2:nat32;}; \
+
 } })" --ic 
 
 SOLANA_ROUTE_CANISTER_ID=$(dfx canister id solana_route --ic)
@@ -251,8 +250,7 @@ dfx deploy solana_route --argument "(opt variant { UpgradeArgs = record { \
     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
     fee_account= opt \"${FEE_ACCOUNT}\";\
-    multi_rpc_config = record { rpc_list = vec {\"${rpc1}\";\"${rpc2}\";\"${rpc3}\"};\
-    minimum_response_count = 2:nat32;}; \
+
 } })" --mode upgrade --ic
 
 # or without parameters

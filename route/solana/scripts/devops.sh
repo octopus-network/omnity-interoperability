@@ -95,8 +95,7 @@ dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(opt variant { Upgrad
     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
     fee_account= opt \"${FEE_ACCOUNT}\";\
-    multi_rpc_config = record { rpc_list = vec {\"${alchemy_m}\"};\
-    minimum_response_count = 1:nat32;}; \
+
     } })" \
     --mode=upgrade -y \
     --wasm=./assets/solana_route.wasm.gz \
