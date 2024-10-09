@@ -19,22 +19,11 @@ pub async fn spend_utxo_transaction(
     inputs: Vec<Utxo>,
     fee: Amount,
 ) -> Result<Transaction, CustomToBitcoinError> {
-    let leftover_amount = inputs
-        .iter()
-        .map(|input| input.amount.to_sat())
-        .sum::<u64>()
-        .checked_sub(fee.to_sat())
-        .and_then(|v| v.checked_sub(POSTAGE))
-        .ok_or(InsufficientFunds)?;
 
     let tx_out = vec![
         TxOut {
             value: utxo_value,
             script_pubkey: recipient.script_pubkey(),
-        },
-        TxOut {
-            value: Amount::from_sat(leftover_amount),
-            script_pubkey: signer.signer_addr.script_pubkey(),
         },
     ];
 
