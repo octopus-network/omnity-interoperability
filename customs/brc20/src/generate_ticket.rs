@@ -54,7 +54,7 @@ pub enum GenerateTicketError {
     Unknown,
 }
 
-#[derive(Clone, CandidType, Serialize, Deserialize)]
+#[derive(Clone, CandidType, Serialize, Deserialize, Debug)]
 pub struct GenerateTicketArgs {
     pub txid: String,
     pub amount: String,

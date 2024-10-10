@@ -1,7 +1,6 @@
 use std::ops::Div;
 use std::str::FromStr;
 
-use bitcoin::hashes::Hash;
 use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
 use ic_btc_interface::{MillisatoshiPerByte, Network};
 
@@ -66,7 +65,7 @@ pub async fn send_tickets_to_bitcoin() {
     let to = read_state(|s| s.next_ticket_seq);
     if from < to {
         let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
-        let utxos = get_fee_utxos(nw, &deposit_addr, 0u32).await;
+     /*   let utxos = get_fee_utxos(nw, &deposit_addr, 0u32).await;
         match utxos {
             Ok(r) => {
                 let v = r
@@ -85,7 +84,7 @@ pub async fn send_tickets_to_bitcoin() {
             Err(_) => {
                 return;
             }
-        }
+        }*/
         let fees = calc_fees(bitcoin_network()).await;
         for seq in from..to {
             if process_unlock_ticket(seq, &fees).await.is_err() {

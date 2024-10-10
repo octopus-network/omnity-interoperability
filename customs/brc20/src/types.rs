@@ -1,9 +1,12 @@
+use std::str::FromStr;
+use bitcoin::Amount;
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::Txid;
 use serde::Serialize;
 
 use omnity_types::brc20::QueryBrc20TransferArgs;
 use omnity_types::TokenId;
+use crate::ord::builder::Utxo;
 
 pub type Brc20Ticker = String;
 
@@ -44,6 +47,24 @@ pub struct LockTicketRequest {
     pub amount: String,
     pub txid: Txid,
     pub received_at: u64,
+}
+
+/// Unspent transaction output to be used as input of a transaction
+#[derive(CandidType,Debug, Clone, Serialize, Deserialize)]
+pub struct UtxoArgs {
+    pub id: String,
+    pub index: u32,
+    pub amount: u64,
+}
+
+impl From<UtxoArgs> for Utxo {
+    fn from(value: UtxoArgs) -> Self {
+        Utxo {
+            id: bitcoin::Txid::from_str(&value.id).unwrap(),
+            index: value.index,
+            amount: Amount::from_sat(value.amount),
+        }
+    }
 }
 
 pub fn create_query_brc20_transfer_args(

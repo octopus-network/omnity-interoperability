@@ -10,7 +10,7 @@ use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
 };
 use crate::tasks::start_tasks;
-use crate::types::ReleaseTokenStatus;
+use crate::types::{ReleaseTokenStatus, UtxoArgs};
 use bitcoin::hashes::Hash;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
@@ -46,15 +46,10 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<(), GenerateTicketError>{
     crate::generate_ticket::generate_ticket(req).await
 }
-#[update]
+#[update(guard = "is_admin")]
 pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
     init_ecdsa_public_key().await;
     read_state(|s| (s.deposit_addr.clone(), s.deposit_pubkey.clone()))
-}
-
-#[update]
-pub fn test_update_main_addr(addr: String) {
-    mutate_state(|s| s.deposit_addr = Some(addr));
 }
 
 #[query(guard = "is_admin")]
@@ -96,18 +91,29 @@ fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
     read_state(|s| s.unlock_tx_status(&ticket_id))
 }
 
-#[query]
+#[query(guard = "is_admin")]
 pub fn pending_unlock_tickets(seq: Seq) -> String {
     let r = read_state(|s| s.flight_unlock_ticket_map.get(&seq).cloned().unwrap());
     serde_json::to_string(&r).unwrap()
 }
 
-#[query]
+#[query(guard = "is_admin")]
 pub fn finalized_unlock_tickets(seq: Seq) -> String {
     let r = read_state(|s| s.finalized_unlock_ticket_map.get(&seq).cloned().unwrap());
     serde_json::to_string(&r).unwrap()
 }
 
+#[update(guard = "is_admin")]
+pub fn update_fees(us: Vec<UtxoArgs>) {
+    for a in us {
+        let utxo: Utxo = a.into();
+        mutate_state(|s| {
+            if !s.deposit_addr_utxo.contains(&utxo) {
+                s.deposit_addr_utxo.push(utxo);
+            }
+        });
+    }
+}
 #[query(hidden = true)]
 fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {

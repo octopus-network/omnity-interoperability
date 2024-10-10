@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::constants::{COMMIT_TX_VBYTES, DEFAULT_FEE, REVEAL_TX_VBYTES, TRANSFER_TX_VBYTES};
 use crate::custom_to_bitcoin::estimate_fee_per_vbyte;
-use crate::ord::parser::POSTAGE;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -38,7 +37,7 @@ pub async fn calc_fees(network: Network) -> Fees {
                 Some(v_price) => Fees {
                     commit_fee: Amount::from_sat(COMMIT_TX_VBYTES * v_price / 1000),
                     reveal_fee: Amount::from_sat(REVEAL_TX_VBYTES * v_price / 1000),
-                    spend_fee: Amount::from_sat(TRANSFER_TX_VBYTES * v_price / 1000 + POSTAGE),
+                    spend_fee: Amount::from_sat(TRANSFER_TX_VBYTES * v_price / 1000),
                 },
             }
         }

@@ -313,7 +313,7 @@ where
 }
 
 /// Unspent transaction output to be used as input of a transaction
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Utxo {
     pub id: Txid,
     pub index: u32,
