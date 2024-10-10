@@ -549,7 +549,7 @@ impl HubState {
     }
 
     pub fn update_token_position(
-        &mut self,
+        &mut self ,
         position: TokenKey,
         f: impl FnOnce(&mut u128) -> Result<u128, Error>,
     ) -> Result<(), Error> {
