@@ -43,7 +43,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 }
 
 #[update]
-pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<(), GenerateTicketError>{
+pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     crate::generate_ticket::generate_ticket(req).await
 }
 #[update(guard = "is_admin")]

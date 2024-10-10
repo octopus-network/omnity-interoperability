@@ -64,8 +64,8 @@ pub async fn send_tickets_to_bitcoin() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     if from < to {
-      //  let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
-     /*   let utxos = get_fee_utxos(nw, &deposit_addr, 0u32).await;
+        //  let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
+        /*   let utxos = get_fee_utxos(nw, &deposit_addr, 0u32).await;
         match utxos {
             Ok(r) => {
                 let v = r
@@ -163,7 +163,7 @@ pub async fn finalize_flight_unlock_tickets() {
                             "[rewrite tx_hash] failed to write brc20 release tx hash, reason: {}",
                             err
                         );
-                    }else {
+                    } else {
                         log!(INFO, "unlock ticket finalize success! ticket: {}", seq);
                     }
                 }

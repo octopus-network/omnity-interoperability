@@ -9,8 +9,8 @@ use rust_decimal::Decimal;
 use serde::Serialize;
 use thiserror::Error;
 
-use omnity_types::{ChainState, Ticket, TicketType, TxAction};
 use omnity_types::ic_log::INFO;
+use omnity_types::{ChainState, Ticket, TicketType, TxAction};
 
 use crate::bitcoin_to_custom::check_transaction;
 use crate::hub;

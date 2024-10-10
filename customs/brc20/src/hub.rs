@@ -3,11 +3,11 @@ use candid::utils::ArgumentEncoder;
 use candid::CandidType;
 use candid::Principal;
 use ic_canister_log::log;
+use omnity_types::ic_log::INFO;
 use omnity_types::Directive;
 use omnity_types::TicketId;
 use omnity_types::Topic;
 use omnity_types::{self, ChainId, Seq, Ticket};
-use omnity_types::ic_log::INFO;
 
 pub async fn query_tickets(
     hub_principal: Principal,
@@ -34,7 +34,8 @@ pub async fn update_tx_hash(
     )
     .await;
     if r.is_ok() {
-        log!(INFO,
+        log!(
+            INFO,
             "[rewrite tx_hash] write brc20 release tx hash success: {}",
             ticket_id
         );
