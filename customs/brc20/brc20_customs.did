@@ -17,6 +17,24 @@ type GenerateTicketArgs = record {
   amount : text;
   receiver : text;
 };
+type GenerateTicketError = variant {
+  SendTicketErr : text;
+  RpcError : text;
+  TemporarilyUnavailable : text;
+  AlreadyProcessed;
+  OrdTxError : text;
+  NotBridgeTx;
+  AmountIsZero;
+  InvalidRuneId : text;
+  InvalidArgs : text;
+  AlreadySubmitted;
+  InvalidTxId;
+  TxNotFoundInMemPool;
+  Unknown;
+  NoNewUtxos;
+  UnsupportedChainId : text;
+  UnsupportedToken : text;
+};
 type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record {
   hub_principal : principal;
@@ -44,21 +62,21 @@ type ReleaseTokenStatus = variant {
   Submitted : text;
   Pending;
 };
+type Result = variant { Ok; Err : GenerateTicketError };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
-  pending_gen_ticket_requests : vec record { blob; LockTicketRequest };
+  finalized_lock_ticket_requests : vec record { blob; LockTicketRequest };
   next_consume_directive_seq : nat64;
   hub_principal : principal;
   ecdsa_key_name : text;
   deposit_addr : opt text;
   next_directive_seq : nat64;
-  finalized_mint_token_requests : vec record { text; text };
   ecdsa_public_key : opt ECDSAPublicKey;
   chain_id : text;
+  pending_lock_ticket_requests : vec record { blob; LockTicketRequest };
   tokens : vec record { text; Token };
   btc_network : Network;
   admins : vec principal;
-  finalized_gen_ticket_requests : vec record { blob; LockTicketRequest };
   counterparties : vec record { text; Chain };
   next_ticket_seq : nat64;
   chain_state : ChainState;
@@ -95,15 +113,16 @@ type TxAction = variant {
   RedeemIcpChainKeyAssets : IcpChainKeyToken;
   Transfer;
 };
+type UtxoArgs = record { id : text; index : nat32; amount : nat64 };
 service : (InitArgs) -> {
   brc20_state : () -> (StateProfile) query;
   finalized_unlock_tickets : (nat64) -> (text) query;
   generate_deposit_addr : () -> (opt text, opt text);
-  generate_ticket : (GenerateTicketArgs) -> ();
+  generate_ticket : (GenerateTicketArgs) -> (Result);
   pending_unlock_tickets : (nat64) -> (text) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   resend_unlock_ticket : (nat64) -> (text);
   test_create_tx : (Ticket, nat64) -> ();
-  test_update_main_addr : (text) -> ();
   test_update_utxos : () -> (text);
+  update_fees : (vec UtxoArgs) -> ();
 }
