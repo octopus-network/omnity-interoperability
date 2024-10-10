@@ -1,0 +1,22 @@
+type BitcoinNetwork = variant { Mainnet; Testnet };
+type Brc20TransferEvent = record {
+  to : text;
+  amout : text;
+  valid : bool;
+  from : text;
+};
+type InitArgs = record { network : BitcoinNetwork; proxy_url : text };
+type QueryBrc20TransferArgs = record {
+  amt : text;
+  decimals : nat8;
+  ticker : text;
+  tx_id : text;
+  to_addr : text;
+};
+service : (InitArgs) -> {
+  get_indexed_transfer : (QueryBrc20TransferArgs) -> (opt Brc20TransferEvent);
+  set_api_key : (text, text) -> ();
+  test_get_indexed_transfer : (QueryBrc20TransferArgs, text) -> (
+      opt Brc20TransferEvent,
+    );
+}
