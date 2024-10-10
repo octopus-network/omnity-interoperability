@@ -1,11 +1,6 @@
 {
   "dfx": "0.22.0",
   "canisters": {
-    "icrc1_ledger_canister": {
-      "type": "custom",
-      "candid": "icrc1_ledger.did",
-      "wasm": "icrc1_ledger.wasm.gz"
-    },
     "icp_ledger_canister": {
       "type": "custom",
       "candid": "https://raw.githubusercontent.com/dfinity/ic/ac971e7b4c851b89b312bee812f6de542ed907c5/rs/rosetta-api/icp_ledger/ledger.did",

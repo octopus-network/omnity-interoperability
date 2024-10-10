@@ -31,7 +31,7 @@ const SYMBOL1: &str = "FIRST•RUNE•TOKEN";
 const TOKEN_ID1: &str = "Bitcoin-RUNES-FIRST•RUNE•TOKEN";
 const SYMBOL2: &str = "SECOND•RUNE•TOKEN";
 const TOKEN_ID2: &str = "Bitcoin-RUNES-SECOND•RUNE•TOKEN";
-const LEDGER_WASM: &[u8] = include_bytes!("../../../ledger-canister.wasm");
+const LEDGER_WASM: &[u8] = include_bytes!("../assets/ledger-canister.wasm");
 
 fn mainnet_ledger_canister_id() -> CanisterId {
     CanisterId::unchecked_from_principal(MAINNET_LEDGER_CANISTER_ID.into())
