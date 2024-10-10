@@ -111,7 +111,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         .unwrap()
         .mul(Decimal::from(10u128.pow(token.decimals as u32)))
         .to_u128()
-        .unwrap(); //(transfer.amt as u128).mul(10u128.pow(token.decimals as u32));
+        .unwrap();
     hub::pending_ticket(
         hub_principal,
         Ticket {
@@ -139,7 +139,6 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         txid,
         received_at: ic_cdk::api::time(),
     };
-
     mutate_state(|s| {
         s.pending_lock_ticket_requests.insert(request.txid, request);
     });

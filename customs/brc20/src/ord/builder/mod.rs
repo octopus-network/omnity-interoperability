@@ -322,9 +322,7 @@ pub struct Utxo {
 
 #[derive(Debug, Clone)]
 pub struct TxInputInfo {
-    /// ID of the output.
     pub outpoint: OutPoint,
-    /// Contents of the output.
     pub tx_out: TxOut,
     pub derivation_path: DerivationPath,
 }

@@ -13,7 +13,7 @@ use thiserror::Error;
 use crate::bitcoin_to_custom::query_transaction;
 use crate::call_error::CallError;
 use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME, SUBMIT_UNLOCK_TICKETS_NAME};
-use omnity_types::ic_log::{CRITICAL, ERROR};
+use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use omnity_types::{Seq, Ticket};
 
 use crate::custom_to_bitcoin::CustomToBitcoinError::{
@@ -64,7 +64,7 @@ pub async fn send_tickets_to_bitcoin() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     if from < to {
-        let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
+      //  let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
      /*   let utxos = get_fee_utxos(nw, &deposit_addr, 0u32).await;
         match utxos {
             Ok(r) => {
@@ -87,10 +87,16 @@ pub async fn send_tickets_to_bitcoin() {
         }*/
         let fees = calc_fees(bitcoin_network()).await;
         for seq in from..to {
-            if process_unlock_ticket(seq, &fees).await.is_err() {
-                break;
+            let r = process_unlock_ticket(seq, &fees).await;
+            match r {
+                Ok(_) => {
+                    mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
+                }
+                Err(e) => {
+                    log!(ERROR, "send unlock error: ticket seq: {}, error{}", seq, e);
+                    break;
+                }
             }
-            mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
         }
     }
 }
@@ -157,6 +163,8 @@ pub async fn finalize_flight_unlock_tickets() {
                             "[rewrite tx_hash] failed to write brc20 release tx hash, reason: {}",
                             err
                         );
+                    }else {
+                        log!(INFO, "unlock ticket finalize success! ticket: {}", seq);
                     }
                 }
             }

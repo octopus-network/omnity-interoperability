@@ -210,19 +210,3 @@ pub async fn sign_with_ecdsa(
     .await?;
     Ok(reply.signature)
 }
-
-#[test]
-pub fn test() {
-    let r = dec!(100).div(Decimal::from(10u128.pow(18u32)));
-    println!("{r}");
-    let r = Decimal::from_str("1.002000000000").unwrap();
-    println!("{}", r.normalize())
-    /*
-    let r = BigDecimal::from_str("1.01000000").unwrap();
-    println!("{r}");
-    println!("{}",r.normalized());
-    let r = BigDecimal::from(100).div(BigDecimal::from(10u128.pow(18u32))).to_scientific_notation();
-    let
-
-    println!("{}", r);*/
-}
