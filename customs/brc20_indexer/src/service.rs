@@ -1,4 +1,5 @@
 use candid::CandidType;
+use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use ic_cdk_macros::{export_candid, init, post_upgrade, pre_upgrade, query, update};
@@ -11,6 +12,7 @@ pub use omnity_types::brc20::*;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use crate::bestinslot::bestinsolt_query_transfer_event;
 use crate::okx::okx_query_transfer_event;
+use omnity_types::ic_log::INFO;
 
 #[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
 pub struct InitArgs {
@@ -31,24 +33,12 @@ fn pre_upgrade() {
 #[post_upgrade]
 fn post_upgrade() {
     IndexerState::post_upgrade();
+    log!(INFO, "brc20 indexer canister upgrade successfully !!!");
 }
 
 #[update]
 pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
     unisat_query_transfer_event(args).await
-}
-
-#[update]
-pub async fn test_get_indexed_transfer(args: QueryBrc20TransferArgs, rpc_name: String) -> Option<Brc20TransferEvent>{
-    if rpc_name == "UNISAT" {
-        unisat_query_transfer_event(args).await
-    } else if rpc_name == "OKX" {
-        okx_query_transfer_event(args).await
-    }else if rpc_name == "BESTINSLOT" {
-        bestinsolt_query_transfer_event(args).await
-    }else {
-        None
-    }
 }
 
 #[query(hidden = true)]
@@ -71,6 +61,16 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
         body: raw.response.body.clone(),
         headers: vec![]
     }
+}
+
+#[query(guard = "is_controller")]
+pub fn proxy_url() -> String {
+    crate::state::proxy_url()
+}
+
+#[query]
+pub fn test_query() -> u64 {
+    10
 }
 
 pub fn is_controller() -> Result<(), String> {

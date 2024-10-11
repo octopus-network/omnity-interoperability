@@ -10,12 +10,13 @@ use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
 };
 use crate::tasks::start_tasks;
-use crate::types::{ReleaseTokenStatus, UtxoArgs};
+use crate::types::{FeesArgs, ReleaseTokenStatus, UtxoArgs};
 use bitcoin::hashes::Hash;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
-use omnity_types::{Network, Seq, Ticket};
+use omnity_types::{Network, Seq, Ticket, TokenId};
+use crate::custom_to_bitcoin::CustomToBitcoinResult;
 
 #[init]
 fn init(args: InitArgs) {
@@ -114,6 +115,52 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
         });
     }
 }
+
+#[update]
+pub async fn transfer_fee(session_key: String) -> u64 {
+    3333
+}
+
+#[update]
+pub async fn build_commit_tx(
+    session_key: String,
+    vins: Vec<UtxoArgs>,
+    token_id: TokenId,
+    amount: String,
+    sender: String,
+    target_chain: String,
+    receiver: String,
+) -> CustomToBitcoinResult<String> {
+    let fee = FeesArgs {
+        commit_fee: 1000,
+        reveal_fee: 1000,
+        spend_fee: 1000,
+    };
+    crate::psbt::build_commit(
+        session_key,
+        vins,
+        token_id,
+        amount,
+        sender,
+        target_chain,
+        receiver,
+        fee,
+    ).await
+}
+
+#[update]
+pub async fn build_reveal_transfer(session_key: String,
+                                   commit_tx_id: String,) -> CustomToBitcoinResult<Vec<String>>{
+    let fee = FeesArgs {
+        commit_fee: 1000,
+        reveal_fee: 1000,
+        spend_fee: 1000,
+    };
+    crate::psbt::build_reveal_transfer(
+        session_key, commit_tx_id, fee
+    ).await
+}
+
 #[query(hidden = true)]
 fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {

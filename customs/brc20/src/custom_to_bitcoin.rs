@@ -2,6 +2,7 @@ use std::ops::Div;
 use std::str::FromStr;
 
 use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
+use candid::CandidType;
 use ic_btc_interface::{MillisatoshiPerByte, Network};
 
 use ic_canister_log::log;
@@ -38,7 +39,7 @@ use crate::state::{
     read_state,
 };
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, CandidType)]
 pub enum CustomToBitcoinError {
     #[error("bitcoin sign error: {0}")]
     SignFailed(String),
@@ -281,7 +282,8 @@ pub async fn generate_brc20_transactions(
         index: 0,
         amount: Amount::from_sat(POSTAGE + fees.spend_fee.to_sat()),
     };
-    let transfer_trasaction = build_transfer_transfer(ticket, real_utxo, &builder.signer()).await?;
+    let transfer_trasaction =
+        build_transfer_transfer(&ticket.receiver, real_utxo, Some(&builder.signer())).await?;
     Ok(vec![
         signed_commit_tx,
         reveal_transaction,
@@ -304,12 +306,12 @@ pub fn find_commit_remain_fee(t: &Transaction) -> Option<Utxo> {
 }
 
 pub async fn build_transfer_transfer(
-    ticket: &Ticket,
+    receiver: &String,
     reveal_utxo: Utxo,
-    signer: &MixSigner,
+    signer: Option<&MixSigner>,
 ) -> Result<Transaction, CustomToBitcoinError> {
     let all_inputs = vec![reveal_utxo.clone()];
-    let recipient = Address::from_str(&ticket.receiver.to_string())
+    let recipient = Address::from_str(receiver)
         .map_err(|e| ArgumentError(e.to_string()))?
         .assume_checked();
     let transfer =

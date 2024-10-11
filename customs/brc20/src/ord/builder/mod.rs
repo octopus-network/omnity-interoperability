@@ -59,7 +59,7 @@ pub struct SignCommitTransactionArgs {
     pub txin_script_pubkey: ScriptBuf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateCommitTransaction {
     /// The unsigned commit transaction
     pub unsigned_tx: Transaction,

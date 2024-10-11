@@ -4,6 +4,7 @@ use ic_btc_interface::Txid;
 use serde::Serialize;
 use std::str::FromStr;
 
+use crate::ord::builder::fees::Fees;
 use crate::ord::builder::Utxo;
 use omnity_types::brc20::QueryBrc20TransferArgs;
 use omnity_types::TokenId;
@@ -63,6 +64,23 @@ impl From<UtxoArgs> for Utxo {
             id: bitcoin::Txid::from_str(&value.id).unwrap(),
             index: value.index,
             amount: Amount::from_sat(value.amount),
+        }
+    }
+}
+
+#[derive(CandidType, Debug, Clone, Serialize, Deserialize)]
+pub struct FeesArgs {
+    pub commit_fee: u64,
+    pub reveal_fee: u64,
+    pub spend_fee: u64,
+}
+
+impl From<FeesArgs> for Fees {
+    fn from(value: FeesArgs) -> Self {
+        Fees {
+            commit_fee: Amount::from_sat(value.commit_fee),
+            reveal_fee: Amount::from_sat(value.reveal_fee),
+            spend_fee: Amount::from_sat(value.spend_fee),
         }
     }
 }

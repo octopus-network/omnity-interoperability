@@ -9,6 +9,7 @@ mod hub;
 mod hub_to_custom;
 mod management;
 mod ord;
+mod psbt;
 pub mod service;
 mod stable_memory;
 pub(crate) mod state;

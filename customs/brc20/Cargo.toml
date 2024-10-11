@@ -15,6 +15,7 @@ candid = { workspace = true }
 ciborium = { workspace = true }
 hex = "0.4.3"
 ic0 = "0.18.9"
+base64 = "0.22.1"
 ic-base-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-btc-interface = { workspace = true }
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }

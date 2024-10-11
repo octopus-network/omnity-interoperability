@@ -12,7 +12,7 @@ use crate::ord::builder::Utxo;
 
 #[allow(dead_code)]
 pub async fn spend_utxo_transaction(
-    signer: &MixSigner,
+    signer: Option<&MixSigner>,
     recipient: Address,
     utxo_value: Amount,
     inputs: Vec<Utxo>,
@@ -35,20 +35,17 @@ pub async fn spend_utxo_transaction(
         })
         .collect();
 
-    let unsigned_tx = Transaction {
+    let mut tx = Transaction {
         version: Version::TWO,
         lock_time: LockTime::ZERO,
         input: tx_in,
         output: tx_out,
     };
 
-    let tx = sign_transaction(
-        signer,
-        unsigned_tx,
-        inputs,
-        &signer.signer_addr.script_pubkey(),
-    )
-    .await?;
+    if signer.is_some() {
+        let signer = signer.unwrap();
+        tx = sign_transaction(signer, tx, inputs, &signer.signer_addr.script_pubkey()).await?;
+    }
     Ok(tx)
 }
 
