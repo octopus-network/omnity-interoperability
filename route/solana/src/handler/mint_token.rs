@@ -55,7 +55,7 @@ impl Storable for MintTokenRequest {
 }
 
 pub async fn mint_token() {
-    // take 5 tickets to mint,very time
+    // take 3 tickets to mint,very time
     let tickets = read_state(|s| {
         s.tickets_queue
             .iter()
@@ -64,9 +64,9 @@ pub async fn mint_token() {
             .collect::<Vec<_>>()
     });
     
-    // TODO: check mint_token_requests , if ticket id already exits in mint_token_requests,skip it
     
     for (seq, ticket) in tickets.into_iter() {
+     
         let token_mint = read_state(|s| s.token_mint_accounts.get(&ticket.token));
         let token_mint = match token_mint {
             Some(token_mint) => {

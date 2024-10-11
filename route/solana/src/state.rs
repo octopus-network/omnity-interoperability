@@ -20,13 +20,13 @@ use crate::types::{
 };
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
+
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
 };
-
 pub type CanisterId = Principal;
 pub type Owner = String;
 pub type MintAccount = String;
@@ -193,13 +193,8 @@ impl MultiRpcConfig {
     ) -> Result<Vec<Instruction>, String> {
         self.check_config_valid()?;
         let mut instructions_list = vec![];
-        // let mut success_response_body_list = vec![];
 
         for response in response_list {
-            // if response.is_err() {
-
-            //     continue;
-            // }
             log!(
                 DEBUG,
                 "[state::valid_and_get_result] input response: {:?}",
