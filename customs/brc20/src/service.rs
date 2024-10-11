@@ -117,6 +117,11 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
 }
 
 #[update]
+pub fn update_brc20_indexer(principal: Principal) {
+    mutate_state(|s|s.indexer_principal = principal);
+}
+
+#[update]
 pub async fn transfer_fee(session_key: String) -> u64 {
     3333
 }
