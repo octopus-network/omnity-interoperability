@@ -62,8 +62,10 @@ pub struct Brc20State {
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
     pub deposit_addr_utxo: Vec<Utxo>,
+    #[serde(skip_deserializing)]
     pub temp_psbt_state: BTreeMap<String, CreateCommitTransaction>,
 }
+
 
 #[derive(Serialize, Deserialize, CandidType, Clone)]
 pub struct StateProfile {
