@@ -18,7 +18,7 @@ use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId,
 use crate::bitcoin::{main_bitcoin_address, ECDSAPublicKey};
 use crate::constants::{MIN_NANOS, SEC_NANOS};
 use crate::custom_to_bitcoin::SendTicketResult;
-use crate::ord::builder::{CreateCommitTransaction, Utxo};
+use crate::ord::builder::{CreateCommitTransaction, OrdTransactionBuilder, Utxo};
 use crate::service::InitArgs;
 use crate::stable_memory;
 use crate::stable_memory::Memory;
@@ -64,6 +64,8 @@ pub struct Brc20State {
     pub deposit_addr_utxo: Vec<Utxo>,
     #[serde(skip_deserializing)]
     pub temp_psbt_state: BTreeMap<String, CreateCommitTransaction>,
+    #[serde(skip)]
+    pub temp_psbt_builder: BTreeMap<String, OrdTransactionBuilder>,
 }
 
 
@@ -152,6 +154,7 @@ impl Brc20State {
             finalized_unlock_ticket_map: Default::default(),
             ticket_id_seq_indexer: Default::default(),
             temp_psbt_state: Default::default(),
+            temp_psbt_builder: Default::default(),
         };
         Ok(ret)
     }

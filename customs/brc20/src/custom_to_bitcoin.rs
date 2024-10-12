@@ -321,7 +321,7 @@ pub async fn build_transfer_transfer(
 
 pub fn select_fee_txins(fees: &Fees) -> Result<Vec<Utxo>, CustomToBitcoinError> {
     let total_reqiured =
-        POSTAGE + fees.commit_fee.to_sat() + fees.reveal_fee.to_sat() + fees.spend_fee.to_sat();
+        POSTAGE + fees.sum();
     select_utxos(total_reqiured)
 }
 
