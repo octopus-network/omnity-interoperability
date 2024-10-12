@@ -11,6 +11,7 @@ use super::taproot::TaprootPayload;
 use super::Utxo;
 
 /// An Ordinal-aware Bitcoin wallet.
+#[derive(Clone)]
 pub struct Wallet {
     pub signer: MixSigner,
     secp: Secp256k1<All>,

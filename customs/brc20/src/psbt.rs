@@ -92,7 +92,10 @@ pub async fn build_commit(
         .await
         .map_err(|e| BuildTransactionFailed(e.to_string()))?;
     let unsigned_tx = commit_tx.unsigned_tx.clone();
-    mutate_state(|s| s.temp_psbt_state.insert(session_key, commit_tx));
+    mutate_state(|s|{
+        s.temp_psbt_state.insert(session_key.clone(), commit_tx);
+        s.temp_psbt_builder.insert(session_key, builder);
+    });
     let psbt = bitcoin::psbt::Psbt::from_unsigned_tx(unsigned_tx)
         .map_err(|e| ArgumentError(e.to_string()))?;
     Ok(base64::engine::general_purpose::STANDARD.encode(psbt.serialize().as_slice()))
@@ -106,11 +109,8 @@ pub async fn build_reveal_transfer(
     let fees: Fees = fee.into();
     let receiver = read_state(|s| s.deposit_addr.clone().unwrap());
     let key_id = read_state(|s| s.ecdsa_key_name.clone());
-    let mut builder = OrdTransactionBuilder::p2tr(
-        PublicKey::from_str(deposit_pubkey().as_str()).unwrap(),
-        key_id,
-        deposit_addr(),
-    );
+    let mut builder = read_state(|s|s.temp_psbt_builder.get(&session_key).cloned())
+        .ok_or(ArgumentError("session key".to_string()))?;
     let commit_tx = read_state(|s| s.temp_psbt_state.get(&session_key).cloned())
         .ok_or(ArgumentError("session key".to_string()))?;
     let reveal_transaction = builder
@@ -136,7 +136,10 @@ pub async fn build_reveal_transfer(
         Psbt::from_unsigned_tx(transfer_trasaction).map_err(|e| ArgumentError(e.to_string()))?;
     let transfer_str =
         base64::engine::general_purpose::STANDARD.encode(psbt.serialize().as_slice());
-    mutate_state(|s| s.temp_psbt_state.remove(&session_key));
+    mutate_state(|s| {
+        s.temp_psbt_state.remove(&session_key);
+        s.temp_psbt_builder.remove(&session_key);
+    });
     let mut bytes = vec![];
     reveal_transaction.consensus_encode(&mut bytes).map_err(|e|ArgumentError(e.to_string()))?;
     let txs = vec![hex::encode(bytes), transfer_str];

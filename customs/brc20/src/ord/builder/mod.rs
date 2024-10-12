@@ -24,6 +24,8 @@ pub mod wallet;
 
 /// Ordinal-aware transaction builder for arbitrary (`Nft`)
 /// and `Brc20` inscriptions.
+///
+#[derive(Clone)]
 pub struct OrdTransactionBuilder {
     public_key: PublicKey,
     /// used to sign the reveal transaction when using P2TR
