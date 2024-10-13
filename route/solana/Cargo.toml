@@ -1,0 +1,53 @@
+[package]
+name = "solana_route"
+version = "0.1.0"
+edition = "2021"
+
+# [[bin]]
+# name = "solana_route"
+# path = "src/service.rs"
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = { version = "0.10" }
+ciborium = "0.2.1"
+ic-cdk = "0.14"
+serde = "1"
+serde_json = "^1.0.117"
+serde_bytes = "^0.11.14"
+ic-cdk-timers = "0.6"
+ic-stable-structures = "0.6"
+thiserror = "1"
+anyhow = "1.0.86"
+strum_macros = "0.25.3"
+strum = { version = "0.25.0", features = ["derive"] }
+sha2 = "0.10"
+hex = "0.4"
+ic-canister-log = "0.2"
+ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
+ic-management-canister-types = { git = "https://github.com/dfinity/ic", package = "ic-management-canister-types" }
+ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/metaplex", package = "ic-solana" }
+
+futures = "0.3.30"
+[patch.crates-io.curve25519-dalek]
+git = "https://github.com/solana-labs/curve25519-dalek.git"
+rev = "b500cdc2a920cd5bff9e2dd974d7b97349d61464"
+
+[profile.release]
+debug = false
+lto = true
+strip = true
+opt-level = 's'
+
+[dev-dependencies]
+ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
+#pocket-ic = "3.1.0"
+#solana-program = "2.0.0"
+#spl-token-2022 = { git = "https://github.com/solana-labs/solana-program-library.git" }
+# spl-token = { git = "https://github.com/solana-labs/solana-program-library.git", tag = "token-cli-v4.0.0", features = [
+#    "no-entrypoint",
+# ] }
+# solana-sdk = "1.18.8"
+# anchor-client = "0.30.1"

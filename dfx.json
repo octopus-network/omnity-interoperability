@@ -100,6 +100,18 @@
       "package": "rune_oracle_canister",
       "type": "rust"
     },
+    "solana_route": {
+      "type": "custom",
+      "candid": "route/solana/assets/solana_route.did",
+      "package": "solana_route",
+      "wasm": "route/solana/assets/solana_route.wasm.gz"
+    },
+    "ic-solana-provider": {
+      "type": "custom",
+      "candid": "route/solana/assets/ic-solana-provider.did",
+      "package": "ic-solana-provider",
+      "wasm": "route/solana/assets/ic-solana-provider.wasm.gz"
+    },
     "ckbtc_minter": {
       "gzip": true,
       "type": "custom",
