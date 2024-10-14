@@ -20,9 +20,9 @@ pub struct TxInfo {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct TxStatus {
     pub confirmed: bool,
-    pub block_height: u32,
-    pub block_hash: String,
-    pub block_time: u64,
+    pub block_height: Option<u64>,
+    pub block_hash: Option<String>,
+    pub block_time: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

@@ -102,7 +102,9 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
                         "Transformed response is not UTF-8 encoded".to_string(),
                     )
                 })?;
-                let tx: TxInfo = serde_json::from_str(&body).map_err(|_| {
+                log!(INFO, "tx content: {}", &body);
+                let tx: TxInfo = serde_json::from_str(&body).map_err(|e| {
+                    log!(CRITICAL, "json error {:?}", e);
                     GenerateTicketError::RpcError(
                         "failed to decode transaction from json".to_string(),
                     )

@@ -41,7 +41,6 @@ type GenerateTicketError = variant {
   UnsupportedChainId : text;
   UnsupportedToken : text;
 };
-type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record {
   hub_principal : principal;
   network : Network_1;
@@ -92,20 +91,6 @@ type StateProfile = record {
   indexer_principal : principal;
   deposit_pubkey : opt text;
 };
-type Ticket = record {
-  token : text;
-  action : TxAction;
-  dst_chain : text;
-  memo : opt blob;
-  ticket_id : text;
-  sender : opt text;
-  ticket_time : nat64;
-  ticket_type : TicketType;
-  src_chain : text;
-  amount : text;
-  receiver : text;
-};
-type TicketType = variant { Resubmit; Normal };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -120,13 +105,6 @@ type TokenResp = record {
   icon : opt text;
   symbol : text;
 };
-type TxAction = variant {
-  Burn;
-  Redeem;
-  Mint;
-  RedeemIcpChainKeyAssets : IcpChainKeyToken;
-  Transfer;
-};
 type UtxoArgs = record { id : text; index : nat32; amount : nat64 };
 service : (InitArgs) -> {
   brc20_state : () -> (StateProfile) query;
@@ -135,15 +113,12 @@ service : (InitArgs) -> {
     );
   build_reveal_transfer : (text, text) -> (Result_1);
   finalized_unlock_tickets : (nat64) -> (text) query;
-  generate_deposit_addr : () -> (opt text, opt text);
   generate_ticket : (GenerateTicketArgs) -> (Result_2);
+  get_deposit_addr : () -> (opt text);
   get_token_list : () -> (vec TokenResp) query;
   pending_unlock_tickets : (nat64) -> (text) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   resend_unlock_ticket : (nat64) -> (text);
-  test_create_tx : (Ticket, nat64) -> ();
-  test_finalize_lock : () -> ();
-  test_update_utxos : () -> (text);
   transfer_fee : (text) -> (nat64);
   update_brc20_indexer : (principal) -> ();
   update_fees : (vec UtxoArgs) -> ();
