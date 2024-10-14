@@ -72,7 +72,7 @@ pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketEr
             panic!("unsupported network")
         }
     };
-    const MAX_CYCLES: u128 = 30_000_000_000;
+    const MAX_CYCLES: u128 = 60_000_000_000;
     let url = format!("https://mempool.space/{}/api/tx/{}", network_str, txid);
 
     let request = CanisterHttpRequestArgument {
