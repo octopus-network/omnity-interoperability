@@ -142,6 +142,7 @@ service : (InitArgs) -> {
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   resend_unlock_ticket : (nat64) -> (text);
   test_create_tx : (Ticket, nat64) -> ();
+  test_finalize_lock : () -> ();
   test_update_utxos : () -> (text);
   transfer_fee : (text) -> (nat64);
   update_brc20_indexer : (principal) -> ();

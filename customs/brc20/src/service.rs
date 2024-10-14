@@ -16,6 +16,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use omnity_types::{Network, Seq, Ticket, TokenId};
+use crate::bitcoin_to_custom::finalize_lock_ticket_request;
 use crate::custom_to_bitcoin::CustomToBitcoinResult;
 
 #[init]
@@ -116,11 +117,15 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
     }
 }
 
-#[update]
+#[update(guard = "is_admin")]
 pub fn update_brc20_indexer(principal: Principal) {
     mutate_state(|s|s.indexer_principal = principal);
 }
 
+#[update(guard = "is_admin")]
+pub async fn test_finalize_lock() {
+    finalize_lock_ticket_request().await
+}
 #[update]
 pub async fn transfer_fee(session_key: String) -> u64 {
     3333
@@ -197,6 +202,7 @@ fn get_token_list() -> Vec<TokenResp> {
             .collect()
     })
 }
+
 
 #[derive(CandidType, Deserialize)]
 pub struct InitArgs {

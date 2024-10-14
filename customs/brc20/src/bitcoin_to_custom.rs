@@ -139,6 +139,7 @@ pub async fn finalize_lock_ticket_request() {
             .map(|req| (*req.0, req.1.clone()))
             .collect::<Vec<(Txid, LockTicketRequest)>>()
     });
+    log!(INFO, "selected pending lock_tickets size {}", can_check_finalizations.len());
     let deposit_addr = read_state(|s| s.deposit_addr.clone().unwrap());
     for (seq, gen_ticket_request) in can_check_finalizations.clone() {
         let token = read_state(|s| s.tokens.get(&gen_ticket_request.token_id).cloned());
@@ -157,7 +158,7 @@ pub async fn finalize_lock_ticket_request() {
                     token.decimals,
                 );
                 let query = query_indexed_transfer(args).await;
-                if let Ok(Some(_t)) = query {
+                if let Ok(Some(t)) = query {
                     //Check success
                     //FINALIZED TO HUB:
                     let hub_principal = read_state(|s| s.hub_principal);
@@ -171,6 +172,7 @@ pub async fn finalize_lock_ticket_request() {
                         let v = s.pending_lock_ticket_requests.remove(&seq);
                         s.finalized_lock_ticket_requests.insert(seq, v.unwrap());
                     });
+                    log!(INFO, "lock ticket finalized:{:?}", t);
                 } else {
                     log!(
                         WARNING,
