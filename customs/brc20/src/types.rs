@@ -7,9 +7,28 @@ use std::str::FromStr;
 use crate::ord::builder::fees::Fees;
 use crate::ord::builder::Utxo;
 use omnity_types::brc20::QueryBrc20TransferArgs;
-use omnity_types::TokenId;
+use omnity_types::{Token, TokenId};
 
 pub type Brc20Ticker = String;
+
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+pub struct TokenResp {
+    pub token_id: TokenId,
+    pub symbol: String,
+    pub decimals: u8,
+    pub icon: Option<String>,
+}
+
+impl From<Token> for TokenResp {
+    fn from(value: Token) -> Self {
+        TokenResp {
+            token_id: value.token_id,
+            symbol: value.symbol,
+            decimals: value.decimals,
+            icon: value.icon,
+        }
+    }
+}
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Deserialize)]
 pub enum ReleaseTokenStatus {

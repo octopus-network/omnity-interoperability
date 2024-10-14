@@ -10,7 +10,7 @@ use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
 };
 use crate::tasks::start_tasks;
-use crate::types::{FeesArgs, ReleaseTokenStatus, UtxoArgs};
+use crate::types::{FeesArgs, ReleaseTokenStatus, UtxoArgs, TokenResp};
 use bitcoin::hashes::Hash;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
@@ -183,6 +183,19 @@ pub async fn resend_unlock_ticket(seq: Seq) -> String {
         .unwrap();
     mutate_state(|s| s.flight_unlock_ticket_map.insert(seq, r.clone()));
     serde_json::to_string(&r).unwrap()
+}
+
+#[query]
+fn get_token_list() -> Vec<TokenResp> {
+    read_state(|s| {
+        s.tokens
+            .iter()
+            .map(|(token_id, token)| {
+                let mut resp: TokenResp = token.clone().into();
+                resp
+            })
+            .collect()
+    })
 }
 
 #[derive(CandidType, Deserialize)]
