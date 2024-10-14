@@ -48,44 +48,16 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
     crate::generate_ticket::generate_ticket(req).await
 }
+
 #[update(guard = "is_admin")]
-pub async fn generate_deposit_addr() -> (Option<String>, Option<String>) {
+pub async fn get_deposit_addr() -> Option<String> {
     init_ecdsa_public_key().await;
-    read_state(|s| (s.deposit_addr.clone(), s.deposit_pubkey.clone()))
+    read_state(|s| s.deposit_addr.clone())
 }
 
 #[query(guard = "is_admin")]
 pub fn brc20_state() -> StateProfile {
     read_state(|s| StateProfile::from(s))
-}
-
-#[update]
-pub async fn test_create_tx(ticket: Ticket, seq: Seq) {
-    mutate_state(|s| s.tickets_queue.insert(seq, ticket));
-}
-
-#[update]
-pub async fn test_update_utxos() -> String {
-    let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
-    let utxos = get_utxos(nw, &deposit_addr, 0u32).await;
-    match utxos.clone() {
-        Ok(r) => {
-            let v = r
-                .utxos
-                .into_iter()
-                .map(|u| Utxo {
-                    id: Txid::from_slice(u.outpoint.txid.as_ref()).unwrap(),
-                    index: u.outpoint.vout,
-                    amount: Amount::from_sat(u.value),
-                })
-                .collect::<Vec<Utxo>>();
-            mutate_state(|s| s.deposit_addr_utxo = v.clone());
-            serde_json::to_string(&v).unwrap()
-        }
-        Err(e) => {
-            panic!("query utxo error {:?}", e);
-        }
-    }
 }
 
 #[query]
@@ -122,10 +94,6 @@ pub fn update_brc20_indexer(principal: Principal) {
     mutate_state(|s|s.indexer_principal = principal);
 }
 
-#[update(guard = "is_admin")]
-pub async fn test_finalize_lock() {
-    finalize_lock_ticket_request().await
-}
 #[update]
 pub async fn transfer_fee(session_key: String) -> u64 {
     3333

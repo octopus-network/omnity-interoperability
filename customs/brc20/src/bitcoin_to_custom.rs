@@ -139,7 +139,6 @@ pub async fn finalize_lock_ticket_request() {
             .map(|req| (*req.0, req.1.clone()))
             .collect::<Vec<(Txid, LockTicketRequest)>>()
     });
-    log!(INFO, "selected pending lock_tickets size {}", can_check_finalizations.len());
     let deposit_addr = read_state(|s| s.deposit_addr.clone().unwrap());
     for (seq, gen_ticket_request) in can_check_finalizations.clone() {
         let token = read_state(|s| s.tokens.get(&gen_ticket_request.token_id).cloned());
