@@ -13,10 +13,7 @@ use bitcoin_customs::updates::{
     get_btc_address::GetBtcAddressArgs,
     update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
-use bitcoin_customs::{
-    process_directive_msg_task, process_ticket_msg_task, process_tx_task, refresh_fee_task,
-    CustomsInfo, TokenResp, FEE_ESTIMATE_DELAY, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES,
-};
+use bitcoin_customs::{process_directive_msg_task, process_ticket_msg_task, process_tx_task, refresh_fee_task, CustomsInfo, TokenResp, FEE_ESTIMATE_DELAY, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES, INTERVAL_FINALIZE_BITCOIN_TXS, finalize_bitcoin_txs};
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage,
@@ -45,6 +42,7 @@ fn init(args: CustomArg) {
             set_timer_interval(INTERVAL_PROCESSING, process_ticket_msg_task);
             set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_directive_msg_task);
             set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
+            set_timer_interval(INTERVAL_FINALIZE_BITCOIN_TXS, finalize_bitcoin_txs);
 
             #[cfg(feature = "self_check")]
             ok_or_die(check_invariants())
@@ -113,6 +111,7 @@ fn post_upgrade(custom_arg: Option<CustomArg>) {
     set_timer_interval(INTERVAL_PROCESSING, process_ticket_msg_task);
     set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_directive_msg_task);
     set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
+    set_timer_interval(INTERVAL_FINALIZE_BITCOIN_TXS, finalize_bitcoin_txs);
 }
 
 #[update]
