@@ -1,5 +1,5 @@
 {
-  "dfx": "0.22.0",
+  "dfx": "0.23.0",
   "canisters": {
     "evm_route": {
       "candid": "evm_route.did",

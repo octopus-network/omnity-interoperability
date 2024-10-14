@@ -1,5 +1,5 @@
 {
-  "dfx": "0.22.0",
+  "dfx": "0.23.0",
   "canisters": {
     "icrc1_ledger_canister": {
       "type": "custom",
@@ -141,15 +141,6 @@
     "build": {
       "packtool": "",
       "args": ""
-    }
-  },
-  "networks": {
-    "local": {
-      "bind": "127.0.0.1:4943",
-      "type": "ephemeral",
-      "replica": {
-        "subnet_type": "system"
-      }
     }
   },
   "output_env_file": ".env",
