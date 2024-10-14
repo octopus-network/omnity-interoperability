@@ -124,6 +124,12 @@ export const idlFactory = ({ IDL }) => {
     'Ok' : IDL.Null,
     'Err' : GenerateTicketError,
   });
+  const TokenResp = IDL.Record({
+    'decimals' : IDL.Nat8,
+    'token_id' : IDL.Text,
+    'icon' : IDL.Opt(IDL.Text),
+    'symbol' : IDL.Text,
+  });
   const ReleaseTokenStatus = IDL.Variant({
     'Signing' : IDL.Null,
     'Confirmed' : IDL.Text,
@@ -180,6 +186,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'generate_ticket' : IDL.Func([GenerateTicketArgs], [Result_2], []),
+    'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'pending_unlock_tickets' : IDL.Func([IDL.Nat64], [IDL.Text], ['query']),
     'release_token_status' : IDL.Func(
         [IDL.Text],

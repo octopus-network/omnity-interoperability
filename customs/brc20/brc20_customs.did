@@ -114,6 +114,12 @@ type Token = record {
   name : text;
   symbol : text;
 };
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  symbol : text;
+};
 type TxAction = variant {
   Burn;
   Redeem;
@@ -131,6 +137,7 @@ service : (InitArgs) -> {
   finalized_unlock_tickets : (nat64) -> (text) query;
   generate_deposit_addr : () -> (opt text, opt text);
   generate_ticket : (GenerateTicketArgs) -> (Result_2);
+  get_token_list : () -> (vec TokenResp) query;
   pending_unlock_tickets : (nat64) -> (text) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   resend_unlock_ticket : (nat64) -> (text);

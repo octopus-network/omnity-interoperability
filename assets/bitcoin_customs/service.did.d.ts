@@ -129,6 +129,12 @@ export interface Token {
   'name' : string,
   'symbol' : string,
 }
+export interface TokenResp {
+  'decimals' : number,
+  'token_id' : string,
+  'icon' : [] | [string],
+  'symbol' : string,
+}
 export type TxAction = { 'Burn' : null } |
   { 'Redeem' : null } |
   { 'Mint' : null } |
@@ -145,6 +151,7 @@ export interface _SERVICE {
   'finalized_unlock_tickets' : ActorMethod<[bigint], string>,
   'generate_deposit_addr' : ActorMethod<[], [[] | [string], [] | [string]]>,
   'generate_ticket' : ActorMethod<[GenerateTicketArgs], Result_2>,
+  'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'pending_unlock_tickets' : ActorMethod<[bigint], string>,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
   'resend_unlock_ticket' : ActorMethod<[bigint], string>,
