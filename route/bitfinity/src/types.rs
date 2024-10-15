@@ -72,7 +72,6 @@ pub struct TokenResp {
     pub evm_contract: Option<String>,
 }
 
-
 impl From<Token> for TokenResp {
     fn from(value: Token) -> Self {
         TokenResp {
