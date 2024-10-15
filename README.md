@@ -1,6 +1,6 @@
 # Omnity Interoperability
 
-Omnity is an omni-chain interoperability protocol built by Octopus Network on the Internet Computer (IC) specially designed to fit the modular blockchain landscape. It is implemented by a set of smart contracts deployed on IC.
+Omnity is an omni-chain interoperability protocol built by Omnity Network on the Internet Computer (IC) specially designed to fit the modular blockchain landscape. It is implemented by a set of smart contracts deployed on IC.
 
 ## High-level Design
 
