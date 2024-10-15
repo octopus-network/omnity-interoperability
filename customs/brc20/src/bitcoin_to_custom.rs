@@ -137,7 +137,11 @@ pub async fn finalize_lock_ticket_request() {
         let wait_time = finalization_time_estimate(s.min_confirmations, s.btc_network);
         s.pending_lock_ticket_requests
             .iter()
-            .filter(|&req| (req.1.received_at + (wait_time.as_nanos() as u64) < now))
+            .filter(|&req| {
+                let wait_time = wait_time.as_nanos() as u64;
+                (req.1.received_at + wait_time < now) &&
+                    (req.1.received_at + wait_time*6 > now)
+            })
             .map(|req| (*req.0, req.1.clone()))
             .collect::<Vec<(Txid, LockTicketRequest)>>()
     });
