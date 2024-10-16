@@ -13,7 +13,7 @@ thiserror = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 omnity_types = { path = "../../types" }
-# near dependencies
+# near dependencies, please use the up-to-date version to avoid dependabot alerts.
 near-client = { git = "https://github.com/octopus-network/near-light-client-rs.git", package = "near-light-client", branch = "main" }
 near-primitives = "0.19"
 near-crypto = "0.19"
