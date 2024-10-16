@@ -14,7 +14,7 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 omnity_types = { path = "../../types" }
 # near dependencies
-near-client = { git = "https://github.com/octopus-network/near-light-client-rs.git", package = "near-light-client", branch = "main" }
+near-client = "0.7.2"
 near-primitives = "0.26.0"
 near-crypto = "0.19"
 borsh = { version = "1.1", default-features = false, features = ["derive"] }
