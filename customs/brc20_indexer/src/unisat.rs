@@ -92,7 +92,7 @@ pub async fn unisat_query_transfer_event(query_transfer_args: QueryBrc20Transfer
                 let resp = data.detail;
                 log!(INFO, "{}", serde_json::to_string(&resp).unwrap());
                 for event in resp {
-                    if event.check(&query_transfer_args)  && data.height - event.height >= 4 {
+                    if event.check(&query_transfer_args)  {
                         return Some(event.into());
                     }
                 }

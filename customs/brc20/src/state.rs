@@ -53,6 +53,7 @@ pub struct Brc20State {
     pub flight_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
     pub finalized_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
     pub ticket_id_seq_indexer: BTreeMap<TicketId, Seq>,
+
     //lock tickets storage
     pub pending_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
     pub finalized_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,

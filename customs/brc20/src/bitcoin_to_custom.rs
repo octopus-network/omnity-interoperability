@@ -146,50 +146,53 @@ pub async fn finalize_lock_ticket_request() {
             .collect::<Vec<(Txid, LockTicketRequest)>>()
     });
     let deposit_addr = read_state(|s| s.deposit_addr.clone().unwrap());
-    for (seq, gen_ticket_request) in can_check_finalizations.clone() {
-        let token = read_state(|s| s.tokens.get(&gen_ticket_request.token_id).cloned());
-        match token {
-            None => {
-                log!(
+    for (txid, gen_ticket_request) in can_check_finalizations.clone() {
+        finalize_lock(txid, gen_ticket_request, deposit_addr.clone()).await;
+    }
+}
+
+pub async fn finalize_lock(txid: Txid, gen_ticket_request: LockTicketRequest, deposit_addr: String ) {
+    let token = read_state(|s| s.tokens.get(&gen_ticket_request.token_id).cloned());
+    match token {
+        None => {
+            log!(
                     WARNING,
                     "don't found a token named {}",
                     &gen_ticket_request.token_id
                 );
-            }
-            Some(token) => {
-                let args = create_query_brc20_transfer_args(
-                    gen_ticket_request.clone(),
-                    deposit_addr.clone(),
-                    token.decimals,
-                );
-                let query = query_indexed_transfer(args).await;
-                if let Ok(Some(t)) = query {
-                    //Check success
-                    //FINALIZED TO HUB:
-                    let hub_principal = read_state(|s| s.hub_principal);
-                    let _r =
-                        hub::finalize_ticket(hub_principal, gen_ticket_request.txid.to_string())
-                            .await
-                            .map_err(|e| {
-                                log!(CRITICAL, "finalize gen ticket to hub error: {:?}", &e);
-                            });
-                    mutate_state(|s| {
-                        let v = s.pending_lock_ticket_requests.remove(&seq);
-                        s.finalized_lock_ticket_requests.insert(seq, v.unwrap());
-                    });
-                    log!(INFO, "lock ticket finalized:{:?}", t);
-                } else {
-                    log!(
+        }
+        Some(token) => {
+            let args = create_query_brc20_transfer_args(
+                gen_ticket_request.clone(),
+                deposit_addr.clone(),
+                token.decimals,
+            );
+            let query = query_indexed_transfer(args).await;
+            if let Ok(Some(t)) = query {
+                //Check success
+                //FINALIZED TO HUB:
+                let hub_principal = read_state(|s| s.hub_principal);
+                let _r =
+                    hub::finalize_ticket(hub_principal, gen_ticket_request.txid.to_string())
+                        .await
+                        .map_err(|e| {
+                            log!(CRITICAL, "finalize gen ticket to hub error: {:?}", &e);
+                        });
+                mutate_state(|s| {
+                    let v = s.pending_lock_ticket_requests.remove(&txid);
+                    s.finalized_lock_ticket_requests.insert(txid, v.unwrap());
+                });
+                log!(INFO, "lock ticket finalized:{:?}", t);
+            } else {
+                log!(
                         WARNING,
                         "query indexer failed, will retry. {}",
                         serde_json::to_string(&gen_ticket_request).unwrap()
                     );
-                }
             }
         }
     }
 }
-
 pub async fn query_indexed_transfer(
     args: QueryBrc20TransferArgs,
 ) -> Result<Option<Brc20TransferEvent>, CallError> {

@@ -1,7 +1,7 @@
-use bitcoin::{Amount, Txid};
+use bitcoin::{Amount};
 use candid::{CandidType, Deserialize, Principal};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
-
+use std::str::FromStr;
 use crate::constants::DEFAULT_FEE;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use crate::management::get_utxos;
@@ -12,11 +12,12 @@ use crate::state::{
 use crate::tasks::start_tasks;
 use crate::types::{FeesArgs, ReleaseTokenStatus, UtxoArgs, TokenResp};
 use bitcoin::hashes::Hash;
+use ic_btc_interface::Txid;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use omnity_types::{Network, Seq, Ticket, TokenId};
-use crate::bitcoin_to_custom::finalize_lock_ticket_request;
+use crate::bitcoin_to_custom::{finalize_lock, finalize_lock_ticket_request};
 use crate::custom_to_bitcoin::CustomToBitcoinResult;
 
 #[init]
@@ -49,8 +50,14 @@ pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<(), GenerateTick
     crate::generate_ticket::generate_ticket(req).await
 }
 
+#[query]
+pub  fn get_deposit_addr() -> (String, String) {
+    init_ecdsa_public_key().await;
+    read_state(|s| (s.deposit_addr.clone().unwrap(), s.deposit_pubkey.clone().unwrap()))
+}
+
 #[update(guard = "is_admin")]
-pub async fn get_deposit_addr() -> (String, String) {
+pub async fn generate_deposit_addr() -> (String, String) {
     init_ecdsa_public_key().await;
     read_state(|s| (s.deposit_addr.clone().unwrap(), s.deposit_pubkey.clone().unwrap()))
 }
@@ -90,53 +97,11 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
 }
 
 #[update(guard = "is_admin")]
-pub fn update_brc20_indexer(principal: Principal) {
-    mutate_state(|s|s.indexer_principal = principal);
-}
-
-#[update]
-pub async fn transfer_fee(session_key: String) -> u64 {
-    3333
-}
-
-#[update]
-pub async fn build_commit_tx(
-    session_key: String,
-    vins: Vec<UtxoArgs>,
-    token_id: TokenId,
-    amount: String,
-    sender: String,
-    target_chain: String,
-    receiver: String,
-) -> CustomToBitcoinResult<String> {
-    let fee = FeesArgs {
-        commit_fee: 1000,
-        reveal_fee: 1000,
-        spend_fee: 1000,
-    };
-    crate::psbt::build_commit(
-        session_key,
-        vins,
-        token_id,
-        amount,
-        sender,
-        target_chain,
-        receiver,
-        fee,
-    ).await
-}
-
-#[update]
-pub async fn build_reveal_transfer(session_key: String,
-                                   commit_tx_id: String,) -> CustomToBitcoinResult<Vec<String>>{
-    let fee = FeesArgs {
-        commit_fee: 1000,
-        reveal_fee: 1000,
-        spend_fee: 1000,
-    };
-    crate::psbt::build_reveal_transfer(
-        session_key, commit_tx_id, fee
-    ).await
+pub async fn finalize_lock_request(txid: String) {
+    let txid = Txid::from_str(txid.as_str()).unwrap();
+    let deposit = read_state(|s|s.deposit_addr.clone().unwrap());
+    let req = read_state(|s|s.pending_lock_ticket_requests.get(&txid).cloned().unwrap());
+    finalize_lock(txid, req, deposit).await;
 }
 
 #[query(hidden = true)]
@@ -170,7 +135,6 @@ fn get_token_list() -> Vec<TokenResp> {
             .collect()
     })
 }
-
 
 #[derive(CandidType, Deserialize)]
 pub struct InitArgs {
