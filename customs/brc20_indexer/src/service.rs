@@ -68,11 +68,6 @@ pub fn proxy_url() -> String {
     crate::state::proxy_url()
 }
 
-#[query]
-pub fn test_query() -> u64 {
-    10
-}
-
 pub fn is_controller() -> Result<(), String> {
     if ic_cdk::api::is_controller(&ic_cdk::caller()) {
         Ok(())

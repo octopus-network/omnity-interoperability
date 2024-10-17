@@ -25,7 +25,7 @@ pub mod constants {
     pub const FETCH_HUB_TICKET_NAME: &str = "FETCH_HUB_TICKET";
     pub const FETCH_HUB_DIRECTIVE_NAME: &str = "FETCH_HUB_DIRECTIVE";
     pub const FINALIZE_LOCK_TICKET_NAME: &str = "FINALIZE_GENERATE_TICKET_NAME";
-    pub const FINALIZE_LOCK_TICKET_INTERVAL: u64 = 120;
+    pub const FINALIZE_LOCK_TICKET_INTERVAL: u64 = 300;
     pub const FINALIZE_UNLOCK_TICKET_NAME: &str = "FINALIZE_UNLOCK_TICKET_NAME";
     pub const FINALIZE_UNLOCK_TICKET_INTERVAL: u64 = 600;
     pub const SUBMIT_UNLOCK_TICKETS_NAME: &str = "SUBMIT_UNLOCK_TICKETS_NAME";
@@ -36,13 +36,19 @@ pub mod constants {
     pub const SEC_NANOS: u64 = 1_000_000_000;
     pub const MIN_NANOS: u64 = 60 * SEC_NANOS;
     pub const COMMIT_TX_VBYTES: u64 = 153;
-    pub const REVEAL_TX_VBYTES: u64 = 161;
-    pub const TRANSFER_TX_VBYTES: u64 = 208;
     pub const DEFAULT_FEE: Fees = Fees {
         commit_fee: Amount::from_sat(1000),
         reveal_fee: Amount::from_sat(1000),
         spend_fee: Amount::from_sat(1000),
     };
+
+    pub const INPUT_SIZE_VBYTES: u64 = 68;
+    pub const OUTPUT_SIZE_VBYTES: u64 = 31;
+    pub const TX_OVERHEAD_VBYTES: u64 = 11;
+    pub const REVEAL_TX_VBYTES: u64 = 170;
+    pub const TRANSFER_TX_VBYTES: u64 = 120;
+    pub const FIXED_COMMIT_TX_VBYTES: u64 = 2 * OUTPUT_SIZE_VBYTES + TX_OVERHEAD_VBYTES + REVEAL_TX_VBYTES + TRANSFER_TX_VBYTES;
+
 }
 
 pub mod retry {

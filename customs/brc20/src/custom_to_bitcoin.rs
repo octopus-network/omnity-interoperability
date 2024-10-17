@@ -13,7 +13,7 @@ use thiserror::Error;
 
 use crate::bitcoin_to_custom::query_transaction;
 use crate::call_error::CallError;
-use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME, SUBMIT_UNLOCK_TICKETS_NAME};
+use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME, FIXED_COMMIT_TX_VBYTES, INPUT_SIZE_VBYTES, OUTPUT_SIZE_VBYTES, REVEAL_TX_VBYTES, SUBMIT_UNLOCK_TICKETS_NAME, TRANSFER_TX_VBYTES, TX_OVERHEAD_VBYTES};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use omnity_types::{Seq, Ticket};
 
@@ -23,7 +23,7 @@ use crate::custom_to_bitcoin::CustomToBitcoinError::{
 
 use crate::hub::update_tx_hash;
 use crate::management::get_fee_utxos;
-use crate::ord::builder::fees::{calc_fees, Fees};
+use crate::ord::builder::fees::Fees;
 use crate::ord::builder::signer::MixSigner;
 use crate::ord::builder::spend_transaction::spend_utxo_transaction;
 use crate::ord::builder::{
@@ -38,6 +38,7 @@ use crate::state::{
     bitcoin_network, deposit_addr, deposit_pubkey, finalization_time_estimate, mutate_state,
     read_state,
 };
+
 
 #[derive(Error, Debug, CandidType)]
 pub enum CustomToBitcoinError {
@@ -65,30 +66,10 @@ pub async fn send_tickets_to_bitcoin() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     if from < to {
-        //  let (nw, deposit_addr) = read_state(|s| (s.btc_network, s.deposit_addr.clone().unwrap()));
-        /*   let utxos = get_fee_utxos(nw, &deposit_addr, 0u32).await;
-        match utxos {
-            Ok(r) => {
-                let v = r
-                    .utxos
-                    .into_iter()
-                    .map(|u| Utxo {
-                        id: Txid::from_slice(u.outpoint.txid.as_ref()).unwrap(),
-                        //u.outpoint.txid.into(),
-                        index: u.outpoint.vout,
-                        amount: Amount::from_sat(u.value),
-                    })
-                    .collect();
 
-                mutate_state(|s| s.deposit_addr_utxo = v);
-            }
-            Err(_) => {
-                return;
-            }
-        }*/
-        let fees = calc_fees(bitcoin_network()).await;
+        let fee_rate = estimate_fee_per_vbyte().await/1000;
         for seq in from..to {
-            let r = process_unlock_ticket(seq, &fees).await;
+            let r = process_unlock_ticket(seq, fee_rate).await;
             match r {
                 Ok(_) => {
                     mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
@@ -102,8 +83,8 @@ pub async fn send_tickets_to_bitcoin() {
     }
 }
 
-pub async fn process_unlock_ticket(seq: Seq, fees: &Fees) -> Result<(), CustomToBitcoinError> {
-    let res = submit_unlock_ticket(seq, fees).await;
+pub async fn process_unlock_ticket(seq: Seq, fee_rate: u64) -> Result<(), CustomToBitcoinError> {
+    let res = submit_unlock_ticket(seq, fee_rate).await;
     if res.is_err() {
         let err = res.err().unwrap();
         log!(CRITICAL, "send ticket to bitcoin failed {}, {}", seq, &err);
@@ -178,7 +159,7 @@ pub async fn finalize_flight_unlock_tickets() {
 
 pub async fn submit_unlock_ticket(
     seq: Seq,
-    fees: &Fees,
+    fee_rate: u64,
 ) -> Result<Option<SendTicketResult>, CustomToBitcoinError> {
     let ticket = read_state(|s| s.tickets_queue.get(&seq));
     match ticket {
@@ -190,8 +171,9 @@ pub async fn submit_unlock_ticket(
             if read_state(|s| s.flight_unlock_ticket_map.get(&seq).is_some()) {
                 return Ok(None);
             }
-            let mut vins = select_fee_txins(fees)?;
-            let tx_vec = generate_brc20_transactions(vins.clone(), fees, &t)
+            let mut vins = select_utxos(fee_rate, FIXED_COMMIT_TX_VBYTES)?;
+            let fees= create_fees(vins.len() as u64, fee_rate);
+            let tx_vec = generate_brc20_transactions(vins.clone(), &fees, &t)
                 .await
                 .map_err(|e| {
                     mutate_state(|s| s.deposit_addr_utxo.append(&mut vins));
@@ -319,17 +301,13 @@ pub async fn build_transfer_transfer(
     Ok(transfer)
 }
 
-pub fn select_fee_txins(fees: &Fees) -> Result<Vec<Utxo>, CustomToBitcoinError> {
-    let total_reqiured =
-        POSTAGE + fees.sum();
-    select_utxos(total_reqiured)
-}
 
-pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
+pub fn select_utxos(fee_rate: u64, fixed_size: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
     let mut selected_utxos: Vec<Utxo> = vec![];
     let mut selected_amount = 0u64;
+    let mut estimate_size = fixed_size;
     mutate_state(|s| loop {
-        if selected_amount > fee {
+        if selected_amount >= fee_rate * estimate_size +POSTAGE {
             return Ok(selected_utxos);
         }
         let u = s.deposit_addr_utxo.pop();
@@ -340,6 +318,7 @@ pub fn select_utxos(fee: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
             Some(utxo) => {
                 selected_amount += utxo.amount.to_sat();
                 selected_utxos.push(utxo);
+                estimate_size += INPUT_SIZE_VBYTES;
             }
         }
     })
@@ -370,26 +349,26 @@ pub fn submit_unlock_tickets_task() {
 /// Returns an estimate for transaction fees in millisatoshi per vbyte. Returns
 /// None if the bitcoin canister is unavailable or does not have enough data for
 /// an estimate yet.
-pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
+pub async fn estimate_fee_per_vbyte() -> MillisatoshiPerByte {
     /// The default fee we use on regtest networks if there are not enough data
     /// to compute the median fee.
-    const DEFAULT_FEE: MillisatoshiPerByte = 5_000;
+    const DEFAULT_FEE: MillisatoshiPerByte = 12_000;
 
     let btc_network = state::read_state(|s| s.btc_network);
     match management::get_current_fees(btc_network).await {
         Ok(fees) => {
             if btc_network == Network::Regtest {
-                return Some(DEFAULT_FEE);
+                return DEFAULT_FEE;
             }
             if fees.len() >= 100 {
-                Some(fees[50])
+                fees[50]
             } else {
                 log!(
                     ERROR,
                     "[estimate_fee_per_vbyte]: not enough data points ({}) to compute the fee",
                     fees.len()
                 );
-                None
+                DEFAULT_FEE
             }
         }
         Err(err) => {
@@ -398,7 +377,20 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
                 "[estimate_fee_per_vbyte]: failed to get median fee per vbyte: {}",
                 err
             );
-            None
+            DEFAULT_FEE
         }
     }
+}
+
+
+pub fn create_fees(input_count: u64, fee_rate: u64) -> Fees {
+    Fees {
+        commit_fee: Amount::from_sat(estimate_commit_size(input_count) * fee_rate),
+        reveal_fee: Amount::from_sat(REVEAL_TX_VBYTES * fee_rate),
+        spend_fee: Amount::from_sat(TRANSFER_TX_VBYTES * fee_rate),
+    }
+}
+
+pub fn estimate_commit_size(input_count: u64) -> u64 {
+    input_count * INPUT_SIZE_VBYTES + 2 * OUTPUT_SIZE_VBYTES + TX_OVERHEAD_VBYTES
 }

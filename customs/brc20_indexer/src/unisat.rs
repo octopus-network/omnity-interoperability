@@ -2,7 +2,7 @@ use candid::{CandidType};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use serde::{Deserialize, Serialize};
-use omnity_types::ic_log::ERROR;
+use omnity_types::ic_log::{ERROR, INFO};
 use crate::service::{Brc20TransferEvent, QueryBrc20TransferArgs};
 use crate::state::{api_key, BitcoinNetwork, proxy_url, read_state};
 
@@ -90,11 +90,13 @@ pub async fn unisat_query_transfer_event(query_transfer_args: QueryBrc20Transfer
             if c.is_ok() {
                 let data = c.data.unwrap();
                 let resp = data.detail;
+                log!(INFO, "{}", serde_json::to_string(&resp).unwrap());
                 for event in resp {
                     if event.check(&query_transfer_args)  && data.height - event.height >= 4 {
                         return Some(event.into());
                     }
                 }
+                log!(INFO, "a");
                 None
             }else {
                 log!(ERROR, "unisat query result error: {:?}", serde_json::to_string(&c));
@@ -115,7 +117,7 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
     }.to_string();
     let api_key = api_key(RPC_NAME);
     let proxy_url = proxy_url();
-    let uri = format!("/v1/indexer/address/{}/brc20/{}/history?type=receive&start=0&limit=50",query_transfer_args.to_addr, query_transfer_args.ticker);
+    let uri = format!("/v1/indexer/brc20/{}/tx/{}/history?type=transfer&start=0&limit=16", query_transfer_args.ticker, query_transfer_args.tx_id);
     let url = format!("{proxy_url}{}",uri.clone());
     const MAX_CYCLES: u128 = 25_000_000_000;
 
@@ -158,6 +160,7 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
                         "Transformed response is not UTF-8 encoded".to_string(),
                     )
                 })?;
+                log!(INFO, "{}",body.clone());
                 let tx: CommonResponse<QueryBrc20EventResponse> = serde_json::from_str(&body).map_err(|_| {
                     UnisatError::Rpc(
                         "failed to decode transaction from json".to_string(),

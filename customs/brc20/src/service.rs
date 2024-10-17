@@ -50,9 +50,9 @@ pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<(), GenerateTick
 }
 
 #[update(guard = "is_admin")]
-pub async fn get_deposit_addr() -> Option<String> {
+pub async fn get_deposit_addr() -> (String, String) {
     init_ecdsa_public_key().await;
-    read_state(|s| s.deposit_addr.clone())
+    read_state(|s| (s.deposit_addr.clone().unwrap(), s.deposit_pubkey.clone().unwrap()))
 }
 
 #[query(guard = "is_admin")]
@@ -149,8 +149,8 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
 }
 
 #[update(guard = "is_admin")]
-pub async fn resend_unlock_ticket(seq: Seq) -> String {
-    let r = crate::custom_to_bitcoin::submit_unlock_ticket(seq, &DEFAULT_FEE)
+pub async fn resend_unlock_ticket(seq: Seq, fee_rate: u64) -> String {
+    let r = crate::custom_to_bitcoin::submit_unlock_ticket(seq, fee_rate)
         .await
         .unwrap()
         .unwrap();

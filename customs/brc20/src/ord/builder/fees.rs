@@ -28,25 +28,3 @@ pub struct MultisigConfig {
     pub total: usize,
 }
 
-pub async fn calc_fees(network: Network) -> Fees {
-    match network {
-        Network::Bitcoin => {
-            let r = estimate_fee_per_vbyte().await;
-            match r {
-                None => DEFAULT_FEE,
-                Some(v_price) => Fees {
-                    commit_fee: Amount::from_sat(COMMIT_TX_VBYTES * v_price / 1000),
-                    reveal_fee: Amount::from_sat(REVEAL_TX_VBYTES * v_price / 1000),
-                    spend_fee: Amount::from_sat(TRANSFER_TX_VBYTES * v_price / 1000),
-                },
-            }
-        }
-
-        Network::Testnet | Network::Regtest | Network::Signet => Fees {
-            commit_fee: Amount::from_sat(2_500),
-            reveal_fee: Amount::from_sat(4_700),
-            spend_fee: Amount::from_sat(3_000),
-        },
-        _ => panic!("unknown network"),
-    }
-}

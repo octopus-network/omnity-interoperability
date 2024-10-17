@@ -114,11 +114,11 @@ service : (InitArgs) -> {
   build_reveal_transfer : (text, text) -> (Result_1);
   finalized_unlock_tickets : (nat64) -> (text) query;
   generate_ticket : (GenerateTicketArgs) -> (Result_2);
-  get_deposit_addr : () -> (opt text);
+  get_deposit_addr : () -> (text, text);
   get_token_list : () -> (vec TokenResp) query;
   pending_unlock_tickets : (nat64) -> (text) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
-  resend_unlock_ticket : (nat64) -> (text);
+  resend_unlock_ticket : (nat64, nat64) -> (text);
   transfer_fee : (text) -> (nat64);
   update_brc20_indexer : (principal) -> ();
   update_fees : (vec UtxoArgs) -> ();
