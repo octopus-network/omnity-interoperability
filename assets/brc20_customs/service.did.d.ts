@@ -15,10 +15,6 @@ export type ChainState = { 'Active' : null } |
   { 'Deactive' : null };
 export type ChainType = { 'SettlementChain' : null } |
   { 'ExecutionChain' : null };
-export type CustomToBitcoinError = { 'ArgumentError' : string } |
-  { 'SignFailed' : string } |
-  { 'BuildTransactionFailed' : string } |
-  { 'InsufficientFunds' : null };
 export interface ECDSAPublicKey {
   'public_key' : Uint8Array | number[],
   'chain_code' : Uint8Array | number[],
@@ -46,7 +42,6 @@ export type GenerateTicketError = { 'SendTicketErr' : string } |
   { 'NoNewUtxos' : null } |
   { 'UnsupportedChainId' : string } |
   { 'UnsupportedToken' : string };
-export type IcpChainKeyToken = { 'CKBTC' : null };
 export interface InitArgs {
   'hub_principal' : Principal,
   'network' : Network_1,
@@ -75,11 +70,7 @@ export type ReleaseTokenStatus = { 'Signing' : null } |
   { 'Unknown' : null } |
   { 'Submitted' : string } |
   { 'Pending' : null };
-export type Result = { 'Ok' : string } |
-  { 'Err' : CustomToBitcoinError };
-export type Result_1 = { 'Ok' : Array<string> } |
-  { 'Err' : CustomToBitcoinError };
-export type Result_2 = { 'Ok' : null } |
+export type Result = { 'Ok' : null } |
   { 'Err' : GenerateTicketError };
 export interface StateProfile {
   'next_consume_ticket_seq' : bigint,
@@ -106,21 +97,6 @@ export interface StateProfile {
   'indexer_principal' : Principal,
   'deposit_pubkey' : [] | [string],
 }
-export interface Ticket {
-  'token' : string,
-  'action' : TxAction,
-  'dst_chain' : string,
-  'memo' : [] | [Uint8Array | number[]],
-  'ticket_id' : string,
-  'sender' : [] | [string],
-  'ticket_time' : bigint,
-  'ticket_type' : TicketType,
-  'src_chain' : string,
-  'amount' : string,
-  'receiver' : string,
-}
-export type TicketType = { 'Resubmit' : null } |
-  { 'Normal' : null };
 export interface Token {
   'decimals' : number,
   'token_id' : string,
@@ -135,30 +111,17 @@ export interface TokenResp {
   'icon' : [] | [string],
   'symbol' : string,
 }
-export type TxAction = { 'Burn' : null } |
-  { 'Redeem' : null } |
-  { 'Mint' : null } |
-  { 'RedeemIcpChainKeyAssets' : IcpChainKeyToken } |
-  { 'Transfer' : null };
 export interface UtxoArgs { 'id' : string, 'index' : number, 'amount' : bigint }
 export interface _SERVICE {
   'brc20_state' : ActorMethod<[], StateProfile>,
-  'build_commit_tx' : ActorMethod<
-    [string, Array<UtxoArgs>, string, string, string, string, string],
-    Result
-  >,
-  'build_reveal_transfer' : ActorMethod<[string, string], Result_1>,
+  'finalize_lock_request' : ActorMethod<[string], undefined>,
   'finalized_unlock_tickets' : ActorMethod<[bigint], string>,
-  'generate_deposit_addr' : ActorMethod<[], [[] | [string], [] | [string]]>,
-  'generate_ticket' : ActorMethod<[GenerateTicketArgs], Result_2>,
+  'generate_ticket' : ActorMethod<[GenerateTicketArgs], Result>,
+  'get_deposit_addr' : ActorMethod<[], [string, string]>,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'pending_unlock_tickets' : ActorMethod<[bigint], string>,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
-  'resend_unlock_ticket' : ActorMethod<[bigint], string>,
-  'test_create_tx' : ActorMethod<[Ticket, bigint], undefined>,
-  'test_update_utxos' : ActorMethod<[], string>,
-  'transfer_fee' : ActorMethod<[string], bigint>,
-  'update_brc20_indexer' : ActorMethod<[Principal], undefined>,
+  'resend_unlock_ticket' : ActorMethod<[bigint, bigint], string>,
   'update_fees' : ActorMethod<[Array<UtxoArgs>], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;

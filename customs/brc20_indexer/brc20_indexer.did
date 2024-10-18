@@ -15,6 +15,7 @@ type QueryBrc20TransferArgs = record {
 };
 service : (InitArgs) -> {
   get_indexed_transfer : (QueryBrc20TransferArgs) -> (opt Brc20TransferEvent);
+  height : () -> (nat64);
   proxy_url : () -> (text) query;
   set_api_key : (text, text) -> ();
 }

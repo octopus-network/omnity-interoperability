@@ -5,6 +5,7 @@ mod stable_memory;
 mod okx;
 mod rpc;
 mod bestinslot;
+mod height;
 
 pub mod  constant_args {
     pub const IDEMPOTENCY_KEY: &str = "X-Idempotency";

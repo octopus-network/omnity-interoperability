@@ -79,22 +79,6 @@ export const idlFactory = ({ IDL }) => {
     'indexer_principal' : IDL.Principal,
     'deposit_pubkey' : IDL.Opt(IDL.Text),
   });
-  const UtxoArgs = IDL.Record({
-    'id' : IDL.Text,
-    'index' : IDL.Nat32,
-    'amount' : IDL.Nat64,
-  });
-  const CustomToBitcoinError = IDL.Variant({
-    'ArgumentError' : IDL.Text,
-    'SignFailed' : IDL.Text,
-    'BuildTransactionFailed' : IDL.Text,
-    'InsufficientFunds' : IDL.Null,
-  });
-  const Result = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : CustomToBitcoinError });
-  const Result_1 = IDL.Variant({
-    'Ok' : IDL.Vec(IDL.Text),
-    'Err' : CustomToBitcoinError,
-  });
   const GenerateTicketArgs = IDL.Record({
     'token_id' : IDL.Text,
     'txid' : IDL.Text,
@@ -120,10 +104,7 @@ export const idlFactory = ({ IDL }) => {
     'UnsupportedChainId' : IDL.Text,
     'UnsupportedToken' : IDL.Text,
   });
-  const Result_2 = IDL.Variant({
-    'Ok' : IDL.Null,
-    'Err' : GenerateTicketError,
-  });
+  const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : GenerateTicketError });
   const TokenResp = IDL.Record({
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
@@ -138,54 +119,17 @@ export const idlFactory = ({ IDL }) => {
     'Submitted' : IDL.Text,
     'Pending' : IDL.Null,
   });
-  const IcpChainKeyToken = IDL.Variant({ 'CKBTC' : IDL.Null });
-  const TxAction = IDL.Variant({
-    'Burn' : IDL.Null,
-    'Redeem' : IDL.Null,
-    'Mint' : IDL.Null,
-    'RedeemIcpChainKeyAssets' : IcpChainKeyToken,
-    'Transfer' : IDL.Null,
-  });
-  const TicketType = IDL.Variant({
-    'Resubmit' : IDL.Null,
-    'Normal' : IDL.Null,
-  });
-  const Ticket = IDL.Record({
-    'token' : IDL.Text,
-    'action' : TxAction,
-    'dst_chain' : IDL.Text,
-    'memo' : IDL.Opt(IDL.Vec(IDL.Nat8)),
-    'ticket_id' : IDL.Text,
-    'sender' : IDL.Opt(IDL.Text),
-    'ticket_time' : IDL.Nat64,
-    'ticket_type' : TicketType,
-    'src_chain' : IDL.Text,
-    'amount' : IDL.Text,
-    'receiver' : IDL.Text,
+  const UtxoArgs = IDL.Record({
+    'id' : IDL.Text,
+    'index' : IDL.Nat32,
+    'amount' : IDL.Nat64,
   });
   return IDL.Service({
     'brc20_state' : IDL.Func([], [StateProfile], ['query']),
-    'build_commit_tx' : IDL.Func(
-        [
-          IDL.Text,
-          IDL.Vec(UtxoArgs),
-          IDL.Text,
-          IDL.Text,
-          IDL.Text,
-          IDL.Text,
-          IDL.Text,
-        ],
-        [Result],
-        [],
-      ),
-    'build_reveal_transfer' : IDL.Func([IDL.Text, IDL.Text], [Result_1], []),
+    'finalize_lock_request' : IDL.Func([IDL.Text], [], []),
     'finalized_unlock_tickets' : IDL.Func([IDL.Nat64], [IDL.Text], ['query']),
-    'generate_deposit_addr' : IDL.Func(
-        [],
-        [IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
-        [],
-      ),
-    'generate_ticket' : IDL.Func([GenerateTicketArgs], [Result_2], []),
+    'generate_ticket' : IDL.Func([GenerateTicketArgs], [Result], []),
+    'get_deposit_addr' : IDL.Func([], [IDL.Text, IDL.Text], []),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'pending_unlock_tickets' : IDL.Func([IDL.Nat64], [IDL.Text], ['query']),
     'release_token_status' : IDL.Func(
@@ -193,11 +137,7 @@ export const idlFactory = ({ IDL }) => {
         [ReleaseTokenStatus],
         ['query'],
       ),
-    'resend_unlock_ticket' : IDL.Func([IDL.Nat64], [IDL.Text], []),
-    'test_create_tx' : IDL.Func([Ticket, IDL.Nat64], [], []),
-    'test_update_utxos' : IDL.Func([], [IDL.Text], []),
-    'transfer_fee' : IDL.Func([IDL.Text], [IDL.Nat64], []),
-    'update_brc20_indexer' : IDL.Func([IDL.Principal], [], []),
+    'resend_unlock_ticket' : IDL.Func([IDL.Nat64, IDL.Nat64], [IDL.Text], []),
     'update_fees' : IDL.Func([IDL.Vec(UtxoArgs)], [], []),
   });
 };
