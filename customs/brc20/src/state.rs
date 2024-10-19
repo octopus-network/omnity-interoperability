@@ -90,7 +90,6 @@ pub struct StateProfile {
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
     pub pending_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
-    pub finalized_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
 }
 
 impl From<&Brc20State> for StateProfile {
@@ -114,7 +113,6 @@ impl From<&Brc20State> for StateProfile {
             next_consume_ticket_seq: value.next_consume_ticket_seq,
             next_consume_directive_seq: value.next_consume_directive_seq,
             pending_lock_ticket_requests: value.pending_lock_ticket_requests.clone(),
-            finalized_lock_ticket_requests: value.finalized_lock_ticket_requests.clone(),
         }
     }
 }

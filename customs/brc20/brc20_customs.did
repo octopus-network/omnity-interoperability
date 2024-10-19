@@ -64,7 +64,6 @@ type ReleaseTokenStatus = variant {
 type Result = variant { Ok; Err : GenerateTicketError };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
-  finalized_lock_ticket_requests : vec record { blob; LockTicketRequest };
   next_consume_directive_seq : nat64;
   hub_principal : principal;
   ecdsa_key_name : text;
@@ -102,10 +101,12 @@ service : (InitArgs) -> {
   brc20_state : () -> (StateProfile) query;
   finalize_lock_request : (text) -> ();
   finalized_unlock_tickets : (nat64) -> (text) query;
+  generate_deposit_addr : () -> (text, text);
   generate_ticket : (GenerateTicketArgs) -> (Result);
-  get_deposit_addr : () -> (text, text);
+  get_deposit_addr : () -> (text, text) query;
   get_token_list : () -> (vec TokenResp) query;
   pending_unlock_tickets : (nat64) -> (text) query;
+  query_finalized_lock_tickets : (blob) -> (opt LockTicketRequest) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   resend_unlock_ticket : (nat64, nat64) -> (text);
   update_fees : (vec UtxoArgs) -> ();

@@ -993,6 +993,7 @@ dependencies = [
  "ic0 0.18.11",
  "k256 0.13.3 (git+https://github.com/altkdf/elliptic-curves?branch=schnorr_canister)",
  "lazy_static",
+ "log",
  "minicbor",
  "minicbor-derive",
  "num-traits",

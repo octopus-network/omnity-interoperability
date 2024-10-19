@@ -65,6 +65,7 @@ pub struct SendTicketResult {
 pub async fn send_tickets_to_bitcoin() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
+    log!(INFO, "submit unlock tx: from {} to {}", from, to);
     if from < to {
 
         let fee_rate = estimate_fee_per_vbyte().await/1000;

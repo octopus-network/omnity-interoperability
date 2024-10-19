@@ -10,7 +10,7 @@ use crate::state::{
     init_ecdsa_public_key, mutate_state, read_state, replace_state, Brc20State, StateProfile,
 };
 use crate::tasks::start_tasks;
-use crate::types::{FeesArgs, ReleaseTokenStatus, UtxoArgs, TokenResp};
+use crate::types::{FeesArgs, ReleaseTokenStatus, UtxoArgs, TokenResp, LockTicketRequest};
 use bitcoin::hashes::Hash;
 use ic_btc_interface::Txid;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
@@ -52,7 +52,6 @@ pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<(), GenerateTick
 
 #[query]
 pub  fn get_deposit_addr() -> (String, String) {
-    init_ecdsa_public_key().await;
     read_state(|s| (s.deposit_addr.clone().unwrap(), s.deposit_pubkey.clone().unwrap()))
 }
 
@@ -136,6 +135,11 @@ fn get_token_list() -> Vec<TokenResp> {
     })
 }
 
+#[query(guard = "is_admin")]
+fn query_finalized_lock_tickets(txid:Txid) -> Option<LockTicketRequest> {
+    read_state(|s|s.finalized_lock_ticket_requests.get(&txid).cloned())
+}
+
 #[derive(CandidType, Deserialize)]
 pub struct InitArgs {
     pub admins: Vec<Principal>,
@@ -152,5 +156,6 @@ fn is_admin() -> Result<(), String> {
         false => Err("permission deny".to_string()),
     }
 }
+
 
 ic_cdk::export_candid!();

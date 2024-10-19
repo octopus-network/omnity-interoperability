@@ -49,3 +49,4 @@ getrandom = "0.2.15"
 k256 = { git = "https://github.com/altkdf/elliptic-curves", branch = "schnorr_canister", features = ["schnorr"] }
 rust_decimal = {workspace = true }
 rust_decimal_macros = {workspace = true}
+log = "0.4.22"
