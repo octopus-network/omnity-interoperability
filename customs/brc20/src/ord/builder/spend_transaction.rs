@@ -30,7 +30,7 @@ pub async fn spend_utxo_transaction(
                 vout: input.index,
             },
             script_sig: ScriptBuf::new(),
-            sequence: Sequence::from_consensus(0xffffffff),
+            sequence: Sequence::from_consensus(0xfffffff0),
             witness: Witness::new(),
         })
         .collect();

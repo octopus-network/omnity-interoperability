@@ -155,7 +155,7 @@ impl OrdTransactionBuilder {
         let tx_in = vec![TxIn {
             previous_output,
             script_sig: ScriptBuf::new(),
-            sequence: Sequence::from_consensus(0xffffffff),
+            sequence: Sequence::from_consensus(0xfffffff0),
             witness: Witness::new(),
         }];
 
@@ -273,7 +273,7 @@ impl OrdTransactionBuilder {
                     vout: input.index,
                 },
                 script_sig: ScriptBuf::new(),
-                sequence: Sequence::from_consensus(0xffffffff),
+                sequence: Sequence::from_consensus(0xfffffff0),
                 witness: Witness::new(),
             })
             .collect();
