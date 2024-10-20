@@ -79,11 +79,12 @@ impl From<Brc20Event> for Brc20TransferEvent {
             from: value.from,
             to: value.to,
             valid: true,
+            height: value.height as u64,
         }
     }
 }
 
-pub async fn unisat_query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
+pub async fn unisat_query_transfer_event(query_transfer_args: &QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
     let r = query(&query_transfer_args).await;
     match r {
         Ok(c) => {

@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use candid::{CandidType, Deserialize};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
@@ -10,7 +11,7 @@ pub const BASE_URL: &str = "https://www.oklink.com";
 pub const RPC_NAME: &str = "OKX";
 
 
-pub async fn okx_query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -> Option<omnity_types::brc20::Brc20TransferEvent> {
+pub async fn okx_query_transfer_event(query_transfer_args: &QueryBrc20TransferArgs) -> Option<omnity_types::brc20::Brc20TransferEvent> {
     let r = query(&query_transfer_args).await;
     match r {
         Ok(c) => {
@@ -121,6 +122,7 @@ impl From<OkxBrc20TransferEvent> for Brc20TransferEvent {
             from: value.from_address,
             to: value.to_address,
             valid: true,
+            height: u64::from_str(value.block_height.as_str()).unwrap_or_default()
         }
     }
 }

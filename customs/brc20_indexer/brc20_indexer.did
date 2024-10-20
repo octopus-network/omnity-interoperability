@@ -1,6 +1,7 @@
 type BitcoinNetwork = variant { Mainnet; Testnet };
 type Brc20TransferEvent = record {
   to : text;
+  height : nat64;
   amout : text;
   valid : bool;
   from : text;

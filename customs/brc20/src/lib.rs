@@ -9,7 +9,7 @@ mod hub;
 mod hub_to_custom;
 mod management;
 mod ord;
-mod psbt;
+//mod psbt;
 pub mod service;
 mod stable_memory;
 pub(crate) mod state;
@@ -47,8 +47,8 @@ pub mod constants {
     pub const TX_OVERHEAD_VBYTES: u64 = 11;
     pub const REVEAL_TX_VBYTES: u64 = 170;
     pub const TRANSFER_TX_VBYTES: u64 = 120;
-    pub const FIXED_COMMIT_TX_VBYTES: u64 = 2 * OUTPUT_SIZE_VBYTES + TX_OVERHEAD_VBYTES + REVEAL_TX_VBYTES + TRANSFER_TX_VBYTES;
-
+    pub const FIXED_COMMIT_TX_VBYTES: u64 =
+        2 * OUTPUT_SIZE_VBYTES + TX_OVERHEAD_VBYTES + REVEAL_TX_VBYTES + TRANSFER_TX_VBYTES;
 }
 
 pub mod retry {

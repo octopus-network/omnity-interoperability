@@ -5,12 +5,13 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(CandidType, Serialize, Deserialize, Default, Debug)]
+#[derive(CandidType, Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
 pub struct Brc20TransferEvent {
     pub amout: String,
     pub from: String,
     pub to: String,
     pub valid: bool,
+    pub height: u64,
 }
 
 #[derive(CandidType, Serialize, Deserialize, Default, Debug)]

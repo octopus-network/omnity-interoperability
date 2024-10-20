@@ -1,8 +1,5 @@
-use bitcoin::{Amount, Network};
+use bitcoin::Amount;
 use serde::{Deserialize, Serialize};
-
-use crate::constants::{COMMIT_TX_VBYTES, DEFAULT_FEE, REVEAL_TX_VBYTES, TRANSFER_TX_VBYTES};
-use crate::custom_to_bitcoin::estimate_fee_per_vbyte;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -27,4 +24,3 @@ pub struct MultisigConfig {
     /// Total number of signatories (n)
     pub total: usize,
 }
-

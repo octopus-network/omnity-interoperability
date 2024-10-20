@@ -12,7 +12,7 @@ pub use omnity_types::brc20::*;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use crate::bestinslot::bestinsolt_query_transfer_event;
 use crate::okx::okx_query_transfer_event;
-use omnity_types::ic_log::INFO;
+use omnity_types::ic_log::{ERROR, INFO};
 use crate::height::get_block_height;
 
 #[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
@@ -39,8 +39,45 @@ fn post_upgrade() {
 
 #[update]
 pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
-    unisat_query_transfer_event(args).await
+    //unisat_query_transfer_event(&args).await
+    mix_indexer(&args).await
 }
+
+async fn mix_indexer(args: &QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
+    let height = get_block_height().await;
+    if height == 0 {
+        log!(INFO, "query height error: {}", height);
+        return None;
+    }
+    let unisat_event = unisat_query_transfer_event(&args).await;
+    let okx_event = okx_query_transfer_event(&args).await;
+    if unisat_event.is_none() && okx_event.is_none() {
+        log!(INFO, "unisat or okx error");
+        return None;
+    }
+    if okx_event == unisat_event {
+        return if height - okx_event.unwrap().height >= 4 {
+            unisat_event
+        } else {
+            log!(INFO, "height no more than 4");
+            None
+        }
+    }
+    let bestinslot_event = bestinsolt_query_transfer_event(&args).await;
+    if bestinslot_event.is_some() {
+        if bestinslot_event == okx_event && height - okx_event.unwrap().height >= 4{
+            return bestinslot_event;
+        }
+        if bestinslot_event == unisat_event && height - unisat_event.unwrap().height >= 4  {
+            return bestinslot_event;
+        }
+    }
+    log!(ERROR, "Not found brc20 event");
+    return None;
+
+}
+
+
 
 #[update]
 pub async fn height() -> u64{

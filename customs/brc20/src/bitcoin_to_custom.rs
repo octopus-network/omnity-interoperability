@@ -139,8 +139,7 @@ pub async fn finalize_lock_ticket_request() {
             .iter()
             .filter(|&req| {
                 let wait_time = wait_time.as_nanos() as u64;
-                (req.1.received_at + wait_time < now) &&
-                    (req.1.received_at + wait_time*6 > now)
+                (req.1.received_at + wait_time < now) && (req.1.received_at + wait_time * 6 > now)
             })
             .map(|req| (*req.0, req.1.clone()))
             .collect::<Vec<(Txid, LockTicketRequest)>>()
@@ -151,15 +150,19 @@ pub async fn finalize_lock_ticket_request() {
     }
 }
 
-pub async fn finalize_lock(txid: Txid, gen_ticket_request: LockTicketRequest, deposit_addr: String ) {
+pub async fn finalize_lock(
+    txid: Txid,
+    gen_ticket_request: LockTicketRequest,
+    deposit_addr: String,
+) {
     let token = read_state(|s| s.tokens.get(&gen_ticket_request.token_id).cloned());
     match token {
         None => {
             log!(
-                    WARNING,
-                    "don't found a token named {}",
-                    &gen_ticket_request.token_id
-                );
+                WARNING,
+                "don't found a token named {}",
+                &gen_ticket_request.token_id
+            );
         }
         Some(token) => {
             let args = create_query_brc20_transfer_args(
@@ -172,12 +175,11 @@ pub async fn finalize_lock(txid: Txid, gen_ticket_request: LockTicketRequest, de
                 //Check success
                 //FINALIZED TO HUB:
                 let hub_principal = read_state(|s| s.hub_principal);
-                let _r =
-                    hub::finalize_ticket(hub_principal, gen_ticket_request.txid.to_string())
-                        .await
-                        .map_err(|e| {
-                            log!(CRITICAL, "finalize gen ticket to hub error: {:?}", &e);
-                        });
+                let _r = hub::finalize_ticket(hub_principal, gen_ticket_request.txid.to_string())
+                    .await
+                    .map_err(|e| {
+                        log!(CRITICAL, "finalize gen ticket to hub error: {:?}", &e);
+                    });
                 mutate_state(|s| {
                     let v = s.pending_lock_ticket_requests.remove(&txid);
                     s.finalized_lock_ticket_requests.insert(txid, v.unwrap());
@@ -185,10 +187,10 @@ pub async fn finalize_lock(txid: Txid, gen_ticket_request: LockTicketRequest, de
                 log!(INFO, "lock ticket finalized:{:?}", t);
             } else {
                 log!(
-                        WARNING,
-                        "query indexer failed, will retry. {}",
-                        serde_json::to_string(&gen_ticket_request).unwrap()
-                    );
+                    WARNING,
+                    "query indexer failed, will retry. {}",
+                    serde_json::to_string(&gen_ticket_request).unwrap()
+                );
             }
         }
     }

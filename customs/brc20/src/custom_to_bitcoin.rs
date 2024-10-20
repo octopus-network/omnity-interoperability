@@ -1,7 +1,7 @@
 use std::ops::Div;
 use std::str::FromStr;
 
-use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
+use bitcoin::{Address, Amount, PublicKey, Transaction};
 use candid::CandidType;
 use ic_btc_interface::{MillisatoshiPerByte, Network};
 
@@ -13,7 +13,10 @@ use thiserror::Error;
 
 use crate::bitcoin_to_custom::query_transaction;
 use crate::call_error::CallError;
-use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME, FIXED_COMMIT_TX_VBYTES, INPUT_SIZE_VBYTES, OUTPUT_SIZE_VBYTES, REVEAL_TX_VBYTES, SUBMIT_UNLOCK_TICKETS_NAME, TRANSFER_TX_VBYTES, TX_OVERHEAD_VBYTES};
+use crate::constants::{
+    FINALIZE_UNLOCK_TICKET_NAME, FIXED_COMMIT_TX_VBYTES, INPUT_SIZE_VBYTES, OUTPUT_SIZE_VBYTES,
+    REVEAL_TX_VBYTES, SUBMIT_UNLOCK_TICKETS_NAME, TRANSFER_TX_VBYTES, TX_OVERHEAD_VBYTES,
+};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use omnity_types::{Seq, Ticket};
 
@@ -22,7 +25,6 @@ use crate::custom_to_bitcoin::CustomToBitcoinError::{
 };
 
 use crate::hub::update_tx_hash;
-use crate::management::get_fee_utxos;
 use crate::ord::builder::fees::Fees;
 use crate::ord::builder::signer::MixSigner;
 use crate::ord::builder::spend_transaction::spend_utxo_transaction;
@@ -38,7 +40,6 @@ use crate::state::{
     bitcoin_network, deposit_addr, deposit_pubkey, finalization_time_estimate, mutate_state,
     read_state,
 };
-
 
 #[derive(Error, Debug, CandidType)]
 pub enum CustomToBitcoinError {
@@ -67,7 +68,7 @@ pub async fn send_tickets_to_bitcoin() {
     let to = read_state(|s| s.next_ticket_seq);
     if from < to {
         log!(INFO, "submit unlock tx: from {} to {}", from, to);
-        let fee_rate = estimate_fee_per_vbyte().await/1000;
+        let fee_rate = estimate_fee_per_vbyte().await / 1000;
         for seq in from..to {
             let r = process_unlock_ticket(seq, fee_rate).await;
             match r {
@@ -172,7 +173,7 @@ pub async fn submit_unlock_ticket(
                 return Ok(None);
             }
             let mut vins = select_utxos(fee_rate, FIXED_COMMIT_TX_VBYTES)?;
-            let fees= create_fees(vins.len() as u64, fee_rate);
+            let fees = create_fees(vins.len() as u64, fee_rate);
             let tx_vec = generate_brc20_transactions(vins.clone(), &fees, &t)
                 .await
                 .map_err(|e| {
@@ -288,7 +289,7 @@ pub fn find_commit_remain_fee(t: &Transaction) -> Option<Utxo> {
 }
 
 pub async fn build_transfer_transfer(
-    receiver: &String,
+    receiver: &str,
     reveal_utxo: Utxo,
     signer: Option<&MixSigner>,
 ) -> Result<Transaction, CustomToBitcoinError> {
@@ -301,13 +302,12 @@ pub async fn build_transfer_transfer(
     Ok(transfer)
 }
 
-
 pub fn select_utxos(fee_rate: u64, fixed_size: u64) -> CustomToBitcoinResult<Vec<Utxo>> {
     let mut selected_utxos: Vec<Utxo> = vec![];
     let mut selected_amount = 0u64;
     let mut estimate_size = fixed_size;
     mutate_state(|s| loop {
-        if selected_amount >= fee_rate * estimate_size +POSTAGE {
+        if selected_amount >= fee_rate * estimate_size + POSTAGE {
             return Ok(selected_utxos);
         }
         let u = s.deposit_addr_utxo.pop();
@@ -361,7 +361,7 @@ pub async fn estimate_fee_per_vbyte() -> MillisatoshiPerByte {
                 return DEFAULT_FEE;
             }
             if fees.len() >= 100 {
-                fees[50]
+                fees[50] + 2000
             } else {
                 log!(
                     ERROR,
@@ -381,7 +381,6 @@ pub async fn estimate_fee_per_vbyte() -> MillisatoshiPerByte {
         }
     }
 }
-
 
 pub fn create_fees(input_count: u64, fee_rate: u64) -> Fees {
     Fees {

@@ -1,18 +1,16 @@
-use crate::bitcoin::ECDSAPublicKey;
-use crate::call_error::{CallError, Reason};
-use crate::state::read_state;
 use bitcoin::Transaction;
 use candid::{CandidType, Principal};
-use ic_btc_interface::{
-    Address, GetCurrentFeePercentilesRequest, GetUtxosRequest, GetUtxosResponse,
-    MillisatoshiPerByte, Network, UtxosFilterInRequest,
-};
+use ic_btc_interface::{GetCurrentFeePercentilesRequest, MillisatoshiPerByte, Network};
 use ic_cdk::api::call::CallResult;
 use ic_ic00_types::{
     DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
     SignWithECDSAArgs, SignWithECDSAReply,
 };
 use serde::de::DeserializeOwned;
+
+use crate::bitcoin::ECDSAPublicKey;
+use crate::call_error::{CallError, Reason};
+use crate::state::read_state;
 
 async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallError>
 where
@@ -42,75 +40,6 @@ where
             reason: Reason::from_reject(code, msg),
         }),
     }
-}
-
-pub async fn get_fee_utxos(
-    network: Network,
-    address: &Address,
-    min_confirmations: u32,
-) -> Result<GetUtxosResponse, CallError> {
-    let mut resp = get_utxos(network, address, min_confirmations).await?;
-
-    let reveal_indexs = read_state(|s| s.reveal_utxo_index.clone());
-    let utxos = resp
-        .utxos
-        .into_iter()
-        .filter(|u| {
-            let index = format!("{}:{}", u.outpoint.txid.clone(), u.outpoint.vout);
-            !reveal_indexs.contains(&index)
-        })
-        .collect();
-    resp.utxos = utxos;
-    Ok(resp)
-}
-
-/// Fetches the full list of UTXOs for the specified address.
-pub async fn get_utxos(
-    network: Network,
-    address: &Address,
-    min_confirmations: u32,
-) -> Result<GetUtxosResponse, CallError> {
-    let get_utxos_cost_cycles = match network {
-        Network::Mainnet => 10_000_000_000,
-        Network::Testnet | Network::Regtest => 4_000_000_000,
-    };
-
-    async fn bitcoin_get_utxos(
-        req: &GetUtxosRequest,
-        cycles: u64,
-    ) -> Result<GetUtxosResponse, CallError> {
-        call("bitcoin_get_utxos", cycles, req).await
-    }
-
-    let mut response = bitcoin_get_utxos(
-        &GetUtxosRequest {
-            address: address.to_string(),
-            network: network.into(),
-            filter: Some(UtxosFilterInRequest::MinConfirmations(min_confirmations)),
-        },
-        get_utxos_cost_cycles,
-    )
-    .await?;
-
-    let mut utxos = std::mem::take(&mut response.utxos);
-
-    // Continue fetching until there are no more pages.
-    while let Some(page) = response.next_page {
-        response = bitcoin_get_utxos(
-            &GetUtxosRequest {
-                address: address.to_string(),
-                network: network.into(),
-                filter: Some(UtxosFilterInRequest::Page(page)),
-            },
-            get_utxos_cost_cycles,
-        )
-        .await?;
-
-        utxos.append(&mut response.utxos);
-    }
-    response.utxos = utxos;
-
-    Ok(response)
 }
 
 /// Returns the current fee percentiles on the bitcoin network.

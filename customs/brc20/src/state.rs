@@ -69,7 +69,6 @@ pub struct Brc20State {
     pub temp_psbt_builder: BTreeMap<String, OrdTransactionBuilder>,
 }
 
-
 #[derive(Serialize, Deserialize, CandidType, Clone)]
 pub struct StateProfile {
     pub admins: Vec<Principal>,

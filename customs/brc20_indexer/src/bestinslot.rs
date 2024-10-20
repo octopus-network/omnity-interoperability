@@ -67,11 +67,12 @@ impl From<BestInSlotBrc20Respsonse> for Brc20TransferEvent {
             from: event.event.source_wallet.clone(),
             to: event.event.spent_wallet.clone(),
             valid: true,
+            height: value.block_height as u64,
         }
     }
 }
 
-pub async fn bestinsolt_query_transfer_event(query_transfer_args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
+pub async fn bestinsolt_query_transfer_event(query_transfer_args: &QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
     let r = query(&query_transfer_args).await;
     match r {
         Ok(c) => {

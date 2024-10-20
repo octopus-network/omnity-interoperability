@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
+use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpMethod, TransformContext, TransformFunc};
 
 pub async fn get_block_height() -> u64 {
     let url = "https://mempool.space/api/blocks/tip/height";
@@ -29,6 +29,6 @@ pub async fn get_block_height() -> u64 {
                 0
             }
         }
-        Err((_, m)) => 0,
+        Err((_, _m)) => 0,
     }
 }
