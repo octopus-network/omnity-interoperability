@@ -16,6 +16,7 @@ pub const FEE_ACCOUNT: &str = "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia";
 // 1 sol =1_000_000_000
 pub const FEE_TOKEN: &str = "SOL";
 
+pub const IC_GATEWAY: &str = "raw.icp0.io";
 // redeem fee = gas fee + service fee
 // the service fee,there is 3 solutions
 // s2e: free; e2s: 2$; e2e: 1$

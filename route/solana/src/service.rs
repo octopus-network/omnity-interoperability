@@ -15,8 +15,8 @@ use crate::handler::gen_ticket::{self,send_ticket,query_tx_from_multi_rpc,Genera
 use crate::handler::{ scheduler, solana_rpc};
 use crate::lifecycle::{self, RouteArg, UpgradeArgs};
 use crate::service::solana_rpc::solana_client;
-use crate::state::{AccountInfo, AtaKey, MultiRpcConfig, TokenResp};
-use crate::types::TokenId;
+use crate::state::{AccountInfo, AtaKey, MultiRpcConfig, TokenMeta, TokenResp};
+use crate::types::{Token, TokenId};
 use ic_solana::token::SolanaClient;
 use ic_solana::token::TokenInfo;
 
@@ -32,9 +32,10 @@ use ic_solana::token::constants::token22_program_id;
 use ic_solana::types::Pubkey;
 use std::str::FromStr;
 use crate::handler::token_account::update_mint_account_status;
-use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_solana::ic_log::{self, DEBUG, ERROR};
 use crate::state::Seqs;
+use crate::state::TokenUri;
 
 #[init]
 fn init(args: RouteArg) {
@@ -298,6 +299,45 @@ pub async fn query_mint_address(token_id: TokenId) -> Option<String> {
 }
 
 // devops method
+// add token manually 
+#[update(guard = "is_admin",hidden = true)]
+pub async fn add_token(token: Token) -> Option<Token> {
+      mutate_state(|s| {
+        s.tokens
+            .insert(token.token_id.to_string(), token.to_owned())
+    })
+
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+fn update_token(token: Token) -> Result<Option<Token>, CallError> {
+    mutate_state(|s| {
+        match s.tokens.get(&token.token_id) {
+            None => Err(CallError {
+                method: "[service::update_token] update_token".to_string(),
+                reason: Reason::CanisterError(format!(
+                    "Not found token id {} ",
+                    token.token_id.to_string()
+                )),
+            }),
+            Some(_) => Ok(s.tokens.insert(token.token_id.to_string(), token.to_owned()))
+        }
+        
+    })
+    // Ok(())
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+fn remove_token_and_account(token_id: TokenId) {
+    mutate_state(|s| {
+        s.tokens.remove(&token_id);
+        s.token_mint_accounts.remove(&token_id);
+    })
+}
+
+// devops method
 #[update(guard = "is_admin",hidden = true)]
 pub async fn create_mint_account(req: TokenInfo) -> Result<AccountInfo, CallError> {
     let sol_client = solana_client().await;
@@ -423,6 +463,17 @@ pub async fn create_mint_account(req: TokenInfo) -> Result<AccountInfo, CallErro
         }),
         Some(account) => Ok(account),
     }
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn update_mint_account(token_id:TokenId,mint_account: AccountInfo) -> Option<AccountInfo>{
+           //update mint account info
+           mutate_state(|s| {
+            s.token_mint_accounts
+                .insert(token_id, mint_account)
+        })
+   
 }
 
 // devops method
@@ -1085,9 +1136,95 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     if ic_cdk::api::data_certificate().is_none() {
         ic_cdk::trap("update call rejected");
     }
-    let endable_debug = read_state(|s|s.enable_debug);
-    ic_log::http_request(req,endable_debug)
+   
+    match  req.path() {
+        "/logs" => {
+            let endable_debug = read_state(|s|s.enable_debug);
+            ic_log::http_log(req,endable_debug)
+        },
+        "/token_uri" => {
+            match req.raw_query_param("id") {
+                None => HttpResponseBuilder::bad_request()
+                .with_body_and_content_length("pls provide token id")
+                .build(),
+                Some(id) => {
+                    use urlencoding::decode;
+                    let id:String = decode(id).unwrap().into_owned();
+                    let token = read_state(|s|s.tokens.get(&id).to_owned());
+                    
+            
+                    match token {
+                        None => HttpResponseBuilder::bad_request()
+                        .with_body_and_content_length(format!("not found the {} token uri ",id))
+                        .build(),
+                        Some(t) => {
+                            let token_uri: TokenUri = t.into();
+                            HttpResponseBuilder::ok()
+                            .header("Content-Type", "application/json; charset=utf-8")
+                            .with_body_and_content_length(serde_json::to_string(&token_uri).unwrap_or_default())
+                            .build()
+                        }
+
+                    }
+
+                   
+                }
+            }
+        },
+        "/token_meta" => {
+            match req.raw_query_param("id") {
+                None => HttpResponseBuilder::bad_request()
+                .with_body_and_content_length("pls provide token id")
+                .build(),
+                Some(id) => {
+                    use urlencoding::decode;
+                    let id:String = decode(id).unwrap().into_owned();
+                    let token = read_state(|s|s.tokens.get(&id).to_owned());
+                    
+            
+                    match token {
+                        None => HttpResponseBuilder::bad_request()
+                        .with_body_and_content_length(format!("not found the {} token meta",id))
+                        .build(),
+                        Some(t) => {
+                            let token_meta: TokenMeta = t.into();
+                            HttpResponseBuilder::ok()
+                            .header("Content-Type", "application/json; charset=utf-8")
+                            .with_body_and_content_length(serde_json::to_string(&token_meta).unwrap_or_default())
+                            .build()
+                        }
+
+                    }
+
+                   
+                }
+            }
+        }
+       
+        _ => HttpResponseBuilder::not_found().build()
+    }
+  
 }
 
 // Enable Candid export
 ic_cdk::export_candid!();
+
+mod test {
+    
+    // use urlencoding::decode;
+
+    #[test]
+    fn test_urlencode_decode() {
+        let encoded = "Bitcoin-runes-HOPE%E2%80%A2YOU%E2%80%A2GET%E2%80%A2NICE202410141209";
+        let decoded = urlencoding::decode(encoded).unwrap();
+        println!("Decoded: {}", decoded);  // Bitcoin-runes-HOPE•YOU•GET•NICE202410141209
+        let decoded_string: String = decoded.into_owned();
+        println!("decoded_string: {}", decoded_string);  
+        let encoded = "Bitcoin-runes-HOPE•YOU•GET•NICE202410141209";
+        let decoded = urlencoding::decode(encoded).unwrap();
+        println!("Decoded: {}", decoded);  // Bitcoin-runes-HOPE•YOU•GET•NICE202410141209
+        let decoded_string: String = decoded.into_owned();
+        println!("decoded_string: {}", decoded_string);  
+    
+    }
+}

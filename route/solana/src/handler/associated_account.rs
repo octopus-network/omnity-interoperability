@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ic_solana::token::associated_account::get_associated_token_address_with_program_id;
-use ic_solana::token::constants::token22_program_id;
+use ic_solana::token::constants::token_program_id;
 use ic_solana::types::Pubkey;
 
 use super::solana_rpc::{self, create_ata};
@@ -64,7 +64,7 @@ pub async fn create_associated_account() {
             let associated_account = get_associated_token_address_with_program_id(
                 &to_account_pk,
                 &token_mint_pk,
-                &token22_program_id(),
+                &token_program_id(),
             );
             log!(
                 DEBUG,  

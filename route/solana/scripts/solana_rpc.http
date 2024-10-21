@@ -4,7 +4,7 @@
 @mainnet = https://api.mainnet-beta.solana.com
 @localnet = http://127.0.0.1:8899
 @debug = http://34.90.18.145:8899
-@alchemy_d = https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
+@alchemy_d=https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
 @alchemy_m=https://solana-mainnet.g.alchemy.com/v2/t25IzpcIjBXhP-LOurqrTWLWmhPuBwsk
 @helius_m=https://mainnet.helius-rpc.com/?api-key=b7fe7483-b790-427e-af31-0095d7f73d4e
 @ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
@@ -357,6 +357,39 @@ api-key: c358082d-9e68-43da-a0fb-6f7240d01136
     "params": [
       "2ZD98V6XEMqmv5hveWyHx29HPjgxCEAvDQnntNxMJYrUq8jffGeKe8varfVEHF9EbScPZruAsWke4k9gfFWo77Wm",
       "jsonParsed"
+    ]
+  }
+
+### simulateTransaction
+POST {{alchemy_d}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "simulateTransaction",
+    "params": [
+      "AjnfRqh8OFqZONyfjY8qdbIEM5TI2ydzr5aHg5u9z4mj8goSpaogj4+t4TzcJ5se4f1DSG3alhs+d81ejRcvjwFhItsGpUcx5ejShk64ZEdhrGUoY+XXmE/GtxQejJYNnqDFzl4dfBf+/j+BHiZdp/MQ1q0uUF7RMwdhTIR1s4wGAgAEB2jcEnzu/xS+PNJ5cpu2UYAu5SXsCiRMEWAG8GqglWHyuZX9aZgo1pM/BtflKGDBzebqcx0CZnU1n+/4om70a8eFeYRb6zMM943BjXaAQ3+lN5cs07W7QAYxnAFrre/l5wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABqfVFxh70WY12tQEVf3CwMEkxo8hVnWl27rLXwgAAAAG3fbh12Whk9nL4UbO63msHLSF7V9bN5E6jPWFfv8AqQtwZbHj0XxFOJ1Sf2sEw81YuGxzGqD9tUm20bwD+ClGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBgkCBgEAAAADBAVuKgATAAAAUlVORVPigKJY4oCiQklUQ09JTgEAAABYPwAAAGh0dHBzOi8vYXJ3ZWF2ZS5uZXQvaUxWMi1BcGpyWFBETm9IbGR6QjRhMGZWVkwtMGhYUjZkWkdndWRrbno3YwAAAAABAgAAAAABAAA=",
+      {
+        "encoding":"base64",
+      }
+    ]
+  }
+
+
+### simulateTransaction
+POST {{alchemy_m}}
+content-type: application/json
+
+{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "simulateTransaction",
+    "params": [
+     "AjnfRqh8OFqZONyfjY8qdbIEM5TI2ydzr5aHg5u9z4mj8goSpaogj4+t4TzcJ5se4f1DSG3alhs+d81ejRcvjwFhItsGpUcx5ejShk64ZEdhrGUoY+XXmE/GtxQejJYNnqDFzl4dfBf+/j+BHiZdp/MQ1q0uUF7RMwdhTIR1s4wGAgAEB2jcEnzu/xS+PNJ5cpu2UYAu5SXsCiRMEWAG8GqglWHyuZX9aZgo1pM/BtflKGDBzebqcx0CZnU1n+/4om70a8eFeYRb6zMM943BjXaAQ3+lN5cs07W7QAYxnAFrre/l5wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABqfVFxh70WY12tQEVf3CwMEkxo8hVnWl27rLXwgAAAAG3fbh12Whk9nL4UbO63msHLSF7V9bN5E6jPWFfv8AqQtwZbHj0XxFOJ1Sf2sEw81YuGxzGqD9tUm20bwD+ClGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBgkCBgEAAAADBAVuKgATAAAAUlVORVPigKJY4oCiQklUQ09JTgEAAABYPwAAAGh0dHBzOi8vYXJ3ZWF2ZS5uZXQvaUxWMi1BcGpyWFBETm9IbGR6QjRhMGZWVkwtMGhYUjZkWkdndWRrbno3YwAAAAABAgAAAAABAAA=",
+      {
+        "encoding":"base64",
+      }
     ]
   }
 

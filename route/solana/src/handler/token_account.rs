@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::constants::RETRY_LIMIT_SIZE;
+use crate::constants::{IC_GATEWAY, RETRY_LIMIT_SIZE};
 use crate::state::{AccountInfo, TxStatus, UpdateToken};
 
 use ic_solana::types::{Pubkey, TransactionConfirmationStatus};
@@ -11,6 +11,7 @@ use crate::state::{mutate_state, read_state};
 use ic_canister_log::log;
 use ic_solana::ic_log::{CRITICAL, DEBUG, ERROR};
 use ic_solana::token::{SolanaClient, TokenInfo};
+use ic_solana::eddsa::hash_with_sha256;
 
 use super::solana_rpc::solana_client;
 
@@ -41,19 +42,23 @@ pub async fn create_token_mint() {
             name: token.name,
             symbol: token.symbol,
             decimals: token.decimals,
-            uri: token.icon.unwrap_or_default(),
+            uri: format!("https://{}.{}/token_uri?id={}",
+            ic_cdk::api::id().to_text(),
+            
+            IC_GATEWAY,
+            token.token_id.to_string()),
         };
         let mint_account = if let Some(account) =
             read_state(|s| s.token_mint_accounts.get(&token.token_id))
         {
             // Pubkey::from_str(&account.account).expect("Invalid to_account address")
-
             account
 
         } else {
+            let derive_path = hash_with_sha256(token.token_id.as_str());
             let new_account_address = SolanaClient::derive_account(
                 sol_client.chainkey_name.clone(),
-                token_info.token_id.to_string(),
+                derive_path,
             )
             .await;
             log!(

@@ -230,17 +230,54 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 # })" --ic
 
 # update token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
-TOKEN_NAME="HOPE•YOU•GET•RICH"
-TOKEN_SYMBOL="RICH.OT"
-DECIMALS=2
-ICON="https://arweave.net/zr3QxOefTtsfd_651Q1LlkWcISat5NtyfD9ENPNkXDk"
+# TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+# TOKEN_NAME="HOPE•YOU•GET•RICH"
+# TOKEN_SYMBOL="RICH.OT"
+# DECIMALS=2
+# ICON="https://arweave.net/zr3QxOefTtsfd_651Q1LlkWcISat5NtyfD9ENPNkXDk"
 
 # ICON="https://arweave.net/G058Vw4fqZqpcCHvYxjmQ_dgK_abkL-GjcR-p3os0Jc"
 # ICON="https://raw.githubusercontent.com/octopus-network/omnity-interoperability/feature/solana-route/route/solana/assets/rich.json"
 # ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token.png"
 # ICON="https://geniidata.com/content/d66de939cb3ddb4d94f0949612e06e7a84d4d0be381d0220e2903aad68135969i0"
 # ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+
+# {
+#       "decimals": 0,
+#       "icon": [
+#         "https://github.com/ordinals/ord/assets/8003221/d1481aa1-56db-4b00-b890-447a436199d3"
+#       ],
+#       "name": "RUNES•X•BITCOIN",
+#       "rune_id": [
+#         "840000:142"
+#       ],
+#       "symbol": "X",
+#       "token_id": "Bitcoin-runes-RUNES•X•BITCOIN"
+# }
+TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN"
+TOKEN_NAME="RUNES•X•BITCOIN"
+TOKEN_SYMBOL="RUNES.X"
+DECIMALS=0
+# ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x.json"
+ICON="https://arweave.net/iLV2-ApjrXPDNoHldzB4a0fVVL-0hXR6dZGgudknz7c"
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID add_token "(record {
+        token_id=\"${TOKEN_ID}\";
+        name=\"${TOKEN_NAME}\";
+        symbol=\"${TOKEN_SYMBOL}\";
+        decimals=${DECIMALS}:nat8;
+        icon=opt \"${ICON}\";
+        metadata = vec{ record {\"rune_id\" ; \"840000:142\"}};
+})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID create_mint_account "(record {
+        token_id=\"${TOKEN_ID}\";
+        name=\"${TOKEN_NAME}\";
+        symbol=\"${TOKEN_SYMBOL}\";
+        decimals=${DECIMALS}:nat8;
+        uri=\"${ICON}\";
+})" --ic
+
 dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID update_token_metadata "(record {
         token_id=\"${TOKEN_ID}\";
@@ -382,3 +419,85 @@ echo "current SIGNER: $SIGNER"
 echo "$SIGNER balance: $(solana balance $SIGNER -u m)"
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID sign '("Hi,Boern")' --ic
+
+#ISSUES
+
+# remove token info and token mint account for Bitcoin-runes-RUNES•X•BITCOIN
+# token info in solana route
+#  record {
+#       decimals = 0 : nat8;
+#       token_id = "Bitcoin-runes-RUNES•X•BITCOIN";
+#       icon = opt "https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x.json";
+#       rune_id = opt "840000:142";
+#       symbol = "RUNES.X";
+#     };
+
+# token mint account
+# (
+#   opt record {
+#     100_394_802 = variant { 1_066_763_494 };
+#     359_375_608 = opt "uXDCEeLZ5YZ3jU6p2mbee4UG4zux1ZorujVuNq6bQe79GYoveBJg1b932qajMeDU5GeZsJ4b7SgUmz2m3RsYRhd";
+#     2_707_029_165 = "4eKCcgJLjTKDxpKic8craAs2wvvWhnh36z29FQVuetZV";
+#     3_871_938_408 = 1 : nat64;
+#   },
+# )
+dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
+TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID remove_token_and_account "(\"${TOKEN_ID}\")" --ic
+
+
+# create_mint_account for Bitcoin-runes-RUNES•X•BITCOIN2
+TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN2"
+TOKEN_NAME="RUNES•X•BITCOIN"
+TOKEN_SYMBOL="X"
+DECIMALS=2
+ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x.json"
+# ICON="https://arweave.net/iLV2-ApjrXPDNoHldzB4a0fVVL-0hXR6dZGgudknz7c"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID create_mint_account "(record {
+        token_id=\"${TOKEN_ID}\";
+        name=\"${TOKEN_NAME}\";
+        symbol=\"${TOKEN_SYMBOL}\";
+        decimals=${DECIMALS}:nat8;
+        uri=\"${ICON}\";
+})" --ic
+
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic
+
+# update token id from Bitcoin-runes-RUNES•X•BITCOIN2 to  Bitcoin-runes-RUNES•X•BITCOIN
+dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
+
+
+TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN"
+TOKEN_NAME="RUNES•X•BITCOIN"
+TOKEN_SYMBOL="X"
+DECIMALS=2
+ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x.json"
+# ICON="https://arweave.net/iLV2-ApjrXPDNoHldzB4a0fVVL-0hXR6dZGgudknz7c"
+
+# re add token for Bitcoin-runes-RUNES•X•BITCOIN
+dfx canister call $SOLANA_ROUTE_CANISTER_ID add_token "(record {
+        token_id=\"${TOKEN_ID}\";
+        name=\"${TOKEN_NAME}\";
+        symbol=\"${TOKEN_SYMBOL}\";
+        decimals=${DECIMALS}:nat8;
+        icon=opt \"${ICON}\";
+        metadata = vec{ record {\"rune_id\" ; \"840000:142\"}};
+})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
+ACCOUNT=""
+RETRY=1
+SIGNATURE=""
+
+# update mint token account for Bitcoin-runes-RUNES•X•BITCOIN
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_mint_account "(
+    \"${TOKEN_ID}\",\
+    record {
+        account=\"${ACCOUNT}\";
+        retry=${RETRY}:nat64;
+        signature=\"${SIGNATURE}\";
+        symbol=\"${TOKEN_SYMBOL}\";
+        status=variant { Finalized };
+})" --ic
+
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic

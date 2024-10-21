@@ -10,6 +10,7 @@ use crate::state::TxStatus;
 use ic_canister_log::log;
 use ic_solana::ic_log::DEBUG;
 use ic_solana::rpc_client::RpcResult;
+use ic_solana::token::constants::token_program_id;
 use ic_solana::token::{SolanaClient, TokenInfo};
 use ic_solana::types::{Pubkey, TransactionStatus};
 use serde_bytes::ByteBuf;
@@ -77,7 +78,7 @@ pub async fn create_mint_account(token_mint: Pubkey, req: TokenInfo) -> Result<S
         }
     });
     let signature: String = sol_client
-        .create_mint_with_metadata(token_mint, req)
+        .create_mint_with_metaplex(token_mint, req)
         .await
         .map_err(|e| CallError {
             method: "[solana_rpc::create_mint_account] create_mint_with_metadata".to_string(),
@@ -111,7 +112,7 @@ pub async fn create_ata(to_account: String, token_mint: String) -> Result<String
     });
 
     let signature = sol_client
-        .create_associated_token_account(&to_account, &token_mint)
+        .create_associated_token_account(&to_account, &token_mint, &token_program_id())
         .await
         .map_err(|e| CallError {
             method: "create_associated_token_account".to_string(),
@@ -150,7 +151,12 @@ pub async fn mint_to(req: MintTokenRequest) -> Result<String, CallError> {
     });
 
     let signature = sol_client
-        .mint_to(associated_account, req.amount, token_mint)
+        .mint_to(
+            associated_account,
+            req.amount,
+            token_mint,
+            token_program_id(),
+        )
         .await
         .map_err(|e| CallError {
             method: "mint_to".to_string(),
@@ -169,7 +175,7 @@ pub async fn update_token_metadata(
     let token_mint = Pubkey::from_str(&token_mint).expect("Invalid token mint address");
 
     let signature = sol_client
-        .update_metadata(token_mint, req)
+        .update_with_metaplex(token_mint, req)
         .await
         .map_err(|e| CallError {
             method: "[solana_rpc::update_token_metadata] update_token_metadata".to_string(),

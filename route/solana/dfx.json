@@ -13,17 +13,17 @@
       "wasm": "assets/omnity_hub.wasm.gz",
       "candid": "assets/omnity_hub.did"
     },
-    "solana_route": {
-      "package": "solana_route",
-      "type": "rust",
-      "gzip": true,
-      "candid": "assets/solana_route.did"
-    },
     "ic-solana-provider": {
       "package": "ic-solana-provider",
       "type": "custom",
       "wasm": "assets/ic_solana_provider.wasm.gz",
       "candid": "assets/ic-solana-provider.did"
+    },
+    "solana_route": {
+      "package": "solana_route",
+      "type": "rust",
+      "gzip": true,
+      "candid": "assets/solana_route.did"
     }
   },
   "defaults": {

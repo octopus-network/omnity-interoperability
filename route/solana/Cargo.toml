@@ -31,6 +31,8 @@ ic-management-canister-types = { git = "https://github.com/dfinity/ic", package 
 # ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/metaplex", package = "ic-solana" }
 ic-solana = { path = "/home/boern/workspace/ic-solana/src/ic-solana" }
 futures = "0.3.30"
+urlencoding = "2.1"
+
 [patch.crates-io.curve25519-dalek]
 git = "https://github.com/solana-labs/curve25519-dalek.git"
 rev = "b500cdc2a920cd5bff9e2dd974d7b97349d61464"
@@ -43,6 +45,7 @@ opt-level = 's'
 
 [dev-dependencies]
 ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
+urlencoding = "2.1"
 #pocket-ic = "3.1.0"
 #solana-program = "2.0.0"
 #spl-token-2022 = { git = "https://github.com/solana-labs/solana-program-library.git" }

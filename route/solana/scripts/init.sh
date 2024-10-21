@@ -56,11 +56,21 @@ dfx canister call omnity_hub execute_proposal "(vec {variant {
 dfx canister call omnity_hub query_directives "(opt \"${BITCOIN_CHAIN_ID}\",opt variant {AddChain},0:nat64,5:nat64)"
 
 # add token
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH202409242036"
-TOKEN_NAME="HOPE•YOU•GET•RICH202409242036"
-TOKEN_SYMBOL="RICH202409242036"
-DECIMALS=2
-ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+# TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH202409242036"
+# TOKEN_NAME="HOPE•YOU•GET•RICH202409242036"
+# TOKEN_SYMBOL="RICH202409242036"
+# DECIMALS=2
+# ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+
+TOKEN_ID="Bitcoin-runes-202410211549"
+TOKEN_NAME="HOPE•YOU•GET•NICE"
+TOKEN_SYMBOL="NICE"
+DECIMALS=0
+ICON="https://arweave.net/MIvxbV_yLcsDwH-ks3BLNhz2xU8MZm2DvKPystDuA0g"
+
+# ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/x.png"
+# ICON="https://arweave.net/DLXvyVzx01VKiNkLqTeSRTI4d7Mn_77U_DZjXQCRVhE"
+
 dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = record { 
         token_id = \"${TOKEN_ID}\"; 
         name = \"${TOKEN_NAME}\";

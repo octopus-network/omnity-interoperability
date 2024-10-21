@@ -1,3 +1,4 @@
+use crate::constants::IC_GATEWAY;
 use crate::handler::gen_ticket::{GenerateTicketReq, TransactionDetail};
 use crate::memory::Memory;
 use crate::{
@@ -148,6 +149,47 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
+        }
+    }
+}
+
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+pub struct TokenUri {
+    pub name: String,
+    pub symbol: String,
+    pub uri: String,
+}
+
+impl From<Token> for TokenUri {
+    fn from(value: Token) -> Self {
+        TokenUri {
+            name: value.name,
+            symbol: value.symbol,
+            uri: format!(
+                "https://{}.{}/token_meta?id={}",
+                ic_cdk::api::id().to_text(),
+                IC_GATEWAY,
+                value.token_id.to_string()
+            ),
+        }
+    }
+}
+
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+pub struct TokenMeta {
+    pub name: String,
+    pub symbol: String,
+    pub description: String,
+    pub image: String,
+}
+
+impl From<Token> for TokenMeta {
+    fn from(value: Token) -> Self {
+        TokenMeta {
+            name: value.name,
+            symbol: value.symbol,
+            description: value.token_id,
+            image: value.icon.unwrap_or_default(),
         }
     }
 }

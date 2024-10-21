@@ -2,7 +2,7 @@
 
 BITCOIN_CHAIN_ID="Bitcoin"
 SOL_CHAIN_ID="eSolana"
-TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH202409242036"
+TOKEN_ID="Bitcoin-runes-202410211549"
 
 # start schedule 
 dfx canister call solana_route start_schedule '()' 
