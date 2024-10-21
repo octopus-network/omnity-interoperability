@@ -39,7 +39,6 @@ fn post_upgrade() {
 
 #[update]
 pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
-    //unisat_query_transfer_event(&args).await
     mix_indexer(&args).await
 }
 
@@ -76,8 +75,6 @@ async fn mix_indexer(args: &QueryBrc20TransferArgs) -> Option<Brc20TransferEvent
     return None;
 
 }
-
-
 
 #[update]
 pub async fn height() -> u64{

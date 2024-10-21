@@ -4,12 +4,12 @@ use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument
 pub async fn get_block_height() -> u64 {
     let url = "https://mempool.space/api/blocks/tip/height";
 
-    const MAX_CYCLES: u128 = 25_000_000_000;
+    const MAX_CYCLES: u128 = 200_000_000;
     let request = CanisterHttpRequestArgument {
         url: url.to_string(),
         method: HttpMethod::GET,
         body: None,
-        max_response_bytes: None,
+        max_response_bytes: Some(1000),
         transform: Some(TransformContext {
             function: TransformFunc(candid::Func {
                 principal: ic_cdk::api::id(),

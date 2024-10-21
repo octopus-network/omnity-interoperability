@@ -3,7 +3,6 @@ mod unisat;
 mod state;
 mod stable_memory;
 mod okx;
-mod rpc;
 mod bestinslot;
 mod height;
 

@@ -49,13 +49,13 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
     let proxy_url = proxy_url();
     let uri = format!("/api/v5/explorer/btc/transaction-list?txId={}",query_transfer_args.tx_id);
     let url = format!("{proxy_url}{}",uri.clone());
-    const MAX_CYCLES: u128 = 25_000_000_000;
+    const MAX_CYCLES: u128 = 200_000_000;
     let idempotency_key = format!("okx-{}",ic_cdk::api::time());
     let request = CanisterHttpRequestArgument {
         url,
         method: HttpMethod::GET,
         body: None,
-        max_response_bytes: None,
+        max_response_bytes: Some(2000),
         transform: Some(TransformContext {
             function: TransformFunc(candid::Func {
                 principal: ic_cdk::api::id(),
