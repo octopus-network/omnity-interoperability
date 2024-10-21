@@ -39,7 +39,7 @@ ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-0
 hex = "0.4.3"
 
 [dev-dependencies]
-ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+# ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 icp-ledger = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 dfn_candid = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
