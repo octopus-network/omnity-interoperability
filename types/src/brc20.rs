@@ -5,13 +5,21 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(CandidType, Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
+#[derive(CandidType, Serialize, Deserialize, Default, Debug, Eq)]
 pub struct Brc20TransferEvent {
     pub amout: String,
     pub from: String,
     pub to: String,
     pub valid: bool,
     pub height: u64,
+}
+impl PartialEq for Brc20TransferEvent {
+    fn eq(&self, other: &Self) -> bool {
+        self.valid == other.valid &&
+            self.from == other.from &&
+            self.to == other.to &&
+            self.amout == other.amout
+    }
 }
 
 #[derive(CandidType, Serialize, Deserialize, Default, Debug)]
