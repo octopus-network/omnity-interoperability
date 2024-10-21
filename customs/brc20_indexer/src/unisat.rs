@@ -1,10 +1,13 @@
-use candid::{CandidType};
-use ic_canister_log::log;
-use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
-use serde::{Deserialize, Serialize};
-use omnity_types::ic_log::{ERROR, INFO};
 use crate::service::{Brc20TransferEvent, QueryBrc20TransferArgs};
-use crate::state::{api_key, BitcoinNetwork, proxy_url, read_state};
+use crate::state::{api_key, proxy_url, read_state, BitcoinNetwork};
+use candid::CandidType;
+use ic_canister_log::log;
+use ic_cdk::api::management_canister::http_request::{
+    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext,
+    TransformFunc,
+};
+use omnity_types::ic_log::{ERROR, INFO};
+use serde::{Deserialize, Serialize};
 
 const TESTNET_BASE_URL: &str = "https://open-api-testnet.unisat.io";
 const MAINNET_BASE_URL: &str = "https://open-api.unisat.io";
@@ -14,7 +17,7 @@ const RPC_NAME: &str = "UNISAT";
 struct CommonResponse<T> {
     pub code: i32,
     pub msg: String,
-    pub data: Option<T>
+    pub data: Option<T>,
 }
 
 impl<T> CommonResponse<T> {
@@ -28,14 +31,14 @@ pub struct QueryBrc20EventResponse {
     pub height: u32,
     pub total: u32,
     pub start: u32,
-    detail: Vec<Brc20Event>
+    detail: Vec<Brc20Event>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 struct Brc20Event {
     pub ticker: String,
     #[serde(rename = "type")]
-    pub typec:  String,
+    pub typec: String,
     pub valid: bool,
     pub txid: String,
     pub idx: u32,
@@ -64,11 +67,11 @@ struct Brc20Event {
 
 impl Brc20Event {
     pub fn check(&self, query_transfer_args: &QueryBrc20TransferArgs) -> bool {
-        self.txid == query_transfer_args.tx_id &&
-            self.valid &&
-            self.to == query_transfer_args.to_addr &&
-            self.ticker == query_transfer_args.ticker &&
-            self.amount == query_transfer_args.amt
+        self.txid == query_transfer_args.tx_id
+            && self.valid
+            && self.to == query_transfer_args.to_addr
+            && self.ticker == query_transfer_args.ticker
+            && self.amount == query_transfer_args.amt
     }
 }
 
@@ -84,7 +87,9 @@ impl From<Brc20Event> for Brc20TransferEvent {
     }
 }
 
-pub async fn unisat_query_transfer_event(query_transfer_args: &QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
+pub async fn unisat_query_transfer_event(
+    query_transfer_args: &QueryBrc20TransferArgs,
+) -> Option<Brc20TransferEvent> {
     let r = query(&query_transfer_args).await;
     match r {
         Ok(c) => {
@@ -93,14 +98,18 @@ pub async fn unisat_query_transfer_event(query_transfer_args: &QueryBrc20Transfe
                 let resp = data.detail;
                 log!(INFO, "{}", serde_json::to_string(&resp).unwrap());
                 for event in resp {
-                    if event.check(&query_transfer_args)  {
+                    if event.check(&query_transfer_args) {
                         return Some(event.into());
                     }
                 }
                 log!(INFO, "a");
                 None
-            }else {
-                log!(ERROR, "unisat query result error: {:?}", serde_json::to_string(&c));
+            } else {
+                log!(
+                    ERROR,
+                    "unisat query result error: {:?}",
+                    serde_json::to_string(&c)
+                );
                 None
             }
         }
@@ -111,15 +120,21 @@ pub async fn unisat_query_transfer_event(query_transfer_args: &QueryBrc20Transfe
     }
 }
 
-async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonResponse<QueryBrc20EventResponse>, UnisatError> {
-    let real_rpc_url = match read_state(|s|s.network) {
-        BitcoinNetwork::Mainnet => {MAINNET_BASE_URL}
-        BitcoinNetwork::Testnet => {TESTNET_BASE_URL}
-    }.to_string();
+async fn query(
+    query_transfer_args: &QueryBrc20TransferArgs,
+) -> Result<CommonResponse<QueryBrc20EventResponse>, UnisatError> {
+    let real_rpc_url = match read_state(|s| s.network) {
+        BitcoinNetwork::Mainnet => MAINNET_BASE_URL,
+        BitcoinNetwork::Testnet => TESTNET_BASE_URL,
+    }
+    .to_string();
     let api_key = api_key(RPC_NAME);
     let proxy_url = proxy_url();
-    let uri = format!("/v1/indexer/brc20/{}/tx/{}/history?type=transfer&start=0&limit=16", query_transfer_args.ticker, query_transfer_args.tx_id);
-    let url = format!("{proxy_url}{}",uri.clone());
+    let uri = format!(
+        "/v1/indexer/brc20/{}/tx/{}/history?type=transfer&start=0&limit=16",
+        query_transfer_args.ticker, query_transfer_args.tx_id
+    );
+    let url = format!("{proxy_url}{}", uri.clone());
     const MAX_CYCLES: u128 = 200_000_000;
 
     let request = CanisterHttpRequestArgument {
@@ -134,41 +149,40 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
             }),
             context: vec![],
         }),
-        headers: vec![HttpHeader {
-            name: "Content-Type".to_string(),
-            value: "application/json".to_string(),
-        },
-        HttpHeader {
-            name: "Authorization".to_string(),
-            value: api_key,
-        },
-        HttpHeader {
-            name: crate::constant_args::FORWARD_SOLANA_RPC.to_string(),
-            value: real_rpc_url,
-        },
-        HttpHeader {
-            name: crate::constant_args::IDEMPOTENCY_KEY.to_string(),
-            value: uri,
-        }],
+        headers: vec![
+            HttpHeader {
+                name: "Content-Type".to_string(),
+                value: "application/json".to_string(),
+            },
+            HttpHeader {
+                name: "Authorization".to_string(),
+                value: api_key,
+            },
+            HttpHeader {
+                name: crate::constant_args::FORWARD_SOLANA_RPC.to_string(),
+                value: real_rpc_url,
+            },
+            HttpHeader {
+                name: crate::constant_args::IDEMPOTENCY_KEY.to_string(),
+                value: uri,
+            },
+        ],
     };
 
-     match http_request(request, MAX_CYCLES).await {
+    match http_request(request, MAX_CYCLES).await {
         Ok((response,)) => {
             let status = response.status;
             if status == 200_u32 {
                 let body = String::from_utf8(response.body).map_err(|_| {
-                    UnisatError::Rpc(
-                        "Transformed response is not UTF-8 encoded".to_string(),
-                    )
+                    UnisatError::Rpc("Transformed response is not UTF-8 encoded".to_string())
                 })?;
-                log!(INFO, "{}",body.clone());
-                let tx: CommonResponse<QueryBrc20EventResponse> = serde_json::from_str(&body).map_err(|_| {
-                    UnisatError::Rpc(
-                        "failed to decode transaction from json".to_string(),
-                    )
-                })?;
+                log!(INFO, "{}", body.clone());
+                let tx: CommonResponse<QueryBrc20EventResponse> = serde_json::from_str(&body)
+                    .map_err(|_| {
+                        UnisatError::Rpc("failed to decode transaction from json".to_string())
+                    })?;
                 Ok(tx)
-            }else {
+            } else {
                 Err(UnisatError::Rpc("http response not 200".to_string()))
             }
         }
@@ -178,5 +192,5 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<CommonRes
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 enum UnisatError {
-    Rpc(String)
+    Rpc(String),
 }

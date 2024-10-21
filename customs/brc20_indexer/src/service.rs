@@ -1,19 +1,19 @@
+use crate::bestinslot::bestinsolt_query_transfer_event;
+use crate::height::get_block_height;
+use crate::okx::okx_query_transfer_event;
+use crate::state::read_state;
+use crate::state::replace_state;
+use crate::state::{mutate_state, BitcoinNetwork, IndexerState};
+use crate::unisat::unisat_query_transfer_event;
 use candid::CandidType;
 use ic_canister_log::log;
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use ic_cdk_macros::{export_candid, init, post_upgrade, pre_upgrade, query, update};
-use serde::{Deserialize, Serialize};
-use crate::state::{BitcoinNetwork, IndexerState, mutate_state};
-use crate::state::replace_state;
-use crate::state::read_state;
-use crate::unisat::unisat_query_transfer_event;
 pub use omnity_types::brc20::*;
-use ic_canisters_http_types::{HttpRequest, HttpResponse};
-use crate::bestinslot::bestinsolt_query_transfer_event;
-use crate::okx::okx_query_transfer_event;
 use omnity_types::ic_log::{ERROR, INFO};
-use crate::height::get_block_height;
+use serde::{Deserialize, Serialize};
 
 #[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
 pub struct InitArgs {
@@ -38,11 +38,11 @@ fn post_upgrade() {
 }
 
 #[update]
-pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
+pub async fn get_indexed_transfer(args: QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
     mix_indexer(&args).await
 }
 
-async fn mix_indexer(args: &QueryBrc20TransferArgs) -> Option<Brc20TransferEvent>{
+async fn mix_indexer(args: &QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
     let height = get_block_height().await;
     if height == 0 {
         log!(INFO, "query height error: {}", height);
@@ -60,24 +60,23 @@ async fn mix_indexer(args: &QueryBrc20TransferArgs) -> Option<Brc20TransferEvent
         } else {
             log!(INFO, "height no more than 4");
             None
-        }
+        };
     }
     let bestinslot_event = bestinsolt_query_transfer_event(&args).await;
     if bestinslot_event.is_some() {
-        if bestinslot_event == okx_event && height - okx_event.unwrap().height >= 4{
+        if bestinslot_event == okx_event && height - okx_event.unwrap().height >= 4 {
             return bestinslot_event;
         }
-        if bestinslot_event == unisat_event && height - unisat_event.unwrap().height >= 4  {
+        if bestinslot_event == unisat_event && height - unisat_event.unwrap().height >= 4 {
             return bestinslot_event;
         }
     }
     log!(ERROR, "Not found brc20 event");
     return None;
-
 }
 
 #[update]
-pub async fn height() -> u64{
+pub async fn height() -> u64 {
     get_block_height().await
 }
 
@@ -91,7 +90,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 
 #[update(guard = "is_controller")]
 pub fn set_api_key(rpc_name: String, key: String) {
-    mutate_state(|s|s.api_keys.insert(rpc_name, key));
+    mutate_state(|s| s.api_keys.insert(rpc_name, key));
 }
 
 #[query(hidden = true)]
@@ -99,7 +98,7 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {
         status: raw.response.status.clone(),
         body: raw.response.body.clone(),
-        headers: vec![]
+        headers: vec![],
     }
 }
 
@@ -117,4 +116,3 @@ pub fn is_controller() -> Result<(), String> {
 }
 
 export_candid!();
-

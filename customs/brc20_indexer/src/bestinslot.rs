@@ -1,13 +1,16 @@
-use std::ops::Div;
-use std::str::FromStr;
-use candid::{CandidType};
+use crate::service::{Brc20TransferEvent, QueryBrc20TransferArgs};
+use crate::state::{api_key, proxy_url, read_state, BitcoinNetwork};
+use candid::CandidType;
 use ic_canister_log::log;
-use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
+use ic_cdk::api::management_canister::http_request::{
+    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext,
+    TransformFunc,
+};
+use omnity_types::ic_log::{ERROR, INFO};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use omnity_types::ic_log::{ERROR, INFO};
-use crate::service::{Brc20TransferEvent, QueryBrc20TransferArgs};
-use crate::state::{api_key, BitcoinNetwork, proxy_url, read_state};
+use std::ops::Div;
+use std::str::FromStr;
 
 const TESTNET_BASE_URL: &str = "https://testnet.api.bestinslot.xyz";
 const MAINNET_BASE_URL: &str = "https://api.bestinslot.xyz";
@@ -45,17 +48,24 @@ impl BestInSlotBrc20Respsonse {
         self.data.len() == 1
     }
 
-    pub fn check(&self, query_brc20transfer_args: &QueryBrc20TransferArgs) ->bool {
-        self.is_ok() && self.data.first().cloned().unwrap().event.check(query_brc20transfer_args)
+    pub fn check(&self, query_brc20transfer_args: &QueryBrc20TransferArgs) -> bool {
+        self.is_ok()
+            && self
+                .data
+                .first()
+                .cloned()
+                .unwrap()
+                .event
+                .check(query_brc20transfer_args)
     }
 }
 
 impl EventContent {
     pub fn check(&self, query_transfer_args: &QueryBrc20TransferArgs) -> bool {
-            let amt: u128 = self.amount.parse().unwrap_or(0);
-            self.spent_wallet == query_transfer_args.to_addr &&
-            self.tick.to_lowercase() == query_transfer_args.ticker.to_lowercase() &&
-            amt == query_transfer_args.get_amt_satoshi()
+        let amt: u128 = self.amount.parse().unwrap_or(0);
+        self.spent_wallet == query_transfer_args.to_addr
+            && self.tick.to_lowercase() == query_transfer_args.ticker.to_lowercase()
+            && amt == query_transfer_args.get_amt_satoshi()
     }
 }
 
@@ -72,22 +82,32 @@ impl From<BestInSlotBrc20Respsonse> for Brc20TransferEvent {
     }
 }
 
-pub async fn bestinsolt_query_transfer_event(query_transfer_args: &QueryBrc20TransferArgs) -> Option<Brc20TransferEvent> {
+pub async fn bestinsolt_query_transfer_event(
+    query_transfer_args: &QueryBrc20TransferArgs,
+) -> Option<Brc20TransferEvent> {
     let r = query(&query_transfer_args).await;
     match r {
         Ok(c) => {
             if c.is_ok() {
-
                 if c.check(&query_transfer_args) {
                     let mut evt: Brc20TransferEvent = c.into();
-                    let amt = Decimal::from_str(&evt.amout).unwrap()
-                        .div(Decimal::from(10u128.pow(query_transfer_args.decimals as u32))).normalize().to_string();
+                    let amt = Decimal::from_str(&evt.amout)
+                        .unwrap()
+                        .div(Decimal::from(
+                            10u128.pow(query_transfer_args.decimals as u32),
+                        ))
+                        .normalize()
+                        .to_string();
                     evt.amout = amt;
                     return Some(evt);
                 }
                 None
-            }else {
-                log!(ERROR, "unisat query result error: {:?}", serde_json::to_string(&c));
+            } else {
+                log!(
+                    ERROR,
+                    "unisat query result error: {:?}",
+                    serde_json::to_string(&c)
+                );
                 None
             }
         }
@@ -98,18 +118,24 @@ pub async fn bestinsolt_query_transfer_event(query_transfer_args: &QueryBrc20Tra
     }
 }
 
-async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<BestInSlotBrc20Respsonse, BestInSlotError> {
-    let real_rpc_url = match read_state(|s|s.network) {
-        BitcoinNetwork::Mainnet => {MAINNET_BASE_URL}
-        BitcoinNetwork::Testnet => {TESTNET_BASE_URL}
-    }.to_string();
+async fn query(
+    query_transfer_args: &QueryBrc20TransferArgs,
+) -> Result<BestInSlotBrc20Respsonse, BestInSlotError> {
+    let real_rpc_url = match read_state(|s| s.network) {
+        BitcoinNetwork::Mainnet => MAINNET_BASE_URL,
+        BitcoinNetwork::Testnet => TESTNET_BASE_URL,
+    }
+    .to_string();
     let api_key = api_key(RPC_NAME);
     log!(INFO, "bestinslot api key: {}", api_key.clone());
     let proxy_url = proxy_url();
-    let uri = format!("/v3/brc20/event_from_txid?txid={}",query_transfer_args.tx_id);
-    let url = format!("{proxy_url}{}",uri.clone());
+    let uri = format!(
+        "/v3/brc20/event_from_txid?txid={}",
+        query_transfer_args.tx_id
+    );
+    let url = format!("{proxy_url}{}", uri.clone());
     const MAX_CYCLES: u128 = 200_000_000;
-    let idempotency_key = format!("bestinslot-{}",ic_cdk::api::time());
+    let idempotency_key = format!("bestinslot-{}", ic_cdk::api::time());
     let request = CanisterHttpRequestArgument {
         url,
         method: HttpMethod::GET,
@@ -122,41 +148,43 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<BestInSlo
             }),
             context: vec![],
         }),
-        headers: vec![HttpHeader {
-            name: "Content-Type".to_string(),
-            value: "application/json".to_string(),
-        },
-        HttpHeader {
-          name: "x-api-key".to_string(),
-          value: api_key,
-        },
-        HttpHeader {
-          name: crate::constant_args::FORWARD_SOLANA_RPC.to_string(),
-          value: real_rpc_url,
-        },
-        HttpHeader {
-          name: crate::constant_args::IDEMPOTENCY_KEY.to_string(),
-          value: idempotency_key,
-        }],
+        headers: vec![
+            HttpHeader {
+                name: "Content-Type".to_string(),
+                value: "application/json".to_string(),
+            },
+            HttpHeader {
+                name: "x-api-key".to_string(),
+                value: api_key,
+            },
+            HttpHeader {
+                name: crate::constant_args::FORWARD_SOLANA_RPC.to_string(),
+                value: real_rpc_url,
+            },
+            HttpHeader {
+                name: crate::constant_args::IDEMPOTENCY_KEY.to_string(),
+                value: idempotency_key,
+            },
+        ],
     };
 
     match http_request(request, MAX_CYCLES).await {
         Ok((response,)) => {
-            log!(INFO, "okx result: {}",serde_json::to_string(&response).unwrap());
+            log!(
+                INFO,
+                "okx result: {}",
+                serde_json::to_string(&response).unwrap()
+            );
             let status = response.status;
             if status == 200_u32 {
                 let body = String::from_utf8(response.body).map_err(|_| {
-                    BestInSlotError::Rpc(
-                        "Transformed response is not UTF-8 encoded".to_string(),
-                    )
+                    BestInSlotError::Rpc("Transformed response is not UTF-8 encoded".to_string())
                 })?;
                 let tx: BestInSlotBrc20Respsonse = serde_json::from_str(&body).map_err(|_| {
-                    BestInSlotError::Rpc(
-                        "failed to decode transaction from json".to_string(),
-                    )
+                    BestInSlotError::Rpc("failed to decode transaction from json".to_string())
                 })?;
                 Ok(tx)
-            }else {
+            } else {
                 Err(BestInSlotError::Rpc("http response not 200".to_string()))
             }
         }
@@ -166,5 +194,5 @@ async fn query(query_transfer_args: &QueryBrc20TransferArgs) -> Result<BestInSlo
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 enum BestInSlotError {
-    Rpc(String)
+    Rpc(String),
 }
