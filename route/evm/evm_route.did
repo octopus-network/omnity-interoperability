@@ -160,6 +160,7 @@ service : (InitArgs) -> {
   rewrite_tx_hash : (text, text) -> ();
   route_state : () -> (StateProfile) query;
   set_port_address : (text) -> ();
+  sync_mint_status : (text) -> ();
   update_admins : (vec principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
   update_fee_token : (text) -> ();

@@ -6,6 +6,8 @@ use cketh_common::eth_rpc_client::providers::RpcApi;
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_cdk::api::management_canister::http_request;
+use ic_cdk::api::management_canister::http_request::TransformArgs;
 use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 
@@ -197,6 +199,10 @@ fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
 }
 
 #[update(guard = "is_admin")]
+async fn sync_mint_status(hash: String) {
+    crate::evm_scan::sync_mint_status(hash).await;
+}
+#[update(guard = "is_admin")]
 fn update_admins(admins: Vec<Principal>) {
     mutate_state(|s| s.admins = admins);
 }
@@ -271,6 +277,17 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
 #[update(guard = "is_admin")]
 pub fn insert_pending_hash(tx_hash: String) {
     mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
+}
+
+
+#[query]
+fn transform(raw: TransformArgs) -> http_request::HttpResponse {
+    http_request::HttpResponse {
+        status: raw.response.status.clone(),
+        body: raw.response.body.clone(),
+        headers: vec![],
+        ..Default::default()
+    }
 }
 
 #[update(guard = "is_admin")]

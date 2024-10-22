@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::str::FromStr;
+use std::u128;
 
 use candid::{CandidType, Nat};
 use cketh_common::eth_rpc::{Hash, HttpOutcallError, RpcError};
@@ -14,6 +15,7 @@ use evm_rpc::{MultiRpcResult, RpcServices};
 use evm_rpc::candid_types::{BlockTag, GetTransactionCountArgs, SendRawTransactionStatus};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
+use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 
@@ -21,6 +23,7 @@ use crate::{const_args, Error, eth_common, state};
 use crate::const_args::{
     BROADCAST_TX_CYCLES, EVM_ADDR_BYTES_LEN, GET_ACCOUNT_NONCE_CYCLES, SCAN_EVM_CYCLES,
 };
+use crate::Error::EvmRpcError;
 use crate::eth_common::EvmAddressError::LengthError;
 use crate::ic_log::{CRITICAL, ERROR, INFO};
 use crate::state::{evm_transfer_gas_factor, rpc_providers};
@@ -444,6 +447,73 @@ pub async fn get_transaction_receipt(
     }
 }
 
+pub async fn get_receipt(hash: &String, vec: Vec<RpcApi>) -> Result<Option<evm_rpc::candid_types::TransactionReceipt>, Error> {
+
+    //curl -X POST -H "Content-Type: application/json"  --data '{"method":"eth_getTransactionReceipt","params":["0x643e670872578855d788f4b9862b1a8cdc88d36ffd477ba832a2e611212c0668"],"id":1,"jsonrpc":"2.0"}' https://rpc.ankr.com/bitlayer
+
+    let url = vec[0].url.clone();
+    const MAX_CYCLES: u128 = 1_100_000_000;
+    let body = EvmJsonRpcRequest {
+        method: "eth_getTransactionReceipt".to_string(),
+        params: vec![hash.clone()],
+        id: 1,
+        jsonrpc: "2.0".to_string(),
+    };
+    let body = serde_json::to_string(&body).unwrap();
+    let request = CanisterHttpRequestArgument {
+        url,
+        method: HttpMethod::POST,
+        body: Some(body.as_bytes().to_vec()),
+        max_response_bytes: Some(5000),
+        transform: Some(TransformContext {
+            function: TransformFunc(candid::Func {
+                principal: ic_cdk::api::id(),
+                method: "transform".to_string(),
+            }),
+            context: vec![],
+        }),
+        headers: vec![
+            HttpHeader {
+                name: "Content-Type".to_string(),
+                value: "application/json".to_string(),
+            },
+        ],
+    };
+
+    match http_request(request, MAX_CYCLES).await {
+        Ok((response, )) => {
+            log!(
+                INFO,
+                "get_receipt result: {}",
+                serde_json::to_string(&response).unwrap()
+            );
+            let status = response.status;
+            if status == 200_u32 {
+                let body = String::from_utf8(response.body).map_err(|_| {
+                    EvmRpcError("Transformed response is not UTF-8 encoded".to_string())
+                })?;
+                let tx: EvmRpcResponse<TransactionReceipt> =
+                    serde_json::from_str(&body).map_err(|_| {
+                        EvmRpcError("failed to decode transaction from json".to_string())
+                    })?;
+                if tx.result.is_none() {
+                    return Ok(None)
+                }
+                Ok(Some(tx.result.unwrap().into()))
+            } else {
+                Err(EvmRpcError("http response not 200".to_string()))
+            }
+        }
+        Err((_, m)) => Err(EvmRpcError(m)),
+    }
+}
+
+#[derive(Deserialize, Clone, Debug, Default)]
+pub struct EvmRpcResponse<T> {
+    pub id: u32,
+    pub jsonrpc: String,
+    pub result: Option<T>,
+}
 #[derive(
     CandidType, Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord,
 )]
@@ -467,12 +537,13 @@ pub struct EvmJsonRpcRequest {
     pub jsonrpc: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct JsonRpcResponse<T> {
     pub jsonrpc: String,
     pub result: T,
     pub id: u32,
 }
+
 
 pub async fn call_rpc_with_retry<P: Clone, T, R: Future<Output = Result<T, Error>>>(
     params: P,
