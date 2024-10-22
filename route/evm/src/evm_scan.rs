@@ -13,7 +13,7 @@ use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
     TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::{call_rpc_with_retry, get_transaction_receipt};
+use crate::eth_common::{call_rpc_with_retry, get_receipt};
 use crate::ic_log::{ERROR, INFO};
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
@@ -36,7 +36,7 @@ pub fn scan_evm_task() {
             if now - time < interval || now - time > interval * 5 {
                 continue;
             }
-            let receipt = call_rpc_with_retry(&hash, get_transaction_receipt)
+            let receipt = call_rpc_with_retry(&hash, get_receipt)
                 .await
                 .map_err(|e| {
                     log!(ERROR,"user query transaction receipt error: {:?}", e);
@@ -60,6 +60,32 @@ pub fn scan_evm_task() {
             }
         }
     });
+}
+
+pub async fn sync_mint_status(hash: String) {
+    let receipt = call_rpc_with_retry(&hash, get_receipt)
+        .await
+        .map_err(|e| {
+            log!(ERROR,"user query transaction receipt error: {:?}", e);
+            "rpc".to_string()
+        });
+    log!(INFO, "{:?}",&receipt);
+    if let Ok(Some(tr)) = receipt {
+        if tr.status == 0 {
+            mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+            return;
+        }
+        let res = handle_port_events(tr.logs.clone()).await;
+        match res {
+            Ok(_) => {
+                mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+                mutate_state(|s| s.handled_evm_event.insert(hash));
+            }
+            Err(e) => {
+                log!(ERROR, "[evm route] handle evm logs error: {}", e.to_string());
+            }
+        }
+    }
 }
 
 pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
@@ -205,7 +231,7 @@ pub async fn handle_token_transport(
 }
 
 pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, TransactionReceipt), String> {
-    let receipt = call_rpc_with_retry(tx_hash, get_transaction_receipt)
+    let receipt = call_rpc_with_retry(tx_hash, get_receipt)
         .await
         .map_err(|e| {
             log!(ERROR, "user query transaction receipt error: {:?}", e);
