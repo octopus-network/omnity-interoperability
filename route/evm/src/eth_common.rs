@@ -496,10 +496,7 @@ pub async fn get_receipt(hash: &String, vec: Vec<RpcApi>) -> Result<Option<evm_r
                     serde_json::from_str(&body).map_err(|_| {
                         EvmRpcError("failed to decode transaction from json".to_string())
                     })?;
-                if tx.result.is_none() {
-                    return Ok(None)
-                }
-                Ok(Some(tx.result.unwrap().into()))
+                Ok(tx.result.map(|tr| tr.into()))
             } else {
                 Err(EvmRpcError("http response not 200".to_string()))
             }
