@@ -292,7 +292,7 @@ pub async fn rewrite_tx_hash(ticket_id: String, tx_hash: String) {
 #[update(guard = "is_admin")]
 pub async fn resend_ticket_to_hub(tx_hash: String) {
     let (ticket, _tr) = create_ticket_by_tx(&tx_hash).await.unwrap();
-    let _: () = ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
+    let _: () = ic_cdk::call(crate::state::hub_addr(), "finalize_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))
         .unwrap();

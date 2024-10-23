@@ -168,7 +168,7 @@ pub async fn handle_runes_mint(
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
     let ticket = ticket_from_runes_mint_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
+    ic_cdk::call(crate::state::hub_addr(), "finalize_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))?;
     log!(INFO,
@@ -180,7 +180,7 @@ pub async fn handle_runes_mint(
 
 pub async fn handle_token_burn(log_entry: &TransactionReceiptLog, event: TokenBurned) -> anyhow::Result<()> {
     let ticket = ticket_from_burn_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
+    ic_cdk::call(crate::state::hub_addr(), "finalize_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))?;
     log!(INFO, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
@@ -192,7 +192,7 @@ pub async fn handle_token_transport(
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
     let ticket = ticket_from_transport_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
+    ic_cdk::call(crate::state::hub_addr(), "finalize_ticket", (ticket.clone(),))
         .await
         .map_err(|(_, s)| BitfinityRouteError::HubError(s))?;
     log!(INFO,
