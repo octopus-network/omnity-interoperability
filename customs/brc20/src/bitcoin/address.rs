@@ -1,6 +1,5 @@
 //! Utilities to derive, display, and parse bitcoin addresses.
 
-use candid::CandidType;
 use ic_btc_interface::Network;
 use ic_crypto_sha2::Sha256;
 use serde::{Deserialize, Serialize};
@@ -11,11 +10,7 @@ const BTC_MAINNET_P2SH_PREFIX: u8 = 5;
 const BTC_TESTNET_PREFIX: u8 = 111;
 const BTC_TESTNET_P2SH_PREFIX: u8 = 196;
 
-#[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub struct ECDSAPublicKey {
-    pub public_key: Vec<u8>,
-    pub chain_code: Vec<u8>,
-}
+pub type ECDSAPublicKey = ic_cdk::api::management_canister::ecdsa::EcdsaPublicKeyResponse;
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BitcoinAddress {
