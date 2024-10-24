@@ -22,6 +22,7 @@ type Factor = variant {
   UpdateTargetChainFactor : TargetChainFactor;
 };
 type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
+type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record {
   evm_chain_id : nat64;
   hub_principal : principal;
@@ -110,7 +111,13 @@ type TokenResp = record {
   rune_id : opt text;
   symbol : text;
 };
-type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxAction = variant {
+  Burn;
+  Redeem;
+  Mint;
+  RedeemIcpChainKeyAssets : IcpChainKeyToken;
+  Transfer;
+};
 service : (InitArgs) -> {
   generate_ticket : (text) -> (Result);
   get_chain_list : () -> (vec Chain) query;
@@ -133,7 +140,6 @@ service : (InitArgs) -> {
   query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
   resend_directive : (nat64) -> ();
   resend_ticket : (nat64) -> ();
-  resend_ticket_to_hub : (text) -> ();
   rewrite_tx_hash : (text, text) -> ();
   route_state : () -> (StateProfile) query;
   set_port_address : (text) -> ();
