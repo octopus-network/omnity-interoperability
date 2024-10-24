@@ -37,6 +37,11 @@ type HttpResponse = record {
   headers : vec record { text; text };
   status_code : nat16;
 };
+type HttpResponse_1 = record {
+  status : nat;
+  body : vec nat8;
+  headers : vec HttpHeader;
+};
 type InitArgs = record {
   evm_chain_id : nat64;
   hub_principal : principal;
@@ -132,6 +137,7 @@ type TokenResp = record {
   rune_id : opt text;
   symbol : text;
 };
+type TransformArgs = record { context : vec nat8; response : HttpResponse_1 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
 service : (InitArgs) -> {
   generate_ticket : (text) -> (Result);
@@ -156,11 +162,11 @@ service : (InitArgs) -> {
   query_tickets : (nat64, nat64) -> (vec record { nat64; Ticket }) query;
   resend_directive : (nat64) -> ();
   resend_ticket : (nat64) -> ();
-  resend_ticket_to_hub : (text) -> ();
   rewrite_tx_hash : (text, text) -> ();
   route_state : () -> (StateProfile) query;
   set_port_address : (text) -> ();
   sync_mint_status : (text) -> ();
+  transform : (TransformArgs) -> (HttpResponse_1) query;
   update_admins : (vec principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
   update_fee_token : (text) -> ();
