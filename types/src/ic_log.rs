@@ -103,7 +103,7 @@ fn merge_log( entries: &mut Log, buffer: &'static GlobalBuffer,  priority: Prior
             canister_id: canister_id.to_string(),
             time_str: OffsetDateTime::from_unix_timestamp_nanos(entry.timestamp as i128).unwrap().to_string(),
             counter: entry.counter,
-            priority: priority,
+            priority,
             file: entry.file.to_string(),
             line: entry.line,
             message: entry.message,
