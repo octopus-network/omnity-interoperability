@@ -8,6 +8,10 @@ pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(),
     call(hub_principal, "send_ticket".into(), (ticket,)).await
 }
 
+pub async fn finalize_ticket(hub_principal: Principal, ticket_id: String) -> Result<(), CallError> {
+    call(hub_principal, "finalize_ticket".into(), (ticket_id,)).await
+}
+
 pub async fn query_tickets(
     hub_principal: Principal,
     offset: u64,

@@ -289,16 +289,6 @@ pub async fn rewrite_tx_hash(ticket_id: String, tx_hash: String) {
     hub::update_tx_hash(hub_principal, ticket_id, tx_hash).await.unwrap();
 }
 
-#[update(guard = "is_admin")]
-pub async fn resend_ticket_to_hub(tx_hash: String) {
-    let (ticket, _tr) = create_ticket_by_tx(&tx_hash).await.unwrap();
-    let _: () = ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
-        .await
-        .map_err(|(_, s)| BitfinityRouteError::HubError(s))
-        .unwrap();
-    log!(INFO, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
-}
-
 #[derive(CandidType, Deserialize)]
 pub struct InitArgs {
     pub evm_chain_id: u64,

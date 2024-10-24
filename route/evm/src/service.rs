@@ -11,7 +11,7 @@ use ic_cdk::api::management_canister::http_request::TransformArgs;
 use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 
-use crate::{Error, get_time_secs, hub};
+use crate::{get_time_secs, hub};
 use crate::const_args::{
     BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL,
     SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
@@ -313,16 +313,6 @@ pub async fn rewrite_tx_hash(ticket_id: String, tx_hash: String) {
     hub::update_tx_hash(hub_principal, ticket_id, tx_hash)
         .await
         .unwrap();
-}
-
-#[update(guard = "is_admin")]
-pub async fn resend_ticket_to_hub(tx_hash: String) {
-    let (ticket, _tr) = create_ticket_by_tx(&tx_hash).await.unwrap();
-    let _r: () = ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
-        .await
-        .map_err(|(_, s)| Error::HubError(s))
-        .unwrap();
-    log!(INFO, "[evm_route] burn_ticket sent to hub success: {:?}", ticket);
 }
 
 #[derive(CandidType, Deserialize)]
