@@ -60,6 +60,6 @@ derive_more = { version = "0.99.17", default-features = false, features = [
 
 # log deps
 # ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
-ic-stable-structures = "0.6"
+ic-stable-structures = "0.6.5"
 lazy_static = "1.4.0"
 anyhow = "1.0.80"
