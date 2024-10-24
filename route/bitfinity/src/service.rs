@@ -8,7 +8,7 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 use crate::hub;
-use crate::{BitfinityRouteError, get_time_secs};
+use crate::{get_time_secs};
 use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
 use crate::eth_common::{EvmAddress, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
