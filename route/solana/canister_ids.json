@@ -1,5 +1,11 @@
 {
-  "ic-solana-provider": {},
-  "omnity_hub": {},
-  "solana_route": {}
+  "ic-solana-provider": {
+    "ic": "xgviw-pqaaa-aaaar-qajbq-cai"
+  },
+  "omnity_hub": {
+    "ic": "xbuoc-ciaaa-aaaar-qajba-cai"
+  },
+  "solana_route": {
+    "ic": "xtsz3-oyaaa-aaaar-qajca-cai"
+  }
 }

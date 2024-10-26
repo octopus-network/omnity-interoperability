@@ -17,23 +17,23 @@ start: ## Start ic localnet
 build: start ## Build the solana route canister
 	# dfx canister create solana_route
 	# dfx build solana_route
-	./scripts/build.sh
+	bash ./scripts/build.sh
 
 .PHONY: deploy
 deploy: ## Deploy the canisters(omnity_hub,schnorr_canister,ic-solana-provider and solana_route)
-	./scripts/deploy.sh
+	bash ./scripts/deploy.sh
 
 .PHONY: init
 init: ## Init test data
-	./scripts/init.sh
+	bash ./scripts/init.sh
 
 .PHONY: test
 test: ## Run e2e test
-	./scripts/test.sh
+	bash ./scripts/test.sh
 
 .PHONY: stress
 stress: ## Run stress test on localnet
-	./scripts/stress_localnet.sh
+	bash ./scripts/stress_localnet.sh
 
 .PHONY: clean
 clean: ## Cleanup

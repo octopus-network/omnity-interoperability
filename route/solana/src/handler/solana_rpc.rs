@@ -81,7 +81,7 @@ pub async fn create_mint_account(token_mint: Pubkey, req: TokenInfo) -> Result<S
         .create_mint_with_metaplex(token_mint, req)
         .await
         .map_err(|e| CallError {
-            method: "[solana_rpc::create_mint_account] create_mint_with_metadata".to_string(),
+            method: "[solana_rpc::create_mint_account] create_mint_with_metaplex".to_string(),
             reason: Reason::CanisterError(e.to_string()),
         })?;
 
@@ -128,7 +128,7 @@ pub async fn create_ata(to_account: String, token_mint: String) -> Result<String
     Ok(signature.to_string())
 }
 
-pub async fn mint_to(req: MintTokenRequest) -> Result<String, CallError> {
+pub async fn mint_to_with_req(req: MintTokenRequest) -> Result<String, CallError> {
     let sol_client = solana_client().await;
     let associated_account =
         Pubkey::try_from(req.associated_account.as_str()).expect("Invalid receiver address");
@@ -167,7 +167,7 @@ pub async fn mint_to(req: MintTokenRequest) -> Result<String, CallError> {
 }
 
 // create mint token account with token metadata
-pub async fn update_token_metadata(
+pub async fn update_token22_metadata(
     token_mint: String,
     req: TokenInfo,
 ) -> Result<String, CallError> {
@@ -175,16 +175,38 @@ pub async fn update_token_metadata(
     let token_mint = Pubkey::from_str(&token_mint).expect("Invalid token mint address");
 
     let signature = sol_client
-        .update_with_metaplex(token_mint, req)
+        .update_token22_metadata(token_mint, req)
         .await
         .map_err(|e| CallError {
-            method: "[solana_rpc::update_token_metadata] update_token_metadata".to_string(),
+            method: "[solana_rpc::update_token22_metadata] update_token22_metadata".to_string(),
             reason: Reason::CanisterError(e.to_string()),
         })?;
 
     log!(
         DEBUG,
-        "[solana_rpc::update_token_metadata] signature: {:?}",
+        "[solana_rpc::update_token22_metadata] signature: {:?}",
+        signature
+    );
+
+    Ok(signature.to_string())
+}
+
+// create mint token account with token metadata
+pub async fn update_with_metaplex(token_mint: String, req: TokenInfo) -> Result<String, CallError> {
+    let sol_client = solana_client().await;
+    let token_mint = Pubkey::from_str(&token_mint).expect("Invalid token mint address");
+
+    let signature = sol_client
+        .update_with_metaplex(token_mint, req)
+        .await
+        .map_err(|e| CallError {
+            method: "[solana_rpc::update_with_metaplex] update_with_metaplex".to_string(),
+            reason: Reason::CanisterError(e.to_string()),
+        })?;
+
+    log!(
+        DEBUG,
+        "[solana_rpc::update_with_metaplex] signature: {:?}",
         signature
     );
 

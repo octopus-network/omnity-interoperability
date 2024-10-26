@@ -14,7 +14,7 @@ use ic_solana::types::TransactionConfirmationStatus;
 
 use crate::constants::{COUNTER_SIZE, RETRY_LIMIT_SIZE};
 use ic_canister_log::log;
-use ic_solana::ic_log::{CRITICAL, DEBUG, ERROR};
+use ic_solana::ic_log::{CRITICAL, DEBUG, ERROR,WARNING};
 
 pub async fn create_associated_account() {
  
@@ -269,7 +269,7 @@ pub async fn update_ata_status(sig:String,owner:String,mint_address:String) {
    match tx_status_ret {
     Err(e) => {
         log!(
-            CRITICAL,
+            WARNING,
              "[associated_account::update_ata_status] get_signature_status for {} ,err: {:?}",
              sig.to_string(),
              e
@@ -284,7 +284,7 @@ pub async fn update_ata_status(sig:String,owner:String,mint_address:String) {
                     TxStatus::TxFailed { e: e.to_string() };
                 account.retry += 1;
                 //reset signature
-                account.signature = None;
+                // account.signature = None;
                 s.associated_accounts.insert(ata_key, account.to_owned());
         }
            

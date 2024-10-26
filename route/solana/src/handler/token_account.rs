@@ -1,15 +1,15 @@
 use std::str::FromStr;
 
-use crate::constants::{IC_GATEWAY, RETRY_LIMIT_SIZE};
+use crate::constants::RETRY_LIMIT_SIZE;
 use crate::state::{AccountInfo, TxStatus, UpdateToken};
 
 use ic_solana::types::{Pubkey, TransactionConfirmationStatus};
 
-use crate::handler::solana_rpc::{self, create_mint_account, update_token_metadata};
-
+use crate::handler::solana_rpc::{self, create_mint_account};
+use crate::handler::solana_rpc::update_with_metaplex;
 use crate::state::{mutate_state, read_state};
 use ic_canister_log::log;
-use ic_solana::ic_log::{CRITICAL, DEBUG, ERROR};
+use ic_solana::ic_log::{CRITICAL, DEBUG, ERROR,WARNING};
 use ic_solana::token::{SolanaClient, TokenInfo};
 use ic_solana::eddsa::hash_with_sha256;
 
@@ -42,11 +42,12 @@ pub async fn create_token_mint() {
             name: token.name,
             symbol: token.symbol,
             decimals: token.decimals,
-            uri: format!("https://{}.{}/token_uri?id={}",
-            ic_cdk::api::id().to_text(),
-            
-            IC_GATEWAY,
-            token.token_id.to_string()),
+            uri: token.icon.unwrap_or_default(),
+            // uri: format!("https://{}.{}/token_meta?id={}",
+            // // ic_cdk::api::id().to_text(),
+            // "xpwdk-zyaaa-aaaar-qajaa-cai".to_string(),
+            // IC_GATEWAY,
+            // token.token_id.to_string()),
         };
         let mint_account = if let Some(account) =
             read_state(|s| s.token_mint_accounts.get(&token.token_id))
@@ -261,7 +262,7 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
     match tx_status_ret {
         Err(e) => {
             log!(
-                CRITICAL,
+                WARNING,
                 "[token_account::update_mint_account_status] get_signature_status for {} ,err: {:?}",
                 sig.to_string(),
                 e
@@ -272,8 +273,8 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
                     .get(&token_id).as_mut() {
                         account.status = TxStatus::TxFailed { e: e.to_string() };
                         account.retry += 1;
-                        //reset signature
-                        account.signature = None;
+                        // reset signature
+                        // account.signature = None;
                         s.token_mint_accounts.insert(token_id.to_string(),account.to_owned());
                     }
             });
@@ -334,7 +335,7 @@ pub async fn update_token() {
                 uri: update_token.token.icon.to_owned().unwrap_or_default(),
             };
             log!(DEBUG,"[token_account::update_token] token_update_info: {:?} ",token_update_info);
-            match update_token_metadata(account_info.account, token_update_info).await {
+            match update_with_metaplex(account_info.account, token_update_info).await {
                 Ok(signature) => {
                     log!(DEBUG,"[token_account::update_token]  update token metadata for {:?} already submited to solana and waiting for the tx({:}) to be finallized ...",
                     update_token.token.token_id.to_string(),

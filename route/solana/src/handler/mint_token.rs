@@ -18,7 +18,7 @@ use ic_solana::types::{ TransactionConfirmationStatus};
 
 use crate::constants::{ RETRY_LIMIT_SIZE};
 use ic_canister_log::log;
-use ic_solana::ic_log::{ERROR, DEBUG,CRITICAL};
+use ic_solana::ic_log::{ERROR, DEBUG,CRITICAL,WARNING};
 
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -239,7 +239,7 @@ pub async fn mint_token() {
 }
 
 pub async fn handle_mint_token(mint_req: MintTokenRequest){
-    match mint_to(mint_req.to_owned()).await {
+    match mint_to_with_req(mint_req.to_owned()).await {
         Ok(signature) => {
             log!(
                 DEBUG,
@@ -288,7 +288,7 @@ pub async fn update_mint_token_status(mut mint_req:MintTokenRequest,sig:String) 
     match tx_status_ret {
         Err(e) => {
             log!(
-                CRITICAL,
+                WARNING,
                 "[mint_token::update_mint_token_req] get_signature_status for {} ,err: {:?}",
                 sig.to_string(),
                 e
@@ -331,11 +331,11 @@ pub async fn update_mint_token_status(mut mint_req:MintTokenRequest,sig:String) 
 }
 
 /// send tx to solana for mint token
-pub async fn mint_to( req: MintTokenRequest) -> Result<String, MintTokenError> {
+pub async fn mint_to_with_req( req: MintTokenRequest) -> Result<String, MintTokenError> {
     // if read_state(|s| s.mint_token_requests.contains_key(&req.ticket_id)) {
     //     return Err(MintTokenError::AlreadyProcessed(req.ticket_id.to_string()));
     // }
-    let signature = solana_rpc::mint_to(
+    let signature = solana_rpc::mint_to_with_req(
        req.to_owned(),
     )
     .await

@@ -937,6 +937,7 @@ dependencies = [
  "ic-canister-log",
  "ic-canisters-http-types",
  "ic-cdk 0.14.0",
+ "ic-cdk-timers",
  "ic-crypto-ed25519",
  "ic-management-canister-types",
  "k256",

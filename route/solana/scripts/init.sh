@@ -60,24 +60,36 @@ dfx canister call omnity_hub query_directives "(opt \"${BITCOIN_CHAIN_ID}\",opt 
 # TOKEN_NAME="HOPE•YOU•GET•RICH202409242036"
 # TOKEN_SYMBOL="RICH202409242036"
 # DECIMALS=2
-# ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+# TOKEN_URI="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
 
-TOKEN_ID="Bitcoin-runes-202410211549"
-TOKEN_NAME="HOPE•YOU•GET•NICE"
-TOKEN_SYMBOL="NICE"
+# TOKEN_ID="Bitcoin-runes-202410211549"
+# export TOKEN_ID
+# TOKEN_NAME="HOPE•YOU•GET•NICE"
+# TOKEN_SYMBOL="NICE"
+# DECIMALS=0
+# TOKEN_URI="https://arweave.net/MIvxbV_yLcsDwH-ks3BLNhz2xU8MZm2DvKPystDuA0g"
+# TOKEN_URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/x.png"
+# TOKEN_URI="https://arweave.net/DLXvyVzx01VKiNkLqTeSRTI4d7Mn_77U_DZjXQCRVhE"
+# PROTO="Bitcoin-runes"
+TOKEN_NAME="RUNES•X•BITCOIN"
+# TIMESTAMP=$(date +"%Y%m%d%H%M")
+TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN202410220902"
+# TOKEN_ID="${PROTO}-${TOKEN_NAME}${TIMESTAMP}"
+export TOKEN_ID
+# TOKEN_SYMBOL=$(echo "$TOKEN_NAME" | grep -oE 'NICE[0-9]+')
+TOKEN_SYMBOL="X"
 DECIMALS=0
-ICON="https://arweave.net/MIvxbV_yLcsDwH-ks3BLNhz2xU8MZm2DvKPystDuA0g"
-
-# ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/x.png"
-# ICON="https://arweave.net/DLXvyVzx01VKiNkLqTeSRTI4d7Mn_77U_DZjXQCRVhE"
-
+TOKEN_URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x_meta.json"
+# TOKEN_URI=https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/x.png
+# TOKEN_URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x_uri.json"
+# https://xpwdk-zyaaa-aaaar-qajaa-cai.raw.icp0.io/token_meta?id=Bitcoin-runes-RUNES%E2%80%A2X%E2%80%A2BITCOIN202410220902
 dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = record { 
         token_id = \"${TOKEN_ID}\"; 
         name = \"${TOKEN_NAME}\";
         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
         symbol = \"${TOKEN_SYMBOL}\"; 
         decimals = ${DECIMALS};
-        icon = opt \"${ICON}\"; 
+        icon = opt \"${TOKEN_URI}\"; 
         metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
         dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
 dfx canister call omnity_hub execute_proposal "( vec {variant { AddToken = record { 
@@ -86,7 +98,7 @@ dfx canister call omnity_hub execute_proposal "( vec {variant { AddToken = recor
         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
         symbol = \"${TOKEN_SYMBOL}\"; 
         decimals = ${DECIMALS};
-        icon = opt \"${ICON}\"; 
+        icon = opt \"${TOKEN_URI}\"; 
         metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
         dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
 dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {AddToken},0:nat64,5:nat64)"

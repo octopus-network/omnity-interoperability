@@ -8,10 +8,11 @@ ADMIN=$(dfx identity get-principal --ic)
 
 # Production env
 HUB_CANISTER_ID=7wupf-wiaaa-aaaar-qaeya-cai
-SCHNORR_KEY_NAME="key_1"
-PROXY_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
 SOL_PROVIDER_CANISTER_ID=l3ka6-4yaaa-aaaar-qahpa-cai
 SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
+
+SCHNORR_KEY_NAME="key_1"
+PROXY_URL="https://solana-rpc-proxy-398338012986.us-central1.run.app"
 triton_m=https://png.rpcpool.com/13a5c61c672e6cd88357abf3709a
 alchemy_m=https://solana-mainnet.g.alchemy.com/v2/t25IzpcIjBXhP-LOurqrTWLWmhPuBwsk
 snownodes=https://sol.nownodes.io
@@ -86,21 +87,21 @@ ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f
 #     --wasm=./assets/solana_route.wasm.gz \
 #     --ic 
 
+# echo "upgrade $SOLANA_ROUTE_CANISTER_ID ..."
+# dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(opt variant { Upgrade = record { \
+#     admin = principal \"${ADMIN}\";\
+#     chain_id=\"${SOL_CHAIN_ID}\";\
+#     hub_principal= principal \"${HUB_CANISTER_ID}\";\
+#     chain_state= variant { Active }; \
+#     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
+#     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
+#     fee_account= opt \"${FEE_ACCOUNT}\";\
+
+#     } })" \
+#     --mode=upgrade -y \
+#     --wasm=./assets/solana_route.wasm.gz \
+#     --ic 
 echo "upgrade $SOLANA_ROUTE_CANISTER_ID ..."
-dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(opt variant { Upgrade = record { \
-    admin = principal \"${ADMIN}\";\
-    chain_id=\"${SOL_CHAIN_ID}\";\
-    hub_principal= principal \"${HUB_CANISTER_ID}\";\
-    chain_state= variant { Active }; \
-    schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
-    sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
-    fee_account= opt \"${FEE_ACCOUNT}\";\
-
-    } })" \
-    --mode=upgrade -y \
-    --wasm=./assets/solana_route.wasm.gz \
-    --ic 
-
 dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument '(null)' \
     --mode=upgrade -y \
     --wasm=./assets/solana_route.wasm.gz \
@@ -117,11 +118,12 @@ dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
 #     )" \
 #     --ic 
 # test 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID debug '(true)' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID debug '(true)' --ic
+
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction '("4kogo438gk3CT6pifHQa7d4CC7HRidnG2o6EWxwGFvAcuSC7oTeG3pWTYDy9wuCYmGxJe1pRdTHf7wMcnJupXSf4",null)' --ic
 
@@ -177,8 +179,6 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward "(opt \"${helius_m}\"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
 
 
-
-
 # query signer
 SIGNER=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic)
 SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
@@ -188,7 +188,7 @@ echo "$SIGNER balance: $(solana balance $SIGNER -u m)"
 # req airdrop
 # solana airdrop 2
 MASTER_KEY=$(solana address)
-echo "current solana cli default address: $MASTER_KEY and balance: $(solana balance $MASTER_KEY)"
+echo "current solana cli default address: $MASTER_KEY and balance: $(solana balance $MASTER_KEY -u m)"
 # transfer SOL to init signer
 AMOUNT=0.5
 echo "transfer SOL to $SIGNER from $MASTER_KEY"
@@ -221,6 +221,15 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 # ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token_metadata.json"
 
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
+# (
+#   opt record {
+#     100_394_802 = variant { 1_066_763_494 };
+#     359_375_608 = opt "4QFCua1ZQzPffEXzFvvW5H3FsGcpMUgeRLuUQCZy1pJJQ7H4rMZULh23Qi94ujX88ymYcmrUpHLPskRrF2sZps1g";
+#     2_707_029_165 = "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx";
+#     3_871_938_408 = 6 : nat64;
+#   },
+# )
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID create_mint_account "(record {
 #         token_id=\"${TOKEN_ID}\";
 #         name=\"${TOKEN_NAME}\";
@@ -229,19 +238,131 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 #         uri=\"${ICON}\";
 # })" --ic
 
-# update token
+# update token metadata
+# origin
 # TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
 # TOKEN_NAME="HOPE•YOU•GET•RICH"
 # TOKEN_SYMBOL="RICH.OT"
 # DECIMALS=2
-# ICON="https://arweave.net/zr3QxOefTtsfd_651Q1LlkWcISat5NtyfD9ENPNkXDk"
-
+# RUNE_ID="840000:846"
 # ICON="https://arweave.net/G058Vw4fqZqpcCHvYxjmQ_dgK_abkL-GjcR-p3os0Jc"
-# ICON="https://raw.githubusercontent.com/octopus-network/omnity-interoperability/feature/solana-route/route/solana/assets/rich.json"
-# ICON="https://github.com/octopus-network/omnity-interoperability/blob/feature/solana-route/route/solana/assets/token.png"
-# ICON="https://geniidata.com/content/d66de939cb3ddb4d94f0949612e06e7a84d4d0be381d0220e2903aad68135969i0"
-# ICON="https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
 
+# now
+TOKEN_MINT=5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+TOKEN_NAME="RICH(old)"
+TOKEN_SYMBOL="OT(old)"
+DECIMALS=2
+RUNE_ID="840000:846"
+ICON=""
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_token22_metadata "(
+        \"${TOKEN_MINT}\",
+        record {
+                token_id=\"${TOKEN_ID}\";
+                name=\"${TOKEN_NAME}\";
+                symbol=\"${TOKEN_SYMBOL}\";
+                decimals=${DECIMALS}:nat8;
+                uri=\"${ICON}\";
+})" --ic
+
+# remove token and mint account
+dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID remove_token_and_account "(\"${TOKEN_ID}\")" --ic
+
+# add new RICH token
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+TOKEN_NAME="HOPE•YOU•GET•RICH"
+TOKEN_SYMBOL="RICH.OT"
+DECIMALS=2
+RUNE_ID="840000:846"
+ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/rich_ot_meta.json"
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID add_token "(record {
+        token_id=\"${TOKEN_ID}\";
+        name=\"${TOKEN_NAME}\";
+        symbol=\"${TOKEN_SYMBOL}\";
+        decimals=${DECIMALS}:nat8;
+        icon=opt \"${ICON}\";
+        metadata = vec{ record {\"rune_id\" ; \"840000:846\"}};
+})" --ic
+
+# update token mint with metaplex
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+TOKEN_NAME="HOPE•YOU•GET•RICH"
+TOKEN_SYMBOL="RICH.OT"
+DECIMALS=2
+RUNE_ID="840000:846"
+ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/rich_meta.json"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_token_metaplex "(
+        record {
+                token_id=\"${TOKEN_ID}\";
+                name=\"${TOKEN_NAME}\";
+                symbol=\"${TOKEN_SYMBOL}\";
+                decimals=${DECIMALS}:nat8;
+                uri=\"${ICON}\";
+})" --ic
+
+# start schedule and creat token mint
+dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic
+
+# # get token mint
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
+TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
+TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
+echo "token mint: $TOKEN_MINT"
+# create ata for exits user
+# get ata addresss
+TOKEN_MINT=8j45TBhQU6DQhRvoYd9dpQWzTNKstB6kpnfZ3pKDCxff
+WALLET_ADDRESS=8ALeC77dTQTrvf1gEG7xr2Lpu6UQC1ARtXNrsE3svyfE
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${WALLET_ADDRESS}\",
+        \"${TOKEN_MINT}\")" --ic
+# remove ata
+dfx canister call $SOLANA_ROUTE_CANISTER_ID remove_associated_account "(\"${WALLET_ADDRESS}\",
+        \"${TOKEN_MINT}\")" --ic
+
+ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account_address "(\"${WALLET_ADDRESS}\",
+        \"${TOKEN_MINT}\")" --ic)
+ATA=$(echo "$ATA" | awk -F'"' '{print $2}')
+echo "The dest address: $WALLET_ADDRESS and the token address: $TOKEN_MINT aossicated account is: $ATA"
+
+# create ata
+dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${WALLET_ADDRESS}\",
+        \"${TOKEN_MINT}\")" --ic  
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${WALLET_ADDRESS}\",
+        \"${TOKEN_MINT}\")" --ic
+# update ata
+TOKEN_MINT=8j45TBhQU6DQhRvoYd9dpQWzTNKstB6kpnfZ3pKDCxff
+WALLET_ADDRESS=8ALeC77dTQTrvf1gEG7xr2Lpu6UQC1ARtXNrsE3svyfE
+ATA=APtHuv7vW3t9Kefxjy5j3bWygjd2KUV9my9ivFy3DwgS
+sig=2bgLj5FKuxpr1pySwvwKeYE1v5sDvWx49AT1zqipZ9FmGhb4Z3Rz4EwJRmpFVhwoqkVh6YfMVQ4LDfxcd81c7EFp
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_associated_account "(
+        \"${WALLET_ADDRESS}\",
+        \"${TOKEN_MINT}\",
+        record {
+                account=\"${ATA}\";
+                retry=0:nat64;
+                token_mint=\"${TOKEN_MINT}\";
+                status=variant { Finalized };
+                signature=opt \"${sig}\";
+        }
+)" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${WALLET_ADDRESS}\",
+        \"${TOKEN_MINT}\")" --ic  
+
+# mint to user ata
+TOKEN_MINT=8j45TBhQU6DQhRvoYd9dpQWzTNKstB6kpnfZ3pKDCxff
+ATA=APtHuv7vW3t9Kefxjy5j3bWygjd2KUV9my9ivFy3DwgS
+AMOUNT=1800
+dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_to "(
+        \"${ATA}\",
+        \"${TOKEN_MINT}\",
+        ${AMOUNT}:nat64
+)" --ic
+
+# add new X token
 # {
 #       "decimals": 0,
 #       "icon": [
@@ -330,7 +451,7 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_req "(\"${TID}\")" --ic
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --ic
 
-# dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token "(record{
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_with_req "(record{
 #         ticket_id=\"${TID}\";
 #         associated_account=\"${ATA}\";
 #         amount=${MINT_AMOUNT}:nat64;
@@ -368,7 +489,7 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID update_mint_token_req "(record{
 dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_req "(\"${TID}\")" --ic
 
 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token "(record{
+dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_with_req "(record{
         ticket_id=\"${TID}\";
         associated_account=\"${ATA}\";
         amount=${MINT_AMOUNT}:nat64;
@@ -447,31 +568,30 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID remove_token_and_account "(\"${TOKEN
 
 
 # create_mint_account for Bitcoin-runes-RUNES•X•BITCOIN2
-TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN2"
-TOKEN_NAME="RUNES•X•BITCOIN"
-TOKEN_SYMBOL="X"
-DECIMALS=2
-ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x.json"
-# ICON="https://arweave.net/iLV2-ApjrXPDNoHldzB4a0fVVL-0hXR6dZGgudknz7c"
-dfx canister call $SOLANA_ROUTE_CANISTER_ID create_mint_account "(record {
-        token_id=\"${TOKEN_ID}\";
-        name=\"${TOKEN_NAME}\";
-        symbol=\"${TOKEN_SYMBOL}\";
-        decimals=${DECIMALS}:nat8;
-        uri=\"${ICON}\";
-})" --ic
+# TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN2"
+# TOKEN_NAME="RUNES•X•BITCOIN"
+# TOKEN_SYMBOL="X"
+# DECIMALS=0
+# ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x.json"
+# # ICON="https://arweave.net/iLV2-ApjrXPDNoHldzB4a0fVVL-0hXR6dZGgudknz7c"
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID create_mint_account "(record {
+#         token_id=\"${TOKEN_ID}\";
+#         name=\"${TOKEN_NAME}\";
+#         symbol=\"${TOKEN_SYMBOL}\";
+#         decimals=${DECIMALS}:nat8;
+#         uri=\"${ICON}\";
+# })" --ic
 
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic
 
 # update token id from Bitcoin-runes-RUNES•X•BITCOIN2 to  Bitcoin-runes-RUNES•X•BITCOIN
+
 dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
-
-
 TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN"
 TOKEN_NAME="RUNES•X•BITCOIN"
 TOKEN_SYMBOL="X"
-DECIMALS=2
-ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x.json"
+DECIMALS=0
+ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x_meta.json"
 # ICON="https://arweave.net/iLV2-ApjrXPDNoHldzB4a0fVVL-0hXR6dZGgudknz7c"
 
 # re add token for Bitcoin-runes-RUNES•X•BITCOIN
@@ -484,10 +604,12 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID add_token "(record {
         metadata = vec{ record {\"rune_id\" ; \"840000:142\"}};
 })" --ic
 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic
+
 dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
-ACCOUNT=""
-RETRY=1
-SIGNATURE=""
+# ACCOUNT=""
+# RETRY=1
+# SIGNATURE=""
 
 # update mint token account for Bitcoin-runes-RUNES•X•BITCOIN
 dfx canister call $SOLANA_ROUTE_CANISTER_ID update_mint_account "(
@@ -501,3 +623,10 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID update_mint_account "(
 })" --ic
 
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic
+# query token position
+CHAIN_ID=eSolana
+dfx canister call $HUB_CANISTER_ID get_chain_tokens "(opt \"${CHAIN_ID}\",null,0:nat64,5:nat64)" --ic
+TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
+dfx canister call $HUB_CANISTER_ID get_chain_tokens "(opt \"${CHAIN_ID}\",opt \"${TOKEN_ID}\",0:nat64,5:nat64)" --ic
+TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN"
+dfx canister call $HUB_CANISTER_ID get_chain_tokens "(opt \"${CHAIN_ID}\",opt \"${TOKEN_ID}\",0:nat64,5:nat64)" --ic

@@ -28,7 +28,7 @@ use crate::types::ChainState;
 use crate::types::{Chain, ChainId, Ticket};
 use ic_canister_log::log;
 use ic_solana::token::associated_account::get_associated_token_address_with_program_id;
-use ic_solana::token::constants::token22_program_id;
+
 use ic_solana::types::Pubkey;
 use std::str::FromStr;
 use crate::handler::token_account::update_mint_account_status;
@@ -36,6 +36,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_solana::ic_log::{self, DEBUG, ERROR};
 use crate::state::Seqs;
 use crate::state::TokenUri;
+use ic_solana::token::constants::token_program_id;
 
 #[init]
 fn init(args: RouteArg) {
@@ -478,12 +479,17 @@ pub async fn update_mint_account(token_id:TokenId,mint_account: AccountInfo) -> 
 
 // devops method
 #[update(guard = "is_admin",hidden = true)]
-pub async fn update_token_metadata(req: TokenInfo) -> Result<String, CallError> {
+pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> {
+    log!(
+        DEBUG,
+        "[service::update_token_metaplex]  token_info: {:?} ",
+        req,
+    );
     // token_mint must be exists
     match read_state(|s| s.token_mint_accounts.get(&req.token_id)) {
         None => {
             return Err(CallError {
-                method: "[service::update_token_metadata] update_token_metadata".to_string(),
+                method: "[service::update_token_metaplex] update_token_metaplex".to_string(),
                 reason: Reason::CanisterError(format!(
                     "{} token mint account not exists!",
                     req.token_id
@@ -492,10 +498,10 @@ pub async fn update_token_metadata(req: TokenInfo) -> Result<String, CallError> 
         }
         Some(account_info) => {
             let signature =
-                solana_rpc::update_token_metadata(account_info.account, req.clone()).await?;
+                solana_rpc::update_with_metaplex(account_info.account, req.clone()).await?;
             log!(
                 DEBUG,
-                "[service::update_token_metadata] update_token_metadata signature: {:?} ",
+                "[service::update_token_metaplex] update_token_metaplex signature: {:?} ",
                 signature.to_string(),
             );
             //TODO: check signature status
@@ -524,6 +530,28 @@ pub async fn update_token_metadata(req: TokenInfo) -> Result<String, CallError> 
     }
 }
 
+
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn update_token22_metadata(token_mint:String,token_info: TokenInfo) -> Result<String, CallError> {
+    log!(
+        DEBUG,
+        "[service::update_token_metadata] token_mint:{}, token_info: {:?} ",
+        token_mint,token_info,
+    );
+    let signature =
+    solana_rpc::update_token22_metadata(token_mint, token_info).await?;
+    log!(
+        DEBUG,
+        "[service::update_token_metadata] update_token_metadata signature: {:?} ",
+        signature.to_string(),
+    );
+    Ok(signature)
+    
+}
+
+
 // devops method
 #[update(guard = "is_admin",hidden = true)]
 pub async fn derive_aossicated_account(
@@ -535,7 +563,7 @@ pub async fn derive_aossicated_account(
     let associated_account = get_associated_token_address_with_program_id(
         &to_account_pk,
         &token_mint_pk,
-        &token22_program_id(),
+        &token_program_id(),
     );
     log!(
         DEBUG,
@@ -586,7 +614,7 @@ pub async fn create_aossicated_account(
     let associated_account = get_associated_token_address_with_program_id(
         &to_account_pk,
         &token_mint_pk,
-        &token22_program_id(),
+        &token_program_id(),
     );
     log!(
         DEBUG,
@@ -759,6 +787,27 @@ pub async fn update_associated_account(
     }
 }
 
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn remove_associated_account(
+    owner: String,
+    token_mint: String,
+) -> Result<(), CallError> {
+
+    log!(
+        DEBUG,
+        "[service::remove_associated_account] owner: {} and token_mint: {} ",
+        owner,token_mint
+    );
+
+    mutate_state(|s| {
+        s.associated_accounts.remove(
+            &AtaKey::new(owner.to_string(), token_mint.to_string())
+        )
+    });
+
+  Ok(())
+}
 
 
 // devops method
@@ -871,7 +920,25 @@ pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenReq
 
 // devops method
 #[update(guard = "is_admin",hidden = true)]
-pub async fn mint_token(n_req: MintTokenRequest) -> Result<TxStatus, CallError> {
+pub async fn mint_to(ata: String, token_mint: String, amount: u64) -> Result<String, CallError> {
+    let sol_client = solana_client().await;
+    let associated_account = Pubkey::from_str(&ata).expect("Invalid ata address");
+    let token_mint = Pubkey::from_str(&token_mint).expect("Invalid token_mint address");
+
+    let signature = sol_client
+        .mint_to(associated_account, amount, token_mint, token_program_id())
+        .await
+        .map_err(|e| CallError {
+            method: "mint_to".to_string(),
+            reason: Reason::CanisterError(e.to_string()),
+        })?;
+
+    Ok(signature)
+}
+
+// devops method
+#[update(guard = "is_admin",hidden = true)]
+pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, CallError> {
 
    let mut req =  match read_state(|s| s.mint_token_requests.get(&n_req.ticket_id)) {
         None => {
@@ -898,7 +965,7 @@ pub async fn mint_token(n_req: MintTokenRequest) -> Result<TxStatus, CallError> 
             match req.signature.to_owned() {
                 None => {
                     // new mint req
-                    let sig = solana_rpc::mint_to(
+                    let sig = solana_rpc::mint_to_with_req(
                       req.to_owned(),
                     )
                     .await?;

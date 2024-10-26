@@ -2,7 +2,8 @@
 
 BITCOIN_CHAIN_ID="Bitcoin"
 SOL_CHAIN_ID="eSolana"
-TOKEN_ID="Bitcoin-runes-202410211549"
+TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN202410220902"
+echo "token id : $TOKEN_ID"
 
 # start schedule 
 dfx canister call solana_route start_schedule '()' 
