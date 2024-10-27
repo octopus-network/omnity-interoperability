@@ -38,10 +38,6 @@ pub async fn query_directives(
     .await
 }
 
-pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
-    call(hub_principal, "send_ticket".into(), (ticket,)).await
-}
-
 pub async fn batch_update_tx_hash(
     hub_principal: Principal,
     ticket_ids: Vec<TicketId>,
