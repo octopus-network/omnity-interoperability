@@ -1,5 +1,5 @@
 {
-  "dfx": "0.22.0",
+  "dfx": "0.23.0",
   "canisters": {
     "evm_route": {
       "candid": "evm_route.did",
@@ -19,6 +19,12 @@
       "type": "rust"
     },
     "evm_route_bsquared": {
+      "gzip": true,
+      "candid": "evm_route.did",
+      "package": "evm_route",
+      "type": "rust"
+    },
+    "evm_route_ethereum": {
       "gzip": true,
       "candid": "evm_route.did",
       "package": "evm_route",

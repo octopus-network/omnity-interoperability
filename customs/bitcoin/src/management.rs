@@ -1,7 +1,6 @@
 //! This module contains async functions for interacting with the management canister.
 
 use crate::call_error::{CallError, Reason};
-use crate::logs::P0;
 use crate::tx;
 use crate::ECDSAPublicKey;
 use candid::{CandidType, Principal};
@@ -15,6 +14,7 @@ use ic_ic00_types::{
     SignWithECDSAArgs, SignWithECDSAReply,
 };
 use serde::de::DeserializeOwned;
+use omnity_types::ic_log::CRITICAL;
 
 async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallError>
 where
@@ -24,7 +24,7 @@ where
     let balance = ic_cdk::api::canister_balance128();
     if balance < payment as u128 {
         log!(
-            P0,
+            CRITICAL,
             "Failed to call {}: need {} cycles, the balance is only {}",
             method,
             payment,
@@ -204,7 +204,9 @@ pub async fn sign_with_ecdsa(
     derivation_path: DerivationPath,
     message_hash: [u8; 32],
 ) -> Result<Vec<u8>, CallError> {
-    const CYCLES_PER_SIGNATURE: u64 = 25_000_000_000;
+    // The cost of a single tECDSA signature is 26_153_846_153.
+    // ref: https://internetcomputer.org/docs/current/references/t-sigs-how-it-works#fees-for-the-t-ecdsa-production-key
+    const CYCLES_PER_SIGNATURE: u64 = 30_000_000_000;
 
     let reply: SignWithECDSAReply = call(
         "sign_with_ecdsa",

@@ -1,11 +1,6 @@
 {
-  "dfx": "0.22.0",
+  "dfx": "0.23.0",
   "canisters": {
-    "icrc1_ledger_canister": {
-      "type": "custom",
-      "candid": "icrc1_ledger.did",
-      "wasm": "icrc1_ledger.wasm.gz"
-    },
     "icp_ledger_canister": {
       "type": "custom",
       "candid": "https://raw.githubusercontent.com/dfinity/ic/ac971e7b4c851b89b312bee812f6de542ed907c5/rs/rosetta-api/icp_ledger/ledger.did",
@@ -112,12 +107,6 @@
       "package": "ic-solana-provider",
       "wasm": "route/solana/assets/ic-solana-provider.wasm.gz"
     },
-    "ckbtc_minter": {
-      "gzip": true,
-      "type": "custom",
-      "wasm": "assets/ckbtc/ic-ckbtc-minter.wasm",
-      "candid": "assets/ckbtc/ic-ckbtc-minter.did"
-    },
     "ckbtc_ledger": {
       "gzip": true,
       "type": "custom",
@@ -141,15 +130,6 @@
     "build": {
       "packtool": "",
       "args": ""
-    }
-  },
-  "networks": {
-    "local": {
-      "bind": "127.0.0.1:4943",
-      "type": "ephemeral",
-      "replica": {
-        "subnet_type": "system"
-      }
     }
   },
   "output_env_file": ".env",

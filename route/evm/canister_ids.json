@@ -1,26 +1,29 @@
 {
+  "evm_route_ailayer": {
+    "ic": "pk76v-yyaaa-aaaar-qahxa-cai"
+  },
   "evm_route_bevm": {
     "ic": "rp433-4qaaa-aaaar-qaf2q-cai"
   },
   "evm_route_bitlayer": {
     "ic": "he2gn-7qaaa-aaaar-qagaq-cai"
   },
+  "evm_route_bob": {
+    "ic": "epmqo-ziaaa-aaaar-qagka-cai"
+  },
   "evm_route_bsquared": {
     "ic": "gsr6g-kaaaa-aaaar-qagfq-cai"
   },
-  "evm_route_xlayer": {
-    "ic": "gjucd-qyaaa-aaaar-qagha-cai"
+  "evm_route_ethereum": {
+    "ic": "3zfof-myaaa-aaaar-qaioa-cai"
   },
   "evm_route_merlin": {
     "ic": "govex-5aaaa-aaaar-qaghq-cai"
   },
-  "evm_route_bob": {
-    "ic": "epmqo-ziaaa-aaaar-qagka-cai"
-  },
   "evm_route_rootstock": {
     "ic": "if3hq-3iaaa-aaaar-qahga-cai"
   },
-  "evm_route_ailayer": {
-    "ic": "pk76v-yyaaa-aaaar-qahxa-cai"
+  "evm_route_xlayer": {
+    "ic": "gjucd-qyaaa-aaaar-qagha-cai"
   }
 }

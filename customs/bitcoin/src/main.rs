@@ -1,6 +1,5 @@
 use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::lifecycle::{self, init::CustomArg};
-use bitcoin_customs::logs::P0;
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
 use bitcoin_customs::state::{
@@ -20,11 +19,10 @@ use bitcoin_customs::{
 };
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
-    storage, {Log, LogEntry, Priority},
+    storage,
 };
 use candid::Principal;
 use ic_btc_interface::{Txid, Utxo};
-use ic_canister_log::export as export_logs;
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk::api::management_canister::http_request::{self, TransformArgs};
@@ -34,6 +32,7 @@ use omnity_types::Chain;
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
 use std::str::FromStr;
+use omnity_types::ic_log::INFO;
 
 #[init]
 fn init(args: CustomArg) {
@@ -164,7 +163,7 @@ pub fn is_runes_oracle() -> Result<(), String> {
             Err("Not runes principal!".into())
         } else {
             log!(
-                P0,
+                INFO,
                 "[is_runes_oracle]: got update_runes_balance from runes oracle: {}",
                 caller
             );
@@ -303,49 +302,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
             }
         }
     } else if req.path() == "/logs" {
-        use serde_json;
-        use std::str::FromStr;
-
-        let max_skip_timestamp = match req.raw_query_param("time") {
-            Some(arg) => match u64::from_str(arg) {
-                Ok(value) => value,
-                Err(_) => {
-                    return HttpResponseBuilder::bad_request()
-                        .with_body_and_content_length("failed to parse the 'time' parameter")
-                        .build()
-                }
-            },
-            None => 0,
-        };
-
-        let mut entries: Log = Default::default();
-        for entry in export_logs(&bitcoin_customs::logs::P0) {
-            entries.entries.push(LogEntry {
-                timestamp: entry.timestamp,
-                counter: entry.counter,
-                priority: Priority::P0,
-                file: entry.file.to_string(),
-                line: entry.line,
-                message: entry.message,
-            });
-        }
-        for entry in export_logs(&bitcoin_customs::logs::P1) {
-            entries.entries.push(LogEntry {
-                timestamp: entry.timestamp,
-                counter: entry.counter,
-                priority: Priority::P1,
-                file: entry.file.to_string(),
-                line: entry.line,
-                message: entry.message,
-            });
-        }
-        entries
-            .entries
-            .retain(|entry| entry.timestamp >= max_skip_timestamp);
-        HttpResponseBuilder::ok()
-            .header("Content-Type", "application/json; charset=utf-8")
-            .with_body_and_content_length(serde_json::to_string(&entries).unwrap_or_default())
-            .build()
+        omnity_types::ic_log::http_request(req)
     } else {
         HttpResponseBuilder::not_found().build()
     }

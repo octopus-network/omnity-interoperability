@@ -13,7 +13,6 @@ pub mod eventlog;
 
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
-use crate::logs::P0;
 use crate::{address::BitcoinAddress, ECDSAPublicKey};
 use crate::{
     destination::Destination,
@@ -28,6 +27,7 @@ use omnity_types::{
     rune_id::RuneId, Chain, ChainId, ChainState, TicketId, Token, TokenId, TxAction,
 };
 use serde::Serialize;
+use omnity_types::ic_log::INFO;
 
 /// The maximum number of finalized requests that we keep in the
 /// history.
@@ -397,7 +397,7 @@ impl CustomsState {
                 self.min_confirmations = min_conf;
             } else {
                 log!(
-                    P0,
+                    INFO,
                     "Didn't increase min_confirmations to {} (current value: {})",
                     min_conf,
                     self.min_confirmations

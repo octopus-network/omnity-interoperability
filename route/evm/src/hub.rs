@@ -1,14 +1,10 @@
-use candid::utils::ArgumentEncoder;
 use candid::{CandidType, Principal};
+use candid::utils::ArgumentEncoder;
 
 use crate::call_error::{CallError, Reason};
-use crate::types::Topic;
 use crate::types::{ChainId, Directive, TicketId};
 use crate::types::{Seq, Ticket};
-
-pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
-    call(hub_principal, "send_ticket".into(), (ticket,)).await
-}
+use crate::types::Topic;
 
 pub async fn query_tickets(
     hub_principal: Principal,
@@ -52,6 +48,10 @@ pub async fn update_tx_hash(
         (ticket_id, mint_tx_hash),
     )
     .await
+}
+
+pub async fn finalize_ticket(hub_principal: Principal, ticket_id: String) -> Result<(), CallError> {
+    call(hub_principal, "finalize_ticket".into(), (ticket_id, )).await
 }
 
 pub async fn pending_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {

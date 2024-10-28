@@ -9,12 +9,12 @@ pub fn account_id_to_address(account_id: &str) -> Result<(String, Vec<u8>)> {
         .map_err(|err| Errors::AccountIdParseError(account_id.to_string(), err.to_string()))
 }
 
-pub fn nat_to_u64(nat: candid::Nat) -> u64 {
-    u64::from_str(&nat.0.to_string()).unwrap()
+pub fn nat_to_u64(nat: candid::Nat) -> Result<u64> {
+    u64::from_str(&nat.0.to_string()).map_err(|_| Errors::NatConversionError(nat.0.to_string()))
 }
 
-pub fn nat_to_u128(nat: candid::Nat) -> u128 {
-    u128::from_str(&nat.0.to_string()).unwrap()
+pub fn nat_to_u128(nat: candid::Nat) -> Result<u128> {
+    u128::from_str(&nat.0.to_string()).map_err(|_| Errors::NatConversionError(nat.0.to_string()))
 }
 
 pub fn get_chain_time_seconds() -> u64 {

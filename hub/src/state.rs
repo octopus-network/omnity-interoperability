@@ -870,7 +870,6 @@ impl HubState {
                 .map(|(_, d)| d)
                 .collect::<Vec<Directive>>()
         };
-
         target_dires.into_iter().for_each(|d| {
             let _ = self.pub_2_subscribers(Some(vec![chain_id.clone()]), d);
         });

@@ -18,7 +18,7 @@ hex = "0.4.3"
 ic0 = "0.18.9"
 ic-base-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-btc-interface = { workspace = true }
-ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
 ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
@@ -48,7 +48,6 @@ assert_matches = "1.5.0"
 bitcoin = "0.28.1"
 candid_parser = { workspace = true }
 ic-config = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
-ic-state-machine-tests = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 bitcoin_mock = { path = "../../mock/bitcoin" }
 proptest = "1.0"
