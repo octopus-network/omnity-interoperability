@@ -5,11 +5,14 @@
   "bitfinity_route": {
     "ic": "pw3ee-pyaaa-aaaar-qahva-cai"
   },
-  "omnity_hub": {
-    "ic": "7wupf-wiaaa-aaaar-qaeya-cai"
+  "brc20_customs": {
+    "ic": "72whx-eiaaa-aaaar-qaiva-cai"
   },
-  "icp_route": {
-    "ic": "7ywcn-nyaaa-aaaar-qaeza-cai"
+  "brc20_indexer": {
+    "ic": "lg4fo-oaaaa-aaaah-qpudq-cai"
+  },
+  "ckbtc_minter": {
+    "ic": "mqygn-kiaaa-aaaar-qaadq-cai"
   },
   "cosmwasm_proxy": {
     "ic": "ncfbq-kyaaa-aaaar-qah3a-cai"
@@ -17,8 +20,11 @@
   "icp_customs": {
     "ic": "nlgkm-4qaaa-aaaar-qah2q-cai"
   },
-  "ckbtc_minter": {
-    "ic": "mqygn-kiaaa-aaaar-qaadq-cai"
+  "icp_route": {
+    "ic": "7ywcn-nyaaa-aaaar-qaeza-cai"
+  },
+  "omnity_hub": {
+    "ic": "7wupf-wiaaa-aaaar-qaeya-cai"
   },
   "runes_oracle": {
     "ic": "r3teu-uiaaa-aaaal-ajlvq-cai"

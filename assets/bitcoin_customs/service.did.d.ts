@@ -3,15 +3,15 @@ import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
 export type BitcoinAddress = { 'OpReturn' : Uint8Array | number[] } |
-  { 'p2wsh_v0' : Uint8Array | number[] } |
-  { 'p2tr_v1' : Uint8Array | number[] } |
-  { 'p2sh' : Uint8Array | number[] } |
-  { 'p2wpkh_v0' : Uint8Array | number[] } |
-  { 'p2pkh' : Uint8Array | number[] };
+    { 'p2wsh_v0' : Uint8Array | number[] } |
+    { 'p2tr_v1' : Uint8Array | number[] } |
+    { 'p2sh' : Uint8Array | number[] } |
+    { 'p2wpkh_v0' : Uint8Array | number[] } |
+    { 'p2pkh' : Uint8Array | number[] };
 export interface BtcChangeOutput { 'value' : bigint, 'vout' : number }
 export type BtcNetwork = { 'Mainnet' : null } |
-  { 'Regtest' : null } |
-  { 'Testnet' : null };
+    { 'Regtest' : null } |
+    { 'Testnet' : null };
 export interface CanisterStatusResponse {
   'status' : CanisterStatusType,
   'memory_size' : bigint,
@@ -23,8 +23,8 @@ export interface CanisterStatusResponse {
   'reserved_cycles' : bigint,
 }
 export type CanisterStatusType = { 'stopped' : null } |
-  { 'stopping' : null } |
-  { 'running' : null };
+    { 'stopping' : null } |
+    { 'running' : null };
 export interface Chain {
   'fee_token' : [] | [string],
   'canister_id' : string,
@@ -35,11 +35,11 @@ export interface Chain {
   'contract_address' : [] | [string],
 }
 export type ChainState = { 'Active' : null } |
-  { 'Deactive' : null };
+    { 'Deactive' : null };
 export type ChainType = { 'SettlementChain' : null } |
-  { 'ExecutionChain' : null };
+    { 'ExecutionChain' : null };
 export type CustomArg = { 'Upgrade' : [] | [UpgradeArgs] } |
-  { 'Init' : InitArgs };
+    { 'Init' : InitArgs };
 export interface CustomsInfo {
   'chain_state' : ChainState,
   'min_confirmations' : number,
@@ -61,66 +61,66 @@ export interface EstimateFeeArgs {
   'rune_id' : RuneId,
 }
 export type Event = {
-    'confirmed_generate_ticket_request' : GenTicketRequestV2
-  } |
-  {
-    'received_utxos' : {
-      'is_runes' : boolean,
-      'destination' : Destination,
-      'utxos' : Array<Utxo>,
-    }
-  } |
-  { 'added_runes_oracle' : { 'principal' : Principal } } |
-  { 'removed_ticket_request' : { 'txid' : Uint8Array | number[] } } |
-  {
-    'sent_transaction' : {
-      'fee' : [] | [bigint],
-      'txid' : Uint8Array | number[],
-      'btc_change_output' : BtcChangeOutput,
-      'btc_utxos' : Array<Utxo>,
-      'requests' : Array<string>,
-      'runes_change_output' : RunesChangeOutput,
-      'runes_utxos' : Array<RunesUtxo>,
-      'rune_id' : RuneId,
-      'submitted_at' : bigint,
-    }
-  } |
-  { 'added_token' : { 'token' : Token, 'rune_id' : RuneId } } |
-  {
-    'finalized_ticket_request' : {
-      'txid' : Uint8Array | number[],
-      'balances' : Array<RunesBalance>,
-    }
-  } |
-  { 'accepted_release_token_request' : ReleaseTokenRequest } |
-  { 'init' : InitArgs } |
-  {
-    'updated_runes_balance' : {
-      'balance' : RunesBalance,
-      'txid' : Uint8Array | number[],
-    }
-  } |
-  { 'upgrade' : UpgradeArgs } |
-  { 'added_chain' : Chain } |
-  { 'update_next_ticket_seq' : bigint } |
-  { 'update_next_directive_seq' : bigint } |
-  { 'accepted_generate_ticket_request_v2' : GenTicketRequestV2 } |
-  { 'accepted_generate_ticket_request_v3' : GenTicketRequestV2 } |
-  { 'confirmed_transaction' : { 'txid' : Uint8Array | number[] } } |
-  {
-    'replaced_transaction' : {
-      'fee' : bigint,
-      'btc_change_output' : BtcChangeOutput,
-      'old_txid' : Uint8Array | number[],
-      'new_txid' : Uint8Array | number[],
-      'runes_change_output' : RunesChangeOutput,
-      'submitted_at' : bigint,
-    }
-  } |
-  { 'accepted_generate_ticket_request' : GenTicketRequest } |
-  { 'accepted_rune_tx_request' : RuneTxRequest } |
-  { 'updated_rpc_url' : { 'rpc_url' : string } } |
-  { 'toggle_chain_state' : ToggleState };
+  'confirmed_generate_ticket_request' : GenTicketRequestV2
+} |
+    {
+      'received_utxos' : {
+        'is_runes' : boolean,
+        'destination' : Destination,
+        'utxos' : Array<Utxo>,
+      }
+    } |
+    { 'added_runes_oracle' : { 'principal' : Principal } } |
+    { 'removed_ticket_request' : { 'txid' : Uint8Array | number[] } } |
+    {
+      'sent_transaction' : {
+        'fee' : [] | [bigint],
+        'txid' : Uint8Array | number[],
+        'btc_change_output' : BtcChangeOutput,
+        'btc_utxos' : Array<Utxo>,
+        'requests' : Array<string>,
+        'runes_change_output' : RunesChangeOutput,
+        'runes_utxos' : Array<RunesUtxo>,
+        'rune_id' : RuneId,
+        'submitted_at' : bigint,
+      }
+    } |
+    { 'added_token' : { 'token' : Token, 'rune_id' : RuneId } } |
+    {
+      'finalized_ticket_request' : {
+        'txid' : Uint8Array | number[],
+        'balances' : Array<RunesBalance>,
+      }
+    } |
+    { 'accepted_release_token_request' : ReleaseTokenRequest } |
+    { 'init' : InitArgs } |
+    {
+      'updated_runes_balance' : {
+        'balance' : RunesBalance,
+        'txid' : Uint8Array | number[],
+      }
+    } |
+    { 'upgrade' : UpgradeArgs } |
+    { 'added_chain' : Chain } |
+    { 'update_next_ticket_seq' : bigint } |
+    { 'update_next_directive_seq' : bigint } |
+    { 'accepted_generate_ticket_request_v2' : GenTicketRequestV2 } |
+    { 'accepted_generate_ticket_request_v3' : GenTicketRequestV2 } |
+    { 'confirmed_transaction' : { 'txid' : Uint8Array | number[] } } |
+    {
+      'replaced_transaction' : {
+        'fee' : bigint,
+        'btc_change_output' : BtcChangeOutput,
+        'old_txid' : Uint8Array | number[],
+        'new_txid' : Uint8Array | number[],
+        'runes_change_output' : RunesChangeOutput,
+        'submitted_at' : bigint,
+      }
+    } |
+    { 'accepted_generate_ticket_request' : GenTicketRequest } |
+    { 'accepted_rune_tx_request' : RuneTxRequest } |
+    { 'updated_rpc_url' : { 'rpc_url' : string } } |
+    { 'toggle_chain_state' : ToggleState };
 export interface GenTicketRequest {
   'received_at' : bigint,
   'token_id' : string,
@@ -143,9 +143,9 @@ export interface GenTicketRequestV2 {
   'rune_id' : RuneId,
 }
 export type GenTicketStatus = { 'Finalized' : GenTicketRequestV2 } |
-  { 'Confirmed' : GenTicketRequestV2 } |
-  { 'Unknown' : null } |
-  { 'Pending' : GenTicketRequestV2 };
+    { 'Confirmed' : GenTicketRequestV2 } |
+    { 'Unknown' : null } |
+    { 'Pending' : GenTicketRequestV2 };
 export interface GenerateTicketArgs {
   'txid' : string,
   'target_chain_id' : string,
@@ -154,17 +154,17 @@ export interface GenerateTicketArgs {
   'rune_id' : string,
 }
 export type GenerateTicketError = { 'SendTicketErr' : string } |
-  { 'RpcError' : string } |
-  { 'TemporarilyUnavailable' : string } |
-  { 'AlreadyProcessed' : null } |
-  { 'AmountIsZero' : null } |
-  { 'InvalidRuneId' : string } |
-  { 'AlreadySubmitted' : null } |
-  { 'InvalidTxId' : null } |
-  { 'TxNotFoundInMemPool' : null } |
-  { 'NoNewUtxos' : null } |
-  { 'UnsupportedChainId' : string } |
-  { 'UnsupportedToken' : string };
+    { 'RpcError' : string } |
+    { 'TemporarilyUnavailable' : string } |
+    { 'AlreadyProcessed' : null } |
+    { 'AmountIsZero' : null } |
+    { 'InvalidRuneId' : string } |
+    { 'AlreadySubmitted' : null } |
+    { 'InvalidTxId' : null } |
+    { 'TxNotFoundInMemPool' : null } |
+    { 'NoNewUtxos' : null } |
+    { 'UnsupportedChainId' : string } |
+    { 'UnsupportedToken' : string };
 export interface GetBtcAddressArgs {
   'target_chain_id' : string,
   'receiver' : string,
@@ -206,17 +206,17 @@ export interface ReleaseTokenRequest {
   'rune_id' : RuneId,
 }
 export type ReleaseTokenStatus = { 'Signing' : null } |
-  { 'Confirmed' : string } |
-  { 'Sending' : string } |
-  { 'Unknown' : null } |
-  { 'Submitted' : string } |
-  { 'Pending' : null };
+    { 'Confirmed' : string } |
+    { 'Sending' : string } |
+    { 'Unknown' : null } |
+    { 'Submitted' : string } |
+    { 'Pending' : null };
 export type Result = { 'Ok' : null } |
-  { 'Err' : GenerateTicketError };
+    { 'Err' : GenerateTicketError };
 export type Result_1 = { 'Ok' : Array<Utxo> } |
-  { 'Err' : UpdateBtcUtxosErr };
+    { 'Err' : UpdateBtcUtxosErr };
 export type Result_2 = { 'Ok' : null } |
-  { 'Err' : UpdateRunesBalanceError };
+    { 'Err' : UpdateRunesBalanceError };
 export interface RuneId { 'tx' : number, 'block' : bigint }
 export interface RuneTxRequest {
   'received_at' : bigint,
@@ -238,7 +238,7 @@ export interface RunesChangeOutput {
 }
 export interface RunesUtxo { 'raw' : Utxo, 'runes' : RunesBalance }
 export type ToggleAction = { 'Deactivate' : null } |
-  { 'Activate' : null };
+    { 'Activate' : null };
 export interface ToggleState { 'action' : ToggleAction, 'chain_id' : string }
 export interface Token {
   'decimals' : number,
@@ -260,21 +260,21 @@ export interface TransformArgs {
   'response' : HttpResponse,
 }
 export type TxAction = { 'Burn' : null } |
-  { 'Redeem' : null } |
-  { 'Mint' : null } |
-  { 'Transfer' : null };
+    { 'Redeem' : null } |
+    { 'Mint' : null } |
+    { 'Transfer' : null };
 export type UpdateBtcUtxosErr = { 'TemporarilyUnavailable' : string };
 export interface UpdateRunesBalanceArgs {
   'txid' : Uint8Array | number[],
   'balances' : Array<RunesBalance>,
 }
 export type UpdateRunesBalanceError = { 'RequestNotConfirmed' : null } |
-  { 'BalancesIsEmpty' : null } |
-  { 'UtxoNotFound' : null } |
-  { 'RequestNotFound' : null } |
-  { 'AleardyProcessed' : null } |
-  { 'MismatchWithGenTicketReq' : null } |
-  { 'FinalizeTicketErr' : string };
+    { 'BalancesIsEmpty' : null } |
+    { 'UtxoNotFound' : null } |
+    { 'RequestNotFound' : null } |
+    { 'AleardyProcessed' : null } |
+    { 'MismatchWithGenTicketReq' : null } |
+    { 'FinalizeTicketErr' : string };
 export interface UpgradeArgs {
   'hub_principal' : [] | [Principal],
   'max_time_in_queue_nanos' : [] | [bigint],
@@ -297,8 +297,8 @@ export interface _SERVICE {
   'get_events' : ActorMethod<[GetEventsArg], Array<Event>>,
   'get_main_btc_address' : ActorMethod<[string], string>,
   'get_pending_gen_ticket_requests' : ActorMethod<
-    [GetGenTicketReqsArgs],
-    Array<GenTicketRequestV2>
+      [GetGenTicketReqsArgs],
+      Array<GenTicketRequestV2>
   >,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
