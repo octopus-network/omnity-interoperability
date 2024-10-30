@@ -308,6 +308,12 @@ pub fn query_handled_event(tx_hash: String) -> Option<String> {
 }
 
 #[update(guard = "is_admin")]
+pub fn update_transaction_type(evm_tx_type: EvmTxType) {
+    mutate_state(|s| s.evm_tx_type = evm_tx_type);
+}
+
+
+#[update(guard = "is_admin")]
 pub async fn rewrite_tx_hash(ticket_id: String, tx_hash: String) {
     let hub_principal = read_state(|s| s.hub_principal);
     hub::update_tx_hash(hub_principal, ticket_id, tx_hash)
