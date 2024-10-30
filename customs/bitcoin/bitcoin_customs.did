@@ -58,6 +58,7 @@ type Event = variant {
   added_runes_oracle : record { "principal" : principal };
   removed_ticket_request : record { txid : blob };
   removed_runes_oracle : record { "principal" : principal };
+  updated_fee : record { fee : Factor };
   sent_transaction : record {
     fee : opt nat64;
     txid : blob;
@@ -84,6 +85,7 @@ type Event = variant {
   accepted_generate_ticket_request_v2 : GenTicketRequestV2;
   accepted_generate_ticket_request_v3 : GenTicketRequestV2;
   confirmed_transaction : record { txid : blob };
+  upate_fee_collector : record { addr : text };
   replaced_transaction : record {
     fee : nat64;
     btc_change_output : BtcChangeOutput;
@@ -97,6 +99,11 @@ type Event = variant {
   updated_rpc_url : record { rpc_url : text };
   toggle_chain_state : ToggleState;
 };
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type GenTicketRequest = record {
   received_at : nat64;
   token_id : text;
@@ -140,6 +147,7 @@ type GenerateTicketError = variant {
   InvalidRuneId : text;
   AlreadySubmitted;
   InvalidTxId;
+  NotPayFees;
   TxNotFoundInMemPool;
   NoNewUtxos;
   UnsupportedChainId : text;
@@ -154,6 +162,7 @@ type HttpResponse = record {
   body : blob;
   headers : vec HttpHeader;
 };
+type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record {
   hub_principal : principal;
   ecdsa_key_name : text;
@@ -202,6 +211,10 @@ type RuneTxRequest = record {
 type RunesBalance = record { vout : nat32; amount : nat; rune_id : RuneId };
 type RunesChangeOutput = record { value : nat; vout : nat32; rune_id : RuneId };
 type RunesUtxo = record { raw : Utxo; runes : RunesBalance };
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
 type ToggleAction = variant { Deactivate; Activate };
 type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
@@ -220,7 +233,13 @@ type TokenResp = record {
   symbol : text;
 };
 type TransformArgs = record { context : blob; response : HttpResponse };
-type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxAction = variant {
+  Burn;
+  Redeem;
+  Mint;
+  RedeemIcpChainKeyAssets : IcpChainKeyToken;
+  Transfer;
+};
 type UpdateBtcUtxosErr = variant { TemporarilyUnavailable : text };
 type UpdateRunesBalanceArgs = record {
   txid : blob;
@@ -255,10 +274,12 @@ service : (CustomArg) -> {
   get_pending_gen_ticket_requests : (GetGenTicketReqsArgs) -> (
       vec GenTicketRequestV2,
     ) query;
+  get_platform_fee : (text) -> (opt nat, opt text) query;
   get_runes_oracles : () -> (vec principal) query;
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   remove_runes_oracle : (principal) -> ();
+  set_fee_collector : (text) -> ();
   set_runes_oracle : (principal) -> ();
   transform : (TransformArgs) -> (HttpResponse) query;
   update_btc_utxos : () -> (Result_1);

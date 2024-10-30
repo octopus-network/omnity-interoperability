@@ -73,6 +73,7 @@ export type Event = {
   { 'added_runes_oracle' : { 'principal' : Principal } } |
   { 'removed_ticket_request' : { 'txid' : Uint8Array | number[] } } |
   { 'removed_runes_oracle' : { 'principal' : Principal } } |
+  { 'updated_fee' : { 'fee' : Factor } } |
   {
     'sent_transaction' : {
       'fee' : [] | [bigint],
@@ -108,6 +109,7 @@ export type Event = {
   { 'accepted_generate_ticket_request_v2' : GenTicketRequestV2 } |
   { 'accepted_generate_ticket_request_v3' : GenTicketRequestV2 } |
   { 'confirmed_transaction' : { 'txid' : Uint8Array | number[] } } |
+  { 'upate_fee_collector' : { 'addr' : string } } |
   {
     'replaced_transaction' : {
       'fee' : bigint,
@@ -122,6 +124,12 @@ export type Event = {
   { 'accepted_rune_tx_request' : RuneTxRequest } |
   { 'updated_rpc_url' : { 'rpc_url' : string } } |
   { 'toggle_chain_state' : ToggleState };
+export type Factor = { 'UpdateFeeTokenFactor' : FeeTokenFactor } |
+  { 'UpdateTargetChainFactor' : TargetChainFactor };
+export interface FeeTokenFactor {
+  'fee_token' : string,
+  'fee_token_factor' : bigint,
+}
 export interface GenTicketRequest {
   'received_at' : bigint,
   'token_id' : string,
@@ -162,6 +170,7 @@ export type GenerateTicketError = { 'SendTicketErr' : string } |
   { 'InvalidRuneId' : string } |
   { 'AlreadySubmitted' : null } |
   { 'InvalidTxId' : null } |
+  { 'NotPayFees' : null } |
   { 'TxNotFoundInMemPool' : null } |
   { 'NoNewUtxos' : null } |
   { 'UnsupportedChainId' : string } |
@@ -181,6 +190,7 @@ export interface HttpResponse {
   'body' : Uint8Array | number[],
   'headers' : Array<HttpHeader>,
 }
+export type IcpChainKeyToken = { 'CKBTC' : null };
 export interface InitArgs {
   'hub_principal' : Principal,
   'ecdsa_key_name' : string,
@@ -238,6 +248,10 @@ export interface RunesChangeOutput {
   'rune_id' : RuneId,
 }
 export interface RunesUtxo { 'raw' : Utxo, 'runes' : RunesBalance }
+export interface TargetChainFactor {
+  'target_chain_id' : string,
+  'target_chain_factor' : bigint,
+}
 export type ToggleAction = { 'Deactivate' : null } |
   { 'Activate' : null };
 export interface ToggleState { 'action' : ToggleAction, 'chain_id' : string }
@@ -263,6 +277,7 @@ export interface TransformArgs {
 export type TxAction = { 'Burn' : null } |
   { 'Redeem' : null } |
   { 'Mint' : null } |
+  { 'RedeemIcpChainKeyAssets' : IcpChainKeyToken } |
   { 'Transfer' : null };
 export type UpdateBtcUtxosErr = { 'TemporarilyUnavailable' : string };
 export interface UpdateRunesBalanceArgs {
@@ -301,10 +316,12 @@ export interface _SERVICE {
     [GetGenTicketReqsArgs],
     Array<GenTicketRequestV2>
   >,
+  'get_platform_fee' : ActorMethod<[string], [[] | [bigint], [] | [string]]>,
   'get_runes_oracles' : ActorMethod<[], Array<Principal>>,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
   'remove_runes_oracle' : ActorMethod<[Principal], undefined>,
+  'set_fee_collector' : ActorMethod<[string], undefined>,
   'set_runes_oracle' : ActorMethod<[Principal], undefined>,
   'transform' : ActorMethod<[TransformArgs], HttpResponse>,
   'update_btc_utxos' : ActorMethod<[], Result_1>,
