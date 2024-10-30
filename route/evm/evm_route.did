@@ -171,5 +171,4 @@ service : (InitArgs) -> {
   update_consume_directive_seq : (nat64) -> ();
   update_fee_token : (text) -> ();
   update_rpcs : (vec RpcApi) -> ();
-  update_transaction_type : (EvmTxType) -> ();
 }
