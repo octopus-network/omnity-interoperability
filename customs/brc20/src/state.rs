@@ -18,7 +18,7 @@ use omnity_types::{Chain, ChainId, ChainState, Directive, Seq, Ticket, TicketId,
 use crate::bitcoin::{main_bitcoin_address, ECDSAPublicKey};
 use crate::constants::{MIN_NANOS, SEC_NANOS};
 use crate::custom_to_bitcoin::SendTicketResult;
-use crate::ord::builder::{CreateCommitTransaction, OrdTransactionBuilder, Utxo};
+use crate::ord::builder::{Utxo};
 use crate::service::InitArgs;
 use crate::stable_memory;
 use crate::stable_memory::Memory;
@@ -63,10 +63,10 @@ pub struct Brc20State {
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
     pub deposit_addr_utxo: Vec<Utxo>,
-    #[serde(skip_deserializing)]
-    pub temp_psbt_state: BTreeMap<String, CreateCommitTransaction>,
-    #[serde(skip)]
-    pub temp_psbt_builder: BTreeMap<String, OrdTransactionBuilder>,
+    //fee
+    pub fee_collector: String,
+    pub fee_token_factor: Option<u128>,
+    pub target_chain_factor: BTreeMap<ChainId, u128>,
 }
 
 #[derive(Serialize, Deserialize, CandidType, Clone)]
@@ -89,6 +89,9 @@ pub struct StateProfile {
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
     pub pending_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
+    pub fee_collector: String,
+    pub fee_token_factor: Option<u128>,
+    pub target_chain_factor: BTreeMap<ChainId, u128>,
 }
 
 impl From<&Brc20State> for StateProfile {
@@ -112,6 +115,9 @@ impl From<&Brc20State> for StateProfile {
             next_consume_ticket_seq: value.next_consume_ticket_seq,
             next_consume_directive_seq: value.next_consume_directive_seq,
             pending_lock_ticket_requests: value.pending_lock_ticket_requests.clone(),
+            fee_collector: value.fee_collector.clone(),
+            fee_token_factor: value.fee_token_factor,
+            target_chain_factor: value.target_chain_factor.clone(),
         }
     }
 }
@@ -148,11 +154,12 @@ impl Brc20State {
             btc_network,
             indexer_principal: args.indexer_principal,
             deposit_addr_utxo: vec![],
+            fee_collector: "".to_string(),
+            fee_token_factor: None,
             min_confirmations: 4,
             finalized_unlock_ticket_map: Default::default(),
             ticket_id_seq_indexer: Default::default(),
-            temp_psbt_state: Default::default(),
-            temp_psbt_builder: Default::default(),
+            target_chain_factor: Default::default(),
         };
         Ok(ret)
     }
@@ -202,6 +209,17 @@ impl Brc20State {
             .take(limit)
             .map(|(seq, d)| (seq, d.clone()))
             .collect()
+    }
+
+    pub fn get_transfer_fee_info(&self, target_chain_id: &ChainId) -> (Option<u128>, Option<String>) {
+        if *target_chain_id != "Ethereum".to_string() {
+            return (None, None);
+        }
+        if self.fee_token_factor.is_none() || self.target_chain_factor.get(target_chain_id).is_none() {
+            return (None, None);
+        }
+        let addr = self.fee_collector.clone();
+        (Some(self.fee_token_factor.clone().unwrap() * self.target_chain_factor.get(target_chain_id).cloned().unwrap()), Some(addr))
     }
 
     pub fn generate_ticket_status(&self, tx_id: Txid) -> GenTicketStatus {

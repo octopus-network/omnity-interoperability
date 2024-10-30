@@ -49,6 +49,8 @@ pub enum GenerateTicketError {
     NotBridgeTx,
     #[error("InvalidArgs: {0}")]
     InvalidArgs(String),
+    #[error("NotPayFees")]
+    NotPayFees,
     #[default]
     #[error("Unknown")]
     Unknown,
@@ -97,7 +99,6 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             .cloned()
             .ok_or(GenerateTicketError::UnsupportedToken(args.token_id.clone()))
     })?;
-
     read_state(|s| match s.generate_ticket_status(txid) {
         GenTicketStatus::Pending(_) | GenTicketStatus::Confirmed(_) => {
             Err(GenerateTicketError::AlreadySubmitted)
@@ -107,6 +108,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     })?;
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
     let transfer = check_transaction(args.clone()).await?;
+
     let ticket_amount: u128 = Decimal::from_str(&transfer.amt)
         .unwrap()
         .mul(Decimal::from(10u128.pow(token.decimals as u32)))

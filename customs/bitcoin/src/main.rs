@@ -28,7 +28,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk::api::management_canister::http_request::{self, TransformArgs};
 use ic_cdk_macros::{init, post_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use omnity_types::Chain;
+use omnity_types::{Chain, ChainId};
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
 use std::str::FromStr;
@@ -245,6 +245,18 @@ fn estimate_redeem_fee(arg: EstimateFeeArgs) -> RedeemFee {
             s.last_fee_per_vbyte[50],
         )
     })
+}
+
+#[query]
+fn get_platform_fee(target_chain: ChainId) -> (Option<u128>, Option<String>) {
+    read_state(|s| {
+        s.get_transfer_fee_info(&target_chain)
+    })
+}
+
+#[update(guard = "is_controller")]
+pub fn set_fee_collector(addr: String) {
+    mutate_state(|s|s.fee_collector_address = addr);
 }
 
 #[query]

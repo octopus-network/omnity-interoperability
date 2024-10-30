@@ -352,9 +352,29 @@ pub struct CustomsState {
     pub chain_state: ChainState,
 
     pub last_fee_per_vbyte: Vec<u64>,
+
+    #[serde(skip_deserializing)]
+    pub fee_token_factor: Option<u128>,
+
+    #[serde(skip_deserializing)]
+    pub target_chain_factor: BTreeMap<ChainId, u128>,
+
+    #[serde(skip_deserializing)]
+    pub fee_collector_address: String,
 }
 
 impl CustomsState {
+    pub fn get_transfer_fee_info(&self, target_chain_id: &ChainId) -> (Option<u128>, Option<String>) {
+        if *target_chain_id != "Ethereum".to_string() {
+            return (None, None);
+        }
+        if self.fee_token_factor.is_none() || self.target_chain_factor.get(target_chain_id).is_none() {
+           return (None, None);
+        }
+        let addr = self.fee_collector_address.clone();
+        (Some(self.fee_token_factor.clone().unwrap() * self.target_chain_factor.get(target_chain_id).cloned().unwrap()), Some(addr))
+    }
+
     pub fn reinit(
         &mut self,
         InitArgs {
@@ -1156,6 +1176,9 @@ impl From<InitArgs> for CustomsState {
             runes_oracles: BTreeSet::from_iter(vec![args.runes_oracle_principal]),
             rpc_url: None,
             last_fee_per_vbyte: vec![1; 100],
+            fee_token_factor: None,
+            target_chain_factor: Default::default(),
+            fee_collector_address: "".to_string(),
         }
     }
 }

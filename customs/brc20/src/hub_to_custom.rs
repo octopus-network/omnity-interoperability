@@ -3,7 +3,7 @@ use crate::state::{mutate_state, read_state};
 use crate::{audit, hub};
 use ic_canister_log::log;
 use omnity_types::ic_log::ERROR;
-use omnity_types::{ChainState, Directive, Seq, Ticket};
+use omnity_types::{ChainState, Directive, Factor, Seq, Ticket};
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
@@ -72,7 +72,23 @@ async fn process_directives() {
                     Directive::AddToken(token) => {
                         mutate_state(|s| audit::add_token(s, token));
                     }
-                    Directive::UpdateFee(_) => {}
+                    Directive::UpdateFee(fee) => {
+                        match fee {
+                            Factor::UpdateTargetChainFactor(factor) => {
+                                mutate_state(|s|{
+                                    s.target_chain_factor
+                                        .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
+                                });
+                            }
+                            Factor::UpdateFeeTokenFactor(token_factor) => {
+                                mutate_state(|s|{
+                                    if token_factor.fee_token == "BTC".to_string() {
+                                        s.fee_token_factor = Some(token_factor.fee_token_factor);
+                                    }
+                                });
+                            }
+                        }
+                    }
                 }
                 mutate_state(|s| s.directives_queue.insert(*seq, final_directive));
             }

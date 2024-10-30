@@ -7,7 +7,7 @@ use super::{
 use crate::storage::record_event;
 use crate::{destination::Destination, state::RUNES_TOKEN};
 use ic_btc_interface::{Txid, Utxo};
-use omnity_types::{Chain, ToggleState, Token};
+use omnity_types::{Chain, Factor, ToggleState, Token};
 
 pub fn add_chain(state: &mut CustomsState, chain: Chain) {
     record_event(&Event::AddedChain(chain.clone()));
@@ -166,4 +166,23 @@ pub fn replace_transaction(
             .expect("bug: all replacement transactions must have the fee"),
     });
     state.replace_transaction(&old_txid, new_tx);
+}
+
+
+
+pub fn update_fee(state: &mut CustomsState, fee: Factor) {
+    record_event(&Event::UpdatedFee { fee: fee.clone() });
+    match fee {
+        Factor::UpdateTargetChainFactor(factor) => {
+            state
+                .target_chain_factor
+                .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
+        }
+
+        Factor::UpdateFeeTokenFactor(token_factor) => {
+            if token_factor.fee_token == "BTC" {
+                state.fee_token_factor = Some(token_factor.fee_token_factor);
+            }
+        }
+    }
 }
