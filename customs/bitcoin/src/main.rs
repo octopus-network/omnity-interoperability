@@ -32,6 +32,7 @@ use omnity_types::{Chain, ChainId};
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
 use std::str::FromStr;
+use bitcoin_customs::state::eventlog::Event::UpdateFeeCollector;
 use omnity_types::ic_log::INFO;
 
 #[init]
@@ -256,7 +257,8 @@ fn get_platform_fee(target_chain: ChainId) -> (Option<u128>, Option<String>) {
 
 #[update(guard = "is_controller")]
 pub fn set_fee_collector(addr: String) {
-    mutate_state(|s|s.fee_collector_address = addr);
+    mutate_state(|s|s.fee_collector_address = addr.clone());
+    record_event(&UpdateFeeCollector {addr});
 }
 
 #[query]

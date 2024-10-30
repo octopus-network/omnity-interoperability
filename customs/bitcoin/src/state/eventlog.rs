@@ -171,9 +171,10 @@ pub enum Event {
     #[serde(rename = "updated_rpc_url")]
     UpdatedRpcURL { rpc_url: String },
 
-
     #[serde(rename = "updated_fee")]
     UpdatedFee { fee: Factor },
+    #[serde(rename = "upate_fee_collector")]
+    UpdateFeeCollector { addr: String }
 }
 
 #[derive(Debug)]
@@ -416,6 +417,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                         }
                     }
                 }
+            },
+            Event::UpdateFeeCollector{addr} => {
+                state.fee_collector_address = addr;
             }
         }
     }

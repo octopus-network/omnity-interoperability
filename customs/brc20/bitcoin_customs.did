@@ -85,6 +85,7 @@ type Event = variant {
   accepted_generate_ticket_request_v2 : GenTicketRequestV2;
   accepted_generate_ticket_request_v3 : GenTicketRequestV2;
   confirmed_transaction : record { txid : blob };
+  upate_fee_collector : record { addr : text };
   replaced_transaction : record {
     fee : nat64;
     btc_change_output : BtcChangeOutput;
