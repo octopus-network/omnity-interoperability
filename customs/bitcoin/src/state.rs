@@ -353,13 +353,13 @@ pub struct CustomsState {
 
     pub last_fee_per_vbyte: Vec<u64>,
 
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     pub fee_token_factor: Option<u128>,
 
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     pub target_chain_factor: BTreeMap<ChainId, u128>,
 
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     pub fee_collector_address: String,
 }
 
