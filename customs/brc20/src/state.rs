@@ -212,14 +212,13 @@ impl Brc20State {
     }
 
     pub fn get_transfer_fee_info(&self, target_chain_id: &ChainId) -> (Option<u128>, Option<String>) {
-        if *target_chain_id != "Ethereum".to_string() {
+        if target_chain_id.ne("Ethereum") {
             return (None, None);
         }
-        if self.fee_token_factor.is_none() || self.target_chain_factor.get(target_chain_id).is_none() {
-            return (None, None);
-        }
-        let addr = self.fee_collector.clone();
-        (Some(self.fee_token_factor.clone().unwrap() * self.target_chain_factor.get(target_chain_id).cloned().unwrap()), Some(addr))
+        let fee = self.fee_token_factor.and_then(|f| {
+            self.target_chain_factor.get(target_chain_id).map(|factor| f * factor)
+        });
+        (fee, fee.map(|_|self.fee_collector.clone()))
     }
 
     pub fn generate_ticket_status(&self, tx_id: Txid) -> GenTicketStatus {
