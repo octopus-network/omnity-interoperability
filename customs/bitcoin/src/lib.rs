@@ -356,7 +356,7 @@ async fn process_directive() {
                         audit::toggle_chain_state(s, toggle.clone())
                     }
                     Directive::UpdateFee(fee) => {
-                        mutate_state(|s| state::audit::update_fee(s, fee.clone()));
+                        audit::update_fee(s, fee.clone());
                         log!(INFO,
                             "[process directives] success to update fee, fee: {}",
                             fee
