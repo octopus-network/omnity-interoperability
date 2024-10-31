@@ -266,6 +266,23 @@ fn get_customs_info() -> CustomsInfo {
     read_state(|s| CustomsInfo {
         min_confirmations: s.min_confirmations,
         chain_state: s.chain_state.clone(),
+        next_ticket_seq: s.next_ticket_seq,
+        next_directive_seq: s.next_directive_seq,
+        hub_principal: s.hub_principal,
+        runes_oracles: s.runes_oracles.clone(),
+        rpc_url: s.rpc_url.clone(),
+        last_fee_per_vbyte: s.last_fee_per_vbyte.clone(),
+        fee_token_factor: s.fee_token_factor.clone(),
+        target_chain_factor: s.target_chain_factor.clone(),
+        fee_collector_address: s.fee_collector_address.clone(),
+        btc_network: s.btc_network,
+        chain_id: s.chain_id.clone(),
+        ecdsa_key_name: s.ecdsa_key_name.clone(),
+        ecdsa_public_key: s.ecdsa_public_key.clone(),
+        prod_ecdsa_public_key: s.prod_ecdsa_public_key.clone(),
+        max_time_in_queue_nanos: s.max_time_in_queue_nanos,
+        generate_ticket_counter: s.generate_ticket_counter,
+        release_token_counter: s.release_token_counter,
     })
 }
 

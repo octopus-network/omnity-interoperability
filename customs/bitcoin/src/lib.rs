@@ -2,14 +2,14 @@ use crate::address::{main_bitcoin_address, main_destination, BitcoinAddress};
 use crate::queries::RedeemFee;
 use crate::runestone::{Edict, Runestone};
 use crate::state::{audit, mutate_state, BtcChangeOutput};
-use candid::{CandidType, Deserialize};
+use candid::{CandidType, Deserialize, Principal};
 use destination::Destination;
 use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
 use omnity_types::rune_id::RuneId;
-use omnity_types::{ChainState, Directive, TokenId, TxAction};
+use omnity_types::{ChainId, ChainState, Directive, TokenId, TxAction};
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
@@ -93,6 +93,41 @@ pub struct Log {
 pub struct CustomsInfo {
     pub min_confirmations: u32,
     pub chain_state: ChainState,
+    // Next index of query tickets from hub
+    pub next_ticket_seq: u64,
+
+    // Next index of query directives from hub
+    pub next_directive_seq: u64,
+
+    pub hub_principal: Principal,
+
+    pub runes_oracles: BTreeSet<Principal>,
+
+    pub rpc_url: Option<String>,
+
+    pub last_fee_per_vbyte: Vec<u64>,
+
+    pub fee_token_factor: Option<u128>,
+
+    pub target_chain_factor: BTreeMap<ChainId, u128>,
+
+    pub fee_collector_address: String,
+    /// The bitcoin network that the customs will connect to
+    pub btc_network: Network,
+
+    pub chain_id: String,
+
+    pub ecdsa_key_name: String,
+    pub ecdsa_public_key: Option<ECDSAPublicKey>,
+
+    pub prod_ecdsa_public_key: Option<ECDSAPublicKey>,
+
+    pub max_time_in_queue_nanos: u64,
+
+    pub generate_ticket_counter: u64,
+
+    pub release_token_counter: u64,
+
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]

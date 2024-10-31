@@ -37,6 +37,7 @@ type GenerateTicketError = variant {
   UnsupportedToken : text;
 };
 type InitArgs = record {
+  fee_token : text;
   hub_principal : principal;
   network : Network_1;
   chain_id : text;
@@ -65,7 +66,7 @@ type ReleaseTokenStatus = variant {
 type Result = variant { Ok; Err : GenerateTicketError };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;
-  next_consume_directive_seq : nat64;
+  fee_token : text;
   hub_principal : principal;
   ecdsa_key_name : text;
   deposit_addr : opt text;

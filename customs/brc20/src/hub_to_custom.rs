@@ -82,7 +82,7 @@ async fn process_directives() {
                             }
                             Factor::UpdateFeeTokenFactor(token_factor) => {
                                 mutate_state(|s|{
-                                    if token_factor.fee_token == "BTC".to_string() {
+                                    if token_factor.fee_token == s.fee_token {
                                         s.fee_token_factor = Some(token_factor.fee_token_factor);
                                     }
                                 });

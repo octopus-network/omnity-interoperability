@@ -31,6 +31,8 @@ thread_local! {
 #[derive(Deserialize, Serialize)]
 pub struct Brc20State {
     pub admins: Vec<Principal>,
+    #[serde(default)]
+    pub fee_token: String,
     pub min_confirmations: u8,
     pub btc_network: Network,
     pub ecdsa_key_name: String,
@@ -47,7 +49,6 @@ pub struct Brc20State {
     pub next_ticket_seq: u64,
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
-    pub next_consume_directive_seq: u64,
     #[serde(skip, default = "crate::stable_memory::init_unlock_tickets_queue")]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
     pub flight_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
@@ -72,6 +73,7 @@ pub struct Brc20State {
 #[derive(Serialize, Deserialize, CandidType, Clone)]
 pub struct StateProfile {
     pub admins: Vec<Principal>,
+    pub fee_token: String,
     pub min_confirmations: u8,
     pub btc_network: Network,
     pub ecdsa_key_name: String,
@@ -87,7 +89,6 @@ pub struct StateProfile {
     pub next_ticket_seq: u64,
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
-    pub next_consume_directive_seq: u64,
     pub pending_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
     pub fee_collector: String,
     pub fee_token_factor: Option<u128>,
@@ -98,6 +99,7 @@ impl From<&Brc20State> for StateProfile {
     fn from(value: &Brc20State) -> Self {
         StateProfile {
             admins: value.admins.clone(),
+            fee_token: value.fee_token.clone(),
             min_confirmations: value.min_confirmations,
             btc_network: value.btc_network,
             ecdsa_key_name: value.ecdsa_key_name.clone(),
@@ -113,7 +115,6 @@ impl From<&Brc20State> for StateProfile {
             next_ticket_seq: value.next_ticket_seq,
             next_directive_seq: value.next_directive_seq,
             next_consume_ticket_seq: value.next_consume_ticket_seq,
-            next_consume_directive_seq: value.next_consume_directive_seq,
             pending_lock_ticket_requests: value.pending_lock_ticket_requests.clone(),
             fee_collector: value.fee_collector.clone(),
             fee_token_factor: value.fee_token_factor,
@@ -145,7 +146,6 @@ impl Brc20State {
             next_ticket_seq: 0,
             next_directive_seq: 0,
             next_consume_ticket_seq: 0,
-            next_consume_directive_seq: 0,
             tickets_queue: StableBTreeMap::init(crate::stable_memory::get_unlock_tickets_memory()),
             directives_queue: StableBTreeMap::init(crate::stable_memory::get_directives_memory()),
             is_timer_running: Default::default(),
@@ -160,6 +160,7 @@ impl Brc20State {
             finalized_unlock_ticket_map: Default::default(),
             ticket_id_seq_indexer: Default::default(),
             target_chain_factor: Default::default(),
+            fee_token: args.fee_token,
         };
         Ok(ret)
     }

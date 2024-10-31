@@ -32,8 +32,25 @@ type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type CustomArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type CustomsInfo = record {
+  runes_oracles : vec principal;
+  last_fee_per_vbyte : vec nat64;
+  hub_principal : principal;
+  ecdsa_key_name : text;
+  next_directive_seq : nat64;
+  fee_collector_address : text;
+  ecdsa_public_key : opt ECDSAPublicKey;
+  max_time_in_queue_nanos : nat64;
+  chain_id : text;
+  rpc_url : opt text;
+  generate_ticket_counter : nat64;
+  btc_network : Network;
+  target_chain_factor : vec record { text; nat };
+  next_ticket_seq : nat64;
   chain_state : ChainState;
   min_confirmations : nat32;
+  prod_ecdsa_public_key : opt ECDSAPublicKey;
+  release_token_counter : nat64;
+  fee_token_factor : opt nat;
 };
 type DefiniteCanisterSettings = record {
   freezing_threshold : nat;
@@ -47,6 +64,7 @@ type Destination = record {
   target_chain_id : text;
   receiver : text;
 };
+type ECDSAPublicKey = record { public_key : blob; chain_code : blob };
 type EstimateFeeArgs = record { amount : opt nat; rune_id : RuneId };
 type Event = variant {
   confirmed_generate_ticket_request : GenTicketRequestV2;
@@ -173,6 +191,7 @@ type InitArgs = record {
   chain_state : ChainState;
   min_confirmations : opt nat32;
 };
+type Network = variant { mainnet; regtest; testnet };
 type OutPoint = record { txid : blob; vout : nat32 };
 type QueryStats = record {
   response_payload_bytes_total : nat;

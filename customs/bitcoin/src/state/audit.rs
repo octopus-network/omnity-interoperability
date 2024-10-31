@@ -180,7 +180,7 @@ pub fn update_fee(state: &mut CustomsState, fee: Factor) {
         }
 
         Factor::UpdateFeeTokenFactor(token_factor) => {
-            if token_factor.fee_token == "BTC" {
+            if token_factor.fee_token.eq("BTC") {
                 state.fee_token_factor = Some(token_factor.fee_token_factor);
             }
         }
