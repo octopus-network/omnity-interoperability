@@ -320,7 +320,13 @@ async fn process_directive() {
                     Directive::ToggleChainState(toggle) => {
                         audit::toggle_chain_state(s, toggle.clone())
                     }
-                    Directive::UpdateFee(_) => {}
+                    Directive::UpdateFee(fee) => {
+                        mutate_state(|s| state::audit::update_fee(s, fee.clone()));
+                        log!(INFO,
+                            "[process directives] success to update fee, fee: {}",
+                            fee
+                        );
+                    }
                 }
             }
             let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);

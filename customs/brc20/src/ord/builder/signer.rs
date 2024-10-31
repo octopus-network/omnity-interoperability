@@ -1,9 +1,8 @@
 use crate::management;
 use crate::ord::result::{OrdError, OrdResult};
 use crate::state::read_state;
-use bitcoin::key::Secp256k1;
 use bitcoin::secp256k1::ecdsa::Signature;
-use bitcoin::secp256k1::{All, Message};
+use bitcoin::secp256k1::{Message};
 use bitcoin::{Address, PublicKey};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
@@ -11,19 +10,13 @@ use omnity_types::ic_log::ERROR;
 
 #[derive(Clone)]
 pub struct MixSigner {
-    pub key_id: String,
-    pub derive_path: DerivationPath,
-    pub secp: Secp256k1<All>,
     pub pubkey: PublicKey,
     pub signer_addr: Address,
 }
 
 impl MixSigner {
-    pub fn new(key_id: String, public_key: PublicKey, addr: Address) -> Self {
+    pub fn new(public_key: PublicKey, addr: Address) -> Self {
         Self {
-            key_id,
-            derive_path: DerivationPath::new(vec![]),
-            secp: Secp256k1::new(),
             pubkey: public_key,
             signer_addr: addr,
         }

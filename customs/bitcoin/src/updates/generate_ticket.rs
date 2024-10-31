@@ -1,7 +1,6 @@
 use crate::destination::Destination;
 use crate::guard::{generate_ticket_guard, GuardError};
 use crate::hub;
-use crate::management::{get_utxos, CallSource};
 use crate::state::{
     audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, RUNES_TOKEN,
 };
@@ -19,6 +18,7 @@ use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainState, Ticket, TicketType, TxAction};
 use serde::Serialize;
 use std::str::FromStr;
+use crate::updates::rpc_types::Transaction;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketArgs {
@@ -43,6 +43,7 @@ pub enum GenerateTicketError {
     SendTicketErr(String),
     RpcError(String),
     AmountIsZero,
+    NotPayFees
 }
 
 impl From<GuardError> for GenerateTicketError {
@@ -112,10 +113,33 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     // In order to prevent the memory from being exhausted,
     // ensure that the user has transferred token to this address.
-    let new_utxos = fetch_new_utxos(txid, &address).await?;
-    if new_utxos.len() == 0 {
+    let (new_utxos, tx) = fetch_new_utxos(txid, &address).await?;
+    if new_utxos.is_empty() {
         return Err(GenerateTicketError::NoNewUtxos);
     }
+
+    //check whether need to pay fees for transfer. If fee is None, that means paying fees is not need
+    let (fee, addr) = read_state(|s|s.get_transfer_fee_info(&args.target_chain_id));
+    match fee {
+        None => {}
+        Some(fee_value) => {
+            let fee_collector = addr.unwrap();
+            let mut found_fee_utxo = false;
+            for out in tx.vout {
+                if out.scriptpubkey_address
+                    .clone()
+                    .is_some_and(|address| address.eq(&fee_collector)) &&
+                    out.value as u128 == fee_value {
+                    found_fee_utxo = true;
+                    break;
+                }
+            }
+            if !found_fee_utxo {
+                return Err(GenerateTicketError::NotPayFees);
+            }
+        }
+    }
+
 
     hub::pending_ticket(
         hub_principal,
@@ -154,30 +178,11 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     Ok(())
 }
 
-async fn fetch_new_utxos(txid: Txid, address: &String) -> Result<Vec<Utxo>, GenerateTicketError> {
-    if cfg!(feature = "non_prod") {
-        fetch_new_utxo_from_canister(txid, address).await
-    } else {
-        fetch_new_utxos_outcall(txid, address).await
-    }
+async fn fetch_new_utxos(txid: Txid, address: &String) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
+    fetch_new_utxos_outcall(txid, address).await
 }
 
-async fn fetch_new_utxo_from_canister(txid: Txid, address: &String) -> Result<Vec<Utxo>, GenerateTicketError> {
-    let btc_network = read_state(|s| s.btc_network);
-    let utxos = get_utxos(btc_network, address, 0, CallSource::Client)
-        .await
-        .map_err(|call_err| {
-            GenerateTicketError::TemporarilyUnavailable(format!(
-                "Failed to call bitcoin canister: {}",
-                call_err
-            ))
-        })?
-        .utxos;
-
-    Ok(read_state(|s| s.new_utxos(utxos, Some(txid))))
-}
-
-async fn fetch_new_utxos_outcall(txid: Txid, address: &String) -> Result<Vec<Utxo>, GenerateTicketError> {
+async fn fetch_new_utxos_outcall(txid: Txid, address: &String) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
     const MAX_CYCLES: u128 = 1_000_000_000_000;
     const DERAULT_RPC_URL: &str = "https://mempool.space/api/tx";
 
@@ -191,7 +196,7 @@ async fn fetch_new_utxos_outcall(txid: Txid, address: &String) -> Result<Vec<Utx
         url: url.to_string(),
         method: HttpMethod::GET,
         body: None,
-        max_response_bytes: None,
+        max_response_bytes: Some(30000),
         transform: Some(TransformContext {
             function: TransformFunc(candid::Func {
                 principal: ic_cdk::api::id(),
@@ -219,7 +224,7 @@ async fn fetch_new_utxos_outcall(txid: Txid, address: &String) -> Result<Vec<Utx
                         "failed to decode transaction from json".to_string(),
                     )
                 })?;
-                let utxos = tx
+                let transfer_utxos = tx.clone()
                     .vout
                     .iter()
                     .enumerate()
@@ -240,7 +245,8 @@ async fn fetch_new_utxos_outcall(txid: Txid, address: &String) -> Result<Vec<Utx
                         height: 0,
                     })
                     .collect();
-                Ok(utxos)
+
+                Ok((transfer_utxos, tx))
             } else if status == Nat::from(404_u32) {
                 Err(GenerateTicketError::TxNotFoundInMemPool)
             } else {

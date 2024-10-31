@@ -176,8 +176,8 @@ impl OrdTransactionBuilder {
     }
 
     /// Initialize a new `OrdTransactionBuilder` with the given private key and use P2TR as script type (preferred).
-    pub fn p2tr(public_key: PublicKey, key_id: String, address: Address) -> Self {
-        let wallet = Wallet::new_with_signer(signer::MixSigner::new(key_id, public_key, address));
+    pub fn p2tr(public_key: PublicKey, address: Address) -> Self {
+        let wallet = Wallet::new_with_signer(signer::MixSigner::new(public_key, address));
         Self::new(public_key, wallet)
     }
 
@@ -287,8 +287,6 @@ where
     pub inputs: Vec<Utxo>,
     /// Inscription to write
     pub inscription: T,
-    /// Address to send the leftovers BTC of the trasnsaction
-    pub leftovers_recipient: Address,
     pub fees: Fees,
     /// Script pubkey of the inputs
     pub txin_script_pubkey: ScriptBuf,

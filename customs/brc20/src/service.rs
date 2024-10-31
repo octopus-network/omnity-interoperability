@@ -12,7 +12,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
-use omnity_types::{Network, Seq};
+use omnity_types::{ChainId, Network, Seq};
 use std::str::FromStr;
 
 #[init]
@@ -46,6 +46,13 @@ pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<(), GenerateTick
 }
 
 #[query]
+fn get_platform_fee(target_chain: ChainId) -> (Option<u128>, Option<String>) {
+    read_state(|s| {
+        s.get_transfer_fee_info(&target_chain)
+    })
+}
+
+#[query]
 pub fn get_deposit_addr() -> (String, String) {
     read_state(|s| {
         (
@@ -69,6 +76,11 @@ pub async fn generate_deposit_addr() -> (String, String) {
 #[query(guard = "is_admin")]
 pub fn brc20_state() -> StateProfile {
     read_state(|s| StateProfile::from(s))
+}
+
+#[update(guard = "is_admin")]
+pub fn set_fee_collector(addr: String) {
+    mutate_state(|s|s.fee_collector = addr);
 }
 
 #[query]

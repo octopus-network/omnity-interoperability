@@ -218,10 +218,8 @@ pub async fn generate_brc20_transactions(
     let token = read_state(|s| s.tokens.get(&ticket.token).cloned().unwrap());
     let amount: u128 = ticket.amount.parse().unwrap();
     let amt = Decimal::from(amount).div(Decimal::from(10u128.pow(token.decimals as u32)));
-    let key_id = read_state(|s| s.ecdsa_key_name.clone());
     let mut builder = OrdTransactionBuilder::p2tr(
         PublicKey::from_str(deposit_pubkey().as_str()).unwrap(),
-        key_id,
         deposit_addr(),
     );
     let commit_tx = builder
@@ -231,7 +229,6 @@ pub async fn generate_brc20_transactions(
                 inputs: vins.clone(),
                 inscription: Brc20::transfer(token.name.clone(), amt),
                 txin_script_pubkey: deposit_addr().script_pubkey(),
-                leftovers_recipient: deposit_addr().clone(),
                 fees: fees.clone(),
             },
         )

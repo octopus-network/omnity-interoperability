@@ -9,7 +9,7 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
-type ECDSAPublicKey = record { public_key : blob; chain_code : blob };
+type EcdsaPublicKeyResponse = record { public_key : blob; chain_code : blob };
 type GenerateTicketArgs = record {
   token_id : text;
   txid : text;
@@ -29,6 +29,7 @@ type GenerateTicketError = variant {
   InvalidArgs : text;
   AlreadySubmitted;
   InvalidTxId;
+  NotPayFees;
   TxNotFoundInMemPool;
   Unknown;
   NoNewUtxos;
@@ -69,18 +70,21 @@ type StateProfile = record {
   ecdsa_key_name : text;
   deposit_addr : opt text;
   next_directive_seq : nat64;
-  ecdsa_public_key : opt ECDSAPublicKey;
+  fee_collector : text;
+  ecdsa_public_key : opt EcdsaPublicKeyResponse;
   chain_id : text;
   pending_lock_ticket_requests : vec record { blob; LockTicketRequest };
   tokens : vec record { text; Token };
   btc_network : Network;
   admins : vec principal;
+  target_chain_factor : vec record { text; nat };
   counterparties : vec record { text; Chain };
   next_ticket_seq : nat64;
   chain_state : ChainState;
   min_confirmations : nat8;
   indexer_principal : principal;
   deposit_pubkey : opt text;
+  fee_token_factor : opt nat;
 };
 type Token = record {
   decimals : nat8;
@@ -104,10 +108,12 @@ service : (InitArgs) -> {
   generate_deposit_addr : () -> (text, text);
   generate_ticket : (GenerateTicketArgs) -> (Result);
   get_deposit_addr : () -> (text, text) query;
+  get_platform_fee : (text) -> (opt nat, opt text) query;
   get_token_list : () -> (vec TokenResp) query;
   pending_unlock_tickets : (nat64) -> (text) query;
   query_finalized_lock_tickets : (blob) -> (opt LockTicketRequest) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   resend_unlock_ticket : (nat64, nat64) -> (text);
+  set_fee_collector : (text) -> ();
   update_fees : (vec UtxoArgs) -> ();
 }

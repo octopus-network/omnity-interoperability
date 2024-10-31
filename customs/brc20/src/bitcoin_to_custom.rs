@@ -26,7 +26,29 @@ pub async fn check_transaction(
         .ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
     let chain = read_state(|s| s.counterparties.get(&req.target_chain_id).cloned())
         .ok_or(InvalidArgs(serde_json::to_string(&req).unwrap()))?;
-    let transfer_transfer = call_rpc_with_retry(&req.txid, query_transaction).await?; //query_transaction(&req.txid).await?;
+    let transfer_transfer = call_rpc_with_retry(&req.txid, query_transaction).await?;
+    //check whether need to pay fees for transfer. If fee is None, that means paying fees is not need
+    let (fee, addr) = read_state(|s|s.get_transfer_fee_info(&req.target_chain_id));
+    match fee {
+        None => {}
+        Some(fee_value) => {
+            let mut found_fee_utxo = false;
+            let fee_collector = addr.unwrap();
+            for out in transfer_transfer.vout.clone() {
+                if out.scriptpubkey_address
+                    .clone()
+                    .is_some_and(|address| address.eq(&fee_collector)) &&
+                    out.value as u128 == fee_value {
+                    found_fee_utxo = true;
+                    break;
+                }
+            }
+            if !found_fee_utxo {
+                return Err(GenerateTicketError::NotPayFees);
+            }
+        }
+    }
+
     let receiver = transfer_transfer
         .vout
         .first()

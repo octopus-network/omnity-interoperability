@@ -65,19 +65,4 @@ pub trait Inscription: DeserializeOwned {
     ///
     /// So for example in case of a BRC20, this function must return the JSON encoded BRC20 operation as `PushBytes`.
     fn data(&self) -> OrdResult<PushBytesBuf>;
-
-    /// Parses inscription data from the serialized bytes found in the witness script.
-    ///
-    /// Decodes the inscription data embedded within the witness script of
-    /// a Bitcoin transaction, reconstructing the original inscription object.
-    ///
-    /// # Errors
-    ///
-    /// May return an `OrdError` if parsing fails.
-    fn parse(data: &[u8]) -> OrdResult<Self>
-    where
-        Self: Sized,
-    {
-        serde_json::from_slice(data).map_err(OrdError::Codec)
-    }
 }

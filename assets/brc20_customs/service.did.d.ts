@@ -15,7 +15,7 @@ export type ChainState = { 'Active' : null } |
   { 'Deactive' : null };
 export type ChainType = { 'SettlementChain' : null } |
   { 'ExecutionChain' : null };
-export interface ECDSAPublicKey {
+export interface EcdsaPublicKeyResponse {
   'public_key' : Uint8Array | number[],
   'chain_code' : Uint8Array | number[],
 }
@@ -37,6 +37,7 @@ export type GenerateTicketError = { 'SendTicketErr' : string } |
   { 'InvalidArgs' : string } |
   { 'AlreadySubmitted' : null } |
   { 'InvalidTxId' : null } |
+  { 'NotPayFees' : null } |
   { 'TxNotFoundInMemPool' : null } |
   { 'Unknown' : null } |
   { 'NoNewUtxos' : null } |
@@ -74,15 +75,13 @@ export type Result = { 'Ok' : null } |
   { 'Err' : GenerateTicketError };
 export interface StateProfile {
   'next_consume_ticket_seq' : bigint,
-  'finalized_lock_ticket_requests' : Array<
-    [Uint8Array | number[], LockTicketRequest]
-  >,
   'next_consume_directive_seq' : bigint,
   'hub_principal' : Principal,
   'ecdsa_key_name' : string,
   'deposit_addr' : [] | [string],
   'next_directive_seq' : bigint,
-  'ecdsa_public_key' : [] | [ECDSAPublicKey],
+  'fee_collector' : string,
+  'ecdsa_public_key' : [] | [EcdsaPublicKeyResponse],
   'chain_id' : string,
   'pending_lock_ticket_requests' : Array<
     [Uint8Array | number[], LockTicketRequest]
@@ -90,12 +89,14 @@ export interface StateProfile {
   'tokens' : Array<[string, Token]>,
   'btc_network' : Network,
   'admins' : Array<Principal>,
+  'target_chain_factor' : Array<[string, bigint]>,
   'counterparties' : Array<[string, Chain]>,
   'next_ticket_seq' : bigint,
   'chain_state' : ChainState,
   'min_confirmations' : number,
   'indexer_principal' : Principal,
   'deposit_pubkey' : [] | [string],
+  'fee_token_factor' : [] | [bigint],
 }
 export interface Token {
   'decimals' : number,
@@ -116,12 +117,19 @@ export interface _SERVICE {
   'brc20_state' : ActorMethod<[], StateProfile>,
   'finalize_lock_request' : ActorMethod<[string], undefined>,
   'finalized_unlock_tickets' : ActorMethod<[bigint], string>,
+  'generate_deposit_addr' : ActorMethod<[], [string, string]>,
   'generate_ticket' : ActorMethod<[GenerateTicketArgs], Result>,
   'get_deposit_addr' : ActorMethod<[], [string, string]>,
+  'get_platform_fee' : ActorMethod<[string], [[] | [bigint], [] | [string]]>,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'pending_unlock_tickets' : ActorMethod<[bigint], string>,
+  'query_finalized_lock_tickets' : ActorMethod<
+    [Uint8Array | number[]],
+    [] | [LockTicketRequest]
+  >,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
   'resend_unlock_ticket' : ActorMethod<[bigint, bigint], string>,
+  'set_fee_collector' : ActorMethod<[string], undefined>,
   'update_fees' : ActorMethod<[Array<UtxoArgs>], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;

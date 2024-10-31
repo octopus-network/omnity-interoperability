@@ -8,7 +8,7 @@ use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::state::{CustomsState, ReleaseTokenRequest, RunesChangeOutput};
 use candid::Principal;
 use ic_btc_interface::{Txid, Utxo};
-use omnity_types::{Chain, TicketId, ToggleState, Token};
+use omnity_types::{Chain, Factor, TicketId, ToggleState, Token};
 use serde::{Deserialize, Serialize};
 
 #[derive(candid::CandidType, Deserialize)]
@@ -170,6 +170,11 @@ pub enum Event {
 
     #[serde(rename = "updated_rpc_url")]
     UpdatedRpcURL { rpc_url: String },
+
+    #[serde(rename = "updated_fee")]
+    UpdatedFee { fee: Factor },
+    #[serde(rename = "upate_fee_collector")]
+    UpdateFeeCollector { addr: String }
 }
 
 #[derive(Debug)]
@@ -397,6 +402,24 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::UpdatedRpcURL { rpc_url } => {
                 state.rpc_url = Some(rpc_url);
+            }
+            Event::UpdatedFee { fee } => {
+                match fee {
+                    Factor::UpdateTargetChainFactor(factor) => {
+                        state
+                            .target_chain_factor
+                            .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
+                    }
+
+                    Factor::UpdateFeeTokenFactor(token_factor) => {
+                        if token_factor.fee_token == "BTC" {
+                            state.fee_token_factor = Some(token_factor.fee_token_factor);
+                        }
+                    }
+                }
+            },
+            Event::UpdateFeeCollector{addr} => {
+                state.fee_collector_address = addr;
             }
         }
     }
