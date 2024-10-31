@@ -156,6 +156,7 @@ pub struct InitArgs {
     pub network: Network,
     pub chain_id: String,
     pub indexer_principal: Principal,
+    pub fee_token: String,
 }
 
 fn is_admin() -> Result<(), String> {
