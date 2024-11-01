@@ -14,6 +14,9 @@
   "evm_route_bsquared": {
     "ic": "gsr6g-kaaaa-aaaar-qagfq-cai"
   },
+  "evm_route_core": {
+    "ic": "vopxt-5qaaa-aaaar-qajnq-cai"
+  },
   "evm_route_ethereum": {
     "ic": "3zfof-myaaa-aaaar-qaioa-cai"
   },
