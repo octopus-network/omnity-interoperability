@@ -25,7 +25,7 @@
     },
     "brc20_customs": {
       "gzip": true,
-      "candid": "customs/brc20/brc20_customs.did",
+      "candid": "customs/brc20/brc20/brc20_customs.did",
       "package": "brc20_customs",
       "type": "custom",
       "wasm": "target/wasm32-unknown-unknown/release/brc20_customs.wasm",
@@ -55,7 +55,7 @@
     },
     "brc20_indexer": {
       "gzip": true,
-      "candid": "customs/brc20_indexer/brc20_indexer.did",
+      "candid": "customs/brc20/brc20_indexer/brc20_indexer.did",
       "package": "brc20_indexer",
       "type": "custom",
       "wasm": "target/wasm32-unknown-unknown/release/brc20_indexer.wasm",
@@ -115,7 +115,7 @@
     },
     "runes_oracle": {
       "gzip": true,
-      "candid": "customs/oracle_canister/oracle.did",
+      "candid": "customs/oracle/oracle_canister/oracle.did",
       "package": "rune_oracle_canister",
       "type": "rust"
     },
