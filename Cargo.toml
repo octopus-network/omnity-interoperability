@@ -1,19 +1,18 @@
 [workspace]
 members = [
-    "types",
     "hub",
+    "customs/bitcoin_runes",
+    "customs/bitcoin_brc20",
+    "customs/brc20_indexer",
+    "customs/oracle_canister",
+    "customs/icp",
     "route/icp",
     "route/bitfinity",
-    "customs/bitcoin",
-    "customs/oracle/runes_oracle",
-    "customs/oracle/oracle_canister",
+    "proxy/cosmwasm",
+    "types",
     "mock/bitcoin",
     "mock/icp",
     "mock/hub",
-    "customs/icp",
-    "proxy/cosmwasm",
-    "customs/brc20/brc20",
-    "customs/brc20/brc20_indexer",
 ]
 exclude = ["route/solana"]
 resolver = "2"
