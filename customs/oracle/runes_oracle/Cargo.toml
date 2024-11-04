@@ -9,9 +9,9 @@ edition.workspace = true
 candid = { workspace = true }
 ic-btc-interface = { workspace = true }
 ic-agent = "0.33.0"
-bitcoin_customs = { path = "../bitcoin" }
-omnity_types = { path = "../../types" }
-omnity_hub = { path = "../../hub" }
+bitcoin_customs = { path = "../../bitcoin" }
+omnity_types = { path = "../../../types" }
+omnity_hub = { path = "../../../hub" }
 reqwest = { version = "0.11", features = ["blocking"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

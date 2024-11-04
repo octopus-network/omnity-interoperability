@@ -5,15 +5,15 @@ members = [
     "route/icp",
     "route/bitfinity",
     "customs/bitcoin",
-    "customs/runes_oracle",
-    "customs/oracle_canister",
+    "customs/oracle/runes_oracle",
+    "customs/oracle/oracle_canister",
     "mock/bitcoin",
     "mock/icp",
     "mock/hub",
     "customs/icp",
     "proxy/cosmwasm",
-    "customs/brc20",
-    "customs/brc20_indexer",
+    "customs/brc20/brc20",
+    "customs/brc20/brc20_indexer",
 ]
 exclude = ["route/solana"]
 resolver = "2"
