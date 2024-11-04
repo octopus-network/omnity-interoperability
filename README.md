@@ -6,20 +6,20 @@ Omnity is an omni-chain interoperability protocol built by Omnity Network on the
 
 <img width="400" height="200" alt="Omnity" src="./img/omnity.png">
 
-* E : Settlement chains. Currently we have the bitcoin and icp as the settlement chains.
-* S : Execution chains. Currently we have the icp, bevm, bitlayer, b² network, x layer, merlin, bob, rootstock, bitfinity, ailayer, ethereum, osmosis and solana as the execution chains.
-* Ticket: A transaction message.
-* Hub: A canister (smart contract) on icp that handles chain and token registration and ticket (transaction) execution, and it also lists settlement chains and execution chains.
-* Customs: The customs is where the assets are listed, each custom represents a settlement chain. The customs generates transfering tickets.
-* Route: Each route represents a execution chain. The routes generates redeeming tickets.
+* E : settlement chains. currently we have bitcoin(supports both runes and brc20) and icp as the settlement chains.
+* S : execution chains. currently we have the icp, bevm, bitlayer, b² network, x layer, merlin, bob, rootstock, bitfinity, ailayer, core, ethereum, osmosis and solana as the execution chains.
+* Ticket: a transaction message.
+* Hub: a canister (smart contract) on icp that handles chain and token registration and ticket (transaction) execution, and it also lists settlement chains and execution chains.
+* Customs: the customs is where the assets are listed, each custom represents a settlement chain. the customs generates transfering tickets.
+* Route: each route represents a execution chain. the routes generates redeeming tickets.
 
 ### Logical Architecture For Bitcoin Assets
 <img width="400" height="200" alt="BTC" src="./img/btc.png">
 
 * Gate represents Customs in this image.
 * Spoke represents Routes in this image.
-* [Ord Inderxer Canister](https://github.com/octopus-network/ord-canister):  A solution for fetching the Runes information detail. The Bitcoin header API will help the ord canister remove its trust assumption on RPC services.
-* Bitcoin Canister: A native Bitcoin integration on ICP, the gateway where the bitcoin address can fetch its status like balance and make transactions through the provided APIs.
+* [Ord Inderxer Canister](https://github.com/octopus-network/ord-canister):  a solution for fetching the runes information detail. the bitcoin header api will help the ord canister remove its trust assumption on rpc services.
+* Bitcoin Canister: a native bitcoin integration on icp, the gateway where the bitcoin address can fetch its status like balance and make transactions through the provided apis.
 
 ## Current Supported Chains
 
@@ -34,6 +34,7 @@ Omnity is an omni-chain interoperability protocol built by Omnity Network on the
 * [Rootstock](https://rootstock.io/)
 * [Bitfinity](https://bitfinity.network/)
 * [AILayer](https://ailayer.xyz/)
+* [Core](https://coredao.org/)
 * [Ethereum](https://ethereum.org/en/)
 * [Osmosis](https://osmosis.zone/)
 * [Solana](https://solana.com/)
