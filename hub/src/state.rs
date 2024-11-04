@@ -181,12 +181,6 @@ impl HubState {
         }
     }
 
-    pub fn settlement_chain(&self, token_id: &TokenId) -> Result<ChainId, Error> {
-        self.tokens
-            .get(token_id)
-            .map(|v| v.issue_chain.to_string())
-            .ok_or(Error::NotFoundToken(token_id.to_string()))
-    }
     //Determine whether the token is from the issuing chain
     pub fn is_origin(&self, chain_id: &ChainId, token_id: &TokenId) -> Result<bool, Error> {
         self.tokens
