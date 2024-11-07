@@ -14,7 +14,7 @@ use crate::contract_types::{
     TokenMinted, TokenTransportRequested,
 };
 use crate::eth_common::{call_rpc_with_retry, get_receipt};
-use crate::ic_log::{ERROR, INFO};
+use crate::ic_log::{WARNING, INFO};
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
 
@@ -45,7 +45,7 @@ pub async fn sync_mint_status(hash: String) {
     let receipt = call_rpc_with_retry(&hash, get_receipt)
         .await
         .map_err(|e| {
-            log!(ERROR,"user query transaction receipt error: {:?}", e);
+            log!(WARNING,"user query transaction receipt error: {:?}", e);
             "rpc".to_string()
         });
     log!(INFO, "{:?}",&receipt);
@@ -61,7 +61,7 @@ pub async fn sync_mint_status(hash: String) {
                 mutate_state(|s| s.handled_evm_event.insert(hash));
             }
             Err(e) => {
-                log!(ERROR, "[evm route] handle evm logs error: {}", e.to_string());
+                log!(WARNING, "[evm route] handle evm logs error: {}", e.to_string());
             }
         }
     }
@@ -133,7 +133,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
                             );
                         }
                         Err(err) => {
-                            log!(ERROR,
+                            log!(WARNING,
                                 "[process directives] failed to add token: token id: {}, err: {:?}",
                                 token.token_id,
                                 err
@@ -213,7 +213,7 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
     let receipt = call_rpc_with_retry(tx_hash, get_receipt)
         .await
         .map_err(|e| {
-            log!(ERROR, "user query transaction receipt error: {:?}", e);
+            log!(WARNING, "user query transaction receipt error: {:?}", e);
             "rpc".to_string()
         })?;
     match receipt {

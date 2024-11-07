@@ -19,7 +19,7 @@ use crate::const_args::{
 use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
-use crate::ic_log::{CRITICAL, ERROR, INFO};
+use crate::ic_log::{CRITICAL, INFO, WARNING};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
@@ -296,7 +296,7 @@ pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
     match hub::query_tickets(hub_principal, start, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => return tickets,
         Err(err) => {
-            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
+            log!(WARNING, "[process tickets] failed to query tickets, err: {}", err);
             return vec![];
         }
     }
