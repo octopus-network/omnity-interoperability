@@ -1,0 +1,58 @@
+type Errors = variant {
+  AccountIdParseError : record { text; text };
+  CkBtcUpdateBalanceError : record { text; text };
+  CallError : record { text; principal; text; text };
+  CanisterCallError : record { text; text; text; text };
+  NatConversionError : text;
+  CustomError : text;
+};
+type InitArgs = record {
+  ckbtc_ledger_principal : principal;
+  token_id : text;
+  ckbtc_minter_principal : principal;
+  icp_customs_principal : principal;
+  target_chain_id : text;
+};
+type MintedUtxo = record {
+  minted_amount : nat64;
+  block_index : nat64;
+  utxo : Utxo;
+};
+type OmnityAccount = record { chain_id : text; account : text };
+type OutPoint = record { txid : blob; vout : nat32 };
+type Result = variant { Ok : text; Err : text };
+type Result_1 = variant { Ok : text; Err : Errors };
+type Result_2 = variant { Ok : State; Err : Errors };
+type State = record {
+  ckbtc_ledger_principal : principal;
+  update_balances_jobs : vec UpdateBalanceJob;
+  token_id : text;
+  is_timer_running : vec text;
+  ckbtc_minter_principal : principal;
+  icp_customs_principal : principal;
+  target_chain_id : text;
+};
+type TicketRecord = record { ticket_id : text; minted_utxos : vec MintedUtxo };
+type UpdateBalanceJob = record {
+  failed_times : nat32;
+  omnity_account : OmnityAccount;
+  next_execute_time : nat64;
+};
+type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
+type UtxoRecord = record { ticket_id : opt text; minted_utxo : MintedUtxo };
+service : (InitArgs) -> {
+  generate_ticket_from_subaccount : (OmnityAccount) -> (Result);
+  query_btc_mint_address_by_omnity_account : (OmnityAccount) -> (Result_1);
+  query_state : () -> (Result_2) query;
+  query_ticket_records : (OmnityAccount) -> (vec TicketRecord) query;
+  query_utxo_records : (OmnityAccount) -> (vec UtxoRecord) query;
+  trigger_update_balance : (OmnityAccount) -> (Result);
+  update_balance_after_finalization : (OmnityAccount) -> ();
+  update_settings : (
+      opt principal,
+      opt principal,
+      opt principal,
+      opt text,
+      opt text,
+    ) -> ();
+}
