@@ -1,17 +1,18 @@
 [workspace]
 members = [
-    "types",
     "hub",
+    "customs/bitcoin_runes",
+    "customs/bitcoin_brc20",
+    "customs/icp",
     "route/icp",
     "route/bitfinity",
-    "customs/bitcoin",
-    "customs/runes_oracle",
-    "customs/oracle_canister",
+    "proxy/cosmwasm",
+    "proxy/runes_proxy",
+    "oracle/brc20_oracle",
+    "types",
     "mock/bitcoin",
     "mock/icp",
     "mock/hub",
-    "customs/icp",
-    "proxy/cosmwasm",
 ]
 exclude = ["route/solana"]
 resolver = "2"
@@ -57,7 +58,8 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "display",
     "try_into",
 ] }
-
+rust_decimal = "1.36"
+rust_decimal_macros = "1.36"
 # log deps
 # ic-log = { git = "https://github.com/bitfinity-network/canister-sdk", package = "ic-log", tag = "v0.12.x" }
 ic-stable-structures = "0.6.5"

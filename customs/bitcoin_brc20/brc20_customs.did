@@ -1,0 +1,120 @@
+type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type EcdsaPublicKeyResponse = record { public_key : blob; chain_code : blob };
+type GenerateTicketArgs = record {
+  token_id : text;
+  txid : text;
+  target_chain_id : text;
+  amount : text;
+  receiver : text;
+};
+type GenerateTicketError = variant {
+  SendTicketErr : text;
+  RpcError : text;
+  TemporarilyUnavailable : text;
+  AlreadyProcessed;
+  OrdTxError : text;
+  NotBridgeTx;
+  AmountIsZero;
+  InvalidRuneId : text;
+  InvalidArgs : text;
+  AlreadySubmitted;
+  InvalidTxId;
+  NotPayFees;
+  TxNotFoundInMemPool;
+  Unknown;
+  NoNewUtxos;
+  UnsupportedChainId : text;
+  UnsupportedToken : text;
+};
+type InitArgs = record {
+  fee_token : text;
+  hub_principal : principal;
+  network : Network_1;
+  chain_id : text;
+  admins : vec principal;
+  indexer_principal : principal;
+};
+type LockTicketRequest = record {
+  received_at : nat64;
+  ticker : text;
+  token_id : text;
+  txid : blob;
+  target_chain_id : text;
+  amount : text;
+  receiver : text;
+};
+type Network = variant { mainnet; regtest; testnet };
+type Network_1 = variant { mainnet; local; testnet };
+type ReleaseTokenStatus = variant {
+  Signing;
+  Confirmed : text;
+  Sending : text;
+  Unknown;
+  Submitted : text;
+  Pending;
+};
+type Result = variant { Ok; Err : GenerateTicketError };
+type StateProfile = record {
+  next_consume_ticket_seq : nat64;
+  fee_token : text;
+  hub_principal : principal;
+  ecdsa_key_name : text;
+  deposit_addr : opt text;
+  next_directive_seq : nat64;
+  fee_collector : text;
+  ecdsa_public_key : opt EcdsaPublicKeyResponse;
+  chain_id : text;
+  pending_lock_ticket_requests : vec record { blob; LockTicketRequest };
+  tokens : vec record { text; Token };
+  btc_network : Network;
+  admins : vec principal;
+  target_chain_factor : vec record { text; nat };
+  counterparties : vec record { text; Chain };
+  next_ticket_seq : nat64;
+  chain_state : ChainState;
+  min_confirmations : nat8;
+  indexer_principal : principal;
+  deposit_pubkey : opt text;
+  fee_token_factor : opt nat;
+};
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  symbol : text;
+};
+type UtxoArgs = record { id : text; index : nat32; amount : nat64 };
+service : (InitArgs) -> {
+  brc20_state : () -> (StateProfile) query;
+  finalize_lock_request : (text) -> ();
+  finalized_unlock_tickets : (nat64) -> (text) query;
+  generate_deposit_addr : () -> (text, text);
+  generate_ticket : (GenerateTicketArgs) -> (Result);
+  get_deposit_addr : () -> (text, text) query;
+  get_platform_fee : (text) -> (opt nat, opt text) query;
+  get_token_list : () -> (vec TokenResp) query;
+  pending_unlock_tickets : (nat64) -> (text) query;
+  query_finalized_lock_tickets : (blob) -> (opt LockTicketRequest) query;
+  release_token_status : (text) -> (ReleaseTokenStatus) query;
+  resend_unlock_ticket : (nat64, nat64) -> (text);
+  set_fee_collector : (text) -> ();
+  update_fees : (vec UtxoArgs) -> ();
+}

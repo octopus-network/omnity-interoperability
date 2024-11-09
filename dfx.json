@@ -13,10 +13,22 @@
     },
     "bitcoin_customs": {
       "gzip": true,
-      "candid": "customs/bitcoin/bitcoin_customs.did",
+      "candid": "customs/bitcoin_runes/bitcoin_customs.did",
       "package": "bitcoin_customs",
       "type": "custom",
       "wasm": "target/wasm32-unknown-unknown/release/bitcoin_customs.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
+    "brc20_customs": {
+      "gzip": true,
+      "candid": "customs/bitcoin_brc20/brc20_customs.did",
+      "package": "brc20_customs",
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/brc20_customs.wasm",
       "metadata": [
         {
           "name": "candid:service"
@@ -40,6 +52,18 @@
       "candid": "route/bitfinity/bitfinity_route.did",
       "package": "bitfinity_route",
       "type": "rust"
+    },
+    "brc20_indexer": {
+      "gzip": true,
+      "candid": "oracle/brc20_oracle/brc20_indexer.did",
+      "package": "brc20_indexer",
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/brc20_indexer.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "omnity_hub": {
       "gzip": true,
@@ -86,7 +110,7 @@
     },
     "runes_oracle": {
       "gzip": true,
-      "candid": "customs/oracle_canister/oracle.did",
+      "candid": "proxy/runes_proxy/oracle.did",
       "package": "rune_oracle_canister",
       "type": "rust"
     },
