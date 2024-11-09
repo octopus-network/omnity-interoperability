@@ -8,6 +8,8 @@ use icrc_ledger_types::{
 
 use crate::*;
 
+pub const CKBTC_FEE: u64 = 10;
+
 pub async fn balance_of(owner: Account) -> Result<Nat> {
     let settings = state::get_settings();
     let client = ICRC1Client {

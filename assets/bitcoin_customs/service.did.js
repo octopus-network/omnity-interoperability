@@ -50,6 +50,7 @@ export const idlFactory = ({ IDL }) => {
     'InvalidRuneId' : IDL.Text,
     'AlreadySubmitted' : IDL.Null,
     'InvalidTxId' : IDL.Null,
+    'NotPayFees' : IDL.Null,
     'TxNotFoundInMemPool' : IDL.Null,
     'NoNewUtxos' : IDL.Null,
     'UnsupportedChainId' : IDL.Text,
@@ -140,6 +141,18 @@ export const idlFactory = ({ IDL }) => {
     'target_chain_id' : IDL.Text,
     'receiver' : IDL.Text,
   });
+  const FeeTokenFactor = IDL.Record({
+    'fee_token' : IDL.Text,
+    'fee_token_factor' : IDL.Nat,
+  });
+  const TargetChainFactor = IDL.Record({
+    'target_chain_id' : IDL.Text,
+    'target_chain_factor' : IDL.Nat,
+  });
+  const Factor = IDL.Variant({
+    'UpdateFeeTokenFactor' : FeeTokenFactor,
+    'UpdateTargetChainFactor' : TargetChainFactor,
+  });
   const BtcChangeOutput = IDL.Record({
     'value' : IDL.Nat64,
     'vout' : IDL.Nat32,
@@ -188,10 +201,12 @@ export const idlFactory = ({ IDL }) => {
     'receiver' : IDL.Text,
     'rune_id' : RuneId,
   });
+  const IcpChainKeyToken = IDL.Variant({ 'CKBTC' : IDL.Null });
   const TxAction = IDL.Variant({
     'Burn' : IDL.Null,
     'Redeem' : IDL.Null,
     'Mint' : IDL.Null,
+    'RedeemIcpChainKeyAssets' : IcpChainKeyToken,
     'Transfer' : IDL.Null,
   });
   const RuneTxRequest = IDL.Record({
@@ -219,6 +234,8 @@ export const idlFactory = ({ IDL }) => {
     }),
     'added_runes_oracle' : IDL.Record({ 'principal' : IDL.Principal }),
     'removed_ticket_request' : IDL.Record({ 'txid' : IDL.Vec(IDL.Nat8) }),
+    'removed_runes_oracle' : IDL.Record({ 'principal' : IDL.Principal }),
+    'updated_fee' : IDL.Record({ 'fee' : Factor }),
     'sent_transaction' : IDL.Record({
       'fee' : IDL.Opt(IDL.Nat64),
       'txid' : IDL.Vec(IDL.Nat8),
@@ -248,6 +265,7 @@ export const idlFactory = ({ IDL }) => {
     'accepted_generate_ticket_request_v2' : GenTicketRequestV2,
     'accepted_generate_ticket_request_v3' : GenTicketRequestV2,
     'confirmed_transaction' : IDL.Record({ 'txid' : IDL.Vec(IDL.Nat8) }),
+    'upate_fee_collector' : IDL.Record({ 'addr' : IDL.Text }),
     'replaced_transaction' : IDL.Record({
       'fee' : IDL.Nat64,
       'btc_change_output' : BtcChangeOutput,
@@ -333,12 +351,20 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(GenTicketRequestV2)],
         ['query'],
       ),
+    'get_platform_fee' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(IDL.Nat), IDL.Opt(IDL.Text)],
+        ['query'],
+      ),
+    'get_runes_oracles' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'release_token_status' : IDL.Func(
         [IDL.Text],
         [ReleaseTokenStatus],
         ['query'],
       ),
+    'remove_runes_oracle' : IDL.Func([IDL.Principal], [], []),
+    'set_fee_collector' : IDL.Func([IDL.Text], [], []),
     'set_runes_oracle' : IDL.Func([IDL.Principal], [], []),
     'transform' : IDL.Func([TransformArgs], [HttpResponse], ['query']),
     'update_btc_utxos' : IDL.Func([], [Result_1], []),

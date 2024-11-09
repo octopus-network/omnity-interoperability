@@ -14,12 +14,12 @@ use evm_canister_client::{EvmCanisterClient, IcCanisterClient};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
 use serde_derive::{Deserialize, Serialize};
+use omnity_types::ic_log::ERROR;
 
 use crate::{BitfinityRouteError, EvmAddressError};
 use crate::BitfinityRouteError::{EvmRpcError, Temporary};
 use crate::const_args::{EVM_ADDR_BYTES_LEN};
 use crate::eth_common::EvmAddressError::LengthError;
-use crate::logs::P0;
 use crate::state::{minter_addr, read_state};
 
 pub fn hex_to_u64(hex_str: &str) -> u64 {
@@ -122,7 +122,7 @@ pub async fn sign_transaction_eip1559(tx: Eip1559TransactionRequest) -> anyhow::
 pub async fn broadcast(tx: did::Transaction) -> Result<String, super::BitfinityRouteError> {
     let client = bitfinity_evm_canister_client();
     let r  =  client.send_raw_transaction(tx.clone()).await.map_err(|e|{
-       log!(P0, "[bitfinity route]broadcats canister client error: {}", e.to_string());
+       log!(ERROR, "[bitfinity route]broadcats canister client error: {}", e.to_string());
         BitfinityRouteError::EvmRpcError(e.to_string())
     })?;
     match r {
@@ -189,11 +189,11 @@ pub async fn get_account_nonce(addr: String) -> Result<did::U256, super::Bitfini
     let r = client.eth_get_transaction_count(
         did::H160::from_hex_str(addr.as_str()).unwrap(), BlockNumber::Pending).await;
     let r = r.map_err(|e|{
-        log!(P0, "[bitfinity route]query chainkey account nonce client error: {:?}", &e);
+        log!(ERROR, "[bitfinity route]query chainkey account nonce client error: {:?}", &e);
             EvmRpcError(e.to_string())
         })?
        .map_err(|e|{
-           log!(P0, "[bitfinity route]query chainkey account nonce evm error: {:?}", &e);
+           log!(ERROR, "[bitfinity route]query chainkey account nonce evm error: {:?}", &e);
            EvmRpcError(e.to_string())
        })?;
     Ok(r)
@@ -203,7 +203,7 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
     let client = bitfinity_evm_canister_client();
     let r = client.get_min_gas_price().await;
     let r = r.map_err(|e| {
-        log!(P0, "[bitfinity route]query gas price error: {:?}", &e);
+        log!(ERROR, "[bitfinity route]query gas price error: {:?}", &e);
         BitfinityRouteError::Custom(anyhow!(format!(
             "[bitfinity route]query gas price error: {:?}",
             &e
@@ -217,7 +217,7 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
     let r = client.eth_get_balance(
         did::H160::from_hex_str(addr.as_str()).unwrap(), BlockNumber::Latest).await;
     let r = r.map_err(|e| {
-        log!(P0,
+        log!(ERROR,
             "[bitfinity route]query chainkey address evm balance error: {:?}",
             &e
         );
@@ -226,7 +226,7 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
             &e
         )))
     })?.map_err(|e|{
-        log!(P0,
+        log!(ERROR,
             "[bitfinity route]query chainkey address evm balance evm error: {:?}",
             &e
         );
@@ -244,12 +244,12 @@ pub async fn get_transaction_receipt(
 ) -> std::result::Result<Option<did::TransactionReceipt>, BitfinityRouteError> {
     let client = bitfinity_evm_canister_client();
     let h = did::H256::from_hex_str(hash).map_err(|e|{
-        log!(P0, "[bitfinity route] decode tx hash error: {:?}", &e);
+        log!(ERROR, "[bitfinity route] decode tx hash error: {:?}", &e);
         BitfinityRouteError::Custom(anyhow!("[bitfinity route] decode tx hash error: {:?}",&e))
     })?;
     let r = client.eth_get_transaction_receipt(h).await;
     let r = r.map_err(|e| {
-        log!(P0,
+        log!(ERROR,
             "[bitfinity route]query transaction receipt client error: hash: {}, error: {:?}",
             hash,
             &e
@@ -259,7 +259,7 @@ pub async fn get_transaction_receipt(
             &e
         )))
     })?.map_err(|e|{
-        log!(P0,
+        log!(ERROR,
             "[bitfinity route]query transaction receipt evm error: hash:{}, error: {:?}",
             hash,
             &e

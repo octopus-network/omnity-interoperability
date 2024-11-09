@@ -1,10 +1,12 @@
 // use crate::migration::{migrate, PreState};
+
 use crate::types::ChainState;
 use crate::{
     memory,
     state::{read_state, replace_state, SolanaRouteState},
 };
 use candid::{CandidType, Principal};
+
 use ic_stable_structures::{writer::Writer, Memory};
 use serde::{Deserialize, Serialize};
 #[derive(CandidType, serde::Deserialize, Clone, Debug)]
@@ -23,8 +25,6 @@ pub struct InitArgs {
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Principal,
     pub fee_account: Option<String>,
-    // pub multi_rpc_config: MultiRpcConfig,
-    // pub forward: Option<String>,
 }
 
 pub fn init(args: InitArgs) {

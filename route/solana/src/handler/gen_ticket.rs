@@ -97,12 +97,14 @@ pub async fn generate_ticket(
             .is_some_and(|c| c.chain_state == ChainState::Active)
     }) {
         return Err(GenerateTicketError::UnsupportedChainId(
-            req.target_chain_id.clone(),
+            req.target_chain_id.to_owned(),
         ));
     }
 
     if !read_state(|s| s.tokens.contains_key(&req.token_id.to_string())) {
-        return Err(GenerateTicketError::UnsupportedToken(req.token_id.clone()));
+        return Err(GenerateTicketError::UnsupportedToken(
+            req.token_id.to_owned(),
+        ));
     }
 
     if !matches!(req.action, TxAction::Redeem) {
@@ -208,7 +210,7 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
                             GenerateTicketError::TemporarilyUnavailable(e.to_string())
                         })?;
                         log!(DEBUG, "[generate_ticket] Parsed transfer: {:#?}", transfer);
-                        let fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).ok_or(
+                        let fee = read_state(|s| s.get_fee(req.target_chain_id.to_owned())).ok_or(
                             GenerateTicketError::TemporarilyUnavailable(format!(
                                 "[generate_ticket] No found fee for {}",
                                 req.target_chain_id
@@ -713,29 +715,30 @@ mod test {
                 println!("Skipped unknown instruction");
                 continue;
             }
-            if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.clone().unwrap())
+            if let Ok(parsed_value) =
+                from_value::<ParsedValue>(instruction.parsed.to_owned().unwrap())
             {
                 println!("Parsed value: {:#?}", parsed_value);
 
-                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.clone()) {
+                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.to_owned()) {
                     match pi.instr_type.as_str() {
                         "transfer" => {
-                            let transfer = from_value::<Transfer>(pi.info.clone());
+                            let transfer = from_value::<Transfer>(pi.info.to_owned());
                             println!("Parsed transfer: {:#?}", transfer);
                         }
                         "burnChecked" => {
-                            let burn = from_value::<BurnChecked>(pi.info.clone());
+                            let burn = from_value::<BurnChecked>(pi.info.to_owned());
                             println!("Parsed burn: {:#?}", burn);
                         }
                         "burn" => {
-                            let burn = from_value::<Burn>(pi.info.clone());
+                            let burn = from_value::<Burn>(pi.info.to_owned());
                             println!("Parsed burn: {:#?}", burn);
                         }
                         _ => {
                             println!("Skipped non-relevant instruction: {:#?}", pi.instr_type);
                         }
                     }
-                } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.clone()) {
+                } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.to_owned()) {
                     println!("Parsed memo: {:?}", memo);
                 } else {
                     println!("Unknown Parsed instruction: {:#?}", parsed_value.parsed);
@@ -930,29 +933,30 @@ mod test {
                 println!("Skipped unknown instruction");
                 continue;
             }
-            if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.clone().unwrap())
+            if let Ok(parsed_value) =
+                from_value::<ParsedValue>(instruction.parsed.to_owned().unwrap())
             {
                 println!("Parsed value: {:#?}", parsed_value);
 
-                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.clone()) {
+                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.to_owned()) {
                     match pi.instr_type.as_str() {
                         "transfer" => {
-                            let transfer = from_value::<Transfer>(pi.info.clone());
+                            let transfer = from_value::<Transfer>(pi.info.to_owned());
                             println!("Parsed transfer: {:#?}", transfer);
                         }
                         "burnChecked" => {
-                            let burn = from_value::<BurnChecked>(pi.info.clone());
+                            let burn = from_value::<BurnChecked>(pi.info.to_owned());
                             println!("Parsed burn: {:#?}", burn);
                         }
                         "burn" => {
-                            let burn = from_value::<Burn>(pi.info.clone());
+                            let burn = from_value::<Burn>(pi.info.to_owned());
                             println!("Parsed burn: {:#?}", burn);
                         }
                         _ => {
                             println!("Skipped non-relevant instruction: {:#?}", pi.instr_type);
                         }
                     }
-                } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.clone()) {
+                } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.to_owned()) {
                     println!("Parsed memo: {:?}", memo);
                 } else {
                     println!("Unknown Parsed instruction: {:#?}", parsed_value.parsed);

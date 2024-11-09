@@ -8,7 +8,7 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 use crate::hub;
-use crate::{BitfinityRouteError, get_time_secs};
+use crate::{get_time_secs};
 use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
 use crate::eth_common::{EvmAddress, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
@@ -19,9 +19,8 @@ use crate::state::{
     StateProfile,
 };
 use omnity_types::{
-    Chain, ChainId, Directive, Network, Seq, Ticket, TicketId,
+    Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}
 };
-use crate::logs::P0;
 use crate::types::{TokenResp, PendingDirectiveStatus, PendingTicketStatus, MetricsStatus};
 use omnity_types::MintTokenStatus;
 
@@ -40,7 +39,7 @@ fn pre_upgrade() {
 fn post_upgrade() {
     EvmRouteState::post_upgrade();
     start_tasks();
-    log!(P0, "[bitfinity_route] upgraded successed at {}", ic_cdk::api::time());
+    log!(INFO, "[bitfinity_route] upgraded successed at {}", ic_cdk::api::time());
 }
 
 
@@ -49,7 +48,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     if ic_cdk::api::data_certificate().is_none() {
         ic_cdk::trap("update call rejected");
     }
-    crate::logs::http_request(req)
+    omnity_types::ic_log::http_request(req)
 }
 
 #[update(guard = "is_admin")]
@@ -233,6 +232,7 @@ async fn metrics() -> MetricsStatus {
 
 #[update]
 async fn generate_ticket(hash: String) -> Result<(), String> {
+    log!(INFO, "received generate_ticket request {}", &hash);
     let tx_hash = hash.to_lowercase();
     if read_state(|s| s.pending_events_on_chain.get(&tx_hash).is_some()) {
         return Ok(());
@@ -252,7 +252,7 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
     hub::pending_ticket(hub_principal, ticket)
         .await
         .map_err(|e| {
-            log!(P0, "call hub error:{}", e.to_string());
+            log!(ERROR, "call hub error:{}", e.to_string());
             "call hub error".to_string()
         })?;
     mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
@@ -272,7 +272,7 @@ pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
             tickets
         }
         Err(err) => {
-            log!(P0, "[process tickets] failed to query tickets, err: {}", err);
+            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
             vec![]
         }
     }
@@ -287,16 +287,6 @@ pub fn query_handled_event(tx_hash: String) -> Option<String> {
 pub async fn rewrite_tx_hash(ticket_id: String, tx_hash: String) {
     let hub_principal = read_state(|s| s.hub_principal);
     hub::update_tx_hash(hub_principal, ticket_id, tx_hash).await.unwrap();
-}
-
-#[update(guard = "is_admin")]
-pub async fn resend_ticket_to_hub(tx_hash: String) {
-    let (ticket, _tr) = create_ticket_by_tx(&tx_hash).await.unwrap();
-    let _: () = ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
-        .await
-        .map_err(|(_, s)| BitfinityRouteError::HubError(s))
-        .unwrap();
-    log!(P0, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
 }
 
 #[derive(CandidType, Deserialize)]

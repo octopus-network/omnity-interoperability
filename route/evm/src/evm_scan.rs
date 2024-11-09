@@ -13,7 +13,7 @@ use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
     TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::{call_rpc_with_retry, get_transaction_receipt};
+use crate::eth_common::{call_rpc_with_retry, get_receipt};
 use crate::ic_log::{ERROR, INFO};
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
@@ -36,30 +36,35 @@ pub fn scan_evm_task() {
             if now - time < interval || now - time > interval * 5 {
                 continue;
             }
-            let receipt = call_rpc_with_retry(&hash, get_transaction_receipt)
-                .await
-                .map_err(|e| {
-                    log!(ERROR,"user query transaction receipt error: {:?}", e);
-                    "rpc".to_string()
-                });
-            if let Ok(Some(tr)) = receipt {
-                if tr.status == 0 {
-                    mutate_state(|s| s.pending_events_on_chain.remove(&hash));
-                    continue;
-                }
-                let res = handle_port_events(tr.logs.clone()).await;
-                match res {
-                    Ok(_) => {
-                        mutate_state(|s| s.pending_events_on_chain.remove(&hash));
-                        mutate_state(|s| s.handled_evm_event.insert(hash));
-                    }
-                    Err(e) => {
-                        log!(ERROR, "[evm route] handle evm logs error: {}", e.to_string());
-                    }
-                }
-            }
+            sync_mint_status(hash).await;
         }
     });
+}
+
+pub async fn sync_mint_status(hash: String) {
+    let receipt = call_rpc_with_retry(&hash, get_receipt)
+        .await
+        .map_err(|e| {
+            log!(ERROR,"user query transaction receipt error: {:?}", e);
+            "rpc".to_string()
+        });
+    log!(INFO, "{:?}",&receipt);
+    if let Ok(Some(tr)) = receipt {
+        if tr.status == 0 {
+            mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+            return;
+        }
+        let res = handle_port_events(tr.logs.clone()).await;
+        match res {
+            Ok(_) => {
+                mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+                mutate_state(|s| s.handled_evm_event.insert(hash));
+            }
+            Err(e) => {
+                log!(ERROR, "[evm route] handle evm logs error: {}", e.to_string());
+            }
+        }
+    }
 }
 
 pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
@@ -170,9 +175,9 @@ pub async fn handle_runes_mint(
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_runes_mint_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
+    hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
-        .map_err(|(_, s)| Error::HubError(s))?;
+        .map_err(|e| Error::HubError(e.to_string()))?;
     log!(INFO,
         "[evm_route] rune_mint_ticket sent to hub success: {:?}",
         ticket
@@ -182,9 +187,9 @@ pub async fn handle_runes_mint(
 
 pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyhow::Result<()> {
     let ticket = Ticket::from_burn_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
+    hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
-        .map_err(|(_, s)| Error::HubError(s))?;
+        .map_err(|e| Error::HubError(e.to_string()))?;
     log!(INFO, "[evm_route] burn_ticket sent to hub success: {:?}", ticket);
     Ok(())
 }
@@ -194,9 +199,9 @@ pub async fn handle_token_transport(
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
     let ticket = Ticket::from_transport_event(log_entry, event);
-    ic_cdk::call(crate::state::hub_addr(), "send_ticket", (ticket.clone(),))
+    hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
-        .map_err(|(_, s)| Error::HubError(s))?;
+        .map_err(|e| Error::HubError(e.to_string()))?;
     log!(INFO,
         "[evm_route] transport_ticket sent to hub success: {:?}",
         ticket
@@ -205,7 +210,7 @@ pub async fn handle_token_transport(
 }
 
 pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, TransactionReceipt), String> {
-    let receipt = call_rpc_with_retry(tx_hash, get_transaction_receipt)
+    let receipt = call_rpc_with_retry(tx_hash, get_receipt)
         .await
         .map_err(|e| {
             log!(ERROR, "user query transaction receipt error: {:?}", e);

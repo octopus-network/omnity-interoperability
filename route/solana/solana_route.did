@@ -1,3 +1,10 @@
+type AccountInfo = record {
+  status : TxStatus;
+  signature : opt text;
+  retry_4_building : nat64;
+  account : text;
+  retry_4_status : nat64;
+};
 type CallError = record { method : text; reason : Reason };
 type Chain = record {
   fee_token : opt text;
@@ -42,15 +49,27 @@ type InitArgs = record {
   schnorr_key_name : opt text;
   chain_state : ChainState;
 };
+type MintTokenRequest = record {
+  status : TxStatus;
+  signature : opt text;
+  associated_account : text;
+  retry_4_building : nat64;
+  ticket_id : text;
+  retry_4_status : nat64;
+  amount : nat64;
+  token_mint : text;
+};
 type Reason = variant {
   QueueIsFull;
   CanisterError : text;
   OutOfCycles;
   Rejected : text;
+  TxError : TxError;
 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-type Result_1 = variant { Ok : TxStatus; Err : CallError };
-type Result_2 = variant { Ok : opt text; Err : CallError };
+type Result_1 = variant { Ok : MintTokenRequest; Err : CallError };
+type Result_2 = variant { Ok : TxStatus; Err : CallError };
+type Result_3 = variant { Ok : opt text; Err : CallError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type TokenResp = record {
   decimals : nat8;
@@ -60,10 +79,11 @@ type TokenResp = record {
   symbol : text;
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxError = record { signature : text; block_hash : text; error : text };
 type TxStatus = variant {
   New;
   Finalized;
-  TxFailed : record { e : text };
+  TxFailed : record { e : TxError };
   Pending;
 };
 type UpgradeArgs = record {
@@ -81,7 +101,9 @@ service : (RouteArg) -> {
   get_fee_account : () -> (text) query;
   get_redeem_fee : (text) -> (opt nat) query;
   get_token_list : () -> (vec TokenResp) query;
-  mint_token_status : (text) -> (Result_1) query;
-  mint_token_tx_hash : (text) -> (Result_2) query;
+  mint_token_req : (text) -> (Result_1) query;
+  mint_token_status : (text) -> (Result_2) query;
+  mint_token_tx_hash : (text) -> (Result_3) query;
+  query_mint_account : (text) -> (opt AccountInfo) query;
   query_mint_address : (text) -> (opt text) query;
 }

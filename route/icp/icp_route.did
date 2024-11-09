@@ -69,6 +69,21 @@ type Result = variant { Ok; Err : text };
 type Result_1 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_2 = variant { Ok; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type RouteState = record {
+  hub_principal : principal;
+  is_timer_running : bool;
+  next_directive_seq : nat64;
+  finalized_mint_token_requests : vec record { text; nat64 };
+  token_ledgers : vec record { text; principal };
+  chain_id : text;
+  tokens : vec record { text; Token };
+  target_chain_factor : vec record { text; nat };
+  counterparties : vec record { text; Chain };
+  next_ticket_seq : nat64;
+  chain_state : ChainState;
+  failed_tickets : vec Ticket;
+  fee_token_factor : opt nat;
+};
 type TargetChainFactor = record {
   target_chain_id : text;
   target_chain_factor : nat;
@@ -135,6 +150,7 @@ service : (RouteArg) -> {
   get_fee_account : (opt principal) -> (blob) query;
   get_log_records : (nat64, nat64) -> (Logs) query;
   get_redeem_fee : (text) -> (opt nat64) query;
+  get_route_state : () -> (RouteState) query;
   get_token_ledger : (text) -> (opt principal) query;
   get_token_list : () -> (vec TokenResp) query;
   mint_token_status : (text) -> (MintTokenStatus) query;

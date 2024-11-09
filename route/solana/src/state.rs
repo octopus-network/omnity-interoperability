@@ -1,3 +1,4 @@
+use crate::constants::IC_GATEWAY;
 use crate::handler::gen_ticket::{GenerateTicketReq, TransactionDetail};
 use crate::memory::Memory;
 use crate::{
@@ -9,8 +10,11 @@ use crate::{
 use candid::{CandidType, Principal};
 
 use ic_canister_log::log;
+use ic_solana::compute_budget::compute_budget::Priority;
+use ic_solana::eddsa::KeyType;
 use ic_solana::ic_log::{DEBUG, ERROR};
 use ic_solana::rpc_client::JsonRpcResponse;
+use ic_solana::token::TxError;
 use ic_stable_structures::StableBTreeMap;
 
 use crate::handler::gen_ticket::Instruction;
@@ -41,7 +45,13 @@ pub enum TxStatus {
     New,
     Pending,
     Finalized,
-    TxFailed { e: String },
+    TxFailed { e: TxError },
+}
+
+#[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AccountType {
+    MintAccount,
+    AssociatedAccount,
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,7 +63,8 @@ pub enum AccountStatus {
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccountInfo {
     pub account: String,
-    pub retry: u64,
+    pub retry_4_building: u64,
+    pub retry_4_status: u64,
     pub signature: Option<String>,
     pub status: TxStatus,
 }
@@ -103,7 +114,10 @@ impl AtaKey {
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
 pub struct UpdateToken {
     pub token: Token,
-    pub retry: u64,
+    pub retry_4_building: u64,
+    pub retry_4_status: u64,
+    pub signature: Option<String>,
+    pub status: TxStatus,
 }
 
 impl Storable for UpdateToken {
@@ -122,12 +136,14 @@ impl Storable for UpdateToken {
 }
 
 impl UpdateToken {
-    pub fn new(token: Token, retry: u64) -> Self {
-        Self { token, retry }
-    }
-    pub fn update_token(&mut self, token: Token, retry: u64) {
-        self.token = token;
-        self.retry = retry;
+    pub fn new(token: Token) -> Self {
+        Self {
+            token,
+            retry_4_building: 0,
+            retry_4_status: 0,
+            signature: None,
+            status: TxStatus::New,
+        }
     }
 }
 
@@ -148,6 +164,47 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
+        }
+    }
+}
+
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+pub struct TokenUri {
+    pub name: String,
+    pub symbol: String,
+    pub uri: String,
+}
+
+impl From<Token> for TokenUri {
+    fn from(value: Token) -> Self {
+        TokenUri {
+            name: value.name,
+            symbol: value.symbol,
+            uri: format!(
+                "https://{}.{}/token_meta?id={}",
+                ic_cdk::api::id().to_text(),
+                IC_GATEWAY,
+                value.token_id.to_string()
+            ),
+        }
+    }
+}
+
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+pub struct TokenMeta {
+    pub name: String,
+    pub symbol: String,
+    pub description: String,
+    pub image: String,
+}
+
+impl From<Token> for TokenMeta {
+    fn from(value: Token) -> Self {
+        TokenMeta {
+            name: value.name,
+            symbol: value.symbol,
+            description: value.token_id,
+            image: value.icon.unwrap_or_default(),
         }
     }
 }
@@ -269,6 +326,22 @@ impl MultiRpcConfig {
     }
 }
 
+pub const KEY_TYPE_NAME: &str = "Native";
+#[derive(CandidType, Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+pub enum SnorKeyType {
+    ChainKey,
+    Native,
+}
+
+impl From<KeyType> for SnorKeyType {
+    fn from(key_type: KeyType) -> Self {
+        match key_type {
+            KeyType::ChainKey => SnorKeyType::ChainKey,
+            KeyType::Native(_) => SnorKeyType::Native,
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct SolanaRouteState {
     pub chain_id: String,
@@ -287,6 +360,8 @@ pub struct SolanaRouteState {
     pub multi_rpc_config: MultiRpcConfig,
     pub forward: Option<String>,
     pub enable_debug: bool,
+    pub priority: Option<Priority>,
+    pub key_type: KeyType,
 
     // stable storage
     #[serde(skip, default = "crate::memory::init_ticket_queue")]
@@ -297,16 +372,18 @@ pub struct SolanaRouteState {
     pub counterparties: StableBTreeMap<ChainId, Chain, Memory>,
     #[serde(skip, default = "crate::memory::init_tokens")]
     pub tokens: StableBTreeMap<TokenId, Token, Memory>,
-    #[serde(skip, default = "crate::memory::init_update_tokens")]
+    #[serde(skip, default = "crate::memory::init_update_tokens_v2")]
     pub update_token_queue: StableBTreeMap<TokenId, UpdateToken, Memory>,
-    #[serde(skip, default = "crate::memory::init_token_mint_accounts")]
+    #[serde(skip, default = "crate::memory::init_token_mint_accounts_v2")]
     pub token_mint_accounts: StableBTreeMap<TokenId, AccountInfo, Memory>,
-    #[serde(skip, default = "crate::memory::init_associated_accounts")]
+    #[serde(skip, default = "crate::memory::init_associated_accounts_v2")]
     pub associated_accounts: StableBTreeMap<AtaKey, AccountInfo, Memory>,
-    #[serde(skip, default = "crate::memory::init_mint_token_requests")]
+    #[serde(skip, default = "crate::memory::init_mint_token_requests_v2")]
     pub mint_token_requests: StableBTreeMap<TicketId, MintTokenRequest, Memory>,
     #[serde(skip, default = "crate::memory::init_gen_ticket_reqs")]
     pub gen_ticket_reqs: StableBTreeMap<TicketId, GenerateTicketReq, Memory>,
+    #[serde(skip, default = "crate::memory::init_seed")]
+    pub seeds: StableBTreeMap<String, [u8; 64], Memory>,
 }
 
 impl From<InitArgs> for SolanaRouteState {
@@ -329,23 +406,26 @@ impl From<InitArgs> for SolanaRouteState {
             multi_rpc_config: MultiRpcConfig::default(),
             forward: None,
             enable_debug: false,
+            priority: Some(Priority::None),
+            key_type: KeyType::ChainKey,
 
             // init stable storage
             tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
             tickets_failed_to_hub: StableBTreeMap::init(crate::memory::get_failed_tickets_memory()),
             counterparties: StableBTreeMap::init(crate::memory::get_counterparties_memory()),
             tokens: StableBTreeMap::init(crate::memory::get_tokens_memory()),
-            update_token_queue: StableBTreeMap::init(crate::memory::get_update_tokens_memory()),
+            update_token_queue: StableBTreeMap::init(crate::memory::get_update_tokens_v2_memory()),
             token_mint_accounts: StableBTreeMap::init(
-                crate::memory::get_token_mint_accounts_memory(),
+                crate::memory::get_token_mint_accounts_v2_memory(),
             ),
             associated_accounts: StableBTreeMap::init(
-                crate::memory::get_associated_accounts_memory(),
+                crate::memory::get_associated_accounts_v2_memory(),
             ),
             mint_token_requests: StableBTreeMap::init(
-                crate::memory::get_mint_token_requests_memory(),
+                crate::memory::get_mint_token_requests_v2_memory(),
             ),
             gen_ticket_reqs: StableBTreeMap::init(crate::memory::get_gen_ticket_req_memory()),
+            seeds: StableBTreeMap::init(crate::memory::get_seeds_memory()),
         }
     }
 }
@@ -355,7 +435,7 @@ impl SolanaRouteState {
 
     pub fn add_chain(&mut self, chain: Chain) {
         self.counterparties
-            .insert(chain.chain_id.clone(), chain.clone());
+            .insert(chain.chain_id.to_owned(), chain.to_owned());
     }
 
     pub fn add_token(&mut self, token: Token) {

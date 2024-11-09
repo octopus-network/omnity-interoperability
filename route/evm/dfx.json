@@ -1,5 +1,5 @@
 {
-  "dfx": "0.22.0",
+  "dfx": "0.23.0",
   "canisters": {
     "evm_route": {
       "candid": "evm_route.did",
@@ -24,6 +24,12 @@
       "package": "evm_route",
       "type": "rust"
     },
+    "evm_route_ethereum": {
+      "gzip": true,
+      "candid": "evm_route.did",
+      "package": "evm_route",
+      "type": "rust"
+    },
     "evm_route_xlayer": {
       "gzip": true,
       "candid": "evm_route.did",
@@ -43,6 +49,12 @@
       "type": "rust"
     },
     "evm_route_rootstock": {
+      "gzip": true,
+      "candid": "evm_route.did",
+      "package": "evm_route",
+      "type": "rust"
+    },
+    "evm_route_core": {
       "gzip": true,
       "candid": "evm_route.did",
       "package": "evm_route",

@@ -1,5 +1,6 @@
-use ic_cdk::api::call::RejectionCode;
 use std::fmt;
+
+use ic_cdk::api::call::RejectionCode;
 
 /// Represents an error from a management canister call, such as
 /// `sign_with_ecdsa` or `bitcoin_send_transaction`.

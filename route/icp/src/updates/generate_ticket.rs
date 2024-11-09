@@ -11,6 +11,7 @@ use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use num_traits::cast::ToPrimitive;
+use omnity_types::ic_log::INFO;
 use omnity_types::{ChainId, ChainState, Ticket, TxAction};
 use serde::Serialize;
 use crate::{log, ERROR};
@@ -80,6 +81,8 @@ pub async fn generate_ticket(
 
     charge_icp_fee(caller(), &req.target_chain_id).await?;
 
+    log!(INFO, "successfully charged icp fee, req: {:?}", req);
+
     let caller = ic_cdk::caller();
     let user = Account {
         owner: caller,
@@ -93,17 +96,14 @@ pub async fn generate_ticket(
         
             Ok(hex::encode(&ticket_id))
         }
-        TxAction::Burn | TxAction::Redeem | TxAction::RedeemIcpChainKeyAssets(_)=> {
+        TxAction::Burn | TxAction::Redeem | TxAction::RedeemIcpChainKeyAssets(_) | TxAction::Transfer => {
             let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
             let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
             Ok(ticket_id)
         }
-        TxAction::Transfer => {
-            return Err(GenerateTicketError::UnsupportedAction(
-                "Transfer action is not supported".into(),
-            ));
-        }
     }?;
+
+    log!(INFO, "successfully generate ticket, ticket_id: {:?}", ticket_id);
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     let action = req.action.clone();
@@ -131,6 +131,7 @@ pub async fn generate_ticket(
         }
         Ok(()) => {
             audit::finalize_gen_ticket(ticket_id.clone(), req);
+            log!(INFO, "successfully send ticket: {}", ticket_id);
             Ok(GenerateTicketOk { ticket_id })
         }
     }

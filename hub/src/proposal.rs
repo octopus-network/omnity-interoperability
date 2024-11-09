@@ -33,7 +33,11 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
 
                 with_state(|hub_state| {
                     hub_state.chain(&chain_meta.chain_id).map_or(Ok(()), |_| {
-                        log!(ERROR, "The chain(`{}`) already exists", chain_meta.chain_id.to_string());
+                        log!(
+                            ERROR,
+                            "The chain(`{}`) already exists",
+                            chain_meta.chain_id.to_string()
+                        );
                         Err(Error::ChainAlreadyExisting(chain_meta.chain_id.to_string()))
                     })
                 })?;
@@ -65,15 +69,28 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     || token_meta.symbol.is_empty()
                     || token_meta.issue_chain.is_empty()
                 {
-                    log!(ERROR, "Token id, token symbol or issue chain can not be empty");
+                    log!(
+                        ERROR,
+                        "Token id, token symbol or issue chain can not be empty"
+                    );
                     return Err(Error::ProposalError(
                         "Token id, token symbol or issue chain can not be empty".to_string(),
+                    ));
+                }
+                if token_meta.decimals > 18 {
+                    log!(ERROR, "Token decimals can not be more than 18",);
+                    return Err(Error::ProposalError(
+                        "Token decimals can not be more than 18".to_string(),
                     ));
                 }
                 with_state(|hub_state| {
                     // check token repetitive
                     hub_state.token(&token_meta.token_id).map_or(Ok(()), |_| {
-                        log!(ERROR, "The token(`{}`) already exists", token_meta.to_string());
+                        log!(
+                            ERROR,
+                            "The token(`{}`) already exists",
+                            token_meta.to_string()
+                        );
                         Err(Error::TokenAlreadyExisting(token_meta.to_string()))
                     })?;
 
@@ -101,6 +118,13 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                         "Token id, token symbol or issue chain can not be empty".to_string(),
                     ));
                 }
+                if token_meta.decimals > 18 {
+                    log!(ERROR, "Token decimals can not be more than 18",);
+                    return Err(Error::ProposalError(
+                        "Token decimals can not be more than 18".to_string(),
+                    ));
+                }
+
                 let ori_token = with_state(|hub_state| hub_state.token(&token_meta.token_id))?;
 
                 if ori_token.eq(token_meta) {
@@ -168,9 +192,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
         match proposal {
             Proposal::AddChain(chain_meta) => {
                 // save new chain
-                with_state_mut(|hub_state| {
-                    hub_state.update_chain(chain_meta.clone())
-                })?;
+                with_state_mut(|hub_state| hub_state.update_chain(chain_meta.clone()))?;
                 // publish directive for the new chain)
                 with_state_mut(|hub_state| {
                     let target_subs = chain_meta.counterparties.clone().unwrap_or_default();
@@ -180,9 +202,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
             }
             Proposal::UpdateChain(chain_meta) => {
                 // update chain meta
-                with_state_mut(|hub_state| {
-                    hub_state.update_chain(chain_meta.clone())
-                })?;
+                with_state_mut(|hub_state| hub_state.update_chain(chain_meta.clone()))?;
                 // publish directive for the new chain)
                 with_state_mut(|hub_state| {
                     let target_subs = chain_meta.counterparties.clone().unwrap_or_default();
@@ -229,14 +249,14 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
                 with_state_mut(|hub_state| {
                     hub_state.update_fee(factor.clone())?;
                     let target_subs = match &factor {
-                        Factor::UpdateTargetChainFactor(factor) => {
-                           hub_state.chains.iter().filter_map(|s|{
-                               match s.0 != factor.target_chain_id {
-                                   true => {Some(s.0)}
-                                   false => {None}
-                               }
-                           }).collect()
-                        }
+                        Factor::UpdateTargetChainFactor(factor) => hub_state
+                            .chains
+                            .iter()
+                            .filter_map(|s| match s.0 != factor.target_chain_id {
+                                true => Some(s.0),
+                                false => None,
+                            })
+                            .collect(),
                         Factor::UpdateFeeTokenFactor(factor) => {
                             hub_state.get_chains_by_fee_token(factor.fee_token.clone())
                         }
