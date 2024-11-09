@@ -23,10 +23,6 @@ build: start ## Build the solana route canister
 deploy: ## Deploy the canisters(omnity_hub,schnorr_canister,ic-solana-provider and solana_route)
 	bash ./scripts/deploy.sh
 
-.PHONY: init
-init: ## Init test data
-	bash ./scripts/init.sh
-
 .PHONY: test
 test: ## Run e2e test
 	bash ./scripts/test.sh

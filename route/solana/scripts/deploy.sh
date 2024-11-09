@@ -48,6 +48,7 @@ test_sig=4e1gA4YvTt95DYY5kdwSWpGr2oiMqRX2nk4XenF1aiJSz69cbLBMeTfV6HG4jG7jHtdcHww
 dfx canister call $SOL_PROVIDER_CANISTER_ID sol_latestBlockhash "(opt \"${helius}\")" 
 dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getAccountInfo "(\"${test_account}\",opt \"${helius}\")" 
 dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getSignatureStatuses "(vec {\"${test_sig}\"},opt \"${helius}\")"
+
 echo 
 
 CHAIN_ID="eSolana"
@@ -71,7 +72,8 @@ dfx deploy solana_route --argument "(variant { Init = record { \
 SOLANA_ROUTE_CANISTER_ID=$(dfx canister id solana_route)
 echo "Solana route canister id: $SOLANA_ROUTE_CANISTER_ID"
 dfx canister status $SOLANA_ROUTE_CANISTER_ID 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '(variant { ChainKey })' 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '(variant { Native })' 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()'
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${test_sig}\",opt \"${helius}\")" 
 
@@ -84,5 +86,8 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record {
                      \"${rpc2}\";};\
     minimum_response_count = 1:nat32;})"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()'
+
+test_account=3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_balance "(\"${test_account}\")" 
 
 echo "Deploy done!"

@@ -1,10 +1,12 @@
 // use crate::migration::{migrate, PreState};
+
 use crate::types::ChainState;
 use crate::{
     memory,
     state::{read_state, replace_state, SolanaRouteState},
 };
 use candid::{CandidType, Principal};
+
 use ic_stable_structures::{writer::Writer, Memory};
 use serde::{Deserialize, Serialize};
 #[derive(CandidType, serde::Deserialize, Clone, Debug)]
@@ -23,8 +25,6 @@ pub struct InitArgs {
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Principal,
     pub fee_account: Option<String>,
-    // pub multi_rpc_config: MultiRpcConfig,
-    // pub forward: Option<String>,
 }
 
 pub fn init(args: InitArgs) {
@@ -60,8 +60,6 @@ pub struct UpgradeArgs {
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Option<Principal>,
     pub fee_account: Option<String>,
-    // pub multi_rpc_config: Option<MultiRpcConfig>,
-    // pub forward: Option<String>,
 }
 
 pub fn post_upgrade(args: Option<UpgradeArgs>) {
@@ -75,15 +73,14 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     let mut state_bytes = vec![0; state_len];
     memory.read(4, &mut state_bytes);
 
+    let mut state: SolanaRouteState =
+        ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+
     // // Deserialize pre state
     // let pre_state: PreState =
     //     ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-
     // // migrate
     // let mut state = migrate(pre_state);
-
-    let mut state: SolanaRouteState =
-        ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
     // update state
     if let Some(args) = args {
@@ -108,12 +105,6 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         if let Some(fee_account) = args.fee_account {
             state.fee_account = fee_account;
         }
-        // if let Some(multi_rpc_config) = args.multi_rpc_config {
-        //     state.multi_rpc_config = multi_rpc_config;
-        // }
-        // if let Some(forward) = args.forward {
-        //     state.forward = Some(forward);
-        // }
     }
 
     replace_state(state);

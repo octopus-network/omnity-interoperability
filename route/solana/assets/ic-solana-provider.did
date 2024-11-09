@@ -31,6 +31,7 @@ service : (InitArgs) -> {
   sol_getAccountInfo : (text, opt text) -> (Result_1);
   sol_getBalance : (text, opt text) -> (Result_2);
   sol_getComputeUnits : (text, opt text) -> (Result_3);
+  sol_getSignatureForAddress : (text, opt nat64, opt text) -> (Result);
   sol_getSignatureStatuses : (vec text, opt text) -> (Result);
   sol_getTokenBalance : (text, opt text) -> (Result_4);
   sol_getTransaction : (text, opt text) -> (Result);

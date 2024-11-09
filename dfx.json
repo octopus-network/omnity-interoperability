@@ -45,13 +45,8 @@
       "gzip": true,
       "candid": "hub/omnity_hub.did",
       "package": "omnity_hub",
-      "type": "custom",
-      "wasm": "target/wasm32-unknown-unknown/release/omnity_hub.wasm",
-      "metadata": [
-        {
-          "name": "candid:service"
-        }
-      ]
+      "type": "rust"
+  
     },
     "icp_route": {
       "gzip": true,

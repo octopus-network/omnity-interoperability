@@ -1,3 +1,11 @@
+type AccountInfo = record {
+  status : TxStatus;
+  signature : opt text;
+  retry_4_building : nat64;
+  account : text;
+  retry_4_status : nat64;
+};
+type AtaKey = record { owner : text; token_mint : text };
 type CallError = record { method : text; reason : Reason };
 type Chain = record {
   fee_token : opt text;
@@ -42,16 +50,53 @@ type InitArgs = record {
   schnorr_key_name : opt text;
   chain_state : ChainState;
 };
+type MintTokenRequest = record {
+  status : TxStatus;
+  signature : opt text;
+  associated_account : text;
+  retry_4_building : nat64;
+  ticket_id : text;
+  retry_4_status : nat64;
+  amount : nat64;
+  token_mint : text;
+};
 type Reason = variant {
   QueueIsFull;
   CanisterError : text;
   OutOfCycles;
   Rejected : text;
+  TxError : TxError;
 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-type Result_1 = variant { Ok : TxStatus; Err : CallError };
-type Result_2 = variant { Ok : opt text; Err : CallError };
+type Result_1 = variant { Ok : text; Err : CallError };
+type Result_2 = variant { Ok : MintTokenRequest; Err : CallError };
+type Result_3 = variant { Ok : TxStatus; Err : CallError };
+type Result_4 = variant { Ok : opt text; Err : CallError };
+type Result_5 = variant { Ok : bool; Err : CallError };
+type Result_6 = variant { Ok : AccountInfo; Err : CallError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type SnorKeyType = variant { Native; ChainKey };
+type Ticket = record {
+  token : text;
+  action : TxAction;
+  dst_chain : text;
+  memo : opt blob;
+  ticket_id : text;
+  sender : opt text;
+  ticket_time : nat64;
+  ticket_type : TicketType;
+  src_chain : text;
+  amount : text;
+  receiver : text;
+};
+type TicketType = variant { Resubmit; Normal };
+type TokenInfo = record {
+  uri : text;
+  decimals : nat8;
+  token_id : text;
+  name : text;
+  symbol : text;
+};
 type TokenResp = record {
   decimals : nat8;
   token_id : text;
@@ -60,10 +105,11 @@ type TokenResp = record {
   symbol : text;
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type TxError = record { signature : text; block_hash : text; error : text };
 type TxStatus = variant {
   New;
   Finalized;
-  TxFailed : record { e : text };
+  TxFailed : record { e : TxError };
   Pending;
 };
 type UpgradeArgs = record {
@@ -76,12 +122,31 @@ type UpgradeArgs = record {
   chain_state : opt ChainState;
 };
 service : (RouteArg) -> {
+  create_token_with_metaplex_delay : (TokenInfo, SnorKeyType, nat64) -> ();
+  failed_ata : () -> (vec record { AtaKey; AccountInfo }) query;
+  failed_mint_accounts : () -> (vec record { text; AccountInfo }) query;
+  failed_mint_reqs : () -> (vec record { text; MintTokenRequest }) query;
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_fee_account : () -> (text) query;
   get_redeem_fee : (text) -> (opt nat) query;
+  get_tickets_from_queue : () -> (vec record { nat64; Ticket }) query;
   get_token_list : () -> (vec TokenResp) query;
-  mint_token_status : (text) -> (Result_1) query;
-  mint_token_tx_hash : (text) -> (Result_2) query;
+  mint_to : (text, text, nat64) -> (Result_1);
+  mint_token_req : (text) -> (Result_2) query;
+  mint_token_status : (text) -> (Result_3) query;
+  mint_token_tx_hash : (text) -> (Result_4) query;
+  mint_token_with_req : (MintTokenRequest) -> (Result_3);
+  query_aossicated_account : (text, text) -> (opt AccountInfo) query;
+  query_mint_account : (text) -> (opt AccountInfo) query;
   query_mint_address : (text) -> (opt text) query;
+  rebuild_aossicated_account : (text, text) -> (Result_1);
+  retry_mint_token : (text) -> (Result_1);
+  search_signature_from_address : (text, text, opt nat64) -> (Result_5);
+  update_associated_account : (text, text, AccountInfo) -> (Result_6);
+  update_ata_status : (text, AtaKey) -> (Result_6);
+  update_mint_account : (text, AccountInfo) -> (opt AccountInfo);
+  update_mint_account_status : (text, text) -> (Result_6);
+  update_mint_token_req : (MintTokenRequest) -> (Result_2);
+  update_token_metaplex : (TokenInfo) -> (Result_1);
 }

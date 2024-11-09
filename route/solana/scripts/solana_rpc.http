@@ -70,14 +70,14 @@ content-type: application/json
 }
 
 ### get balance
-POST {{devnet}}
+POST {{alchemy_m}}
 content-type: application/json
 
 {
     "jsonrpc": "2.0", "id": 1,
     "method": "getBalance",
     "params": [
-      "74SqAGc8wHgkwNx2Hqiz1UdKkZL1gCCvsRRwN2tSm8Ny"
+      "B3zfZ9CvfCHd23jzM7UqrVR2sid4y4eJYtxzZA4azqaD"
     ]
 }
 
@@ -391,5 +391,79 @@ content-type: application/json
         "encoding":"base64",
       }
     ]
-  }
+}
 
+### getSignaturesForAddress 
+POST {{alchemy_d}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "9MPTQ29jbiHRKRf68vTzDiZRsrvEjBKNubYh4LqpiqXe",
+    {
+      "limit": 10,
+      "until": "5eGw7GbpycJ3sxKDFcAwjw4WXRMGxZsjPNNGzza1vj4o9r1Hhku2272ppttQaEvmWEV5fPUUxYz45fnxMU6h6SiE"
+    }
+  ]
+}
+
+### getSignaturesForAddress 
+POST {{alchemy_d}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "9MPTQ29jbiHRKRf68vTzDiZRsrvEjBKNubYh4LqpiqXe",
+    {
+      "limit": 5
+    }
+  ]
+}
+
+
+### getSignaturesForAddress 
+POST {{alchemy_m}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "9V5NxX9SbcXFfUZJU57QViDtXauwGrZBYfntnm54nzLA",
+    {
+     
+      "until": "63Fyi2CchG5bNZm84ejrL5jAuNBjb4G1iK8UMvBKja3DVntpSFsyaRfM9Ct5jikLeXJuj3p2BEnzdFLCgFbe6kxq"
+    }
+  ]
+}
+
+### getTokenAccountBalance
+POST {{alchemy_m}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0", "id": 1,
+  "method": "getTokenAccountBalance",
+  "params": [
+    "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
+  ]
+}
+
+### getTokenAccountBalance
+POST {{alchemy_d}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0", "id": 1,
+  "method": "getTokenAccountBalance",
+  "params": [
+    "A56grapwLzmBWZMtyC2cBYU251qH97NAqtFyANgUD2Pn"
+  ]
+}

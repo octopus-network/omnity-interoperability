@@ -1,5 +1,6 @@
 use candid::CandidType;
 use ic_cdk::api::call::RejectionCode;
+use ic_solana::token::TxError;
 use std::fmt;
 
 /// Represents an error from a management canister call, such as
@@ -33,6 +34,7 @@ pub enum Reason {
     /// The management canister rejected the signature request (not enough
     /// cycles, the ECDSA subnet is overloaded, etc.).
     Rejected(String),
+    TxError(TxError),
 }
 
 impl fmt::Display for Reason {
@@ -43,6 +45,13 @@ impl fmt::Display for Reason {
             Self::CanisterError(msg) => write!(fmt, "canister error: {}", msg),
             Self::Rejected(msg) => {
                 write!(fmt, "the management canister rejected the call: {}", msg)
+            }
+            Self::TxError(tx_error) => {
+                write!(
+                    fmt,
+                    "the management canister rejected the call: {:?}",
+                    tx_error
+                )
             }
         }
     }

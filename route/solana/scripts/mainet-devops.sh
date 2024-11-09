@@ -471,7 +471,7 @@ dfx canister call $HUB_CANISTER_ID get_chain_tokens "(opt \"${CHAIN_ID}\",opt \"
 
 # get ata addresss
 TOKEN_MINT=8j45TBhQU6DQhRvoYd9dpQWzTNKstB6kpnfZ3pKDCxff
-WALLET_ADDRESS=8ALeC77dTQTrvf1gEG7xr2Lpu6UQC1ARtXNrsE3svyfE
+WALLET_ADDRESS=Gzt3ihQgUT6NmpVTxzyCqchC45HhaVxX8UqN7xne2x7k
 dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${WALLET_ADDRESS}\",
         \"${TOKEN_MINT}\")" --ic
 # remove ata
@@ -602,12 +602,29 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_with_req "(record{
         token_mint=\"${TOKEN_MINT}\";
         status=variant { New };
         signature=null;
-        retry=0;})" --ic
+        retry=0:nat64;})" --ic
 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_tx_hash "(\"${TID}\")" --ic
+SIG=3KGwVoVwKmREZHMvm24Q99giSwdjZo9woH66rK5C7XZuWmjTxazpoDDSrbTTssEjsZ55VpEDTk2MuCeGLRhcfCbp
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_signature_status "(vec {\"${SIG}\"})" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_mint_token_req "(record{
+        ticket_id=\"${TID}\";
+        associated_account=\"${ATA}\";
+        amount=${MINT_AMOUNT}:nat64;
+        token_mint=\"${TOKEN_MINT}\";
+        status=variant { Finalized };
+        signature=opt \"${SIG}\";
+        retry=1:nat64;})" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_req "(\"${TID}\")" --ic
 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_tx_hash_to_hub "(\"${SIG}\",\"${TID}\")" --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID remove_ticket_from_quene "(\"${TID}\")" --ic
+remove_ticket_from_quene
 dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic
 
+
+###########################################################################
+### gen ticket and send it to hub
+###########################################################################
 
 SIG=334PcrvBjAcjqMubimWAjy6Gsh8wDa57xw4yaFdhEa1L8qux2C9qyzrKRxTQCsfGoJGudLGWz3fQhnfQA8VvqenE
 dfx canister call $SOLANA_ROUTE_CANISTER_ID valid_tx_from_multi_rpc "(\"${SIG}\")" --ic

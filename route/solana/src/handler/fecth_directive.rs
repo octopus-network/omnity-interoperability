@@ -1,4 +1,5 @@
 use crate::constants::DIRECTIVE_LIMIT_SIZE;
+
 use crate::state::UpdateToken;
 use crate::types::{ChainId, Directive, Error, Seq, Topic};
 use candid::Principal;
@@ -24,6 +25,7 @@ pub async fn query_directives() {
                     Directive::AddToken(token) => {
                         mutate_state(|s| s.add_token(token.to_owned()));
                     }
+
                     Directive::UpdateToken(update_token) => {
                         let t = read_state(|s| s.tokens.get(&update_token.token_id));
                         match t {
@@ -36,15 +38,18 @@ pub async fn query_directives() {
                                     "[query_directives] \ncurrent token metadata :{:#?} \nupdate token metadata :{:#?} ",
                                     current_token,update_token
                                 );
-                                mutate_state(|s| {
-                                    // update token info in route
-                                    // s.tokens.insert(current_token.token_id, update_token.clone());
-                                    // update token on solana chain
-                                    s.update_token_queue.insert(
-                                        update_token.token_id.to_string(),
-                                        UpdateToken::new(update_token.to_owned(), 0),
-                                    )
-                                });
+
+                                if !current_token.eq(update_token) {
+                                    mutate_state(|s| {
+                                        // update token info in route
+                                        // s.tokens.insert(current_token.token_id, update_token.to_owned());
+                                        // update token on solana chain
+                                        s.update_token_queue.insert(
+                                            update_token.token_id.to_string(),
+                                            UpdateToken::new(update_token.to_owned()),
+                                        )
+                                    });
+                                }
                             }
                         }
                     }

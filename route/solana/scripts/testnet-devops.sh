@@ -50,6 +50,12 @@ dfx canister install $HUB_CANISTER_ID --argument "(variant { Init = record { adm
   --wasm=./assets/omnity_hub.wasm.gz \
   --ic
 
+# echo "upgrade $HUB_CANISTER_ID ..."
+# dfx canister install $HUB_CANISTER_ID --argument '(variant { Upgrade = null })' \
+#  --mode upgrade -y \
+#  --wasm=./assets/omnity_hub.wasm.gz \
+#  --ic
+
 # echo "deploy omnity hub ..."
 # dfx deploy omnity_hub --argument "(variant { Init = record { admin = principal \"${ADMIN}\" } })" \
 #   --mode=reinstall -y \
@@ -71,6 +77,16 @@ dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record {
     --mode=reinstall -y \
     --wasm=./assets/ic_solana_provider.wasm.gz \
     --ic 
+
+# echo "upgrade $SOL_PROVIDER_CANISTER_ID ..."
+# dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
+#     rpc_url = opt \"${PROXY_URL}\"; 
+#     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
+#     nodesInSubnet = opt 34; 
+#     } )" \
+#     --mode=upgrade -y \
+#     --wasm=./assets/ic_solana_provider.wasm.gz \
+#     --ic 
 
 # dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
 #     rpc_url = opt \"${alchemy_d}\"; 
@@ -102,6 +118,8 @@ test_sig=2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8
 dfx canister call $SOL_PROVIDER_CANISTER_ID sol_latestBlockhash "(opt \"${helius_d}\")" --ic
 dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getAccountInfo "(\"${test_account}\",opt \"${helius_d}\")" --ic
 dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getSignatureStatuses "(vec {\"${test_sig}\"},opt \"${helius_d}\")" --ic
+test_account=B3zfZ9CvfCHd23jzM7UqrVR2sid4y4eJYtxzZA4azqaD
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getBalance "(\"${test_account}\",null)" --ic
 echo 
 
 # solana_route canister
@@ -141,6 +159,26 @@ dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Init = rec
 #     --subnet-type fiduciary \
 #     --ic 
 
+# echo "upgrade $SOLANA_ROUTE_CANISTER_ID ..."
+# dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(opt variant { Upgrade = record { \
+#     admin = principal \"${ADMIN}\";\
+#     chain_id=\"${SOL_CHAIN_ID}\";\
+#     hub_principal= principal \"${HUB_CANISTER_ID}\";\
+#     chain_state= variant { Active }; \
+#     schnorr_key_name = \"${SCHNORR_KEY_NAME}\";\
+#     sol_canister = principal \"${SOL_PROVIDER_CANISTER_ID}\";\
+#     fee_account= opt \"${FEE_ACCOUNT}\";\
+#     } })" \
+#     --mode=upgrade -y \
+#     --wasm=./assets/solana_route.wasm.gz \
+#     --ic 
+
+# echo "upgrade $SOLANA_ROUTE_CANISTER_ID ..."
+# dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument '(null)' \
+#     --mode=upgrade -y \
+#     --wasm=./assets/solana_route.wasm.gz \
+#     --ic 
+
 # SOLANA_ROUTE_CANISTER_ID=$(dfx canister id solana_route --ic) 
 
 dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
@@ -163,7 +201,8 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 #     --ic 
 # test 
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID update_schnorr_info "(principal \"${SCHNORR_CANISTER_ID}\",\"${SCHNORR_KEY_NAME}\")" --ic 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic
+KEYTYPE="variant { ChainKey }"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID signer "($KEYTYPE)"  --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${test_sig}\",opt \"${helius_d}\")" --ic
 # update schnorr info
@@ -328,7 +367,8 @@ dfx canister call $HUB_CANISTER_ID update_fee "vec {variant { UpdateTargetChainF
 dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateFee},0:nat64,12:nat64)" --ic 
 
 # query signer
-SIGNER=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic)
+KEYTYPE="variant { ChainKey }"
+SIGNER=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID signer "($KEYTYPE)"  --ic)
 SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
 echo "current SIGNER: $SIGNER"
 echo "$SIGNER balance: $(solana balance $SIGNER)"
@@ -338,14 +378,14 @@ echo "$SIGNER balance: $(solana balance $SIGNER)"
 MASTER_KEY=$(solana address)
 echo "current solana cli default address: $MASTER_KEY and balance: $(solana balance $MASTER_KEY)"
 # transfer SOL to init signer
-AMOUNT=0.5
+AMOUNT=0.2
 echo "transfer SOL to $SIGNER from $MASTER_KEY"
 solana transfer $SIGNER $AMOUNT --with-memo init_account --allow-unfunded-recipient
 echo "$SIGNER balance: $(solana balance $SIGNER)"
 
 # start schedule
 echo "start_schedule ... " 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '(null)' --ic
 echo "waiting for query directives or tickets from hub to solana route"
 sleep 90
 
@@ -386,13 +426,19 @@ echo "canister call $SOLANA_ROUTE_CANISTER_ID get_tickets_from_queue "
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_tickets_from_queue '()' --ic
 echo 
 
-sleep 20
+sleep 60
 
 # get token mint
 echo "dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account " 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
 TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
 TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
+while [ -z "$TOKEN_MINT" ]; do
+  echo "token mint is empty, waiting..."
+  sleep 5  
+  TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
+  TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
+done
 echo "token mint: $TOKEN_MINT"
 
 # get aossicated account based on owner and token mint
@@ -410,7 +456,7 @@ while [ -z "$ATA" ]; do
 done
 echo "The dest address: $SOL_RECEIVER and the token address: $TOKEN_MINT aossicated account is: $ATA"
 
-sleep 15
+
 
 echo "mock redeem from solana to customs... "
 # first collect fee
@@ -419,30 +465,86 @@ FEE_ACCOUNT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID get_fee_account '()' -
 FEE_ACCOUNT=$(echo "$FEE_ACCOUNT" | awk -F'"' '{print $2}')
 echo "fee account: $FEE_ACCOUNT"
 # get fee amount
-FEE_AMOUNT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID get_redeem_fee "(\"${BITCOIN_CHAIN_ID}\")" --ic )
+FEE_AMOUNT=$(dfx canister call solana_route get_redeem_fee "(\"${BITCOIN_CHAIN_ID}\")" --ic )
 FEE_AMOUNT=$(echo "$FEE_AMOUNT" | grep -oE '[0-9_]+ ' | sed 's/_//g' | awk '{printf "%.9f\n", $1 / 1000000000}')
-echo "fee account: $FEE_AMOUNT"
+FEE_AMOUNT=$(echo "$FEE_AMOUNT * 10^9" | bc | awk '{printf "%.0f", $0}')
+echo "fee amount: $FEE_AMOUNT lamports"
+
 # collect fee
-WALLET_ADDRESS=$(solana address)
-echo "collect fee to $FEE_ACCOUNT from $WALLET_ADDRESS"
-SIGNAURE=$(solana transfer $FEE_ACCOUNT $FEE_AMOUNT)
-SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
-echo "collect fee signature: $SIGNAURE"
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIGNAURE}\",opt \"${ankr}\")" --ic
+# WALLET_ADDRESS=$(solana address)
+# echo "collect fee to $FEE_ACCOUNT from $WALLET_ADDRESS"
+# SIGNAURE=$(solana transfer $FEE_ACCOUNT $FEE_AMOUNT)
+# SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
+# echo "collect fee signature: $SIGNAURE"
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIGNAURE}\",opt \"${ankr}\")" --ic
+
+sleep 50
+
+TOKEN_BALANCE=$(spl-token balance "$TOKEN_MINT" --owner "$SOL_RECEIVER" | tr -d ' \n')
+while [ -z "$TOKEN_BALANCE" ]; do
+  echo "Waiting for TOKEN_BALANCE to have a value..."
+  sleep 5  
+  TOKEN_BALANCE=$(spl-token balance "$TOKEN_MINT" --owner "$SOL_RECEIVER" | tr -d ' \n')
+done
+echo "TOKEN_BALANCE is : $TOKEN_BALANCE"
 
 
 # second, burn token
 CUSTOMS_RECEIVER="bc1qmh0chcr9f73a3ynt90k0w8qsqlydr4a6espnj6"
-OWNER=~/.config/solana/boern.json
+# OWNER=~/.config/solana/boern.json
 BURN_AMOUNT=111111
-echo spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER
-# echo $(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
-SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
-SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
-echo "burn signature: $SIGNAURE"
-sleep 5
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIGNAURE}\",opt \"${ankr}\")" --ic
+# echo spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER
+# # echo $(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
+# SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
+# SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
+# echo "burn signature: $SIGNAURE"
+# sleep 5
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIGNAURE}\",opt \"${ankr}\")" --ic
 
+
+# SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+KEYPAIR=$(bat -p ~/.config/solana/boern.json)
+echo "redeem tx vars:"
+echo "rpc_url: $helius_d"
+echo "keypair: $KEYPAIR"
+echo "transfer from_account: $SOL_RECEIVER"
+echo "fee_account: $FEE_ACCOUNT"
+echo "fee_amount $FEE_AMOUNT"
+echo "token_mint: $TOKEN_MINT"
+echo "burn_account: $ATA"
+echo "owner_account: $SOL_RECEIVER"
+echo "burn_amount: $BURN_AMOUNT"
+echo "memo_msg: $CUSTOMS_RECEIVER"
+
+
+# python ./scripts/redeem_tx.py \
+#   --rpc_url $helius_d \
+#   --keypair $KEYPAIR \
+#   --from_account $SOL_RECEIVER \
+#   --fee_account $FEE_ACCOUNT \
+#   --fee_amount $FEE_AMOUNT \
+#   --token_mint $TOKEN_MINT \
+#   --burn_account $ATA \
+#   --owner_account $SOL_RECEIVER \
+#   --burn_amount $BURN_AMOUNT \
+#   --memo_msg $CUSTOMS_RECEIVER  
+
+SIGNAURE=$(python ./scripts/redeem_tx.py \
+  --rpc_url $helius_d \
+  --keypair $KEYPAIR \
+  --from_account $SOL_RECEIVER \
+  --fee_account $FEE_ACCOUNT \
+  --fee_amount $FEE_AMOUNT \
+  --token_mint $TOKEN_MINT \
+  --burn_account $ATA \
+  --owner_account $SOL_RECEIVER \
+  --burn_amount $BURN_AMOUNT \
+  --memo_msg $CUSTOMS_RECEIVER  \
+| tail -n 1 )
+
+echo "redeem tx signature: $SIGNAURE"
+sleep 30
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIGNAURE}\",opt \"${helius_d}\")" --ic
 
 # secord,generate ticket
 dfx canister call $SOLANA_ROUTE_CANISTER_ID generate_ticket "(record {
@@ -458,10 +560,10 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID generate_ticket "(record {
     --ic
 dfx canister call $HUB_CANISTER_ID query_tickets "(opt \"${BITCOIN_CHAIN_ID}\",0:nat64,5:nat64)" --ic
 
-sleep 300
+sleep 120
 
 # cannel schedule
-dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID stop_schedule '()' --ic
 
 # dfx canister stop $SOLANA_ROUTE_CANISTER_ID --ic
 # dfx canister delete $SOLANA_ROUTE_CANISTER_ID --ic
@@ -535,3 +637,49 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID cancel_schedule '()' --ic
 
 # SIG=2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${SIG}\,null")" --ic
+
+# test delay to create mint
+# TOKEN_ID="RUNES•X•BITCOIN202410301640"
+# TOKEN_NAME="RUNES•X•BITCOIN"
+# TOKEN_SYMBOL="X"
+# DECIMALS=0
+# URI="https://arweave.net/iLV2-ApjrXPDNoHldzB4a0fVVL-0hXR6dZGgudknz7c"
+# DELAY=50
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID create_token_with_metaplex_delay "(
+#     record { token_id = \"${TOKEN_ID}\"; 
+#              name = \"${TOKEN_NAME}\";
+#              symbol = \"${TOKEN_SYMBOL}\"; 
+#              decimals = ${DECIMALS};
+#              uri = \"${URI}\"; 
+#          },
+#     $DELAY:nat64
+# )" --ic
+# tx_status="variant { Finalized }"
+# account_type="variant { MintAccount }"
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID accounts_with_status "($tx_status,$account_type)" --ic
+
+# tx_status="variant { TxFailed { \"\" } }"
+# account_type="variant { MintAccount }"
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID accounts_with_status "($tx_status,$account_type)" --ic
+
+
+# tx_status="variant { Finalized }"
+# account_type="variant { AssociatedAccount }"
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID accounts_with_status "($tx_status,$account_type)" --ic
+
+#  dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
+
+# dfx wallet balance --ic
+# deposit 1 TC
+# dfx canister deposit-cycles 1000000000000 $SOLANA_ROUTE_CANISTER_ID --ic
+
+# dfx ledger balance --ic
+# dfx ledger top-up $SOLANA_ROUTE_CANISTER_ID --amount 0.01 --ic
+
+### Improve execution priority
+# increase compute allocation to 1% due to insufficient cycles. At least 66_386_708_570_776 additional cycles are required.
+# 66_386_708_570_776
+#  1_473_096_528_524
+# dfx canister update-settings --help
+# dfx canister update-settings --compute-allocation
+# dfx canister update-settings -c 1 $SOLANA_ROUTE_CANISTER_ID --ic

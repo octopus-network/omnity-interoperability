@@ -171,7 +171,6 @@ impl HubState {
         }
         // update state
         set_state(hub_state);
-
     }
 
     pub fn upgrade(&mut self, args: UpgradeArgs) {
@@ -354,7 +353,11 @@ impl HubState {
                     |e| Err(e),
                     |chain| {
                         if matches!(chain.chain_state, ChainState::Deactive) {
-                            log!(ERROR, "The `{}` is deactive", cf.target_chain_id.to_string());
+                            log!(
+                                ERROR,
+                                "The `{}` is deactive",
+                                cf.target_chain_id.to_string()
+                            );
                             Err(Error::DeactiveChain(cf.target_chain_id.to_string()))
                         } else {
                             self.target_chain_factors
@@ -483,25 +486,18 @@ impl HubState {
         };
 
         subs.iter().for_each(|sub| {
-            if !self
-                .dire_map
-                .iter()
-                .any(|(seq_key, directive)| seq_key.chain_id.eq(sub) && *directive == dire)
-            {
-                let latest_dire_seq = self
-                    .directive_seq
-                    .entry(sub.to_string())
-                    .and_modify(|seq| *seq += 1)
-                    .or_insert(0);
+            let latest_dire_seq = self
+                .directive_seq
+                .entry(sub.to_string())
+                .and_modify(|seq| *seq += 1)
+                .or_insert(0);
 
-                let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
-                //TODO: match! and exclude diretive for  target chain self
-                self.dire_map.insert(seq_key.to_owned(), dire.to_owned());
-                record_event(&Event::PubedDirective {
-                    seq_key,
-                    dire: dire.to_owned(),
-                });
-            }
+            let seq_key = SeqKey::from(sub.to_string(), *latest_dire_seq);
+            self.dire_map.insert(seq_key.to_owned(), dire.to_owned());
+            record_event(&Event::PubedDirective {
+                seq_key,
+                dire: dire.to_owned(),
+            });
         });
 
         Ok(())
@@ -580,7 +576,11 @@ impl HubState {
     pub fn check_and_update(&mut self, ticket: &Ticket) -> Result<(), Error> {
         // check ticket id repetitive
         if self.cross_ledger.contains_key(&ticket.ticket_id) {
-            log!(ERROR, "The ticket id (`{}`) already exists!`", ticket.ticket_id.to_string());
+            log!(
+                ERROR,
+                "The ticket id (`{}`) already exists!`",
+                ticket.ticket_id.to_string()
+            );
             return Err(Error::AlreadyExistingTicketId(ticket.ticket_id.to_string()));
         }
 
@@ -590,7 +590,12 @@ impl HubState {
 
         //parse ticket token amount to unsigned bigint
         let ticket_amount: u128 = ticket.amount.parse().map_err(|e: ParseIntError| {
-            log!(ERROR, "The ticket amount(`{}`) parse error: `{}`", ticket.amount.to_string(), e.to_string());
+            log!(
+                ERROR,
+                "The ticket amount(`{}`) parse error: `{}`",
+                ticket.amount.to_string(),
+                e.to_string()
+            );
             Error::TicketAmountParseError(ticket.amount.to_string(), e.to_string())
         })?;
 
@@ -655,7 +660,7 @@ impl HubState {
                                 ticket.token.to_string(),
                                 ticket.src_chain.to_string(),
                             );
-                            
+
                             return Err::<u128, Error>(Error::NotSufficientTokens(
                                 ticket.token.to_string(),
                                 ticket.src_chain.to_string(),
@@ -687,7 +692,7 @@ impl HubState {
         // check ticket id repetitive
         if self.pending_tickets.contains_key(&ticket.ticket_id) {
             log!(
-                ERROR, 
+                ERROR,
                 "The ticket id (`{}`) already exists!`",
                 ticket.ticket_id.to_string()
             );
@@ -751,19 +756,13 @@ impl HubState {
     pub fn resubmit_ticket(&mut self, ticket: Ticket) -> Result<(), Error> {
         let now = ic_cdk::api::time();
         if now - self.last_resubmit_ticket_time < 6 * HOUR {
-            log!(
-                ERROR,
-                "The resumit ticket sent too often"
-            );
+            log!(ERROR, "The resumit ticket sent too often");
             return Err(Error::ResubmitTicketSentTooOften);
         }
         match self.cross_ledger.get(&ticket.ticket_id) {
             Some(old_ticket) => {
                 if ticket != old_ticket {
-                    log!(
-                        ERROR,
-                        "The resubmit ticket must same as the old ticket!"
-                    );
+                    log!(ERROR, "The resubmit ticket must same as the old ticket!");
                     return Err(Error::ResubmitTicketMustSame);
                 }
                 let ticket_id = format!("{}_{}", ticket.ticket_id, now);
@@ -790,10 +789,7 @@ impl HubState {
                 Ok(())
             }
             None => {
-                log!(
-                    ERROR,
-                    "The resubmit ticket id must exist!"
-                );
+                log!(ERROR, "The resubmit ticket id must exist!");
                 Err(Error::ResubmitTicketIdMustExist)
             }
         }
@@ -809,10 +805,7 @@ impl HubState {
                 Ok(())
             }
             None => {
-                log!(
-                    ERROR,
-                    "The ticket id is not exists!"
-                );
+                log!(ERROR, "The ticket id is not exists!");
                 Err(Error::NotFoundTicketId(ticket_id.to_string()))
             }
         }

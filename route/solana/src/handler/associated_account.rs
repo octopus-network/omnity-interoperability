@@ -2,9 +2,11 @@ use std::str::FromStr;
 
 use ic_solana::token::associated_account::get_associated_token_address_with_program_id;
 use ic_solana::token::constants::token_program_id;
+use ic_solana::token::TxError;
 use ic_solana::types::Pubkey;
 
 use super::solana_rpc::{self, create_ata};
+use crate::call_error::Reason;
 use crate::handler::solana_rpc::solana_client;
 use crate::state::{AccountInfo, AtaKey};
 use crate::state::TxStatus;
@@ -12,15 +14,21 @@ use crate::state::{mutate_state, read_state};
 
 use ic_solana::types::TransactionConfirmationStatus;
 
-use crate::constants::{COUNTER_SIZE, RETRY_LIMIT_SIZE};
+use crate::constants::{TAKE_SIZE, RETRY_4_BUILDING, RETRY_4_STATUS};
 use ic_canister_log::log;
-use ic_solana::ic_log::{CRITICAL, DEBUG, ERROR,WARNING};
+use ic_solana::ic_log::{DEBUG,ERROR,WARNING};
 
 pub async fn create_associated_account() {
- 
+    let tickets = read_state(|s| {
+        s.tickets_queue
+            .iter()
+            .take(TAKE_SIZE.try_into().unwrap())
+            .map(|(seq, ticket)| (seq, ticket))
+            .collect::<Vec<_>>()
+    });
     let mut creating_atas = vec![];
     read_state(|s| {
-        for (_seq, ticket) in s.tickets_queue.iter() {
+        for (_seq, ticket) in tickets.into_iter() {
 
             if let Some(token_mint) = s.token_mint_accounts.get(&ticket.token) {
                 //the token mint account must be Finalized
@@ -34,7 +42,7 @@ pub async fn create_associated_account() {
                     None => creating_atas.push((ticket.receiver.to_owned(), token_mint.to_owned())),
                     Some(ata) => {
                         //filter account,unconformed and retry < RETRY_LIMIT_SIZE
-                        if !matches!(ata.status, TxStatus::Finalized) && ata.retry < RETRY_LIMIT_SIZE {
+                        if !matches!(ata.status, TxStatus::Finalized) && ata.retry_4_building < RETRY_4_BUILDING {
                             creating_atas.push((ticket.receiver.to_owned(), token_mint.to_owned()))
                         }
                     }
@@ -44,7 +52,6 @@ pub async fn create_associated_account() {
         }
     });
 
-    let mut count = 0u64;
     // let sol_client = solana_client().await;
     for (owner, token_mint) in creating_atas.into_iter() {
         let to_account_pk = Pubkey::from_str(owner.as_str()).expect("Invalid to_account address");
@@ -57,8 +64,6 @@ pub async fn create_associated_account() {
             )
                 
         }) {
-            // Pubkey::from_str(&account.account).expect("Invalid to_account address")
-
             account
         } else {
             let associated_account = get_associated_token_address_with_program_id(
@@ -73,7 +78,8 @@ pub async fn create_associated_account() {
             );
             let new_account_info = AccountInfo {
                 account: associated_account.to_string(),
-                retry: 0,
+                retry_4_building: 0,
+                retry_4_status:0,
                 signature: None,
                 status: TxStatus::New,
             };
@@ -81,14 +87,13 @@ pub async fn create_associated_account() {
             mutate_state(|s| {
                 s.associated_accounts.insert(
                     AtaKey{owner:owner.to_string(), token_mint:token_mint.account.to_string()},
-                    new_account_info.clone(),
+                    new_account_info.to_owned(),
                 )
             });
             // associated_account
             new_account_info
         };
 
-     
         log!(
             DEBUG,
             "[associated_account::create_associated_account] ata_account_info from solana route : {:?} ",
@@ -108,14 +113,14 @@ pub async fn create_associated_account() {
              if matches!(account_info,Some(..)){
                  let ata = AccountInfo {
                      account: associated_account.account.to_string(),
-                     retry: associated_account.retry,
+                     retry_4_building: associated_account.retry_4_building,
+                     retry_4_status: associated_account.retry_4_status,
                      signature: associated_account.signature,
                      status: TxStatus::Finalized,
                  };
                  //update ata info
                  mutate_state(|s| {
                     s.associated_accounts.insert(
-                        
                         AtaKey{owner:owner.to_string(), token_mint:token_mint.account.to_string()},
                         ata,
                     )
@@ -132,7 +137,7 @@ pub async fn create_associated_account() {
                 match &associated_account.signature {
                      // not exists,create it
                     None => {
-                       handle_creating_ata(owner.to_owned(), token_mint.account.to_string()).await;
+                       build_ata(owner.to_owned(), token_mint.account.to_string()).await;
                     }
                     Some(sig) => {
                         log!(
@@ -178,7 +183,7 @@ pub async fn create_associated_account() {
             }
             TxStatus::TxFailed { e } => {
                 log!(
-                    ERROR,
+                    DEBUG,
                    "[associated_account::create_associated_account] failed to create_associated_account for owner: {} and token mint: {}, error: {:}",
                    owner,token_mint.account,e
                 );
@@ -186,7 +191,7 @@ pub async fn create_associated_account() {
                 match &associated_account.signature {
                     // not exists,create it
                    None => {
-                      handle_creating_ata(owner.to_owned(), token_mint.account.to_string()).await;
+                      build_ata(owner.to_owned(), token_mint.account.to_string()).await;
                    }
                    Some(sig) => {
                        log!(
@@ -202,22 +207,16 @@ pub async fn create_associated_account() {
             }
         }
 
-        // Control foreach size, if >= COUNTER_SIZE, then break
-        count += 1;
-        if count >= COUNTER_SIZE {
-            break;
-        }
-
     }
 }
 
-pub async fn handle_creating_ata(owner:String,mint_address:String) {
+pub async fn build_ata(owner:String,mint_address:String) {
 
     match create_ata(owner.to_string(), mint_address.to_string()).await {
         Ok(sig) => {
             log!(
                 DEBUG,
-                "[associated_account::handle_creating_ata] create_ata signature : {:?}",
+                "[associated_account::build_ata] create_ata signature : {:?}",
                 sig
             );
             // update account created signature and retry ,but not confirmed
@@ -228,7 +227,7 @@ pub async fn handle_creating_ata(owner:String,mint_address:String) {
                 .get(&ata_key              
                  ).as_mut() {
                     account.signature = Some(sig.to_string());
-                    account.retry += 1;
+                    // account.retry_4_building += 1;
                     s.associated_accounts.insert(ata_key, account.to_owned());
 
                 }
@@ -239,18 +238,22 @@ pub async fn handle_creating_ata(owner:String,mint_address:String) {
         }
         Err(e) => {
             log!(
-                CRITICAL,
-                "[associated_account::handle_creating_ata] create_ata for owner: {:} and token_mint: {:}, error: {:?}  ",
+                ERROR,
+                "[associated_account::build_ata] create_ata for owner: {:} and token_mint: {:}, error: {:?}  ",
                 owner.to_string(), mint_address.to_string(), e
             );
+            let tx_error=   match e.reason {
+                Reason::QueueIsFull| Reason::OutOfCycles|Reason::CanisterError(_)|Reason::Rejected(_)=> todo!(),
+                Reason::TxError(tx_error) => tx_error,
+            };
            // update account retry 
             mutate_state(|s| {
                 let ata_key = AtaKey{owner:owner.to_string(), token_mint:mint_address.to_string()};
                 if let Some(account)= s.associated_accounts
                     .get(& ata_key).as_mut() {
                         account.status =
-                            TxStatus::TxFailed { e: e.to_string() };
-                        account.retry += 1;
+                            TxStatus::TxFailed { e: tx_error };
+                        account.retry_4_building += 1;
                         //reset signature
                         account.signature = None;
                          s.associated_accounts.insert(ata_key, account.to_owned());
@@ -274,18 +277,31 @@ pub async fn update_ata_status(sig:String,owner:String,mint_address:String) {
              sig.to_string(),
              e
          );
-        
-       //TOOD: update account and retry ?
+         let tx_error=   match e.reason {
+            Reason::QueueIsFull| Reason::OutOfCycles|Reason::TxError(_) |Reason::Rejected(_)=> todo!(),
+            Reason::CanisterError(tx_error)=> tx_error,
+        };
+     
        mutate_state(|s| {
         let ata_key = AtaKey{owner:owner.to_string(), token_mint:mint_address.to_string()};
         if let Some(account)= s.associated_accounts
-            .get(& ata_key).as_mut() {
-                account.status =
-                    TxStatus::TxFailed { e: e.to_string() };
-                account.retry += 1;
-                //reset signature
-                // account.signature = None;
-                s.associated_accounts.insert(ata_key, account.to_owned());
+            .get(&ata_key).as_mut() {
+                 // if update statue is up to the RETRY_4_STATUS and the tx is droped, rebuild the account
+                if account.retry_4_status > RETRY_4_STATUS {
+                 log!(
+                    WARNING,
+                    "[token_account::update_ata_status] retry for get_signature_status up to limit size :{} ,and need to rebuild the account",
+                    RETRY_4_STATUS,);
+                    account.status = TxStatus::New;
+                    account.retry_4_building =0;
+                    account.retry_4_status = 0;
+                    account.signature = None;
+                    s.associated_accounts.insert(ata_key,account.to_owned());
+                } else {
+                    account.retry_4_status += 1;
+                    account.status =TxStatus::TxFailed { e: TxError { block_hash:String::default(), signature: sig.to_owned(), error: tx_error.to_owned() } };
+                    s.associated_accounts.insert(ata_key, account.to_owned());
+                }
         }
            
         });
