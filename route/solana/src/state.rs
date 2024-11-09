@@ -373,13 +373,13 @@ pub struct SolanaRouteState {
     pub counterparties: StableBTreeMap<ChainId, Chain, Memory>,
     #[serde(skip, default = "crate::memory::init_tokens")]
     pub tokens: StableBTreeMap<TokenId, Token, Memory>,
-    #[serde(skip, default = "crate::memory::init_update_tokens")]
+    #[serde(skip, default = "crate::memory::init_update_tokens_v2")]
     pub update_token_queue: StableBTreeMap<TokenId, UpdateToken, Memory>,
-    #[serde(skip, default = "crate::memory::init_token_mint_accounts")]
+    #[serde(skip, default = "crate::memory::init_token_mint_accounts_v2")]
     pub token_mint_accounts: StableBTreeMap<TokenId, AccountInfo, Memory>,
-    #[serde(skip, default = "crate::memory::init_associated_accounts")]
+    #[serde(skip, default = "crate::memory::init_associated_accounts_v2")]
     pub associated_accounts: StableBTreeMap<AtaKey, AccountInfo, Memory>,
-    #[serde(skip, default = "crate::memory::init_mint_token_requests")]
+    #[serde(skip, default = "crate::memory::init_mint_token_requests_v2")]
     pub mint_token_requests: StableBTreeMap<TicketId, MintTokenRequest, Memory>,
     #[serde(skip, default = "crate::memory::init_gen_ticket_reqs")]
     pub gen_ticket_reqs: StableBTreeMap<TicketId, GenerateTicketReq, Memory>,

@@ -322,7 +322,7 @@ async fn get_signature_status(
 }
 
 // devops method
-#[update(guard = "is_admin")]
+#[update(guard = "is_admin",hidden = true)]
 async fn search_signature_from_address(
     target_sig: String,
     pubkey: String,
@@ -415,12 +415,12 @@ pub async fn query_mint_address(token_id: TokenId) -> Option<String> {
 }
 
 // devops method
-#[query(hidden = false)]
+#[query(hidden = true)]
 pub async fn query_mint_account(token_id: TokenId) -> Option<AccountInfo> {
     read_state(|s| s.token_mint_accounts.get(&token_id))
 }
 
-#[query(hidden = false)]
+#[query(hidden = true)]
 pub async fn failed_mint_accounts() -> Vec<(TokenId,AccountInfo)> {
     read_state(|s| {
         s.token_mint_accounts.iter().
@@ -432,7 +432,7 @@ pub async fn failed_mint_accounts() -> Vec<(TokenId,AccountInfo)> {
 
 }
 
-#[query(hidden = false)]
+#[query(hidden = true)]
 pub async fn failed_ata() -> Vec<(AtaKey,AccountInfo)> {
     read_state(|s| {
         s.associated_accounts.iter().
@@ -692,7 +692,7 @@ pub async fn rebuild_mint_account(token_id:String,) -> Result<String, CallError>
    ret
 }
 
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_mint_account_status(sig: String, token_id: String) -> Result<AccountInfo, CallError>  {
     let mint_account = if let Some(mint_account) = read_state(|s| s.token_mint_accounts.get(&token_id)) {
         mint_account
@@ -712,7 +712,7 @@ pub async fn update_mint_account_status(sig: String, token_id: String) -> Result
    
 }
 // devops method
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_mint_account(token_id:TokenId,mint_account: AccountInfo) -> Option<AccountInfo>{
            //update mint account info
            mutate_state(|s| {
@@ -723,7 +723,7 @@ pub async fn update_mint_account(token_id:TokenId,mint_account: AccountInfo) -> 
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> {
     log!(
         DEBUG,
@@ -820,7 +820,7 @@ pub async fn derive_aossicated_account(
 }
 
 // devops method
-#[query(hidden = false)]
+#[query(hidden = true)]
 pub async fn query_aossicated_account(
     owner: Owner,
     token_mint: MintAccount,
@@ -997,7 +997,7 @@ pub async fn create_aossicated_account(
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn rebuild_aossicated_account(
     owner: String,
     token_mint: String,
@@ -1081,7 +1081,7 @@ pub async fn rebuild_aossicated_account(
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_associated_account(
     owner: String,
     token_mint: String,
@@ -1118,7 +1118,7 @@ pub async fn update_associated_account(
     }
 }
 
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_ata_status(sig: String, ata_key:AtaKey) -> Result<AccountInfo, CallError>  {
     let ata = if let Some(ata) = read_state(|s| s.associated_accounts.get(&ata_key)) {
         ata
@@ -1171,7 +1171,7 @@ fn get_ticket_from_queue(ticket_id: String) -> Option<(u64, Ticket)> {
 }
 
 // devops method
-#[query(hidden = false)]
+#[query(hidden = true)]
 fn get_tickets_from_queue() -> Vec<(u64, Ticket)> {
     read_state(|s| {
         s.tickets_queue
@@ -1232,7 +1232,8 @@ pub async fn mint_token_tx_hash(ticket_id: String) -> Result<Option<String>, Cal
     }
 }
 
-#[query(hidden = false)]
+// devops method
+#[query(hidden = true)]
 pub async fn mint_token_req(ticket_id: String) -> Result<MintTokenRequest, CallError> {
     let req = read_state(|s| s.mint_token_requests.get(&ticket_id));
     match req {
@@ -1269,7 +1270,7 @@ pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenReq
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn mint_to(ata: String, token_mint: String, amount: u64) -> Result<String, CallError> {
     let sol_client = solana_client().await;
     let associated_account = Pubkey::from_str(&ata).expect("Invalid ata address");
@@ -1287,7 +1288,7 @@ pub async fn mint_to(ata: String, token_mint: String, amount: u64) -> Result<Str
 }
 
 // devops method
-#[query(hidden = false)]
+#[query(hidden = true)]
 pub async fn failed_mint_reqs() -> Vec<(TicketId,MintTokenRequest)> {
     read_state(|s| {
         s.mint_token_requests.iter().
@@ -1301,7 +1302,7 @@ pub async fn failed_mint_reqs() -> Vec<(TicketId,MintTokenRequest)> {
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, CallError> {
 
    let mut req =  match read_state(|s| s.mint_token_requests.get(&n_req.ticket_id)) {
@@ -1378,7 +1379,7 @@ pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, Ca
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn retry_mint_token(ticket_id: String) -> Result<String, CallError> {
     log!(DEBUG, "[service::retry_mint_token] retry mint token ticket_id: {:?} ", ticket_id);
 

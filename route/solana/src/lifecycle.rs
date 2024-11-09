@@ -1,4 +1,4 @@
-// use crate::migration::{migrate, PreState};
+use crate::migration::{migrate, PreState};
 
 use crate::types::ChainState;
 use crate::{
@@ -73,14 +73,14 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     let mut state_bytes = vec![0; state_len];
     memory.read(4, &mut state_bytes);
 
-    let mut state: SolanaRouteState =
-        ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-
-    // // Deserialize pre state
-    // let pre_state: PreState =
+    // let mut state: SolanaRouteState =
     //     ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-    // // migrate
-    // let mut state = migrate(pre_state);
+
+    // Deserialize pre state
+    let pre_state: PreState =
+        ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+    // migrate
+    let mut state = migrate(pre_state);
 
     // update state
     if let Some(args) = args {

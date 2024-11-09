@@ -25,7 +25,6 @@ echo "testnet environment:
     ic solana provider canister id: $SOL_PROVIDER_CANISTER_ID
     solana route canister id: $SOLANA_ROUTE_CANISTER_ID"
 
-
 # install or reinstall omnity hub
 echo "reinstall $HUB_CANISTER_ID ..."
 dfx canister install $HUB_CANISTER_ID --argument "(variant { Init = record { admin = principal \"${ADMIN}\" } })" \
@@ -72,7 +71,7 @@ rpc2="https://devnet.helius-rpc.com/?api-key=174a6ec2-4439-4fca-9277-b12900c71fa
 rpc3=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
 # rpc3=https://nd-471-475-490.p2pify.com/6de0b91c609fb3bd459e043801aa6aa4
 
-echo "reinstall $SOLANA_ROUTE_CANISTER_ID ..."
+echo "reinstall $SOLANA_ROUTE_CANISTER_ID with solana_route20241008 ..."
 dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Init = record { \
     admin = principal \"${ADMIN}\";\
     chain_id=\"${SOL_CHAIN_ID}\";\
@@ -83,7 +82,7 @@ dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument "(variant { Init = rec
     fee_account= opt \"${FEE_ACCOUNT}\";\
     } })" \
     --mode=reinstall -y \
-    --wasm=./assets/solana_route.wasm.gz \
+    --wasm=./assets/solana_route20241008.wasm.gz \
     --ic 
 
 dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
@@ -103,7 +102,6 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 KEYTYPE="variant { ChainKey }"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID signer "($KEYTYPE)"  --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${test_sig}\",opt \"${helius_d}\")" --ic
 # update schnorr info
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID update_schnorr_info '(principal "aaaaa-aa","key_1")' --ic
 
@@ -313,29 +311,29 @@ echo
 
 sleep 60
 
-echo "upgrade $HUB_CANISTER_ID ..."
-dfx canister install $HUB_CANISTER_ID --argument '(variant { Upgrade = null })' \
- --mode upgrade -y \
- --wasm=./assets/omnity_hub.wasm.gz \
- --ic
-dfx canister status $HUB_CANISTER_ID --ic
-dfx canister call $HUB_CANISTER_ID set_logger_filter '("debug")' --ic
-echo 
+# echo "upgrade $HUB_CANISTER_ID ..."
+# dfx canister install $HUB_CANISTER_ID --argument '(variant { Upgrade = null })' \
+#  --mode upgrade -y \
+#  --wasm=./assets/omnity_hub.wasm.gz \
+#  --ic
+# dfx canister status $HUB_CANISTER_ID --ic
+# dfx canister call $HUB_CANISTER_ID set_logger_filter '("debug")' --ic
+# echo 
 
-echo "upgrade $SOL_PROVIDER_CANISTER_ID ..."
-dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
-    rpc_url = opt \"${PROXY_URL}\"; 
-    schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
-    nodesInSubnet = opt 34; 
-    } )" \
-    --mode=upgrade -y \
-    --wasm=./assets/ic_solana_provider.wasm.gz \
-    --ic 
-dfx canister status $SOL_PROVIDER_CANISTER_ID --ic
-dfx canister call $SOL_PROVIDER_CANISTER_ID debug '(true)' --ic
-echo
+# echo "upgrade $SOL_PROVIDER_CANISTER_ID ..."
+# dfx canister install $SOL_PROVIDER_CANISTER_ID --argument "( record { 
+#     rpc_url = opt \"${PROXY_URL}\"; 
+#     schnorr_key_name= opt \"${SCHNORR_KEY_NAME}\"; 
+#     nodesInSubnet = opt 34; 
+#     } )" \
+#     --mode=upgrade -y \
+#     --wasm=./assets/ic_solana_provider.wasm.gz \
+#     --ic 
+# dfx canister status $SOL_PROVIDER_CANISTER_ID --ic
+# dfx canister call $SOL_PROVIDER_CANISTER_ID debug '(true)' --ic
+# echo
 
-echo "upgrade $SOLANA_ROUTE_CANISTER_ID ..."
+echo "upgrade $SOLANA_ROUTE_CANISTER_ID with latest version ..."
 dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument '(null)' \
     --mode=upgrade -y \
     --wasm=./assets/solana_route.wasm.gz \
@@ -356,3 +354,33 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --i
 
 echo "canister call $SOLANA_ROUTE_CANISTER_ID get_tickets_from_queue " 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_tickets_from_queue '()' --ic
+
+# get token mint
+echo "dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account " 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
+TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
+TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
+while [ -z "$TOKEN_MINT" ]; do
+  echo "token mint is empty, waiting..."
+  sleep 5  
+  TOKEN_MINT=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_address "(\"${TOKEN_ID}\")" --ic)
+  TOKEN_MINT=$(echo "$TOKEN_MINT" | awk -F'"' '{print $2}')
+done
+echo "token mint: $TOKEN_MINT"
+
+# get aossicated account based on owner and token mint
+echo "dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account " 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account "(\"${SOL_RECEIVER}\",
+        \"${TOKEN_MINT}\")" --ic  
+ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account_address "(\"${SOL_RECEIVER}\",
+        \"${TOKEN_MINT}\")" --ic)
+ATA=$(echo "$ATA" | awk -F'"' '{print $2}')
+while [ -z "$ATA" ]; do
+  echo "ATA is empty, waiting..."
+  sleep 5  
+  ATA=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID query_aossicated_account_address "(\"${SOL_RECEIVER}\",\"${TOKEN_MINT}\")" --ic)
+  ATA=$(echo "$ATA" | awk -F'"' '{print $2}')
+done
+echo "The dest address: $SOL_RECEIVER and the token address: $TOKEN_MINT aossicated account is: $ATA"
+
+
