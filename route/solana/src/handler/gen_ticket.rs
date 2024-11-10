@@ -233,7 +233,7 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
                         )?;
                         let fee_account = read_state(|s| s.fee_account.to_string());
                         let lamports = transfer.lamports as u128;
-                        if !(instruction.program_id.eq(&token_program_id().to_string())
+                        if !(instruction.program_id.eq(&system_program_id().to_string())
                             && transfer.source.eq(&req.sender)
                             && transfer.destination.eq(&fee_account)
                             && lamports == fee)
