@@ -13,8 +13,8 @@ use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
     TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::{call_rpc_with_retry, get_receipt};
-use crate::ic_log::{ERROR, INFO};
+use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt};
+use crate::ic_log::{INFO, WARNING};
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
 
@@ -42,12 +42,21 @@ pub fn scan_evm_task() {
 }
 
 pub async fn sync_mint_status(hash: String) {
-    let receipt = call_rpc_with_retry(&hash, get_receipt)
-        .await
-        .map_err(|e| {
-            log!(ERROR,"user query transaction receipt error: {:?}", e);
-            "rpc".to_string()
-        });
+    let min_resp_count = read_state(|s| s.minimum_response_count);
+    let receipt = if min_resp_count > 1 {
+        checked_get_receipt(&hash).await
+            .map_err(|e| {
+                log!(WARNING,"user query transaction receipt error: {:?}", e);
+                "rpc".to_string()
+            })
+    } else {
+        call_rpc_with_retry(&hash, get_receipt).await
+            .map_err(|e| {
+                log!(WARNING,"user query transaction receipt error: {:?}", e);
+                "rpc".to_string()
+            })
+    };
+
     log!(INFO, "{:?}",&receipt);
     if let Ok(Some(tr)) = receipt {
         if tr.status == 0 {
@@ -61,7 +70,7 @@ pub async fn sync_mint_status(hash: String) {
                 mutate_state(|s| s.handled_evm_event.insert(hash));
             }
             Err(e) => {
-                log!(ERROR, "[evm route] handle evm logs error: {}", e.to_string());
+                log!(WARNING, "[evm route] handle evm logs error: {}", e.to_string());
             }
         }
     }
@@ -133,7 +142,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
                             );
                         }
                         Err(err) => {
-                            log!(ERROR,
+                            log!(WARNING,
                                 "[process directives] failed to add token: token id: {}, err: {:?}",
                                 token.token_id,
                                 err
@@ -213,7 +222,7 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
     let receipt = call_rpc_with_retry(tx_hash, get_receipt)
         .await
         .map_err(|e| {
-            log!(ERROR, "user query transaction receipt error: {:?}", e);
+            log!(WARNING, "user query transaction receipt error: {:?}", e);
             "rpc".to_string()
         })?;
     match receipt {
