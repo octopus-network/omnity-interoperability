@@ -480,9 +480,8 @@ pub async fn checked_get_receipt(hash: &String) -> Result<Option<evm_rpc::candid
     let mut count = 0usize;
     for i in 0..r.len() - 1 {
         count = 0;
-        let j = i;
-        for x in j + 1..r.len() {
-            if r.get(x) == r.get(j) {
+        for x in i + 1..r.len() {
+            if r.get(x) == r.get(i) {
                 count += 1;
                 if count == check_amt {
                     return Ok(r.get(x).cloned());
