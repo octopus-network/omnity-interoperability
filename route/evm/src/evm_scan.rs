@@ -13,8 +13,8 @@ use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
     TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::{call_rpc_with_retry, get_receipt};
-use crate::ic_log::{WARNING, INFO};
+use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt};
+use crate::ic_log::{INFO, WARNING};
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
 
@@ -42,12 +42,21 @@ pub fn scan_evm_task() {
 }
 
 pub async fn sync_mint_status(hash: String) {
-    let receipt = call_rpc_with_retry(&hash, get_receipt)
-        .await
-        .map_err(|e| {
-            log!(WARNING,"user query transaction receipt error: {:?}", e);
-            "rpc".to_string()
-        });
+    let min_resp_count = read_state(|s| s.minimum_response_count);
+    let receipt = if min_resp_count > 1 {
+        checked_get_receipt(&hash).await
+            .map_err(|e| {
+                log!(WARNING,"user query transaction receipt error: {:?}", e);
+                "rpc".to_string()
+            })
+    } else {
+        call_rpc_with_retry(&hash, get_receipt).await
+            .map_err(|e| {
+                log!(WARNING,"user query transaction receipt error: {:?}", e);
+                "rpc".to_string()
+            })
+    };
+
     log!(INFO, "{:?}",&receipt);
     if let Ok(Some(tr)) = receipt {
         if tr.status == 0 {

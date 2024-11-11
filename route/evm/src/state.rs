@@ -72,6 +72,8 @@ impl EvmRouteState {
             block_interval_secs: args.block_interval_secs,
             pending_events_on_chain: Default::default(),
             evm_transfer_gas_percent: 110,
+            total_required_count: 0,
+            minimum_response_count: 0,
         };
         Ok(ret)
     }
@@ -176,7 +178,13 @@ pub struct EvmRouteState {
     pub block_interval_secs: u64,
     pub pending_events_on_chain: BTreeMap<String, u64>,
     pub evm_transfer_gas_percent: u64,
+    #[serde(default = "default_rpcs_count")]
+    pub total_required_count: usize,
+    #[serde(default = "default_rpcs_count")]
+    pub minimum_response_count: usize,
 }
+
+pub fn default_rpcs_count() -> usize { 1usize }
 
 impl From<&EvmRouteState> for StateProfile {
     fn from(v: &EvmRouteState) -> Self {
@@ -203,6 +211,8 @@ impl From<&EvmRouteState> for StateProfile {
             target_chain_factor: v.target_chain_factor.clone(),
             evm_tx_type: v.evm_tx_type,
             evm_gasfee_percent: v.evm_transfer_gas_percent,
+            total_required_count: v.total_required_count,
+            minimum_response_count: v.minimum_response_count,
         }
     }
 }
@@ -231,6 +241,8 @@ pub struct StateProfile {
     pub target_chain_factor: BTreeMap<ChainId, u128>,
     pub evm_tx_type: EvmTxType,
     pub evm_gasfee_percent: u64,
+    pub total_required_count: usize,
+    pub minimum_response_count: usize,
 }
 
 pub fn is_active() -> bool {

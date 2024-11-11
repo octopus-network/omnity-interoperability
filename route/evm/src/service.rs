@@ -217,6 +217,14 @@ fn update_rpcs(rpcs: Vec<RpcApi>) {
     mutate_state(|s| s.rpc_providers = rpcs);
 }
 
+#[update(guard = "is_admin")]
+fn update_rpc_check_rate(min_resp_count: usize, total_required_rpc_count: usize) {
+    mutate_state(|s| {
+        s.minimum_response_count = min_resp_count;
+        s.total_required_count = total_required_rpc_count;
+    });
+}
+
 fn is_admin() -> Result<(), String> {
     let c = ic_cdk::caller();
     match ic_cdk::api::is_controller(&c) || read_state(|s| s.admins.contains(&c)) {

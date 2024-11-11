@@ -90,6 +90,8 @@ impl From<(OldEvmRouteState, u64)> for EvmRouteState {
             block_interval_secs: old.block_interval_secs,
             pending_events_on_chain: Default::default(),
             evm_transfer_gas_percent: value.1,
+            total_required_count: 1,
+            minimum_response_count: 1,
         }
     }
 }
