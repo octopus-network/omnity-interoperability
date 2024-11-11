@@ -220,7 +220,7 @@ BURN_AMOUNT=11111111
 # SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
 # echo "burn signature: $SIGNAURE"
 
-SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+SOLANA_RPC_URL="devnet"
 KEYPAIR=$(bat -p ~/.config/solana/boern.json)
 echo "redeem tx vars:"
 echo "rpc_url: $SOLANA_RPC_URL"
@@ -384,48 +384,3 @@ dfx canister call solana_route stop_schedule '(null)'
 # echo "upgrade solana route ..."
 #dfx canister install --mode upgrade --argument '(variant { Upgrade = null })'  --upgrade-unchanged --yes solana_route
 
-
-# update muti rpc config
-# rpc1=https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
-# rpc2=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
-# rpc3=https://nd-471-475-490.p2pify.com/6de0b91c609fb3bd459e043801aa6aa4
-# rpc4=https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
-
-# dfx canister call solana_route update_multi_rpc "(record {
-#     rpc_list = vec {\"${rpc1}\";\"${rpc2}\";\"${rpc3}\"};\
-#     minimum_response_count = 2;
-# })"
-
-# dfx canister call solana_route multi_rpc_config '()'
-
-# valid_tx_from_multi_rpc
-# sig=4e1gA4YvTt95DYY5kdwSWpGr2oiMqRX2nk4XenF1aiJSz69cbLBMeTfV6HG4jG7jHtdcHwwjGCSw5zepgpC8n5g7
-# dfx canister call solana_route valid_tx_from_multi_rpc "(\"${sig}\")"
-
-# update provider rpc 
-# dfx canister call ic-solana-provider update_rpc "(\"${rpc1}\")"
-
-# query tx detail
-# dfx canister call solana_route get_transaction "(\"${sig}\",null)"
-# dfx canister call solana_route debug '(true)' --ic
-# target_sig=2u8tyX1Eyod9potrhqTWqin1fiTZGMrbFU6sHBu3hkys8h8eZM2Hrh83kWnSjL2qydf6ZjGdSoYH6s3PjqJsozqn
-# test_account=5nevxTLuX5TZsJg4Wf9ws6B1hecyFaHmjc5PNEJVrGiL
-# limit=6
-# dfx canister call solana_route search_signature_from_address "(\"$target_sig\",\"$test_account\",opt $limit,null)"
-# dfx canister call solana_route start_schedule '(opt vec {
-#         variant { GetDirectives };
-#         variant { GetTickets }
-#         })' 
-# dfx canister call solana_route stop_schedule '(opt vec {
-#         variant { GetDirectives };
-#         variant { GetTickets }
-#         })' 
-
-# dfx canister call solana_route start_schedule '(null)' 
-# dfx canister call solana_route stop_schedule '(opt vec {
-#         variant { CreateMint };
-#         variant { UpdateToken };
-#         variant { CreateATA };
-#         variant { MintToken };
-#         })' 
-# dfx canister call solana_route stop_schedule '(null)' 
