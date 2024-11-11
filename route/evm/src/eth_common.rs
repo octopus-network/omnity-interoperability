@@ -466,10 +466,11 @@ pub async fn checked_get_receipt(hash: &String) -> Result<Option<evm_rpc::candid
             get_receipt(&hash, rpc)
         );
     }
-    let mut r = futures::future::join_all(fut).await
-        .into_iter().filter(|s| s.is_ok())
+     let mut r = futures::future::join_all(fut).await
+        .into_iter().filter_map(|s| s.ok())
+        .filter(|s| s.is_some())
         .map(|s| s.unwrap())
-        .into_iter().filter(|s| s.is_some()).map(|s| s.unwrap()).collect::<Vec<evm_rpc::candid_types::TransactionReceipt>>();
+        .collect::<Vec<evm_rpc::candid_types::TransactionReceipt>>();
     if r.len() < check_amt {
         return Err(Error::Custom("checked length less than required".to_string()));
     }
