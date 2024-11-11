@@ -42,16 +42,6 @@ type InitArgs = record {
   schnorr_key_name : opt text;
   chain_state : ChainState;
 };
-type MintTokenRequest = record {
-  status : TxStatus;
-  signature : opt text;
-  associated_account : text;
-  retry_4_building : nat64;
-  ticket_id : text;
-  retry_4_status : nat64;
-  amount : nat64;
-  token_mint : text;
-};
 type Reason = variant {
   QueueIsFull;
   CanisterError : text;
@@ -62,16 +52,7 @@ type Reason = variant {
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_1 = variant { Ok : TxStatus; Err : CallError };
 type Result_2 = variant { Ok : opt text; Err : CallError };
-type Result_3 = variant { Ok : MintTokenRequest; Err : CallError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
-type SnorKeyType = variant { Native; ChainKey };
-type TokenInfo = record {
-  uri : text;
-  decimals : nat8;
-  token_id : text;
-  name : text;
-  symbol : text;
-};
 type TokenResp = record {
   decimals : nat8;
   token_id : text;
@@ -97,7 +78,6 @@ type UpgradeArgs = record {
   chain_state : opt ChainState;
 };
 service : (RouteArg) -> {
-  create_token_with_metaplex_delay : (TokenInfo, SnorKeyType, nat64) -> ();
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_fee_account : () -> (text) query;
@@ -106,5 +86,4 @@ service : (RouteArg) -> {
   mint_token_status : (text) -> (Result_1) query;
   mint_token_tx_hash : (text) -> (Result_2) query;
   query_mint_address : (text) -> (opt text) query;
-  update_mint_token_req : (MintTokenRequest) -> (Result_3);
 }

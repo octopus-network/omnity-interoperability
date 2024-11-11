@@ -122,6 +122,8 @@ dfx canister call solana_route update_key_type "($KEYTYPE)"
 dfx canister call solana_route query_key_type "($KEYTYPE)" 
 SIGNER=$(dfx canister call solana_route signer "($KEYTYPE)" --candid ./assets/solana_route.did)
 SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_balance "(\"${SIGNER}\")"
+
 echo "current SIGNER: $SIGNER"
 # transfer SOL to init signer
 AMOUNT=0.2

@@ -48,16 +48,6 @@ export interface InitArgs {
   'schnorr_key_name' : [] | [string],
   'chain_state' : ChainState,
 }
-export interface MintTokenRequest {
-  'status' : TxStatus,
-  'signature' : [] | [string],
-  'associated_account' : string,
-  'retry_4_building' : bigint,
-  'ticket_id' : string,
-  'retry_4_status' : bigint,
-  'amount' : bigint,
-  'token_mint' : string,
-}
 export type Reason = { 'QueueIsFull' : null } |
   { 'CanisterError' : string } |
   { 'OutOfCycles' : null } |
@@ -69,19 +59,8 @@ export type Result_1 = { 'Ok' : TxStatus } |
   { 'Err' : CallError };
 export type Result_2 = { 'Ok' : [] | [string] } |
   { 'Err' : CallError };
-export type Result_3 = { 'Ok' : MintTokenRequest } |
-  { 'Err' : CallError };
 export type RouteArg = { 'Upgrade' : [] | [UpgradeArgs] } |
   { 'Init' : InitArgs };
-export type SnorKeyType = { 'Native' : null } |
-  { 'ChainKey' : null };
-export interface TokenInfo {
-  'uri' : string,
-  'decimals' : number,
-  'token_id' : string,
-  'name' : string,
-  'symbol' : string,
-}
 export interface TokenResp {
   'decimals' : number,
   'token_id' : string,
@@ -112,10 +91,6 @@ export interface UpgradeArgs {
   'chain_state' : [] | [ChainState],
 }
 export interface _SERVICE {
-  'create_token_with_metaplex_delay' : ActorMethod<
-    [TokenInfo, SnorKeyType, bigint],
-    undefined
-  >,
   'generate_ticket' : ActorMethod<[GenerateTicketReq], Result>,
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
   'get_fee_account' : ActorMethod<[], string>,
@@ -124,7 +99,6 @@ export interface _SERVICE {
   'mint_token_status' : ActorMethod<[string], Result_1>,
   'mint_token_tx_hash' : ActorMethod<[string], Result_2>,
   'query_mint_address' : ActorMethod<[string], [] | [string]>,
-  'update_mint_token_req' : ActorMethod<[MintTokenRequest], Result_3>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

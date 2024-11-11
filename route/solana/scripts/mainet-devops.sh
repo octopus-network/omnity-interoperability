@@ -117,7 +117,9 @@ dfx canister status $SOLANA_ROUTE_CANISTER_ID --ic
 #     --ic 
 # check 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID debug '(true)' --ic
-dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic
+KEYTYPE="variant { ChainKey }"
+dfx canister call $SOLANA_ROUTE_CANISTER_ID signer "($KEYTYPE)"  --ic
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID forward '()' --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
@@ -199,7 +201,8 @@ AMOUNT=0.5
 echo "transfer SOL to $SIGNER from $MASTER_KEY"
 solana transfer $SIGNER $AMOUNT --with-memo init_account --allow-unfunded-recipient -u m
 echo "$SIGNER balance: $(solana balance $SIGNER -u m)"
-
+SIGNER_BALANCE=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID get_balance "(\"${SIGNER}\")" --ic)
+echo "$SIGNER balance: $SIGNER_BALANCE via get_balance"
 ###########################################################################
 ### solana route schedule
 ###########################################################################

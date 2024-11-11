@@ -25,17 +25,6 @@ export const idlFactory = ({ IDL }) => {
     'Upgrade' : IDL.Opt(UpgradeArgs),
     'Init' : InitArgs,
   });
-  const TokenInfo = IDL.Record({
-    'uri' : IDL.Text,
-    'decimals' : IDL.Nat8,
-    'token_id' : IDL.Text,
-    'name' : IDL.Text,
-    'symbol' : IDL.Text,
-  });
-  const SnorKeyType = IDL.Variant({
-    'Native' : IDL.Null,
-    'ChainKey' : IDL.Null,
-  });
   const TxAction = IDL.Variant({
     'Burn' : IDL.Null,
     'Redeem' : IDL.Null,
@@ -113,23 +102,7 @@ export const idlFactory = ({ IDL }) => {
   const CallError = IDL.Record({ 'method' : IDL.Text, 'reason' : Reason });
   const Result_1 = IDL.Variant({ 'Ok' : TxStatus, 'Err' : CallError });
   const Result_2 = IDL.Variant({ 'Ok' : IDL.Opt(IDL.Text), 'Err' : CallError });
-  const MintTokenRequest = IDL.Record({
-    'status' : TxStatus,
-    'signature' : IDL.Opt(IDL.Text),
-    'associated_account' : IDL.Text,
-    'retry_4_building' : IDL.Nat64,
-    'ticket_id' : IDL.Text,
-    'retry_4_status' : IDL.Nat64,
-    'amount' : IDL.Nat64,
-    'token_mint' : IDL.Text,
-  });
-  const Result_3 = IDL.Variant({ 'Ok' : MintTokenRequest, 'Err' : CallError });
   return IDL.Service({
-    'create_token_with_metaplex_delay' : IDL.Func(
-        [TokenInfo, SnorKeyType, IDL.Nat64],
-        [],
-        [],
-      ),
     'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_fee_account' : IDL.Func([], [IDL.Text], ['query']),
@@ -138,7 +111,6 @@ export const idlFactory = ({ IDL }) => {
     'mint_token_status' : IDL.Func([IDL.Text], [Result_1], ['query']),
     'mint_token_tx_hash' : IDL.Func([IDL.Text], [Result_2], ['query']),
     'query_mint_address' : IDL.Func([IDL.Text], [IDL.Opt(IDL.Text)], ['query']),
-    'update_mint_token_req' : IDL.Func([MintTokenRequest], [Result_3], []),
   });
 };
 export const init = ({ IDL }) => {

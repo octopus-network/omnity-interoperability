@@ -205,6 +205,7 @@ KEYTYPE="variant { ChainKey }"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID signer "($KEYTYPE)"  --ic
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()' --ic 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${test_sig}\",opt \"${helius_d}\")" --ic
+
 # update schnorr info
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID update_schnorr_info '(principal "aaaaa-aa","key_1")' --ic
 
@@ -371,7 +372,9 @@ KEYTYPE="variant { ChainKey }"
 SIGNER=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID signer "($KEYTYPE)"  --ic)
 SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
 echo "current SIGNER: $SIGNER"
-echo "$SIGNER balance: $(solana balance $SIGNER)"
+echo "$SIGNER balance: $(solana balance $SIGNER -u m)"
+SIGNER_BALANCE=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID get_balance "(\"${SIGNER}\")" --ic)
+echo "$SIGNER balance: $SIGNER_BALANCE via get_balance"
 
 # req airdrop
 # solana airdrop 2

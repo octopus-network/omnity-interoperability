@@ -276,6 +276,7 @@ fn get_token_list() -> Vec<TokenResp> {
     })
 }
 
+// devops method
 #[query(guard = "is_admin",hidden = true)]
 fn get_token(token_id:TokenId) -> Option<Token> {
     read_state(|s| {
@@ -420,6 +421,7 @@ pub async fn query_mint_account(token_id: TokenId) -> Option<AccountInfo> {
     read_state(|s| s.token_mint_accounts.get(&token_id))
 }
 
+// devops method
 #[query(hidden = true)]
 pub async fn failed_mint_accounts() -> Vec<(TokenId,AccountInfo)> {
     read_state(|s| {
@@ -432,6 +434,7 @@ pub async fn failed_mint_accounts() -> Vec<(TokenId,AccountInfo)> {
 
 }
 
+// devops method
 #[query(hidden = true)]
 pub async fn failed_ata() -> Vec<(AtaKey,AccountInfo)> {
     read_state(|s| {
@@ -692,6 +695,7 @@ pub async fn rebuild_mint_account(token_id:String,) -> Result<String, CallError>
    ret
 }
 
+// devops method
 #[update(guard = "is_admin",hidden = true)]
 pub async fn update_mint_account_status(sig: String, token_id: String) -> Result<AccountInfo, CallError>  {
     let mint_account = if let Some(mint_account) = read_state(|s| s.token_mint_accounts.get(&token_id)) {
@@ -1250,7 +1254,7 @@ pub async fn mint_token_req(ticket_id: String) -> Result<MintTokenRequest, CallE
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = false)]
+#[update(guard = "is_admin",hidden = true)]
 pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenRequest, CallError> {
     mutate_state(|s| {
         s.mint_token_requests
@@ -1723,7 +1727,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 }
 
 // devops method,just for test
-#[update(guard = "is_admin")]
+#[update(guard = "is_admin",hidden = true)]
 async fn create_token_with_metaplex_delay(token_info: TokenInfo, key_type:SnorKeyType,delay: u64)  {
     //mock delay
     use ic_solana::eddsa::hash_with_sha256;

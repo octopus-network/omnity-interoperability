@@ -32,5 +32,5 @@ pub const UPDATE_TOKEN_INTERVAL: Duration = Duration::from_secs(30);
 pub const QUERY_TICKET_INTERVAL: Duration = Duration::from_secs(15);
 pub const CREATE_ATA_INTERVAL: Duration = Duration::from_secs(30);
 pub const MINT_TOKEN_INTERVAL: Duration = Duration::from_secs(30);
-pub const RETRY_4_BUILDING: u64 = 2;
-pub const RETRY_4_STATUS: u64 = 2;
+pub const RETRY_4_BUILDING: u64 = 10;
+pub const RETRY_4_STATUS: u64 = 10;
