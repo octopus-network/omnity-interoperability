@@ -25,10 +25,7 @@ use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
     StateProfile,
 };
-use crate::types::{
-    Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
-    PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
-};
+use crate::types::{Chain, ChainId, Directive, Error, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
 
 #[init]
 fn init(args: InitArgs) {
@@ -219,6 +216,9 @@ fn update_rpcs(rpcs: Vec<RpcApi>) {
 
 #[update(guard = "is_admin")]
 fn update_rpc_check_rate(min_resp_count: usize, total_required_rpc_count: usize) {
+    assert!(min_resp_count > 0 && total_required_rpc_count >= min_resp_count, "params errorr");
+    let rpc_size = read_state(|s| s.rpc_providers.len());
+    assert!(rpc_size >= total_required_rpc_count, "rpc count is not enough");
     mutate_state(|s| {
         s.minimum_response_count = min_resp_count;
         s.total_required_count = total_required_rpc_count;

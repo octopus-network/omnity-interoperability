@@ -448,18 +448,9 @@ pub async fn get_transaction_receipt(
 }
 
 pub async fn checked_get_receipt(hash: &String) -> Result<Option<evm_rpc::candid_types::TransactionReceipt>, Error> {
-    let (mut check_amt, mut total_amt, rpcs) = read_state(|s| {
+    let (check_amt, total_amt, rpcs) = read_state(|s| {
         (s.minimum_response_count, s.total_required_count, s.rpc_providers.clone())
     });
-    let len = rpcs.len();
-    if len < total_amt && len >= check_amt {
-        total_amt = len;
-    }
-    if len < check_amt && len > 0 {
-        check_amt = len;
-        total_amt = len;
-    }
-
     let mut fut = Vec::with_capacity(total_amt);
     for rpc in rpcs {
         fut.push(
