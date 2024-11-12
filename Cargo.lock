@@ -1968,6 +1968,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic_proxy"
+version = "0.0.1"
+dependencies = [
+ "candid",
+ "candid_parser",
+ "ciborium",
+ "ic-btc-interface 0.2.2",
+ "ic-canister-log",
+ "ic-canisters-http-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-03-06_23-01%2Bp2p)",
+ "ic-cdk 0.12.2",
+ "ic-cdk-macros 0.8.4",
+ "ic-cdk-timers 0.6.0",
+ "ic-ledger-types",
+ "ic-stable-structures 0.6.5",
+ "icrc-ledger-client-cdk",
+ "icrc-ledger-types",
+ "itertools 0.13.0",
+ "log",
+ "omnity_types",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "sha2",
+ "subtle-encoding",
+ "thiserror",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
