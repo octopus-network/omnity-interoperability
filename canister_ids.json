@@ -17,6 +17,9 @@
   "cosmwasm_proxy": {
     "ic": "ncfbq-kyaaa-aaaar-qah3a-cai"
   },
+  "generic_proxy": {
+    "ic": "c2bzs-5iaaa-aaaar-qakta-cai"
+  },
   "icp_customs": {
     "ic": "nlgkm-4qaaa-aaaar-qah2q-cai"
   },

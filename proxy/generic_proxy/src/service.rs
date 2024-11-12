@@ -70,7 +70,6 @@ pub async fn update_settings(
     ckbtc_minter_principal: Option<Principal>,
     icp_customs_principal: Option<Principal>,
     token_id: Option<String>,
-    target_chain_id: Option<String>,
 ) {
     state::mutate_state(|state| {
         if let Some(ckbtc_ledger_principal) = ckbtc_ledger_principal {
@@ -84,9 +83,6 @@ pub async fn update_settings(
         }
         if let Some(token_id) = token_id {
             state.token_id = token_id;
-        }
-        if let Some(target_chain_id) = target_chain_id {
-            state.target_chain_id = target_chain_id;
         }
     });
 }

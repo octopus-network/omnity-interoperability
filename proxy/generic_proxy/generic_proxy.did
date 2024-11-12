@@ -11,7 +11,6 @@ type InitArgs = record {
   token_id : text;
   ckbtc_minter_principal : principal;
   icp_customs_principal : principal;
-  target_chain_id : text;
 };
 type MintedUtxo = record {
   minted_amount : nat64;
@@ -30,7 +29,6 @@ type State = record {
   is_timer_running : vec text;
   ckbtc_minter_principal : principal;
   icp_customs_principal : principal;
-  target_chain_id : text;
 };
 type TicketRecord = record { ticket_id : text; minted_utxos : vec MintedUtxo };
 type UpdateBalanceJob = record {
@@ -52,7 +50,6 @@ service : (InitArgs) -> {
       opt principal,
       opt principal,
       opt principal,
-      opt text,
       opt text,
     ) -> ();
 }

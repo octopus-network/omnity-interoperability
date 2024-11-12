@@ -95,10 +95,10 @@
       "package": "cosmwasm_proxy",
       "type": "rust"
     },
-    "allchain_proxy": {
+    "generic_proxy": {
       "gzip": true,
-      "candid": "proxy/allchain/allchain_proxy.did",
-      "package": "allchain_proxy",
+      "candid": "proxy/generic_proxy/generic_proxy.did",
+      "package": "generic_proxy",
       "type": "rust"
     },
     "hub_mock": {
