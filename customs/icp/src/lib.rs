@@ -1,6 +1,6 @@
 use candid::{Nat, Principal};
 use icrc_ledger_types::icrc1::account::Account;
-use omnity_types::{Directive, IcpChainKeyToken, Ticket};
+use omnity_types::{ic_log::WARNING, Directive, IcpChainKeyToken, Ticket};
 use state::{insert_counterparty, is_icp, mutate_state, read_state};
 use std::str::FromStr;
 use ic_canister_log::log;
@@ -35,7 +35,7 @@ pub fn parse_receiver(ticket: &Ticket) -> Option<Account> {
     match receiver_parse_result {
         Ok(receiver) => Some(receiver),
         Err(err) => {
-            log!(ERROR,
+            log!(INFO,
                 "[process tickets] failed to parse ticket receiver: {}, err: {}",
                 ticket.receiver,
                 err
