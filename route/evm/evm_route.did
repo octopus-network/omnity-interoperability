@@ -99,6 +99,8 @@ type StateProfile = record {
   next_ticket_seq : nat64;
   rpc_providers : vec RpcApi;
   chain_state : ChainState;
+  minimum_response_count : nat64;
+  total_required_count : nat64;
   fee_token_factor : opt nat;
 };
 type TargetChainFactor = record {
@@ -170,5 +172,6 @@ service : (InitArgs) -> {
   update_admins : (vec principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
   update_fee_token : (text) -> ();
+  update_rpc_check_rate : (nat64, nat64) -> ();
   update_rpcs : (vec RpcApi) -> ();
 }

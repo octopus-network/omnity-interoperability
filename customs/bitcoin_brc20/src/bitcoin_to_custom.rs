@@ -71,9 +71,10 @@ pub async fn check_transaction(
     log!(INFO, "brc20 info:{:?}", serde_json::to_string(&brc20));
     match brc20 {
         Brc20::TransferBrc201(t) => {
+
             if t.amt != req.amount
-                || t.tick != token.name
-                || t.refx.to_lowercase() != req.receiver.to_lowercase()
+                || !t.tick.eq_ignore_ascii_case(&token.name)
+                || !t.refx.eq_ignore_ascii_case(&req.receiver)
                 || t.chain != chain.chain_id
             {
                 Err(InvalidArgs(serde_json::to_string(&t).unwrap()))

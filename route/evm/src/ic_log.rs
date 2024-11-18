@@ -7,7 +7,6 @@ use time::OffsetDateTime;
 declare_log_buffer!(name = DEBUG, capacity = 1000);
 declare_log_buffer!(name = INFO, capacity = 1000);
 declare_log_buffer!(name = WARNING, capacity = 1000);
-declare_log_buffer!(name = ERROR, capacity = 1000);
 declare_log_buffer!(name = CRITICAL, capacity = 1000);
 
 #[derive(Clone, serde::Serialize, Deserialize, Debug,Copy)]
@@ -15,7 +14,6 @@ pub enum Priority {
     DEBUG,
     INFO,
     WARNING,
-    ERROR,
     CRITICAL,
 }
 
@@ -79,7 +77,7 @@ pub fn http_request(req: HttpRequest) -> HttpResponse {
         merge_log(&mut entries, &DEBUG, Priority::DEBUG);
         merge_log(&mut entries, &INFO, Priority::INFO);
         merge_log(&mut entries, &WARNING, Priority::WARNING);
-        merge_log(&mut entries, &ERROR, Priority::ERROR);
+       // merge_log(&mut entries, &WARNING, Priority::ERROR);
         merge_log(&mut entries, &CRITICAL, Priority::CRITICAL);
         entries
             .entries

@@ -51,25 +51,43 @@ pub async fn handle_redeem_ticket(ticket: &Ticket) -> Result<u64, String> {
             return Err("Unsupported action".to_string())
         },
         TxAction::Redeem => {
-            let receiver = parse_receiver(&ticket).ok_or("Failed to parse receiver")?;
-            let amount = ticket.amount.parse::<u128>().map_err(|e| e.to_string())?;
-            if is_icp(&ticket.token) {
-                unlock_icp(& MintTokenRequest{
-                    ticket_id: ticket.ticket_id.clone(),
-                    token_id: ticket.token.clone(),
-                    receiver,
-                    amount,
-                }).await.map_err(|e| format!("{:?}",e).to_string())?
+            if let Some(receiver) = parse_receiver(&ticket) {
+                let amount = ticket.amount.parse::<u128>().map_err(|e| e.to_string())?;
+                if is_icp(&ticket.token) {
+                    unlock_icp(& MintTokenRequest{
+                        ticket_id: ticket.ticket_id.clone(),
+                        token_id: ticket.token.clone(),
+                        receiver,
+                        amount,
+                    }).await.map_err(|e| format!("{:?}",e).to_string())?
+                } else {
+                    updates::mint_token(&mut MintTokenRequest {
+                        ticket_id: ticket.ticket_id.clone(),
+                        token_id: ticket.token.clone(),
+                        receiver,
+                        amount,
+                    }).await.map_err(|e| format!("{:?}", e).to_string())?
+                }
             } else {
-                updates::mint_token(&mut MintTokenRequest {
-                    ticket_id: ticket.ticket_id.clone(),
-                    token_id: ticket.token.clone(),
-                    receiver,
-                    amount,
-                }).await.map_err(|e| format!("{:?}", e).to_string())?
+                // regard ticket receiver as chain key assets source chain receiver
+                match ticket.token.as_str() {
+                    "sICP-icrc-ckBTC" => {
+                        retrieve_ckbtc(
+                            ticket.receiver.clone(), 
+                            Nat::from_str(ticket.amount.as_str()).unwrap(), ticket.ticket_id.clone()
+                        )
+                        .await
+                        .map_err(|e| format!("Failed to retrieve_ckbtc, error: {:?}", e).to_string())?
+                    }
+                    _ => {
+                        return Err("Unsupported token".to_string())
+                    }
+                } 
             }
         },
         TxAction::RedeemIcpChainKeyAssets(icp_chain_key_token) => {
+            // use receiver address and token id to judge if the chain key token should retrieve
+            // this branch will be deprecated in the future
             match icp_chain_key_token {
                 IcpChainKeyToken::CKBTC => {
                     retrieve_ckbtc(

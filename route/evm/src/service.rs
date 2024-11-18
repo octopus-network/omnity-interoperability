@@ -19,16 +19,13 @@ use crate::const_args::{
 use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
-use crate::ic_log::{CRITICAL, ERROR, INFO};
+use crate::ic_log::{CRITICAL, INFO, WARNING};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
     StateProfile,
 };
-use crate::types::{
-    Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
-    PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
-};
+use crate::types::{Chain, ChainId, Directive, Error, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
 
 #[init]
 fn init(args: InitArgs) {
@@ -217,6 +214,17 @@ fn update_rpcs(rpcs: Vec<RpcApi>) {
     mutate_state(|s| s.rpc_providers = rpcs);
 }
 
+#[update(guard = "is_admin")]
+fn update_rpc_check_rate(min_resp_count: usize, total_required_rpc_count: usize) {
+    assert!(min_resp_count > 0 && total_required_rpc_count >= min_resp_count, "params errorr");
+    let rpc_size = read_state(|s| s.rpc_providers.len());
+    assert!(rpc_size >= total_required_rpc_count, "rpc count is not enough");
+    mutate_state(|s| {
+        s.minimum_response_count = min_resp_count;
+        s.total_required_count = total_required_rpc_count;
+    });
+}
+
 fn is_admin() -> Result<(), String> {
     let c = ic_cdk::caller();
     match ic_cdk::api::is_controller(&c) || read_state(|s| s.admins.contains(&c)) {
@@ -296,7 +304,7 @@ pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
     match hub::query_tickets(hub_principal, start, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => return tickets,
         Err(err) => {
-            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
+            log!(WARNING, "[process tickets] failed to query tickets, err: {}", err);
             return vec![];
         }
     }

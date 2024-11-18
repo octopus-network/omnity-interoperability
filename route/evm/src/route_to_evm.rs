@@ -9,7 +9,7 @@ use crate::Error::Custom;
 use crate::eth_common::{
     broadcast, call_rpc_with_retry, get_account_nonce, get_gasprice, sign_transaction,
 };
-use crate::ic_log::{ERROR, INFO};
+use crate::ic_log::{WARNING, INFO};
 use crate::state::{minter_addr, mutate_state, read_state};
 use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq};
 
@@ -36,7 +36,7 @@ pub async fn send_directives_to_evm() {
                     return;
                 }
                 _ => {
-                    log!(ERROR, "[evm_route] send directive to evm error: {}", e.to_string());
+                    log!(WARNING, "[evm_route] send directive to evm error: {}", e.to_string());
                 }
             },
         }
@@ -70,7 +70,7 @@ pub async fn send_tickets_to_evm() {
                     return;
                 }
                 _ => {
-                    log!(ERROR, "[evm_route] send ticket to evm error: {}", e.to_string());
+                    log!(WARNING, "[evm_route] send ticket to evm error: {}", e.to_string());
                 }
             },
         }
