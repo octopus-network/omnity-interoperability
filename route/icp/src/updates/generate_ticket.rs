@@ -108,6 +108,9 @@ pub async fn generate_ticket(
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     let action = req.action.clone();
 
+    let subaccount = principal_to_subaccount(&caller);
+    let ic_balance = ic_balance_of(&subaccount).await?; 
+
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
         ticket_type: omnity_types::TicketType::Normal,
@@ -120,6 +123,7 @@ pub async fn generate_ticket(
         sender: Some(caller.to_string()),
         receiver: req.receiver.clone(),
         memo: None,
+        bridge_fee: Some(ic_balance.e8s() as u128),
     };
     match hub::send_ticket(hub_principal, ticket.clone()).await {
         Err(err) => {
@@ -221,7 +225,7 @@ pub async fn charge_icp_fee(
     })?;
 
     let subaccount = principal_to_subaccount(&from);
-    let ic_balance = ic_balance_of(&subaccount).await?;
+    let ic_balance = ic_balance_of(&subaccount).await?; 
 
     if ic_balance.e8s() < redeem_fee + ICP_TRANSFER_FEE {
         return Err(GenerateTicketError::InsufficientRedeemFee {

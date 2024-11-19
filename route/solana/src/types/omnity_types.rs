@@ -196,6 +196,7 @@ pub struct Ticket {
     pub sender: Option<Account>,
     pub receiver: Account,
     pub memo: Option<Vec<u8>>,
+    pub bridge_fee: Option<u128>,
 }
 
 impl Storable for Ticket {

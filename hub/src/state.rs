@@ -772,6 +772,7 @@ impl HubState {
                     sender: ticket.sender,
                     receiver: ticket.receiver,
                     memo: ticket.memo,
+                    bridge_fee: ticket.bridge_fee,
                 };
                 self.push_ticket(new_ticket)?;
                 self.last_resubmit_ticket_time = now;
