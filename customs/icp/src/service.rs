@@ -43,6 +43,11 @@ async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, Ge
     updates::generate_ticket(args).await
 }
 
+#[update(guard = "is_controller")]
+async fn refund_icp(principal: Principal)->Result<(ic_ledger_types::BlockIndex, u64), String> {
+    updates::generate_ticket::refund_icp_from_subaccount(principal).await
+}
+
 #[query]
 fn get_account_identifier(principal: Principal) -> AccountIdentifier {
     let subaccount = Subaccount::from(principal);
