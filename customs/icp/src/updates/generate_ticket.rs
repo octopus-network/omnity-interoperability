@@ -196,7 +196,7 @@ async fn burn_token_icrc2(
                 owner: route,
                 subaccount: None,
             },
-            amount: transfer_amount,
+            amount: transfer_amount.clone(),
             fee: None,
             memo: None,
             created_at_time: Some(ic_cdk::api::time()),
@@ -216,7 +216,7 @@ async fn burn_token_icrc2(
             .ok_or(
                 GenerateTicketError::CustomError("block index does not fit into u64".to_string())
             )?, 
-            amount
+            transfer_amount.0
             .to_u128()
             .ok_or(
                 GenerateTicketError::CustomError("amount does not fit into u64".to_string())
