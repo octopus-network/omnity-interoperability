@@ -483,6 +483,61 @@ pub async fn checked_get_receipt(hash: &String) -> Result<Option<evm_rpc::candid
     return Err(Error::Custom("have no enough check result".to_string()));
 }
 
+// pub async fn get_bridge_fee(hash: &String, api: RpcApi) -> Result<Option<evm_rpc::candid_types::Transaction>, Error> {
+//     let url = api.url.clone();
+//     const MAX_CYCLES: u128 = 1_100_000_000;
+//     let body = EvmJsonRpcRequest {
+//         method: "eth_getTransactionByHash".to_string(),
+//         params: vec![hash.clone()],
+//         id: 1,
+//         jsonrpc: "2.0".to_string(),
+//     };
+//     let body = serde_json::to_string(&body).unwrap();
+//     let request = CanisterHttpRequestArgument {
+//         url,
+//         method: HttpMethod::POST,
+//         body: Some(body.as_bytes().to_vec()),
+//         max_response_bytes: Some(5000),
+//         transform: Some(TransformContext {
+//             function: TransformFunc(candid::Func {
+//                 principal: ic_cdk::api::id(),
+//                 method: "transform".to_string(),
+//             }),
+//             context: vec![],
+//         }),
+//         headers: vec![
+//             HttpHeader {
+//                 name: "Content-Type".to_string(),
+//                 value: "application/json".to_string(),
+//             },
+//         ],
+//     };
+
+//     match http_request(request, MAX_CYCLES).await {
+//         Ok((response, )) => {
+//             log!(
+//                 INFO,
+//                 "eth_getTransactionByHash result: {}",
+//                 serde_json::to_string(&response).unwrap()
+//             );
+//             let status = response.status;
+//             if status == 200_u32 {
+//                 let body = String::from_utf8(response.body).map_err(|_| {
+//                     EvmRpcError("Transformed response is not UTF-8 encoded".to_string())
+//                 })?;
+//                 let tx: EvmRpcResponse<TransactionReceipt> =
+//                     serde_json::from_str(&body).map_err(|_| {
+//                         EvmRpcError("failed to decode transaction from json".to_string())
+//                     })?;
+//                 Ok(tx.result.map(|tr| tr.into()))
+//             } else {
+//                 Err(EvmRpcError("http response not 200".to_string()))
+//             }
+//         }
+//         Err((_, m)) => Err(EvmRpcError(m)),
+//     }
+// }
+
 
 pub async fn get_receipt(hash: &String, api: RpcApi) -> Result<Option<evm_rpc::candid_types::TransactionReceipt>, Error> {
 

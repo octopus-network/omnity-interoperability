@@ -238,7 +238,7 @@ pub struct Ticket {
 }
 
 impl Ticket {
-    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMintRequested) -> Self {
+    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMintRequested, fee_token: Option<String>, bridge_fee: Option<u128>) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -259,10 +259,12 @@ impl Ticket {
             sender: Some(format!("0x{}", hex::encode(runes_mint.sender.0.as_slice()))),
             receiver: format!("0x{}", hex::encode(runes_mint.receiver.0.as_slice())),
             memo: None,
+            fee_token,
+            bridge_fee,
         }
     }
 
-    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
+    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned, fee_token: Option<String>, bridge_fee: Option<u128>) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -291,12 +293,16 @@ impl Ticket {
             )),
             receiver: token_burned.receiver,
             memo: None,
+            fee_token,
+            bridge_fee,
         }
     }
 
     pub fn from_transport_event(
         log_entry: &LogEntry,
         token_transport_requested: TokenTransportRequested,
+        fee_token: Option<String>, 
+        bridge_fee: Option<u128>,
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let dst_chain = token_transport_requested.dst_chain_id;
@@ -315,6 +321,8 @@ impl Ticket {
             )),
             receiver: token_transport_requested.receiver,
             memo: Some(token_transport_requested.memo.into_bytes()),
+            fee_token,
+            bridge_fee,
         }
     }
 }
