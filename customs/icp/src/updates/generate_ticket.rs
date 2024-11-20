@@ -50,6 +50,34 @@ pub enum GenerateTicketError {
     CustomError(String),
 }
 
+pub async fn refund_icp_from_subaccount(
+    principal: Principal,
+)->Result<(BlockIndex, u64), String>{
+    let subaccount = IcSubaccount::from(principal); 
+    let ic_balance = ic_balance_of(&subaccount).await.map_err(
+        |err| format!("Failed to get ic balance: {:?}", err)
+    )?;
+    let transfer_args = ic_ledger_types::TransferArgs {
+        memo: ic_ledger_types::Memo(0),
+        amount: Tokens::from_e8s(ic_balance.e8s() - ICP_TRANSFER_FEE),
+        fee: Tokens::from_e8s(ICP_TRANSFER_FEE),
+        from_subaccount: Some(subaccount.clone()),
+        to: AccountIdentifier::new(&principal, &DEFAULT_SUBACCOUNT),
+        created_at_time: None,
+    };
+    let index = ic_ledger_types::transfer(MAINNET_LEDGER_CANISTER_ID, transfer_args)
+        .await
+        .map_err(
+            |(_, reason)| format!("Failed to transfer icp: {:?}", reason)
+        )?
+        .map_err(
+            |err| format!("Failed to transfer icp: {:?}", err)
+        )?;
+
+    log!(INFO, "Success to refund {} icp to {}", ic_balance, principal);
+    Ok((index, ic_balance.e8s()))
+}
+
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {

@@ -51,6 +51,7 @@ type MintTokenStatus = variant {
 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_1 = variant { Ok : nat64; Err : text };
+type Result_2 = variant { Ok : record { nat64; nat64 }; Err : text };
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -89,6 +90,7 @@ service : (InitArgs) -> {
   handle_ticket : (nat64) -> (Result_1);
   mint_token_status : (text) -> (MintTokenStatus) query;
   query_hub_tickets : (nat64, nat64) -> (vec record { nat64; Ticket });
+  refund_icp : (principal) -> (Result_2);
   set_ckbtc_token : (text) -> ();
   set_icp_token : (text) -> ();
 }
