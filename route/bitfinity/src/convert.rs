@@ -34,6 +34,8 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
         )),
         receiver: token_burned.receiver,
         memo: None,
+        fee_token: ,
+        bridge_fee: ,
     }
 }
 

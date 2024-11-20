@@ -123,6 +123,7 @@ pub async fn generate_ticket(
         sender: Some(caller.to_string()),
         receiver: req.receiver.clone(),
         memo: None,
+        fee_token: Some("ICP".to_string()),
         bridge_fee: Some(ic_balance.e8s() as u128),
     };
     match hub::send_ticket(hub_principal, ticket.clone()).await {

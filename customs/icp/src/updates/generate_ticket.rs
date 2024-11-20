@@ -93,6 +93,7 @@ pub async fn generate_ticket(
             sender: Some(ic_cdk::caller().to_text()),
             receiver: req.receiver.clone(),
             memo: None,
+            fee_token: Some("ICP".to_string()),
             bridge_fee: None,
         },
     )
