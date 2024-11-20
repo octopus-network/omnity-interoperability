@@ -131,7 +131,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             sender: None,
             receiver: args.receiver.clone(),
             memo: None,
-            fee_token: Some("BTC".to_string()),
+            fee_token: Some(read_state(|s| s.fee_token.clone())),
             bridge_fee: fee,
         },
     )

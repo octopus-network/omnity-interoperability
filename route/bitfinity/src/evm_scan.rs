@@ -210,19 +210,31 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
             log!(CRITICAL, "user query transaction receipt error: {:?}", e);
             "rpc".to_string()
         })?;
+        
+    let fee_token = Some(read_state(|s| s.fee_token_id.clone()));
+    let transaction = crate::eth_common::get_transaction_by_hash(tx_hash).await.map_err(|e| {
+        log!(CRITICAL, "user query transaction error: {:?}", e);
+        "rpc".to_string()
+    })?;
+
     match receipt {
         None => Err("not find".to_string()),
         Some(tr) => {
             let return_tr = tr.clone();
             assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");
-            let ticket = generate_ticket_by_logs(tr.logs);
+            let bridge_fee;
+            match transaction {
+                None => {bridge_fee = 0},
+                Some(tx) => {bridge_fee = tx.value.try_into()?},
+            }
+            let ticket = generate_ticket_by_logs(tr.logs, fee_token, Some(bridge_fee));
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))
         }
     }
 }
 
-pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Result<Ticket> {
+pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>, fee_token: Option<String>, bridge_fee: Option<u128>) -> anyhow::Result<Ticket> {
     for l in logs {
         if l.removed {
             return Err(anyhow!("log is removed"));
@@ -235,7 +247,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
-            return Ok(ticket_from_burn_event(&l, token_burned));
+            return Ok(ticket_from_burn_event(&l, token_burned, fee_token, bridge_fee));
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
@@ -247,7 +259,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
                 }
             });
             if dst_check_result {
-                return Ok(ticket_from_transport_event(&l, token_transport));
+                return Ok(ticket_from_transport_event(&l, token_transport, fee_token, bridge_fee));
             } else {
                 let tx_hash = l.transaction_hash.to_hex_str();
                 log!(INFO, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
@@ -255,7 +267,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| BitfinityRouteError::ParseEventError(e.to_string()))?;
-            return Ok(ticket_from_runes_mint_event(&l, runes_mint));
+            return Ok(ticket_from_runes_mint_event(&l, runes_mint, fee_token, bridge_fee));
         }
     }
     Err(anyhow!("not found ticket"))
