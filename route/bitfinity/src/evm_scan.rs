@@ -16,6 +16,7 @@ use crate::contract_types::{
 };
 use crate::convert::{ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event};
 use crate::state::{mutate_state, read_state};
+use crate::eth_common::hex_to_u64;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -61,7 +62,7 @@ pub fn scan_evm_task() {
 
                 let mut bridge_fee = 0;
                 if let Ok(Some(tx)) = transaction {
-                    bridge_fee = tx.value.try_into().unwrap_or_default()
+                    bridge_fee = hex_to_u64(&tx.value.to_string()) as u128
                 }
 
                 let res = handle_port_events(tr.logs.clone(), fee_token, Some(bridge_fee)).await;
@@ -241,8 +242,9 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
             let bridge_fee;
             match transaction {
                 None => {bridge_fee = 0},
-                Some(tx) => {bridge_fee = tx.value.try_into()?},
+                Some(tx) => {bridge_fee = hex_to_u64(&tx.value.to_string()) as u128},
             }
+            // TOCHANGE: bridge fee now is in Wei
             let ticket = generate_ticket_by_logs(tr.logs, fee_token, Some(bridge_fee));
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))
