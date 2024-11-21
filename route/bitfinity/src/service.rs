@@ -245,7 +245,7 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
         32
     );
     if read_state(|s| s.handled_evm_event.contains(&tx_hash)) {
-        return Err("duplicate request".to_string());
+        return Err("The ticket id already exists".to_string());
     }
     let (ticket, _transaction_receipt) = create_ticket_by_tx(&tx_hash).await?;
     let hub_principal = read_state(|s| s.hub_principal);
