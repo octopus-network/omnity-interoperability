@@ -140,7 +140,6 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         }
     }
 
-
     hub::pending_ticket(
         hub_principal,
         Ticket {
@@ -155,6 +154,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             sender: None,
             receiver: args.receiver.clone(),
             memo: None,
+            fee_token: Some("BTC".to_string()),
+            bridge_fee: fee,
         },
     )
     .await
