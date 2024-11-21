@@ -13,7 +13,7 @@ use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
     TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt, get_bridge_fee};
+use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt};
 use crate::ic_log::{INFO, WARNING};
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
@@ -226,27 +226,29 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
             "rpc".to_string()
         })?;
 
-    let fee_token = Some(read_state(|s| s.fee_token_id.clone()));
-    let bridge_fee = call_rpc_with_retry(tx_hash, get_bridge_fee)
-        .await
-        .map_err(|e| {
-            log!(WARNING, "user query transaction bridge fee error: {:?}", e);
-            "rpc".to_string()
-        })?;
+    // let fee_token = Some(read_state(|s| s.fee_token_id.clone()));
+    // // todo
+    // let bridge_fee = call_rpc_with_retry(tx_hash, get_bridge_fee)
+    //     .await
+    //     .map_err(|e| {
+    //         log!(WARNING, "user query transaction bridge fee error: {:?}", e);
+    //         "rpc".to_string()
+    //     })?;
 
     match receipt {
         None => Err("not find".to_string()),
         Some(tr) => {
             let return_tr = tr.clone();
             assert_eq!(tr.status, 1, "transaction failed");
-            let ticket = generate_ticket_by_logs(tr.logs, fee_token, Some(bridge_fee));
+            // fee_token, Some(bridge_fee
+            let ticket = generate_ticket_by_logs(tr.logs);
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))
         }
     }
 }
-
-pub fn generate_ticket_by_logs(logs: Vec<LogEntry>, fee_token: Option<String>, bridge_fee: Option<u128>) -> anyhow::Result<Ticket> {
+//fee_token: Option<String>, bridge_fee: Option<u128>
+pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
     for l in logs {
         if l.removed {
             return Err(anyhow!("log is removed"));
@@ -259,7 +261,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>, fee_token: Option<String>, b
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-            return Ok(Ticket::from_burn_event(&l, token_burned, fee_token, bridge_fee));
+            return Ok(Ticket::from_burn_event(&l, token_burned));
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -271,7 +273,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>, fee_token: Option<String>, b
                 }
             });
             if dst_check_result {
-                return Ok(Ticket::from_transport_event(&l, token_transport, fee_token, bridge_fee));
+                return Ok(Ticket::from_transport_event(&l, token_transport));
             } else {
                 let tx_hash = l.transaction_hash.unwrap_or(Hash([0u8; 32])).to_string();
                 log!(INFO, "[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
@@ -279,7 +281,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>, fee_token: Option<String>, b
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
-            return Ok(Ticket::from_runes_mint_event(&l, runes_mint, fee_token, bridge_fee));
+            return Ok(Ticket::from_runes_mint_event(&l, runes_mint));
         }
     }
     Err(anyhow!("not found ticket"))

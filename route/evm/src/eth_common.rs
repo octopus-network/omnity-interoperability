@@ -28,6 +28,29 @@ use crate::eth_common::EvmAddressError::LengthError;
 use crate::ic_log::{CRITICAL, INFO, WARNING};
 use crate::state::{evm_transfer_gas_factor, read_state, rpc_providers};
 
+// #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+// pub struct EvmTransaction {
+//     #[serde(rename = "blockHash")]
+//     pub block_hash: String,
+//     #[serde(rename = "blockNumber")]
+//     pub block_number: String,
+//     pub from: String,
+//     pub gas: String,
+//     #[serde(rename = "gasPrice")]
+//     pub gas_price: String,
+//     pub hash: String,
+//     pub input: String,
+//     pub nonce: String,
+//     #[serde(rename = "transactionIndex")]
+//     pub transaction_index: String,
+//     pub value: String,
+//     pub r#type: String,
+//     #[serde(rename = "chainId")]
+//     pub chain_id: String,
+//     pub v: String,
+//     pub r: String,
+//     pub s: String,
+// }
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct TransactionReceipt {
     #[serde(rename = "blockHash")]
@@ -483,7 +506,9 @@ pub async fn checked_get_receipt(hash: &String) -> Result<Option<evm_rpc::candid
     return Err(Error::Custom("have no enough check result".to_string()));
 }
 
-// pub async fn get_bridge_fee(hash: &String, api: RpcApi) -> Result<Option<evm_rpc::candid_types::Transaction>, Error> {
+// pub async fn get_bridge_fee(hash: &String, api: RpcApi) -> Result<Option<EvmTransaction>, Error> {
+//     //curl -X POST -H "Content-Type: application/json"  --data '{"method":"eth_getTransactionByHash","params":["0x223e38986404c1945277f4b804ef99cd8f765313a70832c1350040773c16947d"],"id":1,"jsonrpc":"2.0"}' https://rpc.ankr.com/bitlayer
+
 //     let url = api.url.clone();
 //     const MAX_CYCLES: u128 = 1_100_000_000;
 //     let body = EvmJsonRpcRequest {
@@ -525,7 +550,7 @@ pub async fn checked_get_receipt(hash: &String) -> Result<Option<evm_rpc::candid
 //                 let body = String::from_utf8(response.body).map_err(|_| {
 //                     EvmRpcError("Transformed response is not UTF-8 encoded".to_string())
 //                 })?;
-//                 let tx: EvmRpcResponse<TransactionReceipt> =
+//                 let tx: EvmRpcResponse<EvmTransaction> =
 //                     serde_json::from_str(&body).map_err(|_| {
 //                         EvmRpcError("failed to decode transaction from json".to_string())
 //                     })?;
