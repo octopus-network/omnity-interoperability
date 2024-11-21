@@ -233,6 +233,8 @@ pub struct Ticket {
     pub sender: Option<Account>,
     pub receiver: Account,
     pub memo: Option<Vec<u8>>,
+    pub fee_token: Option<String>,
+    pub bridge_fee: Option<u128>,
 }
 
 impl Ticket {
@@ -257,6 +259,8 @@ impl Ticket {
             sender: Some(format!("0x{}", hex::encode(runes_mint.sender.0.as_slice()))),
             receiver: format!("0x{}", hex::encode(runes_mint.receiver.0.as_slice())),
             memo: None,
+            fee_token: None,
+            bridge_fee: None
         }
     }
 
@@ -289,6 +293,8 @@ impl Ticket {
             )),
             receiver: token_burned.receiver,
             memo: None,
+            fee_token: None,
+            bridge_fee: None
         }
     }
 
@@ -313,6 +319,8 @@ impl Ticket {
             )),
             receiver: token_transport_requested.receiver,
             memo: Some(token_transport_requested.memo.into_bytes()),
+            fee_token: None,
+            bridge_fee: None
         }
     }
 }
