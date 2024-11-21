@@ -1,6 +1,5 @@
 use anyhow::anyhow;
-use did::{TransactionReceipt};
-use did::transaction::TransactionReceiptLog;
+use did::{TransactionReceipt, transaction::TransactionReceiptLog};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
@@ -10,7 +9,7 @@ use omnity_types::{ChainState, Directive, Ticket};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 
 use crate::*;
-use crate::const_args::{SCAN_EVM_TASK_NAME};
+use crate::const_args::SCAN_EVM_TASK_NAME;
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded,
     TokenBurned, TokenMinted, TokenTransportRequested,
@@ -42,6 +41,13 @@ pub fn scan_evm_task() {
                     log!(ERROR, "user query transaction receipt error: {:?}", e);
                     "rpc".to_string()
                 });
+
+            let fee_token = Some(read_state(|s| s.fee_token_id.clone()));
+            let transaction = crate::eth_common::get_transaction_by_hash(&hash).await.map_err(|e| {
+                log!(ERROR, "user query transaction error: {:?}", e);
+                "rpc".to_string()
+            });
+            
             if let Ok(Some(tr)) = receipt {
                 match tr.status {
                     None => { continue }
@@ -52,7 +58,13 @@ pub fn scan_evm_task() {
                         }
                     }
                 }
-                let res = handle_port_events(tr.logs.clone()).await;
+
+                let mut bridge_fee = 0;
+                if let Ok(Some(tx)) = transaction {
+                    bridge_fee = tx.value.try_into().unwrap_or_default()
+                }
+
+                let res = handle_port_events(tr.logs.clone(), fee_token, Some(bridge_fee)).await;
                 match res {
                     Ok(_) => {
                         mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -67,7 +79,7 @@ pub fn scan_evm_task() {
     });
 }
 
-pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Result<()> {
+pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>, fee_token: Option<String>, bridge_fee: Option<u128>) -> anyhow::Result<()> {
     for l in logs {
         if l.removed {
             return Err(anyhow!("log is removed"));
@@ -85,7 +97,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
-            handle_token_burn(&l, token_burned.clone()).await?;
+            handle_token_burn(&l, token_burned.clone(), fee_token.clone(), bridge_fee).await?;
         } else if topic1 == TokenMinted::signature_hash() {
             let token_mint = TokenMinted::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
@@ -105,7 +117,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
                 }
             });
             if dst_check_result {
-                handle_token_transport(&l, token_transport).await?;
+                handle_token_transport(&l, token_transport, fee_token.clone(), bridge_fee).await?;
             } else {
                 log!(INFO, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,&tx_hash);
             }
@@ -157,7 +169,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| BitfinityRouteError::ParseEventError(e.to_string()))?;
-            handle_runes_mint(&l, runes_mint).await?;
+            handle_runes_mint(&l, runes_mint, fee_token.clone(), bridge_fee).await?;
         }
     }
     Ok(())
@@ -166,8 +178,10 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
 pub async fn handle_runes_mint(
     log_entry: &TransactionReceiptLog,
     event: RunesMintRequested,
+    fee_token: Option<String>, 
+    bridge_fee: Option<u128>,
 ) -> anyhow::Result<()> {
-    let ticket = ticket_from_runes_mint_event(log_entry, event);
+    let ticket = ticket_from_runes_mint_event(log_entry, event, fee_token, bridge_fee);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -178,8 +192,8 @@ pub async fn handle_runes_mint(
     Ok(())
 }
 
-pub async fn handle_token_burn(log_entry: &TransactionReceiptLog, event: TokenBurned) -> anyhow::Result<()> {
-    let ticket = ticket_from_burn_event(log_entry, event);
+pub async fn handle_token_burn(log_entry: &TransactionReceiptLog, event: TokenBurned, fee_token: Option<String>, bridge_fee: Option<u128>) -> anyhow::Result<()> {
+    let ticket = ticket_from_burn_event(log_entry, event, fee_token, bridge_fee);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -190,8 +204,10 @@ pub async fn handle_token_burn(log_entry: &TransactionReceiptLog, event: TokenBu
 pub async fn handle_token_transport(
     log_entry: &TransactionReceiptLog,
     event: TokenTransportRequested,
+    fee_token: Option<String>, 
+    bridge_fee: Option<u128>,
 ) -> anyhow::Result<()> {
-    let ticket = ticket_from_transport_event(log_entry, event);
+    let ticket = ticket_from_transport_event(log_entry, event, fee_token, bridge_fee);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
