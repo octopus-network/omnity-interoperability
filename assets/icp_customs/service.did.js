@@ -6,6 +6,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const GenerateTicketReq = IDL.Record({
     'token_id' : IDL.Text,
+    'sender' : IDL.Opt(IDL.Principal),
     'from_subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
     'target_chain_id' : IDL.Text,
     'amount' : IDL.Nat,
@@ -23,6 +24,7 @@ export const idlFactory = ({ IDL }) => {
     'TransferIcpFailure' : IDL.Text,
     'UnsupportedChainId' : IDL.Text,
     'UnsupportedToken' : IDL.Text,
+    'CustomError' : IDL.Text,
     'InsufficientFunds' : IDL.Record({ 'balance' : IDL.Nat64 }),
   });
   const Result = IDL.Variant({
@@ -51,6 +53,7 @@ export const idlFactory = ({ IDL }) => {
     'hub_principal' : IDL.Principal,
     'is_timer_running' : IDL.Bool,
     'next_directive_seq' : IDL.Nat64,
+    'ckbtc_minter_principal' : IDL.Opt(IDL.Principal),
     'icp_token_id' : IDL.Opt(IDL.Text),
     'chain_id' : IDL.Text,
     'next_ticket_seq' : IDL.Nat64,
@@ -64,14 +67,17 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'symbol' : IDL.Text,
   });
+  const Result_1 = IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text });
   const MintTokenStatus = IDL.Variant({
     'Finalized' : IDL.Record({ 'tx_hash' : IDL.Text }),
     'Unknown' : IDL.Null,
   });
+  const IcpChainKeyToken = IDL.Variant({ 'CKBTC' : IDL.Null });
   const TxAction = IDL.Variant({
     'Burn' : IDL.Null,
     'Redeem' : IDL.Null,
     'Mint' : IDL.Null,
+    'RedeemIcpChainKeyAssets' : IcpChainKeyToken,
     'Transfer' : IDL.Null,
   });
   const TicketType = IDL.Variant({
@@ -91,6 +97,10 @@ export const idlFactory = ({ IDL }) => {
     'amount' : IDL.Text,
     'receiver' : IDL.Text,
   });
+  const Result_2 = IDL.Variant({
+    'Ok' : IDL.Tuple(IDL.Nat64, IDL.Nat64),
+    'Err' : IDL.Text,
+  });
   return IDL.Service({
     'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
     'get_account_identifier' : IDL.Func(
@@ -98,16 +108,22 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Nat8)],
         ['query'],
       ),
+    'get_account_identifier_text' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Text],
+        ['query'],
+      ),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_state' : IDL.Func([], [CustomsState], ['query']),
     'get_token_list' : IDL.Func([], [IDL.Vec(Token)], ['query']),
-    'handle_ticket' : IDL.Func([IDL.Nat64], [], []),
+    'handle_ticket' : IDL.Func([IDL.Nat64], [Result_1], []),
     'mint_token_status' : IDL.Func([IDL.Text], [MintTokenStatus], ['query']),
     'query_hub_tickets' : IDL.Func(
         [IDL.Nat64, IDL.Nat64],
         [IDL.Vec(IDL.Tuple(IDL.Nat64, Ticket))],
         [],
       ),
+    'refund_icp' : IDL.Func([IDL.Principal], [Result_2], []),
     'set_ckbtc_token' : IDL.Func([IDL.Text], [], []),
     'set_icp_token' : IDL.Func([IDL.Text], [], []),
   });

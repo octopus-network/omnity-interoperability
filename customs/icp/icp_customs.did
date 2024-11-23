@@ -34,6 +34,7 @@ type GenerateTicketError = variant {
 type GenerateTicketOk = record { ticket_id : text };
 type GenerateTicketReq = record {
   token_id : text;
+  sender : opt principal;
   from_subaccount : opt blob;
   target_chain_id : text;
   amount : nat;
@@ -84,6 +85,7 @@ type TxAction = variant {
 service : (InitArgs) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_account_identifier : (principal) -> (blob) query;
+  get_account_identifier_text : (principal) -> (text) query;
   get_chain_list : () -> (vec Chain) query;
   get_state : () -> (CustomsState) query;
   get_token_list : () -> (vec Token) query;
