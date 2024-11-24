@@ -42,12 +42,12 @@ fn check_anonymous_caller() {
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
 
-    match updates::generate_ticket(args).await {
+    match updates::generate_ticket(args.clone()).await {
     Ok(r) => {
         Ok(r)
     },
     Err(e) => {
-        log!(omnity_types::ic_log::ERROR, "Failed to generate_ticket: {:?}", e);
+        log!(omnity_types::ic_log::ERROR, "Failed to generate_ticket: {:?}, args: {:?}, caller: {:?}", e, args, ic_cdk::caller());
         Err(e)
     },
     }
