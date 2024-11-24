@@ -21,7 +21,6 @@ pub struct GenerateTicketReq {
     pub amount: u128,
     // The subaccount to burn token from.
     pub from_subaccount: Option<Subaccount>,
-    pub sender: Option<Principal>,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -89,16 +88,11 @@ pub async fn generate_ticket(
         ));
     }
 
-    let sender = req.sender.unwrap_or(ic_cdk::caller());
     let (ticket_id, ticket_amount) = if is_icp(&req.token_id) {
-        let (block_index, ticket_amount ) = lock_icp(sender, convert_u128_u64(req.amount)).await?;
+        let (block_index, ticket_amount ) = lock_icp(ic_cdk::caller(), convert_u128_u64(req.amount)).await?;
         let ticket_id = format!("{}_{}", MAINNET_LEDGER_CANISTER_ID.to_string(), block_index.to_string());
         (ticket_id, ticket_amount as u128)
     } else {
-        // The icrc token should only generate ticket by the token owner.
-        if sender.ne(&ic_cdk::caller()) {
-            return Err(GenerateTicketError::CustomError("Only the token owner can generate ticket".to_string()));
-        }
         let ledger_id = get_token_principal(&req.token_id).ok_or(GenerateTicketError::UnsupportedToken(req.token_id.clone()))?;
 
         let user = Account {
@@ -124,7 +118,7 @@ pub async fn generate_ticket(
             action: TxAction::Transfer,
             token: req.token_id.clone(),
             amount: ticket_amount.to_string(),
-            sender: Some(sender.to_text()),
+            sender: Some(ic_cdk::caller().to_text()),
             receiver: req.receiver.clone(),
             memo: None,
         },
