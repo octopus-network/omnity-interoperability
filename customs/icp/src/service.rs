@@ -11,7 +11,6 @@ use ic_cdk_timers::set_timer_interval;
 use ic_ledger_types::{AccountIdentifier, Subaccount};
 use omnity_types::MintTokenStatus::{Finalized, Unknown};
 use omnity_types::{Chain, MintTokenStatus, Seq, Ticket, TicketId, Token};
-use ic_canister_log::log;
 
 pub fn is_controller() -> Result<(), String> {
     if ic_cdk::api::is_controller(&ic_cdk::caller()) {
@@ -41,16 +40,7 @@ fn check_anonymous_caller() {
 #[update]
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
-
-    match updates::generate_ticket(args.clone()).await {
-    Ok(r) => {
-        Ok(r)
-    },
-    Err(e) => {
-        log!(omnity_types::ic_log::ERROR, "Failed to generate_ticket: {:?}, args: {:?}, caller: {:?}", e, args, ic_cdk::caller());
-        Err(e)
-    },
-    }
+    updates::generate_ticket(args).await
 }
 
 #[update(guard = "is_controller")]
@@ -62,12 +52,6 @@ async fn refund_icp(principal: Principal)->Result<(ic_ledger_types::BlockIndex, 
 fn get_account_identifier(principal: Principal) -> AccountIdentifier {
     let subaccount = Subaccount::from(principal);
     AccountIdentifier::new(&ic_cdk::api::id(), &subaccount)
-}
-
-#[query]
-fn get_account_identifier_text(principal: Principal) -> String {
-    let subaccount = Subaccount::from(principal);
-    AccountIdentifier::new(&ic_cdk::api::id(), &subaccount).to_hex()
 }
 
 #[query]
