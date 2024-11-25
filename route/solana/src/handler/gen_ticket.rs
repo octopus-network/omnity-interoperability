@@ -132,6 +132,8 @@ pub async fn generate_ticket(
         sender: Some(req.sender.to_owned()),
         receiver: req.receiver.to_string(),
         memo: req.memo.to_owned().map(|m| m.to_bytes().to_vec()),
+        fee_token: Some("SOL".to_string()),
+        bridge_fee: read_state(|s| s.get_fee(req.target_chain_id.clone())), // TOCHANGE
     };
 
     match send_ticket(hub_principal, ticket.to_owned()).await {
