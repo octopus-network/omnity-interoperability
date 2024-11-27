@@ -21,6 +21,28 @@ pub struct GenerateTicketReq {
     pub amount: u128,
     // The subaccount to burn token from.
     pub from_subaccount: Option<Subaccount>,
+    pub etching_req: Option<EtchingReq>,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct EtchingReq {
+    pub divisibility: Option<u8>,
+    pub premine: Option<u128>,
+    pub rune: Option<Rune>,
+    pub spacers: Option<u32>,
+    pub symbol: Option<String>,
+    pub terms: Option<Terms>,
+    pub turbo: bool,
+}
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct Rune(pub u128);
+
+#[derive(CandidType, Default, Serialize, Deserialize, Debug, PartialEq, Copy, Clone, Eq)]
+pub struct Terms {
+  pub amount: Option<u128>,
+  pub cap: Option<u128>,
+  pub height: (Option<u64>, Option<u64>),
+  pub offset: (Option<u64>, Option<u64>),
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -87,6 +109,11 @@ pub async fn generate_ticket(
             req.target_chain_id.clone(),
         ));
     }
+
+    //todo:加个验证，TxAction::Etching情况下，etching_req必需有/amount = premine+ cap*amount/如果premine是none，receiver是无效
+    //divisibility控制在U8/premine是不加精度/height和offset要加不低于当前高度验证
+    // rune/spacers/symbol/turbo需搞清是什么再加验证
+    //pointer应该不需要被考虑进去
 
     let (ticket_id, ticket_amount) = if is_icp(&req.token_id) {
         let (block_index, ticket_amount ) = lock_icp(ic_cdk::caller(), convert_u128_u64(req.amount)).await?;

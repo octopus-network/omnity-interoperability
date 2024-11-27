@@ -676,7 +676,7 @@ impl HubState {
                     )?;
                 }
             }
-            TxAction::Mint => {}
+            TxAction::Mint | TxAction::Etching => {}
         }
 
         Ok(())

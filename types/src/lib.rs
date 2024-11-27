@@ -336,6 +336,7 @@ pub enum TxAction {
     Redeem,
     Burn,
     Mint,
+    Etching,
     #[deprecated]
     RedeemIcpChainKeyAssets(IcpChainKeyToken)
 }

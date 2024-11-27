@@ -74,7 +74,7 @@ pub async fn generate_rune_tx_request(args: RuneTxArgs) -> Result<(), GenRuneTxR
     let parsed_address = match args.action {
         TxAction::Redeem => BitcoinAddress::parse(&args.receiver, btc_network)?,
         TxAction::Burn => BitcoinAddress::OpReturn(vec![]),
-        TxAction::Mint => destination_to_bitcoin_address(
+        TxAction::Mint | TxAction::Etching => destination_to_bitcoin_address(
             &init_ecdsa_public_key().await,
             &Destination {
                 target_chain_id: args.src_chain,

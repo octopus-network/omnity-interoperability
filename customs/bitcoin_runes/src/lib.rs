@@ -937,16 +937,19 @@ async fn update_tx_hash_to_hub(tx: &SubmittedBtcTransactionV2) {
     }
 }
 
+// todo
 fn new_build_tx_req(requests: Vec<RuneTxRequest>) -> BuildTxReq {
-    if requests[0].action == TxAction::Mint {
-        BuildTxReq::MintTxReq(requests[0].address.clone())
-    } else {
-        let outputs: Vec<_> = requests
+    match requests[0].action {
+        TxAction::Mint => {BuildTxReq::MintTxReq(requests[0].address.clone())}
+        TxAction::Etching => {BuildTxReq::EtchTxReq(requests[0].address.clone())}
+        _ => {
+            let outputs: Vec<_> = requests
             .iter()
             .map(|req| (req.address.clone(), req.amount))
             .collect();
 
-        BuildTxReq::EdictTxReq(outputs)
+            BuildTxReq::EdictTxReq(outputs)
+        }
     }
 }
 
@@ -1139,6 +1142,7 @@ pub enum BuildTxError {
 pub enum BuildTxReq {
     EdictTxReq(Vec<(BitcoinAddress, u128)>),
     MintTxReq(BitcoinAddress),
+    EtchTxReq(BitcoinAddress),
 }
 
 /// Builds a transaction that transfer runes token to the specified destination accounts
@@ -1269,6 +1273,8 @@ pub fn build_unsigned_transaction(
             };
             (stone, rune_change_output, receiver, vec![], vec![])
         }
+        // todo
+        BuildTxReq::EtchTxReq(receiver) => {}
     };
 
     // This guard returns the selected UTXOs back to the available_utxos set if

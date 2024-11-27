@@ -47,7 +47,7 @@ pub fn parse_receiver(ticket: &Ticket) -> Option<Account> {
 
 pub async fn handle_redeem_ticket(ticket: &Ticket) -> Result<u64, String> {
     let block_index = match ticket.action {
-        TxAction::Transfer | TxAction::Burn | TxAction::Mint => {
+        TxAction::Transfer | TxAction::Burn | TxAction::Mint | TxAction::Etching => {
             return Err("Unsupported action".to_string())
         },
         TxAction::Redeem => {
