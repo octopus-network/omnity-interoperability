@@ -90,7 +90,7 @@ pub async fn generate_ticket(
     };
 
     let ticket_id = match req.action {
-        TxAction::Mint => {
+        TxAction::Mint | TxAction::Etching => {
             let ledger_id = ic_cdk::id().to_string();
             let ticket_id = Sha256::hash(format!("MINT_{}_{}", ledger_id, ic_cdk::api::time()).as_bytes());
         

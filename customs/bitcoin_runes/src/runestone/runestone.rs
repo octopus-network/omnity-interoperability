@@ -1,4 +1,4 @@
-use crate::runestone::tag::Tag;
+use crate::runestone::{tag::Tag, flag::Flag};
 
 use super::varint;
 use bitcoin::blockdata::{constants, opcodes, script};
@@ -14,17 +14,69 @@ pub struct Edict {
     pub output: u32,
 }
 
+#[derive(Default, Serialize, Debug, PartialEq, Clone)]
+pub struct Etching {
+    pub divisibility: Option<u8>,
+    pub premine: Option<u128>,
+    pub rune: Option<Rune>,
+    pub spacers: Option<u32>,
+    pub symbol: Option<char>,
+    pub terms: Option<Terms>,
+    pub turbo: bool,
+}
+#[derive(Default, Serialize, Debug, PartialEq, Copy, Clone)]
+pub struct Rune(pub u128);
+
+#[derive(Default, Serialize, Debug, PartialEq, Copy, Clone)]
+pub struct Terms {
+  pub amount: Option<u128>,
+  pub cap: Option<u128>,
+  pub height: (Option<u64>, Option<u64>),
+  pub offset: (Option<u64>, Option<u64>),
+}
+
 #[derive(Default)]
 pub struct Runestone {
     pub edicts: Vec<Edict>,
     pub mint: Option<RuneId>,
+    pub etching: Option<Etching>,
 }
 
 impl Runestone {
     pub fn encipher(&self) -> Vec<u8> {
-        assert!(!self.edicts.is_empty() || self.mint.is_some());
+        assert!(!self.edicts.is_empty() || self.mint.is_some() || self.etching.is_some());
 
         let mut payload = Vec::new();
+
+        if let Some(etching) = &self.etching {
+            let mut flags = 0;
+            Flag::Etching.set(&mut flags);
+      
+            if etching.terms.is_some() {
+              Flag::Terms.set(&mut flags);
+            }
+      
+            if etching.turbo {
+              Flag::Turbo.set(&mut flags);
+            }
+      
+            Tag::Flags.encode([flags], &mut payload);
+      
+            Tag::Rune.encode_option(etching.rune.map(|rune| rune.0), &mut payload);
+            Tag::Divisibility.encode_option(etching.divisibility, &mut payload);
+            Tag::Spacers.encode_option(etching.spacers, &mut payload);
+            Tag::Symbol.encode_option(etching.symbol, &mut payload);
+            Tag::Premine.encode_option(etching.premine, &mut payload);
+      
+            if let Some(terms) = etching.terms {
+              Tag::Amount.encode_option(terms.amount, &mut payload);
+              Tag::Cap.encode_option(terms.cap, &mut payload);
+              Tag::HeightStart.encode_option(terms.height.0, &mut payload);
+              Tag::HeightEnd.encode_option(terms.height.1, &mut payload);
+              Tag::OffsetStart.encode_option(terms.offset.0, &mut payload);
+              Tag::OffsetEnd.encode_option(terms.offset.1, &mut payload);
+            }
+        }
 
         if let Some(RuneId { block, tx }) = self.mint {
             Tag::Mint.encode([block.into(), tx.into()], &mut payload);

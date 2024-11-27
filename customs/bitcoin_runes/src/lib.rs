@@ -1242,7 +1242,7 @@ pub fn build_unsigned_transaction(
                     .collect::<Vec<Edict>>(),
             );
 
-            let stone = Runestone { edicts, mint: None };
+            let stone = Runestone { edicts, mint: None, etching: None };
 
             let rune_change_output = state::RunesChangeOutput {
                 rune_id,
@@ -1261,6 +1261,7 @@ pub fn build_unsigned_transaction(
             let stone = Runestone {
                 mint: Some(rune_id),
                 edicts: vec![],
+                etching: None,
             };
 
             let rune_change_output = state::RunesChangeOutput {
@@ -1274,7 +1275,7 @@ pub fn build_unsigned_transaction(
             (stone, rune_change_output, receiver, vec![], vec![])
         }
         // todo
-        BuildTxReq::EtchTxReq(receiver) => {}
+        BuildTxReq::EtchTxReq(receiver) => {todo!("t")}
     };
 
     // This guard returns the selected UTXOs back to the available_utxos set if

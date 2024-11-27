@@ -675,6 +675,7 @@ impl CustomsState {
         let mut tx_amount = 0;
         let requests = self.pending_rune_tx_requests.entry(rune_id).or_default();
 
+        //tocheck
         if let Some(pos) = requests.iter().position(|req| req.action == TxAction::Mint || req.action == TxAction::Etching) {
             let req = requests.remove(pos);
             batch.push(req);
@@ -692,6 +693,7 @@ impl CustomsState {
             let script = Runestone {
                 edicts: edicts.clone(),
                 mint: None,
+                etching: None, //tocheck
             }
             .encipher();
             if script.len() > 82
