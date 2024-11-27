@@ -13,6 +13,7 @@ pub struct GenerateTicketReq {
     pub amount: u128,
     // The subaccount to burn token from.
     pub from_subaccount: Option<Subaccount>,
+    pub memo: Option<String>,
 }
 
 pub async fn generate_ticket(
@@ -20,6 +21,7 @@ pub async fn generate_ticket(
     target_chain_id: String,
     amount: u128,
     subaccount: Subaccount,
+    ticket_memo: Option<String>,
 ) -> Result<TicketId> {
     let req = GenerateTicketReq {
         target_chain_id: target_chain_id,
@@ -27,6 +29,7 @@ pub async fn generate_ticket(
         token_id: token_id,
         amount: amount,
         from_subaccount: Some(subaccount),
+        memo: ticket_memo,
     };
 
     let icp_custom = state::get_settings().icp_customs_principal;

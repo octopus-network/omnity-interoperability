@@ -21,6 +21,7 @@ pub struct GenerateTicketReq {
     pub amount: u128,
     // The subaccount to burn token from.
     pub from_subaccount: Option<Subaccount>,
+    pub memo: Option<String>,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -120,7 +121,7 @@ pub async fn generate_ticket(
             amount: ticket_amount.to_string(),
             sender: Some(ic_cdk::caller().to_text()),
             receiver: req.receiver.clone(),
-            memo: None,
+            memo: req.memo.map(|m| m.into_bytes()),
         },
     )
     .await

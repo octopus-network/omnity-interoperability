@@ -25,6 +25,7 @@ type Settings = record {
 };
 type TicketRecord = record { ticket_id : text; minted_utxos : vec MintedUtxo };
 type UpdateBalanceJob = record {
+  ticket_memo : opt text;
   osmosis_account_id : text;
   failed_times : nat32;
   next_execute_time : nat64;
@@ -32,15 +33,15 @@ type UpdateBalanceJob = record {
 type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 type UtxoRecord = record { ticket_id : opt text; minted_utxo : MintedUtxo };
 service : (InitArgs) -> {
-  generate_ticket_from_subaccount : (text) -> (Result);
+  generate_ticket_from_subaccount : (text, opt text) -> (Result);
   get_btc_mint_address : (text) -> (Result);
   get_identity_by_osmosis_account_id : (text) -> (Result_1) query;
   query_scheduled_osmosis_account_id_list : () -> (vec text) query;
   query_settings : () -> (Settings) query;
   query_ticket_records : (text) -> (vec TicketRecord) query;
   query_utxo_records : (text) -> (vec UtxoRecord) query;
-  trigger_update_balance : (text) -> (Result);
-  update_balance_after_finalization : (text) -> ();
+  trigger_update_balance : (text, opt text) -> (Result);
+  update_balance_after_finalization : (text, opt text) -> ();
   update_settings : (
       opt principal,
       opt principal,
