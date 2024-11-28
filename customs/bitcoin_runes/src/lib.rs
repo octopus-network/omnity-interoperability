@@ -10,6 +10,7 @@ use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
 use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainId, ChainState, Directive, TokenId, TxAction};
+use runestone::runestone::Etching;
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
@@ -1275,7 +1276,28 @@ pub fn build_unsigned_transaction(
             (stone, rune_change_output, receiver, vec![], vec![])
         }
         // todo
-        BuildTxReq::EtchTxReq(receiver) => {todo!("t")}
+        BuildTxReq::EtchTxReq(receiver) => {
+            // let stone = Runestone {
+            //     mint: None,
+            //     edicts: vec![],
+            //     etching: Etching {
+            //         divisibility: Option<u8>,
+            //         premine: Option<u128>,
+            //         rune: Option<Rune>,
+            //         spacers: Option<u32>,
+            //         symbol: Option<char>,
+            //         terms: Option<Terms>,
+            //         turbo: bool,
+            //     },
+            // };
+
+            let rune_change_output = state::RunesChangeOutput {
+                rune_id,
+                vout: 1,
+                value: 0,
+            };
+            (stone, rune_change_output, receiver, vec![], vec![])
+        }
     };
 
     // This guard returns the selected UTXOs back to the available_utxos set if
