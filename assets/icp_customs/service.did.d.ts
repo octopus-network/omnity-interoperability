@@ -20,6 +20,7 @@ export interface CustomsState {
   'hub_principal' : Principal,
   'is_timer_running' : boolean,
   'next_directive_seq' : bigint,
+  'ckbtc_minter_principal' : [] | [Principal],
   'icp_token_id' : [] | [string],
   'chain_id' : string,
   'next_ticket_seq' : bigint,
@@ -32,15 +33,18 @@ export type GenerateTicketError = { 'SendTicketErr' : string } |
   { 'TransferIcpFailure' : string } |
   { 'UnsupportedChainId' : string } |
   { 'UnsupportedToken' : string } |
+  { 'CustomError' : string } |
   { 'InsufficientFunds' : { 'balance' : bigint } };
 export interface GenerateTicketOk { 'ticket_id' : string }
 export interface GenerateTicketReq {
   'token_id' : string,
+  'memo' : [] | [string],
   'from_subaccount' : [] | [Uint8Array | number[]],
   'target_chain_id' : string,
   'amount' : bigint,
   'receiver' : string,
 }
+export type IcpChainKeyToken = { 'CKBTC' : null };
 export interface InitArgs {
   'ckbtc_ledger_principal' : Principal,
   'hub_principal' : Principal,
@@ -50,6 +54,10 @@ export type MintTokenStatus = { 'Finalized' : { 'tx_hash' : string } } |
   { 'Unknown' : null };
 export type Result = { 'Ok' : GenerateTicketOk } |
   { 'Err' : GenerateTicketError };
+export type Result_1 = { 'Ok' : bigint } |
+  { 'Err' : string };
+export type Result_2 = { 'Ok' : [bigint, bigint] } |
+  { 'Err' : string };
 export interface Ticket {
   'token' : string,
   'action' : TxAction,
@@ -76,6 +84,7 @@ export interface Token {
 export type TxAction = { 'Burn' : null } |
   { 'Redeem' : null } |
   { 'Mint' : null } |
+  { 'RedeemIcpChainKeyAssets' : IcpChainKeyToken } |
   { 'Transfer' : null };
 export interface _SERVICE {
   'generate_ticket' : ActorMethod<[GenerateTicketReq], Result>,
@@ -83,9 +92,10 @@ export interface _SERVICE {
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
   'get_state' : ActorMethod<[], CustomsState>,
   'get_token_list' : ActorMethod<[], Array<Token>>,
-  'handle_ticket' : ActorMethod<[bigint], undefined>,
+  'handle_ticket' : ActorMethod<[bigint], Result_1>,
   'mint_token_status' : ActorMethod<[string], MintTokenStatus>,
   'query_hub_tickets' : ActorMethod<[bigint, bigint], Array<[bigint, Ticket]>>,
+  'refund_icp' : ActorMethod<[Principal], Result_2>,
   'set_ckbtc_token' : ActorMethod<[string], undefined>,
   'set_icp_token' : ActorMethod<[string], undefined>,
 }

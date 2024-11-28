@@ -61,17 +61,19 @@ pub struct UpdateBalanceJob {
     pub osmosis_account_id: String,
     pub failed_times: u32,
     pub next_execute_time: u64,
+    pub ticket_memo: Option<String>
 }
 
 impl UpdateBalanceJob {
     const MAX_FAILED_TIMES: u32 = 15;
     const INIT_DELAY: u64 = 60 * 50;
     const FAILED_DELAY: u64 = 60 * 5;
-    pub fn new(osmosis_account_id: String) -> Self {
+    pub fn new(osmosis_account_id: String, ticket_memo: Option<String>) -> Self {
         UpdateBalanceJob {
             osmosis_account_id,
             failed_times: 0,
             next_execute_time: get_chain_time_seconds() + UpdateBalanceJob::INIT_DELAY,
+            ticket_memo
         }
     }
 
