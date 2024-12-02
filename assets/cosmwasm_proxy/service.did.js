@@ -1,8 +1,10 @@
 export const idlFactory = ({ IDL }) => {
   const InitArgs = IDL.Record({
     'ckbtc_ledger_principal' : IDL.Principal,
+    'token_id' : IDL.Text,
     'ckbtc_minter_principal' : IDL.Principal,
     'icp_customs_principal' : IDL.Principal,
+    'target_chain_id' : IDL.Text,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
   const Account = IDL.Record({
@@ -11,6 +13,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const Result_1 = IDL.Variant({ 'Ok' : Account, 'Err' : IDL.Text });
   const UpdateBalanceJob = IDL.Record({
+    'ticket_memo' : IDL.Opt(IDL.Text),
     'osmosis_account_id' : IDL.Text,
     'failed_times' : IDL.Nat32,
     'next_execute_time' : IDL.Nat64,
@@ -18,9 +21,11 @@ export const idlFactory = ({ IDL }) => {
   const Settings = IDL.Record({
     'ckbtc_ledger_principal' : IDL.Principal,
     'update_balances_jobs' : IDL.Vec(UpdateBalanceJob),
+    'token_id' : IDL.Text,
     'is_timer_running' : IDL.Vec(IDL.Text),
     'ckbtc_minter_principal' : IDL.Principal,
     'icp_customs_principal' : IDL.Principal,
+    'target_chain_id' : IDL.Text,
   });
   const OutPoint = IDL.Record({
     'txid' : IDL.Vec(IDL.Nat8),
@@ -45,7 +50,11 @@ export const idlFactory = ({ IDL }) => {
     'minted_utxo' : MintedUtxo,
   });
   return IDL.Service({
-    'generate_ticket_from_subaccount' : IDL.Func([IDL.Text], [Result], []),
+    'generate_ticket_from_subaccount' : IDL.Func(
+        [IDL.Text, IDL.Opt(IDL.Text)],
+        [Result],
+        [],
+      ),
     'get_btc_mint_address' : IDL.Func([IDL.Text], [Result], []),
     'get_identity_by_osmosis_account_id' : IDL.Func(
         [IDL.Text],
@@ -68,13 +77,23 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(UtxoRecord)],
         ['query'],
       ),
-    'trigger_update_balance' : IDL.Func([IDL.Text], [Result], []),
-    'update_balance_after_finalization' : IDL.Func([IDL.Text], [], []),
+    'trigger_update_balance' : IDL.Func(
+        [IDL.Text, IDL.Opt(IDL.Text)],
+        [Result],
+        [],
+      ),
+    'update_balance_after_finalization' : IDL.Func(
+        [IDL.Text, IDL.Opt(IDL.Text)],
+        [],
+        [],
+      ),
     'update_settings' : IDL.Func(
         [
           IDL.Opt(IDL.Principal),
           IDL.Opt(IDL.Principal),
           IDL.Opt(IDL.Principal),
+          IDL.Opt(IDL.Text),
+          IDL.Opt(IDL.Text),
         ],
         [],
         [],
@@ -84,8 +103,10 @@ export const idlFactory = ({ IDL }) => {
 export const init = ({ IDL }) => {
   const InitArgs = IDL.Record({
     'ckbtc_ledger_principal' : IDL.Principal,
+    'token_id' : IDL.Text,
     'ckbtc_minter_principal' : IDL.Principal,
     'icp_customs_principal' : IDL.Principal,
+    'target_chain_id' : IDL.Text,
   });
   return [InitArgs];
 };

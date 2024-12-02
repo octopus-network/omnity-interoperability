@@ -11,7 +11,7 @@ use crate::{
         custom::generate_ticket,
     },
     state::{
-        extend_ticket_records, get_settings, get_utxo_records, insert_utxo_records, pop_first_scheduled_osmosis_account_id, set_settings, MintedUtxo, TicketRecord, UtxoRecord
+        extend_ticket_records, get_settings, get_utxo_records, insert_utxo_records, set_settings, MintedUtxo, TicketRecord, UtxoRecord
     },
     AddressData, Errors, UpdateBalanceArgs, UtxoStatus,
 };
@@ -32,7 +32,7 @@ pub fn process_update_balance_jobs() {
                 continue;
             }
 
-            match update_balance_and_generate_ticket(job.osmosis_account_id.clone()).await {
+            match update_balance_and_generate_ticket(job.osmosis_account_id.clone(), job.ticket_memo.clone()).await {
                 Ok(_) => {}
                 Err(e) => {
                     if job.handle_execute_failed_and_continue() {
@@ -47,32 +47,9 @@ pub fn process_update_balance_jobs() {
     })
 }
 
-pub fn read_osmosis_account_id_then_update_balance() {
-    ic_cdk::spawn(async {
-        match pop_first_scheduled_osmosis_account_id().and_then(|opt_account_id| {
-            opt_account_id.ok_or(Errors::CustomError(
-                "Failed to get osmosis account id".to_string(),
-            ))
-        }) {
-            Ok(account_id) => {
-                match update_balance_and_generate_ticket(account_id.clone()).await {
-                    Ok(_) => {
-                        log!(INFO, "Successfully update balance and generate ticket for osmosis account id: {}", account_id);
-                    }
-                    Err(_) => {
-                        log!(ERROR, "Failed to update balance and generate ticket for osmosis account id: {}", account_id);
-                    }
-                }
-            }
-            Err(e) => {
-                log!(ERROR, "Failed to get first scheduled osmosis account id: {:?}", e);
-            }
-        }
-    });
-}
-
 pub async fn update_balance_and_generate_ticket(
     osmosis_account_id: String,
+    ticket_memo: Option<String>,
 ) -> std::result::Result<TicketId, String> {
     let address_data = AddressData::try_from(osmosis_account_id.as_str())
         .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
@@ -133,6 +110,7 @@ pub async fn update_balance_and_generate_ticket(
         settings.target_chain_id.to_string(),
         ticket_amount as u128,
         subaccount,
+        ticket_memo
     )
     .await
     .map_err(|e| e.to_string())?;
