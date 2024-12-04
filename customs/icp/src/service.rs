@@ -137,3 +137,4 @@ fn mint_token_status(ticket_id: TicketId) -> MintTokenStatus {
 
 // Enable Candid export
 ic_cdk::export_candid!();
+
