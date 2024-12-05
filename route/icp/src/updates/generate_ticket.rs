@@ -12,7 +12,7 @@ use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use num_traits::cast::ToPrimitive;
 use omnity_types::ic_log::INFO;
-use omnity_types::{ChainId, ChainState, Ticket, TxAction};
+use omnity_types::{ChainId, ChainState, Ticket, TxAction, rune_id::{Terms, Etching}};
 use serde::Serialize;
 use crate::{log, ERROR};
 
@@ -25,6 +25,16 @@ pub struct GenerateTicketReq {
     // The subaccount to burn token from.
     pub from_subaccount: Option<Subaccount>,
     pub action: TxAction,
+    pub etching_req: Option<EtchingReq>,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct EtchingReq {
+    pub divisibility: u8,
+    pub premine: Option<u128>,
+    pub symbol: Option<String>,
+    pub terms: Option<Terms>,
+    pub turbo: bool,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -53,6 +63,9 @@ pub enum GenerateTicketError {
     RedeemFeeNotSet,
     TransferFailure(String),
     UnsupportedAction(String),
+    NonEtchingAction(String),
+    NoEtchingReq(String),
+    EtchingErr(String),
 }
 
 pub async fn generate_ticket(
@@ -74,13 +87,36 @@ pub async fn generate_ticket(
         ));
     }
 
-    let ledger_id = read_state(|s| match s.token_ledgers.get(&req.token_id) {
-        Some(ledger_id) => Ok(ledger_id.clone()),
-        None => Err(GenerateTicketError::UnsupportedToken(req.token_id.clone())),
-    })?;
+    let mut ledger_id = ic_cdk::id();
+   
+    if let TxAction::Etching = &req.action {
+        if let None = &req.etching_req {
+            return Err(GenerateTicketError::NoEtchingReq(
+                "Etching requirement is needed!".into(),
+            ));
+        }
+    }
+    match &req.etching_req {
+        None => {
+            ledger_id = read_state(|s| match s.token_ledgers.get(&req.token_id) {
+                Some(ledger_id) => Ok(ledger_id.clone()),
+                None => Err(GenerateTicketError::UnsupportedToken(req.token_id.clone())),
+            })?;
+        }
+        Some(etching_req) => {
+            if req.action != TxAction::Etching {
+                return Err(GenerateTicketError::NonEtchingAction("Etching action needs to be chosen!".into()))
+            }
+               //divisibility控制在U8/premine是不加精度/height和offset要加不低于当前高度验证
+            // rune/spacers/symbol把参数加MEMO
+            if &etching_req.divisibility <= &Etching::MAX_DIVISIBILITY {
+                return Err(GenerateTicketError::EtchingErr("Divisibility can not be greater than 38!".into()))
+            }
+
+        }
+    }
 
     charge_icp_fee(caller(), &req.target_chain_id).await?;
-
     log!(INFO, "successfully charged icp fee, req: {:?}", req);
 
     let caller = ic_cdk::caller();
@@ -91,9 +127,7 @@ pub async fn generate_ticket(
 
     let ticket_id = match req.action {
         TxAction::Mint | TxAction::Etching => {
-            let ledger_id = ic_cdk::id().to_string();
-            let ticket_id = Sha256::hash(format!("MINT_{}_{}", ledger_id, ic_cdk::api::time()).as_bytes());
-        
+            let ticket_id = Sha256::hash(format!("MINT_{}_{}", ledger_id.to_string(), ic_cdk::api::time()).as_bytes());
             Ok(hex::encode(&ticket_id))
         }
         TxAction::Burn | TxAction::Redeem | TxAction::RedeemIcpChainKeyAssets(_) | TxAction::Transfer => {
@@ -102,7 +136,6 @@ pub async fn generate_ticket(
             Ok(ticket_id)
         }
     }?;
-
     log!(INFO, "successfully generate ticket, ticket_id: {:?}", ticket_id);
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));

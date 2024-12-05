@@ -2,7 +2,7 @@ use crate::runestone::{tag::Tag, flag::Flag};
 
 use super::varint;
 use bitcoin::blockdata::{constants, opcodes, script};
-use omnity_types::rune_id::RuneId;
+use omnity_types::rune_id::{RuneId, Etching};
 use serde::Serialize;
 
 const MAGIC_NUMBER: opcodes::All = opcodes::all::OP_PUSHNUM_13;
@@ -12,27 +12,6 @@ pub struct Edict {
     pub id: RuneId,
     pub amount: u128,
     pub output: u32,
-}
-
-#[derive(Default, Serialize, Debug, PartialEq, Clone)]
-pub struct Etching {
-    pub divisibility: Option<u8>,
-    pub premine: Option<u128>,
-    pub rune: Option<Rune>,
-    pub spacers: Option<u32>,
-    pub symbol: Option<char>,
-    pub terms: Option<Terms>,
-    pub turbo: bool,
-}
-#[derive(Default, Serialize, Debug, PartialEq, Copy, Clone)]
-pub struct Rune(pub u128);
-
-#[derive(Default, Serialize, Debug, PartialEq, Copy, Clone)]
-pub struct Terms {
-  pub amount: Option<u128>,
-  pub cap: Option<u128>,
-  pub height: (Option<u64>, Option<u64>),
-  pub offset: (Option<u64>, Option<u64>),
 }
 
 #[derive(Default)]

@@ -10,7 +10,6 @@ use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
 use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainId, ChainState, Directive, TokenId, TxAction};
-use runestone::runestone::Etching;
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
@@ -1277,6 +1276,7 @@ pub fn build_unsigned_transaction(
         }
         // todo
         BuildTxReq::EtchTxReq(receiver) => {
+            todo!()
             // let stone = Runestone {
             //     mint: None,
             //     edicts: vec![],
@@ -1291,12 +1291,12 @@ pub fn build_unsigned_transaction(
             //     },
             // };
 
-            let rune_change_output = state::RunesChangeOutput {
-                rune_id,
-                vout: 1,
-                value: 0,
-            };
-            (stone, rune_change_output, receiver, vec![], vec![])
+            // let rune_change_output = state::RunesChangeOutput {
+            //     rune_id,
+            //     vout: 1,
+            //     value: 0,
+            // };
+            // (stone, rune_change_output, receiver, vec![], vec![])
         }
     };
 
