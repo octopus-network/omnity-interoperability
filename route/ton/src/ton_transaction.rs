@@ -15,6 +15,10 @@ use crate::chainkey::sign_external_body;
 use crate::state::public_key;
 use crate::ton_common::transfer::TransferMessage;
 
+pub const JETTON_MINT_FEE: u32 = 20000000u32;
+pub const JETTON_INTERNAL_FEE: u32 = 15000000u32;
+pub const JETTON_NOTIFY_FEE: u32 = 1000000u32;
+
 pub async fn build_jetton_mint(
     jetton_master: &str,
     ticket: &Ticket,
@@ -39,7 +43,7 @@ pub async fn build_jetton_mint(
     cb.store_u64(64, seq).map_err(|e| anyhow!(e.to_string()))?;
     cb.store_address(&destination)
         .map_err(|e| anyhow!(e.to_string()))?;
-    cb.store_coins(&BigUint::from(200000000u64))
+    cb.store_coins(&BigUint::from(JETTON_INTERNAL_FEE))
         .map_err(|e| anyhow!(e.to_string()))?;
     let mut transfer_body = CellBuilder::new();
     transfer_body
@@ -63,7 +67,7 @@ pub async fn build_jetton_mint(
         .store_address(&self_addr)
         .map_err(|e| anyhow!(e.to_string()))?;
     transfer_body
-        .store_coins(&BigUint::from(1000000u32))
+        .store_coins(&BigUint::from(JETTON_NOTIFY_FEE))
         .map_err(|e| anyhow!(e.to_string()))?;
     transfer_body.store_bit(true).unwrap();
     let pc = CellBuilder::new()
@@ -73,8 +77,8 @@ pub async fn build_jetton_mint(
         .unwrap();
     transfer_body.store_reference(&pc.to_arc()).unwrap();
     cb.store_reference(&transfer_body.build().unwrap().to_arc())?;
-    let ton_amount = BigUint::from(200000000u64);
-    let transfer = TransferMessage::new(&jetton_master_addr, &ton_amount)
+    let mint_fee = BigUint::from(JETTON_MINT_FEE);
+    let transfer = TransferMessage::new(&jetton_master_addr, &mint_fee)
         .with_data(cb.build().unwrap())
         .build()?;
     let now = (ic_cdk::api::time() / 1000000000) as u32;
