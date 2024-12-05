@@ -339,23 +339,15 @@ struct TonEventAction {
     pub details: serde_json::Value,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 struct TonTransferDetail {
     pub source: String,
     pub destination: String,
     pub value: String,
-    pub comment: String,
     pub encrypted: bool,
 }
 
 
-#[derive(Serialize, Deserialize)]
-struct JettonBurnDetail {
-    pub owner: String,
-    pub owner_jetton_wallet: String,
-    pub asset: String,
-    pub amount: String,
-}
 
 #[derive(Serialize, Default, Deserialize, Clone, CandidType)]
 pub struct QueryJettonBurnResponse {

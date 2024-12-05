@@ -39,7 +39,7 @@ pub async fn build_jetton_mint(
     cb.store_u64(64, seq).map_err(|e| anyhow!(e.to_string()))?;
     cb.store_address(&destination)
         .map_err(|e| anyhow!(e.to_string()))?;
-    cb.store_coins(&BigUint::from(100000000u64))
+    cb.store_coins(&BigUint::from(200000000u64))
         .map_err(|e| anyhow!(e.to_string()))?;
     let mut transfer_body = CellBuilder::new();
     transfer_body
@@ -73,7 +73,7 @@ pub async fn build_jetton_mint(
         .unwrap();
     transfer_body.store_reference(&pc.to_arc()).unwrap();
     cb.store_reference(&transfer_body.build().unwrap().to_arc())?;
-    let ton_amount = BigUint::from(100000000u64);
+    let ton_amount = BigUint::from(200000000u64);
     let transfer = TransferMessage::new(&jetton_master_addr, &ton_amount)
         .with_data(cb.build().unwrap())
         .build()?;

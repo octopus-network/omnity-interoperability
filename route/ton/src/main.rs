@@ -16,7 +16,7 @@ use crate::base::const_args::{
 };
 use crate::chainkey::{init_chain_pubkey, minter_addr};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
-use crate::route_to_ton::{send_ticket, to_ton_task};
+use crate::route_to_ton::{inner_send_ticket, send_ticket, to_ton_task};
 use crate::state::{
     bridge_fee, mutate_state, read_state, replace_state, StateProfile, TonRouteState,
 };
@@ -153,7 +153,8 @@ fn query_pending_directive(from: usize, limit: usize) -> Vec<(Seq, PendingDirect
 
 #[update(guard = "is_admin")]
 async fn resend_ticket(seq: Seq) -> Result<Option<String>, String> {
-    send_ticket(seq).await.map_err(|e| e.to_string())
+    let ticket = read_state(|s| s.tickets_queue.get(&seq)).unwrap();
+    inner_send_ticket(ticket, seq).await.map_err(|e| e.to_string())
 }
 
 #[query]
