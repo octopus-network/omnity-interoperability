@@ -107,12 +107,31 @@ pub async fn generate_ticket(
             if req.action != TxAction::Etching {
                 return Err(GenerateTicketError::NonEtchingAction("Etching action needs to be chosen!".into()))
             }
-               //divisibility控制在U8/premine是不加精度/height和offset要加不低于当前高度验证
-            // rune/spacers/symbol把参数加MEMO
+
             if &etching_req.divisibility <= &Etching::MAX_DIVISIBILITY {
                 return Err(GenerateTicketError::EtchingErr("Divisibility can not be greater than 38!".into()))
             }
+            // todo! UI 限制输入长度
+            if let Some(symbol) = &etching_req.symbol {
+                if symbol.len() > 3 {
+                    return Err(GenerateTicketError::EtchingErr("Symbol can not be longer than one charater!".into()))
+                }
+            }
+            if let Some(term) = &etching_req.terms {
+                // todo! 要把BRC20 oracle的get_block_height拿来用，不然就得用reqwest？
+                let current_block_height = 840000_u64;
 
+                if let (Some(start), Some(end)) = term.height {
+                    if start < current_block_height {
+                        return Err(GenerateTicketError::EtchingErr("The etching height is smaller than the current block!".into()))
+                    }
+                    if end <= start {
+                        return Err(GenerateTicketError::EtchingErr("The etching height end is smaller than the start block!".into()))
+                    }
+                }
+            }  
+            //  rune/spacers/把参数加MEMO
+            let rune = &req.token_id;
         }
     }
 
