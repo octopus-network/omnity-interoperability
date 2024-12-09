@@ -74,6 +74,5 @@ pub fn check_mint_message(message: Message) -> Result<(Seq, String), String> {
     r.skip_bits(32).unwrap(); //skip opcode
     let query_id = r.load_uint(64).unwrap().to_u64().unwrap_or_default();
     let hash = message.hash;
-    log!(INFO, "{}------{}", query_id, hash.clone());
     Ok((query_id, hash))
 }
