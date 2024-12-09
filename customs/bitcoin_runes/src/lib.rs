@@ -2,13 +2,14 @@ use crate::address::{main_bitcoin_address, main_destination, BitcoinAddress};
 use crate::queries::RedeemFee;
 use crate::runestone::{Edict, Runestone};
 use crate::state::{audit, mutate_state, BtcChangeOutput};
+use bitcoin::blockdata::script;
 use candid::{CandidType, Deserialize, Principal};
 use destination::Destination;
 use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
-use omnity_types::rune_id::RuneId;
+use omnity_types::rune_id::{Etching, RuneId, Terms, Rune};
 use omnity_types::{ChainId, ChainState, Directive, TokenId, TxAction};
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
@@ -937,7 +938,6 @@ async fn update_tx_hash_to_hub(tx: &SubmittedBtcTransactionV2) {
     }
 }
 
-// todo
 fn new_build_tx_req(requests: Vec<RuneTxRequest>) -> BuildTxReq {
     match requests[0].action {
         TxAction::Mint => {BuildTxReq::MintTxReq(requests[0].address.clone())}
@@ -1276,27 +1276,51 @@ pub fn build_unsigned_transaction(
         }
         // todo
         BuildTxReq::EtchTxReq(receiver) => {
-            todo!()
-            // let stone = Runestone {
-            //     mint: None,
-            //     edicts: vec![],
-            //     etching: Etching {
-            //         divisibility: Option<u8>,
-            //         premine: Option<u128>,
-            //         rune: Option<Rune>,
-            //         spacers: Option<u32>,
-            //         symbol: Option<char>,
-            //         terms: Option<Terms>,
-            //         turbo: bool,
-            //     },
-            // };
+            pub const COMMIT_CONFIRMATIONS: u16 = 6;
 
-            // let rune_change_output = state::RunesChangeOutput {
-            //     rune_id,
-            //     vout: 1,
-            //     value: 0,
-            // };
-            // (stone, rune_change_output, receiver, vec![], vec![])
+            let stone = Runestone {
+                mint: None,
+                edicts: vec![],
+                etching: Some(Etching {
+                    divisibility: Some(0_u8),
+                    premine: Some(2000_u128),
+                    rune: Some(Rune(99246114928149462_u128)),
+                    spacers: Some(0_u32),
+                    symbol: Some('我'),
+                    terms: Some(Terms {
+                        amount: Some(5000_u128),
+                        cap: Some(200),
+                        height: (None, None),
+                        offset: (Some(2), Some(2)),
+                    }),
+                    turbo: true,
+                }),
+            };
+            // let secp256k1 = Secp256k1::new();
+            // let key_pair = UntweakedKeypair::new(&secp256k1, &mut rand::thread_rng());
+            // let (public_key, _parity) = XOnlyPublicKey::from_keypair(&key_pair);
+
+            // let tap_script = script::Builder::new()
+            //                             .push_slice(public_key.serialize())
+            //                             .push_opcode(opcodes::all::OP_CHECKSIG)
+            //                             .push_opcode(opcodes::OP_FALSE)
+            //                             .push_opcode(opcodes::all::OP_IF)
+            //                             .push_slice(&stone.etching.unwrap().rune.unwrap().commitment())
+            //                             .push_opcode(opcodes::all::OP_ENDIF)
+            //                             .into_script();
+            // let mut witness = Witness::new();
+            // witness.push(tap_script);
+            // //交易向TapScript对应的地址发送一定数量的比特币,witness放在INPUT
+            // // COMMIT_CONFIRMATIONS后
+            // let commit = "previous_output_tx_id".to_string(); //input
+            // let op_return = stone.encipher();//output
+
+            let rune_change_output = state::RunesChangeOutput {
+                rune_id,
+                vout: 1,
+                value: 0,
+            };
+            (stone, rune_change_output, receiver, vec![], vec![])
         }
     };
 

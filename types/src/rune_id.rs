@@ -1,4 +1,4 @@
-use candid::Deserialize;
+use candid::{Deserialize, CandidType};
 use serde::Serialize;
 use std::{
     error::Error,
@@ -22,7 +22,7 @@ impl Error for ParseRuneIdError {
 }
 
 #[derive(
-    candid::CandidType,
+   CandidType,
     Clone,
     Debug,
     PartialEq,
@@ -83,8 +83,19 @@ pub struct Etching {
     pub terms: Option<Terms>,
     pub turbo: bool,
 }
-#[derive(Default, Serialize, Debug, PartialEq, Copy, Clone)]
+#[derive(CandidType, Default, Serialize, Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Rune(pub u128);
+
+impl Rune {
+    pub fn commitment(self) -> Vec<u8> {
+        let bytes = self.0.to_le_bytes();
+        let mut end = bytes.len();
+        while end > 0 && bytes[end - 1] == 0 {
+          end -= 1;
+        }
+        bytes[..end].into()
+      }
+}
 
 impl Etching {
     pub const MAX_DIVISIBILITY: u8 = 38;
@@ -101,10 +112,16 @@ impl Etching {
     }
 }
 
-#[derive(candid::CandidType, Default, Serialize, Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(CandidType, Default, Serialize, Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Terms {
   pub amount: Option<u128>,
   pub cap: Option<u128>,
   pub height: (Option<u64>, Option<u64>),
   pub offset: (Option<u64>, Option<u64>),
+}
+
+#[derive(CandidType, Default, Serialize, Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
+pub struct SpacedRune {
+    pub rune: Rune,
+    pub spacers: u32,
 }

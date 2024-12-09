@@ -12,7 +12,7 @@ use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use num_traits::cast::ToPrimitive;
 use omnity_types::ic_log::INFO;
-use omnity_types::{ChainId, ChainState, Ticket, TxAction, rune_id::{Terms, Etching}};
+use omnity_types::{ChainId, ChainState, Ticket, TxAction, rune_id::{Terms, Etching, SpacedRune, Rune}};
 use serde::Serialize;
 use crate::{log, ERROR};
 
@@ -87,6 +87,7 @@ pub async fn generate_ticket(
         ));
     }
 
+    let mut memo = None;
     let mut ledger_id = ic_cdk::id();
    
     if let TxAction::Etching = &req.action {
@@ -130,8 +131,9 @@ pub async fn generate_ticket(
                     }
                 }
             }  
-            //  rune/spacers/把参数加MEMO
-            let rune = &req.token_id;
+           
+            // memo = &req.etching_req.to_owned().map(|m| m.into) 转成BYTES,或把TICKET放STATE上
+            memo = Some(Vec::new());
         }
     }
 
@@ -171,7 +173,7 @@ pub async fn generate_ticket(
         amount: req.amount.to_string(),
         sender: Some(caller.to_string()),
         receiver: req.receiver.clone(),
-        memo: None,
+        memo,
     };
     match hub::send_ticket(hub_principal, ticket.clone()).await {
         Err(err) => {

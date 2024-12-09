@@ -693,7 +693,7 @@ impl CustomsState {
             let script = Runestone {
                 edicts: edicts.clone(),
                 mint: None,
-                etching: None, //tocheck
+                etching: None,
             }
             .encipher();
             if script.len() > 82
