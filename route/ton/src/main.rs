@@ -154,7 +154,9 @@ fn query_pending_directive(from: usize, limit: usize) -> Vec<(Seq, PendingDirect
 #[update(guard = "is_admin")]
 async fn resend_ticket(seq: Seq) -> Result<Option<String>, String> {
     let ticket = read_state(|s| s.tickets_queue.get(&seq)).unwrap();
-    inner_send_ticket(ticket, seq).await.map_err(|e| e.to_string())
+    inner_send_ticket(ticket, seq)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[query]

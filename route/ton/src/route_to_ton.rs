@@ -79,7 +79,7 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<Option<String>> {
                 return Ok(None);
             }
             inner_send_ticket(t, seq).await
-        },
+        }
     }
 }
 
