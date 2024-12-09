@@ -274,7 +274,6 @@ pub async fn check_bridge_fee(hsh: &String, chain_id: &ChainId) -> anyhow::Resul
                     if r == minter && v >= fee {
                         return Ok(());
                     }
-
                 }
             }
             Err(anyhow!("no fee transfer"))
@@ -346,8 +345,6 @@ struct TonTransferDetail {
     pub value: String,
     pub encrypted: bool,
 }
-
-
 
 #[derive(Serialize, Default, Deserialize, Clone, CandidType)]
 pub struct QueryJettonBurnResponse {
