@@ -71,17 +71,19 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<Option<String>> {
     let ticket = read_state(|s| s.tickets_queue.get(&seq));
     match ticket {
         None => Ok(None),
-        Some(t) => inner_send_ticket(t, seq).await,
+        Some(t) => {
+            if read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id)) {
+                return Ok(None);
+            }
+            if read_state(|s| s.pending_tickets_map.contains_key(&seq)) {
+                return Ok(None);
+            }
+            inner_send_ticket(t, seq).await
+        },
     }
 }
 
 pub async fn inner_send_ticket(t: Ticket, seq: Seq) -> anyhow::Result<Option<String>> {
-    if read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id)) {
-        return Ok(None);
-    }
-    if read_state(|s| s.pending_tickets_map.contains_key(&seq)) {
-        return Ok(None);
-    }
     let jetton_master = read_state(|s| s.token_jetton_master_map.get(&t.token).cloned())
         .ok_or(anyhow!("token jetton master not set"))?;
     let minter = minter_addr();

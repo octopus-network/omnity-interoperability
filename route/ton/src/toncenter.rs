@@ -266,15 +266,15 @@ pub async fn check_bridge_fee(hsh: &String, chain_id: &ChainId) -> anyhow::Resul
                         continue;
                     }
                     let details = actions.details;
-                    if details.destination.is_some() && details.value.is_some() {
-                        let r = TonAddress::from_hex_str(details.destination.unwrap().as_str())
-                            .unwrap()
-                            .to_base64_std_flags(true, false);
-                        let v: u64 = details.value.unwrap().parse().unwrap();
-                        if r == minter && v >= fee {
-                            return Ok(());
-                        }
+                    let details = serde_json::from_value::<TonTransferDetail>(details).unwrap();
+                    let r = TonAddress::from_hex_str(details.destination.as_str())
+                        .unwrap()
+                        .to_base64_std_flags(true, false);
+                    let v: u64 = details.value.parse().unwrap();
+                    if r == minter && v >= fee {
+                        return Ok(());
                     }
+
                 }
             }
             Err(anyhow!("no fee transfer"))
@@ -336,17 +336,18 @@ struct TonEventAction {
     pub success: bool,
     #[serde(rename = "type")]
     pub rtype: String,
-    pub details: TonActionDetail,
+    pub details: serde_json::Value,
 }
 
-#[derive(Serialize, Deserialize)]
-struct TonActionDetail {
-    pub source: Option<String>,
-    pub destination: Option<String>,
-    pub value: Option<String>,
-    pub comment: Option<String>,
-    pub encrypted: Option<bool>,
+#[derive(Serialize, Deserialize, Default)]
+struct TonTransferDetail {
+    pub source: String,
+    pub destination: String,
+    pub value: String,
+    pub encrypted: bool,
 }
+
+
 
 #[derive(Serialize, Default, Deserialize, Clone, CandidType)]
 pub struct QueryJettonBurnResponse {
