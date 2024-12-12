@@ -517,7 +517,6 @@ pub struct Token {
     pub token_id: TokenId,
     pub name: String,
     pub symbol: String,
-
     pub decimals: u8,
     pub icon: Option<String>,
     pub metadata: HashMap<String, String>,
@@ -775,7 +774,6 @@ pub enum Error {
     #[error("custom error: (`{0}`)")]
     CustomError(String),
 }
-
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {
