@@ -2,17 +2,17 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 use candid::{CandidType, Principal};
-use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
+use ic_stable_structures::writer::Writer;
 use serde::{Deserialize, Serialize};
 
 use omnity_types::{Chain, Token, TokenId};
 use omnity_types::{ChainId, Directive, Seq, Ticket, TicketId};
 
+use crate::InitArgs;
 use crate::stable_memory;
 use crate::stable_memory::Memory;
 use crate::types::*;
-use crate::InitArgs;
 
 thread_local! {
     static STATE: RefCell<Option<TonRouteState>> =  const {RefCell::new(None)};
@@ -28,7 +28,6 @@ impl TonRouteState {
             tokens: Default::default(),
             token_jetton_master_map: Default::default(),
             counterparties: Default::default(),
-            finalized_mint_token_requests: Default::default(),
             pubkey: vec![],
             fee_token_factor: None,
             target_chain_factor: Default::default(),
@@ -37,6 +36,7 @@ impl TonRouteState {
             next_consume_ticket_seq: 0,
             next_consume_directive_seq: 0,
             handled_ton_event: Default::default(),
+            finalized_mint_requests: StableBTreeMap::init(crate::stable_memory::get_finalized_mint_requests_memory()),
             tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_ton_tickets_memory()),
             directives_queue: StableBTreeMap::init(
                 crate::stable_memory::get_to_ton_directives_memory(),
@@ -108,7 +108,6 @@ pub struct TonRouteState {
     pub tokens: BTreeMap<TokenId, Token>,
     pub token_jetton_master_map: BTreeMap<TokenId, String>,
     pub counterparties: BTreeMap<ChainId, Chain>,
-    pub finalized_mint_token_requests: BTreeMap<TicketId, String>,
     pub pubkey: Vec<u8>,
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
@@ -117,6 +116,8 @@ pub struct TonRouteState {
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
     pub handled_ton_event: BTreeSet<String>,
+    #[serde(skip, default = "crate::stable_memory::init_finalized_mint_requests")]
+    pub finalized_mint_requests: StableBTreeMap<TicketId, String, Memory>,
     #[serde(skip, default = "crate::stable_memory::init_to_ton_tickets_queue")]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
     #[serde(skip, default = "crate::stable_memory::init_to_ton_directives_queue")]

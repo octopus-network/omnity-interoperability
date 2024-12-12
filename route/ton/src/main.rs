@@ -181,9 +181,8 @@ fn get_token_list() -> Vec<TokenResp> {
 #[query]
 fn mint_token_status(ticket_id: String) -> MintTokenStatus {
     read_state(|s| {
-        s.finalized_mint_token_requests
+        s.finalized_mint_requests
             .get(&ticket_id)
-            .cloned()
             .map_or(MintTokenStatus::Unknown, |tx_hash| {
                 MintTokenStatus::Finalized { tx_hash }
             })

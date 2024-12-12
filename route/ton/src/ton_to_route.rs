@@ -60,7 +60,7 @@ pub async fn scan_mint_events() {
                         }
                     }
                     mutate_state(|s| s.pending_tickets_map.remove(&seqno));
-                    mutate_state(|s| s.finalized_mint_token_requests.insert(ticket_id, hash));
+                    mutate_state(|s| s.finalized_mint_requests.insert(ticket_id, hash));
                 }
             }
         }

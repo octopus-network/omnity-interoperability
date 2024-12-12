@@ -72,7 +72,7 @@ pub async fn send_ticket(seq: Seq) -> anyhow::Result<Option<String>> {
     match ticket {
         None => Ok(None),
         Some(t) => {
-            if read_state(|s| s.finalized_mint_token_requests.contains_key(&t.ticket_id)) {
+            if read_state(|s| s.finalized_mint_requests.contains_key(&t.ticket_id)) {
                 return Ok(None);
             }
             if read_state(|s| s.pending_tickets_map.contains_key(&seq)) {
@@ -97,7 +97,7 @@ pub async fn inner_send_ticket(t: Ticket, seq: Seq) -> anyhow::Result<Option<Str
     match msg_hash {
         Ok(mh) => {
             mutate_state(|s| {
-                s.finalized_mint_token_requests
+                s.finalized_mint_requests
                     .insert(t.ticket_id.clone(), mh.clone());
                 s.last_success_seqno = seqno;
             });
