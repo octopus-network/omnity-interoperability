@@ -103,9 +103,15 @@ export const idlFactory = ({ IDL }) => {
   });
   return IDL.Service({
     'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
+    'generate_ticket_v2' : IDL.Func([GenerateTicketReq], [Result], []),
     'get_account_identifier' : IDL.Func(
         [IDL.Principal],
         [IDL.Vec(IDL.Nat8)],
+        ['query'],
+      ),
+    'get_account_identifier_text' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Text],
         ['query'],
       ),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),

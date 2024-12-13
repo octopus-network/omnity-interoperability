@@ -88,7 +88,9 @@ export type TxAction = { 'Burn' : null } |
   { 'Transfer' : null };
 export interface _SERVICE {
   'generate_ticket' : ActorMethod<[GenerateTicketReq], Result>,
+  'generate_ticket_v2' : ActorMethod<[GenerateTicketReq], Result>,
   'get_account_identifier' : ActorMethod<[Principal], Uint8Array | number[]>,
+  'get_account_identifier_text' : ActorMethod<[Principal], string>,
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
   'get_state' : ActorMethod<[], CustomsState>,
   'get_token_list' : ActorMethod<[], Array<Token>>,
