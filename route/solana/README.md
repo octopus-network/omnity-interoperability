@@ -161,7 +161,8 @@ TOKEN_ID="Bitcoin-runes-HOPE•YOU•GET•RICH"
 TOKEN_NAME="HOPE•YOU•GET•RICH"
 TOKEN_SYMBOL="RICH.OT"
 DECIMALS=2
-ICON="https://github.com/ordinals/ord/assets/14307069/f1307be5-84fb-4b58-81d0-6521196a2406"
+ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/rich.png"
+URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/rich_meta.json"
 ISSUE_CHAIN_ID="Bitcoin"
 
 dfx canister call $HUB_CANISTER_ID validate_proposal "( vec {variant { UpdateToken = record { 
@@ -171,7 +172,8 @@ dfx canister call $HUB_CANISTER_ID validate_proposal "( vec {variant { UpdateTok
         symbol = \"${TOKEN_SYMBOL}\"; 
         decimals = ${DECIMALS};
         icon = opt \"${ICON}\"; 
-        metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
+        metadata =  vec{ record {\"rune_id\"; \"840000:846\"};
+                         record {\"uri\"; \"${URI}\"}; 
         dst_chains = vec {\"${ISSUE_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})" \
         --ic 
 dfx canister call $HUB_CANISTER_ID execute_proposal "( vec {variant { UpdateToken = record { 
@@ -181,7 +183,8 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "( vec {variant { UpdateToke
         symbol = \"${TOKEN_SYMBOL}\"; 
         decimals = ${DECIMALS};
         icon = opt \"${ICON}\"; 
-        metadata =  vec{ record {\"rune_id\"; \"840000:846\"}}; 
+        metadata =  vec{ record {\"rune_id\"; \"840000:846\"};
+                         record {\"uri\"; \"${URI}\"}; 
         dst_chains = vec {\"${ISSUE_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})" \
         --ic 
 

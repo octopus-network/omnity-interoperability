@@ -28,6 +28,33 @@ echo "product environment:
     solana route canister id: $SOLANA_ROUTE_CANISTER_ID"
 
 ###########################################################################
+### query hub 
+###########################################################################
+chain_type="variant { SettlementChain }"
+dfx canister call $HUB_CANISTER_ID get_chains "(opt $chain_type,null,0:nat64,36:nat64)" --ic
+chain_id="sICP"
+dfx canister call $HUB_CANISTER_ID get_chain "(\"$chain_id\")" --ic
+
+chain_id="eICP"
+dfx canister call $HUB_CANISTER_ID get_chain "(\"$chain_id\")" --ic
+chain_id="eSolana"
+dfx canister call $HUB_CANISTER_ID get_chain "(\"$chain_id\")" --ic
+
+chain_id="sICP"
+dfx canister call $HUB_CANISTER_ID get_tokens "(opt \"$chain_id\",null,0:nat64,36:nat64)" --ic
+
+chain_id="eSolana"
+dfx canister call $HUB_CANISTER_ID get_tokens "(opt \"$chain_id\",null,0:nat64,36:nat64)" --ic
+
+token_id="sICP-native-ICP"
+dfx canister call $HUB_CANISTER_ID get_tokens "(null, opt \"$token_id\",0:nat64,36:nat64)" --ic
+
+
+chain_id="sICP"
+dfx canister call $HUB_CANISTER_ID get_fees "(opt \"$chain_id\",null,0:nat64,36:nat64)" --ic
+
+
+###########################################################################
 ### install/reinstall/upgrade/config solana provider canister and solana route
 ###########################################################################
 
@@ -189,7 +216,8 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID update_forward '(null)' --ic
 ### query solana route chain key and transfer 
 ###########################################################################
 # query solana route chain key 
-SIGNER=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '()' --ic)
+KEYTYPE="variant { ChainKey }"
+SIGNER=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID signer "($KEYTYPE)"  --ic)
 SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
 echo "current SIGNER: $SIGNER"
 echo "$SIGNER balance: $(solana balance $SIGNER -u m)"
@@ -339,6 +367,7 @@ echo "token mint: $TOKEN_MINT"
 #       "symbol": "X",
 #       "token_id": "Bitcoin-runes-RUNES•X•BITCOIN"
 # }
+
 TOKEN_ID="Bitcoin-runes-RUNES•X•BITCOIN"
 TOKEN_NAME="RUNES•X•BITCOIN"
 TOKEN_SYMBOL="RUNES.X"
@@ -559,7 +588,8 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID create_aossicated_account "(\"${SOL_
 # TOKEN_MINT=4PY24Vzmd4tCm24yekAW8tnv1oQ9SLbufo2WXT7xYhq1
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_req "(\"${TID}\")" --ic
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --ic
-
+TID=ryjl3-tyaaa-aaaaa-aaaba-cai_17298305
+dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_status "(\"${TID}\")" --ic
 # dfx canister call $SOLANA_ROUTE_CANISTER_ID mint_token_with_req "(record{
 #         ticket_id=\"${TID}\";
 #         associated_account=\"${ATA}\";
@@ -688,3 +718,168 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID sign '("Hi,Boern")' --ic
 # 	token name  max 32 bytes
 # 	token symbol max 10 bytes
 # 	token uri 200 bytes
+
+# add eSolana to ICP chain counterparties
+############### update chain info    
+HUB_CANISTER_ID=7wupf-wiaaa-aaaar-qaeya-cai
+SOL_CHAIN_ID="eSolana"
+COUNTERPARTY_CHAIN_ID="sICP"
+COUNTERPARTY_CHAIN_CANISTER_ID="nlgkm-4qaaa-aaaar-qah2q-cai"
+# update sICP chain
+dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
+        UpdateChain = record { chain_state=variant { Active }; 
+        chain_id = \"${COUNTERPARTY_CHAIN_ID}\"; 
+        chain_type=variant { SettlementChain }; 
+        canister_id=\"${COUNTERPARTY_CHAIN_CANISTER_ID}\"; 
+        contract_address=null; 
+        counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
+                                \"Bitfinity\";
+                                \"osmo-test-5\";
+                                \"osmosis-1\";
+                                \"Core\";
+                                \"Ton\";
+				\"Ethereum\";
+                                }; \
+                        fee_token=null}}})" \
+        --ic 
+        
+dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant { 
+        UpdateChain = record { chain_state=variant { Active }; 
+        chain_id = \"${COUNTERPARTY_CHAIN_ID}\"; 
+        chain_type=variant { SettlementChain }; 
+        canister_id=\"${COUNTERPARTY_CHAIN_CANISTER_ID}\"; 
+        contract_address=null; 
+        counterparties=opt vec {\"${SOL_CHAIN_ID}\"; 
+                                \"Bitfinity\";
+                                \"osmo-test-5\";
+                                \"osmosis-1\";
+                                \"Core\";
+                                \"Ton\";
+				\"Ethereum\";
+                                }; \
+                        fee_token=null}}})" \
+        --ic 
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_chain_list '()' --ic
+
+# update solana chain
+HUB_CANISTER_ID=7wupf-wiaaa-aaaar-qaeya-cai
+SOL_CHAIN_ID="eSolana"
+SOL_FEE="SOL"
+COUNTERPARTY_CHAIN_ID="sICP"
+SOLANA_ROUTE_CANISTER_ID=lvinw-hiaaa-aaaar-qahoa-cai
+dfx canister call $HUB_CANISTER_ID validate_proposal "(vec {variant { 
+        UpdateChain = record { chain_state=variant { Active }; 
+        chain_id = \"${SOL_CHAIN_ID}\"; 
+        chain_type=variant {  ExecutionChain }; 
+        canister_id=\"${SOLANA_ROUTE_CANISTER_ID}\"; 
+        contract_address=opt \"\"; 
+        counterparties=opt vec {\"${COUNTERPARTY_CHAIN_ID}\"; 
+                                \"Bitcoin\";
+                                }; \
+                        fee_token= opt \"${SOL_FEE}\}}})" \
+        --ic 
+        
+dfx canister call $HUB_CANISTER_ID execute_proposal "(vec {variant { 
+        UpdateChain = record { chain_state=variant { Active }; 
+        chain_id = \"${SOL_CHAIN_ID}\"; 
+        chain_type=variant {  ExecutionChain }; 
+        canister_id=\"${SOLANA_ROUTE_CANISTER_ID}\"; 
+        contract_address=opt \"\"; 
+        counterparties=opt vec {\"${COUNTERPARTY_CHAIN_ID}\"; 
+                                \"Bitcoin\";
+                                }; \
+                         fee_token= opt \"${SOL_FEE}\}}})" \
+        --ic 
+
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_chain_list '()' --ic
+
+########################## update token info 
+SOL_CHAIN_ID="eSolana"
+TOKEN_ID="sICP-native-ICP"
+TOKEN_NAME="ICP"
+TOKEN_SYMBOL="ICP"
+DECIMALS=8
+ICON="https://raw.githubusercontent.com/octopus-network/omnity-interoperability/9061b7e2ea9e0717b47010279ff1ffd6f1f4c1fc/assets/token_logo/icp.svg"
+URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/icp_meta.json"
+ISSUE_CHAIN_ID="sICP"
+
+dfx canister call $HUB_CANISTER_ID validate_proposal "( vec {variant { UpdateToken = record { 
+        token_id = \"${TOKEN_ID}\"; 
+        name = \"${TOKEN_NAME}\";
+        issue_chain = \"${ISSUE_CHAIN_ID}\"; 
+        symbol = \"${TOKEN_SYMBOL}\"; 
+        decimals = ${DECIMALS};
+        icon = opt \"${ICON}\"; 
+        metadata =  vec{ record {\"uri\"; \"$URI\"}}; 
+        dst_chains = vec {\"${SOL_CHAIN_ID}\";}}}})" \
+        --ic 
+dfx canister call $HUB_CANISTER_ID execute_proposal "( vec {variant { UpdateToken = record { 
+        token_id = \"${TOKEN_ID}\"; 
+        name = \"${TOKEN_NAME}\";
+        issue_chain = \"${ISSUE_CHAIN_ID}\"; 
+        symbol = \"${TOKEN_SYMBOL}\"; 
+        decimals = ${DECIMALS};
+        icon = opt \"${ICON}\"; 
+        metadata =  vec{ record {\"uri\"; \"$URI\"}}; 
+        dst_chains = vec {\"${SOL_CHAIN_ID}\";}}}})" \
+        --ic 
+
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_token_list '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID query_mint_account "(\"${TOKEN_ID}\")" --ic
+
+########################### update token from solana route
+dfx canister call $SOLANA_ROUTE_CANISTER_ID stop_schedule '(null)' --ic
+
+TOKEN_ID="sICP-native-ICP"
+TOKEN_NAME="ICP"
+TOKEN_SYMBOL="ICP"
+DECIMALS=8
+ICON="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/icp_meta.json"
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID update_token_metaplex "(
+        record {
+                token_id=\"${TOKEN_ID}\";
+                name=\"${TOKEN_NAME}\";
+                symbol=\"${TOKEN_SYMBOL}\";
+                decimals=${DECIMALS}:nat8;
+                uri=\"${ICON}\";
+})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID start_schedule '(null)' --ic
+
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID add_token "(record {
+#         token_id=\"${TOKEN_ID}\";
+#         name=\"${TOKEN_NAME}\";
+#         symbol=\"${TOKEN_SYMBOL}\";
+#         decimals=${DECIMALS}:nat8;
+#         icon=opt \"${ICON}\";
+#         metadata =  vec{ record {\"uri\"; \"$URI\"}}; 
+# })" --ic
+
+
+########################## update fee
+SOL decimal = 9
+SOL = 226
+fee = 2$
+target_chain_factor = 2000
+fee_token_factor = fee / SOL * decimal / target_chain_factor = 2/226 * 1000000000/2000 =4425
+
+TARGET_CHAIN_ID="sICP"
+TARGET_CHAIN_FACTOR=2000
+SOL_CHAIN_ID="eSolana"
+FEE_TOKEN_FACTOR=4425
+SOL_FEE="SOL"
+
+dfx canister call $HUB_CANISTER_ID update_fee "vec {variant { UpdateTargetChainFactor = 
+        record { target_chain_id=\"${TARGET_CHAIN_ID}\"; 
+                 target_chain_factor=$TARGET_CHAIN_FACTOR : nat}}; 
+                 variant { UpdateFeeTokenFactor = record { fee_token=\"${SOL_FEE}\"; 
+                                                 fee_token_factor=$FEE_TOKEN_FACTOR : nat}}}" \
+        --ic 
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_redeem_fee '("sICP")' --ic
+# check
+dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateFee},0:nat64,12:nat64)" --ic 

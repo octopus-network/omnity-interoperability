@@ -313,7 +313,9 @@ TOKEN_ID="${PROTO}-${TOKEN_NAME}${TIMESTAMP}"
 # TOKEN_SYMBOL=$(echo "$TOKEN_NAME" | grep -oE 'NICE[0-9]+')
 TOKEN_SYMBOL="X"
 DECIMALS=0
+ICON=https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/x.png
 TOKEN_URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x_meta.json"
+
 # TOKEN_URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/x.png"
 # TOKEN_URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x_uri.json"
 # TOKEN_URI="https://arweave.net/G058Vw4fqZqpcCHvYxjmQ_dgK_abkL-GjcR-p3os0Jc"
@@ -332,8 +334,9 @@ dfx canister call $HUB_CANISTER_ID validate_proposal "( vec {variant { AddToken 
         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
         symbol = \"${TOKEN_SYMBOL}\"; 
         decimals = ${DECIMALS};
-        icon = opt \"${TOKEN_URI}\"; 
-        metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
+        icon = opt \"${ICON}\"; 
+        metadata =  vec{ record {\"rune_id\"; \"107:1\"};
+                         record {\"uri\"; \"$TOKEN_URI\"}}; 
         dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})" \
         --ic 
 dfx canister call $HUB_CANISTER_ID execute_proposal "( vec {variant { AddToken = record { 
@@ -342,8 +345,9 @@ dfx canister call $HUB_CANISTER_ID execute_proposal "( vec {variant { AddToken =
         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
         symbol = \"${TOKEN_SYMBOL}\"; 
         decimals = ${DECIMALS};
-        icon = opt \"${TOKEN_URI}\"; 
-        metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
+        icon = opt \"${ICON}\"; 
+        metadata =  vec{ record {\"rune_id\"; \"107:1\"};
+                         record {\"uri\"; \"$TOKEN_URI\"}}; 
         dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})" \
         --ic 
 
@@ -566,7 +570,7 @@ dfx canister call $HUB_CANISTER_ID query_tickets "(opt \"${BITCOIN_CHAIN_ID}\",0
 sleep 120
 
 # cannel schedule
-dfx canister call $SOLANA_ROUTE_CANISTER_ID stop_schedule '()' --ic
+dfx canister call $SOLANA_ROUTE_CANISTER_ID stop_schedule '(null)' --ic
 
 # dfx canister stop $SOLANA_ROUTE_CANISTER_ID --ic
 # dfx canister delete $SOLANA_ROUTE_CANISTER_ID --ic

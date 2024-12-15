@@ -78,8 +78,8 @@ export TOKEN_ID
 # TOKEN_SYMBOL=$(echo "$TOKEN_NAME" | grep -oE 'NICE[0-9]+')
 TOKEN_SYMBOL="X"
 DECIMALS=0
+ICON=https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/x.png
 TOKEN_URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x_meta.json"
-# TOKEN_URI=https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/x.png
 # TOKEN_URI="https://raw.githubusercontent.com/octopus-network/omnity-token-imgs/main/metadata/x_uri.json"
 # https://xpwdk-zyaaa-aaaar-qajaa-cai.raw.icp0.io/token_meta?id=Bitcoin-runes-RUNES%E2%80%A2X%E2%80%A2BITCOIN202410220902
 dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = record { 
@@ -88,8 +88,9 @@ dfx canister call omnity_hub validate_proposal "( vec {variant { AddToken = reco
         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
         symbol = \"${TOKEN_SYMBOL}\"; 
         decimals = ${DECIMALS};
-        icon = opt \"${TOKEN_URI}\"; 
-        metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
+        icon = opt \"${ICON}\"; 
+        metadata =  vec{ record {\"rune_id\"; \"107:1\"};
+                         record {\"uri\"; \"$TOKEN_URI\"}}; 
         dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
 dfx canister call omnity_hub execute_proposal "( vec {variant { AddToken = record { 
         token_id = \"${TOKEN_ID}\"; 
@@ -97,8 +98,9 @@ dfx canister call omnity_hub execute_proposal "( vec {variant { AddToken = recor
         issue_chain = \"${BITCOIN_CHAIN_ID}\"; 
         symbol = \"${TOKEN_SYMBOL}\"; 
         decimals = ${DECIMALS};
-        icon = opt \"${TOKEN_URI}\"; 
-        metadata =  vec{ record {\"rune_id\"; \"107:1\"}}; 
+        icon = opt \"${ICON}\"; 
+        metadata =  vec{ record {\"rune_id\"; \"107:1\"};
+        record {\"uri\"; \"$TOKEN_URI\"}}; 
         dst_chains = vec {\"${BITCOIN_CHAIN_ID}\";\"${SOL_CHAIN_ID}\";}}}})"
 dfx canister call omnity_hub query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {AddToken},0:nat64,5:nat64)"
 
@@ -122,7 +124,7 @@ dfx canister call solana_route update_key_type "($KEYTYPE)"
 dfx canister call solana_route query_key_type "($KEYTYPE)" 
 SIGNER=$(dfx canister call solana_route signer "($KEYTYPE)" --candid ./assets/solana_route.did)
 SIGNER=$(echo "$SIGNER" | awk -F'"' '{print $2}')
-dfx canister call $SOLANA_ROUTE_CANISTER_ID get_balance "(\"${SIGNER}\")"
+dfx canister call solana_route get_balance "(\"${SIGNER}\")"
 
 echo "current SIGNER: $SIGNER"
 # transfer SOL to init signer

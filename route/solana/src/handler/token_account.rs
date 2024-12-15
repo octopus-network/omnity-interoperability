@@ -39,17 +39,19 @@ pub async fn create_token_mint() {
 
     let sol_client = solana_client().await;
     for token in creating_token_mint.into_iter() {
+        // get uri
+        let uri =if let Some(uri) = token.metadata.get("uri"){
+            uri.to_string()
+        }else {
+            token.icon.to_owned().unwrap_or_default()
+        };
+
         let token_info = TokenInfo {
             token_id: token.token_id.to_string(),
             name: token.name,
             symbol: token.symbol,
             decimals: token.decimals,
-            uri: token.icon.unwrap_or_default(),
-            // uri: format!("https://{}.{}/token_meta?id={}",
-            // // ic_cdk::api::id().to_text(),
-            // "xpwdk-zyaaa-aaaar-qajaa-cai".to_string(),
-            // IC_GATEWAY,
-            // token.token_id.to_string()),
+            uri,
         };
         let mint_account = if let Some(account) =
             read_state(|s| s.token_mint_accounts.get(&token.token_id))
@@ -347,12 +349,18 @@ pub async fn update_token() {
             log!(DEBUG,"[token_account::update_token] token mint info : {:?} ",account_info);
             //query token metadata from solana chain and comparison metadata with new metadata
             // if not eq, execute update token metadata
+            // get uri
+            let uri =if let Some(uri) = update_token.token.metadata.get("uri"){
+                uri.to_string()
+            }else {
+                update_token.token.icon.to_owned().unwrap_or_default()
+            };
             let token_update_info = TokenInfo {
                 token_id: token_id.to_string(),
                 name: update_token.token.name.to_owned(),
                 symbol: update_token.token.symbol.to_owned(),
                 decimals: update_token.token.decimals,
-                uri: update_token.token.icon.to_owned().unwrap_or_default(),
+                uri,
             };
             log!(DEBUG,"[token_account::update_token] token_update_info: {:?} ",token_update_info);
             match update_with_metaplex(account_info.account, token_update_info).await {

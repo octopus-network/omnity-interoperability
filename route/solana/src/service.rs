@@ -761,7 +761,8 @@ pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> 
                     token.name = req.name;
                     token.symbol = req.symbol;
                     token.decimals = req.decimals;
-                    token.icon = Some(req.uri);
+                    // token.icon = Some(req.uri);
+                    token.metadata.insert("uri".to_string(), req.uri);
                     s.tokens.insert(req.token_id.to_string(), token.to_owned());
                 }
             });
