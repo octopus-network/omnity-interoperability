@@ -12,6 +12,8 @@ use ic_cdk_timers::set_timer_interval;
 use ic_ledger_types::{AccountIdentifier, Subaccount, DEFAULT_SUBACCOUNT};
 use omnity_types::MintTokenStatus::{Finalized, Unknown};
 use omnity_types::{Chain, MintTokenStatus, Seq, Ticket, TicketId, Token};
+use ic_canister_log::log;
+use omnity_types::ic_log::{ERROR, INFO};
 
 pub fn is_controller() -> Result<(), String> {
     if ic_cdk::api::is_controller(&ic_cdk::caller()) {
@@ -30,12 +32,24 @@ fn init(args: InitArgs) {
 #[post_upgrade]
 fn post_upgrade() {
     set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), periodic_task);
+
+    log!(
+        INFO,
+        "Finish Upgrade current version: {}",
+        env!("CARGO_PKG_VERSION")
+    );
 }
 
 fn check_anonymous_caller() {
     if ic_cdk::caller() == Principal::anonymous() {
         panic!("anonymous caller not allowed")
     }
+}
+
+#[update]
+async fn generate_ticket_v2(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
+    check_anonymous_caller();
+    updates::generate_ticket_v2(args).await
 }
 
 #[update]

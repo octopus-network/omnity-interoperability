@@ -79,6 +79,50 @@ pub async fn refund_icp_from_subaccount(
     Ok((index, ic_balance.e8s()))
 }
 
+pub async fn generate_ticket_v2(
+    req: GenerateTicketReq,
+) -> Result<GenerateTicketOk, GenerateTicketError> {
+    if get_counterparty(&req.target_chain_id).is_none() {
+        return Err(GenerateTicketError::UnsupportedChainId(
+            req.target_chain_id.clone(),
+        ));
+    }
+
+    let ledger_id = get_token_principal(&req.token_id).ok_or(GenerateTicketError::UnsupportedToken(req.token_id.clone()))?;
+
+    let user = Account {
+        owner: ic_cdk::caller(),
+        subaccount: req.from_subaccount,
+    };
+
+    let (block_index, ticket_amount) = transfer_token_icrc2(ledger_id, user, req.amount).await?;
+    let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
+
+    let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
+
+    hub::send_ticket(
+        hub_principal,
+        Ticket {
+            ticket_id: ticket_id.clone(),
+            ticket_type: omnity_types::TicketType::Normal,
+            ticket_time: ic_cdk::api::time(),
+            src_chain: chain_id,
+            dst_chain: req.target_chain_id.clone(),
+            action: TxAction::Transfer,
+            token: req.token_id.clone(),
+            amount: ticket_amount.to_string(),
+            sender: Some(ic_cdk::caller().to_text()),
+            receiver: req.receiver.clone(),
+            memo: req.memo.map(|m| m.into_bytes()),
+        },
+    )
+    .await
+    .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
+    log!(INFO, "Success to generate ticket: {}", ticket_id);
+    Ok(GenerateTicketOk { ticket_id })
+
+}
+
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
@@ -101,7 +145,7 @@ pub async fn generate_ticket(
             subaccount: req.from_subaccount,
         };
     
-        let (block_index, ticket_amount) = burn_token_icrc2(ledger_id, user, req.amount).await?;
+        let (block_index, ticket_amount) = transfer_token_icrc2(ledger_id, user, req.amount).await?;
         let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
         (ticket_id, ticket_amount)
     };
@@ -172,7 +216,7 @@ async fn lock_icp(
     Ok((index, amount))
 }
 
-async fn burn_token_icrc2(
+async fn transfer_token_icrc2(
     ledger_id: Principal,
     user: Account,
     amount: u128,
