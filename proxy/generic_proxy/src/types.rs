@@ -49,9 +49,9 @@ pub struct UpdateBalanceJob {
 }
 
 impl UpdateBalanceJob {
-    const MAX_FAILED_TIMES: u32 = 15;
-    const INIT_DELAY: u64 = 60 * 50;
-    const FAILED_DELAY: u64 = 60 * 5;
+    const MAX_FAILED_TIMES: u32 = 20;
+    const INIT_DELAY: u64 = 60 * 30;
+    const FAILED_DELAY: u64 = 60 * 3;
     pub fn new(omnity_account: OmnityAccount) -> Self {
         UpdateBalanceJob {
             omnity_account,

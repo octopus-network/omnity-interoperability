@@ -4,11 +4,12 @@ use crate::lifecycle::init::InitArgs;
 use crate::state::{get_finalized_mint_token_request, read_state, CustomsState};
 use crate::updates::generate_ticket::{GenerateTicketError, GenerateTicketOk, GenerateTicketReq};
 use crate::{hub, lifecycle, periodic_task, updates, PERIODIC_TASK_INTERVAL};
+use candid::types::principal;
 use candid::Principal;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk_macros::{init, post_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use ic_ledger_types::{AccountIdentifier, Subaccount};
+use ic_ledger_types::{AccountIdentifier, Subaccount, DEFAULT_SUBACCOUNT};
 use omnity_types::MintTokenStatus::{Finalized, Unknown};
 use omnity_types::{Chain, MintTokenStatus, Seq, Ticket, TicketId, Token};
 
@@ -52,6 +53,12 @@ async fn refund_icp(principal: Principal)->Result<(ic_ledger_types::BlockIndex, 
 fn get_account_identifier(principal: Principal) -> AccountIdentifier {
     let subaccount = Subaccount::from(principal);
     AccountIdentifier::new(&ic_cdk::api::id(), &subaccount)
+}
+
+#[query]
+fn get_account_identifier_text(principal: Principal) -> String {
+    let subaccount = Subaccount::from(principal);
+    AccountIdentifier::new(&ic_cdk::api::id(), &subaccount).to_hex()
 }
 
 #[query]
