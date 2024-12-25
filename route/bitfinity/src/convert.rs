@@ -4,6 +4,7 @@ use omnity_types::{Directive, Factor, Ticket, TicketType, ToggleAction, TxAction
 use crate::contract_types::{RunesMintRequested, TokenBurned, TokenTransportRequested};
 use crate::contracts::{PortContractCommandIndex, PortContractFactorTypeIndex};
 use crate::state::read_state;
+use ic_stable_structures::Storable;
 
 pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: TokenBurned, fee_token: Option<String>, bridge_fee: Option<u128>) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
@@ -19,6 +20,9 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
     } else {
         TxAction::Redeem
     };
+
+    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.unwrap_or_default().to_string().as_str());
+
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
         ticket_time: ic_cdk::api::time(),
@@ -33,9 +37,7 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
             hex::encode(token_burned.sender.0.as_slice())
         )),
         receiver: token_burned.receiver,
-        memo: None,
-        fee_token,
-        bridge_fee,
+        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
     }
 }
 
@@ -48,6 +50,9 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
             .clone()
     });
     let dst_chain = token.token_id_info()[0].to_string();
+
+    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.unwrap_or_default().to_string().as_str());
+
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
         ticket_time: ic_cdk::api::time(),
@@ -59,9 +64,7 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
         amount: "0".to_string(),
         sender: Some(format!("0x{}", hex::encode(runes_mint.sender.0.as_slice()))),
         receiver: format!("0x{}", hex::encode(runes_mint.receiver.0.as_slice())),
-        memo: None,
-        fee_token,
-        bridge_fee,
+        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
     }
 }
 
@@ -70,6 +73,9 @@ pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
                                    fee_token: Option<String>, bridge_fee: Option<u128>) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let dst_chain = token_transport_requested.dst_chain_id;
+
+    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.unwrap_or_default().to_string().as_str());
+    
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
         ticket_time: ic_cdk::api::time(),
@@ -84,9 +90,7 @@ pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
             hex::encode(token_transport_requested.sender.0.as_slice())
         )),
         receiver: token_transport_requested.receiver,
-        memo: Some(token_transport_requested.memo.into_bytes()),
-        fee_token,
-        bridge_fee,
+        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
     }
 }
 
