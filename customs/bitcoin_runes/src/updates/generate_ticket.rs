@@ -14,6 +14,7 @@ use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext,
     TransformFunc,
 };
+use ic_stable_structures::Storable;
 use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainState, Ticket, TicketType, TxAction};
 use serde::Serialize;
@@ -140,6 +141,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         }
     }
 
+    let memo = Some("fee_token: BTC, bridge_fee: ".to_string() + fee.unwrap_or_default().to_string().as_str());
+
     hub::pending_ticket(
         hub_principal,
         Ticket {
@@ -153,9 +156,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             amount: args.amount.to_string(),
             sender: None,
             receiver: args.receiver.clone(),
-            memo: None,
-            fee_token: Some("BTC".to_string()),
-            bridge_fee: fee,
+            memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
         },
     )
     .await

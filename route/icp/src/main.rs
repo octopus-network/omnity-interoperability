@@ -13,12 +13,12 @@ use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
 use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
 use icp_route::updates::generate_ticket::{
-    principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
+    icp_get_redeem_fee, principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq
 };
 use icp_route::updates::{self};
 use icp_route::{
     hub, process_directive_msg_task, process_ticket_msg_task, storage, TokenResp,
-    FEE_COLLECTOR_SUB_ACCOUNT, ICP_TRANSFER_FEE, INTERVAL_QUERY_DIRECTIVE, INTERVAL_QUERY_TICKET,
+    FEE_COLLECTOR_SUB_ACCOUNT, INTERVAL_QUERY_DIRECTIVE, INTERVAL_QUERY_TICKET,
 };
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
@@ -267,16 +267,7 @@ pub fn get_fee_account(principal: Option<Principal>) -> AccountIdentifier {
 
 #[query]
 pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
-    read_state(|s| {
-        s.target_chain_factor
-            .get(&chain_id)
-            // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
-            .map_or(None, |target_chain_factor| {
-                s.fee_token_factor.map(|fee_token_factor| {
-                    (target_chain_factor * fee_token_factor) as u64 + ICP_TRANSFER_FEE
-                })
-            })
-    })
+    icp_get_redeem_fee(chain_id)
 }
 
 #[query]

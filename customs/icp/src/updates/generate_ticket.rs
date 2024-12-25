@@ -122,8 +122,6 @@ pub async fn generate_ticket(
             sender: Some(ic_cdk::caller().to_text()),
             receiver: req.receiver.clone(),
             memo: req.memo.map(|m| m.into_bytes()),
-            fee_token: None,
-            bridge_fee: None,
         },
     )
     .await

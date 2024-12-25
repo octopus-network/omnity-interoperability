@@ -8,6 +8,7 @@ use num_traits::{ToPrimitive, Zero};
 use rust_decimal::Decimal;
 use serde::Serialize;
 use thiserror::Error;
+use ic_stable_structures::Storable;
 
 use omnity_types::ic_log::INFO;
 use omnity_types::{ChainState, Ticket, TicketType, TxAction};
@@ -116,6 +117,8 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         .unwrap();
 
     let (fee, _) = read_state(|s|s.get_transfer_fee_info(&args.target_chain_id));
+    let memo = Some("fee_token: BTC, bridge_fee: ".to_string() + fee.unwrap_or_default().to_string().as_str());
+
     hub::pending_ticket(
         hub_principal,
         Ticket {
@@ -129,9 +132,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             amount: ticket_amount.to_string(),
             sender: None,
             receiver: args.receiver.clone(),
-            memo: None,
-            fee_token: Some(read_state(|s| s.fee_token.clone())),
-            bridge_fee: fee,
+            memo: memo.to_owned().map(|m| m.to_bytes().to_vec())
         },
     )
     .await
