@@ -246,7 +246,7 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
                 None => {bridge_fee = 0},
                 Some(tx) => {bridge_fee = hex_to_u64(&tx.value.to_string()) as u128},
             }
-            // TOCHANGE: bridge fee now is in Wei
+          
             let ticket = generate_ticket_by_logs(tr.logs, fee_token, Some(bridge_fee));
 
             let t = ticket.map_err(|e| e.to_string())?;

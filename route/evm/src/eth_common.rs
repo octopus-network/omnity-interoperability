@@ -28,7 +28,7 @@ use crate::eth_common::EvmAddressError::LengthError;
 use crate::ic_log::{CRITICAL, INFO, WARNING};
 use crate::state::{evm_transfer_gas_factor, read_state, rpc_providers};
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Default)]
 pub struct TransactionByHash {
     #[serde(default, rename = "blockHash")]
     pub block_hash: String,
@@ -55,57 +55,6 @@ pub struct TransactionByHash {
     pub r: String,
     pub s: String,
 }
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-pub struct TransactionByHashRPC  {
-    #[serde(default, rename = "blockHash")]
-    pub block_hash: Option<H256>,
-    #[serde(default, rename = "blockNumber")]
-    pub block_number: Option<U64>,
-    #[serde(default)]
-    pub from: H160,
-    pub gas: U256,
-    #[serde(rename = "gasPrice")]
-    pub gas_price: Option<U256>,
-    pub hash: H256,
-    pub input: Bytes,
-    pub nonce: U256,
-    #[serde(default)]
-    pub to: Option<H160>,
-    #[serde(default, rename = "transactionIndex")]
-    pub transaction_index: Option<U64>,
-    pub value: U256,
-    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
-    pub transaction_type: Option<U64>,
-    #[serde(rename = "chainId", default, skip_serializing_if = "Option::is_none")]
-    pub chain_id: Option<U256>,
-    pub v: U64,
-    pub r: U256,
-    pub s: U256,
-}
-impl Into<TransactionByHashRPC> for TransactionByHash {
-    fn into(self) -> TransactionByHashRPC {
-        TransactionByHashRPC {
-            block_hash: self.block_hash,    
-            block_number: self.block_number,
-            from: self.from,
-            gas: Default::default(),
-            gas_price: Default::default(),
-            hash: self.hash,
-            input: self.input,
-            nonce: Default::default(),
-            to: self.to,
-            transaction_index: self.transaction_index,
-            value: self.value,
-            transaction_type: self.transaction_type,
-            chain_id: self.chain_id,
-            v: self.v,
-            r: self.r,
-            s: self.s,
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct TransactionReceipt {
     #[serde(rename = "blockHash")]
@@ -620,7 +569,7 @@ pub async fn get_receipt(hash: &String, api: RpcApi) -> Result<Option<evm_rpc::c
     }
 }
 
-pub async fn get_transaction_by_hash(hash: &String, api: RpcApi) -> Result<Option<TransactionByHashRPC>, Error> {
+pub async fn get_transaction_by_hash(hash: &String, api: RpcApi) -> Result<Option<TransactionByHash>, Error> {
     let url = api.url.clone();
     const MAX_CYCLES: u128 = 1_100_000_000;
     let body = EvmJsonRpcRequest {
@@ -662,11 +611,11 @@ pub async fn get_transaction_by_hash(hash: &String, api: RpcApi) -> Result<Optio
                 let body = String::from_utf8(response.body).map_err(|_| {
                     EvmRpcError("Transformed response is not UTF-8 encoded".to_string())
                 })?;
-                let tx: EvmRpcResponse<TransactionByHashRPC> =
+                let tx: EvmRpcResponse<TransactionByHash> =
                     serde_json::from_str(&body).map_err(|_| {
                         EvmRpcError("failed to decode transaction from json".to_string())
                     })?;
-                Ok(tx.result.map(|tr| tr.into()))
+                Ok(tx.result)
             } else {
                 Err(EvmRpcError("http response not 200".to_string()))
             }

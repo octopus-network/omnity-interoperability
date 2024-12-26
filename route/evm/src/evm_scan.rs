@@ -290,8 +290,8 @@ pub async fn bridge_fee_memo(hash: String) -> anyhow::Result<Option<String>>{
         .map_err(|e| {
             log!(WARNING,"user query transaction by hash error: {:?}", e);
             "rpc".to_string()
-        });
-    let bridge_fee = U256::from_str_radix(tx.value.as_str.trim_start_matches("0x"), 16).unwrap_or_default().to_string();
+        }).unwrap_or_default();
+    let bridge_fee = U256::from_str_radix(tx.unwrap_or_default().value.as_str().trim_start_matches("0x"), 16).unwrap_or_default().to_string();
     let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.as_str() + "Wei");
     Ok(memo)
 }
