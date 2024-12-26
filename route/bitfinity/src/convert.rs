@@ -21,7 +21,7 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
         TxAction::Redeem
     };
 
-    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.unwrap_or_default().to_string().as_str());
+    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.unwrap_or_default().to_string().as_str() + "Wei");
 
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
@@ -51,7 +51,7 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
     });
     let dst_chain = token.token_id_info()[0].to_string();
 
-    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.unwrap_or_default().to_string().as_str());
+    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.unwrap_or_default().to_string().as_str() + "Wei");
 
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
@@ -74,7 +74,7 @@ pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let dst_chain = token_transport_requested.dst_chain_id;
 
-    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.unwrap_or_default().to_string().as_str());
+    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.unwrap_or_default().to_string().as_str() + "Wei");
     
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
