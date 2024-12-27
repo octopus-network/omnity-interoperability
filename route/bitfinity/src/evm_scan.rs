@@ -40,8 +40,7 @@ pub fn scan_evm_task() {
                 .map_err(|e| {
                     log!(ERROR, "user query transaction receipt error: {:?}", e);
                     "rpc".to_string()
-                });
-            
+                });           
             if let Ok(Some(tr)) = receipt {
                 match tr.status {
                     None => { continue }
@@ -52,9 +51,7 @@ pub fn scan_evm_task() {
                         }
                     }
                 }
-
                 let res = handle_port_events(tr.logs.clone()).await;
-
                 match res {
                     Ok(_) => {
                         mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -222,10 +219,8 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
         None => Err("not find".to_string()),
         Some(tr) => {
             let return_tr = tr.clone();
-            assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");
-          
+            assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");         
             let ticket = generate_ticket_by_logs(tr.logs);
-
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))
         }

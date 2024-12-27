@@ -58,7 +58,6 @@ pub async fn sync_mint_status(hash: String) {
     };
 
     log!(INFO, "{:?}",&receipt);
-
     if let Ok(Some(tr)) = receipt {
         if tr.status == 0 {
             mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -96,7 +95,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
         };
         if read_state(|s| s.handled_evm_event.contains(&log_key)) {
             continue;
-        }    
+        }
 
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
@@ -226,7 +225,6 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
             log!(WARNING, "user query transaction receipt error: {:?}", e);
             "rpc".to_string()
         })?;
-
     match receipt {
         None => Err("not find".to_string()),
         Some(tr) => {

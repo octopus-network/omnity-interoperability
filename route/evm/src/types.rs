@@ -245,7 +245,6 @@ impl Ticket {
                 .clone()
         });
         let dst_chain = token.token_id_info()[0].to_string();
-
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),
@@ -274,8 +273,7 @@ impl Ticket {
             TxAction::Burn
         } else {
             TxAction::Redeem
-        };
-        
+        };       
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),
@@ -300,7 +298,6 @@ impl Ticket {
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let dst_chain = token_transport_requested.dst_chain_id;
-
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),

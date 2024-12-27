@@ -19,7 +19,6 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
     } else {
         TxAction::Redeem
     };
-
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
         ticket_time: ic_cdk::api::time(),
@@ -47,7 +46,6 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
             .clone()
     });
     let dst_chain = token.token_id_info()[0].to_string();
-
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
         ticket_time: ic_cdk::api::time(),
@@ -67,7 +65,6 @@ pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
                                    token_transport_requested: TokenTransportRequested) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let dst_chain = token_transport_requested.dst_chain_id;
-    
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
         ticket_time: ic_cdk::api::time(),
@@ -82,7 +79,7 @@ pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
             hex::encode(token_transport_requested.sender.0.as_slice())
         )),
         receiver: token_transport_requested.receiver,
-        memo:  Some(token_transport_requested.memo.into_bytes()),
+        memo: Some(token_transport_requested.memo.into_bytes()),
     }
 }
 
