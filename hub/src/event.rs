@@ -13,11 +13,8 @@ use std::cell::RefCell;
 
 use crate::memory::{init_event_log, Memory};
 
-use crate::types::ChainMeta;
-use crate::types::ChainTokenFactor;
-use crate::types::Subscribers;
-use crate::types::TokenKey;
-use crate::types::TokenMeta;
+use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
+
 use omnity_types::ToggleState;
 use serde::{Deserialize, Serialize};
 const MAX_EVENTS_PER_QUERY: usize = 2000;

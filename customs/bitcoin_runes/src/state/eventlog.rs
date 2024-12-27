@@ -174,7 +174,12 @@ pub enum Event {
     #[serde(rename = "updated_fee")]
     UpdatedFee { fee: Factor },
     #[serde(rename = "upate_fee_collector")]
-    UpdateFeeCollector { addr: String }
+    UpdateFeeCollector { addr: String },
+
+    #[serde(rename = "update_ord_indexer")]
+    UpdatedOrdIndexer { principal: Principal },
+    #[serde(rename = "update_icpswap")]
+    UpdateIcpswap { principal: Principal }
 }
 
 #[derive(Debug)]
@@ -420,6 +425,12 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             },
             Event::UpdateFeeCollector{addr} => {
                 state.fee_collector_address = addr;
+            }
+            Event::UpdatedOrdIndexer { principal } => {
+                state.ord_indexer_principal = Some(principal);
+            }
+            Event::UpdateIcpswap { principal } => {
+                state.icpswap_principal = Some(principal);
             }
         }
     }

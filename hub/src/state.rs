@@ -7,7 +7,8 @@ use crate::metrics::with_metrics_mut;
 
 // use crate::migration::{migrate, PreHubState};
 use crate::self_help::AddRunesTokenReq;
-use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta, TxHash};
+use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
+use omnity_types::{Amount, TxHash};
 use candid::Principal;
 use ic_canister_log::log;
 use ic_stable_structures::writer::Writer;

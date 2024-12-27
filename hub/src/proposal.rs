@@ -1,9 +1,9 @@
 use ic_canister_log::log;
 use omnity_types::{ic_log::ERROR, ChainState, Directive, Error, Factor};
+use omnity_types::hub_types::Proposal;
 
 use crate::{
     state::{with_state, with_state_mut},
-    types::Proposal,
 };
 
 pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>, Error> {

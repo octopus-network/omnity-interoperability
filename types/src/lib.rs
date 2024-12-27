@@ -14,6 +14,7 @@ pub mod rune_id;
 pub mod signer;
 pub mod ic_log;
 pub mod brc20;
+pub mod hub_types;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
@@ -23,6 +24,10 @@ pub type DstChain = ChainId;
 pub type TokenId = String;
 pub type TicketId = String;
 pub type Account = String;
+
+pub type Amount = u128;
+pub type TxHash = String;
+
 
 #[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
 pub enum Directive {
