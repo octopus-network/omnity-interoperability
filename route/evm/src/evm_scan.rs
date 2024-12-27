@@ -6,7 +6,6 @@ use ethers_core::utils::hex::ToHexExt;
 use evm_rpc::candid_types::TransactionReceipt;
 use ic_canister_log::log;
 use itertools::Itertools;
-use ethers_core::types::U256;
 
 use crate::*;
 use crate::const_args::SCAN_EVM_TASK_NAME;
@@ -14,7 +13,7 @@ use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
     TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt, get_transaction_by_hash};
+use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt};
 use crate::ic_log::{INFO, WARNING};
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Ticket};
@@ -59,14 +58,13 @@ pub async fn sync_mint_status(hash: String) {
     };
 
     log!(INFO, "{:?}",&receipt);
-    let fee_memo = bridge_fee_memo(hash.clone()).await.unwrap_or_default();
 
     if let Ok(Some(tr)) = receipt {
         if tr.status == 0 {
             mutate_state(|s| s.pending_events_on_chain.remove(&hash));
             return;
         }
-        let res = handle_port_events(tr.logs.clone(), fee_memo).await;
+        let res = handle_port_events(tr.logs.clone()).await;
         match res {
             Ok(_) => {
                 mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -79,7 +77,7 @@ pub async fn sync_mint_status(hash: String) {
     }
 }
 
-pub async fn handle_port_events(logs: Vec<LogEntry>, memo: Option<String>) -> anyhow::Result<()> {
+pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
     for l in logs {
         if l.removed {
             return Err(anyhow!("log is removed"));
@@ -103,7 +101,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>, memo: Option<String>) -> an
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-            handle_token_burn(&l, token_burned.clone(), memo.clone()).await?;
+            handle_token_burn(&l, token_burned.clone()).await?;
         } else if topic1 == TokenMinted::signature_hash() {
             let token_mint = TokenMinted::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -123,7 +121,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>, memo: Option<String>) -> an
                 }
             });
             if dst_check_result {
-                handle_token_transport(&l, token_transport, memo.clone()).await?;
+                handle_token_transport(&l, token_transport).await?;
             } else {
                 let tx_hash = l.transaction_hash.unwrap_or(Hash([0u8; 32])).to_string();
                 log!(INFO, "[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash );
@@ -176,7 +174,7 @@ pub async fn handle_port_events(logs: Vec<LogEntry>, memo: Option<String>) -> an
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
-            handle_runes_mint(&l, runes_mint, memo.clone()).await?;
+            handle_runes_mint(&l, runes_mint).await?;
         }
     }
     Ok(())
@@ -185,9 +183,8 @@ pub async fn handle_port_events(logs: Vec<LogEntry>, memo: Option<String>) -> an
 pub async fn handle_runes_mint(
     log_entry: &LogEntry,
     event: RunesMintRequested,
-    memo:Option<String>,
 ) -> anyhow::Result<()> {
-    let ticket = Ticket::from_runes_mint_event(log_entry, event, memo);
+    let ticket = Ticket::from_runes_mint_event(log_entry, event);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
@@ -198,8 +195,8 @@ pub async fn handle_runes_mint(
     Ok(())
 }
 
-pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned, memo:Option<String>) -> anyhow::Result<()> {
-    let ticket = Ticket::from_burn_event(log_entry, event, memo);
+pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyhow::Result<()> {
+    let ticket = Ticket::from_burn_event(log_entry, event);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
@@ -210,9 +207,8 @@ pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned, memo:Op
 pub async fn handle_token_transport(
     log_entry: &LogEntry,
     event: TokenTransportRequested,
-    memo:Option<String>,
 ) -> anyhow::Result<()> {
-    let ticket = Ticket::from_transport_event(log_entry, event, memo);
+    let ticket = Ticket::from_transport_event(log_entry, event);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
@@ -231,21 +227,19 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
             "rpc".to_string()
         })?;
 
-    let fee_memo = bridge_fee_memo(tx_hash.to_owned()).await.unwrap_or_default();
-
     match receipt {
         None => Err("not find".to_string()),
         Some(tr) => {
             let return_tr = tr.clone();
             assert_eq!(tr.status, 1, "transaction failed");
-            let ticket = generate_ticket_by_logs(tr.logs, fee_memo);
+            let ticket = generate_ticket_by_logs(tr.logs);
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))
         }
     }
 }
 
-pub fn generate_ticket_by_logs(logs: Vec<LogEntry>, memo:Option<String>) -> anyhow::Result<Ticket> {
+pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
     for l in logs {
         if l.removed {
             return Err(anyhow!("log is removed"));
@@ -258,7 +252,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>, memo:Option<String>) -> anyh
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-            return Ok(Ticket::from_burn_event(&l, token_burned, memo));
+            return Ok(Ticket::from_burn_event(&l, token_burned));
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -270,7 +264,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>, memo:Option<String>) -> anyh
                 }
             });
             if dst_check_result {
-                return Ok(Ticket::from_transport_event(&l, token_transport, memo));
+                return Ok(Ticket::from_transport_event(&l, token_transport));
             } else {
                 let tx_hash = l.transaction_hash.unwrap_or(Hash([0u8; 32])).to_string();
                 log!(INFO, "[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
@@ -278,20 +272,8 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>, memo:Option<String>) -> anyh
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
-            return Ok(Ticket::from_runes_mint_event(&l, runes_mint, memo));
+            return Ok(Ticket::from_runes_mint_event(&l, runes_mint));
         }
     }
     Err(anyhow!("not found ticket"))
-}
-
-pub async fn bridge_fee_memo(hash: String) -> anyhow::Result<Option<String>>{
-    let fee_token = Some(read_state(|s| s.fee_token_id.clone()));
-        let tx = call_rpc_with_retry(&hash, get_transaction_by_hash).await
-        .map_err(|e| {
-            log!(WARNING,"user query transaction by hash error: {:?}", e);
-            "rpc".to_string()
-        }).unwrap_or_default();
-    let bridge_fee = U256::from_str_radix(tx.unwrap_or_default().value.as_str().trim_start_matches("0x"), 16).unwrap_or_default().to_string();
-    let memo = Some("fee_token: ".to_string()+ fee_token.unwrap_or_default().as_str() + ", bridge_fee: " + bridge_fee.as_str() + "Wei");
-    Ok(memo)
 }

@@ -283,3 +283,14 @@ where
 {
     STATE.with(|s| f(s.take().expect("State not initialized!")))
 }
+
+// pub fn bitfinity_get_redeem_fee(chain_id: ChainId) -> Option<u64> {
+//     read_state(|s| {
+//         s.target_chain_factor
+//             .get(&chain_id)
+//             .and_then(|target_chain_factor| {
+//                 s.fee_token_factor
+//                     .map(|fee_token_factor| (target_chain_factor * fee_token_factor) as u64)
+//             })
+//     })
+// }

@@ -28,33 +28,6 @@ use crate::eth_common::EvmAddressError::LengthError;
 use crate::ic_log::{CRITICAL, INFO, WARNING};
 use crate::state::{evm_transfer_gas_factor, read_state, rpc_providers};
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Default)]
-pub struct TransactionByHash {
-    #[serde(default, rename = "blockHash")]
-    pub block_hash: String,
-    #[serde(default, rename = "blockNumber")]
-    pub block_number: String,
-    #[serde(default)]
-    pub from: String,
-    pub gas: String,
-    #[serde(rename = "gasPrice")]
-    pub gas_price: String,
-    pub hash: String,
-    pub input: String,
-    pub nonce: String,
-    #[serde(default)]
-    pub to: String,
-    #[serde(default, rename = "transactionIndex")]
-    pub transaction_index: String,
-    pub value: String,
-    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
-    pub transaction_type: String,
-    #[serde(rename = "chainId", default, skip_serializing_if = "Option::is_none")]
-    pub chain_id: String,
-    pub v: String,
-    pub r: String,
-    pub s: String,
-}
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct TransactionReceipt {
     #[serde(rename = "blockHash")]
@@ -561,61 +534,6 @@ pub async fn get_receipt(hash: &String, api: RpcApi) -> Result<Option<evm_rpc::c
                         EvmRpcError("failed to decode transaction from json".to_string())
                     })?;
                 Ok(tx.result.map(|tr| tr.into()))
-            } else {
-                Err(EvmRpcError("http response not 200".to_string()))
-            }
-        }
-        Err((_, m)) => Err(EvmRpcError(m)),
-    }
-}
-
-pub async fn get_transaction_by_hash(hash: &String, api: RpcApi) -> Result<Option<TransactionByHash>, Error> {
-    let url = api.url.clone();
-    const MAX_CYCLES: u128 = 1_100_000_000;
-    let body = EvmJsonRpcRequest {
-        method: "eth_getTransactionByHash".to_string(),
-        params: vec![hash.clone()],
-        id: 1,
-        jsonrpc: "2.0".to_string(),
-    };
-    let body = serde_json::to_string(&body).unwrap();
-    let request = CanisterHttpRequestArgument {
-        url,
-        method: HttpMethod::POST,
-        body: Some(body.as_bytes().to_vec()),
-        max_response_bytes: Some(5000),
-        transform: Some(TransformContext {
-            function: TransformFunc(candid::Func {
-                principal: ic_cdk::api::id(),
-                method: "transform".to_string(),
-            }),
-            context: vec![],
-        }),
-        headers: vec![
-            HttpHeader {
-                name: "Content-Type".to_string(),
-                value: "application/json".to_string(),
-            },
-        ],
-    };
-
-    match http_request(request, MAX_CYCLES).await {
-        Ok((response, )) => {
-            log!(
-                INFO,
-                "get_transaction_by_hash result: {}",
-                serde_json::to_string(&response).unwrap()
-            );
-            let status = response.status;
-            if status == 200_u32 {
-                let body = String::from_utf8(response.body).map_err(|_| {
-                    EvmRpcError("Transformed response is not UTF-8 encoded".to_string())
-                })?;
-                let tx: EvmRpcResponse<TransactionByHash> =
-                    serde_json::from_str(&body).map_err(|_| {
-                        EvmRpcError("failed to decode transaction from json".to_string())
-                    })?;
-                Ok(tx.result)
             } else {
                 Err(EvmRpcError("http response not 200".to_string()))
             }

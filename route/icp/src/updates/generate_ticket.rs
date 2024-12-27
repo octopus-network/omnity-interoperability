@@ -12,7 +12,7 @@ use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use num_traits::cast::ToPrimitive;
 use omnity_types::ic_log::INFO;
-use omnity_types::{ChainId, ChainState, Ticket, TxAction};
+use omnity_types::{ChainId, ChainState, Ticket, TxAction, Fee};
 use serde::Serialize;
 use crate::{log, ERROR};
 use ic_stable_structures::Storable;
@@ -109,8 +109,9 @@ pub async fn generate_ticket(
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     let action = req.action.clone();
 
-    let bridge_fee = icp_get_redeem_fee(req.target_chain_id.clone());
-    let memo = Some("fee_token: ICP, bridge_fee: ".to_string() + bridge_fee.unwrap_or_default().to_string().as_str());
+    let fee = icp_get_redeem_fee(req.target_chain_id.clone());
+    let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
+    let memo = bridge_fee.into_memo(None).unwrap_or_default();
 
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),

@@ -272,29 +272,6 @@ pub async fn get_transaction_receipt(
     Ok(r)
 }
 
-pub async fn get_transaction_by_hash(
-    hash: &String,
-) -> std::result::Result<Option<did::Transaction>, BitfinityRouteError> {
-    let client = bitfinity_evm_canister_client();
-    let h = did::H256::from_hex_str(hash).map_err(|e|{
-        log!(ERROR, "[bitfinity route] decode tx hash error: {:?}", &e);
-        BitfinityRouteError::Custom(anyhow!("[bitfinity route] decode tx hash error: {:?}",&e))
-    })?;
-    let r = client.eth_get_transaction_by_hash(h).await;
-    let r = r.map_err(|e|{
-        log!(ERROR,
-            "[bitfinity route]query transaction evm error: hash:{}, error: {:?}",
-            hash,
-            &e
-        );
-        BitfinityRouteError::EvmRpcError(format!(
-            "[bitfinity route]query transaction evm error: {:?}",
-            &e
-        ))
-    })?;
-    Ok(r)
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct EvmJsonRpcRequest {
     pub method: String,

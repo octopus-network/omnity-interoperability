@@ -236,7 +236,7 @@ pub struct Ticket {
 }
 
 impl Ticket {
-    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMintRequested, memo:Option<String>) -> Self {
+    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMintRequested) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -257,11 +257,11 @@ impl Ticket {
             amount: "0".to_string(),
             sender: Some(format!("0x{}", hex::encode(runes_mint.sender.0.as_slice()))),
             receiver: format!("0x{}", hex::encode(runes_mint.receiver.0.as_slice())),
-            memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
+            memo: None,
         }
     }
 
-    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned, memo:Option<String>) -> Self {
+    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -290,18 +290,16 @@ impl Ticket {
                 hex::encode(token_burned.sender.0.as_slice())
             )),
             receiver: token_burned.receiver,
-            memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
+            memo: None,
         }
     }
 
     pub fn from_transport_event(
         log_entry: &LogEntry,
         token_transport_requested: TokenTransportRequested,
-        memo:Option<String>,
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let dst_chain = token_transport_requested.dst_chain_id;
-        let memo = Some(token_transport_requested.memo + memo.unwrap_or_default().as_str());
 
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
@@ -317,7 +315,7 @@ impl Ticket {
                 hex::encode(token_transport_requested.sender.0.as_slice())
             )),
             receiver: token_transport_requested.receiver,
-            memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
+            memo: Some(token_transport_requested.memo.into_bytes()),
         }
     }
 }

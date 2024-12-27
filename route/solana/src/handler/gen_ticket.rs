@@ -119,8 +119,12 @@ pub async fn generate_ticket(
             req.signature,
         )));
     }
-    let bridge_fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).unwrap_or_default().to_string();
-    let memo = Some(req.memo.unwrap_or_default() + "fee_token: SOL, bridge_fee: " + bridge_fee.as_str());
+
+    // let fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).unwrap_or_default();
+    // let bridge_fee = Fee {
+    //     bridge_fee: fee,
+    // };
+    // let memo = bridge_fee.into_memo(req.memo).unwrap_or_default();
 
     let ticket = Ticket {
         ticket_id: req.signature.to_string(),
@@ -133,7 +137,8 @@ pub async fn generate_ticket(
         amount: req.amount.to_string(),
         sender: Some(req.sender.to_owned()),
         receiver: req.receiver.to_string(),
-        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()), 
+        // memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
+        memo: req.memo.to_owned().map(|m| m.to_bytes().to_vec()), 
     };
 
     match send_ticket(hub_principal, ticket.to_owned()).await {
