@@ -113,12 +113,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         .unwrap()
         .mul(Decimal::from(10u128.pow(token.decimals as u32)))
         .to_u128()
-        .unwrap();
-
-    // let (fee, _) = read_state(|s|s.get_transfer_fee_info(&args.target_chain_id));
-    // let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default()};
-    // let memo = bridge_fee.into_memo(None).unwrap_or_default();
-    
+        .unwrap();   
     hub::pending_ticket(
         hub_principal,
         Ticket {
@@ -132,7 +127,6 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             amount: ticket_amount.to_string(),
             sender: None,
             receiver: args.receiver.clone(),
-            // memo: memo.to_owned().map(|m| m.to_bytes().to_vec())
             memo: None,
         },
     )

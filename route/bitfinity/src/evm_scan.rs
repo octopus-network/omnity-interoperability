@@ -209,12 +209,6 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
             log!(CRITICAL, "user query transaction receipt error: {:?}", e);
             "rpc".to_string()
         })?;
-    
-    // target_chain_id is needed from the UI then pass the memo to generate_ticket_by_logs
-    // let fee = bitfinity_get_redeem_fee(target_chain_id);
-    // let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
-    // let memo = bridge_fee.into_memo(None).unwrap_or_default();
-
     match receipt {
         None => Err("not find".to_string()),
         Some(tr) => {
