@@ -1,0 +1,135 @@
+type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type CustomsError = variant {
+  SendTicketErr : text;
+  RpcError : text;
+  HttpOutExceedLimit;
+  TemporarilyUnavailable : text;
+  HttpOutCallError : record { text; text; text };
+  AlreadyProcessed;
+  HttpStatusError : record { nat; text; text };
+  OrdTxError : text;
+  NotBridgeTx;
+  AmountIsZero;
+  InvalidRuneId : text;
+  InvalidArgs : text;
+  AlreadySubmitted;
+  InvalidTxId;
+  NotPayFees;
+  CallError : record { principal; text; text };
+  TxNotFoundInMemPool;
+  Unknown;
+  InvalidTxReceiver;
+  UnsupportedChainId : text;
+  ECDSAPublicKeyNotFound;
+  DepositUtxoNotFound : record { text; Destination };
+  UnsupportedToken : text;
+  CustomError : text;
+};
+type Destination = record {
+  token : opt text;
+  target_chain_id : text;
+  receiver : text;
+};
+type EcdsaPublicKeyResponse = record { public_key : blob; chain_code : blob };
+type GenerateTicketArgs = record {
+  token_id : text;
+  txid : text;
+  target_chain_id : text;
+  receiver : text;
+};
+type InitArgs = record {
+  fee_token : text;
+  hub_principal : principal;
+  chain_id : text;
+  admins : vec principal;
+};
+type LockTicketRequest = record {
+  received_at : nat64;
+  transaction_hex : text;
+  token_id : text;
+  txid : blob;
+  target_chain_id : text;
+  amount : text;
+  receiver : text;
+};
+type ReleaseTokenStatus = variant {
+  Signing;
+  Confirmed : text;
+  Sending : text;
+  Unknown;
+  Submitted : text;
+  Pending;
+};
+type Result = variant { Ok; Err : CustomsError };
+type Result_1 = variant { Ok : text; Err : CustomsError };
+type Result_2 = variant { Ok : text; Err : text };
+type RpcConfig = record { url : text; api_key : opt text };
+type SendTicketResult = record { txid : blob; success : bool; time_at : nat64 };
+type StateProfile = record {
+  next_consume_ticket_seq : nat64;
+  fee_token : text;
+  hub_principal : principal;
+  ecdsa_key_name : text;
+  doge_chain : nat8;
+  next_directive_seq : nat64;
+  doge_fee_rate : opt nat64;
+  deposited_utxo : vec record { Utxo; Destination };
+  fee_collector : text;
+  ecdsa_public_key : opt EcdsaPublicKeyResponse;
+  chain_id : text;
+  pending_lock_ticket_requests : vec record { text; LockTicketRequest };
+  tokens : vec record { text; Token };
+  admins : vec principal;
+  target_chain_factor : vec record { text; nat };
+  counterparties : vec record { text; Chain };
+  min_deposit_amount : nat64;
+  next_ticket_seq : nat64;
+  chain_state : ChainState;
+  min_confirmations : nat32;
+  default_rpc_config : RpcConfig;
+  flight_unlock_ticket_map : vec record { nat64; SendTicketResult };
+  fee_token_factor : opt nat;
+};
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  symbol : text;
+};
+type Utxo = record { value : nat64; txid : blob; vout : nat32 };
+service : (InitArgs) -> {
+  finalized_unlock_tickets : (nat64) -> (text) query;
+  generate_ticket : (GenerateTicketArgs) -> (Result);
+  get_deposit_address : (text, text) -> (Result_1) query;
+  get_platform_fee : (text) -> (opt nat, opt text) query;
+  get_token_list : () -> (vec TokenResp) query;
+  init_ecdsa_public_key : () -> (Result);
+  pending_unlock_tickets : (nat64) -> (text) query;
+  query_finalized_lock_tickets : (text) -> (opt LockTicketRequest) query;
+  query_state : () -> (StateProfile) query;
+  release_token_status : (text) -> (ReleaseTokenStatus) query;
+  resend_unlock_ticket : (nat64, opt nat64) -> (Result_2);
+  set_fee_collector : (text) -> ();
+  set_min_deposit_amount : (nat64) -> ();
+  set_rpc_config : (text, opt text) -> ();
+  test_http : (text, text, opt text) -> (Result_1);
+  tmp_fix : () -> ();
+}
