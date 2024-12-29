@@ -17,6 +17,9 @@
   "cosmwasm_proxy": {
     "ic": "ncfbq-kyaaa-aaaar-qah3a-cai"
   },
+  "doge_customs": {
+    "ic": "nnqqa-aaaaa-aaaar-qamla-cai"
+  },
   "generic_proxy": {
     "ic": "c2bzs-5iaaa-aaaar-qakta-cai"
   },

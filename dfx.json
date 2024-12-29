@@ -35,6 +35,18 @@
         }
       ]
     },
+    "doge_customs": {
+      "gzip": true,
+      "candid": "customs/doge/doge_customs.did",
+      "package": "doge_customs",
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/doge_customs.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
     "icp_customs": {
       "gzip": true,
       "candid": "customs/icp/icp_customs.did",
