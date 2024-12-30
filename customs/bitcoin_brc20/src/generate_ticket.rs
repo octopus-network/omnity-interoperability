@@ -66,7 +66,7 @@ pub struct GenerateTicketArgs {
 }
 
 pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
-    log!(INFO, "received generate_ticket: {:?}", args.clone());
+    log!(INFO, "received generate_ticket request: {:?}", args.clone());
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
@@ -113,7 +113,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         .unwrap()
         .mul(Decimal::from(10u128.pow(token.decimals as u32)))
         .to_u128()
-        .unwrap();
+        .unwrap();   
     hub::pending_ticket(
         hub_principal,
         Ticket {

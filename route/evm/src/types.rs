@@ -273,7 +273,7 @@ impl Ticket {
             TxAction::Burn
         } else {
             TxAction::Redeem
-        };
+        };       
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),

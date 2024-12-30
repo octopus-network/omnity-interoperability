@@ -1,6 +1,5 @@
 use anyhow::anyhow;
-use did::{TransactionReceipt};
-use did::transaction::TransactionReceiptLog;
+use did::{TransactionReceipt, transaction::TransactionReceiptLog};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
@@ -10,7 +9,7 @@ use omnity_types::{ChainState, Directive, Ticket};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 
 use crate::*;
-use crate::const_args::{SCAN_EVM_TASK_NAME};
+use crate::const_args::SCAN_EVM_TASK_NAME;
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded,
     TokenBurned, TokenMinted, TokenTransportRequested,
@@ -41,7 +40,7 @@ pub fn scan_evm_task() {
                 .map_err(|e| {
                     log!(ERROR, "user query transaction receipt error: {:?}", e);
                     "rpc".to_string()
-                });
+                });           
             if let Ok(Some(tr)) = receipt {
                 match tr.status {
                     None => { continue }
@@ -214,7 +213,7 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
         None => Err("not find".to_string()),
         Some(tr) => {
             let return_tr = tr.clone();
-            assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");
+            assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");         
             let ticket = generate_ticket_by_logs(tr.logs);
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))

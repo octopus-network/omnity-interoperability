@@ -131,7 +131,7 @@ pub async fn generate_ticket(
         amount: req.amount.to_string(),
         sender: Some(req.sender.to_owned()),
         receiver: req.receiver.to_string(),
-        memo: req.memo.to_owned().map(|m| m.to_bytes().to_vec()),
+        memo: req.memo.to_owned().map(|m| m.to_bytes().to_vec()), 
     };
 
     match send_ticket(hub_principal, ticket.to_owned()).await {

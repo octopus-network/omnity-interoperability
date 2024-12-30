@@ -12,9 +12,10 @@ use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use num_traits::cast::ToPrimitive;
 use omnity_types::ic_log::INFO;
-use omnity_types::{ChainId, ChainState, Ticket, TxAction};
+use omnity_types::{ChainId, ChainState, Ticket, TxAction, Fee};
 use serde::Serialize;
 use crate::{log, ERROR};
+use ic_stable_structures::Storable;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketReq {
@@ -108,6 +109,10 @@ pub async fn generate_ticket(
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     let action = req.action.clone();
 
+    let fee = icp_get_redeem_fee(req.target_chain_id.clone());
+    let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
+    let memo = bridge_fee.add_to_memo(None).unwrap_or_default();
+
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
         ticket_type: omnity_types::TicketType::Normal,
@@ -119,7 +124,7 @@ pub async fn generate_ticket(
         amount: req.amount.to_string(),
         sender: Some(caller.to_string()),
         receiver: req.receiver.clone(),
-        memo: None,
+        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
     };
     match hub::send_ticket(hub_principal, ticket.clone()).await {
         Err(err) => {
@@ -264,4 +269,17 @@ pub fn principal_to_subaccount(principal_id: &Principal) -> IcSubaccount {
     subaccount[1..1 + principal_id.len()].copy_from_slice(principal_id);
 
     IcSubaccount(subaccount)
+}
+
+pub fn icp_get_redeem_fee(chain_id: ChainId) -> Option<u64>  {
+    read_state(|s| {
+        s.target_chain_factor
+            .get(&chain_id)
+            // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
+            .map_or(None, |target_chain_factor| {
+                s.fee_token_factor.map(|fee_token_factor| {
+                    (target_chain_factor * fee_token_factor) as u64 + ICP_TRANSFER_FEE
+                })
+            })
+    })
 }
