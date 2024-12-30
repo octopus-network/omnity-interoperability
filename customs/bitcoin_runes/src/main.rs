@@ -200,7 +200,7 @@ pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String>
     }
 }
 
-#[update]
+#[update(guard = "is_controller")]
 pub async fn etching_reveal(commit_txid: String) {
     let caller = caller();
     let key = generate_etching_key(&caller, commit_txid);
@@ -220,7 +220,7 @@ pub async fn etching_reveal(commit_txid: String) {
 
 
 
-#[query]
+#[query(guard ="is_controller")]
 pub fn get_etching_fee_utxos() -> Vec<UtxoArgs>{
     read_state(|s|s.etching_fee_utxos.iter().map(|v| {UtxoArgs {
         id: v.id.to_string(),
@@ -478,7 +478,7 @@ pub async fn estimate_etching_fee(fee_rate: u32, rune_name: String, logo: Option
     bitcoin_customs::runes_etching::icp_swap::estimate_etching_fee(fee_rate+2, byte_size).await
 }
 
-#[update]
+#[update(guard = "is_controller")]
 pub async fn get_btc_icp_price() -> (Option<TokenPrice>, Option<TokenPrice>) {
     get_token_price().await.unwrap()
 }
