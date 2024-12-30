@@ -6,6 +6,7 @@ members = [
     "customs/icp",
     "route/icp",
     "route/bitfinity",
+    "route/ton",
     "proxy/cosmwasm",
     "proxy/runes_proxy",
     "proxy/generic_proxy",
@@ -45,7 +46,7 @@ ic-ledger-types = "0.9.0"
 minicbor = { version = "0.19.1", features = ["alloc", "derive"] }
 minicbor-derive = "0.13.0"
 serde = { version = "1", features = ["derive"] }
-serde_bytes = "0.11"
+serde_bytes = "0.11.15"
 serde_json = { version = "1", features = ["std"] }
 simple_asn1 = "0.6.2"
 thiserror = "1"
