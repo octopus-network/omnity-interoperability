@@ -5,6 +5,7 @@ use anyhow::anyhow;
 use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
 use candid::{CandidType, Deserialize};
 use ic_canister_log::log;
+use ic_cdk::caller;
 use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
 use ordinals::{Etching, SpacedRune, Terms};
@@ -20,7 +21,7 @@ use crate::runes_etching::icp_swap::estimate_etching_fee;
 use crate::runes_etching::transactions::EtchingStatus::{SendCommitFailed, SendCommitSuccess};
 use crate::runes_etching::wallet::{CreateCommitTransactionArgsV2, Runestone};
 use crate::runes_etching::wallet::builder::EtchingTransactionArgs;
-use crate::state::mutate_state;
+use crate::state::{generate_etching_key, mutate_state};
 use crate::updates::etching::init_etching_account_info;
 use crate::updates::get_btc_address::GetBtcAddressArgs;
 
@@ -89,15 +90,6 @@ pub enum EtchingStatus {
     Final
 }
 
-pub fn check_etching(etching_args: &EtchingArgs) -> anyhow::Result<()> {
-    let runename = etching_args.rune_name.replace("•", "");
-    if etching_args.amount ==0
-        || etching_args.cap == 0
-        || runename.len() < 11 {
-        return Err(anyhow!("invalid params"));
-    }
-    Ok(())
-}
 
 pub fn find_commit_remain_fee(t: &Transaction) -> Option<Utxo> {
     if t.output.len() > 1 {
@@ -117,7 +109,7 @@ pub async fn etching_rune(fee_rate: u64, args: &InternalEtchingArgs) -> anyhow::
     let (commit_tx_size, reveal_size) = estimate_tx_vbytes(args.rune_name.as_str(), args.logo.clone()).await?;
     let icp_fee_amt = estimate_etching_fee(fee_rate as u32, (commit_tx_size + reveal_size) as u128).await.map_err(|e|anyhow!(e))?;
 
-    charge_fee(icp_fee_amt as u64).await?;
+    //charge_fee(icp_fee_amt as u64).await?;
 
     let vins = select_utxos(fee_rate, reveal_size as u64 + FIXED_COMMIT_TX_VBYTES)?;
     log!(INFO, "selected fee utxos: {:?}", vins);
@@ -173,19 +165,34 @@ pub async fn generate_etching_transactions(fees: Fees, vins: Vec<Utxo>,args: &In
         sender.clone(),
     );
     let space_rune = SpacedRune::from_str(&args.rune_name).unwrap();
+    let symbol =  match args.symbol.clone() {
+        None => { None}
+        Some(s) => {
+            let cs: Vec<char>= s.chars().collect();
+            cs.first().cloned()
+        }
+    };
+    let terms = match args.terms {
+        Some(t) => {
+            Some(
+                Terms {
+                    amount: t.amount,
+                    cap: t.cap,
+                    height: t.height,
+                    offset: t.offset,
+                }
+            )
+        }
+        None => {None}
+    };
     let etching = Etching {
         rune: Some(space_rune.rune.clone()),
         divisibility: args.divisibility,
         premine: args.premine,
         spacers: Some(space_rune.spacers),
-        symbol: Some('$'),
-        terms: Some(Terms {
-            amount: Some(args.amount),
-            cap: Some(args.cap),
-            height: (None, None),
-            offset: (None, None),
-        }),
-        turbo: true,
+        symbol,
+        terms,
+        turbo: args.turbo,
     };
 
     let mut inscription = Nft::new(
@@ -330,6 +337,28 @@ pub async fn estimate_tx_vbytes(rune_name: &str, logo: Option<LogoParams>) -> Or
         })
         .await?;
     Ok((commit_tx.unsigned_tx.vsize(), reveal_transaction.vsize()))
+}
+
+pub async fn  internal_etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
+    let caller = caller();
+    args.check().map_err(|e| e.to_string())?;
+    let internal_args: InternalEtchingArgs = (args, caller).into();
+    let r = etching_rune(fee_rate, &internal_args).await;
+    match r {
+        Ok(o) => {
+            match o {
+                None => {Ok("None".to_string())}
+                Some(sr) => {
+                    let commit_tx_id = sr.txs[0].txid().to_string();
+                    mutate_state(|s|s.pending_etching_requests.insert(generate_etching_key(&caller, commit_tx_id.clone()), sr));
+                    Ok(commit_tx_id)
+                }
+            }
+        }
+        Err(e) => {
+            Err(e.to_string())
+        }
+    }
 }
 
 #[cfg(test)]

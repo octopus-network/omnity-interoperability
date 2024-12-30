@@ -37,16 +37,17 @@ pub async fn get_etching(txid: &str) -> Result<Option<GetEtchingResponse>, CallE
 
 
 
-pub async fn send_add_token(args: InternalEtchingArgs, rune_id: String) -> Result<(), CallError> {
+pub async fn send_add_token(args: InternalEtchingArgs, rune_id: String, reveal_txid: &str) -> Result<(), CallError> {
     let mut meta = HashMap::new();
     meta.insert("rune_id".to_string(), rune_id);
+    let logo_url = format!("https://ordinals.com/content/{}i0", reveal_txid);
     let token_meta = TokenMeta {
         token_id: args.token_id,
         name: args.rune_name.clone(),
         symbol: args.rune_name.clone(),
         issue_chain: "Bitcoin".to_string(),
         decimals: args.divisibility.unwrap_or_default(),
-        icon: Some(args.bridge_logo_url.clone()),
+        icon: Some(logo_url),
         metadata: meta,
         dst_chains: vec!["Bitcoin".to_string(), "eICP".to_string()],
     };
@@ -120,7 +121,6 @@ pub async fn handle_etching_result_task() {
         return;
     }
 
-
     let kvs = read_state(|s|s.pending_etching_requests.iter().collect::<BTreeMap<String, SendEtchingRequest>>());
     for  (k,mut req) in kvs {
         match req.status.clone() {
@@ -151,7 +151,8 @@ pub async fn handle_etching_result_task() {
                 let rune = get_etching(tx.as_str()).await;
                 if let Ok(Some(resp)) = rune {
                     if resp.confirmations >= 1 {
-                        let r = send_add_token(req.etching_args.clone(), resp.rune_id.clone()).await;
+
+                        let r = send_add_token(req.etching_args.clone(), resp.rune_id.clone(), tx.as_str()).await;
                         match r {
                             Ok(_) => {
                                 req.status = EtchingStatus::TokenAdded;

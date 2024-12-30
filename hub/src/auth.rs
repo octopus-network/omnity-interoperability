@@ -12,7 +12,9 @@ pub enum Permission {
 
 pub fn is_admin() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
-
+    if ic_cdk::api::is_controller(&caller) {
+        return Ok(());
+    }
     with_state(|s| {
         if s.admin != caller  {
             if let Some(cm) =  s.chains.get(&"Bitcoin".to_string()) {

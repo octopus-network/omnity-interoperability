@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::env::args;
 use std::ops::Bound::{Excluded, Unbounded};
 use std::str::FromStr;
 
@@ -25,7 +26,7 @@ use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
 use bitcoin_customs::runes_etching::{EtchingArgs, InternalEtchingArgs, LogoParams};
 use bitcoin_customs::runes_etching::icp_swap::{get_token_price, TokenPrice};
-use bitcoin_customs::runes_etching::transactions::{estimate_tx_vbytes, etching_rune, SendEtchingInfo};
+use bitcoin_customs::runes_etching::transactions::{estimate_tx_vbytes, etching_rune, internal_etching, SendEtchingInfo};
 use bitcoin_customs::runes_etching::transactions::EtchingStatus::{SendRevealFailed, SendRevealSuccess};
 use bitcoin_customs::state::{EtchingAccountInfo, generate_etching_key, GenTicketRequestV2, GenTicketStatus, mutate_state, read_state, ReleaseTokenStatus};
 use bitcoin_customs::state::eventlog::Event::UpdateFeeCollector;
@@ -169,6 +170,7 @@ pub fn get_etching(commit_txid: String) -> Option<SendEtchingInfo> {
 }
 
 
+
 #[update(guard = "is_controller")]
 pub async fn query_bitcoin_balance(address: String, min_confirmations: u32) -> u64 {
     crate::management::get_bitcoin_balance(Network::Mainnet, &address, min_confirmations, CallSource::Custom).await.map_err(|e|{
@@ -180,25 +182,10 @@ pub async fn query_bitcoin_balance(address: String, min_confirmations: u32) -> u
 
 #[update]
 pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
-    let caller = caller();
-    let internal_args: InternalEtchingArgs = (args, caller).into();
-    let r = etching_rune(fee_rate, &internal_args).await;
-    match r {
-        Ok(o) => {
-            match o {
-                None => {Ok("None".to_string())}
-                Some(sr) => {
-                    let commit_tx_id = sr.txs[0].txid().to_string();
-                    mutate_state(|s|s.pending_etching_requests.insert(generate_etching_key(&caller, commit_tx_id.clone()), sr));
-                    Ok(commit_tx_id)
-                }
-            }
-        }
-        Err(e) => {
-            Err(e.to_string())
-        }
-    }
+   internal_etching(fee_rate, args).await
 }
+
+
 
 #[update(guard = "is_controller")]
 pub async fn etching_reveal(commit_txid: String) {
@@ -482,6 +469,19 @@ pub async fn estimate_etching_fee(fee_rate: u32, rune_name: String, logo: Option
 pub async fn get_btc_icp_price() -> (Option<TokenPrice>, Option<TokenPrice>) {
     get_token_price().await.unwrap()
 }
+
+#[update(guard = "is_controller")]
+pub  fn clear_etching() {
+     mutate_state(|s|
+         loop {
+             if s.pending_etching_requests.pop_first().is_none() && s.finalized_etching_requests.pop_first().is_none() {
+                 break;
+             }
+         }
+     );
+}
+
+
 
 #[update(guard = "is_controller")]
 pub async fn get_etching_address() -> EtchingAccountInfo {

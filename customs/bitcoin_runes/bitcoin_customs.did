@@ -75,13 +75,13 @@ type EtchingAccountInfo = record {
   address : text;
 };
 type EtchingArgs = record {
-  cap : nat;
+  terms : opt OrdinalsTerms;
+  turbo : bool;
   premine : opt nat;
   logo : opt LogoParams;
   rune_name : text;
   divisibility : opt nat8;
-  bridge_logo_url : text;
-  amount : nat;
+  symbol : opt text;
 };
 type EtchingStatus = variant {
   SendRevealSuccess;
@@ -220,6 +220,12 @@ type InitArgs = record {
 };
 type LogoParams = record { content_type : text; content_base64 : text };
 type Network = variant { mainnet; regtest; testnet };
+type OrdinalsTerms = record {
+  cap : opt nat;
+  height : record { opt nat64; opt nat64 };
+  offset : record { opt nat64; opt nat64 };
+  amount : opt nat;
+};
 type OutPoint = record { txid : blob; vout : nat32 };
 type QueryStats = record {
   response_payload_bytes_total : nat;
@@ -327,6 +333,7 @@ type UpgradeArgs = record {
 type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 type UtxoArgs = record { id : text; index : nat32; amount : nat64 };
 service : (CustomArg) -> {
+  clear_etching : () -> ();
   estimate_etching_fee : (nat32, text, opt LogoParams) -> (Result);
   estimate_redeem_fee : (EstimateFeeArgs) -> (RedeemFee) query;
   etching : (nat64, EtchingArgs) -> (Result_1);
