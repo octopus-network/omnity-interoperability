@@ -142,7 +142,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     }
 
     let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default()};
-    let memo = bridge_fee.into_memo(None).unwrap_or_default();
+    let memo = bridge_fee.add_to_memo(None).unwrap_or_default();
 
     hub::pending_ticket(
         hub_principal,

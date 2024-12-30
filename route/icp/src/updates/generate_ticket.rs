@@ -111,7 +111,7 @@ pub async fn generate_ticket(
 
     let fee = icp_get_redeem_fee(req.target_chain_id.clone());
     let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
-    let memo = bridge_fee.into_memo(None).unwrap_or_default();
+    let memo = bridge_fee.add_to_memo(None).unwrap_or_default();
 
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),

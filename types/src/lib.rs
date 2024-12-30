@@ -240,7 +240,7 @@ pub struct Fee {
 }
 
 impl Fee {
-    pub fn into_memo(&self, input_memo: Option<String>) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    pub fn add_to_memo(&self, input_memo: Option<String>) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let fee = Self {
             bridge_fee: self.bridge_fee,
         };
