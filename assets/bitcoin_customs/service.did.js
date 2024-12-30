@@ -39,14 +39,20 @@ export const idlFactory = ({ IDL }) => {
     'rune_id' : RuneId,
   });
   const RedeemFee = IDL.Record({ 'bitcoin_fee' : IDL.Nat64 });
+  const OrdinalsTerms = IDL.Record({
+    'cap' : IDL.Opt(IDL.Nat),
+    'height' : IDL.Tuple(IDL.Opt(IDL.Nat64), IDL.Opt(IDL.Nat64)),
+    'offset' : IDL.Tuple(IDL.Opt(IDL.Nat64), IDL.Opt(IDL.Nat64)),
+    'amount' : IDL.Opt(IDL.Nat),
+  });
   const EtchingArgs = IDL.Record({
-    'cap' : IDL.Nat,
+    'terms' : IDL.Opt(OrdinalsTerms),
+    'turbo' : IDL.Bool,
     'premine' : IDL.Opt(IDL.Nat),
     'logo' : IDL.Opt(LogoParams),
     'rune_name' : IDL.Text,
     'divisibility' : IDL.Opt(IDL.Nat8),
-    'bridge_logo_url' : IDL.Text,
-    'amount' : IDL.Nat,
+    'symbol' : IDL.Opt(IDL.Text),
   });
   const Result_1 = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
   const GenerateTicketArgs = IDL.Record({
@@ -415,6 +421,7 @@ export const idlFactory = ({ IDL }) => {
     'Err' : UpdateRunesBalanceError,
   });
   return IDL.Service({
+    'clear_etching' : IDL.Func([], [], []),
     'estimate_etching_fee' : IDL.Func(
         [IDL.Nat32, IDL.Text, IDL.Opt(LogoParams)],
         [Result],

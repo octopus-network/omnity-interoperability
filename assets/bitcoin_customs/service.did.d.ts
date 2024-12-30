@@ -90,13 +90,13 @@ export interface EtchingAccountInfo {
   'address' : string,
 }
 export interface EtchingArgs {
-  'cap' : bigint,
+  'terms' : [] | [OrdinalsTerms],
+  'turbo' : boolean,
   'premine' : [] | [bigint],
   'logo' : [] | [LogoParams],
   'rune_name' : string,
   'divisibility' : [] | [number],
-  'bridge_logo_url' : string,
-  'amount' : bigint,
+  'symbol' : [] | [string],
 }
 export type EtchingStatus = { 'SendRevealSuccess' : null } |
   { 'SendRevealFailed' : null } |
@@ -252,6 +252,12 @@ export interface LogoParams {
 export type Network = { 'mainnet' : null } |
   { 'regtest' : null } |
   { 'testnet' : null };
+export interface OrdinalsTerms {
+  'cap' : [] | [bigint],
+  'height' : [[] | [bigint], [] | [bigint]],
+  'offset' : [[] | [bigint], [] | [bigint]],
+  'amount' : [] | [bigint],
+}
 export interface OutPoint { 'txid' : Uint8Array | number[], 'vout' : number }
 export interface QueryStats {
   'response_payload_bytes_total' : bigint,
@@ -374,6 +380,7 @@ export interface Utxo {
 }
 export interface UtxoArgs { 'id' : string, 'index' : number, 'amount' : bigint }
 export interface _SERVICE {
+  'clear_etching' : ActorMethod<[], undefined>,
   'estimate_etching_fee' : ActorMethod<
     [number, string, [] | [LogoParams]],
     Result
