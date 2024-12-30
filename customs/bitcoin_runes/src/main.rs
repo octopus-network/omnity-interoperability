@@ -25,7 +25,6 @@ use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
 use bitcoin_customs::runes_etching::{EtchingArgs, InternalEtchingArgs, LogoParams};
 use bitcoin_customs::runes_etching::icp_swap::{get_token_price, TokenPrice};
-use bitcoin_customs::runes_etching::sync::{get_etching, GetEtchingResponse};
 use bitcoin_customs::runes_etching::transactions::{estimate_tx_vbytes, etching_rune, SendEtchingInfo};
 use bitcoin_customs::runes_etching::transactions::EtchingStatus::{SendRevealFailed, SendRevealSuccess};
 use bitcoin_customs::state::{EtchingAccountInfo, generate_etching_key, GenTicketRequestV2, GenTicketStatus, mutate_state, read_state, ReleaseTokenStatus};
@@ -150,8 +149,8 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
     }
 }
 
-#[query(guard = "is_controller")]
-pub fn query_etching(commit_txid: String) -> Option<SendEtchingInfo> {
+#[query]
+pub fn get_etching(commit_txid: String) -> Option<SendEtchingInfo> {
     let r: Option<SendEtchingInfo> = match read_state(|s|s.pending_etching_requests.get(&generate_etching_key(&caller(), commit_txid.clone()))) {
         None => {None}
         Some(r) => {
@@ -228,11 +227,6 @@ pub fn get_etching_fee_utxos() -> Vec<UtxoArgs>{
         index: v.index,
         amount: v.amount.to_sat(),
     }}).collect())
-}
-
-#[update(guard = "is_controller")]
-pub async fn query_rune_id(tx: String) -> Option<GetEtchingResponse>{
-    get_etching(tx.as_str()).await.unwrap_or_default()
 }
 
 #[query]

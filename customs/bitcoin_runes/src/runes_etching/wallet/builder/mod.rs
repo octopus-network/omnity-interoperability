@@ -7,7 +7,6 @@ use bitcoin::bip32::DerivationPath;
 use bitcoin::key::UntweakedKeypair;
 use bitcoin::script::{Builder as ScriptBuilder, PushBytesBuf};
 use bitcoin::transaction::Version;
-use candid::CandidType;
 use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
 use ordinals::{Edict, Etching, RuneId};
@@ -310,16 +309,8 @@ impl OrdTransactionBuilder {
         // generate redeem script pubkey based on the current script type
         let redeem_script_pubkey = RedeemScriptPubkey::XPublickey(p2tr_keys.1);
 
-        // calc balance
-        // exceeding amount of transaction to send to leftovers recipient
-        let input_amount = args
-            .inputs
-            .iter()
-            .map(|input| input.amount.to_sat())
-            .sum::<u64>();
         let leftover_amount = 1000;
         let reveal_balance = POSTAGE + args.fees.reveal_fee.to_sat();
-
         let redeem_script = self.generate_redeem_script(&args.inscription, redeem_script_pubkey)?;
         let script_output_address = {
             let taproot_payload = TaprootPayload::build(

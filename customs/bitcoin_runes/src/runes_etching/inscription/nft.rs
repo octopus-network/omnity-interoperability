@@ -84,7 +84,7 @@ impl Nft {
 
     pub fn append_reveal_script_to_builder(
         &self,
-        mut builder: ScriptBuilder,
+        builder: ScriptBuilder,
     ) -> OrdResult<ScriptBuilder> {
 
         let mut pbb = PushBytesBuf::new();
@@ -95,8 +95,6 @@ impl Nft {
             .push_slice(constants::PROTOCOL_ID)
             .push_opcode(opcodes::all::OP_PUSHNUM_13)
             .push_slice::<&PushBytes>(pbb.as_push_bytes());
-
-
         if let Some(l) = self.logo.clone() {
             Self::append(
                 constants::CONTENT_TYPE_TAG,
@@ -148,18 +146,7 @@ impl Nft {
         }
     }
 
-    fn append_array(tag: [u8; 1], builder: &mut ScriptBuilder, values: &Vec<Vec<u8>>) {
-        let mut tmp = ScriptBuilder::new();
-        mem::swap(&mut tmp, builder);
 
-        for value in values {
-            tmp = tmp
-                .push_slice::<&PushBytes>(tag.as_slice().try_into().unwrap())
-                .push_slice::<&PushBytes>(value.as_slice().try_into().unwrap());
-        }
-
-        mem::swap(&mut tmp, builder);
-    }
 
     /// Validates the NFT's content type.
     fn validate_content_type(&self) -> OrdResult<Self> {

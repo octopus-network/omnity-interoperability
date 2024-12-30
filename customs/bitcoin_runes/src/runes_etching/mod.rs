@@ -3,14 +3,13 @@ use candid::{CandidType, Deserialize, Principal};
 use serde::Serialize;
 
 pub use error::{InscriptionParseError, OrdError};
-pub use inscription::brc20::Brc20;
 pub use inscription::iid::InscriptionId;
 pub use inscription::Inscription;
 pub use inscription::nft::Nft;
 pub use result::OrdResult;
 pub use utils::{constants, push_bytes};
 pub use utils::fees::{self, MultisigConfig};
-pub use wallet::{CreateCommitTransaction, OrdParser,
+pub use wallet::{CreateCommitTransaction,
                  OrdTransactionBuilder, RevealTransactionArgs, SignCommitTransactionArgs, Utxo, Wallet,
 };
 
@@ -24,7 +23,7 @@ mod fee_calculator;
 pub mod sync;
 pub mod icp_swap;
 
-#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(CandidType, Clone,Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct EtchingArgs {
     pub rune_name: String,
     pub divisibility: Option<u8>,
@@ -50,6 +49,19 @@ pub struct InternalEtchingArgs {
     pub target_chain_id: String,
 }
 
+impl Into<EtchingArgs> for InternalEtchingArgs {
+    fn into(self) -> EtchingArgs {
+        EtchingArgs {
+            rune_name: self.rune_name,
+            divisibility: self.divisibility,
+            amount: self.amount,
+            cap: self.cap,
+            bridge_logo_url: self.bridge_logo_url,
+            premine: self.premine,
+            logo: self.logo,
+        }
+    }
+}
 impl Into<InternalEtchingArgs> for (EtchingArgs, Principal) {
     fn into(self) -> InternalEtchingArgs {
         let (args, receiver) = self;

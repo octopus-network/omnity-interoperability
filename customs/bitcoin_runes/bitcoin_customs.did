@@ -199,7 +199,6 @@ type GenerateTicketError = variant {
   UnsupportedToken : text;
 };
 type GetBtcAddressArgs = record { target_chain_id : text; receiver : text };
-type GetEtchingResponse = record { confirmations : nat32; rune_id : text };
 type GetEventsArg = record { start : nat64; length : nat64 };
 type GetGenTicketReqsArgs = record { max_count : nat64; start_txid : opt blob };
 type HttpHeader = record { value : text; name : text };
@@ -218,18 +217,6 @@ type InitArgs = record {
   btc_network : BtcNetwork;
   chain_state : ChainState;
   min_confirmations : opt nat32;
-};
-type InternalEtchingArgs = record {
-  cap : nat;
-  token_id : text;
-  premine : opt nat;
-  logo : opt LogoParams;
-  rune_name : text;
-  divisibility : opt nat8;
-  premine_receiver_principal : text;
-  bridge_logo_url : text;
-  target_chain_id : text;
-  amount : nat;
 };
 type LogoParams = record { content_type : text; content_base64 : text };
 type Network = variant { mainnet; regtest; testnet };
@@ -277,8 +264,10 @@ type SendEtchingInfo = record {
   status : EtchingStatus;
   script_out_address : text;
   err_info : text;
+  commit_txid : text;
   time_at : nat64;
-  etching_args : InternalEtchingArgs;
+  etching_args : EtchingArgs;
+  reveal_txid : text;
 };
 type TargetChainFactor = record {
   target_chain_id : text;
@@ -349,6 +338,7 @@ service : (CustomArg) -> {
   get_canister_status : () -> (CanisterStatusResponse);
   get_chain_list : () -> (vec Chain) query;
   get_customs_info : () -> (CustomsInfo) query;
+  get_etching : (text) -> (opt SendEtchingInfo) query;
   get_etching_address : () -> (EtchingAccountInfo);
   get_etching_fee_utxos : () -> (vec UtxoArgs) query;
   get_events : (GetEventsArg) -> (vec Event) query;
@@ -360,8 +350,6 @@ service : (CustomArg) -> {
   get_runes_oracles : () -> (vec principal) query;
   get_token_list : () -> (vec TokenResp) query;
   query_bitcoin_balance : (text, nat32) -> (nat64);
-  query_etching : (text) -> (opt SendEtchingInfo) query;
-  query_rune_id : (text) -> (opt GetEtchingResponse);
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   remove_runes_oracle : (principal) -> ();
   set_fee_collector : (text) -> ();

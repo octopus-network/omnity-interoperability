@@ -3,9 +3,8 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
-use candid::{CandidType, Deserialize, Principal};
+use candid::{CandidType, Deserialize};
 use ic_canister_log::log;
-use ic_ledger_types::Subaccount;
 use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
 use ordinals::{Etching, SpacedRune, Terms};
@@ -42,8 +41,10 @@ impl From<SendEtchingRequest> for SendEtchingInfo {
             Some(e) => {e.to_string()}
         };
         SendEtchingInfo {
-            etching_args: value.etching_args.clone(),
+            etching_args: value.etching_args.clone().into(),
             err_info,
+            commit_txid: value.txs[0].txid().to_string(),
+            reveal_txid: value.txs[1].txid().to_string(),
             time_at: value.time_at,
             script_out_address: value.script_out_address,
             status: value.status,
@@ -53,7 +54,9 @@ impl From<SendEtchingRequest> for SendEtchingInfo {
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug, Eq, PartialEq, CandidType)]
 pub struct SendEtchingInfo {
-    pub etching_args: InternalEtchingArgs,
+    pub etching_args: EtchingArgs,
+    pub commit_txid: String,
+    pub reveal_txid: String,
     pub err_info: String,
     pub time_at: u64,
     pub script_out_address: String,
@@ -114,9 +117,9 @@ pub async fn etching_rune(fee_rate: u64, args: &InternalEtchingArgs) -> anyhow::
     let (commit_tx_size, reveal_size) = estimate_tx_vbytes(args.rune_name.as_str(), args.logo.clone()).await?;
     let icp_fee_amt = estimate_etching_fee(fee_rate as u32, (commit_tx_size + reveal_size) as u128).await.map_err(|e|anyhow!(e))?;
 
-    //charge_fee(icp_fee_amt as u64).await?;
+    charge_fee(icp_fee_amt as u64).await?;
 
-    let mut vins = select_utxos(fee_rate, reveal_size as u64 + FIXED_COMMIT_TX_VBYTES)?;
+    let vins = select_utxos(fee_rate, reveal_size as u64 + FIXED_COMMIT_TX_VBYTES)?;
     log!(INFO, "selected fee utxos: {:?}", vins);
     let commit_size = vins.len() as u64 * INPUT_SIZE_VBYTES + FIXED_COMMIT_TX_VBYTES;
     let fee = Fees {
@@ -149,7 +152,7 @@ pub async fn etching_rune(fee_rate: u64, args: &InternalEtchingArgs) -> anyhow::
     if send_res.status == SendCommitSuccess {
         //insert_utxo
         if let Some(u) = find_commit_remain_fee(&send_res.txs.first().cloned().unwrap()) {
-            mutate_state(|s| s.etching_fee_utxos.push(&u));
+            let _ = mutate_state(|s| s.etching_fee_utxos.push(&u));
         }
     } else {
         mutate_state(|s|

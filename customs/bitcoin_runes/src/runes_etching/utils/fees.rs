@@ -4,8 +4,6 @@ use bitcoin::{Address, Amount, FeeRate, Network, OutPoint, ScriptBuf, Sequence, 
 use serde::{Deserialize, Serialize};
 use crate::runes_etching::wallet::{RUNE_POSTAGE, ScriptType};
 
-use super::constants::POSTAGE;
-
 /// Single ECDSA signature + SIGHASH type size in bytes.
 const ECDSA_SIGHASH_SIZE: usize = 72 + 1;
 /// Single Schnorr signature + SIGHASH type size for Taproot in bytes.
@@ -19,64 +17,6 @@ pub struct MultisigConfig {
     pub required: usize,
     /// Total number of signatories (n)
     pub total: usize,
-}
-
-/// Estimates the commit fee for a transaction.
-pub fn estimate_commit_fee(
-    unsigned_commit_tx: Transaction,
-    script_type: ScriptType,
-    current_fee_rate: FeeRate,
-    multisig_config: &Option<MultisigConfig>,
-) -> Amount {
-    estimate_transaction_fees(
-        script_type,
-        unsigned_commit_tx.input.len(),
-        current_fee_rate,
-        multisig_config,
-        unsigned_commit_tx.output,
-    )
-}
-
-/// Estimates the reveal fee for a transaction.
-pub fn estimate_reveal_fee(
-    inputs: Vec<OutPoint>,
-    recipient_address: Address,
-    redeem_script: ScriptBuf,
-    script_type: ScriptType,
-    current_fee_rate: FeeRate,
-    multisig_config: &Option<MultisigConfig>,
-) -> Amount {
-    let tx_out = vec![TxOut {
-        value: Amount::from_sat(POSTAGE),
-        script_pubkey: recipient_address.script_pubkey(),
-    }];
-
-    let mut tx_in: Vec<TxIn> = inputs
-        .iter()
-        .map(|outpoint| TxIn {
-            previous_output: *outpoint,
-            script_sig: ScriptBuf::new(),
-            sequence: Sequence::from_consensus(0xffffffff),
-            witness: Witness::new(),
-        })
-        .collect();
-
-    tx_in[0].witness.push(redeem_script.into_bytes());
-
-    let unsigned_reveal_tx = Transaction {
-        version: Version::TWO,
-        lock_time: LockTime::ZERO,
-        input: tx_in,
-        output: tx_out.clone(),
-    };
-
-    estimate_transaction_fees(
-        script_type,
-        unsigned_reveal_tx.input.len(),
-        current_fee_rate,
-        multisig_config,
-        unsigned_reveal_tx.output,
-    )
 }
 
 /// Estimates the transaction fees for a transaction.

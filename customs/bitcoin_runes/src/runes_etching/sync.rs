@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::time::Duration;
 
-use candid::{CandidType, Principal};
+use candid::CandidType;
 use ic_btc_interface::Network;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -157,7 +157,7 @@ pub async fn handle_etching_result_task() {
                                 req.status = EtchingStatus::TokenAdded;
                                 mutate_state(|s| s.pending_etching_requests.insert(k.clone(), req));
                             }
-                            Err(e) => {
+                            Err(_e) => {
                                 // do nothing
                             }
                         }

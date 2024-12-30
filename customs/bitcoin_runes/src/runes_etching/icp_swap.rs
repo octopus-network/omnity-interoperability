@@ -1,33 +1,31 @@
 use std::ops::{Div, Mul};
+
 use candid::CandidType;
 use num_traits::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use crate::call_error::{CallError, Reason};
-use crate::runes_etching::LogoParams;
-use crate::runes_etching::transactions::estimate_tx_vbytes;
 use crate::state::read_state;
 
 #[derive(Serialize, Deserialize, CandidType, Default, Clone)]
 pub struct TokenPrice {
 
     pub name: String,
-    pub priceUSD: f64,
+    #[serde(rename = "priceUSD")]
+    pub price_usd: f64,
     pub standard: String,
     pub symbol: String,
 }
 
-
 pub async fn estimate_etching_fee(fee_rate: u32, etching_size: u128) -> Result<u128, String> {
-
     let satoshi = fee_rate as u128 * etching_size;
     let (btc, icp) = get_token_price().await.map_err(|e|e.to_string())?;
     if btc.is_none()|| icp.is_none() {
         return Err("estimate etching fees failed, please try agin later, code: 0".to_string());
     }
-    let btcprice = Decimal::from_f64(btc.unwrap().priceUSD).unwrap();
-    let icpprice  = Decimal::from_f64(icp.unwrap().priceUSD).unwrap();
+    let btcprice = Decimal::from_f64(btc.unwrap().price_usd).unwrap();
+    let icpprice  = Decimal::from_f64(icp.unwrap().price_usd).unwrap();
     if icpprice <= Decimal::ZERO || btcprice <= Decimal::ZERO {
         return Err("estimate etching fees failed, please try agin later, code: 1".to_string());
     }

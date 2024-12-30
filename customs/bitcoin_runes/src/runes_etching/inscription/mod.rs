@@ -1,4 +1,3 @@
-pub mod brc20;
 pub mod iid;
 pub mod nft;
 
