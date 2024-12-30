@@ -472,12 +472,10 @@ pub async fn get_btc_icp_price() -> (Option<TokenPrice>, Option<TokenPrice>) {
 
 #[update(guard = "is_controller")]
 pub  fn clear_etching() {
-     mutate_state(|s|
-         loop {
-             if s.pending_etching_requests.pop_first().is_none() && s.finalized_etching_requests.pop_first().is_none() {
-                 break;
-             }
-         }
+     mutate_state(|s|{
+         s.pending_etching_requests.clear_new();
+         s.finalized_etching_requests.clear_new();
+     }
      );
 }
 

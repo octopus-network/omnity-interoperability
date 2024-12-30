@@ -253,10 +253,10 @@ export type Network = { 'mainnet' : null } |
   { 'regtest' : null } |
   { 'testnet' : null };
 export interface OrdinalsTerms {
-  'cap' : [] | [bigint],
+  'cap' : bigint,
   'height' : [[] | [bigint], [] | [bigint]],
   'offset' : [[] | [bigint], [] | [bigint]],
-  'amount' : [] | [bigint],
+  'amount' : bigint,
 }
 export interface OutPoint { 'txid' : Uint8Array | number[], 'vout' : number }
 export interface QueryStats {

@@ -176,8 +176,8 @@ pub async fn generate_etching_transactions(fees: Fees, vins: Vec<Utxo>,args: &In
         Some(t) => {
             Some(
                 Terms {
-                    amount: t.amount,
-                    cap: t.cap,
+                    amount: Some(t.amount),
+                    cap: Some(t.cap),
                     height: t.height,
                     offset: t.offset,
                 }

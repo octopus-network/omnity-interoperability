@@ -37,17 +37,18 @@ pub struct EtchingArgs {
     turbo: bool
 }
 
+
 #[derive(Default, CandidType, Serialize, Deserialize, Debug, PartialEq, Copy, Clone, Eq)]
 pub struct OrdinalsTerms {
-    pub amount: Option<u128>,
-    pub cap: Option<u128>,
+    pub amount: u128,
+    pub cap: u128,
     pub height: (Option<u64>, Option<u64>),
     pub offset: (Option<u64>, Option<u64>),
 }
 
 impl OrdinalsTerms {
     pub fn check(&self) -> anyhow::Result<()> {
-        if self.amount.is_none() ||self.cap.is_none() ||self.amount.clone().unwrap() ==0 || self.cap.clone().unwrap() == 0 {
+        if self.amount ==0 || self.cap == 0 {
             return Err(anyhow!("cap or amt is none".to_string()));
         }
         Ok(())

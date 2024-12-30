@@ -40,10 +40,10 @@ export const idlFactory = ({ IDL }) => {
   });
   const RedeemFee = IDL.Record({ 'bitcoin_fee' : IDL.Nat64 });
   const OrdinalsTerms = IDL.Record({
-    'cap' : IDL.Opt(IDL.Nat),
+    'cap' : IDL.Nat,
     'height' : IDL.Tuple(IDL.Opt(IDL.Nat64), IDL.Opt(IDL.Nat64)),
     'offset' : IDL.Tuple(IDL.Opt(IDL.Nat64), IDL.Opt(IDL.Nat64)),
-    'amount' : IDL.Opt(IDL.Nat),
+    'amount' : IDL.Nat,
   });
   const EtchingArgs = IDL.Record({
     'terms' : IDL.Opt(OrdinalsTerms),

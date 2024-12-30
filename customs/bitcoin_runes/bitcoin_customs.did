@@ -221,10 +221,10 @@ type InitArgs = record {
 type LogoParams = record { content_type : text; content_base64 : text };
 type Network = variant { mainnet; regtest; testnet };
 type OrdinalsTerms = record {
-  cap : opt nat;
+  cap : nat;
   height : record { opt nat64; opt nat64 };
   offset : record { opt nat64; opt nat64 };
-  amount : opt nat;
+  amount : nat;
 };
 type OutPoint = record { txid : blob; vout : nat32 };
 type QueryStats = record {
