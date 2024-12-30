@@ -126,13 +126,11 @@ pub async fn generate_ticket_v2(
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
-
     if get_counterparty(&req.target_chain_id).is_none() {
         return Err(GenerateTicketError::UnsupportedChainId(
             req.target_chain_id.clone(),
         ));
     }
-
     let (ticket_id, ticket_amount) = if is_icp(&req.token_id) {
         let (block_index, ticket_amount ) = lock_icp(ic_cdk::caller(), convert_u128_u64(req.amount)).await?;
         let ticket_id = format!("{}_{}", MAINNET_LEDGER_CANISTER_ID.to_string(), block_index.to_string());
