@@ -5,7 +5,7 @@ use omnity_types::{ChainState, Directive, Seq, Ticket};
 use crate::{audit, hub};
 use std::str::FromStr;
 use ic_canister_log::log;
-use omnity_types::ic_log::{CRITICAL, ERROR};
+use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
@@ -24,7 +24,7 @@ async fn process_tickets() {
 
 pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
     let mut next_seq = offset;
-    for (seq, ticket) in &tickets {
+    for (seq, ticket) in tickets.into_iter() {
         if let Err(_) = EvmAddress::from_str(&ticket.receiver) {
             log!(CRITICAL,
                 "[process tickets] failed to parse ticket receiver: {}",
@@ -41,7 +41,8 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
             next_seq = seq + 1;
             continue;
         };
-        mutate_state(|s| s.tickets_queue.insert(*seq, ticket.clone()));
+        log!(INFO, "[Consolidation] bitfinity route pulled ticket: {:?}", &ticket);
+        mutate_state(|s| s.tickets_queue.insert(seq, ticket));
         next_seq = seq + 1;
     }
     mutate_state(|s| s.next_ticket_seq = next_seq)
