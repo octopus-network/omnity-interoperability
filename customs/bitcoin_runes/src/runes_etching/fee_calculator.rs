@@ -1,16 +1,24 @@
+use std::str::FromStr;
+
 use anyhow::anyhow;
-use candid::Principal;
-use ic_ledger_types::{account_balance, AccountBalanceArgs, AccountIdentifier, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID, Memo, Subaccount, Tokens, TransferArgs};
+use candid::{Nat, Principal};
+use ic_cdk::{caller, id};
+use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
+use icrc_ledger_types::icrc1::account::Account;
+use icrc_ledger_types::icrc2::allowance::{Allowance, AllowanceArgs};
+use icrc_ledger_types::icrc2::transfer_from::TransferFromArgs;
+use num_traits::ToPrimitive;
+
 use crate::runes_etching::constants::POSTAGE;
 use crate::runes_etching::Utxo;
 use crate::state::mutate_state;
 
+const ICP_LEDGER_CANISTER_ID: &str = "ryjl3-tyaaa-aaaaa-aaaba-cai";
 pub const INPUT_SIZE_VBYTES: u64 = 74;
 pub const OUTPUT_SIZE_VBYTES: u64 = 31;
 pub const TX_OVERHEAD_VBYTES: u64 = 21;
 pub const FIXED_COMMIT_TX_VBYTES: u64 =
     OUTPUT_SIZE_VBYTES*2 + TX_OVERHEAD_VBYTES;
-const ICP_TRANSFER_FEE: u64 = 10_000;
 
 pub fn select_utxos(fee_rate: u64, fixed_size: u64) -> anyhow::Result<Vec<Utxo>> {
     let mut selected_utxos: Vec<Utxo> = vec![];
@@ -34,50 +42,73 @@ pub fn select_utxos(fee_rate: u64, fixed_size: u64) -> anyhow::Result<Vec<Utxo>>
     })
 }
 
-pub async fn charge_fee(fee_amount: u64) -> anyhow::Result<()> {
-    let subaccount = principal_to_subaccount(&ic_cdk::caller());
-    let balance = ic_balance_of(&subaccount).await?.e8s();
-    if balance < fee_amount {
-        return Err(anyhow!( format!("InsufficientFee: required: {}, provided: {}", fee_amount, balance)));
+pub async fn check_allowance(fee_amt: u64) -> anyhow::Result<u64> {
+    let allowance = allowance(caller(), id()).await?;
+    let allx = allowance.allowance.0.to_u64().unwrap_or_default();
+    if allx < fee_amt {
+        return Err(anyhow!( format!("InsufficientFee: required: {}, provided: {}", fee_amt, allx)));
     }
-
-    transfer_fee(&subaccount, balance).await?;
-    Ok(())
+    if allowance.expires_at.is_some() {
+        return Err(anyhow!("allowance is expired".to_string()));
+    }
+    Ok(allx)
 }
 
-pub fn principal_to_subaccount(principal_id: &Principal) -> Subaccount {
-    let mut subaccount = [0; std::mem::size_of::<Subaccount>()];
-    let principal_id = principal_id.as_slice();
-    subaccount[0] = principal_id.len().try_into().unwrap();
-    subaccount[1..1 + principal_id.len()].copy_from_slice(principal_id);
-
-    Subaccount(subaccount)
-}
-
-async fn ic_balance_of(subaccount: &Subaccount) -> anyhow::Result<Tokens> {
-    let account_identifier = AccountIdentifier::new(&ic_cdk::api::id(), &subaccount);
-    let balance_args = AccountBalanceArgs {
-        account: account_identifier,
+pub async fn transfer_etching_fees(
+    amount: u128,
+) -> anyhow::Result<()> {
+    let canister = Principal::from_str(ICP_LEDGER_CANISTER_ID).unwrap();
+    let client = ICRC1Client {
+        runtime: CdkRuntime,
+        ledger_canister_id: canister,
     };
-    account_balance(MAINNET_LEDGER_CANISTER_ID, balance_args)
+    let fee = client.fee()
         .await
-        .map_err(|(_, reason)| anyhow!(reason))
+        .map_err(|e|
+            anyhow!(
+                format!("Failed to get icrc fee, error: {:?}", e).to_string(),
+            ))?;
+    let user = Account {
+        owner: caller(),
+        subaccount: None,
+    };
+    let transfer_amount = Nat::from(amount) - fee;
+    let result = client
+        .transfer_from(TransferFromArgs {
+            spender_subaccount: None,
+            from: user,
+            to: Account {
+                owner: id(),
+                subaccount: None,
+            },
+            amount: transfer_amount.clone(),
+            fee: None,
+            memo: None,
+            created_at_time: Some(ic_cdk::api::time()),
+        })
+        .await
+        .map_err(|(code, msg)| {
+            anyhow!(format!(
+                "cannot transfer_icp transaction: {} (reject_code = {})",
+                msg, code
+            ))
+        })?;
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(anyhow!(format!("transfer fee error{:?}", e)))
+    }
 }
 
-async fn transfer_fee(subaccount: &Subaccount, fee_amount: u64) -> anyhow::Result<()> {
-    let transfer_args = TransferArgs {
-        memo: Memo(0),
-        amount: Tokens::from_e8s(fee_amount - ICP_TRANSFER_FEE),
-        fee: Tokens::from_e8s(ICP_TRANSFER_FEE),
-        from_subaccount: Some(subaccount.clone()),
-        to: AccountIdentifier::new(&ic_cdk::api::id(), &DEFAULT_SUBACCOUNT),
-        created_at_time: None,
-    };
-
-    ic_ledger_types::transfer(MAINNET_LEDGER_CANISTER_ID, transfer_args)
-        .await
-        .map_err(|(_, reason)| anyhow!(reason))?
-        .map_err(|err| anyhow!(err.to_string()))?;
-
-    Ok(())
+pub async fn allowance(acct: Principal, spender: Principal) -> anyhow::Result<Allowance>{
+    let canister = Principal::from_str(ICP_LEDGER_CANISTER_ID).unwrap();
+    let allowance: (Allowance,) = ic_cdk::call(canister, "icrc2_allowance",
+                                               (
+                                                   AllowanceArgs {
+                                                       account: Account { owner: acct, subaccount: None },
+                                                       spender: Account { owner: ic_cdk::id(), subaccount: None },
+                                                   },
+                                               )
+    ).await.map_err(|e| anyhow!(e.1))?;
+    Ok(allowance.0)
 }

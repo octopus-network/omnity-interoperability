@@ -1,5 +1,4 @@
 use std::cmp::max;
-use std::env::args;
 use std::ops::Bound::{Excluded, Unbounded};
 use std::str::FromStr;
 
@@ -9,9 +8,10 @@ use ic_btc_interface::{Network, Txid, Utxo};
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk::api::management_canister::http_request::{self, TransformArgs};
-use ic_cdk::caller;
+use ic_cdk::{caller, id};
 use ic_cdk_macros::{init, post_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
+use icrc_ledger_types::icrc2::allowance::Allowance;
 use serde::Serialize;
 
 use bitcoin_customs::{CustomsInfo, FEE_ESTIMATE_DELAY, INTERVAL_HANDLE_ETCHING, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES, management, process_directive_msg_task, process_etching_task, process_ticket_msg_task, process_tx_task, refresh_fee_task, TokenResp};
@@ -24,9 +24,10 @@ use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::management::CallSource;
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
-use bitcoin_customs::runes_etching::{EtchingArgs, InternalEtchingArgs, LogoParams};
+use bitcoin_customs::runes_etching::{EtchingArgs, LogoParams};
+use bitcoin_customs::runes_etching::fee_calculator::allowance;
 use bitcoin_customs::runes_etching::icp_swap::{get_token_price, TokenPrice};
-use bitcoin_customs::runes_etching::transactions::{estimate_tx_vbytes, etching_rune, internal_etching, SendEtchingInfo};
+use bitcoin_customs::runes_etching::transactions::{estimate_tx_vbytes, internal_etching, SendEtchingInfo};
 use bitcoin_customs::runes_etching::transactions::EtchingStatus::{SendRevealFailed, SendRevealSuccess};
 use bitcoin_customs::state::{EtchingAccountInfo, generate_etching_key, GenTicketRequestV2, GenTicketStatus, mutate_state, read_state, ReleaseTokenStatus};
 use bitcoin_customs::state::eventlog::Event::UpdateFeeCollector;
@@ -179,13 +180,15 @@ pub async fn query_bitcoin_balance(address: String, min_confirmations: u32) -> u
 
 }
 
-
 #[update]
 pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
    internal_etching(fee_rate, args).await
 }
 
-
+#[update]
+pub async fn  query_allowance() -> Result<Allowance, String> {
+    allowance(caller(), id()).await.map_err(|e| e.to_string())
+}
 
 #[update(guard = "is_controller")]
 pub async fn etching_reveal(commit_txid: String) {
@@ -204,8 +207,6 @@ pub async fn etching_reveal(commit_txid: String) {
     req.time_at = ic_cdk::api::time();
     mutate_state(|s|s.pending_etching_requests.insert(key, req));
 }
-
-
 
 #[query(guard ="is_controller")]
 pub fn get_etching_fee_utxos() -> Vec<UtxoArgs>{

@@ -1,3 +1,4 @@
+type Allowance = record { allowance : nat; expires_at : opt nat64 };
 type BitcoinAddress = variant {
   OpReturn : blob;
   p2wsh_v0 : blob;
@@ -252,8 +253,9 @@ type ReleaseTokenStatus = variant {
 type Result = variant { Ok : nat; Err : text };
 type Result_1 = variant { Ok : text; Err : text };
 type Result_2 = variant { Ok; Err : GenerateTicketError };
-type Result_3 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
-type Result_4 = variant { Ok; Err : UpdateRunesBalanceError };
+type Result_3 = variant { Ok : Allowance; Err : text };
+type Result_4 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
+type Result_5 = variant { Ok; Err : UpdateRunesBalanceError };
 type RuneId = record { tx : nat32; block : nat64 };
 type RuneTxRequest = record {
   received_at : nat64;
@@ -356,6 +358,7 @@ service : (CustomArg) -> {
   get_platform_fee : (text) -> (opt nat, opt text) query;
   get_runes_oracles : () -> (vec principal) query;
   get_token_list : () -> (vec TokenResp) query;
+  query_allowance : () -> (Result_3);
   query_bitcoin_balance : (text, nat32) -> (nat64);
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   remove_runes_oracle : (principal) -> ();
@@ -364,8 +367,8 @@ service : (CustomArg) -> {
   set_ord_indexer : (principal) -> ();
   set_runes_oracle : (principal) -> ();
   transform : (TransformArgs) -> (HttpResponse) query;
-  update_btc_utxos : () -> (Result_3);
+  update_btc_utxos : () -> (Result_4);
   update_fees : (vec UtxoArgs) -> ();
   update_rpc_url : (text) -> ();
-  update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_4);
+  update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_5);
 }

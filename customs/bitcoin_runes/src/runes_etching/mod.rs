@@ -22,7 +22,7 @@ pub mod result;
 pub mod utils;
 pub mod wallet;
 pub mod transactions;
-mod fee_calculator;
+pub mod fee_calculator;
 pub mod sync;
 pub mod icp_swap;
 

@@ -28,8 +28,10 @@ ic-crypto-getrandom-for-wasm = { git = "https://github.com/dfinity/ic", tag = "r
 ic-crypto-sha2 = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-ic00-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-icrc1 = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+icrc-ledger-client-cdk = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-metrics-encoder = "1"
 ic-stable-structures = { workspace = true }
+icrc-ledger-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 ic-utils-ensure = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 lazy_static = "1.4.0"
 minicbor = { workspace = true }

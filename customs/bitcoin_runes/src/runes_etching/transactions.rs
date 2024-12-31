@@ -8,14 +8,15 @@ use ic_canister_log::log;
 use ic_cdk::caller;
 use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
+use icrc_ledger_types::icrc2::allowance;
 use ordinals::{Etching, SpacedRune, Terms};
 use serde::Serialize;
 use omnity_types::ic_log::INFO;
 
-use crate::call_error::CallError;
+use crate::call_error::{CallError, Reason};
 use crate::runes_etching::{EtchingArgs, InternalEtchingArgs, LogoParams, Nft, OrdResult, OrdTransactionBuilder, SignCommitTransactionArgs, Utxo};
 use crate::runes_etching::constants::POSTAGE;
-use crate::runes_etching::fee_calculator::{charge_fee, FIXED_COMMIT_TX_VBYTES, INPUT_SIZE_VBYTES, select_utxos};
+use crate::runes_etching::fee_calculator::{check_allowance, FIXED_COMMIT_TX_VBYTES, INPUT_SIZE_VBYTES, select_utxos, transfer_etching_fees};
 use crate::runes_etching::fees::Fees;
 use crate::runes_etching::icp_swap::estimate_etching_fee;
 use crate::runes_etching::transactions::EtchingStatus::{SendCommitFailed, SendCommitSuccess};
@@ -105,12 +106,10 @@ pub fn find_commit_remain_fee(t: &Transaction) -> Option<Utxo> {
     }
 }
 
-pub async fn etching_rune(fee_rate: u64, args: &InternalEtchingArgs) -> anyhow::Result<Option<SendEtchingRequest>>{
+pub async fn etching_rune(fee_rate: u64, args: &InternalEtchingArgs) -> anyhow::Result<(SendEtchingRequest, u64)>{
     let (commit_tx_size, reveal_size) = estimate_tx_vbytes(args.rune_name.as_str(), args.logo.clone()).await?;
     let icp_fee_amt = estimate_etching_fee(fee_rate as u32, (commit_tx_size + reveal_size) as u128).await.map_err(|e|anyhow!(e))?;
-
-    //charge_fee(icp_fee_amt as u64).await?;
-
+    let allowance = check_allowance(icp_fee_amt as u64).await?;
     let vins = select_utxos(fee_rate, reveal_size as u64 + FIXED_COMMIT_TX_VBYTES)?;
     log!(INFO, "selected fee utxos: {:?}", vins);
     let commit_size = vins.len() as u64 * INPUT_SIZE_VBYTES + FIXED_COMMIT_TX_VBYTES;
@@ -118,7 +117,6 @@ pub async fn etching_rune(fee_rate: u64, args: &InternalEtchingArgs) -> anyhow::
         commit_fee:  Amount::from_sat(commit_size * fee_rate),
         reveal_fee: Amount::from_sat(reveal_size as u64 * fee_rate + POSTAGE * 2),
     };
-    log!(INFO, "fees: {:?}", fee);
     let result = generate_etching_transactions(fee,vins.clone(), args).await
         .map_err(|e| {
             mutate_state(|s|
@@ -153,7 +151,7 @@ pub async fn etching_rune(fee_rate: u64, args: &InternalEtchingArgs) -> anyhow::
             }
         );
     }
-    Ok(Some(send_res))
+    Ok((send_res, allowance))
 }
 
 pub async fn generate_etching_transactions(fees: Fees, vins: Vec<Utxo>,args: &InternalEtchingArgs) -> anyhow::Result<BuildEtchingTxsResult> {
@@ -345,14 +343,15 @@ pub async fn  internal_etching(fee_rate: u64, args: EtchingArgs) -> Result<Strin
     let internal_args: InternalEtchingArgs = (args, caller).into();
     let r = etching_rune(fee_rate, &internal_args).await;
     match r {
-        Ok(o) => {
-            match o {
-                None => {Ok("None".to_string())}
-                Some(sr) => {
-                    let commit_tx_id = sr.txs[0].txid().to_string();
-                    mutate_state(|s|s.pending_etching_requests.insert(generate_etching_key(&caller, commit_tx_id.clone()), sr));
-                    Ok(commit_tx_id)
-                }
+        Ok((sr,allowance)) => {
+            if sr.status == SendCommitSuccess {
+                let commit_tx_id = sr.txs[0].txid().to_string();
+                mutate_state(|s|s.pending_etching_requests.insert(generate_etching_key(&caller, commit_tx_id.clone()), sr));
+                let r = transfer_etching_fees(allowance as u128).await;
+                log!(INFO, "transfer etching fee result: {:?}", r);
+                Ok(commit_tx_id)
+            }else {
+                Err(sr.err_info.unwrap_or(CallError { method: "send commit tx".to_string(), reason: Reason::QueueIsFull }).to_string())
             }
         }
         Err(e) => {
