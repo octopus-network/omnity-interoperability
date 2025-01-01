@@ -738,11 +738,13 @@ impl HubState {
         //save ticket
         self.cross_ledger
             .insert(ticket.ticket_id.to_string(), ticket.clone());
+        
+        log!(INFO, "[Consolidation] hub received ticket: {:?}", &ticket);
         //update ticket metrice
         with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket.clone()));
         record_event(&Event::ReceivedTicket {
             seq_key,
-            ticket: ticket.clone(),
+            ticket
         });
         Ok(())
     }

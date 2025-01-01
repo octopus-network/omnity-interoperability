@@ -107,6 +107,7 @@ pub async fn send_ticket(seq: Seq) -> Result<Option<String>, BitfinityRouteError
                     let hash = broadcast(data.clone()).await;
                     match hash {
                         Ok(h) => {
+                            log!(INFO, "[Consolidation] bitfinity route execution ticket: {:?}, hash: {}", &t, &h);
                             pending_ticket.evm_tx_hash = Some(h);
                             mutate_state(|s| {
                                 s.pending_tickets_map.insert(t.ticket_id, pending_ticket)
