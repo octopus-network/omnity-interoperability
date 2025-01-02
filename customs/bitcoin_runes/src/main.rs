@@ -456,7 +456,7 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
 }
 
 #[update]
-pub async fn estimate_etching_fee(fee_rate: u32, rune_name: String, logo: Option<LogoParams>) -> Result<u128, String> {
+pub async fn estimate_etching_fee(fee_rate: u64, rune_name: String, logo: Option<LogoParams>) -> Result<u128, String> {
     let byte_size = match estimate_tx_vbytes(rune_name.as_str(), logo).await {
         Ok(l) => { Ok(l.1 as u128 + l.0 as u128) }
         Err(e) => {

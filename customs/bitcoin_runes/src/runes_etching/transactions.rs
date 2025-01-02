@@ -108,7 +108,7 @@ pub fn find_commit_remain_fee(t: &Transaction) -> Option<Utxo> {
 
 pub async fn etching_rune(fee_rate: u64, args: &InternalEtchingArgs) -> anyhow::Result<(SendEtchingRequest, u64)>{
     let (commit_tx_size, reveal_size) = estimate_tx_vbytes(args.rune_name.as_str(), args.logo.clone()).await?;
-    let icp_fee_amt = estimate_etching_fee(fee_rate as u32, (commit_tx_size + reveal_size) as u128).await.map_err(|e|anyhow!(e))?;
+    let icp_fee_amt = estimate_etching_fee(fee_rate, (commit_tx_size + reveal_size) as u128).await.map_err(|e|anyhow!(e))?;
     let allowance = check_allowance(icp_fee_amt as u64).await?;
     let vins = select_utxos(fee_rate, reveal_size as u64 + FIXED_COMMIT_TX_VBYTES)?;
     log!(INFO, "selected fee utxos: {:?}", vins);

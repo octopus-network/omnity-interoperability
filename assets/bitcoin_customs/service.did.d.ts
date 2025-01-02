@@ -2,6 +2,10 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
+export interface Allowance {
+  'allowance' : bigint,
+  'expires_at' : [] | [bigint],
+}
 export type BitcoinAddress = { 'OpReturn' : Uint8Array | number[] } |
   { 'p2wsh_v0' : Uint8Array | number[] } |
   { 'p2tr_v1' : Uint8Array | number[] } |
@@ -285,9 +289,11 @@ export type Result_1 = { 'Ok' : string } |
   { 'Err' : string };
 export type Result_2 = { 'Ok' : null } |
   { 'Err' : GenerateTicketError };
-export type Result_3 = { 'Ok' : Array<Utxo> } |
+export type Result_3 = { 'Ok' : Allowance } |
+  { 'Err' : string };
+export type Result_4 = { 'Ok' : Array<Utxo> } |
   { 'Err' : UpdateBtcUtxosErr };
-export type Result_4 = { 'Ok' : null } |
+export type Result_5 = { 'Ok' : null } |
   { 'Err' : UpdateRunesBalanceError };
 export interface RuneId { 'tx' : number, 'block' : bigint }
 export interface RuneTxRequest {
@@ -382,7 +388,7 @@ export interface UtxoArgs { 'id' : string, 'index' : number, 'amount' : bigint }
 export interface _SERVICE {
   'clear_etching' : ActorMethod<[], undefined>,
   'estimate_etching_fee' : ActorMethod<
-    [number, string, [] | [LogoParams]],
+    [bigint, string, [] | [LogoParams]],
     Result
   >,
   'estimate_redeem_fee' : ActorMethod<[EstimateFeeArgs], RedeemFee>,
@@ -407,6 +413,7 @@ export interface _SERVICE {
   'get_platform_fee' : ActorMethod<[string], [[] | [bigint], [] | [string]]>,
   'get_runes_oracles' : ActorMethod<[], Array<Principal>>,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
+  'query_allowance' : ActorMethod<[], Result_3>,
   'query_bitcoin_balance' : ActorMethod<[string, number], bigint>,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
   'remove_runes_oracle' : ActorMethod<[Principal], undefined>,
@@ -415,10 +422,10 @@ export interface _SERVICE {
   'set_ord_indexer' : ActorMethod<[Principal], undefined>,
   'set_runes_oracle' : ActorMethod<[Principal], undefined>,
   'transform' : ActorMethod<[TransformArgs], HttpResponse>,
-  'update_btc_utxos' : ActorMethod<[], Result_3>,
+  'update_btc_utxos' : ActorMethod<[], Result_4>,
   'update_fees' : ActorMethod<[Array<UtxoArgs>], undefined>,
   'update_rpc_url' : ActorMethod<[string], undefined>,
-  'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_4>,
+  'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_5>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

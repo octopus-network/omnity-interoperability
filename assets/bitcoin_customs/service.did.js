@@ -378,6 +378,11 @@ export const idlFactory = ({ IDL }) => {
     'rune_id' : IDL.Text,
     'symbol' : IDL.Text,
   });
+  const Allowance = IDL.Record({
+    'allowance' : IDL.Nat,
+    'expires_at' : IDL.Opt(IDL.Nat64),
+  });
+  const Result_3 = IDL.Variant({ 'Ok' : Allowance, 'Err' : IDL.Text });
   const ReleaseTokenStatus = IDL.Variant({
     'Signing' : IDL.Null,
     'Confirmed' : IDL.Text,
@@ -399,7 +404,7 @@ export const idlFactory = ({ IDL }) => {
   const UpdateBtcUtxosErr = IDL.Variant({
     'TemporarilyUnavailable' : IDL.Text,
   });
-  const Result_3 = IDL.Variant({
+  const Result_4 = IDL.Variant({
     'Ok' : IDL.Vec(Utxo),
     'Err' : UpdateBtcUtxosErr,
   });
@@ -416,14 +421,14 @@ export const idlFactory = ({ IDL }) => {
     'MismatchWithGenTicketReq' : IDL.Null,
     'FinalizeTicketErr' : IDL.Text,
   });
-  const Result_4 = IDL.Variant({
+  const Result_5 = IDL.Variant({
     'Ok' : IDL.Null,
     'Err' : UpdateRunesBalanceError,
   });
   return IDL.Service({
     'clear_etching' : IDL.Func([], [], []),
     'estimate_etching_fee' : IDL.Func(
-        [IDL.Nat32, IDL.Text, IDL.Opt(LogoParams)],
+        [IDL.Nat64, IDL.Text, IDL.Opt(LogoParams)],
         [Result],
         [],
       ),
@@ -462,6 +467,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'get_runes_oracles' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
+    'query_allowance' : IDL.Func([], [Result_3], []),
     'query_bitcoin_balance' : IDL.Func([IDL.Text, IDL.Nat32], [IDL.Nat64], []),
     'release_token_status' : IDL.Func(
         [IDL.Text],
@@ -474,10 +480,10 @@ export const idlFactory = ({ IDL }) => {
     'set_ord_indexer' : IDL.Func([IDL.Principal], [], []),
     'set_runes_oracle' : IDL.Func([IDL.Principal], [], []),
     'transform' : IDL.Func([TransformArgs], [HttpResponse], ['query']),
-    'update_btc_utxos' : IDL.Func([], [Result_3], []),
+    'update_btc_utxos' : IDL.Func([], [Result_4], []),
     'update_fees' : IDL.Func([IDL.Vec(UtxoArgs)], [], []),
     'update_rpc_url' : IDL.Func([IDL.Text], [], []),
-    'update_runes_balance' : IDL.Func([UpdateRunesBalanceArgs], [Result_4], []),
+    'update_runes_balance' : IDL.Func([UpdateRunesBalanceArgs], [Result_5], []),
   });
 };
 export const init = ({ IDL }) => {

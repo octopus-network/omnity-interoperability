@@ -18,7 +18,7 @@ pub struct TokenPrice {
     pub symbol: String,
 }
 
-pub async fn estimate_etching_fee(fee_rate: u32, etching_size: u128) -> Result<u128, String> {
+pub async fn estimate_etching_fee(fee_rate: u64, etching_size: u128) -> Result<u128, String> {
   /*  let satoshi = fee_rate as u128 * etching_size;
     let (btc, icp) = get_token_price().await.map_err(|e|e.to_string())?;
     if btc.is_none()|| icp.is_none() {

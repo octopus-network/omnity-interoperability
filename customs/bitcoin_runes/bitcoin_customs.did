@@ -336,7 +336,7 @@ type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 type UtxoArgs = record { id : text; index : nat32; amount : nat64 };
 service : (CustomArg) -> {
   clear_etching : () -> ();
-  estimate_etching_fee : (nat32, text, opt LogoParams) -> (Result);
+  estimate_etching_fee : (nat64, text, opt LogoParams) -> (Result);
   estimate_redeem_fee : (EstimateFeeArgs) -> (RedeemFee) query;
   etching : (nat64, EtchingArgs) -> (Result_1);
   etching_reveal : (text) -> ();
