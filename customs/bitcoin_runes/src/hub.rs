@@ -6,6 +6,7 @@ use omnity_types::Directive;
 use omnity_types::TicketId;
 use omnity_types::Topic;
 use omnity_types::{self, ChainId, Seq, Ticket};
+use omnity_types::hub_types::Proposal;
 
 pub async fn query_tickets(
     hub_principal: Principal,
@@ -18,6 +19,10 @@ pub async fn query_tickets(
         (None::<Option<ChainId>>, offset, limit),
     )
     .await
+}
+
+pub async fn execute_proposal(proposal: Proposal,hub_principal: Principal)  -> Result<(), CallError>{
+    call(hub_principal, "execute_proposal".into(),(vec![proposal],),).await
 }
 
 pub async fn query_directives(

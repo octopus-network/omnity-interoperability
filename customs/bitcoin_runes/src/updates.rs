@@ -4,6 +4,7 @@ mod rpc_types;
 pub mod rune_tx;
 pub mod update_btc_utxos;
 pub mod update_runes_balance;
+pub mod etching;
 
 pub use generate_ticket::generate_ticket;
 pub use get_btc_address::get_btc_address;

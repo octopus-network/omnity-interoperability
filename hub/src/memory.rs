@@ -7,8 +7,8 @@ use std::cell::RefCell;
 
 use omnity_types::{ChainId, Directive, SeqKey, Ticket, TicketId, TokenId, Topic};
 
-use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta, TxHash};
-
+use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
+use omnity_types::{Amount, TxHash};
 const UPGRADES: MemoryId = MemoryId::new(0);
 const CHAIN: MemoryId = MemoryId::new(1);
 const TOKEN: MemoryId = MemoryId::new(2);
