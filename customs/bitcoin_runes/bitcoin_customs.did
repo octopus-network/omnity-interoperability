@@ -358,7 +358,7 @@ service : (CustomArg) -> {
   get_platform_fee : (text) -> (opt nat, opt text) query;
   get_runes_oracles : () -> (vec principal) query;
   get_token_list : () -> (vec TokenResp) query;
-  query_allowance : () -> (Result_3);
+  query_allowance : (principal) -> (Result_3);
   query_bitcoin_balance : (text, nat32) -> (nat64);
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   remove_runes_oracle : (principal) -> ();

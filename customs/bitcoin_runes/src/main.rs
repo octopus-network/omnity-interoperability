@@ -186,8 +186,8 @@ pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String>
 }
 
 #[update]
-pub async fn  query_allowance() -> Result<Allowance, String> {
-    allowance(caller(), id()).await.map_err(|e| e.to_string())
+pub async fn  query_allowance(principal: Principal) -> Result<Allowance, String> {
+    allowance(principal, id()).await.map_err(|e| e.to_string())
 }
 
 #[update(guard = "is_controller")]

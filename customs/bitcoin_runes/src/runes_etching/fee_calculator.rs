@@ -2,12 +2,14 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use candid::{Nat, Principal};
+use ic_canister_log::log;
 use ic_cdk::{caller, id};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc2::allowance::{Allowance, AllowanceArgs};
 use icrc_ledger_types::icrc2::transfer_from::TransferFromArgs;
 use num_traits::ToPrimitive;
+use omnity_types::ic_log::INFO;
 
 use crate::runes_etching::constants::POSTAGE;
 use crate::runes_etching::Utxo;
@@ -45,7 +47,9 @@ pub fn select_utxos(fee_rate: u64, fixed_size: u64) -> anyhow::Result<Vec<Utxo>>
 pub async fn check_allowance(fee_amt: u64) -> anyhow::Result<u64> {
     let allowance = allowance(caller(), id()).await?;
     let allx = allowance.allowance.0.to_u64().unwrap_or_default();
+    log!(INFO, "query allowance result: {}, {}", caller().to_text(), allx);
     if allx < fee_amt {
+
         return Err(anyhow!( format!("InsufficientFee: required: {}, provided: {}", fee_amt, allx)));
     }
     if allowance.expires_at.is_some() {
@@ -111,4 +115,11 @@ pub async fn allowance(acct: Principal, spender: Principal) -> anyhow::Result<Al
                                                )
     ).await.map_err(|e| anyhow!(e.1))?;
     Ok(allowance.0)
+}
+
+
+#[test]
+pub fn test() {
+    let pr = Principal::from_str("njasx-txxdl-dmy3b-rjiqe-bwpih-cqhsx-4352l-z3qic-uuumr-jbges-rqe").unwrap();
+    println!("{}", pr.to_text());
 }
