@@ -120,6 +120,30 @@ content-type: application/json
     ]
   }
 
+### req X getTokenSupply
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0", "id": 1,
+    "method": "getTokenSupply",
+    "params": [
+      "BspWEV9ikAYPpZJpNzdmXAPCh28yUfC9siLVde8Yy46Z"
+    ]
+  }
+
+### req RICH getTokenSupply
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0", "id": 1,
+    "method": "getTokenSupply",
+    "params": [
+      "8j45TBhQU6DQhRvoYd9dpQWzTNKstB6kpnfZ3pKDCxff"
+    ]
+  }
+
 ### req latest blockhash
 # for i in {1..100}; do curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
 #     "id":1,

@@ -41,14 +41,15 @@ chain_id="eSolana"
 dfx canister call $HUB_CANISTER_ID get_chain "(\"$chain_id\")" --ic
 
 chain_id="sICP"
-dfx canister call $HUB_CANISTER_ID get_tokens "(opt \"$chain_id\",null,0:nat64,36:nat64)" --ic
+dfx canister call $HUB_CANISTER_ID get_tokens "(opt \"$chain_id\",null,0:nat64,72:nat64)" --ic
 
 chain_id="eSolana"
 dfx canister call $HUB_CANISTER_ID get_tokens "(opt \"$chain_id\",null,0:nat64,36:nat64)" --ic
 
 token_id="sICP-native-ICP"
 dfx canister call $HUB_CANISTER_ID get_tokens "(null, opt \"$token_id\",0:nat64,36:nat64)" --ic
-
+token_id=sICP-icrc-ckBTC
+dfx canister call $HUB_CANISTER_ID get_tokens "(null, opt \"$token_id\",0:nat64,36:nat64)" --ic
 
 chain_id="sICP"
 dfx canister call $HUB_CANISTER_ID get_fees "(opt \"$chain_id\",null,0:nat64,36:nat64)" --ic
@@ -685,7 +686,7 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID generate_ticket "(record {
 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_fee_account '()' --ic
 
-FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
+FEE_ACCOUNT="B3zfZ9CvfCHd23jzM7UqrVR2sid4y4eJYtxzZA4azqaD"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID update_fee_account "(\"${FEE_ACCOUNT}\")" --ic
 
 # schnorr test
@@ -883,3 +884,5 @@ dfx canister call $HUB_CANISTER_ID update_fee "vec {variant { UpdateTargetChainF
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_redeem_fee '("sICP")' --ic
 # check
 dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateFee},0:nat64,12:nat64)" --ic 
+
+dfx canister call  $SOLANA_ROUTE_CANISTER_ID active_tasks '()' --ic
