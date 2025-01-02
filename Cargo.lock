@@ -4018,6 +4018,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ord-canister-interface"
+version = "0.1.0"
+source = "git+https://github.com/octopus-network/ord-canister#20440ab9fa2dc2e4af65b78d700a31294e8b6d14"
+dependencies = [
+ "candid",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "p256"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4831,6 +4841,7 @@ dependencies = [
  "ic-log 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x)",
  "log",
  "omnity_types",
+ "ord-canister-interface",
  "serde",
  "serde_json",
 ]

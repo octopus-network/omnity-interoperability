@@ -1,7 +1,15 @@
-use crate::types::*;
+use bitcoin_customs::{
+    queries::GetGenTicketReqsArgs,
+    state::{GenTicketRequestV2, RunesBalance},
+    updates::update_runes_balance::UpdateRunesBalanceArgs,
+};
 use candid::Principal;
+pub use ic_btc_interface::Txid;
 use ic_canister_log::log;
 use omnity_types::{ic_log::*, rune_id::RuneId};
+use ord_canister_interface::{OrdError, OrdRuneBalance};
+
+const MIN_CONFIRMATIONS: u32 = 4;
 
 /// this could be empty since even some errors occur, we can't do anything but waiting for the next timer
 async fn query_pending_task(principal: Principal) -> Vec<GenTicketRequestV2> {
@@ -24,23 +32,53 @@ async fn query_indexer(
     txid: String,
     vout: u32,
 ) -> anyhow::Result<Option<RunesBalance>> {
-    let (balances,): (Result<Vec<Balance>, OrdError>,) =
-        ic_cdk::call(principal, "get_runes_by_utxo", (txid, vout))
+    let outpoint = format!("{}:{}", txid, vout);
+    const SKIP_OUTPOINTS: [&str; 2] = [
+        "4a627133b4f251ae35be2c713052674a1abe2163c9ab62fb608c4c87ce2e988e:0",
+        "07acbefc858430fe75ac84eec5b401b0fbc1ec9e25a3a2681789534170f576f7:0",
+    ];
+
+    if SKIP_OUTPOINTS.contains(&outpoint.as_str()) {
+        return Ok(None);
+    }
+
+    let (balances,): (Result<Vec<Option<Vec<OrdRuneBalance>>>, OrdError>,) =
+        ic_cdk::call(principal, "query_runes", (vec![outpoint.clone()],))
             .await
-            .inspect_err(|e| log!(WARNING, "query indexer error {:?}", e))
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+            .map_err(|e| {
+                log!(WARNING, "query indexer error {:?}", e);
+                anyhow::anyhow!("{:?}", e)
+            })?;
+
+    let balances = balances.map_err(|e| {
+        log!(WARNING, "indexer returns err: {:?}", e);
+        anyhow::anyhow!("{:?}", e)
+    })?;
+
     let balances = balances
-        .inspect_err(|e| log!(WARNING, "indexer returns err: {:?}", e))
-        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        .get(0)
+        .and_then(|b| b.as_ref())
+        .ok_or_else(|| anyhow::anyhow!("Invalid balances response for outpoint: {}", outpoint))?;
+
     let rune = balances
-        .into_iter()
-        .filter(|b| b.id == rune_id)
-        .map(|b| b.into_runes_balance(vout))
-        .reduce(|a, b| RunesBalance {
-            rune_id: a.rune_id,
-            vout: a.vout,
-            amount: a.amount + b.amount,
+        .iter()
+        .filter(|b| b.id == rune_id.to_string() && b.confirmations >= MIN_CONFIRMATIONS)
+        .fold(None, |acc, b| {
+            let balance = RunesBalance {
+                rune_id,
+                vout,
+                amount: b.amount + acc.map_or(0, |prev: RunesBalance| prev.amount),
+            };
+            Some(balance)
         });
+    log!(
+        INFO,
+        "query indexer for outpoint: {}, rune_id: {}, result: rune: {:?}",
+        outpoint,
+        rune_id,
+        rune
+    );
+
     Ok(rune)
 }
 

@@ -1,5 +1,4 @@
 mod oracle;
-mod types;
 
 use candid::{CandidType, Deserialize, Principal};
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
