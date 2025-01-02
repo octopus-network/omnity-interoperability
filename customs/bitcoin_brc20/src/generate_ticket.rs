@@ -8,9 +8,10 @@ use num_traits::{ToPrimitive, Zero};
 use rust_decimal::Decimal;
 use serde::Serialize;
 use thiserror::Error;
+use ic_stable_structures::Storable;
 
 use omnity_types::ic_log::INFO;
-use omnity_types::{ChainState, Ticket, TicketType, TxAction};
+use omnity_types::{ChainState, Ticket, TicketType, TxAction, Fee};
 
 use crate::bitcoin_to_custom::check_transaction;
 use crate::hub;
@@ -113,7 +114,12 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         .unwrap()
         .mul(Decimal::from(10u128.pow(token.decimals as u32)))
         .to_u128()
-        .unwrap();   
+        .unwrap();  
+
+    let (fee, _) = read_state(|s|s.get_transfer_fee_info(&args.target_chain_id));
+    let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default()};
+    let memo = bridge_fee.add_to_memo(None).unwrap_or_default();
+
     hub::pending_ticket(
         hub_principal,
         Ticket {
@@ -127,7 +133,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             amount: ticket_amount.to_string(),
             sender: None,
             receiver: args.receiver.clone(),
-            memo: None,
+            memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
         },
     )
     .await

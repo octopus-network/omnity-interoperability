@@ -15,8 +15,8 @@ use crate::contract_types::{
 };
 use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt};
 use crate::ic_log::{INFO, WARNING};
-use crate::state::{mutate_state, read_state};
-use crate::types::{ChainState, Directive, Ticket};
+use crate::state::{mutate_state, read_state, get_redeem_fee};
+use crate::types::{ChainState, Directive, Ticket, ChainId, Fee};
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -183,7 +183,7 @@ pub async fn handle_runes_mint(
     log_entry: &LogEntry,
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
-    let ticket = Ticket::from_runes_mint_event(log_entry, event);
+    let ticket = Ticket::from_runes_mint_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
@@ -195,7 +195,7 @@ pub async fn handle_runes_mint(
 }
 
 pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyhow::Result<()> {
-    let ticket = Ticket::from_burn_event(log_entry, event);
+    let ticket = Ticket::from_burn_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
@@ -207,7 +207,7 @@ pub async fn handle_token_transport(
     log_entry: &LogEntry,
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
-    let ticket = Ticket::from_transport_event(log_entry, event);
+    let ticket = Ticket::from_transport_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
@@ -250,7 +250,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-            return Ok(Ticket::from_burn_event(&l, token_burned));
+            return Ok(Ticket::from_burn_event(&l, token_burned, true));
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -262,7 +262,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
                 }
             });
             if dst_check_result {
-                return Ok(Ticket::from_transport_event(&l, token_transport));
+                return Ok(Ticket::from_transport_event(&l, token_transport, true));
             } else {
                 let tx_hash = l.transaction_hash.unwrap_or(Hash([0u8; 32])).to_string();
                 log!(INFO, "[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
@@ -270,8 +270,14 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
-            return Ok(Ticket::from_runes_mint_event(&l, runes_mint));
+            return Ok(Ticket::from_runes_mint_event(&l, runes_mint, true));
         }
     }
     Err(anyhow!("not found ticket"))
+}
+
+pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
+    let fee = get_redeem_fee(dst_chain);
+    let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
+    bridge_fee.add_to_memo(memo).unwrap_or_default()
 }

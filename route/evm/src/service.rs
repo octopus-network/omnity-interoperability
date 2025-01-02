@@ -23,7 +23,7 @@ use crate::ic_log::{CRITICAL, INFO, WARNING};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
 use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
-    StateProfile,
+    StateProfile, get_redeem_fee,
 };
 use crate::types::{Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
 
@@ -175,14 +175,7 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
 
 #[query]
 fn get_fee(chain_id: ChainId) -> Option<u64> {
-    read_state(|s| {
-        s.target_chain_factor
-            .get(&chain_id)
-            .map_or(None, |target_chain_factor| {
-                s.fee_token_factor
-                    .map(|fee_token_factor| (target_chain_factor * fee_token_factor) as u64)
-            })
-    })
+    get_redeem_fee(chain_id)
 }
 
 #[query(guard = "is_admin")]

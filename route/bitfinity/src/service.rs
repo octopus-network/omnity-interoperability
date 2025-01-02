@@ -14,6 +14,7 @@ use crate::eth_common::{EvmAddress, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
 use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
+use crate::state::bitfinity_get_redeem_fee;
 use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
     StateProfile,
@@ -174,14 +175,7 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
 
 #[query]
 fn get_fee(chain_id: ChainId) -> Option<u64> {
-    read_state(|s| {
-        s.target_chain_factor
-            .get(&chain_id)
-            .and_then(|target_chain_factor| {
-                s.fee_token_factor
-                    .map(|fee_token_factor| (target_chain_factor * fee_token_factor) as u64)
-            })
-    })
+    bitfinity_get_redeem_fee(chain_id)
 }
 
 #[query(guard = "is_admin")]
