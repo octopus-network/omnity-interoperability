@@ -744,9 +744,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.8.0"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ac0150caa2ae65ca5bd83f25c7de183dea78d4d366469f148435e2acfbad0da"
+checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
 dependencies = [
  "serde",
 ]
@@ -2359,7 +2359,7 @@ dependencies = [
 [[package]]
 name = "ic-base-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
+source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
 dependencies = [
  "byte-unit",
  "bytes",
@@ -2369,7 +2369,7 @@ dependencies = [
  "ic-crypto-sha2 0.9.0 (git+https://github.com/dfinity/ic)",
  "ic-protobuf 0.9.0 (git+https://github.com/dfinity/ic)",
  "phantom_newtype 0.9.0 (git+https://github.com/dfinity/ic)",
- "prost 0.13.3",
+ "prost 0.13.4",
  "serde",
  "strum 0.26.3",
  "strum_macros 0.26.4",
@@ -2399,7 +2399,7 @@ dependencies = [
 [[package]]
 name = "ic-btc-replica-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
+source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
 dependencies = [
  "candid",
  "ic-btc-interface 0.2.2",
@@ -2671,7 +2671,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-sha2"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
+source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
 dependencies = [
  "sha2",
 ]
@@ -2750,7 +2750,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-sha2"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
+source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
 dependencies = [
  "ic-crypto-internal-sha2 0.9.0 (git+https://github.com/dfinity/ic)",
 ]
@@ -2783,7 +2783,7 @@ dependencies = [
 [[package]]
 name = "ic-error-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
+source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
 dependencies = [
  "ic-protobuf 0.9.0 (git+https://github.com/dfinity/ic)",
  "ic-utils 0.9.0 (git+https://github.com/dfinity/ic)",
@@ -3060,7 +3060,7 @@ dependencies = [
 [[package]]
 name = "ic-management-canister-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
+source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
 dependencies = [
  "candid",
  "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic)",
@@ -3116,12 +3116,12 @@ dependencies = [
 [[package]]
 name = "ic-protobuf"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
+source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
 dependencies = [
  "bincode",
  "candid",
  "erased-serde",
- "prost 0.13.3",
+ "prost 0.13.4",
  "serde",
  "serde_json",
  "slog",
@@ -3255,7 +3255,7 @@ dependencies = [
 [[package]]
 name = "ic-utils"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
+source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
 dependencies = [
  "hex",
  "scoped_threadpool",
@@ -4336,7 +4336,7 @@ dependencies = [
 [[package]]
 name = "phantom_newtype"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
+source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
 dependencies = [
  "candid",
  "num-traits",
@@ -4593,12 +4593,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b0487d90e047de87f984913713b85c601c05609aad5b0df4b4573fbf69aa13f"
+checksum = "2c0fef6c4230e4ccf618a35c59d7ede15dea37de8427500f50aff708806e42ec"
 dependencies = [
  "bytes",
- "prost-derive 0.13.3",
+ "prost-derive 0.13.4",
 ]
 
 [[package]]
@@ -4616,9 +4616,9 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9552f850d5f0964a4e4d0bf306459ac29323ddfbae05e35a7c0d35cb0803cc5"
+checksum = "157c5a9d7ea5c2ed2d9fb8f495b64759f7816c7eaea54ba3978f0d63000162e3"
 dependencies = [
  "anyhow",
  "itertools 0.13.0",
