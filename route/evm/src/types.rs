@@ -246,11 +246,7 @@ impl Ticket {
                 .clone()
         });
         let dst_chain = token.token_id_info()[0].to_string();
-
-        let mut memo = None;
-        if has_memo {
-            memo = get_memo(None, dst_chain.clone());
-        }
+        let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
 
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
@@ -281,11 +277,7 @@ impl Ticket {
         } else {
             TxAction::Redeem
         };
-
-        let mut memo = None;
-        if has_memo {
-            memo = get_memo(None, dst_chain.clone());
-        }
+        let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
 
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
@@ -312,11 +304,7 @@ impl Ticket {
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let dst_chain = token_transport_requested.dst_chain_id;
-
-        let mut memo = None;
-        if has_memo {
-            memo = get_memo(Some(token_transport_requested.memo), dst_chain.clone());
-        }
+        let memo = has_memo.then(|| get_memo(Some(token_transport_requested.memo), dst_chain.clone())).unwrap_or_default();
 
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),

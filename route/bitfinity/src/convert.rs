@@ -22,10 +22,7 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
         TxAction::Redeem
     };
 
-    let mut memo = None;
-    if has_memo {
-        memo = get_memo(None, dst_chain.clone());
-    }
+    let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
 
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
@@ -54,11 +51,7 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
             .clone()
     });
     let dst_chain = token.token_id_info()[0].to_string();
-
-    let mut memo = None;
-    if has_memo {
-        memo = get_memo(None, dst_chain.clone());
-    }
+    let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
 
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
@@ -79,11 +72,7 @@ pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
                                    token_transport_requested: TokenTransportRequested, has_memo: bool) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let dst_chain = token_transport_requested.dst_chain_id;
-
-    let mut memo = None;
-    if has_memo {
-        memo = get_memo(Some(token_transport_requested.memo), dst_chain.clone());
-    }
+    let memo = has_memo.then(|| get_memo(Some(token_transport_requested.memo), dst_chain.clone())).unwrap_or_default();
 
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
