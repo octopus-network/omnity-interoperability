@@ -5,7 +5,7 @@ use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
 use itertools::Itertools;
 
-use omnity_types::{ChainState, Directive, Ticket};
+use omnity_types::{ChainState, Directive, Ticket, ChainId, Fee};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 
 use crate::*;
@@ -15,7 +15,7 @@ use crate::contract_types::{
     TokenBurned, TokenMinted, TokenTransportRequested,
 };
 use crate::convert::{ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event};
-use crate::state::{mutate_state, read_state};
+use crate::state::{mutate_state, read_state, bitfinity_get_redeem_fee};
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -169,7 +169,7 @@ pub async fn handle_runes_mint(
     log_entry: &TransactionReceiptLog,
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
-    let ticket = ticket_from_runes_mint_event(log_entry, event);
+    let ticket = ticket_from_runes_mint_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -181,7 +181,7 @@ pub async fn handle_runes_mint(
 }
 
 pub async fn handle_token_burn(log_entry: &TransactionReceiptLog, event: TokenBurned) -> anyhow::Result<()> {
-    let ticket = ticket_from_burn_event(log_entry, event);
+    let ticket = ticket_from_burn_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -193,7 +193,7 @@ pub async fn handle_token_transport(
     log_entry: &TransactionReceiptLog,
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
-    let ticket = ticket_from_transport_event(log_entry, event);
+    let ticket = ticket_from_transport_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -236,7 +236,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
-            return Ok(ticket_from_burn_event(&l, token_burned));
+            return Ok(ticket_from_burn_event(&l, token_burned, true));
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
@@ -248,7 +248,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
                 }
             });
             if dst_check_result {
-                return Ok(ticket_from_transport_event(&l, token_transport));
+                return Ok(ticket_from_transport_event(&l, token_transport, true));
             } else {
                 let tx_hash = l.transaction_hash.to_hex_str();
                 log!(INFO, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
@@ -256,10 +256,14 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| BitfinityRouteError::ParseEventError(e.to_string()))?;
-            return Ok(ticket_from_runes_mint_event(&l, runes_mint));
+            return Ok(ticket_from_runes_mint_event(&l, runes_mint, true));
         }
     }
     Err(anyhow!("not found ticket"))
 }
 
-
+pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
+    let fee = bitfinity_get_redeem_fee(dst_chain);
+    let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
+    bridge_fee.add_to_memo(memo).unwrap_or_default()
+}

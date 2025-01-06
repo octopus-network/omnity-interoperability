@@ -3060,7 +3060,7 @@ dependencies = [
 [[package]]
 name = "ic-management-canister-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#a726b717424549961f46b26132a1391132a95929"
+source = "git+https://github.com/dfinity/ic#2c3b06759f00cd7d107d39ea636b1d63cf1cc0e7"
 dependencies = [
  "candid",
  "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic)",

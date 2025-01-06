@@ -46,13 +46,13 @@ pub enum MintTokenError {
 pub enum ErrorCode {
     ConfigurationError = 1,
 }
-/*
+
 impl From<TransferError> for MintTokenError {
     fn from(e: TransferError) -> Self {
         Self::TemporarilyUnavailable(format!("failed to mint tokens on the ledger: {:?}", e))
     }
 }
-*/
+
 /// The arguments of the [retrieve_btc_with_approval] endpoint.
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct RetrieveBtcWithApprovalArgs {

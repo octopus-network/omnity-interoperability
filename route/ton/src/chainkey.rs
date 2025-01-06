@@ -66,6 +66,7 @@ pub async fn chainkey_sign(msg_hash: Vec<u8>) -> Vec<u8> {
                 name: schnorr_key_name,
                 algorithm: SchnorrAlgorithm::Ed25519,
             },
+            aux: None,
         },),
         EDDSA_SIGN_COST as u64,
     )

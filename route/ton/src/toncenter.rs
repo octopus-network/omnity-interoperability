@@ -8,9 +8,10 @@ use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext,
     TransformFunc,
 };
+use ic_stable_structures::Storable;
 use omnity_types::ic_log::INFO;
 use omnity_types::TxAction::Redeem;
-use omnity_types::{ChainId, Ticket, TicketType, TxAction};
+use omnity_types::{ChainId, Ticket, TicketType, TxAction, Fee};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tonlib_core::cell::BagOfCells;
@@ -225,6 +226,11 @@ pub async fn create_ticket_by_generate_ticket(
             } else {
                 TxAction::Transfer
             };
+
+            let fee = bridge_fee(&params.target_chain_id);
+            let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
+            let memo = bridge_fee.add_to_memo(None).unwrap_or_default();
+
             return Ok(Ticket {
                 ticket_id: jbe.trace_id.clone(),
                 ticket_type: TicketType::Normal,
@@ -236,7 +242,7 @@ pub async fn create_ticket_by_generate_ticket(
                 amount: params.amount.to_string(),
                 sender: Some(params.sender.clone()),
                 receiver: params.receiver.clone(),
-                memo: None,
+                memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
             });
         } else {
             return Err(anyhow!("params invalid".to_string()));

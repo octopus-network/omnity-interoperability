@@ -1,5 +1,5 @@
 use crate::types::Ticket;
-use crate::types::{ChainState, Error, TicketType, TxAction};
+use crate::types::{ChainState, Error, TicketType, TxAction, Fee};
 use candid::{CandidType, Principal};
 
 use crate::handler::solana_rpc::solana_client;
@@ -120,6 +120,12 @@ pub async fn generate_ticket(
         )));
     }
 
+    let fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).unwrap_or_default();
+    let bridge_fee = Fee {
+        bridge_fee: fee,
+    };
+    let memo = bridge_fee.add_to_memo(req.memo).unwrap_or_default();
+
     let ticket = Ticket {
         ticket_id: req.signature.to_string(),
         ticket_type: TicketType::Normal,
@@ -131,7 +137,7 @@ pub async fn generate_ticket(
         amount: req.amount.to_string(),
         sender: Some(req.sender.to_owned()),
         receiver: req.receiver.to_string(),
-        memo: req.memo.to_owned().map(|m| m.to_bytes().to_vec()), 
+        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()), 
     };
 
     match send_ticket(hub_principal, ticket.to_owned()).await {
