@@ -10,16 +10,7 @@ use omnity_types::{Seq, Directive};
 use omnity_types::ic_log::{CRITICAL, INFO, ERROR};
 use crate::{BitfinityRouteError, get_time_secs, hub};
 
-pub fn to_evm_task() {
-    ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(SEND_EVM_TASK_NAME.to_string()) {
-            Some(guard) => guard,
-            None => return,
-        };
-        send_directives_to_evm().await;
-        send_tickets_to_evm().await;
-    });
-}
+
 
 pub async fn send_directives_to_evm() {
     let from = read_state(|s| s.next_consume_directive_seq);
