@@ -204,7 +204,6 @@ pub async fn handle_token_transport(
     Ok(())
 }
 
-
 pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, TransactionReceipt), String> {
     let receipt = crate::eth_common::get_transaction_receipt(tx_hash)
         .await

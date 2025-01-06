@@ -32,6 +32,9 @@
   "runes_oracle": {
     "ic": "r3teu-uiaaa-aaaal-ajlvq-cai"
   },
+  "ton_route": {
+    "ic": "p5ykc-qaaaa-aaaar-qalyq-cai"
+  },
   "icp_ledger": {
     "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
   }
