@@ -53,6 +53,12 @@
       "package": "bitfinity_route",
       "type": "rust"
     },
+    "ton_route": {
+      "gzip": true,
+      "candid": "route/ton/ton_route.did",
+      "package": "ton_route",
+      "type": "rust"
+    },
     "brc20_indexer": {
       "gzip": true,
       "candid": "oracle/brc20_oracle/brc20_indexer.did",
