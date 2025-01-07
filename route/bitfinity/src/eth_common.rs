@@ -99,15 +99,15 @@ pub async fn sign_transaction_eip1559(tx: Eip1559TransactionRequest) -> anyhow::
     };
     let port_addr = read_state(|s|s.omnity_port_contract.clone());
     let mut  transaction = ethers_core::types::Transaction {
-        from: did::H160::from_hex_str(&minter_addr()).unwrap().0,
+        from: did::H160::from_hex_str(&minter_addr())?.0,
         to: Some(did::H160::from(port_addr.0).0),
         nonce: did::U256::from(tx.nonce.unwrap_or_default()).0,
         value: 0.into(),
         gas: tx.gas.unwrap_or_default(),
         input: tx.data.unwrap(),
         v: U64::from(signature.v),
-        r: U256::from(signature.r),
-        s: U256::from(signature.s),
+        r: signature.r,
+        s: signature.s,
         hash: H256::from(txhash).0,
         chain_id: Some(U256::from(tx.chain_id.unwrap().0[0])),
         max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
@@ -122,7 +122,7 @@ pub async fn sign_transaction_eip1559(tx: Eip1559TransactionRequest) -> anyhow::
 pub async fn broadcast(tx: did::Transaction) -> Result<String, super::BitfinityRouteError> {
     let client = bitfinity_evm_canister_client();
     let r  =  client.send_raw_transaction(tx.clone()).await.map_err(|e|{
-       log!(ERROR, "[bitfinity route]broadcats canister client error: {}", e.to_string());
+       log!(ERROR, "[bitfinity route]broadcasts canister client error: {}", e.to_string());
         BitfinityRouteError::EvmRpcError(e.to_string())
     })?;
     match r {
@@ -215,7 +215,7 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
 pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
     let client = bitfinity_evm_canister_client();
     let r = client.eth_get_balance(
-        did::H160::from_hex_str(addr.as_str()).unwrap(), BlockNumber::Latest).await;
+        did::H160::from_hex_str(addr.as_str())?, BlockNumber::Latest).await;
     let r = r.map_err(|e| {
         log!(ERROR,
             "[bitfinity route]query chainkey address evm balance error: {:?}",

@@ -117,7 +117,6 @@ fn query_pending_ticket(from: usize, limit: usize) -> Vec<(TicketId, PendingTick
             .iter()
             .skip(from)
             .take(limit)
-            .map(|kv| kv)
             .collect()
     })
 }
@@ -129,7 +128,6 @@ fn query_pending_directive(from: usize, limit: usize) -> Vec<(Seq, PendingDirect
             .iter()
             .skip(from)
             .take(limit)
-            .map(|kv| kv)
             .collect()
     })
 }
@@ -147,10 +145,7 @@ async fn resend_directive(seq: Seq) {
 #[query]
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
-        s.counterparties
-            .iter()
-            .map(|(_, chain)| chain.clone())
-            .collect()
+        s.counterparties.values().cloned().collect()
     })
 }
 
@@ -235,7 +230,7 @@ async fn metrics() -> MetricsStatus {
 async fn generate_ticket(hash: String) -> Result<(), String> {
     log!(INFO, "received generate_ticket request {}", &hash);
     let tx_hash = hash.to_lowercase();
-    if read_state(|s| s.pending_events_on_chain.get(&tx_hash).is_some()) {
+    if read_state(|s| s.pending_events_on_chain.contains_key(&tx_hash)) {
         return Ok(());
     }
     assert!(tx_hash.starts_with("0x"));

@@ -21,7 +21,7 @@ pub fn gen_execute_directive_data(directive: &Directive, seq: U256) -> Vec<u8> {
             return vec![];
         }
         Directive::AddToken(token) => {
-            if read_state(|s| s.tokens.get(&token.token_id).is_some()) {
+            if read_state(|s| s.tokens.contains_key(&token.token_id)) {
                 log!(INFO, "duplicate issue token id: {}", token.token_id);
                 return vec![];
             }

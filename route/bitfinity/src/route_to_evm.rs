@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use ethers_core::types::U256;
 use ic_canister_log::log;
-use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
+use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE};
 use crate::contracts::{gen_evm_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
 use crate::state::{minter_addr, mutate_state, read_state};
