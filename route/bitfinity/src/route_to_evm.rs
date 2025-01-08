@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use ethers_core::types::U256;
 use ic_canister_log::log;
-use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
+use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE};
 use crate::contracts::{gen_evm_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
 use crate::state::{minter_addr, mutate_state, read_state};
@@ -10,16 +10,7 @@ use omnity_types::{Seq, Directive};
 use omnity_types::ic_log::{CRITICAL, INFO, ERROR};
 use crate::{BitfinityRouteError, get_time_secs, hub};
 
-pub fn to_evm_task() {
-    ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(SEND_EVM_TASK_NAME.to_string()) {
-            Some(guard) => guard,
-            None => return,
-        };
-        send_directives_to_evm().await;
-        send_tickets_to_evm().await;
-    });
-}
+
 
 pub async fn send_directives_to_evm() {
     let from = read_state(|s| s.next_consume_directive_seq);

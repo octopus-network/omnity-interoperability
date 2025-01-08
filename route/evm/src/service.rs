@@ -12,18 +12,15 @@ use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 
 use crate::{get_time_secs, hub};
-use crate::const_args::{
-    BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL,
-    SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
-};
+use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, SEND_EVM_TASK_NAME};
 use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
-use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
+use crate::hub_to_route::{process_directives, process_tickets};
 use crate::ic_log::{CRITICAL, INFO, WARNING};
-use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
+use crate::route_to_evm::{send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm, to_evm_task};
 use crate::state::{
-    EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
-    StateProfile, get_redeem_fee,
+    EvmRouteState, get_redeem_fee, init_chain_pubkey, minter_addr, mutate_state, read_state,
+    replace_state, StateProfile,
 };
 use crate::types::{Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
 
@@ -58,16 +55,21 @@ fn update_consume_directive_seq(seq: Seq) {
 }
 
 fn start_tasks() {
-    set_timer_interval(
-        Duration::from_secs(FETCH_HUB_TICKET_INTERVAL),
-        fetch_hub_ticket_task,
-    );
-    set_timer_interval(
-        Duration::from_secs(FETCH_HUB_DIRECTIVE_INTERVAL),
-        fetch_hub_directive_task,
-    );
-    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), to_evm_task);
+    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), bridge_ticket_to_evm_task);
     set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);
+}
+
+pub fn bridge_ticket_to_evm_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(SEND_EVM_TASK_NAME.to_string()) {
+            Some(guard) => guard,
+            None => return,
+        };
+        process_directives().await;
+        process_tickets().await;
+        send_directives_to_evm().await;
+        send_tickets_to_evm().await;
+    });
 }
 
 #[query]

@@ -10,13 +10,10 @@ use ic_cdk_timers::set_timer_interval;
 use log::info;
 use serde_derive::Deserialize;
 
-use crate::base::const_args::{
-    FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, SCAN_TON_TASK_INTERVAL,
-    SEND_TON_TASK_INTERVAL,
-};
+use crate::base::const_args::{FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, SCAN_TON_TASK_INTERVAL, SEND_TON_TASK_INTERVAL, SEND_TON_TASK_NAME};
 use crate::chainkey::{init_chain_pubkey, minter_addr};
-use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
-use crate::route_to_ton::{inner_send_ticket, send_ticket, to_ton_task};
+use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task, process_tickets};
+use crate::route_to_ton::{inner_send_ticket, send_ticket, send_tickets_to_ton, to_ton_task};
 use crate::state::{
     bridge_fee, mutate_state, read_state, replace_state, StateProfile, TonRouteState,
 };
@@ -99,6 +96,18 @@ fn start_tasks() {
         Duration::from_secs(SCAN_TON_TASK_INTERVAL),
         scan_mint_events_task,
     );
+}
+
+pub fn bridge_to_ton_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(SEND_TON_TASK_NAME.to_string()) {
+            Some(guard) => guard,
+            None => return,
+        };
+        process_tickets().await;
+        send_tickets_to_ton().await;
+    });
+
 }
 
 #[query]

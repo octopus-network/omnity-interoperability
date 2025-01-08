@@ -38,7 +38,7 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
             hex::encode(token_burned.sender.0.as_slice())
         )),
         receiver: token_burned.receiver,
-        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
+        memo: memo.map(|m| m.to_bytes().to_vec()),
     }
 }
 
@@ -64,7 +64,7 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
         amount: "0".to_string(),
         sender: Some(format!("0x{}", hex::encode(runes_mint.sender.0.as_slice()))),
         receiver: format!("0x{}", hex::encode(runes_mint.receiver.0.as_slice())),
-        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
+        memo: memo.map(|m| m.to_bytes().to_vec()),
     }
 }
 
@@ -88,7 +88,7 @@ pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
             hex::encode(token_transport_requested.sender.0.as_slice())
         )),
         receiver: token_transport_requested.receiver,
-        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
+        memo: memo.map(|m| m.to_bytes().to_vec()),
     }
 }
 

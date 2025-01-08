@@ -78,7 +78,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
             .transaction_hash.to_hex_str();
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.0;
         let raw_log: RawLog = RawLog {
-            topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
+            topics: l.topics.iter().map(|topic| topic.0).collect_vec(),
             data: l.data.clone().into(),
         };
         if read_state(|s| s.handled_evm_event.contains(&l.transaction_hash.to_hex_str())) {
@@ -230,7 +230,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         }
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.0;
         let raw_log: RawLog = RawLog {
-            topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
+            topics: l.topics.iter().map(|topic| topic.0).collect_vec(),
             data: l.data.clone().into(),
         };
         if topic1 == TokenBurned::signature_hash() {

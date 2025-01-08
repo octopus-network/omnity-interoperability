@@ -9,11 +9,11 @@ use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 use crate::hub;
 use crate::get_time_secs;
-use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
+use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, SEND_EVM_TASK_NAME};
 use crate::eth_common::{EvmAddress, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
-use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
-use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
+use crate::hub_to_route::{process_directives, process_tickets};
+use crate::route_to_evm::{ send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm};
 use crate::state::bitfinity_get_redeem_fee;
 use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
@@ -58,17 +58,24 @@ fn update_consume_directive_seq(seq: Seq) {
 }
 
 fn start_tasks() {
-    set_timer_interval(
-        Duration::from_secs(FETCH_HUB_TICKET_INTERVAL),
-        fetch_hub_ticket_task,
-    );
-    set_timer_interval(
-        Duration::from_secs(FETCH_HUB_DIRECTIVE_INTERVAL),
-        fetch_hub_directive_task,
-    );
-    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), to_evm_task);
+    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), bridge_ticket_to_evm_task);
     set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);
 }
+
+pub fn bridge_ticket_to_evm_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(SEND_EVM_TASK_NAME.to_string()) {
+            Some(guard) => guard,
+            None => return,
+        };
+        process_directives().await;
+        process_tickets().await;
+        send_directives_to_evm().await;
+        send_tickets_to_evm().await;
+    });
+}
+
+
 
 #[query]
 fn get_ticket(ticket_id: String) -> Option<(u64, Ticket)> {
@@ -110,7 +117,6 @@ fn query_pending_ticket(from: usize, limit: usize) -> Vec<(TicketId, PendingTick
             .iter()
             .skip(from)
             .take(limit)
-            .map(|kv| kv)
             .collect()
     })
 }
@@ -122,7 +128,6 @@ fn query_pending_directive(from: usize, limit: usize) -> Vec<(Seq, PendingDirect
             .iter()
             .skip(from)
             .take(limit)
-            .map(|kv| kv)
             .collect()
     })
 }
@@ -140,10 +145,7 @@ async fn resend_directive(seq: Seq) {
 #[query]
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
-        s.counterparties
-            .iter()
-            .map(|(_, chain)| chain.clone())
-            .collect()
+        s.counterparties.values().cloned().collect()
     })
 }
 
@@ -228,7 +230,7 @@ async fn metrics() -> MetricsStatus {
 async fn generate_ticket(hash: String) -> Result<(), String> {
     log!(INFO, "received generate_ticket request {}", &hash);
     let tx_hash = hash.to_lowercase();
-    if read_state(|s| s.pending_events_on_chain.get(&tx_hash).is_some()) {
+    if read_state(|s| s.pending_events_on_chain.contains_key(&tx_hash)) {
         return Ok(());
     }
     assert!(tx_hash.starts_with("0x"));

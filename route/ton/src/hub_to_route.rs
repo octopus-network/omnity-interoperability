@@ -6,7 +6,7 @@ use log::{self};
 use omnity_types::ic_log::ERROR;
 use omnity_types::{Directive, Factor};
 
-async fn process_tickets() {
+pub async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
