@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-// use bitcoin::Address;
 use candid::{CandidType, Principal};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
@@ -52,7 +51,6 @@ pub struct DogeState {
     #[serde(skip, default = "crate::stable_memory::init_unlock_tickets_queue")]
     pub tickets_queue: StableBTreeMap<Seq, Ticket, Memory>,
     pub flight_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
-    // pub finalized_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
     pub ticket_id_seq_indexer: BTreeMap<TicketId, Seq>,
 
     #[serde(skip, default = "crate::stable_memory::init_unlock_ticket_results")]
@@ -86,8 +84,6 @@ pub struct DogeState {
 
     #[serde(default)]
     pub multi_rpc_config: MultiRpcConfig,
-    // #[serde(default)]
-    // pub fee_payment_address: String,
     #[serde(skip, default = "crate::stable_memory::init_deposit_fee_tx_set")]
     pub deposit_fee_tx_set: StableBTreeMap<String, (), Memory>,
     #[serde(default)]
@@ -167,7 +163,6 @@ impl DogeState {
             doge_chain: MAIN_NET_DOGE,
             hub_principal: args.hub_principal,
             chain_id: args.chain_id,
-            // reveal_utxo_index: Default::default(),
             tokens: Default::default(),
             counterparties: Default::default(),
             chain_state: ChainState::Active,
@@ -181,21 +176,17 @@ impl DogeState {
             directives_queue: StableBTreeMap::init(crate::stable_memory::get_directives_memory()),
             is_timer_running: Default::default(),
             pending_lock_ticket_requests: Default::default(),
-            // finalized_lock_ticket_requests: Default::default(),
-            // deposit_addr_utxo: vec![],
             fee_collector: "".to_string(),
             fee_token_factor: None,
             min_confirmations: 4,
             min_deposit_amount: 0,
-            // finalized_unlock_ticket_map: Default::default(),
             ticket_id_seq_indexer: Default::default(),
             target_chain_factor: Default::default(),
             fee_token: args.fee_token,
             deposited_utxo: vec![],
             tatum_api_config: RpcConfig::default(),
-            default_doge_rpc_config: RpcConfig::default(),
+            default_doge_rpc_config: args.default_doge_rpc_config,
             multi_rpc_config: MultiRpcConfig::default(),
-            // fee_payment_address: String::default(),
             deposit_fee_tx_set: StableBTreeMap::init(crate::stable_memory::get_deposit_tx_memory()),
             fee_payment_utxo: vec![],
             finalized_unlock_ticket_results_map: StableBTreeMap::init(crate::stable_memory::get_unlock_ticket_results_memory()),
@@ -258,15 +249,6 @@ impl DogeState {
         } else {
             return GenTicketStatus::Unknown;
         }
-        
-        // match self
-        //     .finalized_lock_ticket_requests
-        //     .iter()
-        //     .find(|req| req.1.txid == tx_id.clone().into())
-        // {
-        //     Some(req) => GenTicketStatus::Finalized(req.1.clone()),
-        //     None => GenTicketStatus::Unknown,
-        // }
     }
 
     pub fn unlock_tx_status(&self, ticket_id: &TicketId) -> ReleaseTokenStatus {
@@ -308,8 +290,6 @@ impl DogeState {
     pub fn save_utxo(&mut self, ticket_request: LockTicketRequest) -> Result<(), CustomsError> {
         let transaction: Transaction = deserialize_hex(&ticket_request.transaction_hex).map_err(wrap_to_customs_error)?;
         let destination = Destination::new(ticket_request.target_chain_id.clone(), ticket_request.receiver.clone(), None);
-        // let first_tx_out = transaction.output.first().cloned().ok_or(CustomsError::CustomError("transaction output is empty".to_string()))?;
-        // let receiver = first_tx_out.get_mainnet_address().ok_or(CustomsError::CustomError("first output receiver address is empty".to_string()))?;
         let destination_address = self.get_address(destination.clone())?.0.to_string();
         for (i, tx_out) in transaction.output.iter().enumerate() {
             if let Some(tx_out_address) = tx_out.get_mainnet_address() {
@@ -340,12 +320,6 @@ pub async fn init_ecdsa_public_key() -> Result<ECDSAPublicKey, CustomsError> {
         .unwrap_or_else(|e| ic_cdk::trap(&format!("failed to retrieve ECDSA public key: {e}")));
     mutate_state(|s| {
         s.ecdsa_public_key = Some(pub_key.clone());
-        // s.deposit_pubkey = Some(bytes_to_hex(pub_key.public_key.as_slice()));
-        // let doge_main_addr = script::p2pkh_address(&pub_key.public_key, s.chain_params())?;
-        // let address = pubkey_to_doge_address(&pub_key.clone());
-        // let deposit_addr = doge_main_addr.to_string();
-        // s.deposit_addr = Some(deposit_addr);
-
         Ok(())
     })?;
     Ok(pub_key)

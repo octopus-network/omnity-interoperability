@@ -12,7 +12,6 @@ type ChainType = variant { SettlementChain; ExecutionChain };
 type CustomsError = variant {
   SendTicketErr : text;
   RpcError : text;
-  HttpOutExceedLimit;
   TemporarilyUnavailable : text;
   HttpOutCallError : record { text; text; text };
   AlreadyProcessed;
@@ -31,6 +30,7 @@ type CustomsError = variant {
   InvalidTxReceiver;
   UnsupportedChainId : text;
   ECDSAPublicKeyNotFound;
+  HttpOutExceedRetryLimit;
   DepositUtxoNotFound : record { text; Destination };
   UnsupportedToken : text;
   CustomError : text;
@@ -56,6 +56,7 @@ type InitArgs = record {
   fee_token : text;
   hub_principal : principal;
   chain_id : text;
+  default_doge_rpc_config : RpcConfig;
   admins : vec principal;
 };
 type LockTicketRequest = record {
@@ -147,6 +148,6 @@ service : (InitArgs) -> {
   set_default_doge_rpc_config : (text, opt text) -> ();
   set_fee_collector : (text) -> ();
   set_min_deposit_amount : (nat64) -> ();
+  set_multi_rpc_config : (MultiRpcConfig) -> ();
   set_tatum_api_config : (text, opt text) -> ();
-  tmp_fix : () -> ();
 }

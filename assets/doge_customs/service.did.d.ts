@@ -17,7 +17,6 @@ export type ChainType = { 'SettlementChain' : null } |
   { 'ExecutionChain' : null };
 export type CustomsError = { 'SendTicketErr' : string } |
   { 'RpcError' : string } |
-  { 'HttpOutExceedLimit' : null } |
   { 'TemporarilyUnavailable' : string } |
   { 'HttpOutCallError' : [string, string, string] } |
   { 'AlreadyProcessed' : null } |
@@ -36,6 +35,7 @@ export type CustomsError = { 'SendTicketErr' : string } |
   { 'InvalidTxReceiver' : null } |
   { 'UnsupportedChainId' : string } |
   { 'ECDSAPublicKeyNotFound' : null } |
+  { 'HttpOutExceedRetryLimit' : null } |
   { 'DepositUtxoNotFound' : [string, Destination] } |
   { 'UnsupportedToken' : string } |
   { 'CustomError' : string };
@@ -63,6 +63,7 @@ export interface InitArgs {
   'fee_token' : string,
   'hub_principal' : Principal,
   'chain_id' : string,
+  'default_doge_rpc_config' : RpcConfig,
   'admins' : Array<Principal>,
 }
 export interface LockTicketRequest {
@@ -177,8 +178,8 @@ export interface _SERVICE {
   >,
   'set_fee_collector' : ActorMethod<[string], undefined>,
   'set_min_deposit_amount' : ActorMethod<[bigint], undefined>,
+  'set_multi_rpc_config' : ActorMethod<[MultiRpcConfig], undefined>,
   'set_tatum_api_config' : ActorMethod<[string, [] | [string]], undefined>,
-  'tmp_fix' : ActorMethod<[], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

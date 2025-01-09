@@ -18,7 +18,6 @@ use crate::types::{serialize_hex, Destination, GenTicketStatus, LockTicketReques
 #[derive(Clone, CandidType, Serialize, Deserialize, Debug)]
 pub struct GenerateTicketWithTxidArgs {
     pub txid: String,
-    // pub amount: String,
     pub target_chain_id: String,
     pub token_id: String,
     pub receiver: String,

@@ -40,23 +40,3 @@ pub async fn sign_with(
 
     Ok(response.signature)
 }
-
-// pub async fn public_key_with(
-//     key_name: &str,
-//     derivation_path: Vec<Vec<u8>>,
-// ) -> Result<ECDSAPublicKey, String> {
-//     let args = ecdsa::EcdsaPublicKeyArgument {
-//         canister_id: None,
-//         derivation_path,
-//         key_id: ecdsa::EcdsaKeyId {
-//             curve: ecdsa::EcdsaCurve::Secp256k1,
-//             name: key_name.to_string(),
-//         },
-//     };
-
-//     let (response,): (ecdsa::EcdsaPublicKeyResponse,) = ecdsa::ecdsa_public_key(args)
-//         .await
-//         .map_err(|err| format!("ecdsa_public_key failed {:?}", err))?;
-
-//     Ok(response)
-// }

@@ -53,13 +53,6 @@ impl TatumDogeRpc {
             headers
         }; 
 
-        // let txs: Vec<Transaction> = serde_json::from_slice(&response.body).map_err(|e| {
-        //     log!(ERROR, "json error {:?}", e);
-        //     CustomsError::RpcError(
-        //         "failed to desc result from json".to_string(),
-        //     )
-        // })?;
-
         let response = http_request_with_retry(request.clone()).await?;
 
         let rpc_response: Vec<Transaction> = serde_json::from_slice(&response.body).map_err(|_| {
@@ -77,7 +70,6 @@ impl TatumDogeRpc {
             )?);
         }
 
-        // let v: Vec<Txid> = rpc_response.iter().map(|tx| Txid::from_str(tx.hash.as_str())).collect();
         Ok(txids)
     }
 }

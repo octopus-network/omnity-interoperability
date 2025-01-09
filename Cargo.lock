@@ -1483,6 +1483,7 @@ dependencies = [
  "bs58",
  "candid",
  "ciborium",
+ "futures",
  "getrandom 0.2.15",
  "hex-conservative 0.2.1",
  "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",

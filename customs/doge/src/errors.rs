@@ -52,6 +52,6 @@ pub enum CustomsError {
     HttpOutCallError(String, String, String),
     #[error("Http status code: {0:?}, url: {1}, body: {2}")]
     HttpStatusError(Nat, String, String),
-    #[error("Http out call exceed limit")]
-    HttpOutExceedLimit,
+    #[error("Http out call exceed retry limit")]
+    HttpOutExceedRetryLimit,
 }

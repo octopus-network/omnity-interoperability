@@ -5,7 +5,7 @@ use omnity_types::ic_log::ERROR;
 use serde_json::json;
 use ic_canister_log::log;
 
-use crate::{constants::{KB, KB100}, errors::CustomsError, types::{deserialize_hex, http_request_with_retry, serialize_hex, wrap_to_customs_error}};
+use crate::{constants::{KB, KB100}, errors::CustomsError, types::{deserialize_hex, http_request_with_retry, serialize_hex, wrap_to_customs_error, RpcConfig}};
 
 use super::transaction::{DogeRpcResponse, RpcTxOut, Transaction, Txid};
 
@@ -13,14 +13,13 @@ pub const PROXY_URL: &str = "https://common-rpc-proxy-398338012986.us-central1.r
 pub const IDEMPOTENCY_KEY: &str = "X-Idempotency";
 pub const FORWARD_RPC: &str = "X-Forward-Host";
 
+#[derive(Clone, Debug)]
 pub struct DogeRpc {
     pub url: String,
     pub api_key: Option<String>,
 }
 
 impl DogeRpc {
-    // const HTTP_OUT_CALL_CYCLE: u128 = 60_000_000_000;
-    // const RPC_RETRY_TIMES: u32 = 3;
     pub async fn get_raw_transaction(
         &self, 
         txid: &str
@@ -37,7 +36,7 @@ impl DogeRpc {
                 value: self.api_key.clone().unwrap(),
             });
         }
-        let request = CanisterHttpRequestArgument {
+        let mut request = CanisterHttpRequestArgument {
             url: self.url.clone(),
             method: HttpMethod::POST,
             body: Some(json!({
@@ -56,6 +55,7 @@ impl DogeRpc {
             }),
             headers
         }; 
+        self.proxy_request(&mut request);
         let response = http_request_with_retry(request).await?;
         let raw_tx: DogeRpcResponse<String>  = serde_json::from_slice(&response.body).map_err(|e| {
             log!(ERROR, "json error {:?}", e);
@@ -86,7 +86,7 @@ impl DogeRpc {
                 value: self.api_key.clone().unwrap(),
             });
         }
-        let request = CanisterHttpRequestArgument {
+        let mut request = CanisterHttpRequestArgument {
             url: self.url.clone(),
             method: HttpMethod::POST,
             body: Some(json!({
@@ -105,6 +105,7 @@ impl DogeRpc {
             }),
             headers
         }; 
+        self.proxy_request(&mut request);
         let response = http_request_with_retry(request).await?;
         let tx_out_response: DogeRpcResponse<RpcTxOut> = serde_json::from_slice(&response.body).map_err(|e| {
             log!(ERROR, "json error {:?}", e);
@@ -157,7 +158,6 @@ impl DogeRpc {
 
         self.proxy_request(&mut request);
         let response = http_request_with_retry(request.clone()).await?;
-        // log!(INFO, "send transaction, request: {:?},  response: {:?}",request, response);
         let rpc_response: DogeRpcResponse<String> = serde_json::from_slice(&response.body).map_err(|e| {
             log!(ERROR, "json error {:?}", e);
             CustomsError::RpcError(
@@ -186,4 +186,7 @@ impl DogeRpc {
 
 }
  
-
+pub async fn get_raw_transaction_by_rpc( txid: &str, rpc_config: RpcConfig) -> Result<Transaction, CustomsError> {
+    let doge_rpc = DogeRpc::from(rpc_config);
+    doge_rpc.get_raw_transaction(txid).await
+}

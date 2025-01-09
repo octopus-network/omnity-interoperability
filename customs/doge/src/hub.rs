@@ -66,11 +66,6 @@ pub async fn pending_ticket(hub_principal: Principal, ticket: Ticket) -> Result<
     call(hub_principal, "pending_ticket".into(), (ticket,)).await
 }
 
-// pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(), CallError> {
-//     let hub_principal = read_state(|s| s.hub_principal);
-//     call(hub_principal, "send_ticket".into(), (ticket,)).await
-// }
-
 pub async fn finalize_ticket(hub_principal: Principal, ticket_id: String) -> Result<(), CallError> {
     call(hub_principal, "finalize_ticket".into(), (ticket_id,)).await
 }

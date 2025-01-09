@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME, SUBMIT_UNLOCK_TICKETS_NAME};
 use crate::doge::ecdsa::sign_with;
-use crate::doge::fee::{fee_by_size, DUST_LIMIT};
+use crate::doge::fee::{fee_by_size, DOGE_AMOUNT, DUST_LIMIT};
 use crate::doge::rpc::DogeRpc;
 use crate::doge::script;
 use crate::doge::sighash::SighashCache;
@@ -35,8 +35,6 @@ use crate::state::{finalization_time_estimate, mutate_state, read_state};
 pub enum CustomToBitcoinError {
     #[error("bitcoin sign error: {0}")]
     SignFailed(String),
-    // #[error("build a brc20 transfer error: {0}")]
-    // BuildTransactionFailed(String),
     #[error("ArgumentError: {0}")]
     ArgumentError(String),
     #[error("InsufficientFunds")]
@@ -77,10 +75,8 @@ pub async fn send_tickets_to_bitcoin() {
             s.doge_fee_rate,
         )
     });
-    // let to = read_state(|s| s.next_ticket_seq);
     if from < to {
         log!(INFO, "submit unlock tx: from {} to {}", from, to);
-        // let fee_rate = estimate_fee_per_vbyte().await / 1000;
         for seq in from..to {
             let r = process_unlock_ticket(seq, fee_rate).await;
             match r {
@@ -120,7 +116,6 @@ pub async fn process_unlock_ticket(
         );
         mutate_state(|s| {
             s.flight_unlock_ticket_map.insert(seq,r);
-            // s.reveal_utxo_index.insert(reveal_utxo_index);
         });
     }
     Ok(())
@@ -142,16 +137,12 @@ pub async fn finalize_flight_unlock_tickets() {
     for (seq, send_result) in can_check_finalizations.clone() {
         let need_check_txid = send_result.txid.clone();
         let transfer_txid = need_check_txid.to_string();
-        // let tx = query_transaction((transfer_txid.clone(), "".to_string())).await;
         let tx = doge_rpc.get_tx_out(&transfer_txid).await;
         match tx {
             Ok(t) => {
                 if t.confirmations >= min_confirmations {
                     mutate_state(|s| {
                         let r = s.flight_unlock_ticket_map.remove(&seq).unwrap();
-                        // let reveal_utxo_index = format!("{}:0", r.tx[1].txid());
-                        // s.reveal_utxo_index.remove(&reveal_utxo_index);
-                        // s.finalized_unlock_ticket_map.insert(seq, r);
                         s.finalized_unlock_ticket_results_map.insert(seq, r);
                     });
                     let (hub_principal, ticket) =
@@ -201,17 +192,14 @@ pub async fn build_and_send_transaction(
             .map_err(|e| ArgumentError(e.to_string()))?;
     let (
         key_name,
-        // _ecdsa_public_key_opt,
         change_address_ret,
     ) = read_state(|s| {
         (
             s.ecdsa_key_name.clone(),
-            // s.ecdsa_public_key.clone(),
             s.get_address(Destination::change_address()),
         )
     });
     let (change_address, _) = change_address_ret.map_err(|e| ArgumentError(e.to_string()))?;
-    // let ecdsa_public_key = ecdsa_public_key_opt.ok_or(ArgumentError("ecdsa_public_key is None".to_string()))?;
     let mut send_tx = Transaction {
         version: Transaction::CURRENT_VERSION,
         lock_time: 0,
@@ -264,7 +252,6 @@ pub async fn build_and_send_transaction(
 
     let mut sighasher = SighashCache::new(&mut send_tx);
     for (i, (_utxo, destination)) in all_utxos.iter().enumerate() {
-        // let account =
         let (address, pk) = read_state(|s| s.get_address(destination.clone()))
             .map_err(|e| ArgumentError(e.to_string()))?;
         let hash = sighasher
@@ -305,11 +292,9 @@ pub async fn submit_unlock_ticket(
         Some(ticket) => {
             // check ticket
             if read_state(|s| s.finalized_unlock_ticket_results_map.contains_key(&seq)) {
-                // return Ok(None);
                 return Err(CustomToBitcoinError::ArgumentError("ticket already finalized".to_string()));
             }
             if read_state(|s| s.flight_unlock_ticket_map.contains_key(&seq)) {
-                // return Ok(None);
                 return Err(CustomToBitcoinError::ArgumentError("ticket already in flight".to_string()));
             }
 
@@ -329,130 +314,19 @@ pub async fn submit_unlock_ticket(
                 ));
             }
 
-            // 1. select utxos
+            // select utxos
             let (utxos, total) = select_utxos(amount)?;
-            // let (fee_payment_address, _) =
-            //     read_state(|s| s.get_address(Destination::fee_payment_address()))
-            //         .map_err(|e| ArgumentError(e.to_string()))?;
-            // let fee_payment_address_str = fee_payment_address.to_string();
             let fee_utxo = mutate_state(|s| {
                 let fee_utxo = s.fee_payment_utxo.clone();
                 s.fee_payment_utxo.clear();
                 fee_utxo
             });
-            // let all_utxos: Vec<(Utxo, Destination)> = utxos
-            //     .clone()
-            //     .into_iter()
-            //     .chain(
-            //         fee_utxo
-            //             .iter()
-            //             .map(|e| (e.clone(), Destination::fee_payment_address())),
-            //     )
-            //     .collect();
-            // let total_fee_utxo_amount: u64 = fee_utxo.iter().map(|u| u.value).sum();
-
-            // 2. build transaction
-            // let (
-            //     key_name,
-            //     // _ecdsa_public_key_opt,
-            //     change_address_ret,
-            // ) = read_state(|s| {
-            //     (
-            //         s.ecdsa_key_name.clone(),
-            //         // s.ecdsa_public_key.clone(),
-            //         s.get_address(Destination::change_address()),
-            //     )
-            // });
-            // let (change_address, _) =
-            //     change_address_ret.map_err(|e| ArgumentError(e.to_string()))?;
-            // // let ecdsa_public_key = ecdsa_public_key_opt.ok_or(ArgumentError("ecdsa_public_key is None".to_string()))?;
-            // let mut send_tx = Transaction {
-            //     version: Transaction::CURRENT_VERSION,
-            //     lock_time: 0,
-            //     input: utxos
-            //         .iter()
-            //         .map(|(utxo, _)| {
-            //             TxIn::with_outpoint(OutPoint {
-            //                 txid: utxo.txid.clone().into(),
-            //                 vout: utxo.vout,
-            //             })
-            //         })
-            //         .chain(fee_utxo.iter().map(|utxo| {
-            //             TxIn::with_outpoint(OutPoint {
-            //                 txid: utxo.txid.clone().into(),
-            //                 vout: utxo.vout,
-            //             })
-            //         }))
-            //         .collect(),
-            //     output: vec![
-            //         TxOut {
-            //             value: amount,
-            //             script_pubkey: receiver.to_script(chain_params),
-            //         },
-            //         TxOut {
-            //             value: total.saturating_sub(amount),
-            //             script_pubkey: change_address.to_script(chain_params),
-            //         },
-            //         TxOut {
-            //             value: total_fee_utxo_amount,
-            //             script_pubkey: fee_payment_address.to_script(chain_params),
-            //         },
-            //     ],
-            // };
-            // let fee = fee_by_size(send_tx.estimate_size() as u64, fee_rate);
-            // log!(
-            //     INFO,
-            //     "send ticket fee: {}, total_fee_utxo_amount: {}",
-            //     fee,
-            //     total_fee_utxo_amount
-            // );
-            // if fee > total_fee_utxo_amount {
-            //     return Err(CustomToBitcoinError::InsufficientFee);
-            // }
-            // send_tx.output[2].value = total_fee_utxo_amount.saturating_sub(fee);
-            // if send_tx.output[2].value <= DUST_LIMIT {
-            //     send_tx.output.pop();
-            // }
-
-            // // 3. sign transaction
-
-            // let mut sighasher = SighashCache::new(&mut send_tx);
-            // for (i, (_utxo, destination)) in all_utxos.iter().enumerate() {
-            //     // let account =
-            //     let (address, pk) = read_state(|s| s.get_address(destination.clone()))
-            //         .map_err(|e| ArgumentError(e.to_string()))?;
-            //     let hash = sighasher
-            //         .signature_hash(i, &address.to_script(chain_params), EcdsaSighashType::All)
-            //         .map_err(|e| SignFailed(e.to_string()))?;
-            //     let sig = sign_with(&key_name, destination.derivation_path(), *hash)
-            //         .await
-            //         .map_err(|e| SignFailed(e.to_string()))?;
-            //     let signature =
-            //         Signature::from_compact(&sig).map_err(|e| SignFailed(e.to_string()))?;
-            //     sighasher
-            //         .set_input_script(
-            //             i,
-            //             &SighashSignature {
-            //                 signature,
-            //                 sighash_type: EcdsaSighashType::All,
-            //             },
-            //             &PublicKey::from_slice(&pk).map_err(|e| SignFailed(e.to_string()))?,
-            //         )
-            //         .map_err(|e| SignFailed(e.to_string()))?;
-            // }
-
-            // // 4. send transaction
-
-            // let doge_rpc: DogeRpc = read_state(|s| s.default_rpc_config.clone()).into();
-            // let txid = doge_rpc
-            //     .send_transaction(&send_tx)
-            //     .await
-            //     .map_err(|e| SendTransactionFailed(e.to_string()))?;
 
             match build_and_send_transaction(fee_utxo.clone(), utxos.clone(), amount, total, fee_rate, receiver).await {
                 Ok((send_tx, txid)) => {
                     mutate_state(|s| {
                         if send_tx.output.len() >= 2 {
+                            // save change address utxo
                             s.deposited_utxo.push((
                                 Utxo {
                                     txid: crate::types::Txid::from(txid).into(),
@@ -464,11 +338,15 @@ pub async fn submit_unlock_ticket(
                         }
         
                         if send_tx.output.len() >= 3 {
+                            // save fee payment utxo
                             s.fee_payment_utxo.push(Utxo {
                                 txid: crate::types::Txid::from(txid).into(),
                                 vout: 2,
                                 value: send_tx.output[2].value,
                             });
+                            if s.fee_payment_utxo.iter().map(|u| u.value).sum::<u64>() < 5 * DOGE_AMOUNT {
+                                log!(ERROR, "Doge Customs fee_payment_utxo will not enough soon!");
+                            }
                         }
                     });
                     Ok(SendTicketResult {
@@ -536,12 +414,9 @@ pub fn submit_unlock_tickets_task() {
 }
 
 #[test]
-pub fn show_txid() {
+pub fn show_txid_from_vec_u8_data() {
     fn parse_hex_string(input: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        // 移除所有的反斜杠和空格
         let cleaned = input.replace("\\", "").replace(" ", "");
-
-        // 每两个字符解析成一个字节
         let bytes: Result<Vec<u8>, _> = (0..cleaned.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&cleaned[i..i + 2], 16))
@@ -552,6 +427,5 @@ pub fn show_txid() {
     let txid = r"\a2\44\f5\b0\69\73\4e\5d\15\de\14\8d\50\d5\60\08\21\07\83\09\2a\8d\78\cf\31\a5\77\19\2a\ef\c5\2a";
     let v = parse_hex_string(&txid).unwrap();
     dbg!(&hex::DisplayHex::to_upper_hex_string(&v));
-    // let txid = Txid::from(txid).unwrap();
     dbg!(&txid.to_string());
 }

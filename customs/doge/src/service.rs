@@ -6,7 +6,7 @@ use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketWithTxidArgs};
 use crate::state::{mutate_state, read_state, replace_state, DogeState, StateProfile};
 use crate::tasks::start_tasks;
 use crate::types::{
-    Destination, LockTicketRequest, ReleaseTokenStatus, RpcConfig, TokenResp,
+    Destination, LockTicketRequest, MultiRpcConfig, ReleaseTokenStatus, RpcConfig, TokenResp
 };
 use candid::{CandidType, Deserialize, Principal};
 use ic_canister_log::log;
@@ -35,102 +35,6 @@ fn post_upgrade() {
     start_tasks();
 }
 
-#[update(guard = "is_admin")]
-pub fn tmp_fix() {
-    let v = vec![
-        (
-            0,
-            SendTicketResult {
-                txid: crate::types::Txid::from_str("a2892cb2095e0446416a47c55ec7878aadf111875f6ec6b0baffc9c4dd618e21").unwrap(),
-                success: true,
-                time_at: 1_735_704_485_582_704_364,
-            },
-        ),
-        (
-            1,
-            SendTicketResult {
-                txid: crate::types::Txid::from_str("d741f87bc99cae542997377069db0b8d25a2205aaf6ff344a682d606923d4117").unwrap(),
-                success: true,
-                time_at: 1_736_152_340_017_781_767,
-            },
-        ),
-        (
-            2,
-            SendTicketResult {
-                txid: crate::types::Txid::from_str("62b68ffd3532d32225b9c3ce96a46af31ab9103918a3f3f80e5b86fa5fe62b85").unwrap(),
-                success: true,
-                time_at: 1_736_152_528_438_327_721,
-            },
-        ),
-        (
-            3,
-            SendTicketResult {
-                txid: crate::types::Txid::from_str("02d4d2f94d2ded95bcba86ad51c5529225c6d96e8f62c77f7d8b25683ed14a4a").unwrap(),
-                success: true,
-                time_at: 1_736_158_610_935_813_349,
-            },
-        ),
-        (
-            4,
-            SendTicketResult {
-                txid: crate::types::Txid::from_str("aebf2b3bb6e5c5773ce66af5645dba555bf40c35b73daa2edbf0ef4e5d2ab843").unwrap(),
-                success: true,
-                time_at: 1_736_216_381_913_371_532,
-            },
-        ),
-        (
-            5,
-            SendTicketResult {
-                txid: crate::types::Txid::from_str("ec75e54b76befd0e4d6418704c2827e0bef3ed37a2d1daad7af6597f02c0332a").unwrap(),
-                success: true,
-                time_at: 1_736_246_946_415_382_518,
-            },
-        ),
-        (
-            6,
-            SendTicketResult {
-                txid: crate::types::Txid::from_str("5fc3a7a2fc2f9fca6b53b191765d8219a63d9a561742ec508e233ee350cccabf").unwrap(),
-                success: true,
-                time_at: 1_736_251_053_091_159_392,
-            },
-        ),
-    ];
-    mutate_state(
-        |s| {
-            for e in v {
-                s.finalized_unlock_ticket_results_map.insert(e.0, e.1);
-            }
-        }
-    );
-}
-
-// #[update(guard = "is_admin")]
-// pub fn save_tx_in_memory() {
-//     let request: Vec<LockTicketRequest> = mutate_state(
-//         |s| s.finalized_lock_ticket_requests.iter().map(|(txid, req)| {
-//             req.clone()
-//         }).collect()
-//     );
-
-//     let results: Vec<SendTicketResult> = mutate_state(
-//         |s| s.finalized_unlock_ticket_results_map.iter().map(|(txid, req)| {
-//             req.clone()
-//         }).collect()
-//     );
-
-//     for req in request {
-//         mutate_state(|s| {
-//             s.finalized_lock_ticket_requests_map.insert(req.txid.clone(), req);
-//         });
-//     }
-
-//     for res in results {
-//         mutate_state(|s| {
-//             s.finalized_unlock_ticket_results_map.insert(res.txid.clone(), res);
-//         });
-//     }
-// }
-
 #[query]
 pub fn get_finalized_lock_ticket_txids() -> Vec<String> {
     read_state(|s| {
@@ -150,60 +54,6 @@ pub fn get_finalized_unlock_ticket_results() -> Vec<SendTicketResult> {
             .collect()
     })
 }
-
-// #[update(guard = "is_admin")]
-// fn restore_utxo() {
-//     let change_destination = Destination::change_address();
-//     // let change_address = read_state(|s| s.get_address(Destination::fee_payment_address()).0);
-
-//     // let fee_payment_destination = Destination::fee_payment_address();
-//     // let fee_payment_address = read_state(|s| s.get_address(Destination::fee_payment_address()).0);
-
-//     let mut change_utxo = vec![
-//         (Utxo {
-//             txid: crate::types::Txid::from_str("02d4d2f94d2ded95bcba86ad51c5529225c6d96e8f62c77f7d8b25683ed14a4a").unwrap(),
-//             vout: 1,
-//             value: 4 * DOGE_AMOUNT,
-//         }, change_destination.clone()),
-//         (Utxo {
-//             txid: crate::types::Txid::from_str("472eca0781c37646802481733535ab35b0d30755aad1f849877104b69807172d").unwrap(),
-//             vout: 1,
-//             value: DOGE_AMOUNT / 10,
-//         }, change_destination.clone()),
-//         (Utxo {
-//             txid: crate::types::Txid::from_str("5c7931d648bc3700bda7e24b6d39b59654f7778b6faf1596c71a563f423cd2d3").unwrap(),
-//             vout: 1,
-//             value: DOGE_AMOUNT,
-//         }, change_destination.clone()),
-//     ];
-
-//     let osmosis_destination = Destination::new("osmosis-1".to_string(), "osmo1uqwp92j0a2xdntfxfjrs4a8gmpvh5elre07l3s".to_string(), None);
-//     let mut osmosis_deposit = vec![
-//         (Utxo {
-//             txid: crate::types::Txid::from_str("14013504a0f52b898a434bb08992e14cd3a864dfb61acff758b09590c83a1a3d").unwrap(),
-//             vout: 0,
-//             value: DOGE_AMOUNT,
-//         }, osmosis_destination.clone()),
-//         (Utxo {
-//             txid: crate::types::Txid::from_str("6794f9c15a9c1173fd615f7bd2aa28a95014eca71c43d3e0bcabdaaea46beee8").unwrap(),
-//             vout: 0,
-//             value: 2 * DOGE_AMOUNT,
-//         }, osmosis_destination.clone()),
-//     ];
-
-//     let mut payment_utxo = vec![
-//         Utxo {
-//             txid: crate::types::Txid::from_str("f4d1f706e829d029045a2b3a41b1d31c0dc57e0b01376b2ab2207156a7e37380").unwrap(),
-//             vout: 0,
-//             value: 10 * DOGE_AMOUNT }
-//     ];
-
-//     mutate_state(|s| {
-//         s.deposited_utxo.append(&mut change_utxo);
-//         s.deposited_utxo.append(&mut osmosis_deposit);
-//         s.fee_payment_utxo.append(&mut payment_utxo);
-//     });
-// }
 
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
@@ -323,6 +173,15 @@ pub async fn set_default_doge_rpc_config(url: String, api_key: Option<String>) {
     });
 }
 
+#[update(guard = "is_admin")]
+pub async fn set_multi_rpc_config(
+    multi_rpc_config: MultiRpcConfig
+) {
+    mutate_state(|s| {
+        s.multi_rpc_config = multi_rpc_config;
+    });
+}
+
 #[query(hidden = true)]
 fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {
@@ -352,6 +211,12 @@ pub async fn resend_unlock_ticket(seq: Seq, fee_rate: Option<u64>) -> Result<Str
     }
 }
 
+// #[update]
+// pub async fn test_rpc(rpc_config: RpcConfig, txid: String) -> Result<String, CustomsError> {
+//     let doge_rpc = crate::doge::rpc::DogeRpc::from(rpc_config);
+//     doge_rpc.get_raw_transaction(txid.as_str()).await.map(|r| format!("{:?}", r))
+// }
+
 #[query]
 fn get_token_list() -> Vec<TokenResp> {
     read_state(|s| s.tokens.values().map(|t| t.clone().into()).collect())
@@ -371,6 +236,7 @@ pub struct InitArgs {
     pub chain_id: String,
     // pub indexer_principal: Principal,
     pub fee_token: String,
+    pub default_doge_rpc_config: RpcConfig,
 }
 
 fn is_admin() -> Result<(), String> {

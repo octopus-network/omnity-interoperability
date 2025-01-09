@@ -2,23 +2,28 @@ use std::borrow::Cow;
 
 use bitcoin::consensus::{Decodable, Encodable, ReadExt};
 use candid::{CandidType, Deserialize, Nat};
-use ic_cdk::api::management_canister::http_request::{http_request, CanisterHttpRequestArgument, HttpResponse, TransformContext};
+use ic_cdk::api::management_canister::http_request::{
+    http_request, CanisterHttpRequestArgument, HttpResponse, TransformContext,
+};
 use ic_stable_structures::{storable::Bound, Storable};
-use omnity_types::ic_log::{INFO, WARNING};
+use omnity_types::ic_log::{ERROR, INFO, WARNING};
 use serde::Serialize;
 // use std::str::FromStr;
 use hex::prelude::*;
 
-use omnity_types::{Token, TokenId};
 use ic_canister_log::log;
+use omnity_types::{Token, TokenId};
 
-use crate::errors::CustomsError;
-use serde_bytes::ByteArray;
+use crate::{
+    doge::{rpc::get_raw_transaction_by_rpc, transaction::Transaction},
+    errors::CustomsError,
+};
 use bitcoin::hashes::{sha256d, Hash};
+use serde_bytes::ByteArray;
 
 pub type ECDSAPublicKey = ic_cdk::api::management_canister::ecdsa::EcdsaPublicKeyResponse;
 
-#[derive(CandidType, PartialEq, Eq,  Clone, Default, Deserialize, Serialize, PartialOrd, Ord)]
+#[derive(CandidType, PartialEq, Eq, Clone, Default, Deserialize, Serialize, PartialOrd, Ord)]
 pub struct Txid(pub ByteArray<32>);
 
 impl std::str::FromStr for Txid {
@@ -31,7 +36,6 @@ impl std::str::FromStr for Txid {
 }
 
 impl Storable for Txid {
-
     fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
         Cow::Owned(bincode::serialize(self).unwrap())
     }
@@ -95,19 +99,15 @@ impl Destination {
         }
     }
 
-    pub fn change_address()->Destination{
-        Destination::new(
-            String::default(), 
-            String::default(), 
-            Option::None
-        )
+    pub fn change_address() -> Destination {
+        Destination::new(String::default(), String::default(), Option::None)
     }
 
-    pub fn fee_payment_address()->Destination{
+    pub fn fee_payment_address() -> Destination {
         Destination::new(
-            "fee_payment".to_string(), 
-            "fee_payment".to_string(), 
-            Option::None
+            "fee_payment".to_string(),
+            "fee_payment".to_string(),
+            Option::None,
         )
     }
 
@@ -182,7 +182,7 @@ pub struct LockTicketRequest {
     pub amount: String,
     pub txid: Txid,
     pub received_at: u64,
-    pub transaction_hex: String, 
+    pub transaction_hex: String,
 }
 
 impl Storable for LockTicketRequest {
@@ -196,59 +196,6 @@ impl Storable for LockTicketRequest {
 
     const BOUND: Bound = Bound::Unbounded;
 }
-
-// impl Storable for LockTicketRequest {
-    
-// }
-
-// /// Unspent transaction output to be used as input of a transaction
-// #[derive(CandidType, Debug, Clone, Serialize, Deserialize)]
-// pub struct UtxoArgs {
-//     pub id: String,
-//     pub index: u32,
-//     pub amount: u64,
-// }
-
-// impl From<UtxoArgs> for Utxo {
-//     fn from(value: UtxoArgs) -> Self {
-//         Utxo {
-//             id: bitcoin::Txid::from_str(&value.id).unwrap(),
-//             index: value.index,
-//             amount: Amount::from_sat(value.amount),
-//         }
-//     }
-// }
-
-// #[derive(CandidType, Debug, Clone, Serialize, Deserialize)]
-// pub struct FeesArgs {
-//     pub commit_fee: u64,
-//     pub reveal_fee: u64,
-//     pub spend_fee: u64,
-// }
-
-// impl From<FeesArgs> for Fees {
-//     fn from(value: FeesArgs) -> Self {
-//         Fees {
-//             commit_fee: Amount::from_sat(value.commit_fee),
-//             reveal_fee: Amount::from_sat(value.reveal_fee),
-//             spend_fee: Amount::from_sat(value.spend_fee),
-//         }
-//     }
-// }
-
-// pub fn create_query_brc20_transfer_args(
-//     gen_ticket_request: LockTicketRequest,
-//     deposit_addr: String,
-//     ticker_decimals: u8,
-// ) -> QueryBrc20TransferArgs {
-//     QueryBrc20TransferArgs {
-//         tx_id: gen_ticket_request.txid.to_string(),
-//         ticker: gen_ticket_request.ticker,
-//         to_addr: deposit_addr,
-//         amt: gen_ticket_request.amount,
-//         decimals: ticker_decimals,
-//     }
-// }
 
 pub fn err_string(err: impl std::fmt::Display) -> String {
     err.to_string()
@@ -279,32 +226,30 @@ pub fn deserialize_hex<T: Decodable>(hex: &str) -> Result<T, String> {
 pub async fn http_request_with_retry(
     mut request: CanisterHttpRequestArgument,
 ) -> Result<HttpResponse, CustomsError> {
-    request.transform = Some(TransformContext::from_name(
-        "transform".to_owned(),
-        vec![],
-    ));
+    request.transform = Some(TransformContext::from_name("transform".to_owned(), vec![]));
 
-    // let cycles = http_request_required_cycles(&request, 13);
     for _ in 0..3 {
-        let response = http_request(request.clone(), 60_000_000_000)
-            .await
-            .map_err(|(code, message)| {
-                CustomsError::HttpOutCallError(
-                    format!("{:?}", code).to_string(),
-                    message,
-                    format!("{:?}", request),
-                )
-            })?
-            .0;
+        let response = match http_request(request.clone(), 60_000_000_000).await {
+            Ok((response,)) => response,
+            Err(e) => {
+                log!(ERROR, "http request error, request: {:?} \n, error {:?}",request, e);
+                continue;
+            }
+        };
 
-        log!(INFO, "httpoutcall request:{:?} response: {:?}",request, response);
+        log!(
+            INFO,
+            "httpoutcall request:{:?} response: {:?}",
+            request,
+            response
+        );
         if response.status == Nat::from(200u64) {
             return Ok(response);
         } else {
             log!(WARNING, "http request error: {:?}", response);
         }
     }
-    Err(CustomsError::HttpOutExceedLimit)
+    Err(CustomsError::HttpOutExceedRetryLimit)
 }
 
 #[derive(CandidType, Clone, Debug, Default, Deserialize, Serialize)]
@@ -342,4 +287,64 @@ impl From<RpcConfig> for crate::doge::rpc::DogeRpc {
 pub struct MultiRpcConfig {
     pub rpc_list: Vec<RpcConfig>,
     pub minimum_response_count: u32,
+}
+
+impl MultiRpcConfig {
+    pub fn check_config_valid(&self) -> Result<(), CustomsError> {
+        if self.minimum_response_count == 0 {
+            return Err(CustomsError::CustomError(
+                "minimum_response_count should be greater than 0".to_string(),
+            ));
+        }
+        if self.rpc_list.len() < self.minimum_response_count as usize {
+            return Err(CustomsError::CustomError(
+                "rpc_list length should be greater than minimum_response_count".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub async fn get_raw_transaction(&self, txid: &str) -> Result<Transaction, CustomsError> {
+        self.check_config_valid()?;
+
+        let mut fut = Vec::with_capacity(self.rpc_list.len());
+        for rpc_config in self.rpc_list.iter() {
+            // let doge_rpc = DogeRpc::from(rpc_url.clone());
+            fut.push(get_raw_transaction_by_rpc(txid, rpc_config.clone()));
+        }
+
+        let res = futures::future::join_all(fut).await;
+
+        self.valid_and_get_transaction(res)
+    }
+
+    fn valid_and_get_transaction(
+        &self,
+        res: Vec<Result<Transaction, CustomsError>>,
+    ) -> Result<Transaction, CustomsError> {
+        let success_res = res
+            .iter()
+            .filter_map(|r| r.as_ref().ok())
+            .collect::<Vec<_>>();
+        self.check_config_valid()?;
+        if success_res.len() < self.minimum_response_count as usize {
+            return Err(CustomsError::CustomError(format!(
+                "Success res count({}) less than minimum_response_count: {}",
+                success_res.len(),
+                self.minimum_response_count
+            )));
+        }
+
+        for i in 1..success_res.len() {
+            if success_res[i] != success_res[i - 1] {
+                return Err(CustomsError::CustomError(format!(
+                    "Success res not equal: {:?} != {:?}",
+                    success_res[i],
+                    success_res[i - 1]
+                )));
+            }
+        }
+
+        Ok(success_res[0].clone())
+    }
 }

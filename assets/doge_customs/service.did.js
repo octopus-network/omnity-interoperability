@@ -1,8 +1,13 @@
 export const idlFactory = ({ IDL }) => {
+  const RpcConfig = IDL.Record({
+    'url' : IDL.Text,
+    'api_key' : IDL.Opt(IDL.Text),
+  });
   const InitArgs = IDL.Record({
     'fee_token' : IDL.Text,
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
+    'default_doge_rpc_config' : RpcConfig,
     'admins' : IDL.Vec(IDL.Principal),
   });
   const GenerateTicketArgs = IDL.Record({
@@ -18,7 +23,6 @@ export const idlFactory = ({ IDL }) => {
   const CustomsError = IDL.Variant({
     'SendTicketErr' : IDL.Text,
     'RpcError' : IDL.Text,
-    'HttpOutExceedLimit' : IDL.Null,
     'TemporarilyUnavailable' : IDL.Text,
     'HttpOutCallError' : IDL.Tuple(IDL.Text, IDL.Text, IDL.Text),
     'AlreadyProcessed' : IDL.Null,
@@ -37,6 +41,7 @@ export const idlFactory = ({ IDL }) => {
     'InvalidTxReceiver' : IDL.Null,
     'UnsupportedChainId' : IDL.Text,
     'ECDSAPublicKeyNotFound' : IDL.Null,
+    'HttpOutExceedRetryLimit' : IDL.Null,
     'DepositUtxoNotFound' : IDL.Tuple(IDL.Text, Destination),
     'UnsupportedToken' : IDL.Text,
     'CustomError' : IDL.Text,
@@ -89,10 +94,6 @@ export const idlFactory = ({ IDL }) => {
     'icon' : IDL.Opt(IDL.Text),
     'name' : IDL.Text,
     'symbol' : IDL.Text,
-  });
-  const RpcConfig = IDL.Record({
-    'url' : IDL.Text,
-    'api_key' : IDL.Opt(IDL.Text),
   });
   const MultiRpcConfig = IDL.Record({
     'rpc_list' : IDL.Vec(RpcConfig),
@@ -211,15 +212,20 @@ export const idlFactory = ({ IDL }) => {
       ),
     'set_fee_collector' : IDL.Func([IDL.Text], [], []),
     'set_min_deposit_amount' : IDL.Func([IDL.Nat64], [], []),
+    'set_multi_rpc_config' : IDL.Func([MultiRpcConfig], [], []),
     'set_tatum_api_config' : IDL.Func([IDL.Text, IDL.Opt(IDL.Text)], [], []),
-    'tmp_fix' : IDL.Func([], [], []),
   });
 };
 export const init = ({ IDL }) => {
+  const RpcConfig = IDL.Record({
+    'url' : IDL.Text,
+    'api_key' : IDL.Opt(IDL.Text),
+  });
   const InitArgs = IDL.Record({
     'fee_token' : IDL.Text,
     'hub_principal' : IDL.Principal,
     'chain_id' : IDL.Text,
+    'default_doge_rpc_config' : RpcConfig,
     'admins' : IDL.Vec(IDL.Principal),
   });
   return [InitArgs];

@@ -4,7 +4,7 @@ use crate::constants::FINALIZE_LOCK_TICKET_NAME;
 use crate::doge::chainparams::DOGE_MAIN_NET_CHAIN;
 use crate::doge::rpc::DogeRpc;
 use crate::doge::script::classify_script;
-use crate::doge::transaction::Transaction ;
+use crate::doge::transaction::Transaction;
 use crate::errors::CustomsError;
 use crate::generate_ticket::GenerateTicketWithTxidArgs;
 use crate::hub;
@@ -13,63 +13,65 @@ use crate::types::{Destination, LockTicketRequest, Txid, Utxo};
 use ic_canister_log::log;
 use omnity_types::ic_log::{ERROR, INFO};
 
-pub async fn query_and_save_utxo_for_payment_address(txid: String)-> Result<u64, CustomsError> {
-
+pub async fn query_and_save_utxo_for_payment_address(txid: String) -> Result<u64, CustomsError> {
     if read_state(|s| s.deposit_fee_tx_set.get(&txid).is_some()) {
         Err(CustomsError::CustomError("already saved".to_string()))?;
     }
 
     let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
     let transaction = doge_rpc.get_raw_transaction(&txid).await?;
-    let (fee_payment_address, _) = read_state(|s| s.get_address(Destination::fee_payment_address()))?;
+    let (fee_payment_address, _) =
+        read_state(|s| s.get_address(Destination::fee_payment_address()))?;
     let typed_txid = Txid::from_str(&txid).map_err(|_| CustomsError::InvalidTxId)?;
     let mut total = 0;
     for (i, out) in transaction.output.iter().enumerate() {
-        let receiver = classify_script(out.script_pubkey.as_bytes(), &DOGE_MAIN_NET_CHAIN).1.ok_or(
-            CustomsError::CustomError("failed to get receiver from output".to_string())
-        )?;
+        let receiver = classify_script(out.script_pubkey.as_bytes(), &DOGE_MAIN_NET_CHAIN)
+            .1
+            .ok_or(CustomsError::CustomError(
+                "failed to get receiver from output".to_string(),
+            ))?;
         if receiver.eq(&fee_payment_address) {
             total += out.value;
-            mutate_state(
-                |s| {
-                    s.fee_payment_utxo.push(
-                        Utxo {
-                            txid: typed_txid.clone(),
-                            vout: i as u32,
-                            value: out.value,
-                        }
-                    );
-                }
-            )
+            mutate_state(|s| {
+                s.fee_payment_utxo.push(Utxo {
+                    txid: typed_txid.clone(),
+                    vout: i as u32,
+                    value: out.value,
+                });
+            })
         }
     }
 
-    if total>0 {
-        mutate_state(
-            |s| {
-                s.deposit_fee_tx_set.insert(txid, ());
-            }
-        )
+    if total > 0 {
+        mutate_state(|s| {
+            s.deposit_fee_tx_set.insert(txid, ());
+        })
     }
 
-
     Ok(total)
-
 }
 
 pub async fn check_transaction(
     req: GenerateTicketWithTxidArgs,
-) -> Result<(Transaction, u64, String ), CustomsError> {
-    read_state(|s| s.tokens.get(&req.token_id).cloned())
-        .ok_or(CustomsError::InvalidArgs(serde_json::to_string(&req).unwrap()))?;
-    read_state(|s| s.counterparties.get(&req.target_chain_id).cloned())
-        .ok_or(CustomsError::InvalidArgs(serde_json::to_string(&req).unwrap()))?;
- 
-    let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
+) -> Result<(Transaction, u64, String), CustomsError> {
+    read_state(|s| s.tokens.get(&req.token_id).cloned()).ok_or(CustomsError::InvalidArgs(
+        serde_json::to_string(&req).unwrap(),
+    ))?;
+    read_state(|s| s.counterparties.get(&req.target_chain_id).cloned()).ok_or(
+        CustomsError::InvalidArgs(serde_json::to_string(&req).unwrap()),
+    )?;
 
-    let transaction = doge_rpc.get_raw_transaction(&req.txid).await?;
+    // if let Some() = read_state(|s| s.multi_rpc_config)
+    let default_doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
+    let multi_rpc_config = read_state(|s| s.multi_rpc_config.clone());
+    let transaction = if multi_rpc_config.rpc_list.len() > 0 {
+        multi_rpc_config.get_raw_transaction(&req.txid).await?
+    } else {
+        default_doge_rpc.get_raw_transaction(&req.txid).await?
+    };
+
     log!(INFO, "check transaction: {:?}", transaction);
-    
+
     //check whether need to pay fees for transfer. If fee is None, that means paying fees is not need
     let (fee, addr) = read_state(|s| s.get_transfer_fee_info(&req.target_chain_id));
     match fee {
@@ -97,24 +99,34 @@ pub async fn check_transaction(
     // receiver should be destination address
     let destination = Destination::new(req.target_chain_id.clone(), req.receiver.clone(), None);
 
-    let (destination_to_address, _ ) = read_state(|s| s.get_address(destination.clone()))?;
+    let (destination_to_address, _) = read_state(|s| s.get_address(destination.clone()))?;
 
     let mut amount = 0;
-    let first_input = transaction.input.first().ok_or(CustomsError::DepositUtxoNotFound(req.txid.clone(), destination.clone()))?;
-    // let sender = transaction.input.first().and_then(|input| {
-    //     let (_, addr_opt) = classify_script(input.script.clone().as_bytes(), &DOGE_MAIN_NET_CHAIN);
-    //     addr_opt.map(|e| e.to_string().clone())
-    // });
+    let first_input = transaction
+        .input
+        .first()
+        .ok_or(CustomsError::DepositUtxoNotFound(
+            req.txid.clone(),
+            destination.clone(),
+        ))?;
 
-    let transaction_of_input = doge_rpc.get_raw_transaction(&first_input.prevout.txid.to_string()).await?;
-    let output_of_input = transaction_of_input.output.get(first_input.prevout.vout as usize)
-    .ok_or(
-        CustomsError::CustomError("input not found".to_string())
-    )?;
+    let transaction_of_input = default_doge_rpc
+        .get_raw_transaction(&first_input.prevout.txid.to_string())
+        .await?;
+    let output_of_input = transaction_of_input
+        .output
+        .get(first_input.prevout.vout as usize)
+        .ok_or(CustomsError::CustomError("input not found".to_string()))?;
 
-    let sender = classify_script(output_of_input.script_pubkey.as_bytes(), &DOGE_MAIN_NET_CHAIN).1.map(|e| e.to_string().clone()).ok_or(
-        CustomsError::CustomError("failed to get sender from output_of_input".to_string())
-    )?;
+    let sender = classify_script(
+        output_of_input.script_pubkey.as_bytes(),
+        &DOGE_MAIN_NET_CHAIN,
+    )
+    .1
+    .map(|e| e.to_string().clone())
+    .ok_or(CustomsError::CustomError(
+        "failed to get sender from output_of_input".to_string(),
+    ))?;
 
     for tx_out in transaction.output.clone() {
         let (_, addr_opt) = classify_script(tx_out.script_pubkey.as_bytes(), &DOGE_MAIN_NET_CHAIN);
@@ -126,9 +138,12 @@ pub async fn check_transaction(
     }
 
     if amount == 0 {
-        return Err(CustomsError::DepositUtxoNotFound(req.txid.clone(), destination));
+        return Err(CustomsError::DepositUtxoNotFound(
+            req.txid.clone(),
+            destination,
+        ));
     }
-    
+
     Ok((transaction, amount, sender))
 }
 
@@ -163,49 +178,42 @@ pub async fn finalize_lock_ticket_request() {
                     match finalize_ticket(txid.clone().into()).await {
                         Ok(_) => {
                             log!(INFO, "finalize lock success: {:?}", txid);
-                        },
+                        }
                         Err(e) => {
                             log!(ERROR, "finalize lock error: {:?}", e);
-                        },
+                        }
                     }
-
                 }
-            },
+            }
             Err(e) => {
                 log!(ERROR, "finalize lock error: {:?}", e);
-            },
+            }
         }
     }
 }
 
-pub async fn check_tx_confirmation(
-    txid: Txid,
-)-> Result<bool, CustomsError> {
-     
+pub async fn check_tx_confirmation(txid: Txid) -> Result<bool, CustomsError> {
     let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
     let tx_out = doge_rpc.get_tx_out(txid.to_string().as_str()).await?;
     let min_confirmations = read_state(|s| s.min_confirmations);
     return Ok(tx_out.confirmations >= min_confirmations);
 }
 
-async fn finalize_ticket(txid: Txid)-> Result<(), CustomsError> {
+async fn finalize_ticket(txid: Txid) -> Result<(), CustomsError> {
     let hub_principal = read_state(|s| s.hub_principal);
     hub::finalize_ticket(hub_principal, txid.to_string())
-    .await
-    .map_err(|e| {
-        CustomsError::CallError(
-            hub_principal,
-            e.method,
-            e.reason.to_string()
-        )
-    })?;
+        .await
+        .map_err(|e| CustomsError::CallError(hub_principal, e.method, e.reason.to_string()))?;
 
     mutate_state(|s| {
-        let v = s.pending_lock_ticket_requests.remove(&txid).ok_or(
-            CustomsError::CustomError("pending lock ticket request not found".to_string())
-        )?;
-        // s.finalized_lock_ticket_requests.insert(txid, v.clone());
-        s.finalized_lock_ticket_requests_map.insert( txid.clone(), v.clone());
+        let v = s
+            .pending_lock_ticket_requests
+            .remove(&txid)
+            .ok_or(CustomsError::CustomError(
+                "pending lock ticket request not found".to_string(),
+            ))?;
+        s.finalized_lock_ticket_requests_map
+            .insert(txid.clone(), v.clone());
         s.save_utxo(v)?;
 
         Ok(())
