@@ -4,5 +4,6 @@ pub mod chainparams;
 pub mod opcodes;
 pub mod ecdsa;
 pub mod rpc;
+pub mod tatum_rpc;
 pub mod fee;
 pub mod sighash;

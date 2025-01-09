@@ -70,3 +70,4 @@ k256 = { git = "https://github.com/altkdf/elliptic-curves", branch = "schnorr_ca
 rust_decimal = "1.36"
 rust_decimal_macros = "1.36"
 log = "0.4.22"
+bincode = "1.3.3"

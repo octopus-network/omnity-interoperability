@@ -1,9 +1,9 @@
 mod audit;
 mod doge;
-mod bitcoin_to_custom;
+mod dogeoin_to_custom;
 mod call_error;
 mod errors;
-mod custom_to_bitcoin;
+mod custom_to_dogecoin;
 mod generate_ticket;
 mod guard;
 mod hub;
@@ -18,8 +18,8 @@ mod types;
 
 pub mod constants {
 
-    pub const FETCH_HUB_TICKET_INTERVAL: u64 = 5;
-    pub const FETCH_HUB_DIRECTIVE_INTERVAL: u64 = 60;
+    pub const FETCH_HUB_TICKET_INTERVAL: u64 = 60;
+    pub const FETCH_HUB_DIRECTIVE_INTERVAL: u64 = 120;
     pub const FETCH_HUB_TICKET_NAME: &str = "FETCH_HUB_TICKET";
     pub const FETCH_HUB_DIRECTIVE_NAME: &str = "FETCH_HUB_DIRECTIVE";
     pub const FINALIZE_LOCK_TICKET_NAME: &str = "FINALIZE_GENERATE_TICKET_NAME";

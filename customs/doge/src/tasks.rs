@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use crate::bitcoin_to_custom::finalize_lock_ticket_task;
+use crate::dogeoin_to_custom::finalize_lock_ticket_task;
 use ic_cdk_timers::set_timer_interval;
 
 use crate::constants::*;
-use crate::custom_to_bitcoin::{finalize_unlock_tickets_task, submit_unlock_tickets_task};
+use crate::custom_to_dogecoin::{finalize_unlock_tickets_task, submit_unlock_tickets_task};
 use crate::hub_to_custom::{fetch_hub_directive_task, fetch_hub_ticket_task};
 
 pub fn start_tasks() {

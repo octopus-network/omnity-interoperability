@@ -7,15 +7,16 @@ use serde::Serialize;
 use omnity_types::ic_log::INFO;
 use omnity_types::{ChainState, Ticket, TicketType, TxAction};
 
-use crate::bitcoin_to_custom::check_transaction;
+use crate::doge::tatum_rpc;
+use crate::dogeoin_to_custom::check_transaction;
 use crate::doge::transaction::Txid;
 use crate::errors::CustomsError;
 use crate::hub;
 use crate::state::{mutate_state, read_state};
-use crate::types::{serialize_hex, GenTicketStatus, LockTicketRequest};
+use crate::types::{serialize_hex, Destination, GenTicketStatus, LockTicketRequest};
 
 #[derive(Clone, CandidType, Serialize, Deserialize, Debug)]
-pub struct GenerateTicketArgs {
+pub struct GenerateTicketWithTxidArgs {
     pub txid: String,
     // pub amount: String,
     pub target_chain_id: String,
@@ -23,7 +24,40 @@ pub struct GenerateTicketArgs {
     pub receiver: String,
 }
 
-pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), CustomsError> {
+#[derive(Clone, CandidType, Serialize, Deserialize, Debug)]
+pub struct GenerateTicketArgs {
+    pub target_chain_id: String,
+    pub token_id: String,
+    pub receiver: String,
+}
+
+pub async fn get_ungenerated_txids(args: GenerateTicketArgs) -> Result<Vec<Txid>, CustomsError> {
+    let dest = Destination::new(
+        args.target_chain_id, 
+        args.receiver, 
+        None
+    );
+    let deposit_address = read_state(|s| s.get_address(dest)).map(|a| a.0.to_string())?;
+
+    let tatum_rpc_config = read_state(|s| s.tatum_api_config.clone());
+    let tatum_rpc = tatum_rpc::TatumDogeRpc::new(
+        tatum_rpc_config.url, 
+        tatum_rpc_config.api_key
+    );
+    let txids = tatum_rpc.get_transactions_by_address(deposit_address).await.map_err(|e| CustomsError::RpcError(format!("{}", e)))?;
+    
+    let filtered_txids: Vec<Txid> = txids.into_iter().filter(|txid| {
+        read_state(|s| {
+
+            let type_txid: crate::types::Txid = txid.to_owned().into();
+            s.generate_ticket_status(&type_txid) == GenTicketStatus::Unknown
+        })
+    }).collect();
+
+    Ok(filtered_txids)
+}
+
+pub async fn generate_ticket(args: GenerateTicketWithTxidArgs) -> Result<(), CustomsError> {
     log!(INFO, "received generate_ticket: {:?}", args.clone());
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(CustomsError::TemporarilyUnavailable(
@@ -49,7 +83,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), CustomsErro
             .ok_or(CustomsError::UnsupportedToken(args.token_id.clone()))
     })?;
     
-    read_state(|s| match s.generate_ticket_status(txid.clone().into()) {
+    read_state(|s| match s.generate_ticket_status(&(txid.clone().into())) {
         GenTicketStatus::Pending(_) | GenTicketStatus::Confirmed(_) => {
             Err(CustomsError::AlreadySubmitted)
         }
@@ -74,7 +108,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), CustomsErro
             action: TxAction::Transfer,
             token: args.token_id.clone(),
             amount: amount.to_string(),
-            sender,
+            sender: Some(sender),
             receiver: args.receiver.clone(),
             memo: None,
         },

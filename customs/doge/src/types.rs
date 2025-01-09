@@ -1,6 +1,9 @@
+use std::borrow::Cow;
+
 use bitcoin::consensus::{Decodable, Encodable, ReadExt};
 use candid::{CandidType, Deserialize, Nat};
 use ic_cdk::api::management_canister::http_request::{http_request, CanisterHttpRequestArgument, HttpResponse, TransformContext};
+use ic_stable_structures::{storable::Bound, Storable};
 use omnity_types::ic_log::{INFO, WARNING};
 use serde::Serialize;
 // use std::str::FromStr;
@@ -15,7 +18,7 @@ use bitcoin::hashes::{sha256d, Hash};
 
 pub type ECDSAPublicKey = ic_cdk::api::management_canister::ecdsa::EcdsaPublicKeyResponse;
 
-#[derive(CandidType, PartialEq, Eq,  Clone, Debug, Default, Deserialize, Serialize, PartialOrd, Ord)]
+#[derive(CandidType, PartialEq, Eq,  Clone, Default, Deserialize, Serialize, PartialOrd, Ord)]
 pub struct Txid(pub ByteArray<32>);
 
 impl std::str::FromStr for Txid {
@@ -24,6 +27,25 @@ impl std::str::FromStr for Txid {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let h = sha256d::Hash::from_str(s).map_err(|_| "invalid Txid")?;
         Ok(Self(h.to_byte_array().into()))
+    }
+}
+
+impl Storable for Txid {
+
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        Cow::Owned(bincode::serialize(self).unwrap())
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        bincode::deserialize(bytes.as_ref()).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl std::fmt::Debug for Txid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        sha256d::Hash::from_bytes_ref(&self.0).fmt(f)
     }
 }
 
@@ -81,6 +103,14 @@ impl Destination {
         )
     }
 
+    pub fn fee_payment_address()->Destination{
+        Destination::new(
+            "fee_payment".to_string(), 
+            "fee_payment".to_string(), 
+            Option::None
+        )
+    }
+
     #[inline]
     pub fn effective_token(&self) -> String {
         self.token.clone().unwrap_or(String::new())
@@ -95,18 +125,6 @@ impl Destination {
             self.effective_token().as_bytes().to_vec(),
         ]
     }
-
-    // pub fn to_p2pkh_address(&self) -> Result<Address, CustomsError> {
-    //     let (pk, k) = read_state(|s| {
-    //         (s.ecdsa_public_key
-    //             .clone()
-    //             .ok_or(CustomsError::ECDSAPublicKeyNotFound),
-    //         s.doge_chain)
-
-    //     });
-    //     let pk = derive_public_key(&pk?, self.derivation_path());
-    //     script::p2pkh_address(&pk.public_key, chain_params())
-    // }
 }
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
@@ -166,6 +184,22 @@ pub struct LockTicketRequest {
     pub received_at: u64,
     pub transaction_hex: String, 
 }
+
+impl Storable for LockTicketRequest {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        Cow::Owned(bincode::serialize(self).unwrap())
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        bincode::deserialize(bytes.as_ref()).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+// impl Storable for LockTicketRequest {
+    
+// }
 
 // /// Unspent transaction output to be used as input of a transaction
 // #[derive(CandidType, Debug, Clone, Serialize, Deserialize)]
@@ -302,4 +336,10 @@ impl From<RpcConfig> for crate::doge::rpc::DogeRpc {
             api_key: val.api_key,
         }
     }
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, Default)]
+pub struct MultiRpcConfig {
+    pub rpc_list: Vec<RpcConfig>,
+    pub minimum_response_count: u32,
 }

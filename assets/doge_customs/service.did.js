@@ -7,7 +7,6 @@ export const idlFactory = ({ IDL }) => {
   });
   const GenerateTicketArgs = IDL.Record({
     'token_id' : IDL.Text,
-    'txid' : IDL.Text,
     'target_chain_id' : IDL.Text,
     'receiver' : IDL.Text,
   });
@@ -42,8 +41,23 @@ export const idlFactory = ({ IDL }) => {
     'UnsupportedToken' : IDL.Text,
     'CustomError' : IDL.Text,
   });
-  const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : CustomsError });
-  const Result_1 = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : CustomsError });
+  const Result = IDL.Variant({
+    'Ok' : IDL.Vec(IDL.Text),
+    'Err' : CustomsError,
+  });
+  const GenerateTicketWithTxidArgs = IDL.Record({
+    'token_id' : IDL.Text,
+    'txid' : IDL.Text,
+    'target_chain_id' : IDL.Text,
+    'receiver' : IDL.Text,
+  });
+  const Result_1 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : CustomsError });
+  const Result_2 = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : CustomsError });
+  const SendTicketResult = IDL.Record({
+    'txid' : IDL.Vec(IDL.Nat8),
+    'success' : IDL.Bool,
+    'time_at' : IDL.Nat64,
+  });
   const TokenResp = IDL.Record({
     'decimals' : IDL.Nat8,
     'token_id' : IDL.Text,
@@ -76,6 +90,14 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'symbol' : IDL.Text,
   });
+  const RpcConfig = IDL.Record({
+    'url' : IDL.Text,
+    'api_key' : IDL.Opt(IDL.Text),
+  });
+  const MultiRpcConfig = IDL.Record({
+    'rpc_list' : IDL.Vec(RpcConfig),
+    'minimum_response_count' : IDL.Nat32,
+  });
   const ChainState = IDL.Variant({
     'Active' : IDL.Null,
     'Deactive' : IDL.Null,
@@ -92,15 +114,6 @@ export const idlFactory = ({ IDL }) => {
     'chain_state' : ChainState,
     'chain_type' : ChainType,
     'contract_address' : IDL.Opt(IDL.Text),
-  });
-  const RpcConfig = IDL.Record({
-    'url' : IDL.Text,
-    'api_key' : IDL.Opt(IDL.Text),
-  });
-  const SendTicketResult = IDL.Record({
-    'txid' : IDL.Vec(IDL.Nat8),
-    'success' : IDL.Bool,
-    'time_at' : IDL.Nat64,
   });
   const StateProfile = IDL.Record({
     'next_consume_ticket_seq' : IDL.Nat64,
@@ -120,12 +133,14 @@ export const idlFactory = ({ IDL }) => {
     'tokens' : IDL.Vec(IDL.Tuple(IDL.Text, Token)),
     'admins' : IDL.Vec(IDL.Principal),
     'target_chain_factor' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
+    'multi_rpc_config' : MultiRpcConfig,
     'counterparties' : IDL.Vec(IDL.Tuple(IDL.Text, Chain)),
     'min_deposit_amount' : IDL.Nat64,
     'next_ticket_seq' : IDL.Nat64,
     'chain_state' : ChainState,
     'min_confirmations' : IDL.Nat32,
-    'default_rpc_config' : RpcConfig,
+    'tatum_rpc_config' : RpcConfig,
+    'fee_payment_utxo' : IDL.Vec(Utxo),
     'flight_unlock_ticket_map' : IDL.Vec(
       IDL.Tuple(IDL.Nat64, SendTicketResult)
     ),
@@ -139,13 +154,29 @@ export const idlFactory = ({ IDL }) => {
     'Submitted' : IDL.Text,
     'Pending' : IDL.Null,
   });
-  const Result_2 = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
+  const Result_3 = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
+  const Result_4 = IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : CustomsError });
   return IDL.Service({
-    'finalized_unlock_tickets' : IDL.Func([IDL.Nat64], [IDL.Text], ['query']),
     'generate_ticket' : IDL.Func([GenerateTicketArgs], [Result], []),
+    'generate_ticket_by_txid' : IDL.Func(
+        [GenerateTicketWithTxidArgs],
+        [Result_1],
+        [],
+      ),
     'get_deposit_address' : IDL.Func(
         [IDL.Text, IDL.Text],
-        [Result_1],
+        [Result_2],
+        ['query'],
+      ),
+    'get_fee_payment_address' : IDL.Func([], [Result_2], ['query']),
+    'get_finalized_lock_ticket_txids' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Text)],
+        ['query'],
+      ),
+    'get_finalized_unlock_ticket_results' : IDL.Func(
+        [],
+        [IDL.Vec(SendTicketResult)],
         ['query'],
       ),
     'get_platform_fee' : IDL.Func(
@@ -154,7 +185,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
-    'init_ecdsa_public_key' : IDL.Func([], [Result], []),
+    'init_ecdsa_public_key' : IDL.Func([], [Result_1], []),
     'pending_unlock_tickets' : IDL.Func([IDL.Nat64], [IDL.Text], ['query']),
     'query_finalized_lock_tickets' : IDL.Func(
         [IDL.Text],
@@ -169,17 +200,18 @@ export const idlFactory = ({ IDL }) => {
       ),
     'resend_unlock_ticket' : IDL.Func(
         [IDL.Nat64, IDL.Opt(IDL.Nat64)],
-        [Result_2],
+        [Result_3],
+        [],
+      ),
+    'save_utxo_for_payment_address' : IDL.Func([IDL.Text], [Result_4], []),
+    'set_default_doge_rpc_config' : IDL.Func(
+        [IDL.Text, IDL.Opt(IDL.Text)],
+        [],
         [],
       ),
     'set_fee_collector' : IDL.Func([IDL.Text], [], []),
     'set_min_deposit_amount' : IDL.Func([IDL.Nat64], [], []),
-    'set_rpc_config' : IDL.Func([IDL.Text, IDL.Opt(IDL.Text)], [], []),
-    'test_http' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Opt(IDL.Text)],
-        [Result_1],
-        [],
-      ),
+    'set_tatum_api_config' : IDL.Func([IDL.Text, IDL.Opt(IDL.Text)], [], []),
     'tmp_fix' : IDL.Func([], [], []),
   });
 };

@@ -50,6 +50,11 @@ export interface EcdsaPublicKeyResponse {
 }
 export interface GenerateTicketArgs {
   'token_id' : string,
+  'target_chain_id' : string,
+  'receiver' : string,
+}
+export interface GenerateTicketWithTxidArgs {
+  'token_id' : string,
   'txid' : string,
   'target_chain_id' : string,
   'receiver' : string,
@@ -69,18 +74,26 @@ export interface LockTicketRequest {
   'amount' : string,
   'receiver' : string,
 }
+export interface MultiRpcConfig {
+  'rpc_list' : Array<RpcConfig>,
+  'minimum_response_count' : number,
+}
 export type ReleaseTokenStatus = { 'Signing' : null } |
   { 'Confirmed' : string } |
   { 'Sending' : string } |
   { 'Unknown' : null } |
   { 'Submitted' : string } |
   { 'Pending' : null };
-export type Result = { 'Ok' : null } |
+export type Result = { 'Ok' : Array<string> } |
   { 'Err' : CustomsError };
-export type Result_1 = { 'Ok' : string } |
+export type Result_1 = { 'Ok' : null } |
   { 'Err' : CustomsError };
 export type Result_2 = { 'Ok' : string } |
+  { 'Err' : CustomsError };
+export type Result_3 = { 'Ok' : string } |
   { 'Err' : string };
+export type Result_4 = { 'Ok' : bigint } |
+  { 'Err' : CustomsError };
 export interface RpcConfig { 'url' : string, 'api_key' : [] | [string] }
 export interface SendTicketResult {
   'txid' : Uint8Array | number[],
@@ -103,12 +116,14 @@ export interface StateProfile {
   'tokens' : Array<[string, Token]>,
   'admins' : Array<Principal>,
   'target_chain_factor' : Array<[string, bigint]>,
+  'multi_rpc_config' : MultiRpcConfig,
   'counterparties' : Array<[string, Chain]>,
   'min_deposit_amount' : bigint,
   'next_ticket_seq' : bigint,
   'chain_state' : ChainState,
   'min_confirmations' : number,
-  'default_rpc_config' : RpcConfig,
+  'tatum_rpc_config' : RpcConfig,
+  'fee_payment_utxo' : Array<Utxo>,
   'flight_unlock_ticket_map' : Array<[bigint, SendTicketResult]>,
   'fee_token_factor' : [] | [bigint],
 }
@@ -132,12 +147,21 @@ export interface Utxo {
   'vout' : number,
 }
 export interface _SERVICE {
-  'finalized_unlock_tickets' : ActorMethod<[bigint], string>,
   'generate_ticket' : ActorMethod<[GenerateTicketArgs], Result>,
-  'get_deposit_address' : ActorMethod<[string, string], Result_1>,
+  'generate_ticket_by_txid' : ActorMethod<
+    [GenerateTicketWithTxidArgs],
+    Result_1
+  >,
+  'get_deposit_address' : ActorMethod<[string, string], Result_2>,
+  'get_fee_payment_address' : ActorMethod<[], Result_2>,
+  'get_finalized_lock_ticket_txids' : ActorMethod<[], Array<string>>,
+  'get_finalized_unlock_ticket_results' : ActorMethod<
+    [],
+    Array<SendTicketResult>
+  >,
   'get_platform_fee' : ActorMethod<[string], [[] | [bigint], [] | [string]]>,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
-  'init_ecdsa_public_key' : ActorMethod<[], Result>,
+  'init_ecdsa_public_key' : ActorMethod<[], Result_1>,
   'pending_unlock_tickets' : ActorMethod<[bigint], string>,
   'query_finalized_lock_tickets' : ActorMethod<
     [string],
@@ -145,11 +169,15 @@ export interface _SERVICE {
   >,
   'query_state' : ActorMethod<[], StateProfile>,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
-  'resend_unlock_ticket' : ActorMethod<[bigint, [] | [bigint]], Result_2>,
+  'resend_unlock_ticket' : ActorMethod<[bigint, [] | [bigint]], Result_3>,
+  'save_utxo_for_payment_address' : ActorMethod<[string], Result_4>,
+  'set_default_doge_rpc_config' : ActorMethod<
+    [string, [] | [string]],
+    undefined
+  >,
   'set_fee_collector' : ActorMethod<[string], undefined>,
   'set_min_deposit_amount' : ActorMethod<[bigint], undefined>,
-  'set_rpc_config' : ActorMethod<[string, [] | [string]], undefined>,
-  'test_http' : ActorMethod<[string, string, [] | [string]], Result_1>,
+  'set_tatum_api_config' : ActorMethod<[string, [] | [string]], undefined>,
   'tmp_fix' : ActorMethod<[], undefined>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;

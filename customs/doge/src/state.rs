@@ -14,7 +14,7 @@ use omnity_types::ic_log::INFO;
 use omnity_types::{Chain, ChainId, ChainState, Directive, Network, Seq, Ticket, TicketId, Token, TokenId};
 
 use crate::constants::MIN_NANOS;
-use crate::custom_to_bitcoin::SendTicketResult;
+use crate::custom_to_dogecoin::SendTicketResult;
 use crate::doge::chainparams::{chain_from_key_bits, ChainParams, KeyBits, MAIN_NET_DOGE};
 use crate::doge::ecdsa::derive_public_key;
 use crate::doge::script::Address;
@@ -24,7 +24,7 @@ use crate::errors::CustomsError;
 use crate::service::InitArgs;
 use crate::stable_memory;
 use crate::stable_memory::Memory;
-use crate::types::{deserialize_hex, wrap_to_customs_error, Destination, ECDSAPublicKey, GenTicketStatus, LockTicketRequest, ReleaseTokenStatus, RpcConfig, Txid, Utxo};
+use crate::types::{deserialize_hex, wrap_to_customs_error, Destination, ECDSAPublicKey, GenTicketStatus, LockTicketRequest, MultiRpcConfig, ReleaseTokenStatus, RpcConfig, Txid, Utxo};
 
 thread_local! {
     static STATE: RefCell<Option<DogeState>> = const {RefCell::new(None)};
@@ -52,12 +52,16 @@ pub struct DogeState {
     #[serde(skip, default = "crate::stable_memory::init_unlock_tickets_queue")]
     pub tickets_queue: StableBTreeMap<Seq, Ticket, Memory>,
     pub flight_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
-    pub finalized_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
+    // pub finalized_unlock_ticket_map: BTreeMap<Seq, SendTicketResult>,
     pub ticket_id_seq_indexer: BTreeMap<TicketId, Seq>,
+
+    #[serde(skip, default = "crate::stable_memory::init_unlock_ticket_results")]
+    pub finalized_unlock_ticket_results_map: StableBTreeMap<Seq, SendTicketResult, Memory>,
 
     //lock tickets storage
     pub pending_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
-    pub finalized_lock_ticket_requests: BTreeMap<Txid, LockTicketRequest>,
+    #[serde(skip, default = "crate::stable_memory::init_lock_ticket_requests")]
+    pub finalized_lock_ticket_requests_map: StableBTreeMap<Txid, LockTicketRequest, Memory>,
 
     #[serde(skip, default = "crate::stable_memory::init_directives_queue")]
     pub directives_queue: StableBTreeMap<u64, Directive, Memory>,
@@ -73,8 +77,21 @@ pub struct DogeState {
     pub target_chain_factor: BTreeMap<ChainId, u128>,
 
     // rpc
+    // https://dashboard.tatum.io, use custom rpc method
     #[serde(default)]
-    pub default_rpc_config: RpcConfig,
+    pub tatum_api_config: RpcConfig,
+
+    #[serde(default)]
+    pub default_doge_rpc_config: RpcConfig,
+
+    #[serde(default)]
+    pub multi_rpc_config: MultiRpcConfig,
+    // #[serde(default)]
+    // pub fee_payment_address: String,
+    #[serde(skip, default = "crate::stable_memory::init_deposit_fee_tx_set")]
+    pub deposit_fee_tx_set: StableBTreeMap<String, (), Memory>,
+    #[serde(default)]
+    pub fee_payment_utxo: Vec<Utxo>,
 }
 
 #[derive(Serialize, Deserialize, CandidType, Clone)]
@@ -104,7 +121,9 @@ pub struct StateProfile {
     pub fee_token_factor: Option<u128>,
     pub target_chain_factor: BTreeMap<ChainId, u128>,
 
-    pub default_rpc_config: RpcConfig,
+    pub tatum_rpc_config: RpcConfig,
+    pub multi_rpc_config: MultiRpcConfig,
+    pub fee_payment_utxo: Vec<Utxo>,
 
 }
 
@@ -133,18 +152,15 @@ impl From<&DogeState> for StateProfile {
             fee_collector: value.fee_collector.clone(),
             fee_token_factor: value.fee_token_factor,
             target_chain_factor: value.target_chain_factor.clone(),
-            default_rpc_config: value.default_rpc_config.clone(),
+            tatum_rpc_config: value.tatum_api_config.clone(),
+            multi_rpc_config: value.multi_rpc_config.clone(),
+            fee_payment_utxo: value.fee_payment_utxo.clone(),
         }
     }
 }
 
 impl DogeState {
     pub fn init(args: InitArgs) -> anyhow::Result<Self> {
-        // let btc_network = match args.network {
-        //     omnity_types::Network::Local => ic_btc_interface::Network::Testnet,
-        //     omnity_types::Network::Testnet => ic_btc_interface::Network::Testnet,
-        //     omnity_types::Network::Mainnet => ic_btc_interface::Network::Mainnet,
-        // };
         let ret = DogeState {
             admins: args.admins,
             doge_fee_rate: Option::None,
@@ -165,18 +181,25 @@ impl DogeState {
             directives_queue: StableBTreeMap::init(crate::stable_memory::get_directives_memory()),
             is_timer_running: Default::default(),
             pending_lock_ticket_requests: Default::default(),
-            finalized_lock_ticket_requests: Default::default(),
+            // finalized_lock_ticket_requests: Default::default(),
             // deposit_addr_utxo: vec![],
             fee_collector: "".to_string(),
             fee_token_factor: None,
             min_confirmations: 4,
             min_deposit_amount: 0,
-            finalized_unlock_ticket_map: Default::default(),
+            // finalized_unlock_ticket_map: Default::default(),
             ticket_id_seq_indexer: Default::default(),
             target_chain_factor: Default::default(),
             fee_token: args.fee_token,
             deposited_utxo: vec![],
-            default_rpc_config: RpcConfig::default(),
+            tatum_api_config: RpcConfig::default(),
+            default_doge_rpc_config: RpcConfig::default(),
+            multi_rpc_config: MultiRpcConfig::default(),
+            // fee_payment_address: String::default(),
+            deposit_fee_tx_set: StableBTreeMap::init(crate::stable_memory::get_deposit_tx_memory()),
+            fee_payment_utxo: vec![],
+            finalized_unlock_ticket_results_map: StableBTreeMap::init(crate::stable_memory::get_unlock_ticket_results_memory()),
+            finalized_lock_ticket_requests_map: StableBTreeMap::init(crate::stable_memory::get_lock_ticket_requests_memory()),
         };
         Ok(ret)
     }
@@ -210,24 +233,6 @@ impl DogeState {
         log!(INFO, "post upgradge sucessed!!");
     }
 
-    // pub fn pull_tickets(&self, from: usize, limit: usize) -> Vec<(Seq, Ticket)> {
-    //     self.tickets_queue
-    //         .iter()
-    //         .skip(from)
-    //         .take(limit)
-    //         .map(|(seq, t)| (seq, t.clone()))
-    //         .collect()
-    // }
-
-    // pub fn pull_directives(&self, from: usize, limit: usize) -> Vec<(Seq, Directive)> {
-    //     self.directives_queue
-    //         .iter()
-    //         .skip(from)
-    //         .take(limit)
-    //         .map(|(seq, d)| (seq, d.clone()))
-    //         .collect()
-    // }
-
     pub fn get_transfer_fee_info(
         &self,
         target_chain_id: &ChainId,
@@ -243,19 +248,25 @@ impl DogeState {
         (fee, fee.map(|_| self.fee_collector.clone()))
     }
 
-    pub fn generate_ticket_status(&self, tx_id: Txid) -> GenTicketStatus {
-        if let Some(req) = self.pending_lock_ticket_requests.get(&tx_id) {
+    pub fn generate_ticket_status(&self, tx_id: &Txid) -> GenTicketStatus {
+        if let Some(req) = self.pending_lock_ticket_requests.get(tx_id) {
             return GenTicketStatus::Pending(req.clone());
         }
 
-        match self
-            .finalized_lock_ticket_requests
-            .iter()
-            .find(|req| req.1.txid == tx_id.clone().into())
-        {
-            Some(req) => GenTicketStatus::Finalized(req.1.clone()),
-            None => GenTicketStatus::Unknown,
+        if let Some(req) = self.finalized_lock_ticket_requests_map.get(tx_id) {
+            return GenTicketStatus::Finalized(req.clone());
+        } else {
+            return GenTicketStatus::Unknown;
         }
+        
+        // match self
+        //     .finalized_lock_ticket_requests
+        //     .iter()
+        //     .find(|req| req.1.txid == tx_id.clone().into())
+        // {
+        //     Some(req) => GenTicketStatus::Finalized(req.1.clone()),
+        //     None => GenTicketStatus::Unknown,
+        // }
     }
 
     pub fn unlock_tx_status(&self, ticket_id: &TicketId) -> ReleaseTokenStatus {
@@ -273,7 +284,7 @@ impl DogeState {
                 return ReleaseTokenStatus::Unknown;
             }
         }
-        if let Some(tx) = self.finalized_unlock_ticket_map.get(&seq) {
+        if let Some(tx) = self.finalized_unlock_ticket_results_map.get(&seq) {
             let txid = tx.txid.to_string();
             return ReleaseTokenStatus::Confirmed(txid);
         }
@@ -340,24 +351,6 @@ pub async fn init_ecdsa_public_key() -> Result<ECDSAPublicKey, CustomsError> {
     Ok(pub_key)
 }
 
-// pub fn bytes_to_hex(bytes: &[u8]) -> String {
-//     bytes.iter().map(|b| format!("{:02x}", b)).collect()
-// }
-
-// pub fn deposit_addr() -> Address {
-//     let r = read_state(|s| s.deposit_addr.clone().unwrap());
-//     Address::from_str(&r).unwrap().assume_checked()
-// }
-
-// pub fn bitcoin_network() -> bitcoin::Network {
-//     let n = read_state(|s| s.btc_network);
-//     match n {
-//         Network::Mainnet => bitcoin::Network::Bitcoin,
-//         Network::Testnet => bitcoin::Network::Testnet,
-//         Network::Regtest => bitcoin::Network::Regtest,
-//     }
-// }
-
 pub fn finalization_time_estimate(
     min_confirmations: u32,
 ) -> Duration {
@@ -365,10 +358,6 @@ pub fn finalization_time_estimate(
         (min_confirmations + 1) as u64 * 1 * MIN_NANOS
     )
 }
-
-// pub fn deposit_pubkey() -> String {
-//     read_state(|s| s.deposit_pubkey.clone().unwrap())
-// }
 
 pub fn mutate_state<F, R>(f: F) -> R
 where

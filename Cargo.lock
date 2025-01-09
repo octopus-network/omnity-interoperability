@@ -1477,6 +1477,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "bech32 0.9.1",
+ "bincode",
  "bitcoin 0.32.2",
  "bitcoin-io",
  "bs58",

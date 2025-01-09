@@ -359,12 +359,6 @@ pub struct RpcTxOut {
     pub coinbase: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TxOutResponse {
-    pub result: RpcTxOut,
-    pub error: Option<String>,
-    pub id: u32,
-}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DogeRpcResponse<T> {
