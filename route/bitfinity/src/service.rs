@@ -19,9 +19,7 @@ use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
     StateProfile,
 };
-use omnity_types::{
-    Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}
-};
+use omnity_types::{Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}, ChainState};
 use crate::types::{TokenResp, PendingDirectiveStatus, PendingTicketStatus, MetricsStatus};
 use omnity_types::MintTokenStatus;
 
@@ -68,6 +66,9 @@ pub fn bridge_ticket_to_evm_task() {
             Some(guard) => guard,
             None => return,
         };
+        if read_state(|s| s.chain_state == ChainState::Deactive) {
+            return;
+        }
         process_directives().await;
         process_tickets().await;
         send_directives_to_evm().await;
