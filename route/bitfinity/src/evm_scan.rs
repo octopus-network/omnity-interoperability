@@ -28,7 +28,6 @@ pub fn scan_evm_task() {
             read_state(|s| s.block_interval_secs) * crate::const_args::EVM_FINALIZED_CONFIRM_HEIGHT;
         for (hash, time) in events {
             if read_state(|s| s.handled_evm_event.contains(&hash)) {
-                log!(INFO, "[Consolidation] bitfinity route finalized hash: {:?}", &hash);
                 mutate_state(|s| s.pending_events_on_chain.remove(&hash));
                 continue;
             }
@@ -47,7 +46,6 @@ pub fn scan_evm_task() {
                     None => { continue }
                     Some(s) => {
                         if s == did::U64::zero() {
-                            log!(INFO, "[Consolidation] bitfinity route finalized hash: {:?}", &hash);
                             mutate_state(|s| s.pending_events_on_chain.remove(&hash));
                             continue;
                         }
@@ -56,7 +54,6 @@ pub fn scan_evm_task() {
                 let res = handle_port_events(tr.logs.clone()).await;
                 match res {
                     Ok(_) => {
-                        log!(INFO, "[Consolidation] bitfinity route finalized hash: {:?}", &hash);
                         mutate_state(|s| s.pending_events_on_chain.remove(&hash));
                         mutate_state(|s| s.handled_evm_event.insert(hash));
                     }
