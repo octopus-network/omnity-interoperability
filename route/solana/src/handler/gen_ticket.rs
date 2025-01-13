@@ -1,5 +1,5 @@
 use crate::types::Ticket;
-use crate::types::{ChainState, Error, TicketType, TxAction, Fee};
+use crate::types::{ChainState, Error, TicketType, TxAction, Memo};
 use candid::{CandidType, Principal};
 
 use crate::handler::solana_rpc::solana_client;
@@ -121,10 +121,17 @@ pub async fn generate_ticket(
     }
 
     let fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).unwrap_or_default();
-    let bridge_fee = Fee {
+    let memo = Memo {
+        memo: req.memo,
         bridge_fee: fee,
     };
-    let memo = bridge_fee.add_to_memo(req.memo).unwrap_or_default();
+    let memo_json = serde_json::to_string_pretty(&memo).map_err(|e| {
+        GenerateTicketError::TemporarilyUnavailable(format!(
+            "[generate_ticket] memo convert error: {}",
+            e.to_string()
+        ))
+    })?;
+    log!(DEBUG, "[generate_ticket] memo with fee: {:?}", memo_json);
 
     let ticket = Ticket {
         ticket_id: req.signature.to_string(),
@@ -137,7 +144,7 @@ pub async fn generate_ticket(
         amount: req.amount.to_string(),
         sender: Some(req.sender.to_owned()),
         receiver: req.receiver.to_string(),
-        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()), 
+        memo: Some(memo_json.to_bytes().to_vec()), 
     };
 
     match send_ticket(hub_principal, ticket.to_owned()).await {
@@ -974,4 +981,43 @@ mod test {
         let principal = Principal::management_canister();
         println!("The management principal value is: {}", principal)
     }
+
+    #[test]
+    fn memo_with_fee() {
+        use crate::types::Memo;
+        // user memo is Some(...)
+        let memo = Some("some memo".to_string());
+        let fee = 20000000 as u128;
+        let memo_with_fee = Memo {
+            memo: memo,
+            bridge_fee: fee,
+        };
+
+        let memo = serde_json::to_string_pretty(&memo_with_fee).unwrap();
+        println!("[generate_ticket] Memo is some and fee: {:?}", memo);
+
+         // user memo is Some(json)
+         let memo = Some(r#"{"yyy":"xxx"}"#.to_string());
+         let fee = 20000000 as u128;
+         let memo_with_fee = Memo {
+             memo: memo,
+             bridge_fee: fee,
+         };
+ 
+         let memo = serde_json::to_string_pretty(&memo_with_fee).unwrap();
+         println!("[generate_ticket] Memo is some and fee: {:?}", memo);
+
+        // user memo is None
+        let memo = None;
+        let fee = 20000000 as u128;
+        let memo_with_fee = Memo {
+            memo: memo,
+            bridge_fee: fee,
+        };
+        let memo = serde_json::to_string_pretty(&memo_with_fee).unwrap();
+
+        println!("[generate_ticket] Memo is None and fee: {:?}", memo);
+    }
 }
+
+

@@ -234,30 +234,9 @@ impl core::fmt::Display for Ticket {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Fee {
+pub struct Memo {
+    pub memo: Option<String>,
     pub bridge_fee: u128,
-}
-
-impl Fee {
-    pub fn add_to_memo(&self, input_memo: Option<String>) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let fee = Self {
-            bridge_fee: self.bridge_fee,
-        };
-        let json_string = serde_json::to_string(&fee)?;
-        let fee_json: serde_json::Value = serde_json::from_str(&json_string)?;
-        let mut memo = None;
-        if let Some(input_string) = input_memo {
-            let mut deserialized: serde_json::Value = serde_json::from_str(&input_string)?;
-            if let (Some(target), Some(embed)) = (deserialized.as_object_mut(), fee_json.as_object()) {
-                target.extend(embed.clone());
-                let output_json = serde_json::to_string_pretty(&deserialized)?;
-                memo =  Some(output_json);
-            }
-        } else {
-            memo =  Some(json_string);
-        }
-        Ok(memo)
-    }
 }
 
 #[derive(
