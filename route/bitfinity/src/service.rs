@@ -245,6 +245,7 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
         return Err("The ticket id already exists".to_string());
     }
     let (ticket, _transaction_receipt) = create_ticket_by_tx(&tx_hash).await?;
+    log!(INFO, "[Consolidation]Bitfinity Route: generate ticket: hash {}, ticket: {}", &tx_hash, &ticket);
     let hub_principal = read_state(|s| s.hub_principal);
     hub::pending_ticket(hub_principal, ticket)
         .await
