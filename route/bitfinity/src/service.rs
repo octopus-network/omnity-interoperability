@@ -19,9 +19,7 @@ use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
     StateProfile,
 };
-use omnity_types::{
-    Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}
-};
+use omnity_types::{Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}, ChainState};
 use crate::types::{TokenResp, PendingDirectiveStatus, PendingTicketStatus, MetricsStatus};
 use omnity_types::MintTokenStatus;
 
@@ -64,6 +62,9 @@ fn start_tasks() {
 
 pub fn bridge_ticket_to_evm_task() {
     ic_cdk::spawn(async {
+        if read_state(|s| s.chain_state == ChainState::Deactive) {
+            return;
+        }
         let _guard = match crate::guard::TimerLogicGuard::new(SEND_EVM_TASK_NAME.to_string()) {
             Some(guard) => guard,
             None => return,
@@ -244,6 +245,7 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
         return Err("The ticket id already exists".to_string());
     }
     let (ticket, _transaction_receipt) = create_ticket_by_tx(&tx_hash).await?;
+    log!(INFO, "[Consolidation]Bitfinity Route: generate ticket: hash {}, ticket: {}", &tx_hash, &ticket);
     let hub_principal = read_state(|s| s.hub_principal);
     hub::pending_ticket(hub_principal, ticket)
         .await

@@ -1,16 +1,13 @@
 use crate::const_args::{BATCH_QUERY_LIMIT};
 use crate::eth_common::EvmAddress;
 use crate::state::{mutate_state, read_state};
-use omnity_types::{ChainState, Directive, Seq, Ticket};
+use omnity_types::{Directive, Seq, Ticket};
 use crate::{audit, hub};
 use std::str::FromStr;
 use ic_canister_log::log;
-use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
+use omnity_types::ic_log::{CRITICAL, ERROR};
 
 pub async fn process_tickets() {
-    if read_state(|s| s.chain_state == ChainState::Deactive) {
-        return;
-    }
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
@@ -41,7 +38,6 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
             next_seq = seq + 1;
             continue;
         };
-        log!(INFO, "[Consolidation] bitfinity route pulled ticket: {:?}", &ticket);
         mutate_state(|s| s.tickets_queue.insert(seq, ticket));
         next_seq = seq + 1;
     }

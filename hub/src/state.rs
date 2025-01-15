@@ -695,8 +695,9 @@ impl HubState {
         // save pending ticket
         self.pending_tickets
             .insert(ticket.ticket_id.to_string(), ticket.clone());
+        log!(INFO, "[Consolidation]Hub: pending ticket: {:?}", &ticket);
         record_event(&Event::PendingTicket { ticket });
-
+        
         Ok(())
     }
 
@@ -715,6 +716,7 @@ impl HubState {
             .ok_or(Error::CustomError(
                 "Failed to remove ticket from pending_tickets".to_string(),
             ))?;
+        log!(INFO, "[Consolidation]Hub: finalize ticket: ticket id: {:?}", &ticket_id.to_string());
         record_event(&Event::FinalizeTicket {
             ticket_id: ticket_id.to_string(),
         });
