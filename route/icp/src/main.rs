@@ -244,12 +244,12 @@ fn get_token_ledger(token_id: String) -> Option<Principal> {
     read_state(|s| s.token_ledgers.get(&token_id).cloned())
 }
 
-#[query]
+#[query(hidden = true, guard = "is_controller")]
 pub fn get_log_records(offset: usize, limit: usize) -> Logs {
     ic_log::take_memory_records(limit, offset)
 }
 
-#[query]
+#[query(hidden = true, guard = "is_controller")]
 fn get_events(args: GetEventsArg) -> Vec<Event> {
     const MAX_EVENTS_PER_QUERY: usize = 2000;
 
@@ -270,7 +270,7 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
     icp_get_redeem_fee(chain_id)
 }
 
-#[query]
+#[query(hidden = true, guard = "is_controller")]
 pub fn get_route_state() -> icp_route::state::RouteState {
     read_state(|s| s.clone())
 }
