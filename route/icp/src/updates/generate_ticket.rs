@@ -12,10 +12,9 @@ use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use num_traits::cast::ToPrimitive;
 use omnity_types::ic_log::INFO;
-use omnity_types::{ChainId, ChainState, Ticket, TxAction, Fee};
+use omnity_types::{ChainId, ChainState, Ticket, TxAction, Memo};
 use serde::Serialize;
 use crate::{log, ERROR};
-use ic_stable_structures::Storable;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketReq {
@@ -110,8 +109,10 @@ pub async fn generate_ticket(
     let action = req.action.clone();
 
     let fee = icp_get_redeem_fee(req.target_chain_id.clone());
-    let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
-    let memo = bridge_fee.add_to_memo(None).unwrap_or_default();
+    let memo_json = Memo {
+        memo: None,
+        bridge_fee: fee.unwrap_or_default() as u128,
+    }.convert_to_memo_json().unwrap_or_default();
 
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
@@ -124,7 +125,7 @@ pub async fn generate_ticket(
         amount: req.amount.to_string(),
         sender: Some(caller.to_string()),
         receiver: req.receiver.clone(),
-        memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
+        memo: Some(memo_json.as_bytes().to_vec()),
     };
     match hub::send_ticket(hub_principal, ticket.clone()).await {
         Err(err) => {

@@ -8,10 +8,9 @@ use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext,
     TransformFunc,
 };
-use ic_stable_structures::Storable;
 use omnity_types::ic_log::INFO;
 use omnity_types::TxAction::Redeem;
-use omnity_types::{ChainId, Ticket, TicketType, TxAction, Fee};
+use omnity_types::{ChainId, Ticket, TicketType, TxAction, Memo};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tonlib_core::cell::BagOfCells;
@@ -226,10 +225,12 @@ pub async fn create_ticket_by_generate_ticket(
             } else {
                 TxAction::Transfer
             };
-
+            
             let fee = bridge_fee(&params.target_chain_id);
-            let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
-            let memo = bridge_fee.add_to_memo(None).unwrap_or_default();
+            let memo_json = Memo {
+                memo: None,
+                bridge_fee: fee.unwrap_or_default() as u128,
+            }.convert_to_memo_json().unwrap_or_default();
 
             return Ok(Ticket {
                 ticket_id: jbe.trace_id.clone(),
@@ -242,7 +243,7 @@ pub async fn create_ticket_by_generate_ticket(
                 amount: params.amount.to_string(),
                 sender: Some(params.sender.clone()),
                 receiver: params.receiver.clone(),
-                memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
+                memo: Some(memo_json.as_bytes().to_vec()),
             });
         } else {
             return Err(anyhow!("params invalid".to_string()));
