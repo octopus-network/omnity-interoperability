@@ -16,8 +16,8 @@ use thiserror::Error;
 
 use crate::contract_types::{RunesMintRequested, TokenBurned, TokenTransportRequested};
 use crate::contracts::PortContractFactorTypeIndex;
-use crate::state::read_state;
 use crate::evm_scan::get_memo;
+use crate::state::read_state;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
@@ -237,7 +237,11 @@ pub struct Ticket {
 }
 
 impl Ticket {
-    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMintRequested, has_memo: bool) -> Self {
+    pub fn from_runes_mint_event(
+        log_entry: &LogEntry,
+        runes_mint: RunesMintRequested,
+        has_memo: bool,
+    ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -246,7 +250,9 @@ impl Ticket {
                 .clone()
         });
         let dst_chain = token.token_id_info()[0].to_string();
-        let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
+        let memo = has_memo
+            .then(|| get_memo(None, dst_chain.clone()))
+            .unwrap_or_default();
 
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
@@ -263,7 +269,11 @@ impl Ticket {
         }
     }
 
-    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned, has_memo: bool) -> Self {
+    pub fn from_burn_event(
+        log_entry: &LogEntry,
+        token_burned: TokenBurned,
+        has_memo: bool,
+    ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -277,7 +287,9 @@ impl Ticket {
         } else {
             TxAction::Redeem
         };
-        let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
+        let memo = has_memo
+            .then(|| get_memo(None, dst_chain.clone()))
+            .unwrap_or_default();
 
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
@@ -304,7 +316,9 @@ impl Ticket {
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let dst_chain = token_transport_requested.dst_chain_id;
-        let memo = has_memo.then(|| get_memo(Some(token_transport_requested.memo), dst_chain.clone())).unwrap_or_default();
+        let memo = has_memo
+            .then(|| get_memo(Some(token_transport_requested.memo), dst_chain.clone()))
+            .unwrap_or_default();
 
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
@@ -320,7 +334,7 @@ impl Ticket {
                 hex::encode(token_transport_requested.sender.0.as_slice())
             )),
             receiver: token_transport_requested.receiver,
-            memo: memo.to_owned().map(|m| m.to_bytes().to_vec())
+            memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
         }
     }
 }
@@ -360,31 +374,17 @@ impl core::fmt::Display for Ticket {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Fee {
+pub struct Memo {
+    pub memo: Option<String>,
     pub bridge_fee: u128,
 }
 
-impl Fee {
-    pub fn add_to_memo(&self, input_memo: Option<String>) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let fee = Self {
-            bridge_fee: self.bridge_fee,
-        };
-        let json_string = serde_json::to_string(&fee)?;
-        let fee_json: serde_json::Value = serde_json::from_str(&json_string)?;
-        let mut memo = None;
-        if let Some(input_string) = input_memo {
-            let mut deserialized: serde_json::Value = serde_json::from_str(&input_string)?;
-            if let (Some(target), Some(embed)) = (deserialized.as_object_mut(), fee_json.as_object()) {
-                target.extend(embed.clone());
-                let output_json = serde_json::to_string_pretty(&deserialized)?;
-                memo =  Some(output_json);
-            }
-        } else {
-            memo =  Some(json_string);
-        }
-        Ok(memo)
+impl Memo {
+    pub fn convert_to_memo_json(self) -> Result<String, Box<dyn std::error::Error>> {
+        let memo_json = serde_json::to_string_pretty(&self)
+            .map_err(|e| format!("[generate_ticket] memo convert error: {}", e.to_string()))?;
+        Ok(memo_json)
     }
 }
 

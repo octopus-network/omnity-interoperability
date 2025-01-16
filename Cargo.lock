@@ -3349,6 +3349,7 @@ dependencies = [
  "num-traits",
  "omnity_types",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

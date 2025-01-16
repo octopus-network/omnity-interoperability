@@ -6,7 +6,7 @@ use icrc_ledger_types::{
 };
 use ic_ledger_types::{AccountIdentifier, BlockIndex, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID};
 use num_traits::cast::ToPrimitive;
-use omnity_types::{ Ticket, TxAction};
+use omnity_types::{Ticket, TxAction, Memo};
 use serde::Serialize;
 use ic_canister_log::log;
 use omnity_types::ic_log::INFO;
@@ -100,6 +100,11 @@ pub async fn generate_ticket_v2(
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
 
+    let memo_json = Memo {
+        memo: req.memo,
+        bridge_fee: 0_u128,
+    }.convert_to_memo_json().unwrap_or_default();
+
     hub::send_ticket(
         hub_principal,
         Ticket {
@@ -113,7 +118,7 @@ pub async fn generate_ticket_v2(
             amount: ticket_amount.to_string(),
             sender: Some(ic_cdk::caller().to_text()),
             receiver: req.receiver.clone(),
-            memo: req.memo.map(|m| m.into_bytes()),
+            memo: Some(memo_json.as_bytes().to_vec()),
         },
     )
     .await
@@ -300,5 +305,46 @@ async fn transfer_token_icrc2(
             amount,
             min_burn_amount
         )),
+    }
+}
+
+#[cfg(test)]
+mod icp_route_test {
+    #[test]
+    fn icp_memo_with_fee() {
+        use omnity_types::Memo;
+        // user memo is Some(...)
+        let memo = Some("some memo".to_string());
+        let memo_json = Memo {
+            memo,
+            bridge_fee: 0_u128,
+        }.convert_to_memo_json().unwrap_or_default();
+        let encoded = memo_json.as_bytes().to_vec();
+        let decoded = std::str::from_utf8(&encoded).unwrap_or_default();
+        println!("[generate_ticket] Memo is some and fee: {:?}", memo_json);
+        println!("decoded: {:?}", decoded);
+
+         // user memo is Some(json)
+         let memo = Some(r#"{"yyy":"xxx"}"#.to_string());
+         let memo_json = Memo {
+            memo,
+            bridge_fee: 0_u128,
+        }.convert_to_memo_json().unwrap_or_default();
+        let encoded = memo_json.as_bytes().to_vec();
+        let decoded = std::str::from_utf8(&encoded).unwrap_or_default();
+        println!("[generate_ticket] Memo is some and fee: {:?}", memo_json);
+        println!("decoded: {:?}", decoded);
+
+        // user memo is None
+        let memo = None;
+        let fee = 20000000 as u128;
+        let memo_json = Memo {
+            memo,
+            bridge_fee: fee,
+        }.convert_to_memo_json().unwrap_or_default();
+        let encoded = memo_json.as_bytes().to_vec();
+        let decoded = std::str::from_utf8(&encoded).unwrap_or_default();
+        println!("[generate_ticket] Memo is some and fee: {:?}", memo_json);
+        println!("decoded: {:?}", decoded);
     }
 }

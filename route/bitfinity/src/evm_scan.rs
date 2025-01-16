@@ -5,7 +5,7 @@ use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
 use itertools::Itertools;
 
-use omnity_types::{ChainState, Directive, Ticket, ChainId, Fee};
+use omnity_types::{ChainState, Directive, Ticket, ChainId, Memo};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 
 use crate::*;
@@ -261,6 +261,36 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
 
 pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
     let fee = bitfinity_get_redeem_fee(dst_chain);
-    let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
-    bridge_fee.add_to_memo(memo).unwrap_or_default()
+    let memo_json = Memo {
+        memo,
+        bridge_fee: fee.unwrap_or_default() as u128,
+    }.convert_to_memo_json().unwrap_or_default();
+    Some(memo_json)
+}
+
+#[cfg(test)]
+mod bitfinity_test {
+    use omnity_types::Memo;
+    use ic_stable_structures::Storable;
+
+    pub fn get_test_memo(memo: Option<String>) -> Option<String> {
+        let memo_json = Memo {
+            memo,
+            bridge_fee: 999_u128,
+        }.convert_to_memo_json().unwrap_or_default();
+        Some(memo_json)
+    }
+
+    #[test]
+    fn bifinity_memo_with_fee() {
+        let memo = Some("some memo".to_string());
+        // let has_memo = false;
+        let has_memo = true;
+        let _memo = has_memo.then(|| get_test_memo(memo.clone())).unwrap_or_default();
+
+        let encoded = _memo.clone().map(|m| m.to_bytes().to_vec()).unwrap_or_default();
+        let decoded = std::str::from_utf8(&encoded).unwrap_or_default();
+        println!("memo {:?}", _memo);
+        println!("decoded: {:?}", decoded);
+    }
 }
