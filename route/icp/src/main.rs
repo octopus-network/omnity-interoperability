@@ -6,7 +6,7 @@ use ic_cdk::api::management_canister::main::{
 use ic_cdk::{caller, post_upgrade, pre_upgrade};
 use ic_cdk_macros::{init, query, update};
 use ic_cdk_timers::set_timer_interval;
-use ic_ledger_types::AccountIdentifier;
+use ic_ledger_types::{AccountBalanceArgs, AccountIdentifier};
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
 use icp_route::state::eventlog::{Event, GetEventsArg};
@@ -26,7 +26,7 @@ use icrc_ledger_types::icrc1::transfer::TransferArg;
 
 pub use ic_canister_log::log;
 pub use omnity_types::ic_log::{ERROR, INFO};
-use omnity_types::{Chain, ChainId, Ticket};
+use omnity_types::{Account, Chain, ChainId, Ticket};
 use std::time::Duration;
 
 #[init]
@@ -263,6 +263,12 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
 pub fn get_fee_account(principal: Option<Principal>) -> AccountIdentifier {
     let principal = principal.unwrap_or(caller());
     AccountIdentifier::new(&ic_cdk::api::id(), &principal_to_subaccount(&principal))
+}
+
+#[query]
+pub fn get_readable_fee_account(principal: Option<Principal>) -> String {
+    let principal = principal.unwrap_or(caller());
+    AccountIdentifier::new(&ic_cdk::api::id(), &principal_to_subaccount(&principal)).to_hex()
 }
 
 #[query]

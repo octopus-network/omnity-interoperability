@@ -97,6 +97,7 @@ service : (RouteArg) -> {
   generate_ticket : (GenerateTicketReq) -> (Result_1);
   get_chain_list : () -> (vec Chain) query;
   get_fee_account : (opt principal) -> (blob) query;
+  get_readable_fee_account : (opt principal) -> (text) query;
   get_redeem_fee : (text) -> (opt nat64) query;
   get_token_ledger : (text) -> (opt principal) query;
   get_token_list : () -> (vec TokenResp) query;
