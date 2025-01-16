@@ -83,7 +83,6 @@ type TxAction = variant {
   Transfer;
 };
 service : (InitArgs) -> {
-  generate_ticket : (GenerateTicketReq) -> (Result);
   generate_ticket_v2 : (GenerateTicketReq) -> (Result);
   get_account_identifier : (principal) -> (blob) query;
   get_account_identifier_text : (principal) -> (text) query;

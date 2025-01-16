@@ -12,7 +12,7 @@ use ic_ledger_types::{AccountIdentifier, Subaccount};
 use omnity_types::MintTokenStatus::{Finalized, Unknown};
 use omnity_types::{Chain, MintTokenStatus, Seq, Ticket, TicketId, Token};
 use ic_canister_log::log;
-use omnity_types::ic_log::{ERROR, INFO};
+use omnity_types::ic_log::INFO;
 
 pub fn is_controller() -> Result<(), String> {
     if ic_cdk::api::is_controller(&ic_cdk::caller()) {
@@ -51,7 +51,7 @@ async fn generate_ticket_v2(args: GenerateTicketReq) -> Result<GenerateTicketOk,
     updates::generate_ticket_v2(args).await
 }
 
-#[update]
+#[update(hidden = true)]
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
     updates::generate_ticket(args).await

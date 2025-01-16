@@ -223,14 +223,8 @@ async fn transfer_token_icrc2(
         runtime: CdkRuntime,
         ledger_canister_id: ledger_id,
     };
-    let fee = client.fee()
-    .await
-    .map_err(|e| 
-        GenerateTicketError::CustomError(
-            format!("Failed to get icrc fee, error: {:?}", e).to_string(), 
-    ))?;
     let route = ic_cdk::id();
-    let transfer_amount = Nat::from(amount) - fee;
+    let transfer_amount = Nat::from(amount);
     let result = client
         .transfer_from(TransferFromArgs {
             spender_subaccount: None,
