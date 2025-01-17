@@ -37,5 +37,8 @@
   },
   "icp_ledger": {
     "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
+  },
+  "rich_ledger": {
+    "ic": "77xez-aaaaa-aaaar-qaezq-cai"
   }
 }

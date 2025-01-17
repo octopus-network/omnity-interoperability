@@ -59,7 +59,34 @@ fn check_anonymous_caller() {
 #[update]
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
-    updates::generate_ticket(args).await
+    
+    log!(INFO, "generate_ticket: {:?}", args);
+    match updates::generate_ticket(args, false).await {
+        Ok(r) => {
+            log!(INFO, "generate_ticket success, result: {:?}", r);
+            Ok(r)
+        },
+        Err(e) => {
+            log!(ERROR, "generate_ticket failed, error: {:?}", e);
+            Err(e)
+        },
+    }
+}
+
+#[update]
+async fn generate_ticket_v2(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
+    check_anonymous_caller();
+    log!(INFO, "generate_ticket_v2: {:?}", args);
+    match updates::generate_ticket(args, true).await {
+        Ok(r) => {
+            log!(INFO, "generate_ticket_v2 success, result: {:?}", r);
+            Ok(r)
+        },
+        Err(e) => {
+            log!(ERROR, "generate_ticket_v2 failed, error: {:?}", e);
+            Err(e)
+        },
+    }
 }
 
 pub fn is_controller() -> Result<(), String> {
@@ -234,7 +261,11 @@ fn get_token_list() -> Vec<TokenResp> {
     read_state(|s| {
         s.tokens
             .iter()
-            .map(|(_, token)| token.clone().into())
+            .map(|(_, token)| {
+                let mut token_resp = TokenResp::from(token.clone());
+                token_resp.principal = s.token_ledgers.get(&token.token_id).clone().copied();
+                token_resp
+            })
             .collect()
     })
 }
