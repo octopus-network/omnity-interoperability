@@ -1,8 +1,10 @@
 use crate::state::{audit, mutate_state, read_state};
 use crate::{hub, ICP_TRANSFER_FEE};
 use candid::{CandidType, Deserialize, Nat, Principal};
+use ic_cdk::api::management_canister;
 use ic_cdk::caller;
 use ic_crypto_sha2::Sha256;
+use ic_ledger_canister_core::ledger;
 use ic_ledger_types::{
     AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT,
     MAINNET_LEDGER_CANISTER_ID,
@@ -57,6 +59,7 @@ pub enum GenerateTicketError {
 
 pub async fn generate_ticket(
     req: GenerateTicketReq,
+    is_charge_icp_fee_by_icrc: bool,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
@@ -79,15 +82,19 @@ pub async fn generate_ticket(
         None => Err(GenerateTicketError::UnsupportedToken(req.token_id.clone())),
     })?;
 
-    charge_icp_fee(caller(), &req.target_chain_id).await?;
-
-    log!(INFO, "successfully charged icp fee, req: {:?}", req);
-
     let caller = ic_cdk::caller();
     let user = Account {
-        owner: caller,
+        owner: caller.clone(),
         subaccount: req.from_subaccount,
     };
+
+    let block_index = if is_charge_icp_fee_by_icrc {
+        charge_icp_fee_by_icrc(user.clone(), &req.target_chain_id).await?
+    } else {
+        charge_icp_fee(caller, &req.target_chain_id).await?
+    };
+
+    log!(INFO, "successfully charged icp fee, block_index:{}", block_index);
 
     let ticket_id = match req.action {
         TxAction::Mint => {
@@ -103,7 +110,7 @@ pub async fn generate_ticket(
         }
     }?;
 
-    log!(INFO, "successfully generate ticket, ticket_id: {:?}", ticket_id);
+    log!(INFO, "successfully get ticket_id: {:?}", ticket_id);
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     let action = req.action.clone();
@@ -217,7 +224,7 @@ async fn burn_token_icrc2(
 pub async fn charge_icp_fee(
     from: Principal,
     chain_id: &ChainId,
-) -> Result<(), GenerateTicketError> {
+) -> Result<Nat, GenerateTicketError> {
     let redeem_fee = read_state(|s| match s.target_chain_factor.get(chain_id) {
         Some(target_chain_factor) => s.fee_token_factor.map_or(
             Err(GenerateTicketError::RedeemFeeNotSet),
@@ -248,9 +255,50 @@ pub async fn charge_icp_fee(
     ic_ledger_types::transfer(MAINNET_LEDGER_CANISTER_ID, transfer_args)
         .await
         .map_err(|(_, reason)| GenerateTicketError::TemporarilyUnavailable(reason))?
-        .map_err(|err| GenerateTicketError::TransferFailure(err.to_string()))?;
+        .map_err(|err| GenerateTicketError::TransferFailure(err.to_string()))
+        .map(|block_index| block_index.into())
+}
 
-    Ok(())
+pub async fn charge_icp_fee_by_icrc(
+    user: Account,
+    chain_id: &ChainId,
+)-> Result<Nat, GenerateTicketError> {
+    let redeem_fee = read_state(|s| match s.target_chain_factor.get(chain_id) {
+        Some(target_chain_factor) => s.fee_token_factor.map_or(
+            Err(GenerateTicketError::RedeemFeeNotSet),
+            |fee_token_factor| Ok((target_chain_factor * fee_token_factor) as u64),
+        ),
+        None => Err(GenerateTicketError::RedeemFeeNotSet),
+    })?;
+
+    let client = ICRC1Client {
+        runtime: CdkRuntime,
+        ledger_canister_id: MAINNET_LEDGER_CANISTER_ID,
+    };
+    let route = ic_cdk::id();
+
+    client.transfer_from(
+        TransferFromArgs { 
+            spender_subaccount: None, 
+            from: user, 
+            to: Account { 
+                owner: route, 
+                subaccount: None 
+            },
+            amount: Nat::from(redeem_fee), 
+            fee: None, 
+            memo: None, 
+            created_at_time: None 
+        }
+    )
+    .await
+    .map_err(|(code, msg)| {
+        GenerateTicketError::TemporarilyUnavailable(format!(
+            "cannot enqueue a icp transferFrom transaction: {} (reject_code = {})",
+            msg, code
+        ))
+    })?
+    .map_err(|err| GenerateTicketError::TransferFailure(format!("{:?}", err)))
 }
 
 async fn ic_balance_of(subaccount: &IcSubaccount) -> Result<Tokens, GenerateTicketError> {

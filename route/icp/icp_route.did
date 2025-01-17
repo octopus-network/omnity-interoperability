@@ -63,6 +63,7 @@ type Ticket = record {
 };
 type TicketType = variant { Resubmit; Normal };
 type TokenResp = record {
+  "principal" : opt principal;
   decimals : nat8;
   token_id : text;
   icon : opt text;
@@ -95,6 +96,7 @@ type UpgradeArgs_1 = record {
 service : (RouteArg) -> {
   collect_ledger_fee : (principal, opt nat, Account) -> (Result);
   generate_ticket : (GenerateTicketReq) -> (Result_1);
+  generate_ticket_v2 : (GenerateTicketReq) -> (Result_1);
   get_chain_list : () -> (vec Chain) query;
   get_fee_account : (opt principal) -> (blob) query;
   get_readable_fee_account : (opt principal) -> (text) query;
