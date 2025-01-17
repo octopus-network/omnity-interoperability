@@ -7,7 +7,6 @@ use evm_rpc::candid_types::TransactionReceipt;
 use ic_canister_log::log;
 use itertools::Itertools;
 
-use crate::*;
 use crate::const_args::SCAN_EVM_TASK_NAME;
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
@@ -15,8 +14,9 @@ use crate::contract_types::{
 };
 use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt};
 use crate::ic_log::{INFO, WARNING};
-use crate::state::{mutate_state, read_state, get_redeem_fee};
-use crate::types::{ChainState, Directive, Ticket, ChainId, Fee};
+use crate::state::{get_redeem_fee, mutate_state, read_state};
+use crate::types::{ChainId, ChainState, Directive, Memo, Ticket};
+use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -44,20 +44,18 @@ pub fn scan_evm_task() {
 pub async fn sync_mint_status(hash: String) {
     let min_resp_count = read_state(|s| s.minimum_response_count);
     let receipt = if min_resp_count > 1 {
-        checked_get_receipt(&hash).await
-            .map_err(|e| {
-                log!(WARNING,"user query transaction receipt error: {:?}", e);
-                "rpc".to_string()
-            })
+        checked_get_receipt(&hash).await.map_err(|e| {
+            log!(WARNING, "user query transaction receipt error: {:?}", e);
+            "rpc".to_string()
+        })
     } else {
-        call_rpc_with_retry(&hash, get_receipt).await
-            .map_err(|e| {
-                log!(WARNING,"user query transaction receipt error: {:?}", e);
-                "rpc".to_string()
-            })
+        call_rpc_with_retry(&hash, get_receipt).await.map_err(|e| {
+            log!(WARNING, "user query transaction receipt error: {:?}", e);
+            "rpc".to_string()
+        })
     };
 
-    log!(INFO, "{:?}",&receipt);
+    log!(INFO, "{:?}", &receipt);
     if let Ok(Some(tr)) = receipt {
         if tr.status == 0 {
             mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -70,7 +68,11 @@ pub async fn sync_mint_status(hash: String) {
                 mutate_state(|s| s.handled_evm_event.insert(hash));
             }
             Err(e) => {
-                log!(WARNING, "[evm route] handle evm logs error: {}", e.to_string());
+                log!(
+                    WARNING,
+                    "[evm route] handle evm logs error: {}",
+                    e.to_string()
+                );
             }
         }
     }
@@ -136,13 +138,15 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
                 Directive::AddToken(token) => {
                     match crate::updates::add_new_token(token.clone()).await {
                         Ok(_) => {
-                            log!(INFO,
+                            log!(
+                                INFO,
                                 "[process directives] add token successful, token id: {}",
                                 token.token_id
                             );
                         }
                         Err(err) => {
-                            log!(WARNING,
+                            log!(
+                                WARNING,
                                 "[process directives] failed to add token: token id: {}, err: {:?}",
                                 token.token_id,
                                 err
@@ -155,7 +159,11 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
                 }
                 Directive::UpdateFee(fee) => {
                     mutate_state(|s| audit::update_fee(s, fee.clone()));
-                    log!(INFO, "[process_directives] success to update fee, fee: {}", fee);
+                    log!(
+                        INFO,
+                        "[process_directives] success to update fee, fee: {}",
+                        fee
+                    );
                 }
                 Directive::UpdateChain(_) | Directive::UpdateToken(_) | Directive::AddChain(_) => {
                     //the directive need not send to port, it had been processed in fetch hub task.
@@ -187,7 +195,8 @@ pub async fn handle_runes_mint(
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
-    log!(INFO,
+    log!(
+        INFO,
         "[evm_route] rune_mint_ticket sent to hub success: {:?}",
         ticket
     );
@@ -199,7 +208,11 @@ pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyh
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
-    log!(INFO, "[evm_route] burn_ticket sent to hub success: {:?}", ticket);
+    log!(
+        INFO,
+        "[evm_route] burn_ticket sent to hub success: {:?}",
+        ticket
+    );
     Ok(())
 }
 
@@ -211,7 +224,8 @@ pub async fn handle_token_transport(
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
-    log!(INFO,
+    log!(
+        INFO,
         "[evm_route] transport_ticket sent to hub success: {:?}",
         ticket
     );
@@ -278,6 +292,45 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
 
 pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
     let fee = get_redeem_fee(dst_chain);
-    let bridge_fee = Fee {bridge_fee: fee.unwrap_or_default() as u128};
-    bridge_fee.add_to_memo(memo).unwrap_or_default()
+    let memo_json = Memo {
+        memo,
+        bridge_fee: fee.unwrap_or_default() as u128,
+    }
+    .convert_to_memo_json()
+    .unwrap_or_default();
+    Some(memo_json)
+}
+
+#[cfg(test)]
+mod evm_route_test {
+    use crate::types::Memo;
+    use ic_stable_structures::Storable;
+
+    pub fn get_test_memo(memo: Option<String>) -> Option<String> {
+        let memo_json = Memo {
+            memo,
+            bridge_fee: 999_u128,
+        }
+        .convert_to_memo_json()
+        .unwrap_or_default();
+        Some(memo_json)
+    }
+
+    #[test]
+    fn evm_route_memo_with_fee() {
+        let memo = Some("some memo".to_string());
+        // let has_memo = false;
+        let has_memo = true;
+        let _memo = has_memo
+            .then(|| get_test_memo(memo.clone()))
+            .unwrap_or_default();
+
+        let encoded = _memo
+            .clone()
+            .map(|m| m.to_bytes().to_vec())
+            .unwrap_or_default();
+        let decoded = std::str::from_utf8(&encoded).unwrap_or_default();
+        println!("memo {:?}", _memo);
+        println!("decoded: {:?}", decoded);
+    }
 }
