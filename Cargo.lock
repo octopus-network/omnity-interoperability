@@ -4136,16 +4136,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ord-canister-interface"
-version = "0.1.0"
-source = "git+https://github.com/octopus-network/ord-canister#20440ab9fa2dc2e4af65b78d700a31294e8b6d14"
-dependencies = [
- "candid",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "p256"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5001,7 +4991,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 
 [[package]]
-name = "rune_oracle_canister"
+name = "runes-indexer-interface"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fb29a79075d06773a35231faea1ce373f633c3d9a7f4e12f3d967b21fbaf4c2"
+dependencies = [
+ "candid",
+ "serde",
+]
+
+[[package]]
+name = "runes_indexer_proxy"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5016,7 +5016,7 @@ dependencies = [
  "ic-log 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x)",
  "log",
  "omnity_types",
- "ord-canister-interface",
+ "runes-indexer-interface",
  "serde",
  "serde_json",
 ]

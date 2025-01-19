@@ -7,7 +7,6 @@ use candid::Principal;
 pub use ic_btc_interface::Txid;
 use ic_canister_log::log;
 use omnity_types::{ic_log::*, rune_id::RuneId};
-use ord_canister_interface::{OrdError, OrdRuneBalance};
 
 const MIN_CONFIRMATIONS: u32 = 4;
 
@@ -33,22 +32,22 @@ async fn query_indexer(
     vout: u32,
 ) -> anyhow::Result<Option<RunesBalance>> {
     let outpoint = format!("{}:{}", txid, vout);
-    const SKIP_OUTPOINTS: [&str; 2] = [
-        "4a627133b4f251ae35be2c713052674a1abe2163c9ab62fb608c4c87ce2e988e:0",
-        "07acbefc858430fe75ac84eec5b401b0fbc1ec9e25a3a2681789534170f576f7:0",
-    ];
 
-    if SKIP_OUTPOINTS.contains(&outpoint.as_str()) {
-        return Ok(None);
-    }
-
-    let (balances,): (Result<Vec<Option<Vec<OrdRuneBalance>>>, OrdError>,) =
-        ic_cdk::call(principal, "query_runes", (vec![outpoint.clone()],))
-            .await
-            .map_err(|e| {
-                log!(WARNING, "query indexer error {:?}", e);
-                anyhow::anyhow!("{:?}", e)
-            })?;
+    let (balances,): (
+        Result<
+            Vec<Option<Vec<runes_indexer_interface::RuneBalance>>>,
+            runes_indexer_interface::Error,
+        >,
+    ) = ic_cdk::call(
+        principal,
+        "get_rune_balances_for_outputs",
+        (vec![outpoint.clone()],),
+    )
+    .await
+    .map_err(|e| {
+        log!(WARNING, "query indexer error {:?}", e);
+        anyhow::anyhow!("{:?}", e)
+    })?;
 
     let balances = balances.map_err(|e| {
         log!(WARNING, "indexer returns err: {:?}", e);
@@ -62,7 +61,7 @@ async fn query_indexer(
 
     let rune = balances
         .iter()
-        .filter(|b| b.id == rune_id.to_string() && b.confirmations >= MIN_CONFIRMATIONS)
+        .filter(|b| b.rune_id == rune_id.to_string() && b.confirmations >= MIN_CONFIRMATIONS)
         .fold(None, |acc, b| {
             let balance = RunesBalance {
                 rune_id,
@@ -102,7 +101,7 @@ pub(crate) fn fetch_then_submit(secs: u64) {
         ic_cdk::spawn(async move {
             let pending = query_pending_task(customs).await;
             if pending.is_empty() {
-                fetch_then_submit(30);
+                fetch_then_submit(5);
                 return;
             }
             // for each task
@@ -142,7 +141,7 @@ pub(crate) fn fetch_then_submit(secs: u64) {
                 }
             }
             if pending.len() < 50 {
-                fetch_then_submit(30);
+                fetch_then_submit(5);
             } else {
                 fetch_then_submit(1);
             }
