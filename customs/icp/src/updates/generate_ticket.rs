@@ -131,6 +131,7 @@ pub async fn generate_ticket_v2(
 pub async fn generate_ticket(
     req: GenerateTicketReq,
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
+    log!(INFO, "[Consolidation]ICP Custom: receive ticket subaccount: {:?}", req.from_subaccount);
     if get_counterparty(&req.target_chain_id).is_none() {
         return Err(GenerateTicketError::UnsupportedChainId(
             req.target_chain_id.clone(),
