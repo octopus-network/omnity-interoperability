@@ -6,7 +6,7 @@ use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
 
 // use crate::migration::{migrate, PreHubState};
-use crate::self_help::AddRunesTokenReq;
+pub use crate::self_help::{AddRunesTokenReq, FinalizeAddRunesArgs};
 use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta, TxHash};
 use candid::Principal;
 use ic_canister_log::log;

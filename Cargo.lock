@@ -5015,6 +5015,7 @@ dependencies = [
  "ic-cdk-timers 0.6.0",
  "ic-log 0.13.0 (git+https://github.com/octopus-network/canister-sdk.git?tag=v0.12.x)",
  "log",
+ "omnity_hub",
  "omnity_types",
  "runes-indexer-interface",
  "serde",

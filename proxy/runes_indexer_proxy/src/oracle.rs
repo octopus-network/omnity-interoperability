@@ -6,7 +6,9 @@ use bitcoin_customs::{
 use candid::Principal;
 pub use ic_btc_interface::Txid;
 use ic_canister_log::log;
+use omnity_hub::state::{AddRunesTokenReq, FinalizeAddRunesArgs};
 use omnity_types::{ic_log::*, rune_id::RuneId};
+use runes_indexer_interface::RuneEntry;
 
 const MIN_CONFIRMATIONS: u32 = 4;
 
@@ -22,6 +24,42 @@ async fn query_pending_task(principal: Principal) -> Vec<GenTicketRequestV2> {
             .inspect_err(|e| log!(WARNING, "fetch error: {:?}", e))
             .unwrap_or_default();
     v
+}
+
+async fn query_pending_add_token_task(principal: Principal) -> Vec<AddRunesTokenReq> {
+    let (v,): (Vec<AddRunesTokenReq>,) =
+        ic_cdk::call(principal, "get_add_runes_token_requests", ())
+            .await
+            .inspect_err(|e| log!(WARNING, "get_add_runes_token_requests error: {:?}", e))
+            .unwrap_or_default();
+    v
+}
+
+async fn query_rune_id_from_indexer(principal: Principal, rune_id: String) -> Option<RuneEntry> {
+    let (v,): (Option<RuneEntry>,) = ic_cdk::call(principal, "get_rune_by_id", (rune_id,))
+        .await
+        .inspect_err(|e| log!(WARNING, "get_rune_by_id error: {:?}", e))
+        .unwrap_or_default();
+    v
+}
+
+async fn finalize_add_runes_token_req(
+    principal: Principal,
+    rune_id: String,
+    spaced_rune: String,
+    divisibility: u8,
+) -> anyhow::Result<()> {
+    let finalize_args = FinalizeAddRunesArgs {
+        rune_id,
+        name: spaced_rune,
+        decimal: divisibility,
+    };
+
+    let _: () = ic_cdk::call(principal, "finalize_add_runes_token_req", (finalize_args,))
+        .await
+        .inspect_err(|e| log!(WARNING, "finalize_add_runes_token_req error: {:?}", e))
+        .unwrap_or_default();
+    Ok(())
 }
 
 /// query rune utxos
@@ -54,10 +92,9 @@ async fn query_indexer(
         anyhow::anyhow!("{:?}", e)
     })?;
 
-    let balances = balances
-        .get(0)
-        .and_then(|b| b.as_ref())
-        .ok_or_else(|| anyhow::anyhow!("Invalid balances response for outpoint: {}", outpoint))?;
+    let Some(balances) = balances.get(0).and_then(|b| b.as_ref()) else {
+        return Ok(None);
+    };
 
     let rune = balances
         .iter()
@@ -94,57 +131,69 @@ async fn update_runes_balance(
     Ok(())
 }
 
-pub(crate) fn fetch_then_submit(secs: u64) {
+async fn finalize_update_runes_balance() {
     let customs = crate::customs_principal();
     let indexer = crate::indexer_principal();
+    let pending = query_pending_task(customs).await;
+    for task in pending.iter() {
+        let mut balances = vec![];
+        let mut error = false;
+        for utxo in task.new_utxos.iter() {
+            match query_indexer(
+                indexer,
+                task.rune_id,
+                format!("{}", utxo.outpoint.txid),
+                utxo.outpoint.vout,
+            )
+            .await
+            {
+                Ok(Some(balance)) => balances.push(balance),
+                Ok(None) => log!(INFO, "no rune found for utxo {:?}", utxo.outpoint),
+                Err(e) => {
+                    log!(ERROR, "{:?}", e);
+                    error = true;
+                    break;
+                }
+            }
+        }
+        // ignore the task if any error occurs
+        if error {
+            continue;
+        }
+        log!(
+            INFO,
+            "prepare to submit {:?} rune balances for task {}",
+            balances,
+            task.txid.to_string()
+        );
+        if let Err(e) = update_runes_balance(customs, task.txid, balances).await {
+            log!(ERROR, "{:?}", e);
+        }
+    }
+}
+async fn finalize_add_rune() {
+    let hub = crate::hub_principal();
+    let indexer = crate::indexer_principal();
+    let pending = query_pending_add_token_task(hub).await;
+    for task in pending.iter() {
+        let rune_entry = query_rune_id_from_indexer(indexer, task.rune_id.clone()).await;
+        if let Some(rune_entry) = rune_entry {
+            finalize_add_runes_token_req(
+                hub,
+                task.rune_id.clone(),
+                rune_entry.spaced_rune,
+                rune_entry.divisibility,
+            )
+            .await;
+        }
+    }
+}
+
+pub(crate) fn fetch_then_submit(secs: u64) {
     ic_cdk_timers::set_timer(std::time::Duration::from_secs(secs), move || {
         ic_cdk::spawn(async move {
-            let pending = query_pending_task(customs).await;
-            if pending.is_empty() {
-                fetch_then_submit(5);
-                return;
-            }
-            // for each task
-            for task in pending.iter() {
-                let mut balances = vec![];
-                let mut error = false;
-                for utxo in task.new_utxos.iter() {
-                    match query_indexer(
-                        indexer,
-                        task.rune_id,
-                        format!("{}", utxo.outpoint.txid),
-                        utxo.outpoint.vout,
-                    )
-                    .await
-                    {
-                        Ok(Some(balance)) => balances.push(balance),
-                        Ok(None) => log!(INFO, "no rune found for utxo {:?}", utxo.outpoint),
-                        Err(e) => {
-                            log!(ERROR, "{:?}", e);
-                            error = true;
-                            break;
-                        }
-                    }
-                }
-                // ignore the task if any error occurs
-                if error {
-                    continue;
-                }
-                log!(
-                    INFO,
-                    "prepare to submit {:?} rune balances for task {}",
-                    balances,
-                    task.txid.to_string()
-                );
-                if let Err(e) = update_runes_balance(customs, task.txid, balances).await {
-                    log!(ERROR, "{:?}", e);
-                }
-            }
-            if pending.len() < 50 {
-                fetch_then_submit(5);
-            } else {
-                fetch_then_submit(1);
-            }
+            finalize_update_runes_balance().await;
+            fetch_then_submit(5);
         });
     });
 }
