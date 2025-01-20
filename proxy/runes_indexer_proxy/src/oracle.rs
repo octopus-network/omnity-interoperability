@@ -176,6 +176,7 @@ async fn finalize_add_rune() {
     let indexer = crate::indexer_principal();
     let pending = query_pending_add_token_task(hub).await;
     for task in pending.iter() {
+        log!(INFO, "finalize add rune for task {:?}", task);
         let rune_entry = query_rune_id_from_indexer(indexer, task.rune_id.clone()).await;
         if let Some(rune_entry) = rune_entry {
             finalize_add_runes_token_req(
@@ -193,6 +194,7 @@ pub(crate) fn fetch_then_submit(secs: u64) {
     ic_cdk_timers::set_timer(std::time::Duration::from_secs(secs), move || {
         ic_cdk::spawn(async move {
             finalize_update_runes_balance().await;
+            finalize_add_rune().await;
             fetch_then_submit(5);
         });
     });
