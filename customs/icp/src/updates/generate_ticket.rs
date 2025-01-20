@@ -237,6 +237,9 @@ async fn transfer_token_icrc2(
     ))?;
     let route = ic_cdk::id();
     let transfer_amount = Nat::from(amount) - fee;
+    if transfer_amount <= Nat::from(0_u128) {
+        return Err(GenerateTicketError::CustomError("transfer amount is less than fee".to_string()));
+    }
     let result = client
         .transfer_from(TransferFromArgs {
             spender_subaccount: None,

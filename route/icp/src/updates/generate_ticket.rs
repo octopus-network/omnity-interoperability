@@ -1,10 +1,7 @@
 use crate::state::{audit, mutate_state, read_state};
 use crate::{hub, ICP_TRANSFER_FEE};
 use candid::{CandidType, Deserialize, Nat, Principal};
-use ic_cdk::api::management_canister;
-use ic_cdk::caller;
 use ic_crypto_sha2::Sha256;
-use ic_ledger_canister_core::ledger;
 use ic_ledger_types::{
     AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT,
     MAINNET_LEDGER_CANISTER_ID,
@@ -37,6 +34,7 @@ pub struct GenerateTicketOk {
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum GenerateTicketError {
     TemporarilyUnavailable(String),
+    InvalidTicketAmount(u128),
     UnsupportedToken(String),
     UnsupportedChainId(String),
     /// The redeem account does not hold the requested token amount.
@@ -75,6 +73,10 @@ pub async fn generate_ticket(
         return Err(GenerateTicketError::UnsupportedChainId(
             req.target_chain_id.clone(),
         ));
+    }
+
+    if req.amount <= 0 {
+        return Err(GenerateTicketError::InvalidTicketAmount(req.amount));
     }
 
     let ledger_id = read_state(|s| match s.token_ledgers.get(&req.token_id) {
