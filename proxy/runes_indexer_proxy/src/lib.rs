@@ -8,6 +8,7 @@ use std::cell::RefCell;
 thread_local! {
     static CUSTOMS_PRINCIPAL: RefCell<Option<Principal>> = RefCell::new(None);
     static INDEXER_PRINCIPAL: RefCell<Option<Principal>> = RefCell::new(None);
+    static HUB_PRINCIPAL: RefCell<Option<Principal>> = RefCell::new(None);
 }
 
 pub(crate) fn customs_principal() -> Principal {
@@ -18,10 +19,15 @@ pub(crate) fn indexer_principal() -> Principal {
     INDEXER_PRINCIPAL.with(|p| p.borrow().clone().expect("not initialized"))
 }
 
+pub(crate) fn hub_principal() -> Principal {
+    HUB_PRINCIPAL.with(|p| p.borrow().clone().expect("not initialized"))
+}
+
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct Args {
     pub customs: Principal,
     pub indexer: Principal,
+    pub hub: Principal,
 }
 
 #[query(hidden = true)]
@@ -40,6 +46,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 pub fn init(args: Args) {
     CUSTOMS_PRINCIPAL.with(|p| p.replace(Some(args.customs)));
     INDEXER_PRINCIPAL.with(|p| p.replace(Some(args.indexer)));
+    HUB_PRINCIPAL.with(|p| p.replace(Some(args.hub)));
     oracle::fetch_then_submit(5);
 }
 
@@ -47,15 +54,17 @@ pub fn init(args: Args) {
 fn pre_upgrade() {
     let customs = CUSTOMS_PRINCIPAL.with(|p| p.take());
     let indexer = INDEXER_PRINCIPAL.with(|p| p.take());
-    ic_cdk::storage::stable_save((customs, indexer)).unwrap();
+    let hub = HUB_PRINCIPAL.with(|p| p.take());
+    ic_cdk::storage::stable_save((customs, indexer, hub)).unwrap();
 }
 
 #[post_upgrade]
 fn post_upgrade() {
-    let (customs, indexer): (Option<Principal>, Option<Principal>) =
+    let (customs, indexer, hub): (Option<Principal>, Option<Principal>, Option<Principal>) =
         ic_cdk::storage::stable_restore().unwrap();
     CUSTOMS_PRINCIPAL.with(|p| p.replace(customs));
     INDEXER_PRINCIPAL.with(|p| p.replace(indexer));
+    HUB_PRINCIPAL.with(|p| p.replace(hub));
     oracle::fetch_then_submit(5);
 }
 

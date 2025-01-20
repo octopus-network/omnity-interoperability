@@ -1,2 +1,0 @@
-type Args = record { customs : principal; indexer : principal };
-service : (Args) -> {}

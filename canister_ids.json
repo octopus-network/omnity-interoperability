@@ -23,22 +23,22 @@
   "icp_customs": {
     "ic": "nlgkm-4qaaa-aaaar-qah2q-cai"
   },
+  "icp_ledger": {
+    "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
+  },
   "icp_route": {
     "ic": "7ywcn-nyaaa-aaaar-qaeza-cai"
   },
   "omnity_hub": {
     "ic": "7wupf-wiaaa-aaaar-qaeya-cai"
   },
-  "runes_oracle": {
-    "ic": "r3teu-uiaaa-aaaal-ajlvq-cai"
+  "rich_ledger": {
+    "ic": "77xez-aaaaa-aaaar-qaezq-cai"
+  },
+  "runes_indexer_proxy": {
+    "ic": "l542s-aiaaa-aaaar-qam6q-cai"
   },
   "ton_route": {
     "ic": "p5ykc-qaaaa-aaaar-qalyq-cai"
-  },
-  "icp_ledger": {
-    "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
-  },
-  "rich_ledger": {
-    "ic": "77xez-aaaaa-aaaar-qaezq-cai"
   }
 }

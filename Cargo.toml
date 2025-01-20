@@ -8,7 +8,7 @@ members = [
     "route/bitfinity",
     "route/ton",
     "proxy/cosmwasm",
-    "proxy/runes_proxy",
+    "proxy/runes_indexer_proxy",
     "proxy/generic_proxy",
     "oracle/brc20_oracle",
     "types",

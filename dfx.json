@@ -125,10 +125,10 @@
       "package": "icp_mock",
       "type": "rust"
     },
-    "runes_oracle": {
+    "runes_indexer_proxy": {
       "gzip": true,
-      "candid": "proxy/runes_proxy/oracle.did",
-      "package": "rune_oracle_canister",
+      "candid": "proxy/runes_indexer_proxy/runes_indexer_proxy.did",
+      "package": "runes_indexer_proxy",
       "type": "rust"
     },
     "solana_route": {
