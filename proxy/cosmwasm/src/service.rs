@@ -144,6 +144,8 @@ pub async fn generate_ticket_from_subaccount(
     let ticket_amount = nat_to_u128(balance)
         .and_then(|u| u.checked_sub(2 * CKBTC_FEE as u128).ok_or(Errors::CustomError("overflow".to_string())))
         .map_err(|e| e.to_string())?;
+    // 1. cosm proxy => icp custom generate ticket
+    log!(INFO, "[Consolidation]Proxy: start generate ticket, osmosis account id: {}, subaccount: {:?}", osmosis_account_id, subaccount);
     let ticket_id = generate_ticket(
         setting.token_id,
         setting.target_chain_id,
@@ -153,7 +155,7 @@ pub async fn generate_ticket_from_subaccount(
     )
     .await
     .map_err(|e| e.to_string())?;
-
+    log!(INFO, "[Consolidation]Proxy: generate ticket finished, osmosis account id: {}, ticket id: {}", osmosis_account_id, ticket_id);
     extend_ticket_records(osmosis_account_id, vec![TicketRecord {
             ticket_id: ticket_id.clone(),
             minted_utxos: vec![],
