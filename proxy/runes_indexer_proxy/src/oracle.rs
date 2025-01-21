@@ -8,7 +8,7 @@ pub use ic_btc_interface::Txid;
 use ic_canister_log::log;
 use omnity_hub::state::{AddRunesTokenReq, FinalizeAddRunesArgs};
 use omnity_types::{ic_log::*, rune_id::RuneId};
-use runes_indexer_interface::RuneEntry;
+use runes_indexer_interface::{self, RuneEntry};
 
 const MIN_CONFIRMATIONS: u32 = 4;
 
@@ -21,7 +21,7 @@ async fn query_pending_task(principal: Principal) -> Vec<GenTicketRequestV2> {
     let (v,): (Vec<GenTicketRequestV2>,) =
         ic_cdk::call(principal, "get_pending_gen_ticket_requests", (args,))
             .await
-            .inspect_err(|e| log!(WARNING, "fetch error: {:?}", e))
+            .inspect_err(|e| log!(WARNING, "get_pending_gen_ticket_requests error: {:?}", e))
             .unwrap_or_default();
     v
 }
@@ -71,28 +71,29 @@ async fn query_indexer(
 ) -> anyhow::Result<Option<RunesBalance>> {
     let outpoint = format!("{}:{}", txid, vout);
 
-    let (balances,): (
-        Result<
-            Vec<Option<Vec<runes_indexer_interface::RuneBalance>>>,
-            runes_indexer_interface::Error,
-        >,
-    ) = ic_cdk::call(
-        principal,
-        "get_rune_balances_for_outputs",
-        (vec![outpoint.clone()],),
-    )
-    .await
-    .map_err(|e| {
-        log!(WARNING, "query indexer error {:?}", e);
-        anyhow::anyhow!("{:?}", e)
+    let (result,): (Result<Vec<Option<Vec<runes_indexer_interface::RuneBalance>>>, _>,) =
+        ic_cdk::call(
+            principal,
+            "get_rune_balances_for_outputs",
+            (vec![outpoint],),
+        )
+        .await
+        .map_err(|e| {
+            log!(WARNING, "get_rune_balances_for_outputs error {:?}", e);
+            anyhow::anyhow!("IC call failed: {e:?}")
+        })?;
+
+    let result = result.map_err(|e: runes_indexer_interface::Error| {
+        log!(
+            WARNING,
+            "get_rune_balances_for_outputs returns err: {:?}",
+            e
+        );
+        anyhow::anyhow!("query indexer error: {e:?}")
     })?;
 
-    let balances = balances.map_err(|e| {
-        log!(WARNING, "indexer returns err: {:?}", e);
-        anyhow::anyhow!("{:?}", e)
-    })?;
-
-    let Some(balances) = balances.get(0).and_then(|b| b.as_ref()) else {
+    // Early return None if we don't have balance data
+    let Some(Some(balances)) = result.first() else {
         return Ok(None);
     };
 
@@ -107,13 +108,6 @@ async fn query_indexer(
             };
             Some(balance)
         });
-    log!(
-        INFO,
-        "query indexer for outpoint: {}, rune_id: {}, result: rune: {:?}",
-        outpoint,
-        rune_id,
-        rune
-    );
 
     Ok(rune)
 }
@@ -126,7 +120,7 @@ async fn update_runes_balance(
     let args = UpdateRunesBalanceArgs { txid, balances };
     let _: () = ic_cdk::call(principal, "update_runes_balance", (args,))
         .await
-        .inspect_err(|e| log!(WARNING, "update error: {:?}", e))
+        .inspect_err(|e| log!(WARNING, "update_runes_balance error: {:?}", e))
         .map_err(|e| anyhow::anyhow!("{:?}", e))?;
     Ok(())
 }
@@ -135,7 +129,16 @@ async fn finalize_update_runes_balance() {
     let customs = crate::customs_principal();
     let indexer = crate::indexer_principal();
     let pending = query_pending_task(customs).await;
+    if pending.is_empty() {
+        return;
+    }
+    log!(
+        INFO,
+        "pending update_runes_balance task count: {:?}",
+        pending.len()
+    );
     for task in pending.iter() {
+        log!(INFO, "new update_runes_balance task {:?}", task);
         let mut balances = vec![];
         let mut error = false;
         for utxo in task.new_utxos.iter() {
@@ -147,8 +150,11 @@ async fn finalize_update_runes_balance() {
             )
             .await
             {
-                Ok(Some(balance)) => balances.push(balance),
-                Ok(None) => log!(INFO, "no rune found for utxo {:?}", utxo.outpoint),
+                Ok(Some(balance)) => {
+                    log!(INFO, "found runes balance {:?}", balance);
+                    balances.push(balance);
+                }
+                Ok(None) => log!(INFO, "no runes balance found for utxo {:?}", utxo.outpoint),
                 Err(e) => {
                     log!(ERROR, "{:?}", e);
                     error = true;
@@ -175,8 +181,12 @@ async fn finalize_add_rune() {
     let hub = crate::hub_principal();
     let indexer = crate::indexer_principal();
     let pending = query_pending_add_token_task(hub).await;
+    if pending.is_empty() {
+        return;
+    }
+    log!(INFO, "pending add rune task count: {:?}", pending.len());
     for task in pending.iter() {
-        log!(INFO, "finalize add rune for task {:?}", task);
+        log!(INFO, "new add rune task {:?}", task);
         let rune_entry = query_rune_id_from_indexer(indexer, task.rune_id.clone()).await;
         if let Some(rune_entry) = rune_entry {
             finalize_add_runes_token_req(

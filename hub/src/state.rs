@@ -6,7 +6,7 @@ use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
 
 // use crate::migration::{migrate, PreHubState};
-use crate::self_help::AddRunesTokenReq;
+pub use crate::self_help::{AddRunesTokenReq, FinalizeAddRunesArgs};
 use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use omnity_types::{Amount, TxHash};
 use candid::Principal;
