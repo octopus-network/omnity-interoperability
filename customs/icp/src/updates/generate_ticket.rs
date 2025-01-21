@@ -89,7 +89,6 @@ pub async fn generate_ticket_v2(
     }
 
     let ledger_id = get_token_principal(&req.token_id).ok_or(GenerateTicketError::UnsupportedToken(req.token_id.clone()))?;
-
     let user = Account {
         owner: ic_cdk::caller(),
         subaccount: req.from_subaccount,

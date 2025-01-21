@@ -174,7 +174,12 @@ pub enum Event {
     #[serde(rename = "updated_fee")]
     UpdatedFee { fee: Factor },
     #[serde(rename = "upate_fee_collector")]
-    UpdateFeeCollector { addr: String }
+    UpdateFeeCollector { addr: String },
+
+    #[serde(rename = "update_ord_indexer")]
+    UpdatedOrdIndexer { principal: Principal },
+    #[serde(rename = "update_icpswap")]
+    UpdateIcpswap { principal: Principal },
 }
 
 #[derive(Debug)]
@@ -403,23 +408,27 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             Event::UpdatedRpcURL { rpc_url } => {
                 state.rpc_url = Some(rpc_url);
             }
-            Event::UpdatedFee { fee } => {
-                match fee {
-                    Factor::UpdateTargetChainFactor(factor) => {
-                        state
-                            .target_chain_factor
-                            .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
-                    }
+            Event::UpdatedFee { fee } => match fee {
+                Factor::UpdateTargetChainFactor(factor) => {
+                    state
+                        .target_chain_factor
+                        .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
+                }
 
-                    Factor::UpdateFeeTokenFactor(token_factor) => {
-                        if token_factor.fee_token == "BTC" {
-                            state.fee_token_factor = Some(token_factor.fee_token_factor);
-                        }
+                Factor::UpdateFeeTokenFactor(token_factor) => {
+                    if token_factor.fee_token == "BTC" {
+                        state.fee_token_factor = Some(token_factor.fee_token_factor);
                     }
                 }
             },
-            Event::UpdateFeeCollector{addr} => {
+            Event::UpdateFeeCollector { addr } => {
                 state.fee_collector_address = addr;
+            }
+            Event::UpdatedOrdIndexer { principal } => {
+                state.ord_indexer_principal = Some(principal);
+            }
+            Event::UpdateIcpswap { principal } => {
+                state.icpswap_principal = Some(principal);
             }
         }
     }

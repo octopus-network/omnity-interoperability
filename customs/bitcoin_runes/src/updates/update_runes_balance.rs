@@ -4,8 +4,8 @@ use crate::state::{mutate_state, read_state};
 use candid::{CandidType, Deserialize};
 use ic_btc_interface::{OutPoint, Txid};
 use ic_canister_log::log;
-use serde::Serialize;
 use omnity_types::ic_log::{ERROR, INFO};
+use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UpdateRunesBalanceArgs {

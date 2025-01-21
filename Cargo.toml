@@ -34,7 +34,6 @@ opt-level = 'z'
 inherits = "release"
 debug = false
 
-
 [workspace.dependencies]
 candid = { version = "0.10" }
 candid_parser = { version = "0.1.2" }

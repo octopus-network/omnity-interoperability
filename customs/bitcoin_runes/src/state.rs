@@ -3,6 +3,7 @@
 //! The state is stored in the global thread-level variable `__STATE`.
 //! This module provides utility functions to manage the state. Most
 //! code should use those functions instead of touching `__STATE` directly.
+use std::string::ToString;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -13,6 +14,9 @@ pub mod eventlog;
 
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
+use crate::runes_etching::transactions::SendEtchingRequest;
+use crate::runes_etching::EtchingArgs;
+use crate::storage::VMem;
 use crate::{address::BitcoinAddress, ECDSAPublicKey};
 use crate::{
     destination::Destination,
@@ -22,12 +26,13 @@ use candid::{CandidType, Deserialize, Principal};
 pub use ic_btc_interface::Network;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use ic_canister_log::log;
+use ic_stable_structures::{StableBTreeMap, StableVec};
 use ic_utils_ensure::{ensure, ensure_eq};
+use omnity_types::ic_log::INFO;
 use omnity_types::{
     rune_id::RuneId, Chain, ChainId, ChainState, TicketId, Token, TokenId, TxAction,
 };
 use serde::Serialize;
-use omnity_types::ic_log::INFO;
 
 /// The maximum number of finalized requests that we keep in the
 /// history.
@@ -244,7 +249,7 @@ pub enum GenTicketStatus {
 /// The state of the Bitcoin Customs.
 ///
 /// Every piece of state of the Customs should be stored as field of this struct.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, Serialize)]
+#[derive(serde::Deserialize, Serialize)]
 pub struct CustomsState {
     /// The bitcoin network that the customs will connect to
     pub btc_network: Network,
@@ -348,6 +353,9 @@ pub struct CustomsState {
     #[serde(skip)]
     pub is_process_ticket_msg: bool,
 
+    #[serde(skip)]
+    pub is_process_etching_msg: bool,
+
     /// The mode in which the customs runs.
     pub chain_state: ChainState,
 
@@ -361,17 +369,57 @@ pub struct CustomsState {
 
     #[serde(default)]
     pub fee_collector_address: String,
+
+    //properties for etching
+    #[serde(default)]
+    pub etching_acount_info: EtchingAccountInfo,
+
+    #[serde(default)]
+    pub ord_indexer_principal: Option<Principal>,
+
+    #[serde(default)]
+    pub icpswap_principal: Option<Principal>,
+
+    #[serde(skip, default = "crate::storage::init_etching_fee_utxos")]
+    pub etching_fee_utxos: StableVec<crate::runes_etching::Utxo, VMem>,
+    #[serde(skip, default = "crate::storage::init_pending_etching_requests")]
+    pub pending_etching_requests: StableBTreeMap<String, SendEtchingRequest, VMem>,
+    #[serde(skip, default = "crate::storage::init_finalized_etching_requests")]
+    pub finalized_etching_requests: StableBTreeMap<String, SendEtchingRequest, VMem>,
+}
+
+pub struct EtchingRequest {
+    pub args: EtchingArgs,
+    pub etching_result: SendEtchingRequest,
+}
+
+#[derive(Clone, Debug, PartialEq, Default, Eq, serde::Deserialize, Serialize, CandidType)]
+pub struct EtchingAccountInfo {
+    pub pubkey: String,
+    pub address: String,
+    pub derive_path: String,
+}
+
+impl EtchingAccountInfo {
+    pub fn is_inited(&self) -> bool {
+        !self.pubkey.is_empty() && !self.address.is_empty()
+    }
 }
 
 impl CustomsState {
-    pub fn get_transfer_fee_info(&self, target_chain_id: &ChainId) -> (Option<u128>, Option<String>) {
+    pub fn get_transfer_fee_info(
+        &self,
+        target_chain_id: &ChainId,
+    ) -> (Option<u128>, Option<String>) {
         if target_chain_id.ne("Ethereum") {
             return (None, None);
         }
         let fee = self.fee_token_factor.and_then(|f| {
-            self.target_chain_factor.get(target_chain_id).map(|factor| f * factor)
+            self.target_chain_factor
+                .get(target_chain_id)
+                .map(|factor| f * factor)
         });
-        (fee, fee.map(|_|self.fee_collector_address.clone()))
+        (fee, fee.map(|_| self.fee_collector_address.clone()))
     }
 
     pub fn reinit(
@@ -1170,6 +1218,7 @@ impl From<InitArgs> for CustomsState {
             is_timer_running: false,
             is_process_directive_msg: false,
             is_process_ticket_msg: false,
+            is_process_etching_msg: false,
             chain_state: args.chain_state,
             hub_principal: args.hub_principal,
             runes_oracles: BTreeSet::from_iter(vec![args.runes_oracle_principal]),
@@ -1178,6 +1227,12 @@ impl From<InitArgs> for CustomsState {
             fee_token_factor: None,
             target_chain_factor: Default::default(),
             fee_collector_address: "".to_string(),
+            etching_acount_info: Default::default(),
+            pending_etching_requests: crate::storage::init_pending_etching_requests(),
+            finalized_etching_requests: crate::storage::init_finalized_etching_requests(),
+            ord_indexer_principal: None,
+            icpswap_principal: None,
+            etching_fee_utxos: crate::storage::init_etching_fee_utxos(),
         }
     }
 }
