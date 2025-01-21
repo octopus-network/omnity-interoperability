@@ -28,12 +28,33 @@ export const idlFactory = ({ IDL }) => {
     'Upgrade' : IDL.Opt(UpgradeArgs),
     'Init' : InitArgs,
   });
+  const LogoParams = IDL.Record({
+    'content_type' : IDL.Text,
+    'content_base64' : IDL.Text,
+  });
+  const Result = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : IDL.Text });
   const RuneId = IDL.Record({ 'tx' : IDL.Nat32, 'block' : IDL.Nat64 });
   const EstimateFeeArgs = IDL.Record({
     'amount' : IDL.Opt(IDL.Nat),
     'rune_id' : RuneId,
   });
   const RedeemFee = IDL.Record({ 'bitcoin_fee' : IDL.Nat64 });
+  const OrdinalsTerms = IDL.Record({
+    'cap' : IDL.Nat,
+    'height' : IDL.Tuple(IDL.Opt(IDL.Nat64), IDL.Opt(IDL.Nat64)),
+    'offset' : IDL.Tuple(IDL.Opt(IDL.Nat64), IDL.Opt(IDL.Nat64)),
+    'amount' : IDL.Nat,
+  });
+  const EtchingArgs = IDL.Record({
+    'terms' : IDL.Opt(OrdinalsTerms),
+    'turbo' : IDL.Bool,
+    'premine' : IDL.Opt(IDL.Nat),
+    'logo' : IDL.Opt(LogoParams),
+    'rune_name' : IDL.Text,
+    'divisibility' : IDL.Opt(IDL.Nat8),
+    'symbol' : IDL.Opt(IDL.Text),
+  });
+  const Result_1 = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
   const GenerateTicketArgs = IDL.Record({
     'txid' : IDL.Text,
     'target_chain_id' : IDL.Text,
@@ -56,7 +77,10 @@ export const idlFactory = ({ IDL }) => {
     'UnsupportedChainId' : IDL.Text,
     'UnsupportedToken' : IDL.Text,
   });
-  const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : GenerateTicketError });
+  const Result_2 = IDL.Variant({
+    'Ok' : IDL.Null,
+    'Err' : GenerateTicketError,
+  });
   const OutPoint = IDL.Record({
     'txid' : IDL.Vec(IDL.Nat8),
     'vout' : IDL.Nat32,
@@ -86,6 +110,12 @@ export const idlFactory = ({ IDL }) => {
   const GetBtcAddressArgs = IDL.Record({
     'target_chain_id' : IDL.Text,
     'receiver' : IDL.Text,
+  });
+  const TokenPrice = IDL.Record({
+    'name' : IDL.Text,
+    'priceUSD' : IDL.Float64,
+    'standard' : IDL.Text,
+    'symbol' : IDL.Text,
   });
   const CanisterStatusType = IDL.Variant({
     'stopped' : IDL.Null,
@@ -128,9 +158,65 @@ export const idlFactory = ({ IDL }) => {
     'chain_type' : ChainType,
     'contract_address' : IDL.Opt(IDL.Text),
   });
+  const EtchingAccountInfo = IDL.Record({
+    'derive_path' : IDL.Text,
+    'pubkey' : IDL.Text,
+    'address' : IDL.Text,
+  });
+  const ECDSAPublicKey = IDL.Record({
+    'public_key' : IDL.Vec(IDL.Nat8),
+    'chain_code' : IDL.Vec(IDL.Nat8),
+  });
+  const Network = IDL.Variant({
+    'mainnet' : IDL.Null,
+    'regtest' : IDL.Null,
+    'testnet' : IDL.Null,
+  });
   const CustomsInfo = IDL.Record({
+    'runes_oracles' : IDL.Vec(IDL.Principal),
+    'last_fee_per_vbyte' : IDL.Vec(IDL.Nat64),
+    'etching_acount_info' : EtchingAccountInfo,
+    'hub_principal' : IDL.Principal,
+    'ecdsa_key_name' : IDL.Text,
+    'next_directive_seq' : IDL.Nat64,
+    'fee_collector_address' : IDL.Text,
+    'icpswap_principal' : IDL.Opt(IDL.Principal),
+    'ecdsa_public_key' : IDL.Opt(ECDSAPublicKey),
+    'max_time_in_queue_nanos' : IDL.Nat64,
+    'chain_id' : IDL.Text,
+    'rpc_url' : IDL.Opt(IDL.Text),
+    'generate_ticket_counter' : IDL.Nat64,
+    'btc_network' : Network,
+    'target_chain_factor' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
+    'ord_indexer_principal' : IDL.Opt(IDL.Principal),
+    'next_ticket_seq' : IDL.Nat64,
     'chain_state' : ChainState,
     'min_confirmations' : IDL.Nat32,
+    'prod_ecdsa_public_key' : IDL.Opt(ECDSAPublicKey),
+    'release_token_counter' : IDL.Nat64,
+    'fee_token_factor' : IDL.Opt(IDL.Nat),
+  });
+  const EtchingStatus = IDL.Variant({
+    'SendRevealSuccess' : IDL.Null,
+    'SendRevealFailed' : IDL.Null,
+    'SendCommitFailed' : IDL.Null,
+    'TokenAdded' : IDL.Null,
+    'SendCommitSuccess' : IDL.Null,
+    'Final' : IDL.Null,
+  });
+  const SendEtchingInfo = IDL.Record({
+    'status' : EtchingStatus,
+    'script_out_address' : IDL.Text,
+    'err_info' : IDL.Text,
+    'commit_txid' : IDL.Text,
+    'time_at' : IDL.Nat64,
+    'etching_args' : EtchingArgs,
+    'reveal_txid' : IDL.Text,
+  });
+  const UtxoArgs = IDL.Record({
+    'id' : IDL.Text,
+    'index' : IDL.Nat32,
+    'amount' : IDL.Nat64,
   });
   const GetEventsArg = IDL.Record({
     'start' : IDL.Nat64,
@@ -226,6 +312,7 @@ export const idlFactory = ({ IDL }) => {
     'chain_id' : IDL.Text,
   });
   const Event = IDL.Variant({
+    'update_icpswap' : IDL.Record({ 'principal' : IDL.Principal }),
     'confirmed_generate_ticket_request' : GenTicketRequestV2,
     'received_utxos' : IDL.Record({
       'is_runes' : IDL.Bool,
@@ -234,6 +321,7 @@ export const idlFactory = ({ IDL }) => {
     }),
     'added_runes_oracle' : IDL.Record({ 'principal' : IDL.Principal }),
     'removed_ticket_request' : IDL.Record({ 'txid' : IDL.Vec(IDL.Nat8) }),
+    'update_ord_indexer' : IDL.Record({ 'principal' : IDL.Principal }),
     'removed_runes_oracle' : IDL.Record({ 'principal' : IDL.Principal }),
     'updated_fee' : IDL.Record({ 'fee' : Factor }),
     'sent_transaction' : IDL.Record({
@@ -311,7 +399,7 @@ export const idlFactory = ({ IDL }) => {
   const UpdateBtcUtxosErr = IDL.Variant({
     'TemporarilyUnavailable' : IDL.Text,
   });
-  const Result_1 = IDL.Variant({
+  const Result_3 = IDL.Variant({
     'Ok' : IDL.Vec(Utxo),
     'Err' : UpdateBtcUtxosErr,
   });
@@ -328,22 +416,42 @@ export const idlFactory = ({ IDL }) => {
     'MismatchWithGenTicketReq' : IDL.Null,
     'FinalizeTicketErr' : IDL.Text,
   });
-  const Result_2 = IDL.Variant({
+  const Result_4 = IDL.Variant({
     'Ok' : IDL.Null,
     'Err' : UpdateRunesBalanceError,
   });
   return IDL.Service({
+    'clear_etching' : IDL.Func([], [], []),
+    'estimate_etching_fee' : IDL.Func(
+        [IDL.Nat64, IDL.Text, IDL.Opt(LogoParams)],
+        [Result],
+        [],
+      ),
     'estimate_redeem_fee' : IDL.Func([EstimateFeeArgs], [RedeemFee], ['query']),
-    'generate_ticket' : IDL.Func([GenerateTicketArgs], [Result], []),
+    'etching' : IDL.Func([IDL.Nat64, EtchingArgs], [Result_1], []),
+    'etching_reveal' : IDL.Func([IDL.Text], [], []),
+    'generate_ticket' : IDL.Func([GenerateTicketArgs], [Result_2], []),
     'generate_ticket_status' : IDL.Func(
         [IDL.Text],
         [GenTicketStatus],
         ['query'],
       ),
     'get_btc_address' : IDL.Func([GetBtcAddressArgs], [IDL.Text], []),
+    'get_btc_icp_price' : IDL.Func(
+        [],
+        [IDL.Opt(TokenPrice), IDL.Opt(TokenPrice)],
+        [],
+      ),
     'get_canister_status' : IDL.Func([], [CanisterStatusResponse], []),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_customs_info' : IDL.Func([], [CustomsInfo], ['query']),
+    'get_etching' : IDL.Func([IDL.Text], [IDL.Opt(SendEtchingInfo)], ['query']),
+    'get_etching_by_user' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(SendEtchingInfo)],
+        ['query'],
+      ),
+    'get_etching_fee_utxos' : IDL.Func([], [IDL.Vec(UtxoArgs)], ['query']),
     'get_events' : IDL.Func([GetEventsArg], [IDL.Vec(Event)], ['query']),
     'get_main_btc_address' : IDL.Func([IDL.Text], [IDL.Text], []),
     'get_pending_gen_ticket_requests' : IDL.Func(
@@ -358,18 +466,23 @@ export const idlFactory = ({ IDL }) => {
       ),
     'get_runes_oracles' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
+    'query_bitcoin_balance' : IDL.Func([IDL.Text, IDL.Nat32], [IDL.Nat64], []),
     'release_token_status' : IDL.Func(
         [IDL.Text],
         [ReleaseTokenStatus],
         ['query'],
       ),
+    'remove_error_ticket' : IDL.Func([IDL.Text], [], []),
     'remove_runes_oracle' : IDL.Func([IDL.Principal], [], []),
     'set_fee_collector' : IDL.Func([IDL.Text], [], []),
+    'set_icpswap' : IDL.Func([IDL.Principal], [], []),
+    'set_ord_indexer' : IDL.Func([IDL.Principal], [], []),
     'set_runes_oracle' : IDL.Func([IDL.Principal], [], []),
     'transform' : IDL.Func([TransformArgs], [HttpResponse], ['query']),
-    'update_btc_utxos' : IDL.Func([], [Result_1], []),
+    'update_btc_utxos' : IDL.Func([], [Result_3], []),
+    'update_fees' : IDL.Func([IDL.Vec(UtxoArgs)], [], []),
     'update_rpc_url' : IDL.Func([IDL.Text], [], []),
-    'update_runes_balance' : IDL.Func([UpdateRunesBalanceArgs], [Result_2], []),
+    'update_runes_balance' : IDL.Func([UpdateRunesBalanceArgs], [Result_4], []),
   });
 };
 export const init = ({ IDL }) => {

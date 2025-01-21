@@ -24,9 +24,6 @@ pub enum Brc20 {
     Mint(Brc20Mint),
     #[serde(rename = "transfer")]
     TransferBrc201(Brc20Transfer201),
-    /*  /// Transfer BRC-20 tokens
-    #[serde(rename = "transfer")]
-    Transfer(Brc20Transfer),*/
 }
 
 impl Brc20 {

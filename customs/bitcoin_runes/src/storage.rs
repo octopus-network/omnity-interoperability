@@ -1,15 +1,20 @@
+use crate::runes_etching::transactions::SendEtchingRequest;
 use crate::state::eventlog::Event;
 use ic_stable_structures::{
     log::{Log as StableLog, NoSuchEntry},
     memory_manager::{MemoryId, MemoryManager, VirtualMemory},
-    DefaultMemoryImpl,
+    DefaultMemoryImpl, StableBTreeMap, StableVec,
 };
 use std::cell::RefCell;
+use std::ops::Deref;
 
 const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(0);
 const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(1);
+const ETCHING_FEE_UTXOS_MEMORY_ID: MemoryId = MemoryId::new(50);
+const PENDING_ETCHING_REQUESTS_MEMORY_ID: MemoryId = MemoryId::new(51);
+const FINALIZED_ETCHING_REQUESTS_MEMORY_ID: MemoryId = MemoryId::new(52);
 
-type VMem = VirtualMemory<DefaultMemoryImpl>;
+pub type VMem = VirtualMemory<DefaultMemoryImpl>;
 type EventLog = StableLog<Vec<u8>, VMem, VMem>;
 
 thread_local! {
@@ -27,6 +32,10 @@ thread_local! {
                   ).expect("failed to initialize stable log")
               )
         );
+}
+
+fn with_memory_manager<R>(f: impl FnOnce(&MemoryManager<DefaultMemoryImpl>) -> R) -> R {
+    MEMORY_MANAGER.with(|cell| f(cell.borrow().deref()))
 }
 
 pub struct EventIterator {
@@ -93,4 +102,20 @@ pub fn record_event(event: &Event) {
             .append(&bytes)
             .expect("failed to append an entry to the event log")
     });
+}
+
+pub fn init_etching_fee_utxos() -> StableVec<crate::runes_etching::Utxo, VMem> {
+    StableVec::init(with_memory_manager(|m| m.get(ETCHING_FEE_UTXOS_MEMORY_ID))).unwrap()
+}
+
+pub fn init_pending_etching_requests() -> StableBTreeMap<String, SendEtchingRequest, VMem> {
+    StableBTreeMap::init(with_memory_manager(|m| {
+        m.get(PENDING_ETCHING_REQUESTS_MEMORY_ID)
+    }))
+}
+
+pub fn init_finalized_etching_requests() -> StableBTreeMap<String, SendEtchingRequest, VMem> {
+    StableBTreeMap::init(with_memory_manager(|m| {
+        m.get(FINALIZED_ETCHING_REQUESTS_MEMORY_ID)
+    }))
 }

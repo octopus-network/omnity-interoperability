@@ -11,14 +11,14 @@ use omnity_hub::self_help::{
     LinkChainReq, SelfServiceError, ADD_CHAIN_FEE, ADD_TOKEN_FEE,
 };
 use omnity_hub::state::{with_state, with_state_mut};
-use omnity_hub::types::{ChainMeta, TokenMeta, TxHash};
 use omnity_hub::{proposal, self_help};
 
 use ic_canister_log::log;
 use omnity_hub::lifecycle;
-use omnity_hub::types::{
-    TokenResp, {Proposal, Subscribers},
+use omnity_types::hub_types::{
+    TokenResp, Proposal, Subscribers,ChainMeta, TokenMeta
 };
+use omnity_types::TxHash;
 use omnity_types::ic_log::INFO;
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
@@ -296,6 +296,11 @@ pub async fn get_fees(
     limit: usize,
 ) -> Result<Vec<(ChainId, TokenId, u128)>, Error> {
     metrics::get_fees(chain_id, token_id, offset, limit).await
+}
+
+#[query(guard = "auth_query")]
+pub fn get_runes_oracles() -> Vec<Principal> {
+    with_state(|s|s.runes_oracles.iter().map(|s|s.clone()).collect())
 }
 
 #[query]

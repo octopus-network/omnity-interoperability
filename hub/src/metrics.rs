@@ -1,9 +1,8 @@
 use crate::memory::{self, Memory};
 use crate::{
     state::with_state,
-    types::{ChainMeta, TokenKey, TokenMeta},
 };
-
+use omnity_types::hub_types::{ChainMeta, TokenKey, TokenMeta};
 use ic_stable_structures::StableBTreeMap;
 use omnity_types::{
     Account, Chain, ChainId, ChainState, ChainType, Directive, Error, Ticket, TicketId, Token,

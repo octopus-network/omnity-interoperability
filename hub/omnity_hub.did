@@ -229,6 +229,7 @@ service : (HubArg) -> {
   get_fees : (opt text, opt text, nat64, nat64) -> (Result_8) query;
   get_pending_ticket_size : () -> (Result_4) query;
   get_pending_tickets : (nat64, nat64) -> (Result_9) query;
+  get_runes_oracles : () -> (vec principal) query;
   get_self_service_fee : () -> (SelfServiceFee) query;
   get_token_metas : (nat64, nat64) -> (Result_10) query;
   get_token_position_size : () -> (Result_4) query;

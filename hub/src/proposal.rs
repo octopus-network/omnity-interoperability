@@ -1,9 +1,10 @@
 use ic_canister_log::log;
 use omnity_types::{ic_log::ERROR, ChainState, Directive, Error, Factor};
+use omnity_types::hub_types::Proposal;
+use omnity_types::ic_log::WARNING;
 
 use crate::{
     state::{with_state, with_state_mut},
-    types::Proposal,
 };
 
 pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>, Error> {
@@ -34,7 +35,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                 with_state(|hub_state| {
                     hub_state.chain(&chain_meta.chain_id).map_or(Ok(()), |_| {
                         log!(
-                            ERROR,
+                            WARNING,
                             "The chain(`{}`) already exists",
                             chain_meta.chain_id.to_string()
                         );
@@ -87,7 +88,7 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                     // check token repetitive
                     hub_state.token(&token_meta.token_id).map_or(Ok(()), |_| {
                         log!(
-                            ERROR,
+                            WARNING,
                             "The token(`{}`) already exists",
                             token_meta.to_string()
                         );

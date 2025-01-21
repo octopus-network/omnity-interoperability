@@ -5,7 +5,6 @@ pub mod push_bytes;
 use crate::ord::builder::RedeemScriptPubkey;
 use crate::ord::inscription::brc20::Brc20;
 use crate::ord::inscription::iid::InscriptionId;
-use crate::ord::inscription::nft::Nft;
 use crate::ord::inscription::Inscription;
 use crate::ord::result::{InscriptionParseError, OrdError, OrdResult};
 use bitcoin::script::{Builder as ScriptBuilder, PushBytesBuf};
@@ -18,8 +17,6 @@ use self::envelope::ParsedEnvelope;
 /// Encapsulates inscription parsing logic for both Ordinals and BRC20s.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum OrdParser {
-    /// Denotes a parsed [Nft] inscription.
-    Ordinal(Nft),
     /// Denotes a parsed [Brc20] inscription.
     Brc20(Brc20),
 }
@@ -56,7 +53,9 @@ impl OrdParser {
         if let Some(brc20) = Self::parse_brc20(raw_body) {
             Ok((inscription_id, Self::Brc20(brc20)))
         } else {
-            Ok((inscription_id, Self::Ordinal(envelope.payload)))
+            Err(OrdError::InscriptionParser(InscriptionParseError::ParsedEnvelope(
+                "raw is not a brc20".to_string(),
+            )))
         }
     }
 
@@ -70,38 +69,6 @@ impl OrdParser {
 impl From<Brc20> for OrdParser {
     fn from(inscription: Brc20) -> Self {
         Self::Brc20(inscription)
-    }
-}
-
-impl From<Nft> for OrdParser {
-    fn from(inscription: Nft) -> Self {
-        Self::Ordinal(inscription)
-    }
-}
-
-impl TryFrom<OrdParser> for Nft {
-    type Error = OrdError;
-
-    fn try_from(parser: OrdParser) -> Result<Self, Self::Error> {
-        match parser {
-            OrdParser::Ordinal(nft) => Ok(nft),
-            _ => Err(OrdError::InscriptionParser(
-                InscriptionParseError::NotOrdinal,
-            )),
-        }
-    }
-}
-
-impl TryFrom<&OrdParser> for Nft {
-    type Error = OrdError;
-
-    fn try_from(parser: &OrdParser) -> Result<Self, Self::Error> {
-        match parser {
-            OrdParser::Ordinal(nft) => Ok(nft.clone()),
-            _ => Err(OrdError::InscriptionParser(
-                InscriptionParseError::NotOrdinal,
-            )),
-        }
     }
 }
 
@@ -131,14 +98,12 @@ impl Inscription for OrdParser {
     fn content_type(&self) -> String {
         match self {
             Self::Brc20(inscription) => inscription.content_type(),
-            Self::Ordinal(inscription) => Inscription::content_type(inscription),
         }
     }
 
     fn data(&self) -> OrdResult<PushBytesBuf> {
         match self {
             Self::Brc20(inscription) => inscription.data(),
-            Self::Ordinal(inscription) => inscription.data(),
         }
     }
 
@@ -149,7 +114,6 @@ impl Inscription for OrdParser {
     ) -> OrdResult<ScriptBuilder> {
         match self {
             Self::Brc20(inscription) => inscription.generate_redeem_script(builder, pubkey),
-            Self::Ordinal(inscription) => inscription.generate_redeem_script(builder, pubkey),
         }
     }
 }

@@ -1429,7 +1429,6 @@ fn test_exist_two_submitted_tx() {
         .get(&first_txid)
         .expect("the mempool does not contain the release transaction");
 
-
     // Step 5: wait for the second transaction to be submitted
 
     customs.env.advance_time(Duration::from_secs(5));
@@ -1582,7 +1581,7 @@ fn test_transaction_multi_runes_id() {
     deposit_btc_to_main_address(&customs);
 
     // Step 3: wait for the transaction to be pending
-    
+
     customs.env.advance_time(Duration::from_secs(5));
     customs.await_pending(first_ticket_id.clone(), 10);
     customs.await_pending(second_ticket_id.clone(), 10);

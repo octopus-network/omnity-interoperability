@@ -1,8 +1,8 @@
 use crate::{
     proposal::{execute_proposal, validate_proposal},
-    state::{with_state, with_state_mut},
-    types::{Proposal, TokenMeta},
+    state::{with_state, with_state_mut}
 };
+use omnity_types::hub_types::{Proposal, TokenMeta};
 use candid::{CandidType, Deserialize, Principal};
 use ic_ledger_types::{
     account_balance, AccountBalanceArgs, AccountIdentifier, Memo, Subaccount, Tokens, TransferArgs,
@@ -12,7 +12,7 @@ use omnity_types::{rune_id::RuneId, ChainId};
 use serde::Serialize;
 use std::{collections::HashMap, str::FromStr};
 use crate::self_help::SelfServiceError::LinkError;
-use crate::types::Proposal::UpdateChain;
+use omnity_types::hub_types::Proposal::UpdateChain;
 
 pub const ADD_TOKEN_FEE: u64 = 1_000_000_000;
 pub const ADD_CHAIN_FEE: u64 = 300_000_000;

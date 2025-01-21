@@ -1,11 +1,14 @@
+use bitcoin::blockdata::{constants, opcodes, script};
+use bitcoin::script::PushBytesBuf;
+use serde::Serialize;
+
+use omnity_types::rune_id::RuneId;
+
 use crate::runestone::tag::Tag;
 
 use super::varint;
-use bitcoin::blockdata::{constants, opcodes, script};
-use omnity_types::rune_id::RuneId;
-use serde::Serialize;
 
-const MAGIC_NUMBER: opcodes::All = opcodes::all::OP_PUSHNUM_13;
+const MAGIC_NUMBER: opcodes::Opcode = opcodes::all::OP_PUSHNUM_13;
 
 #[derive(Default, Serialize, Debug, PartialEq, Copy, Clone)]
 pub struct Edict {
@@ -52,7 +55,9 @@ impl Runestone {
             .push_opcode(MAGIC_NUMBER);
 
         for chunk in payload.chunks(constants::MAX_SCRIPT_ELEMENT_SIZE) {
-            let push = chunk.try_into().unwrap();
+            let mut v = chunk.to_vec();
+            let mut push = PushBytesBuf::new();
+            push.extend_from_slice(v.as_mut_slice()).unwrap();
             builder = builder.push_slice(push);
         }
 

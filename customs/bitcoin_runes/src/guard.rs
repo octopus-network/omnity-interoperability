@@ -143,6 +143,29 @@ impl Drop for ProcessTicketMsgGuard {
     }
 }
 
+#[must_use]
+pub struct ProcessEtchingMsgGuard(());
+
+impl crate::guard::ProcessEtchingMsgGuard {
+    pub fn new() -> Option<Self> {
+        mutate_state(|s| {
+            if s.is_process_etching_msg {
+                return None;
+            }
+            s.is_process_etching_msg = true;
+            Some(crate::guard::ProcessEtchingMsgGuard(()))
+        })
+    }
+}
+
+impl Drop for crate::guard::ProcessEtchingMsgGuard {
+    fn drop(&mut self) {
+        mutate_state(|s| {
+            s.is_process_etching_msg = false;
+        });
+    }
+}
+
 pub fn generate_ticket_guard() -> Result<Guard<GenerateTicketUpdates>, GuardError> {
     Guard::new()
 }
