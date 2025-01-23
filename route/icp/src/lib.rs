@@ -33,7 +33,6 @@ async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
-            log!(INFO, "[Consolidation]ICP Route: pull tickets: {:?}", tickets);
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
                 let receiver_parse_result = if ticket.receiver.contains(".") {
