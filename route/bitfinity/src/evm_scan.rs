@@ -1,8 +1,10 @@
+use std::str::FromStr;
 use anyhow::anyhow;
-use did::{TransactionReceipt, transaction::TransactionReceiptLog};
+use did::{TransactionReceipt, transaction::TransactionReceiptLog, H160};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
+use ic_stable_structures::Storable;
 use itertools::Itertools;
 
 use omnity_types::{ChainState, Directive, Ticket, ChainId, Memo};
@@ -15,6 +17,7 @@ use crate::contract_types::{
     TokenBurned, TokenMinted, TokenTransportRequested,
 };
 use crate::convert::{ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event};
+use crate::eth_common::EvmAddress;
 use crate::state::{mutate_state, read_state, bitfinity_get_redeem_fee};
 
 pub fn scan_evm_task() {
@@ -26,6 +29,7 @@ pub fn scan_evm_task() {
         let events = read_state(|s| s.pending_events_on_chain.clone());
         let interval =
             read_state(|s| s.block_interval_secs) * crate::const_args::EVM_FINALIZED_CONFIRM_HEIGHT;
+        let port_address = read_state(|s|s.omnity_port_contract.clone());
         for (hash, time) in events {
             if read_state(|s| s.handled_evm_event.contains(&hash)) {
                 mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -51,6 +55,21 @@ pub fn scan_evm_task() {
                         }
                     }
                 }
+                match tr.to {
+                    None => {
+                        log!(ERROR, "transaction receipt to address is none");
+                        mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+                        continue;
+                    }
+                    Some(h) => {
+                        if h.to_hex_str() != port_address.to_hex() {
+                            log!(ERROR, "attack: receipt to address is not port address");
+                            mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+                            continue;
+                        }
+                    }
+                }
+
                 let res = handle_port_events(tr.logs.clone()).await;
                 match res {
                     Ok(_) => {
@@ -78,6 +97,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
             topics: l.topics.iter().map(|topic| topic.0).collect_vec(),
             data: l.data.clone().into(),
         };
+
         if read_state(|s| s.handled_evm_event.contains(&l.transaction_hash.to_hex_str())) {
             continue;
         }

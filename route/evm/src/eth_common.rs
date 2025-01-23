@@ -468,7 +468,7 @@ pub async fn checked_get_receipt(hash: &String) -> Result<Option<evm_rpc::candid
     if r.len() == 1 {
         return Ok(Some(r.pop().unwrap()));
     }
-    let mut count = 0usize;
+    let mut count;
     for i in 0..r.len() - 1 {
         count = 0;
         for x in i + 1..r.len() {

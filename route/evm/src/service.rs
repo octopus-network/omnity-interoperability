@@ -17,7 +17,7 @@ use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance}
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{process_directives, process_tickets};
 use crate::ic_log::{CRITICAL, INFO, WARNING};
-use crate::route_to_evm::{send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm, to_evm_task};
+use crate::route_to_evm::{send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm};
 use crate::state::{
     EvmRouteState, get_redeem_fee, init_chain_pubkey, minter_addr, mutate_state, read_state,
     replace_state, StateProfile,
