@@ -7,6 +7,7 @@ use evm_rpc::candid_types::TransactionReceipt;
 use ic_canister_log::log;
 use itertools::Itertools;
 
+use crate::*;
 use crate::const_args::SCAN_EVM_TASK_NAME;
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
@@ -16,7 +17,6 @@ use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt};
 use crate::ic_log::{INFO, WARNING};
 use crate::state::{get_redeem_fee, mutate_state, read_state};
 use crate::types::{ChainId, ChainState, Directive, Memo, Ticket};
-use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -54,13 +54,18 @@ pub async fn sync_mint_status(hash: String) {
             "rpc".to_string()
         })
     };
-
-    log!(INFO, "{:?}", &receipt);
+    let port_address = read_state(|s| s.omnity_port_contract.clone());
     if let Ok(Some(tr)) = receipt {
         if tr.status == 0 {
             mutate_state(|s| s.pending_events_on_chain.remove(&hash));
             return;
         }
+
+        if tr.to != port_address.to_hex() {
+            mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+            return;
+        }
+
         let res = handle_port_events(tr.logs.clone()).await;
         match res {
             Ok(_) => {
@@ -303,8 +308,9 @@ pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
 
 #[cfg(test)]
 mod evm_route_test {
-    use crate::types::Memo;
     use ic_stable_structures::Storable;
+
+    use crate::types::Memo;
 
     pub fn get_test_memo(memo: Option<String>) -> Option<String> {
         let memo_json = Memo {
