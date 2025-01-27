@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use cketh_common::address::Address;
 use cketh_common::eth_rpc::Hash;
 use cketh_common::eth_rpc::LogEntry;
 use ethers_core::abi::RawLog;
@@ -84,7 +85,11 @@ pub async fn sync_mint_status(hash: String) {
 }
 
 pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
+    let port = read_state(|s| s.omnity_port_contract.clone());
     for l in logs {
+        if l.address.to_string() != port.to_hex() {
+            continue;
+        }
         if l.removed {
             return Err(anyhow!("log is removed"));
         }
@@ -301,8 +306,8 @@ pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
         memo,
         bridge_fee: fee.unwrap_or_default() as u128,
     }
-    .convert_to_memo_json()
-    .unwrap_or_default();
+        .convert_to_memo_json()
+        .unwrap_or_default();
     Some(memo_json)
 }
 
@@ -317,8 +322,8 @@ mod evm_route_test {
             memo,
             bridge_fee: 999_u128,
         }
-        .convert_to_memo_json()
-        .unwrap_or_default();
+            .convert_to_memo_json()
+            .unwrap_or_default();
         Some(memo_json)
     }
 
