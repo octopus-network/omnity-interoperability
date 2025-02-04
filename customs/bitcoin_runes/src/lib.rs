@@ -54,7 +54,7 @@ pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
 pub const INTERVAL_QUERY_DIRECTIVES: Duration = Duration::from_secs(60);
 pub const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
-pub const INTERVAL_HANDLE_ETCHING: Duration = Duration::from_secs(5 * 60);
+pub const INTERVAL_HANDLE_ETCHING: Duration = Duration::from_secs(2 * 60);
 /// The minimum fee increment for transaction resubmission.
 /// See https://en.bitcoin.it/wiki/Miner_fees#Relaying for more detail.
 pub const MIN_RELAY_FEE_PER_VBYTE: MillisatoshiPerByte = 1_000;
