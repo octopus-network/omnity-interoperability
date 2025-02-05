@@ -10,20 +10,26 @@ use ic_stable_structures::StableBTreeMap;
 use serde::{Deserialize, Serialize};
 
 use omnity_types::ic_log::INFO;
-use omnity_types::{Chain, ChainId, ChainState, Directive, Network, Seq, Ticket, TicketId, Token, TokenId};
+use omnity_types::{
+    Chain, ChainId, ChainState, Directive, Network, Seq, Ticket, TicketId, Token, TokenId,
+};
 
 use crate::constants::MIN_NANOS;
 use crate::custom_to_dogecoin::SendTicketResult;
 use crate::doge::chainparams::{chain_from_key_bits, ChainParams, KeyBits, MAIN_NET_DOGE};
 use crate::doge::ecdsa::derive_public_key;
+use crate::doge::header::BlockHeaderJsonResult;
+use crate::doge::script;
 use crate::doge::script::Address;
 use crate::doge::transaction::Transaction;
-use crate::doge::script;
 use crate::errors::CustomsError;
 use crate::service::InitArgs;
 use crate::stable_memory;
 use crate::stable_memory::Memory;
-use crate::types::{deserialize_hex, wrap_to_customs_error, Destination, ECDSAPublicKey, GenTicketStatus, LockTicketRequest, MultiRpcConfig, ReleaseTokenStatus, RpcConfig, Txid, Utxo};
+use crate::types::{
+    deserialize_hex, wrap_to_customs_error, Destination, ECDSAPublicKey, GenTicketStatus,
+    LockTicketRequest, MultiRpcConfig, ReleaseTokenStatus, RpcConfig, Txid, Utxo,
+};
 
 thread_local! {
     static STATE: RefCell<Option<DogeState>> = const {RefCell::new(None)};
@@ -88,6 +94,12 @@ pub struct DogeState {
     pub deposit_fee_tx_set: StableBTreeMap<String, (), Memory>,
     #[serde(default)]
     pub fee_payment_utxo: Vec<Utxo>,
+
+    #[serde(default)]
+    pub sync_doge_block_header_height: u64,
+
+    #[serde(skip, default = "crate::stable_memory::init_doge_block_headers")]
+    pub doge_block_headers: StableBTreeMap<u64, BlockHeaderJsonResult, Memory>,
 }
 
 #[derive(Serialize, Deserialize, CandidType, Clone)]
@@ -120,7 +132,6 @@ pub struct StateProfile {
     pub tatum_rpc_config: RpcConfig,
     pub multi_rpc_config: MultiRpcConfig,
     pub fee_payment_utxo: Vec<Utxo>,
-
 }
 
 impl From<&DogeState> for StateProfile {
@@ -141,7 +152,11 @@ impl From<&DogeState> for StateProfile {
             next_ticket_seq: value.next_ticket_seq,
             next_directive_seq: value.next_directive_seq,
             next_consume_ticket_seq: value.next_consume_ticket_seq,
-            pending_lock_ticket_requests: value.pending_lock_ticket_requests.iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+            pending_lock_ticket_requests: value
+                .pending_lock_ticket_requests
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             flight_unlock_ticket_map: value.flight_unlock_ticket_map.clone(),
             deposited_utxo: value.deposited_utxo.clone(),
             fee_token: value.fee_token.clone(),
@@ -189,8 +204,16 @@ impl DogeState {
             multi_rpc_config: MultiRpcConfig::default(),
             deposit_fee_tx_set: StableBTreeMap::init(crate::stable_memory::get_deposit_tx_memory()),
             fee_payment_utxo: vec![],
-            finalized_unlock_ticket_results_map: StableBTreeMap::init(crate::stable_memory::get_unlock_ticket_results_memory()),
-            finalized_lock_ticket_requests_map: StableBTreeMap::init(crate::stable_memory::get_lock_ticket_requests_memory()),
+            finalized_unlock_ticket_results_map: StableBTreeMap::init(
+                crate::stable_memory::get_unlock_ticket_results_memory(),
+            ),
+            finalized_lock_ticket_requests_map: StableBTreeMap::init(
+                crate::stable_memory::get_lock_ticket_requests_memory(),
+            ),
+            sync_doge_block_header_height: 0,
+            doge_block_headers: StableBTreeMap::init(
+                crate::stable_memory::get_doge_block_headers_memory(),
+            ),
         };
         Ok(ret)
     }
@@ -284,18 +307,26 @@ impl DogeState {
             .ok_or(CustomsError::ECDSAPublicKeyNotFound)?;
 
         let pk = derive_public_key(&pk, dest.derivation_path());
-        Ok((script::p2pkh_address(&pk.public_key, self.chain_params())?, pk.public_key))
+        Ok((
+            script::p2pkh_address(&pk.public_key, self.chain_params())?,
+            pk.public_key,
+        ))
     }
 
     pub fn save_utxo(&mut self, ticket_request: LockTicketRequest) -> Result<(), CustomsError> {
-        let transaction: Transaction = deserialize_hex(&ticket_request.transaction_hex).map_err(wrap_to_customs_error)?;
-        let destination = Destination::new(ticket_request.target_chain_id.clone(), ticket_request.receiver.clone(), None);
+        let transaction: Transaction =
+            deserialize_hex(&ticket_request.transaction_hex).map_err(wrap_to_customs_error)?;
+        let destination = Destination::new(
+            ticket_request.target_chain_id.clone(),
+            ticket_request.receiver.clone(),
+            None,
+        );
         let destination_address = self.get_address(destination.clone())?.0.to_string();
         for (i, tx_out) in transaction.output.iter().enumerate() {
             if let Some(tx_out_address) = tx_out.get_mainnet_address() {
                 if tx_out_address == destination_address {
-                    self.deposited_utxo.push(
-                        (Utxo {
+                    self.deposited_utxo.push((
+                        Utxo {
                             txid: ticket_request.txid.clone(),
                             vout: i as u32,
                             value: tx_out.value,
@@ -320,17 +351,12 @@ pub async fn init_ecdsa_public_key() -> Result<ECDSAPublicKey, CustomsError> {
         .unwrap_or_else(|e| ic_cdk::trap(&format!("failed to retrieve ECDSA public key: {e}")));
     mutate_state(|s| {
         s.ecdsa_public_key = Some(pub_key.clone());
-        Ok(())
-    })?;
+    });
     Ok(pub_key)
 }
 
-pub fn finalization_time_estimate(
-    min_confirmations: u32,
-) -> Duration {
-    Duration::from_nanos(
-        (min_confirmations + 1) as u64 * 1 * MIN_NANOS
-    )
+pub fn finalization_time_estimate(min_confirmations: u32) -> Duration {
+    Duration::from_nanos((min_confirmations + 1) as u64 * 1 * MIN_NANOS)
 }
 
 pub fn mutate_state<F, R>(f: F) -> R

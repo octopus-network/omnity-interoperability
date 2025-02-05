@@ -9,7 +9,11 @@ use crate::errors::CustomsError;
 use crate::generate_ticket::GenerateTicketWithTxidArgs;
 use crate::hub;
 use crate::state::{finalization_time_estimate, mutate_state, read_state};
-use crate::types::{Destination, LockTicketRequest, Txid, Utxo};
+use crate::types::{
+    deserialize_hex, wrap_to_customs_error, Destination, LockTicketRequest, Txid, Utxo,
+};
+use bitcoin::block::Header;
+use bitcoin::MerkleBlock;
 use ic_canister_log::log;
 use omnity_types::ic_log::{ERROR, INFO};
 
@@ -19,7 +23,9 @@ pub async fn query_and_save_utxo_for_payment_address(txid: String) -> Result<u64
     }
 
     let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
-    let transaction = doge_rpc.get_raw_transaction(&txid).await?;
+    let raw_transaction = doge_rpc.get_raw_transaction(&txid).await?;
+    let transaction: Transaction =
+        deserialize_hex(&raw_transaction.hex).map_err(wrap_to_customs_error)?;
     let (fee_payment_address, _) =
         read_state(|s| s.get_address(Destination::fee_payment_address()))?;
     let typed_txid = Txid::from_str(&txid).map_err(|_| CustomsError::InvalidTxId)?;
@@ -61,16 +67,24 @@ pub async fn check_transaction(
         CustomsError::InvalidArgs(serde_json::to_string(&req).unwrap()),
     )?;
 
-    // if let Some() = read_state(|s| s.multi_rpc_config)
     let default_doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
     let multi_rpc_config = read_state(|s| s.multi_rpc_config.clone());
-    let transaction = if multi_rpc_config.rpc_list.len() > 0 {
-        multi_rpc_config.get_raw_transaction(&req.txid).await?
+    let transaction_json_result = if multi_rpc_config.rpc_list.len() > 0 {
+        multi_rpc_config
+            .get_raw_transaction_json_data(&req.txid)
+            .await?
     } else {
         default_doge_rpc.get_raw_transaction(&req.txid).await?
     };
 
-    log!(INFO, "check transaction: {:?}", transaction);
+    log!(INFO, "get transaction json: {:?}", transaction_json_result);
+
+    let transaction: Transaction = transaction_json_result.try_into().map_err(|e| {
+        CustomsError::CustomError(format!(
+            "failed to convert transaction json to transaction: {:?}",
+            e
+        ))
+    })?;
 
     //check whether need to pay fees for transfer. If fee is None, that means paying fees is not need
     let (fee, addr) = read_state(|s| s.get_transfer_fee_info(&req.target_chain_id));
@@ -110,9 +124,11 @@ pub async fn check_transaction(
             destination.clone(),
         ))?;
 
-    let transaction_of_input = default_doge_rpc
+    let raw_transaction = default_doge_rpc
         .get_raw_transaction(&first_input.prevout.txid.to_string())
         .await?;
+    let transaction_of_input: Transaction =
+        deserialize_hex(&raw_transaction.hex).map_err(wrap_to_customs_error)?;
     let output_of_input = transaction_of_input
         .output
         .get(first_input.prevout.vout as usize)
@@ -172,7 +188,7 @@ pub async fn finalize_lock_ticket_request() {
             .collect::<Vec<(Txid, LockTicketRequest)>>()
     });
     for (txid, _) in should_check_finalizations.clone() {
-        match check_tx_confirmation(txid.clone()).await {
+        match check_tx_confirmation_and_verify_by_merkle_root(txid.clone()).await {
             Ok(can_finalize) => {
                 if can_finalize {
                     match finalize_ticket(txid.clone().into()).await {
@@ -192,11 +208,57 @@ pub async fn finalize_lock_ticket_request() {
     }
 }
 
-pub async fn check_tx_confirmation(txid: Txid) -> Result<bool, CustomsError> {
+pub async fn check_tx_confirmation_and_verify_by_merkle_root(
+    txid: crate::types::Txid,
+) -> Result<bool, CustomsError> {
+    use bitcoin::blockdata::transaction::Txid;
     let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
-    let tx_out = doge_rpc.get_tx_out(txid.to_string().as_str()).await?;
+    let raw_transaction = doge_rpc
+        .get_raw_transaction(txid.to_string().as_str())
+        .await?;
+
     let min_confirmations = read_state(|s| s.min_confirmations);
-    return Ok(tx_out.confirmations >= min_confirmations);
+    if raw_transaction.confirmations < min_confirmations {
+        return Ok(false);
+    }
+
+    let block_json = doge_rpc
+        .get_block(raw_transaction.blockhash.as_str())
+        .await?;
+    let mut txids: Vec<Txid> = vec![];
+    for hex in &block_json.tx {
+        let each_txid = hex
+            .parse::<Txid>()
+            .map_err(|e| CustomsError::CustomError(format!("failed to parse txid: {:?}", e)))?;
+        txids.push(each_txid);
+    }
+
+    let block_header: Header = block_json.clone().try_into()?;
+
+    let txid_typed_in_bitcoin = txid
+        .to_string()
+        .parse::<Txid>()
+        .map_err(|e| CustomsError::CustomError(format!("failed to parse txid: {:?}", e)))?;
+    let merkle_block =
+        MerkleBlock::from_header_txids_with_predicate(&block_header, txids.as_slice(), |t| {
+            t.eq(&txid_typed_in_bitcoin)
+        });
+
+    let verified_block_json_header = read_state(|s| s.doge_block_headers.get(&block_json.height))
+        .ok_or(CustomsError::CustomError(
+        "block header not found".to_string(),
+    ))?;
+
+    let verified_block_header: Header = verified_block_json_header.clone().try_into()?;
+
+    if verified_block_header.block_hash() != merkle_block.header.block_hash() {
+        return Err(CustomsError::MerkleBlockVerifyError(
+            merkle_block.header.block_hash().to_string(),
+            verified_block_header.block_hash().to_string(),
+        ));
+    }
+
+    return Ok(true);
 }
 
 async fn finalize_ticket(txid: Txid) -> Result<(), CustomsError> {
@@ -214,9 +276,7 @@ async fn finalize_ticket(txid: Txid) -> Result<(), CustomsError> {
             ))?;
         s.finalized_lock_ticket_requests_map
             .insert(txid.clone(), v.clone());
-        s.save_utxo(v)?;
-
-        Ok(())
+        s.save_utxo(v)
     })?;
 
     Ok(())

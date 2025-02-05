@@ -1,9 +1,11 @@
-pub mod transaction;
-pub mod script;
+pub mod block;
 pub mod chainparams;
-pub mod opcodes;
 pub mod ecdsa;
-pub mod rpc;
-pub mod tatum_rpc;
 pub mod fee;
+pub mod header;
+pub mod opcodes;
+pub mod rpc;
+pub mod script;
 pub mod sighash;
+pub mod tatum_rpc;
+pub mod transaction;

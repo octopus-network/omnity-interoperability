@@ -72,23 +72,23 @@ async fn process_directives() {
                     Directive::AddToken(token) => {
                         mutate_state(|s| audit::add_token(s, token));
                     }
-                    Directive::UpdateFee(fee) => {
-                        match fee {
-                            Factor::UpdateTargetChainFactor(factor) => {
-                                mutate_state(|s|{
-                                    s.target_chain_factor
-                                        .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
-                                });
-                            }
-                            Factor::UpdateFeeTokenFactor(token_factor) => {
-                                mutate_state(|s|{
-                                    if token_factor.fee_token == s.fee_token {
-                                        s.fee_token_factor = Some(token_factor.fee_token_factor);
-                                    }
-                                });
-                            }
+                    Directive::UpdateFee(fee) => match fee {
+                        Factor::UpdateTargetChainFactor(factor) => {
+                            mutate_state(|s| {
+                                s.target_chain_factor.insert(
+                                    factor.target_chain_id.clone(),
+                                    factor.target_chain_factor,
+                                );
+                            });
                         }
-                    }
+                        Factor::UpdateFeeTokenFactor(token_factor) => {
+                            mutate_state(|s| {
+                                if token_factor.fee_token == s.fee_token {
+                                    s.fee_token_factor = Some(token_factor.fee_token_factor);
+                                }
+                            });
+                        }
+                    },
                 }
                 mutate_state(|s| s.directives_queue.insert(*seq, final_directive));
             }

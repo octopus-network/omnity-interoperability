@@ -1,5 +1,4 @@
-#![allow(unused)]  
-
+#![allow(unused)]
 
 // https://github.com/dogecoin/dogecoin/blob/master/src/script/script.h
 

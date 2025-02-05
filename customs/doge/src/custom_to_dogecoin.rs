@@ -63,7 +63,7 @@ impl Storable for SendTicketResult {
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
         bincode::deserialize(bytes.as_ref()).unwrap()
     }
-    
+
     const BOUND: Bound = Bound::Unbounded;
 }
 
@@ -115,7 +115,7 @@ pub async fn process_unlock_ticket(
             r.txid
         );
         mutate_state(|s| {
-            s.flight_unlock_ticket_map.insert(seq,r);
+            s.flight_unlock_ticket_map.insert(seq, r);
         });
     }
     Ok(())
@@ -177,23 +177,20 @@ pub async fn build_and_send_transaction(
 ) -> Result<(Transaction, crate::doge::transaction::Txid), CustomToBitcoinError> {
     // build transaction
     let all_utxos: Vec<(Utxo, Destination)> = utxos
-    .clone()
-    .into_iter()
-    .chain(
-        fee_utxo
-            .iter()
-            .map(|e| (e.clone(), Destination::fee_payment_address())),
-    )
-    .collect();
+        .clone()
+        .into_iter()
+        .chain(
+            fee_utxo
+                .iter()
+                .map(|e| (e.clone(), Destination::fee_payment_address())),
+        )
+        .collect();
     let chain_params = read_state(|s| s.chain_params());
     let total_fee_utxo_amount: u64 = fee_utxo.iter().map(|u| u.value).sum();
     let (fee_payment_address, _) =
         read_state(|s| s.get_address(Destination::fee_payment_address()))
             .map_err(|e| ArgumentError(e.to_string()))?;
-    let (
-        key_name,
-        change_address_ret,
-    ) = read_state(|s| {
+    let (key_name, change_address_ret) = read_state(|s| {
         (
             s.ecdsa_key_name.clone(),
             s.get_address(Destination::change_address()),
@@ -288,14 +285,20 @@ pub async fn submit_unlock_ticket(
     fee_rate: Option<u64>,
 ) -> Result<SendTicketResult, CustomToBitcoinError> {
     match read_state(|s| s.tickets_queue.get(&seq)) {
-        None => Err(CustomToBitcoinError::ArgumentError("ticket not found".to_string())),
+        None => Err(CustomToBitcoinError::ArgumentError(
+            "ticket not found".to_string(),
+        )),
         Some(ticket) => {
             // check ticket
             if read_state(|s| s.finalized_unlock_ticket_results_map.contains_key(&seq)) {
-                return Err(CustomToBitcoinError::ArgumentError("ticket already finalized".to_string()));
+                return Err(CustomToBitcoinError::ArgumentError(
+                    "ticket already finalized".to_string(),
+                ));
             }
             if read_state(|s| s.flight_unlock_ticket_map.contains_key(&seq)) {
-                return Err(CustomToBitcoinError::ArgumentError("ticket already in flight".to_string()));
+                return Err(CustomToBitcoinError::ArgumentError(
+                    "ticket already in flight".to_string(),
+                ));
             }
 
             let amount = ticket
@@ -322,7 +325,16 @@ pub async fn submit_unlock_ticket(
                 fee_utxo
             });
 
-            match build_and_send_transaction(fee_utxo.clone(), utxos.clone(), amount, total, fee_rate, receiver).await {
+            match build_and_send_transaction(
+                fee_utxo.clone(),
+                utxos.clone(),
+                amount,
+                total,
+                fee_rate,
+                receiver,
+            )
+            .await
+            {
                 Ok((send_tx, txid)) => {
                     mutate_state(|s| {
                         if send_tx.output.len() >= 2 {
@@ -336,7 +348,7 @@ pub async fn submit_unlock_ticket(
                                 Destination::change_address(),
                             ));
                         }
-        
+
                         if send_tx.output.len() >= 3 {
                             // save fee payment utxo
                             s.fee_payment_utxo.push(Utxo {
@@ -344,7 +356,9 @@ pub async fn submit_unlock_ticket(
                                 vout: 2,
                                 value: send_tx.output[2].value,
                             });
-                            if s.fee_payment_utxo.iter().map(|u| u.value).sum::<u64>() < 5 * DOGE_AMOUNT {
+                            if s.fee_payment_utxo.iter().map(|u| u.value).sum::<u64>()
+                                < 5 * DOGE_AMOUNT
+                            {
                                 log!(ERROR, "Doge Customs fee_payment_utxo will not enough soon!");
                             }
                         }
@@ -354,17 +368,15 @@ pub async fn submit_unlock_ticket(
                         success: true,
                         time_at: ic_cdk::api::time(),
                     })
-                },
+                }
                 Err(e) => {
-                    mutate_state(
-                        |s| {
-                            s.fee_payment_utxo.append(&mut fee_utxo.clone());
-                            s.deposited_utxo.append(&mut utxos.clone());
-                        },
-                    );
-                    
-                    return Err(e)
-                },
+                    mutate_state(|s| {
+                        s.fee_payment_utxo.append(&mut fee_utxo.clone());
+                        s.deposited_utxo.append(&mut utxos.clone());
+                    });
+
+                    return Err(e);
+                }
             }
         }
     }

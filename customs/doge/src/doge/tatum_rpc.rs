@@ -1,15 +1,16 @@
 use std::str::FromStr;
 
 use crate::{constants::KB100, errors::CustomsError, types::http_request_with_retry};
-use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext, TransformFunc};
+use ic_cdk::api::management_canister::http_request::{
+    CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext, TransformFunc,
+};
 use serde::{Deserialize, Serialize};
 
 use super::{rpc::DogeRpc, transaction::Txid};
 
-
 pub struct TatumDogeRpc {
-    doge_rpc: DogeRpc
-} 
+    doge_rpc: DogeRpc,
+}
 
 impl TatumDogeRpc {
     pub fn new(tatum_rpc_url: String, tatum_api_key: Option<String>) -> Self {
@@ -17,18 +18,17 @@ impl TatumDogeRpc {
             url: tatum_rpc_url,
             api_key: tatum_api_key,
         };
-        Self {
-            doge_rpc
-        }
+        Self { doge_rpc }
     }
 
-    pub async fn get_transactions_by_address(&self, address: String )-> Result<Vec<Txid>, CustomsError>{
-        let mut headers = vec![
-            HttpHeader {
-                name: "Content-Type".to_string(),
-                value: "application/json".to_string(),
-            },
-        ]; 
+    pub async fn get_transactions_by_address(
+        &self,
+        address: String,
+    ) -> Result<Vec<Txid>, CustomsError> {
+        let mut headers = vec![HttpHeader {
+            name: "Content-Type".to_string(),
+            value: "application/json".to_string(),
+        }];
 
         if let Some(api_key) = self.doge_rpc.api_key.clone() {
             headers.push(HttpHeader {
@@ -37,7 +37,10 @@ impl TatumDogeRpc {
             });
         };
 
-        let full_url = format!("{}/v3/dogecoin/transaction/address/{}?pageSize=3&txType=incoming", self.doge_rpc.url, address);
+        let full_url = format!(
+            "{}/v3/dogecoin/transaction/address/{}?pageSize=3&txType=incoming",
+            self.doge_rpc.url, address
+        );
         let request = CanisterHttpRequestArgument {
             url: full_url,
             method: HttpMethod::GET,
@@ -50,24 +53,21 @@ impl TatumDogeRpc {
                 }),
                 context: vec![],
             }),
-            headers
-        }; 
+            headers,
+        };
 
         let response = http_request_with_retry(request.clone()).await?;
 
-        let rpc_response: Vec<Transaction> = serde_json::from_slice(&response.body).map_err(|_| {
-            CustomsError::RpcError(
-                "failed to desc result from json".to_string(),
-            )
-        })?;
+        let rpc_response: Vec<Transaction> = serde_json::from_slice(&response.body)
+            .map_err(|_| CustomsError::RpcError("failed to desc result from json".to_string()))?;
 
         let mut txids = vec![];
         for e in rpc_response.iter() {
-            txids.push(Txid::from_str(e.hash.as_str()).map_err(
-                |e| CustomsError::RpcError(
-                    format!("failed to parse txid: {:?}", e)
-                )
-            )?);
+            txids.push(
+                Txid::from_str(e.hash.as_str()).map_err(|e| {
+                    CustomsError::RpcError(format!("failed to parse txid: {:?}", e))
+                })?,
+            );
         }
 
         Ok(txids)
@@ -85,7 +85,6 @@ pub struct Transaction {
 
 #[test]
 pub fn test() {
-
     let r = r#"
     [
   {
@@ -323,5 +322,4 @@ pub fn test() {
 
     let txs: Vec<Transaction> = serde_json::from_str(r).unwrap();
     dbg!(&txs);
-
 }

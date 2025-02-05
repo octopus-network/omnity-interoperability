@@ -6,11 +6,12 @@ use bitcoin::consensus::{encode, Decodable, Encodable};
 use bitcoin::hashes::{hash_newtype, sha256d, Hash};
 use bitcoin::{ScriptBuf, VarInt};
 use bitcoin_io::{BufRead, Error, Write};
-use serde::{Deserialize, Serialize};
 use core::cmp;
+use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
 use crate::errors::CustomsError;
+use crate::types::deserialize_hex;
 
 use super::chainparams::DOGE_MAIN_NET_CHAIN;
 use super::script::classify_script;
@@ -49,7 +50,6 @@ pub fn err_string(err: impl std::fmt::Display) -> String {
 hash_newtype! {
     pub struct Txid(sha256d::Hash);
 }
-
 
 impl Default for Txid {
     fn default() -> Txid {
@@ -341,11 +341,22 @@ pub struct Transaction {
     pub output: Vec<TxOut>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RawTransaction {
-    pub result: String,
-    pub error: Option<String>,
-    pub id: u32,
+#[derive(Clone, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
+pub struct TransactionJsonResult {
+    pub hex: String,
+    pub txid: String,
+    pub blockhash: String,
+    pub confirmations: u32,
+    pub time: u32,
+    pub blocktime: u32,
+}
+
+impl TryFrom<TransactionJsonResult> for Transaction {
+    type Error = String;
+
+    fn try_from(value: TransactionJsonResult) -> Result<Self, Self::Error> {
+        deserialize_hex(&value.hex)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -357,7 +368,6 @@ pub struct RpcTxOut {
     pub coinbase: bool,
 }
 
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DogeRpcResponse<T> {
     pub result: T,
@@ -366,11 +376,10 @@ pub struct DogeRpcResponse<T> {
 }
 
 impl<T> DogeRpcResponse<T> {
-    pub fn unwrap_result(self) -> Result<T, CustomsError> {
+    pub fn try_result(self) -> Result<T, CustomsError> {
         self.error
             .map_or(Ok(self.result), |e| Err(CustomsError::RpcError(e)))
     }
-    
 }
 
 impl cmp::PartialOrd for Transaction {

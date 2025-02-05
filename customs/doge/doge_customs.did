@@ -1,3 +1,20 @@
+type BlockHeaderJsonResult = record {
+  height : nat64;
+  confirmations : nat64;
+  chainwork : text;
+  bits : text;
+  hash : text;
+  previousblockhash : text;
+  difficulty : float64;
+  time : nat32;
+  block_header_hex : opt text;
+  version : int32;
+  merkleroot : text;
+  nonce : nat32;
+  nextblockhash : opt text;
+  version_hex : text;
+  mediantime : nat64;
+};
 type Chain = record {
   fee_token : opt text;
   canister_id : text;
@@ -21,18 +38,23 @@ type CustomsError = variant {
   AmountIsZero;
   InvalidRuneId : text;
   InvalidArgs : text;
+  InvalidBits : record { text; text };
+  InvalidMerkleRoot : record { text; text };
   AlreadySubmitted;
   InvalidTxId;
   NotPayFees;
+  InvalidBlockHash : record { text; text };
   CallError : record { principal; text; text };
   TxNotFoundInMemPool;
   Unknown;
   InvalidTxReceiver;
   UnsupportedChainId : text;
   ECDSAPublicKeyNotFound;
+  MerkleBlockVerifyError : record { text; text };
   HttpOutExceedRetryLimit;
   DepositUtxoNotFound : record { text; Destination };
   UnsupportedToken : text;
+  ValidateError : ValidationError;
   CustomError : text;
 };
 type Destination = record {
@@ -80,11 +102,12 @@ type ReleaseTokenStatus = variant {
   Submitted : text;
   Pending;
 };
-type Result = variant { Ok : vec text; Err : CustomsError };
-type Result_1 = variant { Ok; Err : CustomsError };
-type Result_2 = variant { Ok : text; Err : CustomsError };
-type Result_3 = variant { Ok : text; Err : text };
-type Result_4 = variant { Ok : nat64; Err : CustomsError };
+type Result = variant { Ok : BlockHeaderJsonResult; Err : CustomsError };
+type Result_1 = variant { Ok : vec text; Err : CustomsError };
+type Result_2 = variant { Ok; Err : CustomsError };
+type Result_3 = variant { Ok : text; Err : CustomsError };
+type Result_4 = variant { Ok : text; Err : text };
+type Result_5 = variant { Ok : nat64; Err : CustomsError };
 type RpcConfig = record { url : text; api_key : opt text };
 type SendTicketResult = record { txid : blob; success : bool; time_at : nat64 };
 type StateProfile = record {
@@ -129,22 +152,32 @@ type TokenResp = record {
   symbol : text;
 };
 type Utxo = record { value : nat64; txid : blob; vout : nat32 };
+type ValidationError = variant {
+  BadTarget;
+  BadVersion;
+  BadProofOfWork;
+  BadAuxPow : text;
+};
 service : (InitArgs) -> {
-  generate_ticket : (GenerateTicketArgs) -> (Result);
-  generate_ticket_by_txid : (GenerateTicketWithTxidArgs) -> (Result_1);
-  get_deposit_address : (text, text) -> (Result_2) query;
-  get_fee_payment_address : () -> (Result_2) query;
+  fetch_doge_block_header_as_current_height : (nat64) -> (Result);
+  generate_ticket : (GenerateTicketArgs) -> (Result_1);
+  generate_ticket_by_txid : (GenerateTicketWithTxidArgs) -> (Result_2);
+  get_deposit_address : (text, text) -> (Result_3) query;
+  get_fee_payment_address : () -> (Result_3) query;
   get_finalized_lock_ticket_txids : () -> (vec text) query;
   get_finalized_unlock_ticket_results : () -> (vec SendTicketResult) query;
   get_platform_fee : (text) -> (opt nat, opt text) query;
   get_token_list : () -> (vec TokenResp) query;
-  init_ecdsa_public_key : () -> (Result_1);
+  get_verified_doge_block_headers : (nat64, nat64) -> (
+      vec BlockHeaderJsonResult,
+    ) query;
+  init_ecdsa_public_key : () -> (Result_2);
   pending_unlock_tickets : (nat64) -> (text) query;
   query_finalized_lock_tickets : (text) -> (opt LockTicketRequest) query;
   query_state : () -> (StateProfile) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
-  resend_unlock_ticket : (nat64, opt nat64) -> (Result_3);
-  save_utxo_for_payment_address : (text) -> (Result_4);
+  resend_unlock_ticket : (nat64, opt nat64) -> (Result_4);
+  save_utxo_for_payment_address : (text) -> (Result_5);
   set_default_doge_rpc_config : (text, opt text) -> ();
   set_fee_collector : (text) -> ();
   set_min_deposit_amount : (nat64) -> ();

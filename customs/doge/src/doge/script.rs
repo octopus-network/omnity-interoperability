@@ -112,7 +112,9 @@ pub fn p2pkh_address(pubkey: &[u8], chain: &ChainParams) -> Result<Address, Cust
     if !((pubkey.len() == ECPUB_KEY_UNCOMPRESSED_LEN && pubkey[0] == 0x04)
         || (pubkey.len() == ECPUB_KEY_COMPRESSED_LEN && (pubkey[0] == 0x02 || pubkey[0] == 0x03)))
     {
-        return Err(CustomsError::CustomError("p2pkh_address: bad pubkey length".to_string()));
+        return Err(CustomsError::CustomError(
+            "p2pkh_address: bad pubkey length".to_string(),
+        ));
     }
     let payload = hash160::Hash::hash(pubkey);
     Ok(hash160_to_address(

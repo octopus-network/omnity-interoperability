@@ -15,7 +15,7 @@ use ic_canister_log::log;
 use omnity_types::{Token, TokenId};
 
 use crate::{
-    doge::{rpc::get_raw_transaction_by_rpc, transaction::Transaction},
+    doge::{rpc::get_raw_transaction_by_rpc, transaction::TransactionJsonResult},
     errors::CustomsError,
 };
 use bitcoin::hashes::{sha256d, Hash};
@@ -232,7 +232,12 @@ pub async fn http_request_with_retry(
         let response = match http_request(request.clone(), 60_000_000_000).await {
             Ok((response,)) => response,
             Err(e) => {
-                log!(ERROR, "http request error, request: {:?} \n, error {:?}",request, e);
+                log!(
+                    ERROR,
+                    "http request error, request: {:?} \n, error {:?}",
+                    request,
+                    e
+                );
                 continue;
             }
         };
@@ -304,7 +309,10 @@ impl MultiRpcConfig {
         Ok(())
     }
 
-    pub async fn get_raw_transaction(&self, txid: &str) -> Result<Transaction, CustomsError> {
+    pub async fn get_raw_transaction_json_data(
+        &self,
+        txid: &str,
+    ) -> Result<TransactionJsonResult, CustomsError> {
         self.check_config_valid()?;
 
         let mut fut = Vec::with_capacity(self.rpc_list.len());
@@ -320,8 +328,8 @@ impl MultiRpcConfig {
 
     fn valid_and_get_transaction(
         &self,
-        res: Vec<Result<Transaction, CustomsError>>,
-    ) -> Result<Transaction, CustomsError> {
+        res: Vec<Result<TransactionJsonResult, CustomsError>>,
+    ) -> Result<TransactionJsonResult, CustomsError> {
         let success_res = res
             .iter()
             .filter_map(|r| r.as_ref().ok())

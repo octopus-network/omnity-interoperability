@@ -1,4 +1,7 @@
 use crate::custom_to_dogecoin::SendTicketResult;
+use crate::doge::block::DogecoinHeader;
+use crate::doge::header::BlockHeaderJsonResult;
+use crate::doge::rpc::DogeRpc;
 use crate::doge::transaction::Txid;
 use crate::dogeoin_to_custom::query_and_save_utxo_for_payment_address;
 use crate::errors::CustomsError;
@@ -6,8 +9,9 @@ use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketWithTxidArgs};
 use crate::state::{mutate_state, read_state, replace_state, DogeState, StateProfile};
 use crate::tasks::start_tasks;
 use crate::types::{
-    Destination, LockTicketRequest, MultiRpcConfig, ReleaseTokenStatus, RpcConfig, TokenResp
+    Destination, LockTicketRequest, MultiRpcConfig, ReleaseTokenStatus, RpcConfig, TokenResp,
 };
+use bitcoin::consensus::deserialize;
 use candid::{CandidType, Deserialize, Principal};
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
@@ -64,12 +68,12 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 }
 
 #[update]
-pub async fn generate_ticket_by_txid(req: GenerateTicketWithTxidArgs)-> Result<(), CustomsError> {
+pub async fn generate_ticket_by_txid(req: GenerateTicketWithTxidArgs) -> Result<(), CustomsError> {
     match crate::generate_ticket::generate_ticket(req.clone()).await {
         Ok(_) => {
             log!(INFO, "success to generate_ticket_by_txid, req: {:?}", req);
             Ok(())
-        },
+        }
         Err(e) => {
             log!(ERROR, "failed to generate_ticket_by_txid error: {:?}", e);
             Err(CustomsError::from(e))
@@ -93,13 +97,12 @@ pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<Vec<String>, Cus
             Ok(_) => {
                 log!(INFO, "success to generate_ticket, txid: {:?}", txid);
                 success_txids.push(txid.to_string());
-            },
+            }
             Err(e) => {
                 log!(ERROR, "generate_ticket error: {:?}", e);
-            },
+            }
         }
-
-        }
+    }
 
     Ok(success_txids)
 }
@@ -174,9 +177,7 @@ pub async fn set_default_doge_rpc_config(url: String, api_key: Option<String>) {
 }
 
 #[update(guard = "is_admin")]
-pub async fn set_multi_rpc_config(
-    multi_rpc_config: MultiRpcConfig
-) {
+pub async fn set_multi_rpc_config(multi_rpc_config: MultiRpcConfig) {
     mutate_state(|s| {
         s.multi_rpc_config = multi_rpc_config;
     });
@@ -211,11 +212,47 @@ pub async fn resend_unlock_ticket(seq: Seq, fee_rate: Option<u64>) -> Result<Str
     }
 }
 
-// #[update]
-// pub async fn test_rpc(rpc_config: RpcConfig, txid: String) -> Result<String, CustomsError> {
-//     let doge_rpc = crate::doge::rpc::DogeRpc::from(rpc_config);
-//     doge_rpc.get_raw_transaction(txid.as_str()).await.map(|r| format!("{:?}", r))
-// }
+#[update(guard = "is_admin")]
+async fn fetch_doge_block_header_as_current_height(
+    height: u64,
+) -> Result<BlockHeaderJsonResult, CustomsError> {
+    use hex::test_hex_unwrap as hex;
+
+    let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
+    let block_hash = doge_rpc.get_block_hash(height).await?;
+    let mut block_header_json_result = doge_rpc.get_block_header(block_hash.as_str()).await?;
+    let blocker_header_hex = doge_rpc.get_block_header_hex(block_hash.as_str()).await?;
+    block_header_json_result.block_header_hex = Some(blocker_header_hex.clone());
+
+    let doge_header: DogecoinHeader =
+        deserialize(&hex!(blocker_header_hex.as_str())).map_err(|e| {
+            CustomsError::CustomError(format!("deserialize doge header error: {:?}", e))
+        })?;
+
+    let _ = doge_header.validate_doge_pow(true)?;
+
+    // save to state
+    mutate_state(|s| {
+        s.doge_block_headers.insert(
+            block_header_json_result.height,
+            block_header_json_result.clone(),
+        );
+        s.sync_doge_block_header_height = block_header_json_result.height;
+    });
+    Ok(block_header_json_result)
+}
+
+#[query]
+fn get_verified_doge_block_headers(start: usize, length: usize) -> Vec<BlockHeaderJsonResult> {
+    read_state(|s| {
+        s.doge_block_headers
+            .iter()
+            .skip(start)
+            .take(length)
+            .map(|e| e.1.clone())
+            .collect()
+    })
+}
 
 #[query]
 fn get_token_list() -> Vec<TokenResp> {

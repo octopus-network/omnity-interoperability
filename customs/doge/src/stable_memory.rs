@@ -2,10 +2,10 @@ use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemor
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
 use omnity_types::{Directive, Seq, Ticket};
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 
 use crate::custom_to_dogecoin::SendTicketResult;
-use crate::types::{Destination, LockTicketRequest, Txid, Utxo};
+use crate::doge::header::BlockHeaderJsonResult;
+use crate::types::{LockTicketRequest, Txid};
 
 pub type InnerMemory = DefaultMemoryImpl;
 pub type Memory = VirtualMemory<InnerMemory>;
@@ -15,16 +15,13 @@ pub const DIRECTIVES_MEMORY_ID: MemoryId = MemoryId::new(2);
 pub const DEPOSIT_TX_MEMORY_ID: MemoryId = MemoryId::new(3);
 pub const UNLOCK_TICKETS_RESULTS_MEMORY_ID: MemoryId = MemoryId::new(4);
 pub const LOCK_TICKETS_REQUESTS_MEMORY_ID: MemoryId = MemoryId::new(5);
+pub const DOGE_BLOCK_HEADERS_MEMORY_ID: MemoryId = MemoryId::new(6);
 
 thread_local! {
     static MEMORY: RefCell<Option<InnerMemory>> = RefCell::new(Some(InnerMemory::default()));
 
     static MEMORY_MANAGER: RefCell<Option<MemoryManager<InnerMemory>>> =
         RefCell::new(Some(MemoryManager::init(MEMORY.with(|m| m.borrow().clone().unwrap()))));
-
-    static COLLECTED_UTXOS: RefCell<BTreeMap<Utxo, Destination>> =
-        const { RefCell::new(BTreeMap::new()) };
-    
 }
 
 fn with_memory_manager<R>(f: impl FnOnce(&MemoryManager<InnerMemory>) -> R) -> R {
@@ -60,6 +57,10 @@ pub fn get_lock_ticket_requests_memory() -> Memory {
     with_memory_manager(|m| m.get(LOCK_TICKETS_REQUESTS_MEMORY_ID))
 }
 
+pub fn get_doge_block_headers_memory() -> Memory {
+    with_memory_manager(|m| m.get(DOGE_BLOCK_HEADERS_MEMORY_ID))
+}
+
 pub fn init_unlock_tickets_queue() -> StableBTreeMap<u64, Ticket, Memory> {
     StableBTreeMap::init(get_unlock_tickets_memory())
 }
@@ -79,4 +80,8 @@ pub fn init_unlock_ticket_results() -> StableBTreeMap<Seq, SendTicketResult, Mem
 
 pub fn init_lock_ticket_requests() -> StableBTreeMap<Txid, LockTicketRequest, Memory> {
     StableBTreeMap::init(get_lock_ticket_requests_memory())
+}
+
+pub fn init_doge_block_headers() -> StableBTreeMap<u64, BlockHeaderJsonResult, Memory> {
+    StableBTreeMap::init(get_doge_block_headers_memory())
 }

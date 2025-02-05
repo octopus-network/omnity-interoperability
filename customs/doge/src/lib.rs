@@ -1,9 +1,9 @@
 mod audit;
+mod call_error;
+mod custom_to_dogecoin;
 mod doge;
 mod dogeoin_to_custom;
-mod call_error;
 mod errors;
-mod custom_to_dogecoin;
 mod generate_ticket;
 mod guard;
 mod hub;
@@ -25,6 +25,8 @@ pub mod constants {
     pub const FINALIZE_LOCK_TICKET_INTERVAL: u64 = 120;
     pub const FINALIZE_UNLOCK_TICKET_NAME: &str = "FINALIZE_UNLOCK_TICKET_NAME";
     pub const FINALIZE_UNLOCK_TICKET_INTERVAL: u64 = 120;
+    pub const SYNC_DOGE_BLOCK_HEADER_NAME: &str = "SYNC_DOGE_BLOCK_HEADER_NAME";
+    pub const SYNC_DOGE_BLOCK_HEADER_INTERVAL: u64 = 60;
     pub const SUBMIT_UNLOCK_TICKETS_NAME: &str = "SUBMIT_UNLOCK_TICKETS_NAME";
     pub const SUBMIT_UNLOCK_TICKETS_INTERVAL: u64 = 5;
     pub const BATCH_QUERY_LIMIT: u64 = 20;
@@ -33,7 +35,9 @@ pub mod constants {
     pub const MIN_NANOS: u64 = 60 * SEC_NANOS;
 
     pub const KB: u64 = 1024;
+    pub const KB10: u64 = 10 * KB;
     pub const KB100: u64 = 100 * KB;
+    pub const MB: u64 = 1024 * KB;
 }
 
 pub mod retry {
@@ -61,11 +65,7 @@ pub mod retry {
                 break;
             } else {
                 let err = call_res.err().unwrap();
-                log!(
-                    ERROR,
-                    "call  rpc error: {}",
-                    err.clone().to_string()
-                );
+                log!(ERROR, "call  rpc error: {}", err.clone().to_string());
                 rs = Err(err);
             }
         }
