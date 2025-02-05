@@ -46,10 +46,6 @@ SOL_CHAIN_ID="eSolana"
 # TODO:replace the fee account
 FEE_ACCOUNT="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 
-rpc1=https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
-rpc2=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
-rpc3=https://nd-471-475-490.p2pify.com/6de0b91c609fb3bd459e043801aa6aa4
-
 dfx deploy solana_route --argument "(variant { Init = record { \
     admin = principal \"${ADMIN}\";\
     chain_id=\"${SOL_CHAIN_ID}\";\
