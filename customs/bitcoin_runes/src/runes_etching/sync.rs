@@ -162,7 +162,6 @@ pub async fn handle_etching_result_task() {
                     Ok(resp_opt) => {
                         match resp_opt {
                             None => {
-                                log!(INFO, "query etching  {} result is null", tx);
                             }
                             Some(resp) => {
                                 log!(INFO, "Etching result:  {}.{}, {}",tx, resp.rune_id.clone(),resp.confirmations);
