@@ -62,7 +62,7 @@ pub async fn sync_mint_status(hash: String) {
             return;
         }
 
-        if tr.to != port_address.to_hex() {
+        if tr.to.to_lowercase() != port_address.to_hex() {
             mutate_state(|s| s.pending_events_on_chain.remove(&hash));
             return;
         }
@@ -87,7 +87,7 @@ pub async fn sync_mint_status(hash: String) {
 pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
     let port = read_state(|s| s.omnity_port_contract.clone());
     for l in logs {
-        if l.address.to_string() != port.to_hex() {
+        if l.address.to_string().to_lowercase() != port.to_hex() {
             continue;
         }
         if l.removed {
