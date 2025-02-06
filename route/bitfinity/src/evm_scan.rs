@@ -1,10 +1,8 @@
-use std::str::FromStr;
 use anyhow::anyhow;
-use did::{TransactionReceipt, transaction::TransactionReceiptLog, H160};
+use did::{TransactionReceipt, transaction::TransactionReceiptLog};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
-use ic_stable_structures::Storable;
 use itertools::Itertools;
 
 use omnity_types::{ChainState, Directive, Ticket, ChainId, Memo};
@@ -17,7 +15,6 @@ use crate::contract_types::{
     TokenBurned, TokenMinted, TokenTransportRequested,
 };
 use crate::convert::{ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event};
-use crate::eth_common::EvmAddress;
 use crate::state::{mutate_state, read_state, bitfinity_get_redeem_fee};
 
 pub fn scan_evm_task() {
@@ -86,7 +83,11 @@ pub fn scan_evm_task() {
 }
 
 pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Result<()> {
+    let port = read_state(|s|s.omnity_port_contract.clone());
     for l in logs {
+        if l.address.to_hex_str() != port.to_hex() {
+            continue;
+        }
         if l.removed {
             return Err(anyhow!("log is removed"));
         }
