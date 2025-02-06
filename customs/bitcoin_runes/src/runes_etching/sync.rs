@@ -3,11 +3,14 @@ use std::time::Duration;
 
 use candid::CandidType;
 use ic_btc_interface::Network;
+use ic_canister_log::log;
 use runes_indexer_interface::GetEtchingResult;
 use serde::Deserialize;
 use thiserror::Error;
 
 use omnity_types::hub_types::{Proposal, TokenMeta};
+use omnity_types::ic_log::{ERROR, INFO};
+use omnity_types::ic_log::Priority::WARNING;
 
 use crate::call_error::{CallError, Reason};
 use crate::hub::execute_proposal;
@@ -24,18 +27,14 @@ use crate::{finalization_time_estimate, state, updates};
 pub async fn get_etching(txid: &str) -> Result<Option<GetEtchingResult>, CallError> {
     let method = "get_etching";
     let ord_principal = read_state(|s| s.ord_indexer_principal.clone().unwrap());
-    let resp: (Result<Option<GetEtchingResult>, OrdError>,) =
+    let resp: (Option<GetEtchingResult>,) =
         ic_cdk::api::call::call(ord_principal, method, (txid,))
             .await
             .map_err(|(code, message)| CallError {
                 method: method.to_string(),
                 reason: Reason::from_reject(code, message),
             })?;
-    let data = resp.0.map_err(|e: OrdError| CallError {
-        method: method.to_string(),
-        reason: Reason::CanisterError(e.to_string()),
-    })?;
-    Ok(data)
+    Ok(resp.0)
 }
 
 pub async fn send_add_token(
@@ -159,23 +158,37 @@ pub async fn handle_etching_result_task() {
                 //query etching,
                 let tx = req.txs[1].txid().to_string();
                 let rune = get_etching(tx.as_str()).await;
-                if let Ok(Some(resp)) = rune {
-                    if resp.confirmations >= 1 {
-                        let r = send_add_token(
-                            req.etching_args.clone(),
-                            resp.rune_id.clone(),
-                            tx.as_str(),
-                        )
-                        .await;
-                        match r {
-                            Ok(_) => {
-                                req.status = EtchingStatus::TokenAdded;
-                                mutate_state(|s| s.pending_etching_requests.insert(k.clone(), req));
+                match rune {
+                    Ok(resp_opt) => {
+                        match resp_opt {
+                            None => {
                             }
-                            Err(_e) => {
-                                // do nothing
+                            Some(resp) => {
+                                log!(INFO, "Etching result:  {}.{}, {}",tx, resp.rune_id.clone(),resp.confirmations);
+                                if resp.confirmations >= 1 {
+                                    let r = send_add_token(
+                                        req.etching_args.clone(),
+                                        resp.rune_id.clone(),
+                                        tx.as_str(),
+                                    )
+                                        .await;
+                                    match r {
+                                        Ok(_) => {
+                                            req.status = EtchingStatus::TokenAdded;
+                                            mutate_state(|s| s.pending_etching_requests.insert(k.clone(), req));
+                                        }
+                                        Err(e) => {
+                                            log!(ERROR, "send add token error: {}", e.to_string());
+                                            // do nothing
+                                        }
+                                    }
+                                }
+
                             }
                         }
+                    }
+                    Err(e) => {
+                        log!(INFO, "query etching result error: {}", e.to_string());
                     }
                 }
             }
