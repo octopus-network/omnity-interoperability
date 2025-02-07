@@ -60,6 +60,11 @@ async fn install_icrc2_ledger(
             reserved_cycles_limit: None,
         }),
     };
+
+    if ic_cdk::api::canister_balance128() < 3_000_000_000_000 {
+        return Err("Insufficient cycles for create token ledger canister".to_string());
+    }
+
     let (canister_id_record,) = create_canister(create_canister_arg, 3_000_000_000_000)
         .await
         .map_err(|(_, reason)| reason)?;

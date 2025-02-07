@@ -307,7 +307,7 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
     icp_get_redeem_fee(chain_id)
 }
 
-#[query(hidden = true, guard = "is_controller")]
+#[query(guard = "is_controller")]
 pub fn get_route_state() -> icp_route::state::RouteState {
     read_state(|s| s.clone())
 }
