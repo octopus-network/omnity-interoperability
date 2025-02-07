@@ -20,6 +20,7 @@ type GenerateTicketError = variant {
   TransferFailure : text;
   UnsupportedAction : text;
   RedeemFeeNotSet;
+  InvalidTicketAmount : nat;
   UnsupportedChainId : text;
   UnsupportedToken : text;
   InsufficientFunds : record { balance : nat64 };
@@ -48,6 +49,21 @@ type Result = variant { Ok; Err : text };
 type Result_1 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_2 = variant { Ok; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs_1; Init : InitArgs };
+type RouteState = record {
+  hub_principal : principal;
+  is_timer_running : bool;
+  next_directive_seq : nat64;
+  finalized_mint_token_requests : vec record { text; nat64 };
+  token_ledgers : vec record { text; principal };
+  chain_id : text;
+  tokens : vec record { text; Token };
+  target_chain_factor : vec record { text; nat };
+  counterparties : vec record { text; Chain };
+  next_ticket_seq : nat64;
+  chain_state : ChainState;
+  failed_tickets : vec Ticket;
+  fee_token_factor : opt nat;
+};
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -62,6 +78,14 @@ type Ticket = record {
   receiver : text;
 };
 type TicketType = variant { Resubmit; Normal };
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
 type TokenResp = record {
   "principal" : opt principal;
   decimals : nat8;
@@ -101,6 +125,7 @@ service : (RouteArg) -> {
   get_fee_account : (opt principal) -> (blob) query;
   get_readable_fee_account : (opt principal) -> (text) query;
   get_redeem_fee : (text) -> (opt nat64) query;
+  get_route_state : () -> (RouteState) query;
   get_token_ledger : (text) -> (opt principal) query;
   get_token_list : () -> (vec TokenResp) query;
   mint_token_status : (text) -> (MintTokenStatus) query;
