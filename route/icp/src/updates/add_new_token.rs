@@ -74,7 +74,7 @@ async fn install_icrc2_ledger(
                 .with_decimals(token_decimal)
                 .with_minting_account(Into::<Account>::into(owner))
                 .with_transfer_fee(
-                    10_u128.checked_pow(token_decimal as u32).expect("transfer fee overflow")
+                    10_u128
                 )
                 .with_fee_collector_account(Account {
                     owner,
