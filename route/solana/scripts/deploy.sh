@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # get admin id
-# ADMIN="rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"
 ADMIN=$(dfx identity get-principal)
 echo "admin id: $ADMIN"
 echo 
@@ -23,11 +22,7 @@ echo
 # echo 
 
 # Deploy the solana canister and set the schnorr canister id
-# SOLANA_RPC_URL="devnet"
-SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
-# SOLANA_RPC_URL="https://solana-mainnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
-# SOLANA_RPC_URL="http://localhost:8888/"
-# SOLANA_RPC_URL=https://solana-rpc-proxy-398338012986.us-central1.run.app/
+SOLANA_RPC_URL="devnet"
 
 SCHNORR_KEY_NAME="dfx_test_key"
 # SCHNORR_KEY_NAME="test_key_1"
@@ -77,11 +72,10 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${test_sig}\",op
 # update_multi_rpc 
 rpc1=https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
 rpc2=https://rpc.ankr.com/solana_devnet/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
-rpc3=https://nd-471-475-490.p2pify.com/6de0b91c609fb3bd459e043801aa6aa4
+
 dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
     rpc_list = vec {\"${rpc1}\";
-                     \"${rpc2}\";
-                     \"${rpc3}\";};\
+                     \"${rpc2}\";};\
     minimum_response_count = 2:nat32;})"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()'
 
