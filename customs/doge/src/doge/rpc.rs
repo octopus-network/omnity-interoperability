@@ -9,9 +9,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::{
-    constants::{KB, KB10, KB100, MB},
-    errors::CustomsError,
-    types::{http_request_with_retry, serialize_hex, wrap_to_customs_error, RpcConfig},
+    constants::{KB, KB10, KB100, MB}, errors::CustomsError, types::{http_request_with_retry, serialize_hex, wrap_to_customs_error, RpcConfig}
 };
 
 use super::{
@@ -76,8 +74,9 @@ impl DogeRpc {
         let response = http_request_with_retry(request).await?;
         let rpc_result: DogeRpcResponse<R> =
             serde_json::from_slice(&response.body).map_err(|e| {
-                log!(ERROR, "json error {:?}", e);
-                CustomsError::RpcError("failed to decode transaction from json".to_string())
+                CustomsError::RpcError(
+                    format!("failed to decode transaction from json, error:{:?}, response: {:?}", e, response)
+                )
             })?;
         rpc_result.try_result()
     }
@@ -86,7 +85,7 @@ impl DogeRpc {
         self.call_rpc(
             "getblockheader",
             vec![block_hash.into(), false.into()],
-            KB10,
+            5 * KB,
         )
         .await
     }
@@ -95,12 +94,12 @@ impl DogeRpc {
         &self,
         block_hash: &str,
     ) -> Result<BlockHeaderJsonResult, CustomsError> {
-        self.call_rpc("getblockheader", vec![block_hash.into()], KB)
+        self.call_rpc("getblockheader", vec![block_hash.into()], 2 * KB)
             .await
     }
 
     pub async fn get_block_hash(&self, block_height: u64) -> Result<String, CustomsError> {
-        self.call_rpc("getblockhash", vec![block_height.into()], KB)
+        self.call_rpc("getblockhash", vec![block_height.into()], 2*KB)
             .await
     }
 
@@ -114,47 +113,6 @@ impl DogeRpc {
     ) -> Result<TransactionJsonResult, CustomsError> {
         self.call_rpc("getrawtransaction", vec![txid.into(), 1.into()], KB10)
             .await
-        // let mut headers = vec![
-        //     HttpHeader {
-        //         name: "Content-Type".to_string(),
-        //         value: "application/json".to_string(),
-        //     },
-        // ];
-        // if self.api_key.is_some() {
-        //     headers.push(HttpHeader {
-        //         name: "x-api-key".to_string(),
-        //         value: self.api_key.clone().unwrap(),
-        //     });
-        // }
-        // let mut request = CanisterHttpRequestArgument {
-        //     url: self.url.clone(),
-        //     method: HttpMethod::POST,
-        //     body: Some(json!({
-        //         "jsonrpc": "2.0",
-        //         "method": "getrawtransaction",
-        //         "params": [txid],
-        //         "id": 1
-        //     }).to_string().into_bytes()),
-        //     max_response_bytes: Some(KB100),
-        //     transform: Some(TransformContext {
-        //         function: TransformFunc(candid::Func {
-        //             principal: ic_cdk::api::id(),
-        //             method: "transform".to_string(),
-        //         }),
-        //         context: vec![],
-        //     }),
-        //     headers
-        // };
-        // self.proxy_request(&mut request);
-        // let response = http_request_with_retry(request).await?;
-        // let raw_tx: DogeRpcResponse<TransactionJsonResult>  = serde_json::from_slice(&response.body).map_err(|e| {
-        //     log!(ERROR, "json error {:?}", e);
-        //     CustomsError::RpcError(
-        //         "failed to decode transaction from json".to_string(),
-        //     )
-        // })?;
-        // let result = raw_tx.try_result()?;
-        // Ok(result)
     }
 
     pub async fn get_tx_out(&self, txid: &str) -> Result<RpcTxOut, CustomsError> {
@@ -269,9 +227,19 @@ impl DogeRpc {
 }
 
 pub async fn get_raw_transaction_by_rpc(
-    txid: &str,
+    txid: &str, 
     rpc_config: RpcConfig,
 ) -> Result<TransactionJsonResult, CustomsError> {
     let doge_rpc = DogeRpc::from(rpc_config);
     doge_rpc.get_raw_transaction(txid).await
+}
+
+#[test]
+pub fn test() {
+    let body_bin = vec![123, 34, 106, 115, 111, 110, 114, 112, 99, 34, 58, 34, 50, 46, 48, 34, 44, 34, 101, 114, 114, 111, 114, 34, 58, 123, 34, 99, 111, 100, 101, 34, 58, 45, 51, 50, 48, 48, 48, 44, 34, 109, 101, 115, 115, 97, 103, 101, 34, 58, 34, 83, 101, 114, 118, 101, 114, 32, 101, 114, 114, 111, 114, 34, 125, 44, 34, 100, 97, 115, 104, 98, 111, 97, 114, 100, 76, 111, 103, 34, 58, 34, 104, 116, 116, 112, 115, 58, 47, 47, 100, 97, 115, 104, 98, 111, 97, 114, 100, 46, 116, 97, 116, 117, 109, 46, 105, 111, 47, 108, 111, 103, 115, 63, 105, 100, 61, 54, 55, 97, 57, 57, 99, 50, 49, 48, 56, 56, 53, 55, 100, 51, 57, 50, 53, 51, 56, 55, 102, 99, 97, 34, 125];
+    let body_text = String::from_utf8_lossy(&body_bin).to_string();
+    dbg!(&body_text);
+    let doge_rpc_res: DogeRpcResponse<String> = serde_json::from_slice(&body_bin).unwrap();
+    let res = doge_rpc_res.try_result().unwrap();
+    dbg!(&res);
 }

@@ -6,6 +6,7 @@ use bitcoin::consensus::{encode, Decodable, Encodable};
 use bitcoin::hashes::{hash_newtype, sha256d, Hash};
 use bitcoin::{ScriptBuf, VarInt};
 use bitcoin_io::{BufRead, Error, Write};
+use serde_json::Value;
 use core::cmp;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
@@ -370,15 +371,23 @@ pub struct RpcTxOut {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DogeRpcResponse<T> {
-    pub result: T,
-    pub error: Option<String>,
-    pub id: u32,
+    pub result: Option<T>,
+    pub error: Option<Value>,
+    pub id: Option<i32>,
 }
 
 impl<T> DogeRpcResponse<T> {
     pub fn try_result(self) -> Result<T, CustomsError> {
-        self.error
-            .map_or(Ok(self.result), |e| Err(CustomsError::RpcError(e)))
+
+        if self.error.is_some() {
+            return Err(CustomsError::RpcResultParseError(
+                format!("Rpc result error: {:?}", self.error)
+            ));
+        }
+
+        self.result.ok_or_else(|| CustomsError::RpcResultParseError(
+            "Rpc error is empty but result is also empty".to_string()
+        ))
     }
 }
 

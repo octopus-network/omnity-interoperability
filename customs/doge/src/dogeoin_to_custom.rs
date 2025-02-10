@@ -257,6 +257,11 @@ pub async fn check_tx_confirmation_and_verify_by_merkle_root(
             verified_block_header.block_hash().to_string(),
         ));
     }
+    log!(
+        INFO,
+        "merkle block verify success, txid: {:?}",
+        txid
+    );
 
     return Ok(true);
 }

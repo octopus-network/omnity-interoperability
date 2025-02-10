@@ -51,7 +51,7 @@ type CustomsError = variant {
   UnsupportedChainId : text;
   ECDSAPublicKeyNotFound;
   MerkleBlockVerifyError : record { text; text };
-  HttpOutExceedRetryLimit;
+  HttpOutExceedRetryLimit : text;
   DepositUtxoNotFound : record { text; Destination };
   UnsupportedToken : text;
   ValidateError : ValidationError;

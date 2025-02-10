@@ -9,7 +9,7 @@ use crate::state::{mutate_state, read_state};
 use bitcoin::consensus::deserialize;
 use ic_canister_log::log;
 use ic_cdk_timers::set_timer_interval;
-use omnity_types::ic_log::{ERROR, INFO};
+use omnity_types::ic_log::{ERROR, INFO, WARNING};
 
 use crate::constants::*;
 use crate::custom_to_dogecoin::{finalize_unlock_tickets_task, submit_unlock_tickets_task};
@@ -51,13 +51,7 @@ fn sync_doge_block_header_task() {
             };
 
         match process_sync_doge_block_header().await {
-            Ok(block_header_json_result) => {
-                log!(
-                    INFO,
-                    "sync doge block header success: {:?}",
-                    block_header_json_result
-                );
-            }
+            Ok(_) => {}
             Err(e) => {
                 log!(ERROR, "sync doge block header error: {:?}", e);
             }
@@ -65,21 +59,43 @@ fn sync_doge_block_header_task() {
     });
 }
 
-async fn process_sync_doge_block_header() -> Result<BlockHeaderJsonResult, CustomsError> {
-    let current_block_header =
-        read_state(|s| s.doge_block_headers.get(&s.sync_doge_block_header_height)).ok_or(
-            CustomsError::CustomError("current block header not found".to_string()),
-        )?;
+async fn process_sync_doge_block_header() -> Result<(), CustomsError> {
+    let mut max_sync_times = 5;
+    while max_sync_times > 0 {
+        let current_block_header =
+            read_state(|s| s.doge_block_headers.get(&s.sync_doge_block_header_height)).ok_or(
+                CustomsError::CustomError("current block header not found".to_string()),
+            )?;
+        let next_block_hash = if let Some(next_block_hash) = current_block_header.nextblockhash {
+            next_block_hash
+        } else {
+            let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
+            match doge_rpc
+                .get_block_hash(current_block_header.height + 1)
+                .await
+            {
+                Ok(next_block_hash) => next_block_hash,
+                Err(e) => {
+                    log!(WARNING, "get next block hash error: {:?}", e);
+                    return Ok(())
+                }
+            }
+        };
+        let r = sync_doge_block_header(next_block_hash).await?;
+        log!(
+            INFO,
+            "success to sync doge block header height: {:?}, hash: {:?}",
+            r.height,
+            r.hash
+        );
 
-    let next_block_hash = if let Some(next_block_hash) = current_block_header.nextblockhash {
-        next_block_hash
-    } else {
-        let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
-        doge_rpc
-            .get_block_hash(current_block_header.height + 1)
-            .await?
-    };
-    sync_doge_block_header(next_block_hash).await
+        if r.confirmations < 2 {
+            break;
+        }
+        max_sync_times -= 1;
+    }
+
+    Ok(())
 }
 
 async fn sync_doge_block_header(block_hash: String) -> Result<BlockHeaderJsonResult, CustomsError> {
@@ -87,7 +103,6 @@ async fn sync_doge_block_header(block_hash: String) -> Result<BlockHeaderJsonRes
 
     // fetch block header
     let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
-    // let header = doge_rpc.get_raw_transaction(txid).await?;
     let mut block_header_json_result = doge_rpc.get_block_header(block_hash.as_str()).await?;
     let blocker_header_hex = doge_rpc.get_block_header_hex(block_hash.as_str()).await?;
     block_header_json_result.block_header_hex = Some(blocker_header_hex.clone());

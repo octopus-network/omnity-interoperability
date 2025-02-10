@@ -6,9 +6,8 @@ use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpResponse, TransformContext,
 };
 use ic_stable_structures::{storable::Bound, Storable};
-use omnity_types::ic_log::{ERROR, INFO, WARNING};
+use omnity_types::ic_log::{ERROR, WARNING};
 use serde::Serialize;
-// use std::str::FromStr;
 use hex::prelude::*;
 
 use ic_canister_log::log;
@@ -233,7 +232,7 @@ pub async fn http_request_with_retry(
             Ok((response,)) => response,
             Err(e) => {
                 log!(
-                    ERROR,
+                    WARNING,
                     "http request error, request: {:?} \n, error {:?}",
                     request,
                     e
@@ -241,20 +240,14 @@ pub async fn http_request_with_retry(
                 continue;
             }
         };
-
-        log!(
-            INFO,
-            "httpoutcall request:{:?} response: {:?}",
-            request,
-            response
-        );
+      
         if response.status == Nat::from(200u64) {
             return Ok(response);
         } else {
-            log!(WARNING, "http request error: {:?}", response);
+            log!(ERROR, "http request error: {:?}", response);
         }
     }
-    Err(CustomsError::HttpOutExceedRetryLimit)
+    Err(CustomsError::HttpOutExceedRetryLimit(request.url))
 }
 
 #[derive(CandidType, Clone, Debug, Default, Deserialize, Serialize)]
@@ -317,7 +310,6 @@ impl MultiRpcConfig {
 
         let mut fut = Vec::with_capacity(self.rpc_list.len());
         for rpc_config in self.rpc_list.iter() {
-            // let doge_rpc = DogeRpc::from(rpc_url.clone());
             fut.push(get_raw_transaction_by_rpc(txid, rpc_config.clone()));
         }
 
@@ -356,3 +348,4 @@ impl MultiRpcConfig {
         Ok(success_res[0].clone())
     }
 }
+

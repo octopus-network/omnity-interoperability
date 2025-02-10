@@ -33,6 +33,8 @@ pub enum CustomsError {
     SendTicketErr(String),
     #[error("RpcError: {0}")]
     RpcError(String),
+    #[error("RpcResultParseError: {0}")]
+    RpcResultParseError(String),
     #[error("AmountIsZero")]
     AmountIsZero,
     #[error("OrdTxError: {0}")]
@@ -54,8 +56,8 @@ pub enum CustomsError {
     HttpOutCallError(String, String, String),
     #[error("Http status code: {0:?}, url: {1}, body: {2}")]
     HttpStatusError(Nat, String, String),
-    #[error("Http out call exceed retry limit")]
-    HttpOutExceedRetryLimit,
+    #[error("Http out call exceed retry limit, url: {0}")]
+    HttpOutExceedRetryLimit(String),
     #[error("InvalidBlockHash: {0}, error: {1}")]
     InvalidBlockHash(String, String),
     #[error("InvalidMerkleRoot: {0}, error: {1}")]
