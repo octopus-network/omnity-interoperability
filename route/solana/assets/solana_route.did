@@ -1,10 +1,3 @@
-type AccountInfo = record {
-  status : TxStatus;
-  signature : opt text;
-  retry_4_building : nat64;
-  account : text;
-  retry_4_status : nat64;
-};
 type CallError = record { method : text; reason : Reason };
 type Chain = record {
   fee_token : opt text;
@@ -57,18 +50,8 @@ type Reason = variant {
   TxError : TxError;
 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-<<<<<<< HEAD
-type Result_1 = variant { Ok : MintTokenRequest; Err : CallError };
-type Result_2 = variant { Ok : TxStatus; Err : CallError };
-type Result_3 = variant { Ok : opt text; Err : CallError };
-||||||| e28dd9a3
 type Result_1 = variant { Ok : TxStatus; Err : CallError };
 type Result_2 = variant { Ok : opt text; Err : CallError };
-type Result_3 = variant { Ok : MintTokenRequest; Err : CallError };
-=======
-type Result_1 = variant { Ok : TxStatus; Err : CallError };
-type Result_2 = variant { Ok : opt text; Err : CallError };
->>>>>>> boern/dev
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type TokenResp = record {
   decimals : nat8;
@@ -100,9 +83,7 @@ service : (RouteArg) -> {
   get_fee_account : () -> (text) query;
   get_redeem_fee : (text) -> (opt nat) query;
   get_token_list : () -> (vec TokenResp) query;
-  mint_token_req : (text) -> (Result_1) query;
-  mint_token_status : (text) -> (Result_2) query;
-  mint_token_tx_hash : (text) -> (Result_3) query;
-  query_mint_account : (text) -> (opt AccountInfo) query;
+  mint_token_status : (text) -> (Result_1) query;
+  mint_token_tx_hash : (text) -> (Result_2) query;
   query_mint_address : (text) -> (opt text) query;
 }

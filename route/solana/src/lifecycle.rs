@@ -76,6 +76,12 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     let mut state: SolanaRouteState =
         ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
+    // // Deserialize pre state
+    // let pre_state: PreState =
+    //     ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+    // // migrate
+    // let mut state = migrate(pre_state);
+
     // update state
     if let Some(args) = args {
         if let Some(admin) = args.admin {

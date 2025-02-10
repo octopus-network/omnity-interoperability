@@ -233,6 +233,12 @@ impl core::fmt::Display for Ticket {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Memo {
+    pub memo: Option<String>,
+    pub bridge_fee: u128,
+}
+
 #[derive(
     CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
 )]

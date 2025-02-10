@@ -1,8 +1,9 @@
-use crate::types::Ticket;
 use crate::types::{ChainState, Error, TicketType, TxAction};
+use crate::types::{Memo, Ticket};
 use candid::{CandidType, Principal};
 
 use crate::handler::solana_rpc::solana_client;
+use ic_solana::token::constants::{memo_program_id, system_program_id, token_program_id};
 use ic_solana::token::SolanaClient;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
@@ -15,7 +16,7 @@ use crate::{
 };
 
 use ic_canister_log::log;
-use ic_solana::ic_log::{DEBUG, ERROR};
+use ic_solana::ic_log::{DEBUG, WARNING};
 use serde_json::from_value;
 use serde_json::Value;
 
@@ -122,6 +123,20 @@ pub async fn generate_ticket(
         )));
     }
 
+    let fee = read_state(|s| s.get_fee(req.target_chain_id.clone())).unwrap_or_default();
+    let memo = Memo {
+        memo: req.memo,
+        bridge_fee: fee,
+    };
+
+    let memo_json = serde_json::to_string_pretty(&memo).map_err(|e| {
+        GenerateTicketError::TemporarilyUnavailable(format!(
+            "[generate_ticket] memo convert error: {}",
+            e.to_string()
+        ))
+    })?;
+    log!(DEBUG, "[generate_ticket] memo with fee: {:?}", memo_json);
+
     let ticket = Ticket {
         ticket_id: req.signature.to_string(),
         ticket_type: TicketType::Normal,
@@ -133,7 +148,7 @@ pub async fn generate_ticket(
         amount: req.amount.to_string(),
         sender: Some(req.sender.to_owned()),
         receiver: req.receiver.to_string(),
-        memo: req.memo.to_owned().map(|m| m.to_bytes().to_vec()),
+        memo: Some(memo_json.to_bytes().to_vec()),
     };
 
     match send_ticket(hub_principal, ticket.to_owned()).await {
@@ -143,7 +158,7 @@ pub async fn generate_ticket(
                     .insert(ticket.ticket_id.to_string(), ticket.to_owned());
             });
             log!(
-                ERROR,
+                WARNING,
                 "[generate_ticket] failed to send ticket: {}",
                 req.signature.to_string()
             );
@@ -201,7 +216,7 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
     for instruction in &instructions {
         if let Ok(parsed_value) = from_value::<ParsedValue>(instruction.parsed.to_owned().unwrap())
         {
-            if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.to_owned()) {
+            if let Ok(pi) = from_value::<ParsedInfo>(parsed_value.parsed.to_owned()) {
                 log!(DEBUG, "[generate_ticket] Parsed instruction: {:#?}", pi);
 
                 match pi.instr_type.as_str() {
@@ -218,7 +233,8 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
                         )?;
                         let fee_account = read_state(|s| s.fee_account.to_string());
                         let lamports = transfer.lamports as u128;
-                        if !(transfer.source.eq(&req.sender)
+                        if !(instruction.program_id.eq(&token_program_id().to_string())
+                            && transfer.source.eq(&req.sender)
                             && transfer.destination.eq(&fee_account)
                             && lamports == fee)
                         {
@@ -251,7 +267,8 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
                                     "[generate_ticket] No found token mint address for {}",
                                     req.token_id
                                 )))?;
-                        if !(burn_checked.authority.eq(&req.sender)
+                        if !(instruction.program_id.eq(&token_program_id().to_string())
+                            && burn_checked.authority.eq(&req.sender)
                             && burn_checked.mint.eq(&mint_address.account)
                             && burned_amount == req.amount)
                         {
@@ -275,7 +292,8 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
                                     "[generate_ticket] No found token mint address for {}",
                                     req.token_id
                                 )))?;
-                        if !(burn.authority.eq(&req.sender)
+                        if !(instruction.program_id.eq(&token_program_id().to_string())
+                            && burn.authority.eq(&req.sender)
                             && burn.mint.eq(&mint_address.account)
                             && burned_amount == req.amount)
                         {
@@ -296,7 +314,9 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
             } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.to_owned()) {
                 log!(DEBUG, "[generate_ticket] Parsed memo: {:?}", memo);
                 //verify memo.eq(req.receiver.)
-                if memo.eq(&req.receiver) {
+                if instruction.program_id.eq(&memo_program_id().to_string())
+                    && memo.eq(&req.receiver)
+                {
                     // receiver = memo;
                     memo_ok = true;
                 } else {
@@ -438,18 +458,19 @@ pub struct ParsedInstruction {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub enum InstructionEnum {
-    Transfer(ParsedIns),
+    Transfer(ParsedInfo),
     Burn(ParsedBurnChecked),
     Memo(String),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct ParsedIns {
+pub struct ParsedInfo {
     pub info: Value,
     #[serde(rename = "type")]
     pub instr_type: String,
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Transfer {
     pub destination: String,
@@ -510,193 +531,223 @@ mod test {
     #[test]
     fn test_parse_tx_with_transfer_burn_memo() {
         let json_data = r#"
-            {
-  "jsonrpc": "2.0",
-  "result": {
-    "blockTime": 1727316269,
-    "meta": {
-      "computeUnitsConsumed": 25649,
-      "err": null,
-      "fee": 25000,
-      "innerInstructions": [],
-      "logMessages": [
-        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
-        "Program ComputeBudget111111111111111111111111111111 success",
-        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
-        "Program ComputeBudget111111111111111111111111111111 success",
-        "Program 11111111111111111111111111111111 invoke [1]",
-        "Program 11111111111111111111111111111111 success",
-        "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
-        "Program log: Instruction: Burn",
-        "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1519 of 199550 compute units",
-        "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
-        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr invoke [1]",
-        "Program log: Memo (len 62): \"bc1p830q5uwpaxpmzaam2t93jgcq55nrs0x2n6xhl70arkzu3gy9w00qwa7pug\"",
-        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr consumed 23680 of 198031 compute units",
-        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr success"
-      ],
-      "postBalances": [
-        163636620,
-        401278600,
-        2074080,
-        3897600,
-        1,
-        1,
-        521498880,
-        1141440
-      ],
-      "postTokenBalances": [
-        {
-          "accountIndex": 2,
-          "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
-          "owner": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
-          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-          "uiTokenAmount": {
-            "amount": "40000",
-            "decimals": 2,
-            "uiAmount": 400.0,
-            "uiAmountString": "400"
-          }
-        }
-      ],
-      "preBalances": [
-        178041620,
-        386898600,
-        2074080,
-        3897600,
-        1,
-        1,
-        521498880,
-        1141440
-      ],
-      "preTokenBalances": [
-        {
-          "accountIndex": 2,
-          "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
-          "owner": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
-          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-          "uiTokenAmount": {
-            "amount": "50000",
-            "decimals": 2,
-            "uiAmount": 500.0,
-            "uiAmountString": "500"
-          }
-        }
-      ],
-      "rewards": [],
-      "status": {
-        "Ok": null
-      }
-    },
-    "slot": 292030024,
-    "transaction": {
-      "message": {
-        "accountKeys": [
-          {
-            "pubkey": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
-            "signer": true,
-            "source": "transaction",
-            "writable": true
-          },
-          {
-            "pubkey": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
-            "signer": false,
-            "source": "transaction",
-            "writable": true
-          },
-          {
-            "pubkey": "3hntCFiY3a3QFUjcYXnbxc1pp4cMFGEsTELNzhK3zvC6",
-            "signer": false,
-            "source": "transaction",
-            "writable": true
-          },
-          {
-            "pubkey": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
-            "signer": false,
-            "source": "transaction",
-            "writable": true
-          },
-          {
-            "pubkey": "11111111111111111111111111111111",
-            "signer": false,
-            "source": "transaction",
-            "writable": false
-          },
-          {
-            "pubkey": "ComputeBudget111111111111111111111111111111",
-            "signer": false,
-            "source": "transaction",
-            "writable": false
-          },
-          {
-            "pubkey": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
-            "signer": false,
-            "source": "transaction",
-            "writable": false
-          },
-          {
-            "pubkey": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-            "signer": false,
-            "source": "transaction",
-            "writable": false
-          }
-        ],
-        "instructions": [
-          {
-            "accounts": [],
-            "data": "3gJqkocMWaMm",
-            "programId": "ComputeBudget111111111111111111111111111111",
-            "stackHeight": null
-          },
-          {
-            "accounts": [],
-            "data": "Fj2Eoy",
-            "programId": "ComputeBudget111111111111111111111111111111",
-            "stackHeight": null
-          },
-          {
-            "parsed": {
-              "info": {
-                "destination": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
-                "lamports": 14380000,
-                "source": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26"
-              },
-              "type": "transfer"
-            },
-            "program": "system",
-            "programId": "11111111111111111111111111111111",
-            "stackHeight": null
-          },
-          {
-            "parsed": {
-              "info": {
-                "account": "3hntCFiY3a3QFUjcYXnbxc1pp4cMFGEsTELNzhK3zvC6",
-                "amount": "10000",
-                "authority": "E3dQM443fE4qfF7seeSjkXSkfghbpzCkY2pJqVPnEm26",
-                "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx"
-              },
-              "type": "burn"
-            },
-            "program": "spl-token",
-            "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-            "stackHeight": null
-          },
-          {
-            "parsed": "bc1p830q5uwpaxpmzaam2t93jgcq55nrs0x2n6xhl70arkzu3gy9w00qwa7pug",
-            "program": "spl-memo",
-            "programId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
-            "stackHeight": null
-          }
-        ],
-        "recentBlockhash": "2sZDws5kCHRKoNADzcKwFPNRURFuRBeAszwrzFnXRjbd"
-      },
-      "signatures": [
-        "5ib76kdHiu39h8Tsi7aAJNmwdpz8jMvz7QVuhsuXqCjTAwDop6hJ4TbrwLT7Nfeit6gFN3NYxM2Z2MezMApSfu3d"
-      ]
-    }
-  },
-  "id": 1
-}
+           {
+                "jsonrpc": "2.0",
+                "result": {
+                    "blockTime": 1737104745,
+                    "meta": {
+                    "computeUnitsConsumed": 32584,
+                    "err": null,
+                    "fee": 25000,
+                    "innerInstructions": [],
+                    "logMessages": [
+                        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+                        "Program ComputeBudget111111111111111111111111111111 success",
+                        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+                        "Program ComputeBudget111111111111111111111111111111 success",
+                        "Program 11111111111111111111111111111111 invoke [1]",
+                        "Program 11111111111111111111111111111111 success",
+                        "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]",
+                        "Program log: Instruction: Burn",
+                        "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4752 of 199550 compute units",
+                        "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr invoke [1]",
+                        "Program log: Memo (len 63): \"wzooq-tiwcy-7ucai-dvsb3-2oukm-ov4mw-mjwo7-co5lh-rbhnv-rydi4-yqe\"",
+                        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr consumed 24050 of 194798 compute units",
+                        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr success",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 invoke [1]",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 consumed 1424 of 170748 compute units",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 success",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 invoke [1]",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 consumed 1908 of 169324 compute units",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 success"
+                    ],
+                    "postBalances": [
+                        90018000,
+                        1461600,
+                        4300648890,
+                        2039280,
+                        1,
+                        1,
+                        1141440,
+                        521498880,
+                        934087680
+                    ],
+                    "postTokenBalances": [
+                        {
+                        "accountIndex": 3,
+                        "mint": "79yjxQmS7NWd3a5ZDrVrVcP9xEPsT4tFCys5SUdG8VxN",
+                        "owner": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC",
+                        "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                        "uiTokenAmount": {
+                            "amount": "0",
+                            "decimals": 8,
+                            "uiAmount": null,
+                            "uiAmountString": "0"
+                        }
+                        }
+                    ],
+                    "preBalances": [
+                        98893000,
+                        1461600,
+                        4291798890,
+                        2039280,
+                        1,
+                        1,
+                        1141440,
+                        521498880,
+                        934087680
+                    ],
+                    "preTokenBalances": [
+                        {
+                        "accountIndex": 3,
+                        "mint": "79yjxQmS7NWd3a5ZDrVrVcP9xEPsT4tFCys5SUdG8VxN",
+                        "owner": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC",
+                        "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                        "uiTokenAmount": {
+                            "amount": "30000000",
+                            "decimals": 8,
+                            "uiAmount": 0.3,
+                            "uiAmountString": "0.3"
+                        }
+                        }
+                    ],
+                    "rewards": [],
+                    "status": {
+                        "Ok": null
+                    }
+                    },
+                    "slot": 314544092,
+                    "transaction": {
+                    "message": {
+                        "accountKeys": [
+                        {
+                            "pubkey": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC",
+                            "signer": true,
+                            "source": "transaction",
+                            "writable": true
+                        },
+                        {
+                            "pubkey": "79yjxQmS7NWd3a5ZDrVrVcP9xEPsT4tFCys5SUdG8VxN",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": true
+                        },
+                        {
+                            "pubkey": "B3zfZ9CvfCHd23jzM7UqrVR2sid4y4eJYtxzZA4azqaD",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": true
+                        },
+                        {
+                            "pubkey": "BM2zuCg7SYNtzzrGQMFoJeHZLtXe5XGPJ4G3vyvviprj",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": true
+                        },
+                        {
+                            "pubkey": "11111111111111111111111111111111",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        },
+                        {
+                            "pubkey": "ComputeBudget111111111111111111111111111111",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        },
+                        {
+                            "pubkey": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        },
+                        {
+                            "pubkey": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        },
+                        {
+                            "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        }
+                        ],
+                        "instructions": [
+                        {
+                            "accounts": [],
+                            "data": "3gJqkocMWaMm",
+                            "programId": "ComputeBudget111111111111111111111111111111",
+                            "stackHeight": null
+                        },
+                        {
+                            "accounts": [],
+                            "data": "Fj2Eoy",
+                            "programId": "ComputeBudget111111111111111111111111111111",
+                            "stackHeight": null
+                        },
+                        {
+                            "parsed": {
+                            "info": {
+                                "destination": "B3zfZ9CvfCHd23jzM7UqrVR2sid4y4eJYtxzZA4azqaD",
+                                "lamports": 8850000,
+                                "source": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC"
+                            },
+                            "type": "transfer"
+                            },
+                            "program": "system",
+                            "programId": "11111111111111111111111111111111",
+                            "stackHeight": null
+                        },
+                        {
+                            "parsed": {
+                            "info": {
+                                "account": "BM2zuCg7SYNtzzrGQMFoJeHZLtXe5XGPJ4G3vyvviprj",
+                                "amount": "30000000",
+                                "authority": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC",
+                                "mint": "79yjxQmS7NWd3a5ZDrVrVcP9xEPsT4tFCys5SUdG8VxN"
+                            },
+                            "type": "burn"
+                            },
+                            "program": "spl-token",
+                            "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                            "stackHeight": null
+                        },
+                        {
+                            "parsed": "wzooq-tiwcy-7ucai-dvsb3-2oukm-ov4mw-mjwo7-co5lh-rbhnv-rydi4-yqe",
+                            "program": "spl-memo",
+                            "programId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+                            "stackHeight": null
+                        },
+                        {
+                            "accounts": [
+                            "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC"
+                            ],
+                            "data": "k5umEZ8fQejzcNNamn9fV",
+                            "programId": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
+                            "stackHeight": null
+                        },
+                        {
+                            "accounts": [
+                            "BM2zuCg7SYNtzzrGQMFoJeHZLtXe5XGPJ4G3vyvviprj"
+                            ],
+                            "data": "8A8uiXy3AqR3n36X8SDrAta8hgTXYYZUKFLfPuNNnoMp3N1dxQsdWxn8wHUzEMuMaYKh",
+                            "programId": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
+                            "stackHeight": null
+                        }
+                        ],
+                        "recentBlockhash": "3TpXpgoSn2dkvw9ydnfrJsNT2LGqjrD6QzjBdjMK6nx8"
+                    },
+                    "signatures": [
+                        "5DF8ctxn2YkwuztEstDcmR6mjY4GdcfGUZtsMedWiXJBJBqagDKwBnfm6M6ZLZ1suL6wVeN1qnhrQKMQkTaFYTgq"
+                    ]
+                    }
+                },
+                "id": 1
+                }
         "#;
 
         let transaction_response =
@@ -715,22 +766,32 @@ mod test {
                 println!("Skipped unknown instruction");
                 continue;
             }
+
             if let Ok(parsed_value) =
                 from_value::<ParsedValue>(instruction.parsed.to_owned().unwrap())
             {
                 println!("Parsed value: {:#?}", parsed_value);
 
-                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.to_owned()) {
+                if let Ok(pi) = from_value::<ParsedInfo>(parsed_value.parsed.to_owned()) {
                     match pi.instr_type.as_str() {
                         "transfer" => {
+                            println!("instruction program id: {}", instruction.program_id);
+                            println!("system_program_id: {}", system_program_id().to_string());
+                            assert!(instruction.program_id.eq(&system_program_id().to_string()));
                             let transfer = from_value::<Transfer>(pi.info.to_owned());
                             println!("Parsed transfer: {:#?}", transfer);
                         }
                         "burnChecked" => {
+                            println!("instruction program id: {}", instruction.program_id);
+                            println!("token_program_id: {}", token_program_id().to_string());
+                            assert!(instruction.program_id.eq(&token_program_id().to_string()));
                             let burn = from_value::<BurnChecked>(pi.info.to_owned());
                             println!("Parsed burn: {:#?}", burn);
                         }
                         "burn" => {
+                            println!("instruction program id: {}", instruction.program_id);
+                            println!("token_program_id: {}", token_program_id().to_string());
+                            assert!(instruction.program_id.eq(&token_program_id().to_string()));
                             let burn = from_value::<Burn>(pi.info.to_owned());
                             println!("Parsed burn: {:#?}", burn);
                         }
@@ -739,8 +800,12 @@ mod test {
                         }
                     }
                 } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.to_owned()) {
+                    println!("instruction program id: {}", instruction.program_id);
+                    println!("memo_program_id: {}", memo_program_id().to_string());
+                    assert!(instruction.program_id.eq(&memo_program_id().to_string()));
                     println!("Parsed memo: {:?}", memo);
                 } else {
+                    println!("unkown program id: {}", instruction.program_id);
                     println!("Unknown Parsed instruction: {:#?}", parsed_value.parsed);
                 }
             } else {
@@ -753,168 +818,168 @@ mod test {
     fn test_parse_tx_without_log_message() {
         let json_data = r#"
             {
-  "jsonrpc": "2.0",
-  "result": {
-    "blockTime": 1727663653,
-    "meta": {
-      "computeUnitsConsumed": 18580,
-      "err": null,
-      "fee": 25000,
-      "innerInstructions": null,
-      "logMessages": null,
-      "postBalances": [
-        458649200,
-        2074080,
-        3897600,
-        1,
-        1,
-        521498880,
-        1141440
-      ],
-      "postTokenBalances": [
-        {
-          "accountIndex": 1,
-          "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
-          "owner": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
-          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-          "uiTokenAmount": {
-            "amount": "320000",
-            "decimals": 2,
-            "uiAmount": 3200.0,
-            "uiAmountString": "3200"
-          }
-        }
-      ],
-      "preBalances": [
-        458674200,
-        2074080,
-        3897600,
-        1,
-        1,
-        521498880,
-        1141440
-      ],
-      "preTokenBalances": [
-        {
-          "accountIndex": 1,
-          "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
-          "owner": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
-          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-          "uiTokenAmount": {
-            "amount": "1120000",
-            "decimals": 2,
-            "uiAmount": 11200.0,
-            "uiAmountString": "11200"
-          }
-        }
-      ],
-      "rewards": [],
-      "status": {
-        "Ok": null
-      }
-    },
-    "slot": 292803140,
-    "transaction": {
-      "message": {
-        "accountKeys": [
-          {
-            "pubkey": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
-            "signer": true,
-            "source": "transaction",
-            "writable": true
-          },
-          {
-            "pubkey": "4qwZrtmZpoMqtUKCSeCPmPLdgZ6EJJ7j3P9vSf88CkLS",
-            "signer": false,
-            "source": "transaction",
-            "writable": true
-          },
-          {
-            "pubkey": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
-            "signer": false,
-            "source": "transaction",
-            "writable": true
-          },
-          {
-            "pubkey": "11111111111111111111111111111111",
-            "signer": false,
-            "source": "transaction",
-            "writable": false
-          },
-          {
-            "pubkey": "ComputeBudget111111111111111111111111111111",
-            "signer": false,
-            "source": "transaction",
-            "writable": false
-          },
-          {
-            "pubkey": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
-            "signer": false,
-            "source": "transaction",
-            "writable": false
-          },
-          {
-            "pubkey": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-            "signer": false,
-            "source": "transaction",
-            "writable": false
-          }
-        ],
-        "instructions": [
-          {
-            "accounts": [],
-            "data": "3gJqkocMWaMm",
-            "programId": "ComputeBudget111111111111111111111111111111",
-            "stackHeight": null
-          },
-          {
-            "accounts": [],
-            "data": "Fj2Eoy",
-            "programId": "ComputeBudget111111111111111111111111111111",
-            "stackHeight": null
-          },
-          {
-            "parsed": {
-              "info": {
-                "destination": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
-                "lamports": 14380000,
-                "source": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
-              },
-              "type": "transfer"
+            "jsonrpc": "2.0",
+            "result": {
+                "blockTime": 1727663653,
+                "meta": {
+                "computeUnitsConsumed": 18580,
+                "err": null,
+                "fee": 25000,
+                "innerInstructions": null,
+                "logMessages": null,
+                "postBalances": [
+                    458649200,
+                    2074080,
+                    3897600,
+                    1,
+                    1,
+                    521498880,
+                    1141440
+                ],
+                "postTokenBalances": [
+                    {
+                    "accountIndex": 1,
+                    "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+                    "owner": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+                    "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+                    "uiTokenAmount": {
+                        "amount": "320000",
+                        "decimals": 2,
+                        "uiAmount": 3200.0,
+                        "uiAmountString": "3200"
+                    }
+                    }
+                ],
+                "preBalances": [
+                    458674200,
+                    2074080,
+                    3897600,
+                    1,
+                    1,
+                    521498880,
+                    1141440
+                ],
+                "preTokenBalances": [
+                    {
+                    "accountIndex": 1,
+                    "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+                    "owner": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+                    "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+                    "uiTokenAmount": {
+                        "amount": "1120000",
+                        "decimals": 2,
+                        "uiAmount": 11200.0,
+                        "uiAmountString": "11200"
+                    }
+                    }
+                ],
+                "rewards": [],
+                "status": {
+                    "Ok": null
+                }
+                },
+                "slot": 292803140,
+                "transaction": {
+                "message": {
+                    "accountKeys": [
+                    {
+                        "pubkey": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+                        "signer": true,
+                        "source": "transaction",
+                        "writable": true
+                    },
+                    {
+                        "pubkey": "4qwZrtmZpoMqtUKCSeCPmPLdgZ6EJJ7j3P9vSf88CkLS",
+                        "signer": false,
+                        "source": "transaction",
+                        "writable": true
+                    },
+                    {
+                        "pubkey": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+                        "signer": false,
+                        "source": "transaction",
+                        "writable": true
+                    },
+                    {
+                        "pubkey": "11111111111111111111111111111111",
+                        "signer": false,
+                        "source": "transaction",
+                        "writable": false
+                    },
+                    {
+                        "pubkey": "ComputeBudget111111111111111111111111111111",
+                        "signer": false,
+                        "source": "transaction",
+                        "writable": false
+                    },
+                    {
+                        "pubkey": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+                        "signer": false,
+                        "source": "transaction",
+                        "writable": false
+                    },
+                    {
+                        "pubkey": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+                        "signer": false,
+                        "source": "transaction",
+                        "writable": false
+                    }
+                    ],
+                    "instructions": [
+                    {
+                        "accounts": [],
+                        "data": "3gJqkocMWaMm",
+                        "programId": "ComputeBudget111111111111111111111111111111",
+                        "stackHeight": null
+                    },
+                    {
+                        "accounts": [],
+                        "data": "Fj2Eoy",
+                        "programId": "ComputeBudget111111111111111111111111111111",
+                        "stackHeight": null
+                    },
+                    {
+                        "parsed": {
+                        "info": {
+                            "destination": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+                            "lamports": 14380000,
+                            "source": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
+                        },
+                        "type": "transfer"
+                        },
+                        "program": "system",
+                        "programId": "11111111111111111111111111111111",
+                        "stackHeight": null
+                    },
+                    {
+                        "parsed": {
+                        "info": {
+                            "account": "4qwZrtmZpoMqtUKCSeCPmPLdgZ6EJJ7j3P9vSf88CkLS",
+                            "amount": "800000",
+                            "authority": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+                            "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx"
+                        },
+                        "type": "burn"
+                        },
+                        "program": "spl-token",
+                        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+                        "stackHeight": null
+                    },
+                    {
+                        "parsed": "bc1qmh0chcr9f73a3ynt90k0w8qsqlydr4a6espnj6",
+                        "program": "spl-memo",
+                        "programId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+                        "stackHeight": null
+                    }
+                    ],
+                    "recentBlockhash": "3QAxYh7P3Z1iu5Uiz8pwUM9pKdqiMw9mfwLRBKbQ5hEQ"
+                },
+                "signatures": [
+                ]
+                }
             },
-            "program": "system",
-            "programId": "11111111111111111111111111111111",
-            "stackHeight": null
-          },
-          {
-            "parsed": {
-              "info": {
-                "account": "4qwZrtmZpoMqtUKCSeCPmPLdgZ6EJJ7j3P9vSf88CkLS",
-                "amount": "800000",
-                "authority": "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
-                "mint": "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx"
-              },
-              "type": "burn"
-            },
-            "program": "spl-token",
-            "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-            "stackHeight": null
-          },
-          {
-            "parsed": "bc1qmh0chcr9f73a3ynt90k0w8qsqlydr4a6espnj6",
-            "program": "spl-memo",
-            "programId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
-            "stackHeight": null
-          }
-        ],
-        "recentBlockhash": "3QAxYh7P3Z1iu5Uiz8pwUM9pKdqiMw9mfwLRBKbQ5hEQ"
-      },
-      "signatures": [
-      ]
-    }
-  },
-  "id": 1
-}
+            "id": 1
+            }
         "#;
 
         let transaction_response =
@@ -938,7 +1003,7 @@ mod test {
             {
                 println!("Parsed value: {:#?}", parsed_value);
 
-                if let Ok(pi) = from_value::<ParsedIns>(parsed_value.parsed.to_owned()) {
+                if let Ok(pi) = from_value::<ParsedInfo>(parsed_value.parsed.to_owned()) {
                     match pi.instr_type.as_str() {
                         "transfer" => {
                             let transfer = from_value::<Transfer>(pi.info.to_owned());
@@ -971,5 +1036,42 @@ mod test {
     fn test_management_canister() {
         let principal = Principal::management_canister();
         println!("The management principal value is: {}", principal)
+    }
+
+    #[test]
+    fn memo_with_fee() {
+        use crate::types::Memo;
+        // user memo is Some(...)
+        let memo = Some("some memo".to_string());
+        let fee = 20000000 as u128;
+        let memo_with_fee = Memo {
+            memo: memo,
+            bridge_fee: fee,
+        };
+
+        let memo = serde_json::to_string_pretty(&memo_with_fee).unwrap();
+        println!("[generate_ticket] Memo is some and fee: {:?}", memo);
+
+        // user memo is Some(json)
+        let memo = Some(r#"{"yyy":"xxx"}"#.to_string());
+        let fee = 20000000 as u128;
+        let memo_with_fee = Memo {
+            memo: memo,
+            bridge_fee: fee,
+        };
+
+        let memo = serde_json::to_string_pretty(&memo_with_fee).unwrap();
+        println!("[generate_ticket] Memo is some and fee: {:?}", memo);
+
+        // user memo is None
+        let memo = None;
+        let fee = 20000000 as u128;
+        let memo_with_fee = Memo {
+            memo: memo,
+            bridge_fee: fee,
+        };
+        let memo = serde_json::to_string_pretty(&memo_with_fee).unwrap();
+
+        println!("[generate_ticket] Memo is None and fee: {:?}", memo);
     }
 }

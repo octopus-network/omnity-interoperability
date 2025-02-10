@@ -276,6 +276,7 @@ fn get_token_list() -> Vec<TokenResp> {
     })
 }
 
+// devops method
 #[query(guard = "is_admin",hidden = true)]
 fn get_token(token_id:TokenId) -> Option<Token> {
     read_state(|s| {
@@ -760,7 +761,8 @@ pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> 
                     token.name = req.name;
                     token.symbol = req.symbol;
                     token.decimals = req.decimals;
-                    token.icon = Some(req.uri);
+                    // token.icon = Some(req.uri);
+                    token.metadata.insert("uri".to_string(), req.uri);
                     s.tokens.insert(req.token_id.to_string(), token.to_owned());
                 }
             });
@@ -1723,6 +1725,79 @@ fn http_request(req: HttpRequest) -> HttpResponse {
         _ => HttpResponseBuilder::not_found().build()
     }
   
+}
+
+// devops method,just for test
+#[update(guard = "is_admin",hidden = true)]
+async fn create_token_with_metaplex_delay(token_info: TokenInfo, key_type:SnorKeyType,delay: u64)  {
+    //mock delay
+    use ic_solana::eddsa::hash_with_sha256;
+    use std::time::Duration;
+    use std::sync::{Arc, Mutex};
+    use ic_cdk::api;
+    let sol_client = solana_client().await;
+    let delay_duration = Duration::from_secs(delay);
+    let derive_path = hash_with_sha256(token_info.token_id.to_owned().as_str());
+    let key_type = match key_type {
+        SnorKeyType::ChainKey => KeyType::ChainKey,
+        SnorKeyType::Native => {
+            let seed =read_state(|s| s.seeds
+                .get(&KEY_TYPE_NAME.to_string())
+                .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string())));
+            KeyType::Native(seed.to_vec())
+        }
+    };
+    let token_mint =
+        Arc::new(SolanaClient::derive_account(key_type,sol_client.chainkey_name.to_owned(), derive_path).await);
+    let start = api::time();
+    let blockhash = Arc::new(sol_client.get_latest_blockhash().await.unwrap());
+    let end = api::time();
+    let elapsed = (end - start) / 1_000_000_000;
+    log!(
+        DEBUG,
+        "[service::create_token_with_metaplex_delay] get_latest_blockhash : {:?} and time elapsed: {}",
+        blockhash,elapsed
+    );
+
+    let ret = Arc::new(Mutex::new(String::default()));
+    let token_mint_clone = Arc::clone(&token_mint);
+    let blockhash_clone = Arc::clone(&blockhash);
+    let ret_clone = Arc::clone(&ret);
+
+    ic_cdk_timers::set_timer(delay_duration, move || {
+        let token_mint = Arc::clone(&token_mint_clone);
+        let blockhash = Arc::clone(&blockhash_clone);
+        let ret = Arc::clone(&ret_clone);
+
+        ic_cdk::spawn(async move {
+            log!(
+                DEBUG,
+                "[service::create_token_with_metaplex_delay] {}s delay  is over !",
+                delay
+            );
+            let r = sol_client
+                .test_create_mint_with_metaplex(
+                    *Arc::clone(&token_mint),
+                    token_info.to_owned(),
+                    *Arc::clone(&blockhash),
+                )
+                .await
+                ;
+            log!(
+                DEBUG,
+                "[service::create_token_with_metaplex_delay] test_create_mint_with_metaplex resuslt: {:?}",
+                r
+            );
+
+            *ret.lock().unwrap() = r.unwrap();
+            log!(
+                DEBUG,
+                "[service::create_token_with_metaplex_delay] create_token_with_metaplex_delay resuslt: {:?}",
+                ret
+            );
+        });
+    });
+    
 }
 
 // Enable Candid export
