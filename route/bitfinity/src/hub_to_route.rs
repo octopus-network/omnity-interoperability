@@ -1,16 +1,13 @@
-use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME};
+use crate::const_args::{BATCH_QUERY_LIMIT};
 use crate::eth_common::EvmAddress;
 use crate::state::{mutate_state, read_state};
-use omnity_types::{ChainState, Directive, Seq, Ticket};
+use omnity_types::{Directive, Seq, Ticket};
 use crate::{audit, hub};
 use std::str::FromStr;
 use ic_canister_log::log;
 use omnity_types::ic_log::{CRITICAL, ERROR};
 
-async fn process_tickets() {
-    if read_state(|s| s.chain_state == ChainState::Deactive) {
-        return;
-    }
+pub async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
@@ -24,8 +21,8 @@ async fn process_tickets() {
 
 pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
     let mut next_seq = offset;
-    for (seq, ticket) in &tickets {
-        if let Err(_) = EvmAddress::from_str(&ticket.receiver) {
+    for (seq, ticket) in tickets.into_iter() {
+        if EvmAddress::from_str(&ticket.receiver).is_err() {
             log!(CRITICAL,
                 "[process tickets] failed to parse ticket receiver: {}",
                 ticket.receiver
@@ -33,7 +30,7 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
             next_seq = seq + 1;
             continue;
         };
-        if let Err(_) = ticket.amount.parse::<u128>() {
+        if ticket.amount.parse::<u128>().is_err() {
             log!(CRITICAL,
                 "[process tickets] failed to parse ticket amount: {}",
                 ticket.amount
@@ -41,19 +38,20 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
             next_seq = seq + 1;
             continue;
         };
-        mutate_state(|s| s.tickets_queue.insert(*seq, ticket.clone()));
+        mutate_state(|s| s.tickets_queue.insert(seq, ticket));
         next_seq = seq + 1;
     }
     mutate_state(|s| s.next_ticket_seq = next_seq)
 }
 
-async fn process_directives() {
+pub async fn process_directives() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
     match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(directives) => {
-            for (seq, directive) in &directives {
+            let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
+            for (seq, directive) in directives {
                 let mut final_directive = directive.clone();
-                match directive.clone() {
+                match directive {
                     Directive::AddChain(chain) | Directive::UpdateChain(chain) => {
                         mutate_state(|s| audit::add_chain(s, chain.clone()));
                     }
@@ -66,22 +64,21 @@ async fn process_directives() {
                         });
                     }
                     Directive::UpdateToken(token) => {
-                        let is_old_token = read_state(|s| s.tokens.get(&token.token_id).is_some());
+                        let is_old_token = read_state(|s| s.tokens.contains_key(&token.token_id));
                         if is_old_token {
-                            mutate_state(|s| audit::add_token(s, token.clone()));
+                            mutate_state(|s| audit::add_token(s, token));
                         } else {
                             //special condition, when add current chain into token's dst chain,
                             // updateToken means addtoken for current chain.
-                            final_directive = Directive::AddToken(token.clone());
+                            final_directive = Directive::AddToken(token);
                         }
                     }
                     _ => {
                         //process after port contract executed, don't handle it now.
                     }
                 }
-                mutate_state(|s| s.directives_queue.insert(*seq, final_directive));
+                mutate_state(|s| s.directives_queue.insert(seq, final_directive));
             }
-            let next_seq = directives.last().map_or(offset, |(seq, _)| seq + 1);
             mutate_state(|s| {
                 s.next_directive_seq = next_seq;
             });
@@ -93,25 +90,4 @@ async fn process_directives() {
             );
         }
     };
-}
-
-pub fn fetch_hub_ticket_task() {
-    ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(FETCH_HUB_TICKET_NAME.to_string()) {
-            Some(guard) => guard,
-            None => return,
-        };
-        process_tickets().await;
-    });
-}
-
-pub fn fetch_hub_directive_task() {
-    ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(FETCH_HUB_DIRECTIVE_NAME.to_string())
-        {
-            Some(guard) => guard,
-            None => return,
-        };
-        process_directives().await;
-    });
 }

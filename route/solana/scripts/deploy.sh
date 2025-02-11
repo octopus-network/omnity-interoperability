@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # get admin id
-# ADMIN="rv3oc-smtnf-i2ert-ryxod-7uj7v-j7z3q-qfa5c-bhz35-szt3n-k3zks-fqe"
 ADMIN=$(dfx identity get-principal)
 echo "admin id: $ADMIN"
 echo 
@@ -36,6 +35,13 @@ SOL_PROVIDER_CANISTER_ID=$(dfx canister id ic-solana-provider)
 echo "solana provide canister id: $SOL_PROVIDER_CANISTER_ID"
 echo 
 dfx canister status $SOL_PROVIDER_CANISTER_ID 
+# test canister api
+ankr=testnet
+test_account=3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia
+test_sig=4e1gA4YvTt95DYY5kdwSWpGr2oiMqRX2nk4XenF1aiJSz69cbLBMeTfV6HG4jG7jHtdcHwwjGCSw5zepgpC8n5g7
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_latestBlockhash "(opt \"${ankr}\")" 
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getAccountInfo "(\"${test_account}\",opt \"${ankr}\")" 
+dfx canister call $SOL_PROVIDER_CANISTER_ID sol_getSignatureStatuses "(vec {\"${test_sig}\"},opt \"${ankr}\")"
 echo 
 
 CHAIN_ID="eSolana"
@@ -67,7 +73,7 @@ rpc2="testnet"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID update_multi_rpc "(record { 
     rpc_list = vec {\"${rpc1}\";
                      \"${rpc2}\";};\
-    minimum_response_count = 1:nat32;})"
+    minimum_response_count = 2:nat32;})"
 dfx canister call $SOLANA_ROUTE_CANISTER_ID multi_rpc_config '()'
 
 test_account=3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia

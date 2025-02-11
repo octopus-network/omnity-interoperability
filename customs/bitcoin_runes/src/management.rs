@@ -1,20 +1,23 @@
 //! This module contains async functions for interacting with the management canister.
 
 use crate::call_error::{CallError, Reason};
+use crate::state::read_state;
 use crate::tx;
 use crate::ECDSAPublicKey;
+use bitcoin::Transaction;
 use candid::{CandidType, Principal};
 use ic_btc_interface::{
-    Address, GetCurrentFeePercentilesRequest, GetUtxosRequest, GetUtxosResponse,
-    MillisatoshiPerByte, Network, UtxosFilterInRequest,
+    Address, GetBalanceRequest, GetCurrentFeePercentilesRequest, GetUtxosRequest, GetUtxosResponse,
+    MillisatoshiPerByte, Network, Satoshi, UtxosFilterInRequest,
 };
 use ic_canister_log::log;
+use ic_cdk::api::call::CallResult;
 use ic_ic00_types::{
     DerivationPath, ECDSAPublicKeyArgs, ECDSAPublicKeyResponse, EcdsaCurve, EcdsaKeyId,
     SignWithECDSAArgs, SignWithECDSAReply,
 };
-use serde::de::DeserializeOwned;
 use omnity_types::ic_log::CRITICAL;
+use serde::de::DeserializeOwned;
 
 async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallError>
 where
@@ -62,6 +65,45 @@ pub enum CallSource {
     Custom,
 }
 
+pub async fn get_bitcoin_balance(
+    network: Network,
+    address: &Address,
+    min_confirmations: u32,
+    call_source: CallSource,
+) -> Result<Satoshi, CallError> {
+    // NB. The minimum number of cycles that need to be sent with the call is 10B (4B) for
+    // Bitcoin mainnet (Bitcoin testnet):
+    // https://internetcomputer.org/docs/current/developer-docs/integrations/bitcoin/bitcoin-how-it-works#api-fees--pricing
+    let get_balance_cost_cycles = match network {
+        Network::Mainnet => 10_000_000_000,
+        Network::Testnet | Network::Regtest => 4_000_000_000,
+    };
+
+    // Calls "bitcoin_get_utxos" method with the specified argument on the
+    // management canister.
+    async fn bitcoin_get_balance(
+        req: &GetBalanceRequest,
+        cycles: u64,
+        source: CallSource,
+    ) -> Result<Satoshi, CallError> {
+        match source {
+            CallSource::Client => &crate::metrics::GET_UTXOS_CLIENT_CALLS,
+            CallSource::Custom => &crate::metrics::GET_UTXOS_CUSTOM_CALLS,
+        }
+        .with(|cell| cell.set(cell.get() + 1));
+        call("bitcoin_get_balance", cycles, req).await
+    }
+    bitcoin_get_balance(
+        &GetBalanceRequest {
+            address: address.to_string(),
+            network: network.into(),
+            min_confirmations: Some(min_confirmations),
+        },
+        get_balance_cost_cycles,
+        call_source,
+    )
+    .await
+}
 /// Fetches the full list of UTXOs for the specified address.
 pub async fn get_utxos(
     network: Network,
@@ -145,6 +187,28 @@ pub async fn get_current_fees(network: Network) -> Result<Vec<MillisatoshiPerByt
 }
 
 /// Sends the transaction to the network the management canister interacts with.
+pub async fn send_etching(transaction: &Transaction) -> Result<(), CallError> {
+    use ic_cdk::api::management_canister::bitcoin::BitcoinNetwork;
+    let network = read_state(|s| s.btc_network);
+    let cdk_network = match network {
+        Network::Mainnet => BitcoinNetwork::Mainnet,
+        Network::Testnet => BitcoinNetwork::Testnet,
+        Network::Regtest => BitcoinNetwork::Regtest,
+    };
+    let tx_bytes = bitcoin::consensus::serialize(&transaction);
+    ic_cdk::api::management_canister::bitcoin::bitcoin_send_transaction(
+        ic_cdk::api::management_canister::bitcoin::SendTransactionRequest {
+            transaction: tx_bytes,
+            network: cdk_network,
+        },
+    )
+    .await
+    .map_err(|(code, msg)| CallError {
+        method: "bitcoin_send_transaction".to_string(),
+        reason: Reason::from_reject(code, msg),
+    })
+}
+
 pub async fn send_transaction(
     transaction: &tx::SignedTransaction,
     network: Network,
@@ -156,9 +220,7 @@ pub async fn send_transaction(
         Network::Testnet => BitcoinNetwork::Testnet,
         Network::Regtest => BitcoinNetwork::Regtest,
     };
-
     let tx_bytes = transaction.serialize();
-
     ic_cdk::api::management_canister::bitcoin::bitcoin_send_transaction(
         ic_cdk::api::management_canister::bitcoin::SendTransactionRequest {
             transaction: tx_bytes,
@@ -222,4 +284,12 @@ pub async fn sign_with_ecdsa(
     )
     .await?;
     Ok(reply.signature)
+}
+
+pub async fn raw_rand() -> CallResult<[u8; 32]> {
+    let (random_bytes,): (Vec<u8>,) =
+        ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await?;
+    let mut v = [0u8; 32];
+    v.copy_from_slice(random_bytes.as_slice());
+    Ok(v)
 }

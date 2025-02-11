@@ -13,11 +13,8 @@ use std::cell::RefCell;
 
 use crate::memory::{init_event_log, Memory};
 
-use crate::types::ChainMeta;
-use crate::types::ChainTokenFactor;
-use crate::types::Subscribers;
-use crate::types::TokenKey;
-use crate::types::TokenMeta;
+use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
+
 use omnity_types::ToggleState;
 use serde::{Deserialize, Serialize};
 const MAX_EVENTS_PER_QUERY: usize = 2000;
@@ -26,34 +23,6 @@ type EventLog = Log<Vec<u8>, Memory, Memory>;
 thread_local! {
     // The event storage
     static EVENTS: RefCell<EventLog> =  RefCell::new(init_event_log())
-}
-
-pub struct EventIterator {
-    buf: Vec<u8>,
-    pos: u64,
-}
-
-impl Iterator for EventIterator {
-    type Item = Event;
-
-    fn next(&mut self) -> Option<Event> {
-        EVENTS.with(|events| {
-            let events = events.borrow();
-
-            match events.read_entry(self.pos, &mut self.buf) {
-                Ok(()) => {
-                    self.pos = self.pos.saturating_add(1);
-                    Some(decode_event(&self.buf))
-                }
-                Err(_) => None,
-            }
-        })
-    }
-
-    fn nth(&mut self, n: usize) -> Option<Event> {
-        self.pos = self.pos.saturating_add(n as u64);
-        self.next()
-    }
 }
 
 /// Encodes an event into a byte array.

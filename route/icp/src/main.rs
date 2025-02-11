@@ -13,12 +13,12 @@ use icp_route::state::eventlog::{Event, GetEventsArg};
 use icp_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
 use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
 use icp_route::updates::generate_ticket::{
-    principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
+    icp_get_redeem_fee, principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq
 };
 use icp_route::updates::{self};
 use icp_route::{
     hub, process_directive_msg_task, process_ticket_msg_task, storage, TokenResp,
-    FEE_COLLECTOR_SUB_ACCOUNT, ICP_TRANSFER_FEE, INTERVAL_QUERY_DIRECTIVE, INTERVAL_QUERY_TICKET,
+    FEE_COLLECTOR_SUB_ACCOUNT, INTERVAL_QUERY_DIRECTIVE, INTERVAL_QUERY_TICKET,
 };
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
@@ -59,7 +59,34 @@ fn check_anonymous_caller() {
 #[update]
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
-    updates::generate_ticket(args).await
+    
+    log!(INFO, "generate_ticket: {:?}", args);
+    match updates::generate_ticket(args, false).await {
+        Ok(r) => {
+            log!(INFO, "generate_ticket success, result: {:?}", r);
+            Ok(r)
+        },
+        Err(e) => {
+            log!(ERROR, "generate_ticket failed, error: {:?}", e);
+            Err(e)
+        },
+    }
+}
+
+#[update]
+async fn generate_ticket_v2(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
+    check_anonymous_caller();
+    log!(INFO, "generate_ticket_v2: {:?}", args);
+    match updates::generate_ticket(args, true).await {
+        Ok(r) => {
+            log!(INFO, "generate_ticket_v2 success, result: {:?}", r);
+            Ok(r)
+        },
+        Err(e) => {
+            log!(ERROR, "generate_ticket_v2 failed, error: {:?}", e);
+            Err(e)
+        },
+    }
 }
 
 pub fn is_controller() -> Result<(), String> {
@@ -234,7 +261,11 @@ fn get_token_list() -> Vec<TokenResp> {
     read_state(|s| {
         s.tokens
             .iter()
-            .map(|(_, token)| token.clone().into())
+            .map(|(_, token)| {
+                let mut token_resp = TokenResp::from(token.clone());
+                token_resp.principal = s.token_ledgers.get(&token.token_id).clone().copied();
+                token_resp
+            })
             .collect()
     })
 }
@@ -244,12 +275,12 @@ fn get_token_ledger(token_id: String) -> Option<Principal> {
     read_state(|s| s.token_ledgers.get(&token_id).cloned())
 }
 
-#[query]
+#[query(hidden = true, guard = "is_controller")]
 pub fn get_log_records(offset: usize, limit: usize) -> Logs {
     ic_log::take_memory_records(limit, offset)
 }
 
-#[query]
+#[query(hidden = true, guard = "is_controller")]
 fn get_events(args: GetEventsArg) -> Vec<Event> {
     const MAX_EVENTS_PER_QUERY: usize = 2000;
 
@@ -266,20 +297,17 @@ pub fn get_fee_account(principal: Option<Principal>) -> AccountIdentifier {
 }
 
 #[query]
-pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
-    read_state(|s| {
-        s.target_chain_factor
-            .get(&chain_id)
-            // Add an additional transfer fee to make users bear the cost of transferring from route subaccount to route default account
-            .map_or(None, |target_chain_factor| {
-                s.fee_token_factor.map(|fee_token_factor| {
-                    (target_chain_factor * fee_token_factor) as u64 + ICP_TRANSFER_FEE
-                })
-            })
-    })
+pub fn get_readable_fee_account(principal: Option<Principal>) -> String {
+    let principal = principal.unwrap_or(caller());
+    AccountIdentifier::new(&ic_cdk::api::id(), &principal_to_subaccount(&principal)).to_hex()
 }
 
 #[query]
+pub fn get_redeem_fee(chain_id: ChainId) -> Option<u64> {
+    icp_get_redeem_fee(chain_id)
+}
+
+#[query(guard = "is_controller")]
 pub fn get_route_state() -> icp_route::state::RouteState {
     read_state(|s| s.clone())
 }

@@ -34,6 +34,7 @@ type GenerateTicketError = variant {
 type GenerateTicketOk = record { ticket_id : text };
 type GenerateTicketReq = record {
   token_id : text;
+  memo : opt text;
   from_subaccount : opt blob;
   target_chain_id : text;
   amount : nat;
@@ -51,6 +52,7 @@ type MintTokenStatus = variant {
 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_1 = variant { Ok : nat64; Err : text };
+type Result_2 = variant { Ok : record { nat64; nat64 }; Err : text };
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -82,13 +84,16 @@ type TxAction = variant {
 };
 service : (InitArgs) -> {
   generate_ticket : (GenerateTicketReq) -> (Result);
+  generate_ticket_v2 : (GenerateTicketReq) -> (Result);
   get_account_identifier : (principal) -> (blob) query;
+  get_account_identifier_text : (principal) -> (text) query;
   get_chain_list : () -> (vec Chain) query;
   get_state : () -> (CustomsState) query;
   get_token_list : () -> (vec Token) query;
   handle_ticket : (nat64) -> (Result_1);
   mint_token_status : (text) -> (MintTokenStatus) query;
   query_hub_tickets : (nat64, nat64) -> (vec record { nat64; Ticket });
+  refund_icp : (principal) -> (Result_2);
   set_ckbtc_token : (text) -> ();
   set_icp_token : (text) -> ();
 }

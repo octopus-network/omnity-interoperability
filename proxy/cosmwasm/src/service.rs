@@ -120,6 +120,7 @@ pub async fn update_settings(
 #[update]
 pub async fn generate_ticket_from_subaccount(
     osmosis_account_id: String,
+    ticket_memo: Option<String>
 ) -> Result<TicketId, String> {
     let address_data = AddressData::try_from(osmosis_account_id.as_str())
         .map_err(|e| Errors::AccountIdParseError(osmosis_account_id.clone(), e.to_string()))
@@ -143,15 +144,18 @@ pub async fn generate_ticket_from_subaccount(
     let ticket_amount = nat_to_u128(balance)
         .and_then(|u| u.checked_sub(2 * CKBTC_FEE as u128).ok_or(Errors::CustomError("overflow".to_string())))
         .map_err(|e| e.to_string())?;
+    // 1. cosm proxy => icp custom generate ticket
+    log!(INFO, "[Consolidation]Proxy: start generate ticket, osmosis account id: {}, subaccount: {:?}", osmosis_account_id, subaccount);
     let ticket_id = generate_ticket(
         setting.token_id,
         setting.target_chain_id,
         ticket_amount,
         subaccount,
+        ticket_memo
     )
     .await
     .map_err(|e| e.to_string())?;
-
+    log!(INFO, "[Consolidation]Proxy: generate ticket finished, osmosis account id: {}, ticket id: {}", osmosis_account_id, ticket_id);
     extend_ticket_records(osmosis_account_id, vec![TicketRecord {
             ticket_id: ticket_id.clone(),
             minted_utxos: vec![],
@@ -160,10 +164,13 @@ pub async fn generate_ticket_from_subaccount(
 }
 
 #[update]
-pub async fn update_balance_after_finalization(osmosis_account_id: String) {
+pub async fn update_balance_after_finalization(
+    osmosis_account_id: String, 
+    ticket_memo: Option<String>
+) {
 
     mutate_settings(|s| {
-        s.update_balances_jobs.push(UpdateBalanceJob::new(osmosis_account_id.clone()))
+        s.update_balances_jobs.push(UpdateBalanceJob::new(osmosis_account_id.clone(), ticket_memo))
     });
 
     log!(INFO, "Created update balance job for osmosis account id: {}", osmosis_account_id);
@@ -171,8 +178,8 @@ pub async fn update_balance_after_finalization(osmosis_account_id: String) {
 }
 
 #[update(guard = "is_controller")]
-pub async fn trigger_update_balance(osmosis_account_id: String) -> Result<TicketId, String> {
-    update_balance_and_generate_ticket(osmosis_account_id).await
+pub async fn trigger_update_balance(osmosis_account_id: String, ticket_memo: Option<String>) -> Result<TicketId, String> {
+    update_balance_and_generate_ticket(osmosis_account_id, ticket_memo).await
 }
 
 #[post_upgrade]

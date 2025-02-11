@@ -1,9 +1,34 @@
+use base64::Engine;
+use std::cmp::max;
+use std::ops::Bound::{Excluded, Unbounded};
+use std::str::FromStr;
+
+use bitcoin::Amount;
+use candid::{CandidType, Deserialize, Principal};
+use ic_btc_interface::{Txid, Utxo};
+use ic_canister_log::log;
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_cdk::api::management_canister::http_request::{self, TransformArgs};
+use ic_cdk_macros::{init, post_upgrade, query, update};
+use ic_cdk_timers::set_timer_interval;
+use ordinals::SpacedRune;
+use serde::Serialize;
+
 use bitcoin_customs::lifecycle::upgrade::UpgradeArgs;
 use bitcoin_customs::lifecycle::{self, init::CustomArg};
 use bitcoin_customs::metrics::encode_metrics;
 use bitcoin_customs::queries::{EstimateFeeArgs, GetGenTicketReqsArgs, RedeemFee};
+use bitcoin_customs::runes_etching::fee_calculator::MAX_LOGO_CONTENT_SIZE;
+use bitcoin_customs::runes_etching::transactions::EtchingStatus::{
+    SendRevealFailed, SendRevealSuccess,
+};
+use bitcoin_customs::runes_etching::transactions::{
+    estimate_tx_vbytes, internal_etching, SendEtchingInfo,
+};
+use bitcoin_customs::runes_etching::{EtchingArgs, LogoParams};
+use bitcoin_customs::state::eventlog::Event::UpdateFeeCollector;
 use bitcoin_customs::state::{
-    mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus,
+    audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus,
 };
 use bitcoin_customs::storage::record_event;
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
@@ -14,26 +39,16 @@ use bitcoin_customs::updates::{
     update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
 use bitcoin_customs::{
-    process_directive_msg_task, process_ticket_msg_task, process_tx_task, refresh_fee_task,
-    CustomsInfo, TokenResp, FEE_ESTIMATE_DELAY, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES,
+    management, process_directive_msg_task, process_etching_task, process_ticket_msg_task,
+    process_tx_task, refresh_fee_task, CustomsInfo, TokenResp, FEE_ESTIMATE_DELAY,
+    INTERVAL_HANDLE_ETCHING, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES,
 };
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage,
 };
-use candid::Principal;
-use ic_btc_interface::{Txid, Utxo};
-use ic_canister_log::log;
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use ic_cdk::api::management_canister::http_request::{self, TransformArgs};
-use ic_cdk_macros::{init, post_upgrade, query, update};
-use ic_cdk_timers::set_timer_interval;
-use omnity_types::{Chain, ChainId};
-use std::cmp::max;
-use std::ops::Bound::{Excluded, Unbounded};
-use std::str::FromStr;
-use bitcoin_customs::state::eventlog::Event::UpdateFeeCollector;
 use omnity_types::ic_log::INFO;
+use omnity_types::{Chain, ChainId, TicketId};
 
 #[init]
 fn init(args: CustomArg) {
@@ -114,6 +129,7 @@ fn post_upgrade(custom_arg: Option<CustomArg>) {
     set_timer_interval(INTERVAL_PROCESSING, process_ticket_msg_task);
     set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_directive_msg_task);
     set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
+    set_timer_interval(INTERVAL_HANDLE_ETCHING, process_etching_task);
 }
 
 #[update]
@@ -124,6 +140,77 @@ async fn get_btc_address(args: GetBtcAddressArgs) -> String {
 #[update]
 async fn get_main_btc_address(token: String) -> String {
     updates::get_main_btc_address(token).await
+}
+
+#[update(guard = "is_controller")]
+pub fn update_fees(us: Vec<UtxoArgs>) {
+    for a in us {
+        let utxo = bitcoin_customs::runes_etching::Utxo {
+            id: bitcoin::hash_types::Txid::from_str(a.id.as_str()).unwrap(),
+            index: a.index,
+            amount: Amount::from_sat(a.amount),
+        };
+        mutate_state(|s| {
+            if s.etching_fee_utxos.iter().find(|x| *x == utxo).is_none() {
+                let _ = s.etching_fee_utxos.push(&utxo);
+            }
+        });
+    }
+}
+
+#[query]
+pub fn get_etching_by_user(user_addr: Principal) -> Vec<SendEtchingInfo> {
+    read_state(|s| {
+        let mut res: Vec<SendEtchingInfo> = Vec::new();
+        for (_k, v) in s.pending_etching_requests.iter() {
+            if v.etching_args.premine_receiver_principal == user_addr.to_text() {
+                res.push(v.into());
+            }
+        }
+        for (_k, v) in s.finalized_etching_requests.iter() {
+            if v.etching_args.premine_receiver_principal == user_addr.to_text() {
+                res.push(v.into());
+            }
+        }
+        res
+    })
+}
+
+#[query]
+pub fn get_etching(commit_txid: String) -> Option<SendEtchingInfo> {
+    let r: Option<SendEtchingInfo> =
+        match read_state(|s| s.pending_etching_requests.get(&commit_txid.clone())) {
+            None => None,
+            Some(r) => Some(r.into()),
+        };
+    if r.is_some() {
+        return r;
+    }
+    match read_state(|s| s.finalized_etching_requests.get(&commit_txid)) {
+        None => None,
+        Some(r) => Some(r.into()),
+    }
+}
+
+#[update]
+pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
+    internal_etching(fee_rate, args).await
+}
+
+#[update(guard = "is_controller")]
+pub async fn etching_reveal(commit_txid: String) {
+    let mut req = read_state(|s| s.pending_etching_requests.get(&commit_txid)).unwrap();
+    match management::send_etching(&req.txs[1]).await {
+        Ok(_) => {
+            req.status = SendRevealSuccess;
+        }
+        Err(e) => {
+            req.status = SendRevealFailed;
+            req.err_info = Some(e);
+        }
+    }
+    req.reveal_at = ic_cdk::api::time();
+    mutate_state(|s| s.pending_etching_requests.insert(commit_txid, req));
 }
 
 #[query]
@@ -155,6 +242,12 @@ fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketR
             .map(|(_, req)| req.clone())
             .collect()
     })
+}
+
+#[update(guard = "is_controller")]
+pub fn remove_error_ticket(ticket_id: TicketId) {
+    let txid = Txid::from_str(ticket_id.as_str()).unwrap();
+    mutate_state(|s| audit::remove_confirmed_request(s, &txid));
 }
 
 pub fn is_runes_oracle() -> Result<(), String> {
@@ -193,7 +286,7 @@ async fn update_btc_utxos() -> Result<Vec<Utxo>, UpdateBtcUtxosErr> {
 
 #[update]
 async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
-    check_postcondition(updates::generate_ticket(args).await)
+    check_postcondition(updates::generate_ticket(args, None).await)
 }
 
 #[query]
@@ -205,6 +298,18 @@ fn get_runes_oracles() -> Vec<Principal> {
 fn set_runes_oracle(oracle: Principal) {
     record_event(&Event::AddedRunesOracle { principal: oracle });
     mutate_state(|s| s.runes_oracles.insert(oracle));
+}
+
+#[update(guard = "is_controller")]
+fn set_ord_indexer(p: Principal) {
+    record_event(&Event::UpdatedOrdIndexer { principal: p });
+    mutate_state(|s| s.ord_indexer_principal = Some(p));
+}
+
+#[update(guard = "is_controller")]
+fn set_icpswap(p: Principal) {
+    record_event(&Event::UpdateIcpswap { principal: p });
+    mutate_state(|s| s.icpswap_principal = Some(p));
 }
 
 #[update(guard = "is_controller")]
@@ -250,18 +355,16 @@ fn estimate_redeem_fee(arg: EstimateFeeArgs) -> RedeemFee {
 
 #[query]
 fn get_platform_fee(target_chain: ChainId) -> (Option<u128>, Option<String>) {
-    read_state(|s| {
-        s.get_transfer_fee_info(&target_chain)
-    })
+    read_state(|s| s.get_transfer_fee_info(&target_chain))
 }
 
 #[update(guard = "is_controller")]
 pub fn set_fee_collector(addr: String) {
-    mutate_state(|s|s.fee_collector_address = addr.clone());
-    record_event(&UpdateFeeCollector {addr});
+    mutate_state(|s| s.fee_collector_address = addr.clone());
+    record_event(&UpdateFeeCollector { addr });
 }
 
-#[query]
+#[query(guard = "is_controller")]
 fn get_customs_info() -> CustomsInfo {
     read_state(|s| CustomsInfo {
         min_confirmations: s.min_confirmations,
@@ -283,6 +386,9 @@ fn get_customs_info() -> CustomsInfo {
         max_time_in_queue_nanos: s.max_time_in_queue_nanos,
         generate_ticket_counter: s.generate_ticket_counter,
         release_token_counter: s.release_token_counter,
+        etching_acount_info: s.etching_acount_info.clone(),
+        ord_indexer_principal: s.ord_indexer_principal,
+        icpswap_principal: s.icpswap_principal,
     })
 }
 
@@ -349,6 +455,32 @@ fn get_events(args: GetEventsArg) -> Vec<Event> {
         .collect()
 }
 
+#[update]
+pub async fn estimate_etching_fee(
+    fee_rate: u64,
+    rune_name: String,
+    logo: Option<LogoParams>,
+) -> Result<u128, String> {
+    let space_rune = SpacedRune::from_str(rune_name.as_str()).unwrap();
+    let name = space_rune.rune.to_string();
+    if name.len() < 10 || name.len() > 26 {
+        return Err("rune name's length must be >= 10 and <=26".to_string());
+    }
+    if let Some(l) = logo.clone() {
+        let logo_content = base64::engine::general_purpose::STANDARD
+            .decode(l.content_base64)
+            .map_err(|e| e.to_string())?;
+        if logo_content.len() > MAX_LOGO_CONTENT_SIZE {
+            return Err("the max size of logo content is 128k".to_string());
+        }
+    }
+    let byte_size = match estimate_tx_vbytes(rune_name.as_str(), logo).await {
+        Ok(l) => Ok(l.1 as u128 + l.0 as u128),
+        Err(e) => Err(e.to_string()),
+    }?;
+    bitcoin_customs::runes_etching::icp_swap::estimate_etching_fee(fee_rate + 2, byte_size).await
+}
+
 #[query]
 fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {
@@ -368,6 +500,14 @@ fn self_check() -> Result<(), String> {
 #[query(hidden = true)]
 fn __get_candid_interface_tmp_hack() -> &'static str {
     include_str!(env!("BITCOIN_CUSTOMS_DID_PATH"))
+}
+
+/// Unspent transaction output to be used as input of a transaction
+#[derive(CandidType, Debug, Clone, Serialize, Deserialize)]
+pub struct UtxoArgs {
+    pub id: String,
+    pub index: u32,
+    pub amount: u64,
 }
 
 fn main() {}
@@ -410,7 +550,6 @@ fn check_candid_interface_compatibility() {
     // check the public interface against the actual one
     let old_interface = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
         .join("bitcoin_customs.did");
-
     check_service_equal(
         "actual ledger candid interface",
         candid_parser::utils::CandidSource::Text(&new_interface),

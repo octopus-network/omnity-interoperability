@@ -12,23 +12,17 @@ use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 
 use crate::{get_time_secs, hub};
-use crate::const_args::{
-    BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL,
-    SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
-};
+use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, SEND_EVM_TASK_NAME};
 use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
-use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
-use crate::ic_log::{CRITICAL, ERROR, INFO};
-use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
+use crate::hub_to_route::{process_directives, process_tickets};
+use crate::ic_log::{CRITICAL, INFO, WARNING};
+use crate::route_to_evm::{send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm};
 use crate::state::{
-    EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
-    StateProfile,
+    EvmRouteState, get_redeem_fee, init_chain_pubkey, minter_addr, mutate_state, read_state,
+    replace_state, StateProfile,
 };
-use crate::types::{
-    Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus,
-    PendingTicketStatus, Seq, Ticket, TicketId, TokenResp,
-};
+use crate::types::{Chain, ChainId, Directive, MetricsStatus, MintTokenStatus, Network, PendingDirectiveStatus, PendingTicketStatus, Seq, Ticket, TicketId, TokenResp};
 
 #[init]
 fn init(args: InitArgs) {
@@ -61,16 +55,21 @@ fn update_consume_directive_seq(seq: Seq) {
 }
 
 fn start_tasks() {
-    set_timer_interval(
-        Duration::from_secs(FETCH_HUB_TICKET_INTERVAL),
-        fetch_hub_ticket_task,
-    );
-    set_timer_interval(
-        Duration::from_secs(FETCH_HUB_DIRECTIVE_INTERVAL),
-        fetch_hub_directive_task,
-    );
-    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), to_evm_task);
+    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), bridge_ticket_to_evm_task);
     set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);
+}
+
+pub fn bridge_ticket_to_evm_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new(SEND_EVM_TASK_NAME.to_string()) {
+            Some(guard) => guard,
+            None => return,
+        };
+        process_directives().await;
+        process_tickets().await;
+        send_directives_to_evm().await;
+        send_tickets_to_evm().await;
+    });
 }
 
 #[query]
@@ -178,14 +177,7 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
 
 #[query]
 fn get_fee(chain_id: ChainId) -> Option<u64> {
-    read_state(|s| {
-        s.target_chain_factor
-            .get(&chain_id)
-            .map_or(None, |target_chain_factor| {
-                s.fee_token_factor
-                    .map(|fee_token_factor| (target_chain_factor * fee_token_factor) as u64)
-            })
-    })
+    get_redeem_fee(chain_id)
 }
 
 #[query(guard = "is_admin")]
@@ -215,6 +207,17 @@ fn update_fee_token(fee_token: String) {
 #[update(guard = "is_admin")]
 fn update_rpcs(rpcs: Vec<RpcApi>) {
     mutate_state(|s| s.rpc_providers = rpcs);
+}
+
+#[update(guard = "is_admin")]
+fn update_rpc_check_rate(min_resp_count: usize, total_required_rpc_count: usize) {
+    assert!(min_resp_count > 0 && total_required_rpc_count >= min_resp_count, "params errorr");
+    let rpc_size = read_state(|s| s.rpc_providers.len());
+    assert!(rpc_size >= total_required_rpc_count, "rpc count is not enough");
+    mutate_state(|s| {
+        s.minimum_response_count = min_resp_count;
+        s.total_required_count = total_required_rpc_count;
+    });
 }
 
 fn is_admin() -> Result<(), String> {
@@ -260,7 +263,7 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
         32
     );
     if read_state(|s| s.handled_evm_event.contains(&tx_hash)) {
-        return Err("duplicate request".to_string());
+        return Err("The ticket id already exists".to_string());
     }
     let (ticket, _transaction_receipt) = create_ticket_by_tx(&tx_hash).await?;
     let hub_principal = read_state(|s| s.hub_principal);
@@ -296,7 +299,7 @@ pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
     match hub::query_tickets(hub_principal, start, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => return tickets,
         Err(err) => {
-            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
+            log!(WARNING, "[process tickets] failed to query tickets, err: {}", err);
             return vec![];
         }
     }

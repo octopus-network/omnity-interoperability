@@ -1,22 +1,21 @@
 use anyhow::anyhow;
-use did::{TransactionReceipt};
-use did::transaction::TransactionReceiptLog;
+use did::{TransactionReceipt, transaction::TransactionReceiptLog};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
 use itertools::Itertools;
 
-use omnity_types::{ChainState, Directive, Ticket};
+use omnity_types::{ChainState, Directive, Ticket, ChainId, Memo};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 
 use crate::*;
-use crate::const_args::{SCAN_EVM_TASK_NAME};
+use crate::const_args::SCAN_EVM_TASK_NAME;
 use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded,
     TokenBurned, TokenMinted, TokenTransportRequested,
 };
 use crate::convert::{ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event};
-use crate::state::{mutate_state, read_state};
+use crate::state::{mutate_state, read_state, bitfinity_get_redeem_fee};
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -27,6 +26,7 @@ pub fn scan_evm_task() {
         let events = read_state(|s| s.pending_events_on_chain.clone());
         let interval =
             read_state(|s| s.block_interval_secs) * crate::const_args::EVM_FINALIZED_CONFIRM_HEIGHT;
+        let port_address = read_state(|s|s.omnity_port_contract.clone());
         for (hash, time) in events {
             if read_state(|s| s.handled_evm_event.contains(&hash)) {
                 mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -41,7 +41,7 @@ pub fn scan_evm_task() {
                 .map_err(|e| {
                     log!(ERROR, "user query transaction receipt error: {:?}", e);
                     "rpc".to_string()
-                });
+                });           
             if let Ok(Some(tr)) = receipt {
                 match tr.status {
                     None => { continue }
@@ -52,6 +52,21 @@ pub fn scan_evm_task() {
                         }
                     }
                 }
+                match tr.to {
+                    None => {
+                        log!(ERROR, "transaction receipt to address is none");
+                        mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+                        continue;
+                    }
+                    Some(h) => {
+                        if h.to_hex_str() != port_address.to_hex() {
+                            log!(ERROR, "attack: receipt to address is not port address");
+                            mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+                            continue;
+                        }
+                    }
+                }
+
                 let res = handle_port_events(tr.logs.clone()).await;
                 match res {
                     Ok(_) => {
@@ -68,7 +83,11 @@ pub fn scan_evm_task() {
 }
 
 pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Result<()> {
+    let port = read_state(|s|s.omnity_port_contract.clone());
     for l in logs {
+        if l.address.to_hex_str() != port.to_hex() {
+            continue;
+        }
         if l.removed {
             return Err(anyhow!("log is removed"));
         }
@@ -76,9 +95,10 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
             .transaction_hash.to_hex_str();
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.0;
         let raw_log: RawLog = RawLog {
-            topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
+            topics: l.topics.iter().map(|topic| topic.0).collect_vec(),
             data: l.data.clone().into(),
         };
+
         if read_state(|s| s.handled_evm_event.contains(&l.transaction_hash.to_hex_str())) {
             continue;
         }
@@ -167,7 +187,7 @@ pub async fn handle_runes_mint(
     log_entry: &TransactionReceiptLog,
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
-    let ticket = ticket_from_runes_mint_event(log_entry, event);
+    let ticket = ticket_from_runes_mint_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -179,7 +199,7 @@ pub async fn handle_runes_mint(
 }
 
 pub async fn handle_token_burn(log_entry: &TransactionReceiptLog, event: TokenBurned) -> anyhow::Result<()> {
-    let ticket = ticket_from_burn_event(log_entry, event);
+    let ticket = ticket_from_burn_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -191,7 +211,7 @@ pub async fn handle_token_transport(
     log_entry: &TransactionReceiptLog,
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
-    let ticket = ticket_from_transport_event(log_entry, event);
+    let ticket = ticket_from_transport_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -201,7 +221,6 @@ pub async fn handle_token_transport(
     );
     Ok(())
 }
-
 
 pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, TransactionReceipt), String> {
     let receipt = crate::eth_common::get_transaction_receipt(tx_hash)
@@ -214,7 +233,7 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
         None => Err("not find".to_string()),
         Some(tr) => {
             let return_tr = tr.clone();
-            assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");
+            assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");         
             let ticket = generate_ticket_by_logs(tr.logs);
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))
@@ -229,13 +248,13 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         }
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.0;
         let raw_log: RawLog = RawLog {
-            topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
+            topics: l.topics.iter().map(|topic| topic.0).collect_vec(),
             data: l.data.clone().into(),
         };
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
-            return Ok(ticket_from_burn_event(&l, token_burned));
+            return Ok(ticket_from_burn_event(&l, token_burned, true));
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
@@ -247,7 +266,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
                 }
             });
             if dst_check_result {
-                return Ok(ticket_from_transport_event(&l, token_transport));
+                return Ok(ticket_from_transport_event(&l, token_transport, true));
             } else {
                 let tx_hash = l.transaction_hash.to_hex_str();
                 log!(INFO, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
@@ -255,10 +274,44 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| BitfinityRouteError::ParseEventError(e.to_string()))?;
-            return Ok(ticket_from_runes_mint_event(&l, runes_mint));
+            return Ok(ticket_from_runes_mint_event(&l, runes_mint, true));
         }
     }
     Err(anyhow!("not found ticket"))
 }
 
+pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
+    let fee = bitfinity_get_redeem_fee(dst_chain);
+    let memo_json = Memo {
+        memo,
+        bridge_fee: fee.unwrap_or_default() as u128,
+    }.convert_to_memo_json().unwrap_or_default();
+    Some(memo_json)
+}
 
+#[cfg(test)]
+mod bitfinity_test {
+    use omnity_types::Memo;
+    use ic_stable_structures::Storable;
+
+    pub fn get_test_memo(memo: Option<String>) -> Option<String> {
+        let memo_json = Memo {
+            memo,
+            bridge_fee: 999_u128,
+        }.convert_to_memo_json().unwrap_or_default();
+        Some(memo_json)
+    }
+
+    #[test]
+    fn bifinity_memo_with_fee() {
+        let memo = Some("some memo".to_string());
+        // let has_memo = false;
+        let has_memo = true;
+        let _memo = has_memo.then(|| get_test_memo(memo.clone())).unwrap_or_default();
+
+        let encoded = _memo.clone().map(|m| m.to_bytes().to_vec()).unwrap_or_default();
+        let decoded = std::str::from_utf8(&encoded).unwrap_or_default();
+        println!("memo {:?}", _memo);
+        println!("decoded: {:?}", decoded);
+    }
+}

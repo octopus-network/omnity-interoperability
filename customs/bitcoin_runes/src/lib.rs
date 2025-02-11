@@ -1,13 +1,15 @@
 use crate::address::{main_bitcoin_address, main_destination, BitcoinAddress};
 use crate::queries::RedeemFee;
+use crate::runes_etching::sync::handle_etching_result_task;
 use crate::runestone::{Edict, Runestone};
-use crate::state::{audit, mutate_state, BtcChangeOutput};
+use crate::state::{audit, mutate_state, BtcChangeOutput, EtchingAccountInfo};
 use candid::{CandidType, Deserialize, Principal};
 use destination::Destination;
 use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
+use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainId, ChainState, Directive, TokenId, TxAction};
 use scopeguard::{guard, ScopeGuard};
@@ -21,7 +23,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::iter::Sum;
 use std::str::FromStr;
 use std::time::Duration;
-use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use updates::rune_tx::{generate_rune_tx_request, GenRuneTxReqError, RuneTxArgs};
 
 pub mod address;
@@ -33,15 +34,13 @@ pub mod lifecycle;
 pub mod management;
 pub mod metrics;
 pub mod queries;
+pub mod runes_etching;
 pub mod runestone;
 pub mod signature;
 pub mod state;
 pub mod storage;
 pub mod tx;
 pub mod updates;
-
-#[cfg(test)]
-mod tests;
 
 /// Time constants
 const SEC_NANOS: u64 = 1_000_000_000;
@@ -55,7 +54,7 @@ pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
 pub const INTERVAL_QUERY_DIRECTIVES: Duration = Duration::from_secs(60);
 pub const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
-
+pub const INTERVAL_HANDLE_ETCHING: Duration = Duration::from_secs(2 * 60);
 /// The minimum fee increment for transaction resubmission.
 /// See https://en.bitcoin.it/wiki/Miner_fees#Relaying for more detail.
 pub const MIN_RELAY_FEE_PER_VBYTE: MillisatoshiPerByte = 1_000;
@@ -128,6 +127,11 @@ pub struct CustomsInfo {
 
     pub release_token_counter: u64,
 
+    pub etching_acount_info: EtchingAccountInfo,
+
+    pub ord_indexer_principal: Option<Principal>,
+
+    pub icpswap_principal: Option<Principal>,
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -324,7 +328,11 @@ async fn process_directive() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
     match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Err(err) => {
-            log!(ERROR, "[process_directive] temporarily unavailable: {}", err);
+            log!(
+                ERROR,
+                "[process_directive] temporarily unavailable: {}",
+                err
+            );
         }
         Ok(directives) => mutate_state(|s| {
             for (_, directive) in &directives {
@@ -357,7 +365,8 @@ async fn process_directive() {
                     }
                     Directive::UpdateFee(fee) => {
                         audit::update_fee(s, fee.clone());
-                        log!(INFO,
+                        log!(
+                            INFO,
                             "[process directives] success to update fee, fee: {}",
                             fee
                         );
@@ -549,7 +558,7 @@ fn finalization_time_estimate(min_confirmations: u32, network: Network) -> Durat
     Duration::from_nanos(
         min_confirmations as u64
             * match network {
-                Network::Mainnet => 10 * MIN_NANOS,
+                Network::Mainnet => 7 * MIN_NANOS,
                 Network::Testnet => MIN_NANOS,
                 Network::Regtest => SEC_NANOS,
             },
@@ -1427,6 +1436,16 @@ pub fn process_tx_task() {
     });
 }
 
+pub fn process_etching_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::ProcessEtchingMsgGuard::new() {
+            Some(guard) => guard,
+            None => return,
+        };
+        handle_etching_result_task().await;
+    });
+}
+
 pub fn process_directive_msg_task() {
     ic_cdk::spawn(async {
         let _guard = match crate::guard::ProcessDirectiveMsgGuard::new() {
@@ -1505,7 +1524,6 @@ pub fn estimate_fee(
         }
         None => DEFAULT_INPUT_COUNT,
     };
-
     let vsize = tx_vsize_estimate(input_count, DEFAULT_OUTPUT_COUNT);
     let bitcoin_fee = vsize * median_fee_millisatoshi_per_vbyte / 1000;
     RedeemFee { bitcoin_fee }

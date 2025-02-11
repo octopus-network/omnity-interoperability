@@ -8,19 +8,18 @@ use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 use crate::hub;
-use crate::{get_time_secs};
-use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_INTERVAL, FETCH_HUB_TICKET_INTERVAL, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL};
+use crate::get_time_secs;
+use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, SEND_EVM_TASK_NAME};
 use crate::eth_common::{EvmAddress, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
-use crate::hub_to_route::{fetch_hub_directive_task, fetch_hub_ticket_task};
-use crate::route_to_evm::{send_directive, send_ticket, to_evm_task};
+use crate::hub_to_route::{process_directives, process_tickets};
+use crate::route_to_evm::{ send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm};
+use crate::state::bitfinity_get_redeem_fee;
 use crate::state::{
     EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
     StateProfile,
 };
-use omnity_types::{
-    Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}
-};
+use omnity_types::{Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}, ChainState};
 use crate::types::{TokenResp, PendingDirectiveStatus, PendingTicketStatus, MetricsStatus};
 use omnity_types::MintTokenStatus;
 
@@ -57,17 +56,27 @@ fn update_consume_directive_seq(seq: Seq) {
 }
 
 fn start_tasks() {
-    set_timer_interval(
-        Duration::from_secs(FETCH_HUB_TICKET_INTERVAL),
-        fetch_hub_ticket_task,
-    );
-    set_timer_interval(
-        Duration::from_secs(FETCH_HUB_DIRECTIVE_INTERVAL),
-        fetch_hub_directive_task,
-    );
-    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), to_evm_task);
+    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), bridge_ticket_to_evm_task);
     set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);
 }
+
+pub fn bridge_ticket_to_evm_task() {
+    ic_cdk::spawn(async {
+        if read_state(|s| s.chain_state == ChainState::Deactive) {
+            return;
+        }
+        let _guard = match crate::guard::TimerLogicGuard::new(SEND_EVM_TASK_NAME.to_string()) {
+            Some(guard) => guard,
+            None => return,
+        };
+        process_directives().await;
+        process_tickets().await;
+        send_directives_to_evm().await;
+        send_tickets_to_evm().await;
+    });
+}
+
+
 
 #[query]
 fn get_ticket(ticket_id: String) -> Option<(u64, Ticket)> {
@@ -109,7 +118,6 @@ fn query_pending_ticket(from: usize, limit: usize) -> Vec<(TicketId, PendingTick
             .iter()
             .skip(from)
             .take(limit)
-            .map(|kv| kv)
             .collect()
     })
 }
@@ -121,7 +129,6 @@ fn query_pending_directive(from: usize, limit: usize) -> Vec<(Seq, PendingDirect
             .iter()
             .skip(from)
             .take(limit)
-            .map(|kv| kv)
             .collect()
     })
 }
@@ -139,10 +146,7 @@ async fn resend_directive(seq: Seq) {
 #[query]
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
-        s.counterparties
-            .iter()
-            .map(|(_, chain)| chain.clone())
-            .collect()
+        s.counterparties.values().cloned().collect()
     })
 }
 
@@ -174,14 +178,7 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
 
 #[query]
 fn get_fee(chain_id: ChainId) -> Option<u64> {
-    read_state(|s| {
-        s.target_chain_factor
-            .get(&chain_id)
-            .and_then(|target_chain_factor| {
-                s.fee_token_factor
-                    .map(|fee_token_factor| (target_chain_factor * fee_token_factor) as u64)
-            })
-    })
+    bitfinity_get_redeem_fee(chain_id)
 }
 
 #[query(guard = "is_admin")]
@@ -234,7 +231,7 @@ async fn metrics() -> MetricsStatus {
 async fn generate_ticket(hash: String) -> Result<(), String> {
     log!(INFO, "received generate_ticket request {}", &hash);
     let tx_hash = hash.to_lowercase();
-    if read_state(|s| s.pending_events_on_chain.get(&tx_hash).is_some()) {
+    if read_state(|s| s.pending_events_on_chain.contains_key(&tx_hash)) {
         return Ok(());
     }
     assert!(tx_hash.starts_with("0x"));
@@ -245,9 +242,10 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
         32
     );
     if read_state(|s| s.handled_evm_event.contains(&tx_hash)) {
-        return Err("duplicate request".to_string());
+        return Err("The ticket id already exists".to_string());
     }
     let (ticket, _transaction_receipt) = create_ticket_by_tx(&tx_hash).await?;
+    log!(INFO, "[Consolidation]Bitfinity Route: generate ticket: hash {}, ticket: {}", &tx_hash, &ticket);
     let hub_principal = read_state(|s| s.hub_principal);
     hub::pending_ticket(hub_principal, ticket)
         .await

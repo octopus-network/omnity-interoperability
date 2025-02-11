@@ -7,8 +7,8 @@ use crate::{
 use candid::{CandidType, Deserialize};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
-use serde::Serialize;
 use omnity_types::ic_log::INFO;
+use serde::Serialize;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GetBtcAddressArgs {

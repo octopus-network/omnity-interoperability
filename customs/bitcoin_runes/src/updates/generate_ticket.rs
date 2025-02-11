@@ -8,6 +8,7 @@ use crate::updates::get_btc_address::{
     destination_to_p2wpkh_address_from_state, init_ecdsa_public_key,
 };
 use crate::updates::rpc_types;
+use crate::updates::rpc_types::Transaction;
 use candid::{CandidType, Deserialize, Nat};
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use ic_cdk::api::management_canister::http_request::{
@@ -15,10 +16,9 @@ use ic_cdk::api::management_canister::http_request::{
     TransformFunc,
 };
 use omnity_types::rune_id::RuneId;
-use omnity_types::{ChainState, Ticket, TicketType, TxAction};
+use omnity_types::{ChainState, Memo, Ticket, TicketType, TxAction};
 use serde::Serialize;
 use std::str::FromStr;
-use crate::updates::rpc_types::Transaction;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketArgs {
@@ -43,7 +43,7 @@ pub enum GenerateTicketError {
     SendTicketErr(String),
     RpcError(String),
     AmountIsZero,
-    NotPayFees
+    NotPayFees,
 }
 
 impl From<GuardError> for GenerateTicketError {
@@ -56,13 +56,16 @@ impl From<GuardError> for GenerateTicketError {
     }
 }
 
-pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
+pub async fn generate_ticket(
+    args: GenerateTicketArgs,
+    time: Option<u64>,
+) -> Result<(), GenerateTicketError> {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
         ));
     }
-    
+
     if args.amount == 0 {
         return Err(GenerateTicketError::AmountIsZero);
     }
@@ -119,17 +122,19 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     }
 
     //check whether need to pay fees for transfer. If fee is None, that means paying fees is not need
-    let (fee, addr) = read_state(|s|s.get_transfer_fee_info(&args.target_chain_id));
+    let (fee, addr) = read_state(|s| s.get_transfer_fee_info(&args.target_chain_id));
     match fee {
         None => {}
         Some(fee_value) => {
             let fee_collector = addr.unwrap();
             let mut found_fee_utxo = false;
             for out in tx.vout {
-                if out.scriptpubkey_address
+                if out
+                    .scriptpubkey_address
                     .clone()
-                    .is_some_and(|address| address.eq(&fee_collector)) &&
-                    out.value as u128 == fee_value {
+                    .is_some_and(|address| address.eq(&fee_collector))
+                    && out.value as u128 == fee_value
+                {
                     found_fee_utxo = true;
                     break;
                 }
@@ -140,13 +145,19 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         }
     }
 
+    let memo_json = Memo {
+        memo: None,
+        bridge_fee: fee.unwrap_or_default(),
+    }
+    .convert_to_memo_json()
+    .unwrap_or_default();
 
     hub::pending_ticket(
         hub_principal,
         Ticket {
             ticket_id: args.txid.clone(),
             ticket_type: TicketType::Normal,
-            ticket_time: ic_cdk::api::time(),
+            ticket_time: time.unwrap_or(ic_cdk::api::time()),
             src_chain: chain_id,
             dst_chain: args.target_chain_id.clone(),
             action: TxAction::Transfer,
@@ -154,7 +165,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             amount: args.amount.to_string(),
             sender: None,
             receiver: args.receiver.clone(),
-            memo: None,
+            memo: Some(memo_json.as_bytes().to_vec()),
         },
     )
     .await
@@ -178,11 +189,17 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     Ok(())
 }
 
-async fn fetch_new_utxos(txid: Txid, address: &String) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
+async fn fetch_new_utxos(
+    txid: Txid,
+    address: &String,
+) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
     fetch_new_utxos_outcall(txid, address).await
 }
 
-async fn fetch_new_utxos_outcall(txid: Txid, address: &String) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
+async fn fetch_new_utxos_outcall(
+    txid: Txid,
+    address: &String,
+) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
     const MAX_CYCLES: u128 = 1_000_000_000_000;
     const DERAULT_RPC_URL: &str = "https://mempool.space/api/tx";
 
@@ -224,7 +241,8 @@ async fn fetch_new_utxos_outcall(txid: Txid, address: &String) -> Result<(Vec<Ut
                         "failed to decode transaction from json".to_string(),
                     )
                 })?;
-                let transfer_utxos = tx.clone()
+                let transfer_utxos = tx
+                    .clone()
                     .vout
                     .iter()
                     .enumerate()

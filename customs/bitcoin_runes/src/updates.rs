@@ -1,3 +1,4 @@
+pub mod etching;
 pub mod generate_ticket;
 pub mod get_btc_address;
 mod rpc_types;

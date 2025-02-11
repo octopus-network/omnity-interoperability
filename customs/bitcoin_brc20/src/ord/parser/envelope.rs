@@ -221,7 +221,7 @@ impl From<RawEnvelope> for ParsedEnvelope {
         let metaprotocol = remove_field(&mut fields, &METAPROTOCOL_TAG);
         let parents = remove_array(&mut fields, PARENT_TAG);
         let pointer = remove_field(&mut fields, &POINTER_TAG);
-        let rune = remove_field(&mut fields, &RUNE_TAG);
+        let _ = remove_field(&mut fields, &RUNE_TAG);
 
         let unrecognized_even_field = fields
             .keys()
@@ -246,7 +246,6 @@ impl From<RawEnvelope> for ParsedEnvelope {
                 metadata,
                 pointer,
                 unrecognized_even_field,
-                rune,
             },
             input: envelope.input,
             offset: envelope.offset,

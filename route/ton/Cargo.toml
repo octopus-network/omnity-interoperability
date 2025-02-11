@@ -1,0 +1,42 @@
+[package]
+name = "ton_route"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ton_route"
+path = "src/main.rs"
+
+[dependencies]
+candid = { workspace = true }
+ciborium = { workspace = true }
+ic-cdk = { workspace = true }
+ic-cdk-macros = { workspace = true }
+ic-ledger-types = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+ic-stable-structures = { workspace = true }
+omnity_types = { path = "../../types" }
+serde_bytes = "0.11.15"
+hex = "0.4"
+humantime = "2.1"
+# ic
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
+ic-cdk-timers = "0.6"
+ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+#ic-canisters-http-types = { git = "https://github.com/dfinity/ic", rev = "22b875f2b9508739b005d4352c14e877995f52fd" }
+tiny-keccak = { version = "2.0.2", features = ["keccak"], default-features = false }
+num-traits = { version = "0.2", default-features = false }
+bytes = { version = "^1.4.0", default-features = false }
+serde_derive = "^1.0"
+k256 = "0.13"
+itertools = "0.12.1"
+sha2 = "0.10.8"
+tonlib-core = "0.18.1"
+ic-management-canister-types = { git = "https://github.com/dfinity/ic", package = "ic-management-canister-types" }
+base64 = "0.21.7"
+num-bigint = { version = "0.4", features = ["serde"] }
+urlencoding = "2.1.3"

@@ -22,10 +22,10 @@ pub fn update_fee(state: &mut EvmRouteState, fee: Factor) {
         Factor::UpdateTargetChainFactor(factor) => {
             state
                 .target_chain_factor
-                .insert(factor.target_chain_id.clone(), factor.target_chain_factor);
+                .insert(factor.target_chain_id, factor.target_chain_factor);
         }
         Factor::UpdateFeeTokenFactor(token_factor) => {
-            if token_factor.fee_token == state.fee_token_id.clone() {
+            if token_factor.fee_token == state.fee_token_id {
                 state.fee_token_factor = Some(token_factor.fee_token_factor);
             }
         }

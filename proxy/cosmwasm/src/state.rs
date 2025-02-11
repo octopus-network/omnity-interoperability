@@ -92,7 +92,7 @@ pub fn insert_utxo_records(
 }
 
 pub fn insert_ticket_records(
-    osmosis_account_id: TicketId,
+    osmosis_account_id: String,
     ticket_records: Vec<TicketRecord>,
 ) -> Option<TicketRecordList> {
     TICKET_RECORDS_MAP.with(|c| {
@@ -101,7 +101,7 @@ pub fn insert_ticket_records(
     })
 }
 
-pub fn extend_ticket_records(osmosis_account_id: TicketId, ticket_records: Vec<TicketRecord>) {
+pub fn extend_ticket_records(osmosis_account_id: String, ticket_records: Vec<TicketRecord>) {
     TICKET_RECORDS_MAP.with(|c| {
         let mut records = c
             .borrow()

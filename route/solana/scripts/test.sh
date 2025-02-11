@@ -383,4 +383,3 @@ dfx canister call solana_route stop_schedule '(null)'
 # upgrade canister
 # echo "upgrade solana route ..."
 #dfx canister install --mode upgrade --argument '(variant { Upgrade = null })'  --upgrade-unchanged --yes solana_route
-
