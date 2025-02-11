@@ -1,0 +1,493 @@
+
+@devnet = https://api.devnet.solana.com
+@testnet = https://api.testnet.solana.com
+@mainnet = https://api.mainnet-beta.solana.com
+@localnet = http://127.0.0.1:8899
+@debug = http://34.90.18.145:8899
+@alchemy_d=https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ
+@alchemy_m=https://solana-mainnet.g.alchemy.com/v2/t25IzpcIjBXhP-LOurqrTWLWmhPuBwsk
+@helius_m=https://mainnet.helius-rpc.com/?api-key=b7fe7483-b790-427e-af31-0095d7f73d4e
+@ankr_m=https://rpc.ankr.com/solana/670ae11cd641591e7ca8b21e7b7ff75954269e96f9d9f14735380127be1012b3
+@snownodes_m=https://sol.nownodes.io
+### query account info
+# for i in {1..100}; do curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+#     "jsonrpc": "2.0",
+#     "id": 1,
+#     "method": "getAccountInfo",
+#     "params": [
+#       "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+#       {
+#         "encoding": "jsonParsed"
+#       }
+#     ]
+#   }' ; echo; done
+
+POST {{devnet}}
+content-type: application/json
+
+{
+   "jsonrpc": "2.0",
+   "id": 1,
+   "method": "getAccountInfo",
+   "params": [
+     "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+     {
+       "encoding": "jsonParsed"
+     }
+   ]
+}
+### query account info
+POST {{alchemy_d}}
+content-type: application/json
+
+{
+   "jsonrpc": "2.0",
+   "id": 1,
+   "method": "getAccountInfo",
+   "params": [
+     "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+     {
+       "encoding": "jsonParsed"
+     }
+   ]
+}
+
+
+### query account info
+POST {{mainnet}}
+content-type: application/json
+
+{
+   "jsonrpc": "2.0",
+   "id": 1,
+   "method": "getAccountInfo",
+   "params": [
+     "5HmvdqEM3e7bYKTUix8dJSZaMhx9GNkQV2vivsiC3Tdx",
+     {
+       "encoding": "jsonParsed"
+     }
+   ]
+}
+
+### get balance
+POST {{alchemy_m}}
+content-type: application/json
+
+{
+    "jsonrpc": "2.0", "id": 1,
+    "method": "getBalance",
+    "params": [
+      "B3zfZ9CvfCHd23jzM7UqrVR2sid4y4eJYtxzZA4azqaD"
+    ]
+}
+
+### req airdrop
+POST {{alchemy_d}}
+# POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0", "id": 1,
+    "method": "requestAirdrop",
+    "params": [
+      "74SqAGc8wHgkwNx2Hqiz1UdKkZL1gCCvsRRwN2tSm8Ny",
+      2000000000
+    ]
+  }
+
+### req airdrop
+POST {{alchemy_d}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0", "id": 1,
+    "method": "requestAirdrop",
+    "params": [
+      "74SqAGc8wHgkwNx2Hqiz1UdKkZL1gCCvsRRwN2tSm8Ny",
+      2000000000
+    ]
+  }
+
+### req getTokenSupply
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0", "id": 1,
+    "method": "getTokenSupply",
+    "params": [
+      "6RzHSwJaq1gLiWoKwT4kUuYwAfDGLTawf49npS5hzBiQ"
+    ]
+  }
+
+### req X getTokenSupply
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0", "id": 1,
+    "method": "getTokenSupply",
+    "params": [
+      "BspWEV9ikAYPpZJpNzdmXAPCh28yUfC9siLVde8Yy46Z"
+    ]
+  }
+
+### req RICH getTokenSupply
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0", "id": 1,
+    "method": "getTokenSupply",
+    "params": [
+      "8j45TBhQU6DQhRvoYd9dpQWzTNKstB6kpnfZ3pKDCxff"
+    ]
+  }
+
+### req latest blockhash
+# for i in {1..100}; do curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+#     "id":1,
+#     "jsonrpc":"2.0",
+#     "method":"getLatestBlockhash",
+#     "params":[
+#       {
+#         "commitment":"processed"
+#       }
+#     ]
+#   }' ; echo; done
+
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "id":1,
+    "jsonrpc":"2.0",
+    "method":"getLatestBlockhash",
+    "params":[
+      {
+        "commitment":"processed"
+      }
+    ]
+  }
+
+### getSignaturesForAddress
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getSignaturesForAddress",
+    "params": [
+      "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia",
+      {
+        "limit": 5
+      }
+    ]
+  }
+
+### sendTransaction
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "sendTransaction",
+    "params": [
+      "6BHA4PAuZReUfaoZF9BAuXMCo5EiW6v4dPCuDMxmdQm1mQvhiHriY75UxVZWkQCbLUTKCAPQRomDFJN7zLE7NCNByM1tme1RYiMSv1okBvA78hEgi3rPfe2yjAbSLVTfJh5q3V6DedyMX7MQcqY6ZYgMKRGz4x4MoMQw6y5Lwgmo1ApnwHqBbTZxL7FrAeSTFTsFsgsMQSfEegVeTYeia8oUMu93kXMgmLEiTrRe7DEHdSEiMwUfiQEC7hT5zAPdY6K2zBESkybom3236pAosdNV8g6dCsbJhoWPZ"
+    ]
+  }
+
+
+### req tx detail
+# for i in {1..100}; do curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+#   "jsonrpc": "2.0",
+#   "id": 1,
+#   "method": "getTransaction",
+#   "params": [
+#     "2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK",
+#     "jsonParsed"
+#   ]
+# }' ; echo; done
+
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "466oaKBjWLQDyh2KowvyaDFCBArdr3WdHiG8Y7Uxpn8nBNDbP3ayEyRGjKJL4ZrbgjdR48EKHTFekmjN7VKuSxuP",
+      "jsonParsed"
+    ]
+  }
+
+### req tx detail
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "3fgN2Y3hzZnVbjYWUwVpB2shBbMXPj4myZnXxnDWZfENMs8KjcunebeWZSrgWuZTicL9kmK9t9evfybGmDnBhnMj",
+      "jsonParsed"
+    ]
+  }
+
+
+
+### getSignatureStatuses
+# for i in {1..100}; do  curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+#     "jsonrpc": "2.0",
+#     "id": 1,
+#     "method": "getSignatureStatuses",
+#     "params": [
+#       [
+#         "2VGvopAP2NinJ48fpPKae9svtHcAYw6K1mUyW2GDyEyW6Dp3mBtTwat1wPfbCnq2G6hkQa8yiQZTf3dEHDWa4erK"
+#       ],
+#       {
+#         "searchTransactionHistory": true
+#       }
+#     ]
+#   }' ; echo; done
+
+POST {{devnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getSignatureStatuses",
+    "params": [
+      [
+        "57VUHsxmoBmzKwZh42rBZxwLtCq7Np7awcCkHg6iERQVxWWK8Ha5ENdkGaT4BhxocKAyehBJFu9SZnBMFULmGN73"
+      ],
+      {
+        "searchTransactionHistory": true
+      }
+    ]
+  }
+
+### getSignatureStatuses
+POST {{mainnet}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getSignatureStatuses",
+    "params": [
+      [
+        "5ib76kdHiu39h8Tsi7aAJNmwdpz8jMvz7QVuhsuXqCjTAwDop6hJ4TbrwLT7Nfeit6gFN3NYxM2Z2MezMApSfu3d"
+      ],
+      {
+        "searchTransactionHistory": true
+      }
+    ]
+  }
+
+
+# curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '
+#   {
+#     "jsonrpc":"2.0", "id":1,
+#     "method": "getRecentPrioritizationFees",
+#     "params": [
+#       ["3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"]
+#     ]
+#   }
+# '
+### getSignatureStatuses
+POST {{{devnet}}}
+
+content-type: application/json
+{
+  "jsonrpc":"2.0", 
+  "id":1,
+  "method": "getRecentPrioritizationFees",
+  "params": [
+     ["3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"]
+  ]
+}
+
+
+### getSignatureStatuses
+POST {{mainnet}}
+content-type: application/json
+
+{
+  "jsonrpc":"2.0", 
+  "id":1,
+  "method": "getRecentPrioritizationFees",
+  "params": [
+     ["3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"]
+  ]
+}
+
+### req tx detail
+POST {{alchemy_m}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "5DF8ctxn2YkwuztEstDcmR6mjY4GdcfGUZtsMedWiXJBJBqagDKwBnfm6M6ZLZ1suL6wVeN1qnhrQKMQkTaFYTgq",
+      "jsonParsed"
+    ]
+  }
+
+### req tx detail
+POST {{helius_m}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "2ZD98V6XEMqmv5hveWyHx29HPjgxCEAvDQnntNxMJYrUq8jffGeKe8varfVEHF9EbScPZruAsWke4k9gfFWo77Wm",
+      "jsonParsed"
+    ]
+  }
+
+### req tx detail
+POST {{ankr_m}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "2ZD98V6XEMqmv5hveWyHx29HPjgxCEAvDQnntNxMJYrUq8jffGeKe8varfVEHF9EbScPZruAsWke4k9gfFWo77Wm",
+      "jsonParsed"
+    ]
+  }
+
+### req tx detail
+POST {{snownodes_m}}
+content-type: application/json
+api-key: c358082d-9e68-43da-a0fb-6f7240d01136
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getTransaction",
+    "params": [
+      "2ZD98V6XEMqmv5hveWyHx29HPjgxCEAvDQnntNxMJYrUq8jffGeKe8varfVEHF9EbScPZruAsWke4k9gfFWo77Wm",
+      "jsonParsed"
+    ]
+  }
+
+### simulateTransaction
+POST {{alchemy_d}}
+content-type: application/json
+
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "simulateTransaction",
+    "params": [
+      "AjnfRqh8OFqZONyfjY8qdbIEM5TI2ydzr5aHg5u9z4mj8goSpaogj4+t4TzcJ5se4f1DSG3alhs+d81ejRcvjwFhItsGpUcx5ejShk64ZEdhrGUoY+XXmE/GtxQejJYNnqDFzl4dfBf+/j+BHiZdp/MQ1q0uUF7RMwdhTIR1s4wGAgAEB2jcEnzu/xS+PNJ5cpu2UYAu5SXsCiRMEWAG8GqglWHyuZX9aZgo1pM/BtflKGDBzebqcx0CZnU1n+/4om70a8eFeYRb6zMM943BjXaAQ3+lN5cs07W7QAYxnAFrre/l5wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABqfVFxh70WY12tQEVf3CwMEkxo8hVnWl27rLXwgAAAAG3fbh12Whk9nL4UbO63msHLSF7V9bN5E6jPWFfv8AqQtwZbHj0XxFOJ1Sf2sEw81YuGxzGqD9tUm20bwD+ClGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBgkCBgEAAAADBAVuKgATAAAAUlVORVPigKJY4oCiQklUQ09JTgEAAABYPwAAAGh0dHBzOi8vYXJ3ZWF2ZS5uZXQvaUxWMi1BcGpyWFBETm9IbGR6QjRhMGZWVkwtMGhYUjZkWkdndWRrbno3YwAAAAABAgAAAAABAAA=",
+      {
+        "encoding":"base64",
+      }
+    ]
+  }
+
+
+### simulateTransaction
+POST {{alchemy_m}}
+content-type: application/json
+
+{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "simulateTransaction",
+    "params": [
+     "AjnfRqh8OFqZONyfjY8qdbIEM5TI2ydzr5aHg5u9z4mj8goSpaogj4+t4TzcJ5se4f1DSG3alhs+d81ejRcvjwFhItsGpUcx5ejShk64ZEdhrGUoY+XXmE/GtxQejJYNnqDFzl4dfBf+/j+BHiZdp/MQ1q0uUF7RMwdhTIR1s4wGAgAEB2jcEnzu/xS+PNJ5cpu2UYAu5SXsCiRMEWAG8GqglWHyuZX9aZgo1pM/BtflKGDBzebqcx0CZnU1n+/4om70a8eFeYRb6zMM943BjXaAQ3+lN5cs07W7QAYxnAFrre/l5wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABqfVFxh70WY12tQEVf3CwMEkxo8hVnWl27rLXwgAAAAG3fbh12Whk9nL4UbO63msHLSF7V9bN5E6jPWFfv8AqQtwZbHj0XxFOJ1Sf2sEw81YuGxzGqD9tUm20bwD+ClGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBgkCBgEAAAADBAVuKgATAAAAUlVORVPigKJY4oCiQklUQ09JTgEAAABYPwAAAGh0dHBzOi8vYXJ3ZWF2ZS5uZXQvaUxWMi1BcGpyWFBETm9IbGR6QjRhMGZWVkwtMGhYUjZkWkdndWRrbno3YwAAAAABAgAAAAABAAA=",
+      {
+        "encoding":"base64",
+      }
+    ]
+}
+
+### getSignaturesForAddress 
+POST {{alchemy_d}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "9MPTQ29jbiHRKRf68vTzDiZRsrvEjBKNubYh4LqpiqXe",
+    {
+      "limit": 10,
+      "until": "5eGw7GbpycJ3sxKDFcAwjw4WXRMGxZsjPNNGzza1vj4o9r1Hhku2272ppttQaEvmWEV5fPUUxYz45fnxMU6h6SiE"
+    }
+  ]
+}
+
+### getSignaturesForAddress 
+POST {{alchemy_d}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "9MPTQ29jbiHRKRf68vTzDiZRsrvEjBKNubYh4LqpiqXe",
+    {
+      "limit": 5
+    }
+  ]
+}
+
+
+### getSignaturesForAddress 
+POST {{alchemy_m}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "9V5NxX9SbcXFfUZJU57QViDtXauwGrZBYfntnm54nzLA",
+    {
+     
+      "until": "63Fyi2CchG5bNZm84ejrL5jAuNBjb4G1iK8UMvBKja3DVntpSFsyaRfM9Ct5jikLeXJuj3p2BEnzdFLCgFbe6kxq"
+    }
+  ]
+}
+
+### getTokenAccountBalance
+POST {{alchemy_m}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0", "id": 1,
+  "method": "getTokenAccountBalance",
+  "params": [
+    "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
+  ]
+}
+
+### getTokenAccountBalance
+POST {{alchemy_d}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0", "id": 1,
+  "method": "getTokenAccountBalance",
+  "params": [
+    "A56grapwLzmBWZMtyC2cBYU251qH97NAqtFyANgUD2Pn"
+  ]
+}

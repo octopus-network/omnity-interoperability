@@ -1,0 +1,268 @@
+type AddDestChainArgs = record { dest_chain : text; token_id : text };
+type AddRunesTokenReq = record {
+  dest_chain : text;
+  icon : text;
+  rune_id : text;
+  symbol : text;
+};
+type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainMeta = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type Directive = variant {
+  UpdateChain : Chain;
+  UpdateFee : Factor;
+  AddToken : Token;
+  AddChain : Chain;
+  ToggleChainState : ToggleState;
+  UpdateToken : Token;
+};
+type Error = variant {
+  AlreadyExistingTicketId : text;
+  MalformedMessageBytes;
+  NotFoundChain : text;
+  DeactiveChain : text;
+  ChainAlreadyExisting : text;
+  ResubmitTicketIdMustExist;
+  ProposalError : text;
+  ResubmitTicketMustSame;
+  NotFoundAccountToken : record { text; text; text };
+  NotFoundTicketId : text;
+  NotSupportedProposal;
+  SighWithEcdsaError : text;
+  Unauthorized;
+  TicketAmountParseError : record { text; text };
+  NotFoundChainToken : record { text; text };
+  TokenAlreadyExisting : text;
+  ResubmitTicketSentTooOften;
+  GenerateDirectiveError : text;
+  EcdsaPublicKeyError : text;
+  RepeatSubscription : text;
+  NotFoundToken : text;
+  CustomError : text;
+  NotSufficientTokens : record { text; text };
+};
+type Event = variant {
+  updated_tx_hash : record { ticket_id : text; tx_hash : text };
+  toggled_chain_state : record { chain : Chain; state : ToggleState };
+  Unsubscribed_topic : record { sub : text; topic : Topic };
+  updated_fee : Factor;
+  added_token_position : record { position : TokenKey; amount : nat };
+  added_token : TokenMeta;
+  init : InitArgs;
+  pending_ticket : record { ticket : Ticket };
+  published_directive : record { dire : Directive; seq_key : SeqKey };
+  upgrade : UpgradeArgs;
+  added_chain : Chain;
+  updated_token_position : record { position : TokenKey; amount : nat };
+  updated_chain : Chain;
+  saved_directive : Directive;
+  received_ticket : record { ticket : Ticket; seq_key : SeqKey };
+  resubmit_ticket : record { ticket_id : text; timestamp : nat64 };
+  deleted_directive : SeqKey;
+  finaize_ticket : record { ticket_id : text };
+  Subscribed_topic : record { topic : Topic; subs : Subscribers };
+};
+type Factor = variant {
+  UpdateFeeTokenFactor : FeeTokenFactor;
+  UpdateTargetChainFactor : TargetChainFactor;
+};
+type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
+type FinalizeAddRunesArgs = record {
+  name : text;
+  rune_id : text;
+  decimal : nat8;
+};
+type GetEventsArg = record { start : nat64; length : nat64 };
+type HubArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type InitArgs = record { admin : principal };
+type Permission = variant { Update; Query };
+type Proposal = variant {
+  UpdateChain : Chain;
+  UpdateFee : Factor;
+  AddToken : TokenMeta;
+  AddChain : Chain;
+  ToggleChainState : ToggleState;
+  UpdateToken : TokenMeta;
+};
+type Result = variant { Ok; Err : SelfServiceError };
+type Result_1 = variant { Ok; Err : Error };
+type Result_10 = variant { Ok : vec TokenMeta; Err : Error };
+type Result_11 = variant { Ok : vec TokenResp; Err : Error };
+type Result_12 = variant { Ok : Ticket; Err : Error };
+type Result_13 = variant { Ok : vec record { text; text }; Err : Error };
+type Result_14 = variant { Ok : vec Ticket; Err : Error };
+type Result_15 = variant { Ok : vec record { nat64; Directive }; Err : Error };
+type Result_16 = variant {
+  Ok : vec record { Topic; Subscribers };
+  Err : Error;
+};
+type Result_17 = variant { Ok : vec record { nat64; Ticket }; Err : Error };
+type Result_18 = variant { Ok : text; Err : Error };
+type Result_19 = variant { Ok : vec text; Err : Error };
+type Result_2 = variant { Ok : Chain; Err : Error };
+type Result_3 = variant { Ok : vec Chain; Err : Error };
+type Result_4 = variant { Ok : nat64; Err : Error };
+type Result_5 = variant { Ok : vec TokenOnChain; Err : Error };
+type Result_6 = variant { Ok : vec Chain; Err : Error };
+type Result_7 = variant { Ok : vec Directive; Err : Error };
+type Result_8 = variant { Ok : vec record { text; text; nat }; Err : Error };
+type Result_9 = variant { Ok : vec record { text; Ticket }; Err : Error };
+type SelfServiceError = variant {
+  TemporarilyUnavailable : text;
+  InsufficientFee : record { provided : nat64; required : nat64 };
+  TokenNotFound;
+  TransferFailure : text;
+  InvalidProposal : text;
+  InvalidRuneId : text;
+  RequestNotFound;
+  ChainNotFound : text;
+  TokenAlreadyExisting;
+  EmptyArgument;
+};
+type SelfServiceFee = record { add_token_fee : nat64; add_chain_fee : nat64 };
+type SeqKey = record { seq : nat64; chain_id : text };
+type Subscribers = record { subs : vec text };
+type TargetChainFactor = record {
+  target_chain_id : text;
+  target_chain_factor : nat;
+};
+type Ticket = record {
+  token : text;
+  action : TxAction;
+  dst_chain : text;
+  memo : opt blob;
+  ticket_id : text;
+  sender : opt text;
+  ticket_time : nat64;
+  ticket_type : TicketType;
+  src_chain : text;
+  amount : text;
+  receiver : text;
+};
+type TicketType = variant { Resubmit; Normal };
+type ToggleAction = variant { Deactivate; Activate };
+type ToggleState = record { action : ToggleAction; chain_id : text };
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
+type TokenKey = record { token_id : text; chain_id : text };
+type TokenMeta = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  issue_chain : text;
+  symbol : text;
+  dst_chains : vec text;
+};
+type TokenOnChain = record { token_id : text; chain_id : text; amount : nat };
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  name : text;
+  rune_id : opt text;
+  symbol : text;
+};
+type Topic = variant {
+  UpdateChain;
+  UpdateFee;
+  AddToken;
+  AddChain;
+  ToggleChainState;
+  UpdateToken;
+};
+type TxAction = variant { Burn; Redeem; Mint; Transfer };
+type UpgradeArgs = record { admin : opt principal };
+service : (HubArg) -> {
+  add_dest_chain_for_token : (AddDestChainArgs) -> (Result);
+  add_runes_token : (AddRunesTokenReq) -> (Result);
+  batch_update_tx_hash : (vec text, text) -> (Result_1);
+  execute_proposal : (vec Proposal) -> (Result_1);
+  finalize_add_runes_token_req : (FinalizeAddRunesArgs) -> (Result);
+  finalize_ticket : (text) -> (Result_1);
+  get_add_runes_token_requests : () -> (vec AddRunesTokenReq) query;
+  get_chain : (text) -> (Result_2) query;
+  get_chain_metas : (nat64, nat64) -> (Result_3) query;
+  get_chain_size : () -> (Result_4) query;
+  get_chain_tokens : (opt text, opt text, nat64, nat64) -> (Result_5) query;
+  get_chains : (opt ChainType, opt ChainState, nat64, nat64) -> (
+      Result_6,
+    ) query;
+  get_directive_size : () -> (Result_4) query;
+  get_directives : (nat64, nat64) -> (Result_7) query;
+  get_events : (GetEventsArg) -> (vec Event) query;
+  get_fee_account : (opt principal) -> (blob) query;
+  get_fees : (opt text, opt text, nat64, nat64) -> (Result_8) query;
+  get_logs : (opt nat64, nat64, nat64) -> (vec text) query;
+  get_pending_ticket_size : () -> (Result_4) query;
+  get_pending_tickets : (nat64, nat64) -> (Result_9) query;
+  get_self_service_fee : () -> (SelfServiceFee) query;
+  get_token_metas : (nat64, nat64) -> (Result_10) query;
+  get_token_position_size : () -> (Result_4) query;
+  get_token_size : () -> (Result_4) query;
+  get_tokens : (opt text, opt text, nat64, nat64) -> (Result_11) query;
+  get_total_tx : () -> (Result_4) query;
+  get_tx : (text) -> (Result_12) query;
+  get_tx_hash_size : () -> (Result_4) query;
+  get_tx_hashes : (nat64, nat64) -> (Result_13) query;
+  get_txs : (nat64, nat64) -> (Result_14) query;
+  get_txs_with_account : (
+      opt text,
+      opt text,
+      opt text,
+      opt record { nat64; nat64 },
+      nat64,
+      nat64,
+    ) -> (Result_14) query;
+  get_txs_with_chain : (
+      opt text,
+      opt text,
+      opt text,
+      opt record { nat64; nat64 },
+      nat64,
+      nat64,
+    ) -> (Result_14) query;
+  handle_chain : (vec Proposal) -> (Result_1);
+  handle_token : (vec Proposal) -> (Result_1);
+  pending_ticket : (Ticket) -> (Result_1);
+  query_directives : (opt text, opt Topic, nat64, nat64) -> (Result_15) query;
+  query_subscribers : (opt Topic) -> (Result_16) query;
+  query_tickets : (opt text, nat64, nat64) -> (Result_17) query;
+  query_tx_hash : (text) -> (Result_18) query;
+  resubmit_ticket : (Ticket) -> (Result_1);
+  send_ticket : (Ticket) -> (Result_1);
+  set_logger_filter : (text) -> ();
+  set_permissions : (principal, Permission) -> ();
+  set_runes_oracle : (principal) -> ();
+  sub_directives : (opt text, vec Topic) -> (Result_1);
+  sync_ticket_size : () -> (Result_4) query;
+  sync_tickets : (nat64, nat64) -> (Result_17) query;
+  unsub_directives : (opt text, vec Topic) -> (Result_1);
+  update_fee : (vec Factor) -> (Result_1);
+  update_tx_hash : (text, text) -> (Result_1);
+  validate_proposal : (vec Proposal) -> (Result_19) query;
+}
