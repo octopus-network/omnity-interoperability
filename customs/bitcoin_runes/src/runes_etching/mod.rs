@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use anyhow::anyhow;
 use base64::Engine;
 pub use bitcoin;
@@ -5,6 +6,8 @@ use candid::{CandidType, Deserialize, Principal};
 use ordinals::{Etching, SpacedRune};
 use serde::Serialize;
 use std::str::FromStr;
+use ic_stable_structures::Storable;
+use ic_stable_structures::storable::Bound;
 
 use crate::runes_etching::fee_calculator::MAX_LOGO_CONTENT_SIZE;
 pub use error::{InscriptionParseError, OrdError};
@@ -18,6 +21,8 @@ pub use wallet::{
     CreateCommitTransaction, OrdTransactionBuilder, RevealTransactionArgs,
     SignCommitTransactionArgs, Utxo, Wallet,
 };
+use crate::runes_etching::transactions::{SendEtchingInfo, SendEtchingRequest};
+use crate::runes_etching::transactions::EtchingStatus::Initial;
 
 pub mod error;
 pub mod fee_calculator;
@@ -28,6 +33,7 @@ pub mod sync;
 pub mod transactions;
 pub mod utils;
 pub mod wallet;
+pub mod topup;
 
 #[derive(CandidType, Clone, Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct EtchingArgs {
@@ -99,6 +105,21 @@ pub struct InternalEtchingArgs {
     pub turbo: bool,
 }
 
+impl Into<SendEtchingInfo> for InternalEtchingArgs {
+    fn into(self) -> SendEtchingInfo {
+        SendEtchingInfo {
+            etching_args: self.clone().into(),
+            commit_txid: "".to_string(),
+            reveal_txid: "".to_string(),
+            err_info: "".to_string(),
+            time_at: ic_cdk::api::time(),
+            script_out_address: "".to_string(),
+            status: Initial,
+            receiver: self.premine_receiver_principal.clone(),
+        }
+    }
+}
+
 impl Into<EtchingArgs> for InternalEtchingArgs {
     fn into(self) -> EtchingArgs {
         EtchingArgs {
@@ -112,6 +133,23 @@ impl Into<EtchingArgs> for InternalEtchingArgs {
         }
     }
 }
+
+
+impl Storable for InternalEtchingArgs {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let args = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode etching args");
+        args
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
 impl Into<InternalEtchingArgs> for (EtchingArgs, Principal) {
     fn into(self) -> InternalEtchingArgs {
         let (args, receiver) = self;

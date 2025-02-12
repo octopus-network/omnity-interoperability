@@ -7,12 +7,16 @@ use ic_stable_structures::{
 };
 use std::cell::RefCell;
 use std::ops::Deref;
+use crate::runes_etching::InternalEtchingArgs;
+use crate::runes_etching::wallet::builder::EtchingKey;
 
 const LOG_INDEX_MEMORY_ID: MemoryId = MemoryId::new(0);
 const LOG_DATA_MEMORY_ID: MemoryId = MemoryId::new(1);
 const ETCHING_FEE_UTXOS_MEMORY_ID: MemoryId = MemoryId::new(50);
 const PENDING_ETCHING_REQUESTS_MEMORY_ID: MemoryId = MemoryId::new(51);
 const FINALIZED_ETCHING_REQUESTS_MEMORY_ID: MemoryId = MemoryId::new(52);
+const STASH_ETCHINGS_MEMORY_ID: MemoryId = MemoryId::new(53);
+const STASH_ETCHING_IDS_MEMORY_ID: MemoryId = MemoryId::new(54);
 
 pub type VMem = VirtualMemory<DefaultMemoryImpl>;
 type EventLog = StableLog<Vec<u8>, VMem, VMem>;
@@ -108,6 +112,14 @@ pub fn init_etching_fee_utxos() -> StableVec<crate::runes_etching::Utxo, VMem> {
     StableVec::init(with_memory_manager(|m| m.get(ETCHING_FEE_UTXOS_MEMORY_ID))).unwrap()
 }
 
+
+pub fn init_stash_etching_ids() -> StableVec<EtchingKey, VMem> {
+    StableVec::init(with_memory_manager(|m| {
+        m.get(STASH_ETCHING_IDS_MEMORY_ID)
+    })).unwrap()
+}
+
+
 pub fn init_pending_etching_requests() -> StableBTreeMap<String, SendEtchingRequest, VMem> {
     StableBTreeMap::init(with_memory_manager(|m| {
         m.get(PENDING_ETCHING_REQUESTS_MEMORY_ID)
@@ -119,3 +131,10 @@ pub fn init_finalized_etching_requests() -> StableBTreeMap<String, SendEtchingRe
         m.get(FINALIZED_ETCHING_REQUESTS_MEMORY_ID)
     }))
 }
+
+pub fn init_stash_etchings() -> StableBTreeMap<String, InternalEtchingArgs, VMem> {
+    StableBTreeMap::init(with_memory_manager(|m| {
+        m.get(STASH_ETCHINGS_MEMORY_ID)
+    }))
+}
+

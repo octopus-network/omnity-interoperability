@@ -10,18 +10,17 @@ use thiserror::Error;
 
 use omnity_types::hub_types::{Proposal, TokenMeta};
 use omnity_types::ic_log::{ERROR, INFO};
-use omnity_types::ic_log::Priority::WARNING;
 
 use crate::call_error::{CallError, Reason};
 use crate::hub::execute_proposal;
 use crate::management::{get_bitcoin_balance, CallSource};
 use crate::runes_etching::transactions::EtchingStatus::{
-    Final, SendCommitFailed, SendRevealFailed, SendRevealSuccess,
+    Final, SendCommitFailed, SendRevealFailed, SendRevealSuccess,Initial
 };
 use crate::runes_etching::transactions::{EtchingStatus, SendEtchingRequest};
 use crate::runes_etching::InternalEtchingArgs;
 use crate::state::{mutate_state, read_state};
-use crate::updates::generate_ticket::GenerateTicketArgs;
+use crate::updates::generate_ticket::{GenerateTicketArgs};
 use crate::{finalization_time_estimate, state, updates};
 
 pub async fn get_etching(txid: &str) -> Result<Option<GetEtchingResult>, CallError> {
@@ -110,7 +109,7 @@ fn check_time(confirmation_blocks: u32, req_time: u64) -> bool {
     let network = read_state(|s| s.btc_network);
     let wait_time = finalization_time_estimate(confirmation_blocks, network);
     let check_timeline = req_time + (wait_time.as_nanos() as u64);
-    let check_time_window = Duration::from_secs(10800).as_nanos() as u64;
+    let check_time_window = Duration::from_secs(21600).as_nanos() as u64;
     check_timeline < now && now < check_timeline + check_time_window
 }
 
@@ -118,7 +117,6 @@ pub async fn handle_etching_result_task() {
     if state::read_state(|s| s.pending_etching_requests.is_empty()) {
         return;
     }
-
     let kvs = read_state(|s| {
         s.pending_etching_requests
             .iter()
@@ -200,6 +198,7 @@ pub async fn handle_etching_result_task() {
                             mutate_state(|s| {
                                 req.status = Final;
                                 s.finalized_etching_requests.insert(k.clone(), req);
+                                mutate_state(|s| s.pending_etching_requests.remove(&k));
                             });
                         }
                         Some(premine) => {
@@ -210,23 +209,32 @@ pub async fn handle_etching_result_task() {
                                 amount: premine,
                                 txid: req.txs[1].txid().to_string(),
                             };
-                            if let Ok(_) = updates::generate_ticket::generate_ticket(
+                            log!(INFO, "etching generate ticket params: {:?}", generate_ticket_args);
+                            match updates::generate_ticket::generate_ticket(
                                 generate_ticket_args,
                                 Some(req.reveal_at),
                             )
                             .await
                             {
-                                mutate_state(|s| {
-                                    req.status = Final;
-                                    s.finalized_etching_requests.insert(k.clone(), req);
-                                });
+                                Ok(_) => {
+                                    mutate_state(|s| {
+                                        req.status = Final;
+                                        s.finalized_etching_requests.insert(k.clone(), req);
+                                    });
+                                    mutate_state(|s| s.pending_etching_requests.remove(&k));
+                                }
+                                Err(e) => {
+                                    log!(INFO, "etching generate ticket error: {:?}", e);
+                                }
                             }
                         }
                     }
-                    mutate_state(|s| s.pending_etching_requests.remove(&k));
+
                 }
             }
-            EtchingStatus::Final | SendCommitFailed | SendRevealFailed => {}
+            EtchingStatus::Final | SendCommitFailed | SendRevealFailed | Initial=> {}
         }
     }
 }
+
+

@@ -18,7 +18,7 @@ pub struct TokenPrice {
 }
 
 pub async fn estimate_etching_fee(fee_rate: u64, etching_size: u128) -> Result<u128, String> {
-    let satoshi = fee_rate as u128 * etching_size;
+    /*let satoshi = fee_rate as u128 * etching_size;
     let (btc, icp) = get_token_price().await.map_err(|e| e.to_string())?;
     if btc.is_none() || icp.is_none() {
         return Err("estimate etching fees failed, please try agin later, code: 0".to_string());
@@ -33,7 +33,8 @@ pub async fn estimate_etching_fee(fee_rate: u64, etching_size: u128) -> Result<u
         .div(icpprice)
         .to_u128()
         .ok_or("estimate etching fees failed, please try agin later, code:3".to_string())?;
-    Ok(icp_amt)
+    Ok(icp_amt)*/
+    Ok(100000000)
 }
 
 pub async fn get_token_price() -> Result<(Option<TokenPrice>, Option<TokenPrice>), CallError> {
