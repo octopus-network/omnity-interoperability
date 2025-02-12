@@ -232,6 +232,8 @@ solana transfer $SIGNER $AMOUNT --with-memo init_account --allow-unfunded-recipi
 echo "$SIGNER balance: $(solana balance $SIGNER -u m)"
 SIGNER_BALANCE=$(dfx canister call $SOLANA_ROUTE_CANISTER_ID get_balance "(\"${SIGNER}\")" --ic)
 echo "$SIGNER balance: $SIGNER_BALANCE via get_balance"
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_fee_account '()' --ic
 ###########################################################################
 ### solana route schedule
 ###########################################################################
@@ -986,3 +988,41 @@ dfx canister call $SOLANA_ROUTE_CANISTER_ID get_redeem_fee '("sICP")' --ic
 dfx canister call $HUB_CANISTER_ID query_directives "(opt \"${SOL_CHAIN_ID}\",opt variant {UpdateFee},0:nat64,12:nat64)" --ic 
 
 dfx canister call  $SOLANA_ROUTE_CANISTER_ID active_tasks '()' --ic
+
+
+# gen ticket and send it to hub
+signature=tEuGLkC97yiFtsL1g7dK8fZALioD4Siebn17yqBBFfg2d7NiMTAgiri32bfFi6h8njthwNW1NAqUzADJzSSCfA5
+# get generate ticket req
+dfx canister call $SOLANA_ROUTE_CANISTER_ID get_transaction "(\"${signature}\",null)" --ic 
+dfx canister call $SOLANA_ROUTE_CANISTER_ID gen_tickets_req "(\"${signature}\")" --ic
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID remove_gen_tickets_req "(\"${signature}\")" --ic
+
+target_chain_id=Base
+sender=3duAFv2j7VvKUpUWEK1p9itMvCkZxF6P5PArdU2G7z3W
+receiver=0x5106f3AFa0e27BdD3faffEb9158526FA678895F3
+token_id=Bitcoin-runes-DOG•GO•TO•THE•MOON
+amount=15000000
+# action=variant { Redeem }
+memo=0x5106f3AFa0e27BdD3faffEb9158526FA678895F3
+dfx canister call $SOLANA_ROUTE_CANISTER_ID generate_ticket "(record {
+    signature=\"${signature}\";
+    target_chain_id=\"${target_chain_id}\";
+    sender=\"${sender}\";
+    receiver=\"${receiver}\";
+    token_id=\"${token_id}\";
+    amount=${amount}:nat64;
+    action=variant { Transfer };
+    memo=null;
+})" --ic
+
+dfx canister call $SOLANA_ROUTE_CANISTER_ID generate_ticket "(record {
+    signature=\"${signature}\";
+    target_chain_id=\"${target_chain_id}\";
+    sender=\"${sender}\";
+    receiver=\"${receiver}\";
+    token_id=\"${token_id}\";
+    amount=${amount}:nat64;
+    action=variant { Transfer };
+    memo=opt \"${memo}\";
+})" --ic
+

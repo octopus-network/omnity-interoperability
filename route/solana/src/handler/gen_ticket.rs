@@ -108,11 +108,11 @@ pub async fn generate_ticket(
         ));
     }
 
-    if !matches!(req.action, TxAction::Redeem) {
-        return Err(GenerateTicketError::UnsupportedAction(
-            "[generate_ticket] Transfer action is not supported".into(),
-        ));
-    }
+    // if !matches!(req.action, TxAction::Redeem) {
+    //     return Err(GenerateTicketError::UnsupportedAction(
+    //         "[generate_ticket] Transfer action is not supported".into(),
+    //     ));
+    // }
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.to_owned()));
 
