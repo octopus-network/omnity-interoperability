@@ -1,7 +1,4 @@
-use super::{
-    BtcChangeOutput, GenTicketRequest, GenTicketRequestV2, RuneId, RuneTxRequest, RunesBalance,
-    RunesUtxo, SubmittedBtcTransactionV2, RUNES_TOKEN,
-};
+use super::{BtcChangeOutput, GenTicketRequest, GenTicketRequestV2, RuneId, RuneTxRequest, RunesBalance, RunesUtxo, SubmittedBtcTransactionV2, RUNES_TOKEN, BitcoinFeeRate};
 use crate::destination::Destination;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
@@ -54,6 +51,9 @@ pub enum Event {
         #[serde(rename = "is_runes")]
         is_runes: bool,
     },
+
+    #[serde(rename = "update_bitcoin_fee_rate")]
+    UpdateBitcoinFeeRate(BitcoinFeeRate),
 
     #[serde(rename = "updated_runes_balance")]
     UpdatedRunesBalance {
@@ -429,6 +429,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::UpdateIcpswap { principal } => {
                 state.icpswap_principal = Some(principal);
+            }
+            Event::UpdateBitcoinFeeRate(f) => {
+                state.bitcoin_fee_rate = f;
             }
         }
     }

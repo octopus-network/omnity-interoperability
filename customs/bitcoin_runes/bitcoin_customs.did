@@ -6,6 +6,7 @@ type BitcoinAddress = variant {
   p2wpkh_v0 : blob;
   p2pkh : blob;
 };
+type BitcoinFeeRate = record { low : nat64; high : nat64; medium : nat64 };
 type BtcChangeOutput = record { value : nat64; vout : nat32 };
 type BtcNetwork = variant { Mainnet; Regtest; Testnet };
 type CanisterStatusResponse = record {
@@ -38,6 +39,7 @@ type CustomsInfo = record {
   hub_principal : principal;
   ecdsa_key_name : text;
   next_directive_seq : nat64;
+  bitcoin_fee_rate : BitcoinFeeRate;
   fee_collector_address : text;
   icpswap_principal : opt principal;
   ecdsa_public_key : opt ECDSAPublicKey;
@@ -90,6 +92,7 @@ type EtchingStatus = variant {
   TokenAdded;
   SendCommitSuccess;
   Final;
+  Initial;
 };
 type Event = variant {
   update_icpswap : record { "principal" : principal };
@@ -104,6 +107,7 @@ type Event = variant {
   update_ord_indexer : record { "principal" : principal };
   removed_runes_oracle : record { "principal" : principal };
   updated_fee : record { fee : Factor };
+  update_bitcoin_fee_rate : BitcoinFeeRate;
   sent_transaction : record {
     fee : opt nat64;
     txid : blob;
@@ -252,8 +256,9 @@ type ReleaseTokenStatus = variant {
 type Result = variant { Ok : nat; Err : text };
 type Result_1 = variant { Ok : text; Err : text };
 type Result_2 = variant { Ok; Err : GenerateTicketError };
-type Result_3 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
-type Result_4 = variant { Ok; Err : UpdateRunesBalanceError };
+type Result_3 = variant { Ok; Err : text };
+type Result_4 = variant { Ok : vec Utxo; Err : UpdateBtcUtxosErr };
+type Result_5 = variant { Ok; Err : UpdateRunesBalanceError };
 type RuneId = record { tx : nat32; block : nat64 };
 type RuneTxRequest = record {
   received_at : nat64;
@@ -273,6 +278,7 @@ type SendEtchingInfo = record {
   commit_txid : text;
   time_at : nat64;
   etching_args : EtchingArgs;
+  receiver : text;
   reveal_txid : text;
 };
 type TargetChainFactor = record {
@@ -327,10 +333,13 @@ type UpgradeArgs = record {
 type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 type UtxoArgs = record { id : text; index : nat32; amount : nat64 };
 service : (CustomArg) -> {
+  canister_icp : () -> ();
   estimate_etching_fee : (nat64, text, opt LogoParams) -> (Result);
+  estimate_etching_fee_v2 : (text, opt LogoParams) -> (Result);
   estimate_redeem_fee : (EstimateFeeArgs) -> (RedeemFee) query;
   etching : (nat64, EtchingArgs) -> (Result_1);
   etching_reveal : (text) -> ();
+  etching_v2 : (EtchingArgs) -> (Result_1);
   generate_ticket : (GenerateTicketArgs) -> (Result_2);
   generate_ticket_status : (text) -> (GenTicketStatus) query;
   get_btc_address : (GetBtcAddressArgs) -> (text);
@@ -348,15 +357,17 @@ service : (CustomArg) -> {
   get_runes_oracles : () -> (vec principal) query;
   get_token_list : () -> (vec TokenResp) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
+  remove_error_etching : (text) -> ();
   remove_error_ticket : (text) -> ();
   remove_runes_oracle : (principal) -> ();
   set_fee_collector : (text) -> ();
   set_icpswap : (principal) -> ();
   set_ord_indexer : (principal) -> ();
   set_runes_oracle : (principal) -> ();
+  set_tx_fee_per_vbyte : (BitcoinFeeRate) -> (Result_3);
   transform : (TransformArgs) -> (HttpResponse) query;
-  update_btc_utxos : () -> (Result_3);
+  update_btc_utxos : () -> (Result_4);
   update_fees : (vec UtxoArgs) -> ();
   update_rpc_url : (text) -> ();
-  update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_4);
+  update_runes_balance : (UpdateRunesBalanceArgs) -> (Result_5);
 }
