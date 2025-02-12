@@ -226,7 +226,8 @@ pub async fn broadcast(tx: Vec<u8>, rpc: RpcApi) -> Result<String, super::Error>
                 Err(r) => {
                     if let RpcError::JsonRpcError(ref jerr) = r {
                         if (jerr.code == -32603 && jerr.message == "already known")
-                        || (jerr.code == -32010 && jerr.message == "pending transaction with same hash already exists")
+                            || (jerr.code == -32603 && jerr.message == "failed to send tx")
+                            || (jerr.code == -32010 && jerr.message == "pending transaction with same hash already exists")
                         || (jerr.code == -32015 && jerr.message == "transaction pool error transaction already exists in the pool") {
                         return Ok(hex::encode([1u8; 32]));
                     }
@@ -386,7 +387,7 @@ pub async fn get_balance(addr: String, rpc: RpcApi) -> Result<U256, Error> {
     let r: BalanceResult =
         serde_json::from_str(r.as_str()).map_err(|e| Error::Fatal(e.to_string()))?;
     let r = r.result.strip_prefix("0x").unwrap_or(r.result.as_str());
-    let r = u64::from_str_radix(r, 16).map_err(|e| Error::Fatal(e.to_string()))?;
+    let r = u128::from_str_radix(r, 16).map_err(|e| Error::Fatal(e.to_string()))?;
     Ok(U256::from(r))
 }
 

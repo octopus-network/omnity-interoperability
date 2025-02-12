@@ -12,6 +12,12 @@
       "package": "evm_route",
       "type": "rust"
     },
+   "evm_route_base": {
+      "gzip": true,
+      "candid": "evm_route.did",
+      "package": "evm_route",
+      "type": "rust"
+    },
     "evm_route_bitlayer": {
       "gzip": true,
       "candid": "evm_route.did",

@@ -2,14 +2,14 @@ use crate::address::{main_bitcoin_address, main_destination, BitcoinAddress};
 use crate::queries::RedeemFee;
 use crate::runes_etching::sync::handle_etching_result_task;
 use crate::runestone::{Edict, Runestone};
-use crate::state::{audit, mutate_state, BtcChangeOutput, EtchingAccountInfo};
+use crate::state::{audit, mutate_state, BtcChangeOutput, EtchingAccountInfo, BitcoinFeeRate};
 use candid::{CandidType, Deserialize, Principal};
 use destination::Destination;
 use ic_btc_interface::{MillisatoshiPerByte, Network, OutPoint, Txid, Utxo};
 use ic_canister_log::log;
 use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
-use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
+use omnity_types::ic_log::{CRITICAL, ERROR, INFO, WARNING};
 use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainId, ChainState, Directive, TokenId, TxAction};
 use scopeguard::{guard, ScopeGuard};
@@ -24,6 +24,11 @@ use std::iter::Sum;
 use std::str::FromStr;
 use std::time::Duration;
 use updates::rune_tx::{generate_rune_tx_request, GenRuneTxReqError, RuneTxArgs};
+use crate::call_error::{CallError, Reason};
+use crate::runes_etching::fee_calculator::transfer_etching_fees;
+use crate::runes_etching::InternalEtchingArgs;
+use crate::runes_etching::transactions::etching_rune_v2;
+use crate::runes_etching::transactions::EtchingStatus::{SendCommitFailed, SendCommitSuccess};
 
 pub mod address;
 pub mod call_error;
@@ -52,9 +57,10 @@ pub const MAX_REQUESTS_PER_BATCH: usize = 10;
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 
 pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
+pub const INTERVAL_COMMIT_ETCHING: Duration = Duration::from_secs(120);
 pub const INTERVAL_QUERY_DIRECTIVES: Duration = Duration::from_secs(60);
 pub const FEE_ESTIMATE_DELAY: Duration = Duration::from_secs(60 * 60);
-pub const INTERVAL_HANDLE_ETCHING: Duration = Duration::from_secs(2 * 60);
+pub const INTERVAL_HANDLE_ETCHING: Duration = Duration::from_secs(5 * 60);
 /// The minimum fee increment for transaction resubmission.
 /// See https://en.bitcoin.it/wiki/Miner_fees#Relaying for more detail.
 pub const MIN_RELAY_FEE_PER_VBYTE: MillisatoshiPerByte = 1_000;
@@ -120,6 +126,8 @@ pub struct CustomsInfo {
     pub ecdsa_public_key: Option<ECDSAPublicKey>,
 
     pub prod_ecdsa_public_key: Option<ECDSAPublicKey>,
+
+    pub bitcoin_fee_rate: BitcoinFeeRate,
 
     pub max_time_in_queue_nanos: u64,
 
@@ -1434,6 +1442,53 @@ pub fn process_tx_task() {
         finalize_rune_txs().await;
         finalize_gen_ticket_txs().await;
     });
+}
+
+pub fn commit_etching_task() {
+    ic_cdk::spawn(async {
+        let _guard = match crate::guard::TimerLogicGuard::new() {
+            Some(guard) => guard,
+            None => return,
+        };
+        commit_etching_txs().await;
+    });
+}
+
+pub async fn commit_etching_txs() {
+    if let Some(id) = read_state(|s|s.stash_etching_ids.get(0))  {
+        let etching_args_opt = read_state(|s|s.stash_etchings.get(&id.content));
+        match etching_args_opt {
+            None => {
+
+            }
+            Some(args) => {
+                let fee_rate = read_state(|s|{
+                    let high = s.bitcoin_fee_rate.high;
+                    if high == 0 {
+                        5
+                    }else {
+                        high + 2
+                    }
+                });
+                match etching_rune_v2(fee_rate, &args).await {
+                    Ok(sr) => {
+                        if sr.status == SendCommitSuccess {
+                            mutate_state(|s|s.stash_etchings.remove(&id.content));
+                        } else if sr.status == SendCommitFailed{
+                            log!(ERROR, "after send etching commit error: {:?}", sr.err_info);
+                        }
+                        mutate_state(|s|s.stash_etching_ids.pop());
+                        mutate_state(|s| s.pending_etching_requests.insert(id.content, sr));
+                    }
+                    Err(e) => {
+                        log!(WARNING, "BEFORE send etching commit error: {:?}", e);
+                    },
+                }
+            }
+        }
+    }
+
+
 }
 
 pub fn process_etching_task() {

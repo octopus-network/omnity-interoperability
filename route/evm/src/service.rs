@@ -6,6 +6,7 @@ use cketh_common::eth_rpc_client::providers::RpcApi;
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_cdk::api::is_controller;
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use ic_cdk_timers::set_timer_interval;
@@ -230,6 +231,9 @@ fn is_admin() -> Result<(), String> {
 
 fn is_monitor() -> Result<(), String> {
     let c = ic_cdk::caller();
+    if is_controller(&c) {
+        return Ok(())
+    }
     match c == Principal::from_text(MONITOR_PRINCIPAL).unwrap() {
         true => Ok(()),
         false => Err("permission deny".to_string()),
