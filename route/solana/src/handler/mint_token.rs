@@ -19,7 +19,7 @@ use ic_solana::types::TransactionConfirmationStatus;
 
 use crate::constants::{ TAKE_SIZE, RETRY_4_STATUS};
 use ic_canister_log::log;
-use ic_solana::ic_log::{ DEBUG,CRITICAL,WARNING};
+use ic_solana::ic_log::{DEBUG, CRITICAL, WARNING, INFO};
 
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -69,7 +69,13 @@ pub async fn mint_token() {
     
     
     for (seq, ticket) in tickets.into_iter() {
-     
+        
+        log!(
+            DEBUG,
+            "[Consolidation]mint_token::mint_token start to mint token for ticket id: {}",
+            ticket.ticket_id
+        );
+        
         let token_mint = read_state(|s| s.token_mint_accounts.get(&ticket.token));
         let token_mint = match token_mint {
             Some(token_mint) => {
@@ -188,7 +194,7 @@ pub async fn mint_token() {
                     Some(sig) => {
                         log!(
                             DEBUG,
-                            "[mint_token::mint_token] mint req tx({:?}) already submited and waiting for the tx({:?}) to be finallized! ",
+                            "[mint_token::mint_token] mint req tx({:?}) already submitted and waiting for the tx({:?}) to be finalized! ",
                           mint_req,sig
                         );
                         update_mint_token_status(mint_req.to_owned(), sig).await;
@@ -205,7 +211,7 @@ pub async fn mint_token() {
                 Ok(()) =>{
                     log!(
                         DEBUG,
-                        "[mint_token::mint_token] mint req tx({:?}) already finallized and update tx hash to hub! ",
+                        "[mint_token::mint_token] mint req tx({:?}) already finalized and update tx hash to hub! ",
                         sig
                     );
                 }
@@ -237,7 +243,7 @@ pub async fn mint_token() {
                     Some(sig) => {
                         log!(
                             DEBUG,
-                            "[mint_token::mint_token] mint req tx({:?}) already submited and waiting for the tx({:?}) to be finallized! ",
+                            "[mint_token::mint_token] mint req tx({:?}) already submitted and waiting for the tx({:?}) to be finalized! ",
                           mint_req,sig
                         );
                         update_mint_token_status(mint_req.to_owned(), sig).await;
@@ -302,6 +308,11 @@ pub async fn handle_mint_token(mint_req: MintTokenRequest){
 
 pub async fn update_mint_token_status(mut mint_req:MintTokenRequest,sig:String) {
     // query signature status
+    log!(
+        DEBUG,
+        "[mint_token::update_mint_token_status] start to get_signature_status for {}",
+        mint_req.ticket_id
+    );
     let tx_status_ret = solana_rpc::get_signature_status(vec![sig.to_string()]).await;
     match tx_status_ret {
         Err(e) => {

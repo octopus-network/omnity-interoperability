@@ -183,6 +183,11 @@ pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketErr
     // let mut receiver = String::from("");
     // let mut tx = String::from("");
     let client = solana_client().await;
+    log!(
+        DEBUG,
+        "[generate_ticket] verify_tx build client, req: {:#?}",
+        req
+    );
     let multi_rpc_config = read_state(|s| s.multi_rpc_config.to_owned());
     multi_rpc_config
         .check_config_valid()
