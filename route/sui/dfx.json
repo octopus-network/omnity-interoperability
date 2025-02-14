@@ -1,0 +1,31 @@
+{
+  "dfx": "0.24.3",
+  "canisters": {
+    "icp_customs": {
+      "package": "icp_customs",
+      "type": "custom",
+      "wasm": "assets/icp_customs.wasm.gz",
+      "candid": "assets/icp_customs.did"
+    },
+    "omnity_hub": {
+      "package": "omnity_hub",
+      "type": "custom",
+      "wasm": "assets/omnity_hub.wasm.gz",
+      "candid": "assets/omnity_hub.did"
+    },
+    "sui_route": {
+      "package": "sui_route",
+      "type": "rust",
+      "gzip": true,
+      "candid": "assets/sui_route.did"
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "",
+      "args": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}

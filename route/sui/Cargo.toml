@@ -1,0 +1,137 @@
+[package]
+name = "sui_route"
+version = "0.1.0"
+edition = "2021"
+
+# [[bin]]
+# name = "solana_route"
+# path = "src/service.rs"
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = { version = "0.10" }
+ciborium = "0.2.1"
+ic-cdk = "0.14"
+
+# serde = "1"
+# serde_derive = "1.0.208"
+serde = { version = "1.0.144", features = ["derive", "rc"] }
+serde_json = "^1.0.117"
+serde_bytes = "^0.11.14"
+serde_with = "3.8"
+serde_repr = "0.1"
+schemars = { version = "0.8.21", features = ["either"] }
+colored = "2.0.0"
+json_to_table = { git = "https://github.com/zhiburt/tabled/", rev = "e449317a1c02eb6b29e409ad6617e5d9eb7b3bd4" }
+tabled = { version = "0.12" }
+
+ic-cdk-timers = "0.6"
+ic-stable-structures = "0.6"
+thiserror = "1"
+anyhow = "1.0.86"
+strum_macros = "0.25.3"
+strum = { version = "0.25.0", features = ["derive"] }
+sha2 = "0.10"
+hex = "0.4"
+ic-canister-log = "0.2"
+ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
+ic-management-canister-types = { git = "https://github.com/dfinity/ic", package = "ic-management-canister-types" }
+# sui-sdk-types = { git = "https://github.com/mystenlabs/sui-rust-sdk/", package = "sui-sdk-types", features = [
+#     "serde",
+# ] }
+sui-sdk-types = { git = "https://github.com/octopus-network/sui-rust-sdk/", package = "sui-sdk-types", features = [
+    "serde",
+] }
+# sui-sdk-types = { path = "/home/boern/workspace/octopus/sui-rust-sdk/crates/sui-sdk-types", features = [
+#     "serde",
+# ] }
+# sui-crypto = { git = "https://github.com/mystenlabs/sui-rust-sdk/", package = "sui-crypto" }
+# sui-crypto = { git = "https://github.com/octopus-network/sui-rust-sdk/", package = "sui-crypto" }
+sui-crypto = { path = "/home/boern/workspace/octopus/sui-rust-sdk/crates/sui-crypto", features = [
+    "ed25519",
+    "secp256r1",
+    "secp256k1",
+] }
+
+# jsonrpsee = { git = "https://github.com/wlmyng/jsonrpsee.git", rev = "b1b300784795f6a64d0fcdf8f03081a9bc38bde8", features = [
+#     "macros",
+#     "jsonrpsee-core",
+# ] }
+
+futures = "0.3.30"
+futures-core = "0.3.21"
+urlencoding = "2.1"
+bs58 = "0.5.1"
+time = "0.3.36"
+bip32 = { version = "0.5.1", features = ["k256"] }
+k256 = { git = "https://github.com/altkdf/elliptic-curves", branch = "schnorr_canister", features = [
+    "schnorr",
+] }
+curve25519-dalek = "3.2.1"
+ed25519-dalek = "2.1"
+base64 = "0.22.1"
+url = "2.5.0"
+indexmap = { version = "2.1.0", features = ["serde"] }
+bcs = "0.1.4"
+roaring = "0.10.6"
+enum_dispatch = "^0.3"
+nonempty = "0.9.0"
+itertools = "0.13.0"
+serde-name = "0.2.1"
+once_cell = "1.18.0"
+derive_more = { version = "1.0.0", features = ["full"] }
+eyre = "0.6.8"
+im = "15"
+byteorder = "1.4.3"
+ref-cast = "1.0.6"
+uint = "0.9.4"
+ethnum = "1.0.4"
+num = "0.4.0"
+primitive-types = { version = "0.10.1", features = ["impl-serde"] }
+leb128 = "0.2.5"
+signature = { version = "2.0.0" }
+base64ct = { version = "1.5.3", features = ["alloc"] }
+bech32 = "0.9.1"
+generic-array = { version = "0.14.6", features = ["serde"] }
+blake2 = "0.10.6"
+getrandom = { version = "0.2", features = ["custom"] }
+typenum = "1.13.0"
+zeroize = "1.5.7"
+digest = "0.10.6"
+# http = "1"
+bincode = "1.3.3"
+
+[patch.crates-io.curve25519-dalek]
+git = "https://github.com/solana-labs/curve25519-dalek.git"
+rev = "b500cdc2a920cd5bff9e2dd974d7b97349d61464"
+
+[profile.release]
+debug = false
+lto = true
+strip = true
+opt-level = 's'
+
+[dev-dependencies]
+ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
+urlencoding = "2.1"
+tracing = "0.1.37"
+tokio = "1.36.0"
+tokio-retry = "0.3"
+rand = "0.8.5"
+
+sui-sdk = { git = "https://github.com/mystenlabs/sui", package = "sui-sdk" }
+sui-keys = { git = "https://github.com/mystenlabs/sui", package = "sui-keys" }
+sui-types = { git = "https://github.com/mystenlabs/sui", package = "sui-types" }
+sui-json = { git = "https://github.com/mystenlabs/sui", package = "sui-json" }
+sui-json-rpc-types = { git = "https://github.com/mystenlabs/sui", package = "sui-json-rpc-types" }
+sui-transaction-builder = { git = "https://github.com/mystenlabs/sui", package = "sui-transaction-builder" }
+move-core-types = { git = "https://github.com/mystenlabs/sui", package = "move-core-types" }
+move-binary-format = { git = "https://github.com/mystenlabs/sui", package = "move-binary-format" }
+move-bytecode-utils = { git = "https://github.com/mystenlabs/sui", package = "move-bytecode-utils" }
+shared-crypto = { git = "https://github.com/mystenlabs/sui", package = "shared-crypto" }
+
+fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "69d496c71fb37e3d22fe85e5bbfd4256d61422b9" }
+# fastcrypto-tbls = { git = "https://github.com/MystenLabs/fastcrypto", rev = "69d496c71fb37e3d22fe85e5bbfd4256d61422b9" }
+# fastcrypto-zkp = { git = "https://github.com/MystenLabs/fastcrypto", rev = "69d496c71fb37e3d22fe85e5bbfd4256d61422b9", package = "fastcrypto-zkp" }

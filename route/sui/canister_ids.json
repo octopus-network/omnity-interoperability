@@ -1,0 +1,14 @@
+{
+  "ic-solana-provider": {
+    "ic": "xgviw-pqaaa-aaaar-qajbq-cai"
+  },
+  "omnity_hub": {
+    "ic": "xbuoc-ciaaa-aaaar-qajba-cai"
+  },
+  "solana_route": {
+    "ic": "xtsz3-oyaaa-aaaar-qajca-cai"
+  },
+  "sui_route": {
+    "ic": "net34-wiaaa-aaaar-qamkq-cai"
+  }
+}
