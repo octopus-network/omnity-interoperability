@@ -17,6 +17,7 @@ type CustomsState = record {
   ckbtc_minter_principal : opt principal;
   icp_token_id : opt text;
   chain_id : text;
+  failed_redeem_ticket_list : vec record { nat64; Ticket };
   next_ticket_seq : nat64;
   ckbtc_token_id : opt text;
 };
