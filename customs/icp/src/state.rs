@@ -1,5 +1,5 @@
 use candid::{CandidType, Principal};
-use omnity_types::{Chain, ChainId, TicketId, Token, TokenId};
+use omnity_types::{Chain, ChainId, Ticket, TicketId, Token, TokenId};
 use serde::Serialize;
 use std::{borrow::Cow, cell::RefCell};
 
@@ -79,6 +79,8 @@ pub struct CustomsState {
 
     #[serde(skip)]
     pub is_timer_running: bool,
+    #[serde(default)]
+    pub failed_redeem_ticket_list: Vec<(u64, Ticket)>
 }
 
 impl Storable for CustomsState {
@@ -103,14 +105,12 @@ impl From<InitArgs> for CustomsState {
             hub_principal: args.hub_principal,
             next_ticket_seq: 0,
             next_directive_seq: 0,
-            // tokens: Default::default(),
-            // counterparties: Default::default(),
-            // finalized_mint_token_requests: Default::default(),
             is_timer_running: false,
             ckbtc_ledger_principal: args.ckbtc_ledger_principal,
             ckbtc_minter_principal: None,
             icp_token_id: None,
             ckbtc_token_id: None,
+            failed_redeem_ticket_list: vec![]
         }
     }
 }

@@ -12,7 +12,7 @@ use ic_ledger_types::{AccountIdentifier, Subaccount};
 use omnity_types::MintTokenStatus::{Finalized, Unknown};
 use omnity_types::{Chain, MintTokenStatus, Seq, Ticket, TicketId, Token};
 use ic_canister_log::log;
-use omnity_types::ic_log::{ERROR, INFO};
+use omnity_types::ic_log::INFO;
 
 pub fn is_controller() -> Result<(), String> {
     if ic_cdk::api::is_controller(&ic_cdk::caller()) {

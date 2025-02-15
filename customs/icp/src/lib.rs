@@ -116,7 +116,12 @@ async fn process_tickets() {
                     },
                     Err(e) => {
                         log!(ERROR, "[process tickets] failed to process ticket: {}, err: {}", ticket, e);
-                        break;
+                        mutate_state(
+                            |s| {
+                                s.failed_redeem_ticket_list.push((*seq, ticket.clone()));
+                                s.next_ticket_seq = seq + 1;
+                            }
+                        );
                     },
                 }
             }
