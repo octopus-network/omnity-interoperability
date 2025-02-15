@@ -419,6 +419,39 @@ impl Storable for Utxo {
     };
 }
 
+/// Unspent transaction output to be used as input of a transaction
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EtchingKey {
+    pub content: String,
+}
+
+impl EtchingKey {
+    pub fn new(k: String) ->Self {
+        EtchingKey{
+            content:k,
+        }
+    }
+}
+
+
+impl Storable for EtchingKey {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let dire = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Directive");
+        dire
+    }
+
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 100,
+        is_fixed_size: false,
+    };
+}
+
 #[cfg_attr(docsrs, doc(cfg(feature = "rune")))]
 /// Runestone wrapper; implemented because FOR SOME REASONS, the `Runestone` of `ordinals` doesn't implement Clone...
 #[derive(Debug, Default, Clone)]

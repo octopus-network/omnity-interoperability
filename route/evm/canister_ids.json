@@ -2,6 +2,9 @@
   "evm_route_ailayer": {
     "ic": "pk76v-yyaaa-aaaar-qahxa-cai"
   },
+  "evm_route_base": {
+    "ic": "tbq6s-saaaa-aaaar-qaoha-cai"
+  },
   "evm_route_bevm": {
     "ic": "rp433-4qaaa-aaaar-qaf2q-cai"
   },

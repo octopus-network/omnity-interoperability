@@ -200,7 +200,7 @@ async fn fetch_new_utxos_outcall(
     txid: Txid,
     address: &String,
 ) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
-    const MAX_CYCLES: u128 = 1_000_000_000_000;
+    const MAX_CYCLES: u128 = 6_000_000_000_000;
     const DERAULT_RPC_URL: &str = "https://mempool.space/api/tx";
 
     let url = format!(
@@ -213,7 +213,7 @@ async fn fetch_new_utxos_outcall(
         url: url.to_string(),
         method: HttpMethod::GET,
         body: None,
-        max_response_bytes: Some(30000),
+        max_response_bytes: Some(300000),
         transform: Some(TransformContext {
             function: TransformFunc(candid::Func {
                 principal: ic_cdk::api::id(),
