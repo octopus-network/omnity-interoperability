@@ -47,6 +47,13 @@
         }
       ]
     },
+    "solana_customs": {
+      "gzip": true,
+      "package": "solana_customs",
+      "type": "custom",
+      "candid": "customs/solana/solana_customs.did",
+      "wasm": "customs/solana/target/wasm32-unknown-unknown/release/solana_customs.wasm"
+    },
     "bitfinity_route": {
       "gzip": true,
       "candid": "route/bitfinity/bitfinity_route.did",

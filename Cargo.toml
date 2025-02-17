@@ -14,7 +14,7 @@ members = [
     "mock/icp",
     "mock/hub",
 ]
-exclude = ["route/solana"]
+exclude = ["route/solana", "customs/solana"]
 resolver = "2"
 
 [workspace.package]

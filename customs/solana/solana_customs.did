@@ -1,0 +1,62 @@
+type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type CustomArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type GenTicketStatus = variant { Finalized : GenerateTicketArgs; Unknown };
+type GenerateTicketArgs = record {
+  signature : text;
+  token_id : text;
+  target_chain_id : text;
+  amount : nat64;
+  receiver : text;
+};
+type GenerateTicketError = variant {
+  SendTicketErr : text;
+  RpcError : text;
+  TemporarilyUnavailable : text;
+  AmountIsZero;
+  MismatchWithGenTicketReq;
+  UnsupportedChainId : text;
+  UnsupportedToken : text;
+};
+type GetSolAddressArgs = record { target_chain_id : text; receiver : text };
+type InitArgs = record {
+  hub_principal : principal;
+  sol_canister : principal;
+  chain_id : text;
+  schnorr_key_name : text;
+  chain_state : ChainState;
+};
+type Result = variant { Ok; Err : GenerateTicketError };
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
+type UpgradeArgs = record {
+  hub_principal : opt principal;
+  sol_canister : opt principal;
+  chain_id : opt text;
+  schnorr_key_name : opt text;
+  chain_state : opt ChainState;
+  forward : opt text;
+};
+service : (CustomArg) -> {
+  generate_ticket : (GenerateTicketArgs) -> (Result);
+  generate_ticket_status : (text) -> (GenTicketStatus) query;
+  get_chain_list : () -> (vec Chain) query;
+  get_sol_address : (GetSolAddressArgs) -> (text);
+  get_token_list : () -> (vec Token) query;
+  signer : () -> (text);
+}
