@@ -232,10 +232,10 @@ pub async fn update_with_metaplex(token_mint: String, req: TokenInfo) -> Result<
 // transfer from signer or payer
 pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, CallError> {
     let sol_client = solana_client().await;
-    let token_mint = Pubkey::from_str(&to_account).expect("Invalid token mint address");
+    let wallet_account = Pubkey::from_str(&to_account).expect("Invalid token mint address");
 
     let signature = sol_client
-        .transfer_to(token_mint, amount)
+        .transfer_to(wallet_account, amount)
         .await
         .map_err(|e| CallError {
             method: "[solana_rpc::transfer_to] transfer_to".to_string(),
