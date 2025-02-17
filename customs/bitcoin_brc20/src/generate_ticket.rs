@@ -10,7 +10,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use omnity_types::ic_log::INFO;
-use omnity_types::{ChainState, Ticket, TicketType, TxAction};
+use omnity_types::{ChainState, Ticket, TicketType, TxAction, Memo};
 
 use crate::bitcoin_to_custom::check_transaction;
 use crate::hub;
@@ -66,7 +66,7 @@ pub struct GenerateTicketArgs {
 }
 
 pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
-    log!(INFO, "received generate_ticket: {:?}", args.clone());
+    log!(INFO, "received generate_ticket request: {:?}", args.clone());
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
@@ -113,7 +113,14 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         .unwrap()
         .mul(Decimal::from(10u128.pow(token.decimals as u32)))
         .to_u128()
-        .unwrap();
+        .unwrap();  
+
+    let (fee, _) = read_state(|s|s.get_transfer_fee_info(&args.target_chain_id));
+    let memo_json = Memo {
+        memo: None,
+        bridge_fee: fee.unwrap_or_default(),
+    }.convert_to_memo_json().unwrap_or_default();
+
     hub::pending_ticket(
         hub_principal,
         Ticket {
@@ -127,7 +134,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             amount: ticket_amount.to_string(),
             sender: None,
             receiver: args.receiver.clone(),
-            memo: None,
+            memo: Some(memo_json.as_bytes().to_vec()),
         },
     )
     .await

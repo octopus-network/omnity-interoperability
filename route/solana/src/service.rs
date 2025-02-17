@@ -1519,7 +1519,7 @@ async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, Ge
 }
 
 // devops method
-#[query(guard = "is_admin",hidden = true)]
+#[query(guard = "is_admin")]
 pub fn gen_tickets_req(signature:String) -> Option<GenerateTicketReq> {
     read_state(|s| {
         s.gen_ticket_reqs.get(&signature)

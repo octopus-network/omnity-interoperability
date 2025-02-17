@@ -3,9 +3,9 @@ use crate::state::replace_state;
 use crate::storage::{count_events, events, record_event};
 use candid::{CandidType, Deserialize, Principal};
 use ic_canister_log::log;
+use omnity_types::ic_log::INFO;
 use omnity_types::ChainState;
 use serde::Serialize;
-use omnity_types::ic_log::INFO;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
 pub struct UpgradeArgs {

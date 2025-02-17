@@ -1,0 +1,40 @@
+[package]
+name = "generic_proxy"
+version = "0.0.2"
+edition = "2021"
+
+[profile.release]
+debug = true
+lto = true
+opt-level = 'z'
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = { workspace = true }
+candid_parser = { workspace = true }
+ciborium = { workspace = true }
+ic-btc-interface = "0.2.0"
+ic-cdk = { workspace = true }
+ic-cdk-macros = { workspace = true }
+ic-ledger-types = { workspace = true }
+icrc-ledger-client-cdk = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+icrc-ledger-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+ic-stable-structures = { workspace = true }
+ic-canisters-http-types = { git = "https://github.com/dfinity/ic", tag = "release-2024-03-06_23-01+p2p" }
+ic-cdk-timers = "0.6"
+ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
+sha2 = { workspace = true }
+
+serde = { workspace = true }
+serde_bytes = { workspace = true }
+serde_json = { workspace = true }
+
+thiserror = "1"
+log = "0.4"
+
+subtle-encoding = { version = "0.5", features = ["bech32-preview"] }
+
+omnity_types = { path = "../../types" }
+itertools = "0.13.0"

@@ -137,6 +137,11 @@ pub async fn create_ata(to_account: String, token_mint: String) -> Result<String
 
 pub async fn mint_to_with_req(req: MintTokenRequest) -> Result<String, CallError> {
     let sol_client = solana_client().await;
+    log!(
+        DEBUG,
+        "[Consolidation]solana_rpc::mint_to_with_req build solana client, ticket id: {}",
+        req.ticket_id
+    );
     let associated_account =
         Pubkey::try_from(req.associated_account.as_str()).expect("Invalid receiver address");
     let token_mint = Pubkey::try_from(req.token_mint.as_str()).expect("Invalid receiver address");
@@ -169,7 +174,11 @@ pub async fn mint_to_with_req(req: MintTokenRequest) -> Result<String, CallError
             method: "[solana_rpc::mint_to_with_req]".to_string(),
             reason: Reason::TxError(e.try_into().unwrap()),
         })?;
-
+    log!(
+        DEBUG,
+        "[Consolidation]solana_rpc::mint_to_with_req client mint success, ticket id: {}",
+        req.ticket_id
+    );
     Ok(signature)
 }
 

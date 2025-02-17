@@ -60,7 +60,12 @@ async fn install_icrc2_ledger(
             reserved_cycles_limit: None,
         }),
     };
-    let (canister_id_record,) = create_canister(create_canister_arg, 1_000_000_000_000)
+
+    if ic_cdk::api::canister_balance128() < 3_000_000_000_000 {
+        return Err("Insufficient cycles for create token ledger canister".to_string());
+    }
+
+    let (canister_id_record,) = create_canister(create_canister_arg, 3_000_000_000_000)
         .await
         .map_err(|(_, reason)| reason)?;
 
@@ -74,7 +79,7 @@ async fn install_icrc2_ledger(
                 .with_decimals(token_decimal)
                 .with_minting_account(Into::<Account>::into(owner))
                 .with_transfer_fee(
-                    10_u128.checked_pow(token_decimal as u32).expect("transfer fee overflow")
+                    10_u128
                 )
                 .with_fee_collector_account(Account {
                     owner,

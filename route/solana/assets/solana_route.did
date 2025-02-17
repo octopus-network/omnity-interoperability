@@ -1,3 +1,10 @@
+type AccountInfo = record {
+  status : TxStatus;
+  signature : opt text;
+  retry_4_building : nat64;
+  account : text;
+  retry_4_status : nat64;
+};
 type CallError = record { method : text; reason : Reason };
 type Chain = record {
   fee_token : opt text;
@@ -42,6 +49,16 @@ type InitArgs = record {
   schnorr_key_name : opt text;
   chain_state : ChainState;
 };
+type MintTokenRequest = record {
+  status : TxStatus;
+  signature : opt text;
+  associated_account : text;
+  retry_4_building : nat64;
+  ticket_id : text;
+  retry_4_status : nat64;
+  amount : nat64;
+  token_mint : text;
+};
 type Reason = variant {
   QueueIsFull;
   CanisterError : text;
@@ -50,8 +67,9 @@ type Reason = variant {
   TxError : TxError;
 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-type Result_1 = variant { Ok : TxStatus; Err : CallError };
-type Result_2 = variant { Ok : opt text; Err : CallError };
+type Result_1 = variant { Ok : MintTokenRequest; Err : CallError };
+type Result_2 = variant { Ok : TxStatus; Err : CallError };
+type Result_3 = variant { Ok : opt text; Err : CallError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type TokenResp = record {
   decimals : nat8;
@@ -78,12 +96,15 @@ type UpgradeArgs = record {
   chain_state : opt ChainState;
 };
 service : (RouteArg) -> {
+  gen_tickets_req : (text) -> (opt GenerateTicketReq) query;
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_chain_list : () -> (vec Chain) query;
   get_fee_account : () -> (text) query;
   get_redeem_fee : (text) -> (opt nat) query;
   get_token_list : () -> (vec TokenResp) query;
-  mint_token_status : (text) -> (Result_1) query;
-  mint_token_tx_hash : (text) -> (Result_2) query;
+  mint_token_req : (text) -> (Result_1) query;
+  mint_token_status : (text) -> (Result_2) query;
+  mint_token_tx_hash : (text) -> (Result_3) query;
+  query_mint_account : (text) -> (opt AccountInfo) query;
   query_mint_address : (text) -> (opt text) query;
 }

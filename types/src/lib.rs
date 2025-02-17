@@ -14,6 +14,7 @@ pub mod rune_id;
 pub mod signer;
 pub mod ic_log;
 pub mod brc20;
+pub mod hub_types;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
@@ -23,6 +24,10 @@ pub type DstChain = ChainId;
 pub type TokenId = String;
 pub type TicketId = String;
 pub type Account = String;
+
+pub type Amount = u128;
+pub type TxHash = String;
+
 
 #[derive(CandidType, Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
 pub enum Directive {
@@ -234,6 +239,24 @@ impl core::fmt::Display for Ticket {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Memo {
+    pub memo: Option<String>,
+    pub bridge_fee: u128,
+}
+
+impl Memo {
+    pub fn convert_to_memo_json(self) -> Result<String, Box<dyn std::error::Error>> {
+        let memo_json= serde_json::to_string_pretty(&self).map_err(|e| {
+            format!(
+                "[generate_ticket] memo convert error: {}",
+                e.to_string()
+            )
+        })?;
+        Ok(memo_json) 
+    }
+}
+
 #[derive(
     CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
 )]
@@ -336,6 +359,7 @@ pub enum TxAction {
     Redeem,
     Burn,
     Mint,
+    #[deprecated]
     RedeemIcpChainKeyAssets(IcpChainKeyToken)
 }
 
@@ -516,7 +540,6 @@ pub struct Token {
     pub token_id: TokenId,
     pub name: String,
     pub symbol: String,
-
     pub decimals: u8,
     pub icon: Option<String>,
     pub metadata: HashMap<String, String>,
@@ -774,7 +797,6 @@ pub enum Error {
     #[error("custom error: (`{0}`)")]
     CustomError(String),
 }
-
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MintTokenStatus {

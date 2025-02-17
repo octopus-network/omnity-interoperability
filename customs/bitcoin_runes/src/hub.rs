@@ -2,6 +2,7 @@ use crate::call_error::{CallError, Reason};
 use candid::utils::ArgumentEncoder;
 use candid::CandidType;
 use candid::Principal;
+use omnity_types::hub_types::Proposal;
 use omnity_types::Directive;
 use omnity_types::TicketId;
 use omnity_types::Topic;
@@ -18,6 +19,13 @@ pub async fn query_tickets(
         (None::<Option<ChainId>>, offset, limit),
     )
     .await
+}
+
+pub async fn execute_proposal(
+    proposal: Proposal,
+    hub_principal: Principal,
+) -> Result<(), CallError> {
+    call(hub_principal, "execute_proposal".into(), (vec![proposal],)).await
 }
 
 pub async fn query_directives(

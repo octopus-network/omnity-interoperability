@@ -6,13 +6,14 @@ use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
 
 // use crate::migration::{migrate, PreHubState};
-use crate::self_help::AddRunesTokenReq;
-use crate::types::{Amount, ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta, TxHash};
+pub use crate::self_help::{AddRunesTokenReq, FinalizeAddRunesArgs};
+use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
+use omnity_types::{Amount, TxHash};
 use candid::Principal;
 use ic_canister_log::log;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
-use omnity_types::ic_log::{ERROR, INFO};
+use omnity_types::ic_log::{ERROR, INFO, WARNING};
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, TicketType,
     ToggleAction, ToggleState, TokenId, Topic, TxAction,
@@ -571,7 +572,7 @@ impl HubState {
         // check ticket id repetitive
         if self.cross_ledger.contains_key(&ticket.ticket_id) {
             log!(
-                ERROR,
+                WARNING,
                 "The ticket id (`{}`) already exists!`",
                 ticket.ticket_id.to_string()
             );
@@ -585,7 +586,7 @@ impl HubState {
         //parse ticket token amount to unsigned bigint
         let ticket_amount: u128 = ticket.amount.parse().map_err(|e: ParseIntError| {
             log!(
-                ERROR,
+                WARNING,
                 "The ticket amount(`{}`) parse error: `{}`",
                 ticket.amount.to_string(),
                 e.to_string()
@@ -686,7 +687,7 @@ impl HubState {
         // check ticket id repetitive
         if self.pending_tickets.contains_key(&ticket.ticket_id) {
             log!(
-                ERROR,
+                WARNING,
                 "The ticket id (`{}`) already exists!`",
                 ticket.ticket_id.to_string()
             );
@@ -695,8 +696,9 @@ impl HubState {
         // save pending ticket
         self.pending_tickets
             .insert(ticket.ticket_id.to_string(), ticket.clone());
+        log!(INFO, "[Consolidation]Hub: pending ticket: {:?}", &ticket);
         record_event(&Event::PendingTicket { ticket });
-
+        
         Ok(())
     }
 
@@ -715,6 +717,7 @@ impl HubState {
             .ok_or(Error::CustomError(
                 "Failed to remove ticket from pending_tickets".to_string(),
             ))?;
+        log!(INFO, "[Consolidation]Hub: finalize ticket: ticket id: {:?}", &ticket_id.to_string());
         record_event(&Event::FinalizeTicket {
             ticket_id: ticket_id.to_string(),
         });
@@ -738,11 +741,13 @@ impl HubState {
         //save ticket
         self.cross_ledger
             .insert(ticket.ticket_id.to_string(), ticket.clone());
+        
+        log!(INFO, "[Consolidation] hub received ticket: {:?}", &ticket);
         //update ticket metrice
         with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket.clone()));
         record_event(&Event::ReceivedTicket {
             seq_key,
-            ticket: ticket.clone(),
+            ticket
         });
         Ok(())
     }

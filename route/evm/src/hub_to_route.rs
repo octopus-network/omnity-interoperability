@@ -3,13 +3,13 @@ use std::str::FromStr;
 use ic_canister_log::log;
 
 use crate::{audit, hub};
-use crate::const_args::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME};
+use crate::const_args::BATCH_QUERY_LIMIT;
 use crate::eth_common::EvmAddress;
-use crate::ic_log::ERROR;
+use crate::ic_log::WARNING;
 use crate::state::{mutate_state, read_state};
 use crate::types::{ChainState, Directive, Seq, Ticket};
 
-async fn process_tickets() {
+pub async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return;
     }
@@ -19,7 +19,7 @@ async fn process_tickets() {
             store_tickets(tickets, offset);
         }
         Err(err) => {
-            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
+            log!(WARNING, "[process tickets] failed to query tickets, err: {}", err);
         }
     }
 }
@@ -28,7 +28,7 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
     let mut next_seq = offset;
     for (seq, ticket) in &tickets {
         if let Err(_) = EvmAddress::from_str(&ticket.receiver) {
-            log!(ERROR,
+            log!(WARNING,
                 "[process tickets] failed to parse ticket receiver: {}",
                 ticket.receiver
             );
@@ -36,7 +36,7 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
             continue;
         };
         if let Err(_) = ticket.amount.parse::<u128>() {
-            log!(ERROR,
+            log!(WARNING,
                 "[process tickets] failed to parse ticket amount: {}",
                 ticket.amount
             );
@@ -49,7 +49,7 @@ pub fn store_tickets(tickets: Vec<(Seq, Ticket)>, offset: u64) {
     mutate_state(|s| s.next_ticket_seq = next_seq)
 }
 
-async fn process_directives() {
+pub async fn process_directives() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_directive_seq));
     match hub::query_directives(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(directives) => {
@@ -89,31 +89,10 @@ async fn process_directives() {
             });
         }
         Err(err) => {
-            log!(ERROR,
+            log!(WARNING,
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );
         }
     };
-}
-
-pub fn fetch_hub_ticket_task() {
-    ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(FETCH_HUB_TICKET_NAME.to_string()) {
-            Some(guard) => guard,
-            None => return,
-        };
-        process_tickets().await;
-    });
-}
-
-pub fn fetch_hub_directive_task() {
-    ic_cdk::spawn(async {
-        let _guard = match crate::guard::TimerLogicGuard::new(FETCH_HUB_DIRECTIVE_NAME.to_string())
-        {
-            Some(guard) => guard,
-            None => return,
-        };
-        process_directives().await;
-    });
 }

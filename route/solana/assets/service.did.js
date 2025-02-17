@@ -92,6 +92,16 @@ export const idlFactory = ({ IDL }) => {
     'TxFailed' : IDL.Record({ 'e' : TxError }),
     'Pending' : IDL.Null,
   });
+  const MintTokenRequest = IDL.Record({
+    'status' : TxStatus,
+    'signature' : IDL.Opt(IDL.Text),
+    'associated_account' : IDL.Text,
+    'retry_4_building' : IDL.Nat64,
+    'ticket_id' : IDL.Text,
+    'retry_4_status' : IDL.Nat64,
+    'amount' : IDL.Nat64,
+    'token_mint' : IDL.Text,
+  });
   const Reason = IDL.Variant({
     'QueueIsFull' : IDL.Null,
     'CanisterError' : IDL.Text,
@@ -100,16 +110,35 @@ export const idlFactory = ({ IDL }) => {
     'TxError' : TxError,
   });
   const CallError = IDL.Record({ 'method' : IDL.Text, 'reason' : Reason });
-  const Result_1 = IDL.Variant({ 'Ok' : TxStatus, 'Err' : CallError });
-  const Result_2 = IDL.Variant({ 'Ok' : IDL.Opt(IDL.Text), 'Err' : CallError });
+  const Result_1 = IDL.Variant({ 'Ok' : MintTokenRequest, 'Err' : CallError });
+  const Result_2 = IDL.Variant({ 'Ok' : TxStatus, 'Err' : CallError });
+  const Result_3 = IDL.Variant({ 'Ok' : IDL.Opt(IDL.Text), 'Err' : CallError });
+  const AccountInfo = IDL.Record({
+    'status' : TxStatus,
+    'signature' : IDL.Opt(IDL.Text),
+    'retry_4_building' : IDL.Nat64,
+    'account' : IDL.Text,
+    'retry_4_status' : IDL.Nat64,
+  });
   return IDL.Service({
+    'gen_tickets_req' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(GenerateTicketReq)],
+        ['query'],
+      ),
     'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
     'get_chain_list' : IDL.Func([], [IDL.Vec(Chain)], ['query']),
     'get_fee_account' : IDL.Func([], [IDL.Text], ['query']),
     'get_redeem_fee' : IDL.Func([IDL.Text], [IDL.Opt(IDL.Nat)], ['query']),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
-    'mint_token_status' : IDL.Func([IDL.Text], [Result_1], ['query']),
-    'mint_token_tx_hash' : IDL.Func([IDL.Text], [Result_2], ['query']),
+    'mint_token_req' : IDL.Func([IDL.Text], [Result_1], ['query']),
+    'mint_token_status' : IDL.Func([IDL.Text], [Result_2], ['query']),
+    'mint_token_tx_hash' : IDL.Func([IDL.Text], [Result_3], ['query']),
+    'query_mint_account' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(AccountInfo)],
+        ['query'],
+      ),
     'query_mint_address' : IDL.Func([IDL.Text], [IDL.Opt(IDL.Text)], ['query']),
   });
 };

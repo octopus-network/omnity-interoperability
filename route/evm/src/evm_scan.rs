@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use cketh_common::address::Address;
 use cketh_common::eth_rpc::Hash;
 use cketh_common::eth_rpc::LogEntry;
 use ethers_core::abi::RawLog;
@@ -13,10 +14,10 @@ use crate::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
     TokenMinted, TokenTransportRequested,
 };
-use crate::eth_common::{call_rpc_with_retry, get_receipt};
-use crate::ic_log::{ERROR, INFO};
-use crate::state::{mutate_state, read_state};
-use crate::types::{ChainState, Directive, Ticket};
+use crate::eth_common::{call_rpc_with_retry, checked_get_receipt, get_receipt};
+use crate::ic_log::{INFO, WARNING};
+use crate::state::{get_redeem_fee, mutate_state, read_state};
+use crate::types::{ChainId, ChainState, Directive, Memo, Ticket};
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -42,18 +43,30 @@ pub fn scan_evm_task() {
 }
 
 pub async fn sync_mint_status(hash: String) {
-    let receipt = call_rpc_with_retry(&hash, get_receipt)
-        .await
-        .map_err(|e| {
-            log!(ERROR,"user query transaction receipt error: {:?}", e);
+    let min_resp_count = read_state(|s| s.minimum_response_count);
+    let receipt = if min_resp_count > 1 {
+        checked_get_receipt(&hash).await.map_err(|e| {
+            log!(WARNING, "user query transaction receipt error: {:?}", e);
             "rpc".to_string()
-        });
-    log!(INFO, "{:?}",&receipt);
+        })
+    } else {
+        call_rpc_with_retry(&hash, get_receipt).await.map_err(|e| {
+            log!(WARNING, "user query transaction receipt error: {:?}", e);
+            "rpc".to_string()
+        })
+    };
+    let port_address = read_state(|s| s.omnity_port_contract.clone());
     if let Ok(Some(tr)) = receipt {
         if tr.status == 0 {
             mutate_state(|s| s.pending_events_on_chain.remove(&hash));
             return;
         }
+
+        if tr.to.to_lowercase() != port_address.to_hex() {
+            mutate_state(|s| s.pending_events_on_chain.remove(&hash));
+            return;
+        }
+
         let res = handle_port_events(tr.logs.clone()).await;
         match res {
             Ok(_) => {
@@ -61,14 +74,22 @@ pub async fn sync_mint_status(hash: String) {
                 mutate_state(|s| s.handled_evm_event.insert(hash));
             }
             Err(e) => {
-                log!(ERROR, "[evm route] handle evm logs error: {}", e.to_string());
+                log!(
+                    WARNING,
+                    "[evm route] handle evm logs error: {}",
+                    e.to_string()
+                );
             }
         }
     }
 }
 
 pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
+    let port = read_state(|s| s.omnity_port_contract.clone());
     for l in logs {
+        if l.address.to_string().to_lowercase() != port.to_hex() {
+            continue;
+        }
         if l.removed {
             return Err(anyhow!("log is removed"));
         }
@@ -127,13 +148,15 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
                 Directive::AddToken(token) => {
                     match crate::updates::add_new_token(token.clone()).await {
                         Ok(_) => {
-                            log!(INFO,
+                            log!(
+                                INFO,
                                 "[process directives] add token successful, token id: {}",
                                 token.token_id
                             );
                         }
                         Err(err) => {
-                            log!(ERROR,
+                            log!(
+                                WARNING,
                                 "[process directives] failed to add token: token id: {}, err: {:?}",
                                 token.token_id,
                                 err
@@ -146,7 +169,11 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
                 }
                 Directive::UpdateFee(fee) => {
                     mutate_state(|s| audit::update_fee(s, fee.clone()));
-                    log!(INFO, "[process_directives] success to update fee, fee: {}", fee);
+                    log!(
+                        INFO,
+                        "[process_directives] success to update fee, fee: {}",
+                        fee
+                    );
                 }
                 Directive::UpdateChain(_) | Directive::UpdateToken(_) | Directive::AddChain(_) => {
                     //the directive need not send to port, it had been processed in fetch hub task.
@@ -174,11 +201,12 @@ pub async fn handle_runes_mint(
     log_entry: &LogEntry,
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
-    let ticket = Ticket::from_runes_mint_event(log_entry, event);
+    let ticket = Ticket::from_runes_mint_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
-    log!(INFO,
+    log!(
+        INFO,
         "[evm_route] rune_mint_ticket sent to hub success: {:?}",
         ticket
     );
@@ -186,11 +214,15 @@ pub async fn handle_runes_mint(
 }
 
 pub async fn handle_token_burn(log_entry: &LogEntry, event: TokenBurned) -> anyhow::Result<()> {
-    let ticket = Ticket::from_burn_event(log_entry, event);
+    let ticket = Ticket::from_burn_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
-    log!(INFO, "[evm_route] burn_ticket sent to hub success: {:?}", ticket);
+    log!(
+        INFO,
+        "[evm_route] burn_ticket sent to hub success: {:?}",
+        ticket
+    );
     Ok(())
 }
 
@@ -198,11 +230,12 @@ pub async fn handle_token_transport(
     log_entry: &LogEntry,
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
-    let ticket = Ticket::from_transport_event(log_entry, event);
+    let ticket = Ticket::from_transport_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| Error::HubError(e.to_string()))?;
-    log!(INFO,
+    log!(
+        INFO,
         "[evm_route] transport_ticket sent to hub success: {:?}",
         ticket
     );
@@ -213,7 +246,7 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
     let receipt = call_rpc_with_retry(tx_hash, get_receipt)
         .await
         .map_err(|e| {
-            log!(ERROR, "user query transaction receipt error: {:?}", e);
+            log!(WARNING, "user query transaction receipt error: {:?}", e);
             "rpc".to_string()
         })?;
     match receipt {
@@ -241,7 +274,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
-            return Ok(Ticket::from_burn_event(&l, token_burned));
+            return Ok(Ticket::from_burn_event(&l, token_burned, true));
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::Error::ParseEventError(e.to_string()))?;
@@ -253,7 +286,7 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
                 }
             });
             if dst_check_result {
-                return Ok(Ticket::from_transport_event(&l, token_transport));
+                return Ok(Ticket::from_transport_event(&l, token_transport, true));
             } else {
                 let tx_hash = l.transaction_hash.unwrap_or(Hash([0u8; 32])).to_string();
                 log!(INFO, "[evm route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
@@ -261,8 +294,54 @@ pub fn generate_ticket_by_logs(logs: Vec<LogEntry>) -> anyhow::Result<Ticket> {
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| Error::ParseEventError(e.to_string()))?;
-            return Ok(Ticket::from_runes_mint_event(&l, runes_mint));
+            return Ok(Ticket::from_runes_mint_event(&l, runes_mint, true));
         }
     }
     Err(anyhow!("not found ticket"))
+}
+
+pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
+    let fee = get_redeem_fee(dst_chain);
+    let memo_json = Memo {
+        memo,
+        bridge_fee: fee.unwrap_or_default() as u128,
+    }
+        .convert_to_memo_json()
+        .unwrap_or_default();
+    Some(memo_json)
+}
+
+#[cfg(test)]
+mod evm_route_test {
+    use ic_stable_structures::Storable;
+
+    use crate::types::Memo;
+
+    pub fn get_test_memo(memo: Option<String>) -> Option<String> {
+        let memo_json = Memo {
+            memo,
+            bridge_fee: 999_u128,
+        }
+            .convert_to_memo_json()
+            .unwrap_or_default();
+        Some(memo_json)
+    }
+
+    #[test]
+    fn evm_route_memo_with_fee() {
+        let memo = Some("some memo".to_string());
+        // let has_memo = false;
+        let has_memo = true;
+        let _memo = has_memo
+            .then(|| get_test_memo(memo.clone()))
+            .unwrap_or_default();
+
+        let encoded = _memo
+            .clone()
+            .map(|m| m.to_bytes().to_vec())
+            .unwrap_or_default();
+        let decoded = std::str::from_utf8(&encoded).unwrap_or_default();
+        println!("memo {:?}", _memo);
+        println!("decoded: {:?}", decoded);
+    }
 }

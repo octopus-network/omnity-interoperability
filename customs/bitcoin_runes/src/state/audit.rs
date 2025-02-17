@@ -168,8 +168,6 @@ pub fn replace_transaction(
     state.replace_transaction(&old_txid, new_tx);
 }
 
-
-
 pub fn update_fee(state: &mut CustomsState, fee: Factor) {
     record_event(&Event::UpdatedFee { fee: fee.clone() });
     match fee {

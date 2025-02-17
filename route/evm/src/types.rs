@@ -16,6 +16,7 @@ use thiserror::Error;
 
 use crate::contract_types::{RunesMintRequested, TokenBurned, TokenTransportRequested};
 use crate::contracts::PortContractFactorTypeIndex;
+use crate::evm_scan::get_memo;
 use crate::state::read_state;
 
 pub type Signature = Vec<u8>;
@@ -236,7 +237,11 @@ pub struct Ticket {
 }
 
 impl Ticket {
-    pub fn from_runes_mint_event(log_entry: &LogEntry, runes_mint: RunesMintRequested) -> Self {
+    pub fn from_runes_mint_event(
+        log_entry: &LogEntry,
+        runes_mint: RunesMintRequested,
+        has_memo: bool,
+    ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -245,6 +250,10 @@ impl Ticket {
                 .clone()
         });
         let dst_chain = token.token_id_info()[0].to_string();
+        let memo = has_memo
+            .then(|| get_memo(None, dst_chain.clone()))
+            .unwrap_or_default();
+
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),
@@ -256,11 +265,15 @@ impl Ticket {
             amount: "0".to_string(),
             sender: Some(format!("0x{}", hex::encode(runes_mint.sender.0.as_slice()))),
             receiver: format!("0x{}", hex::encode(runes_mint.receiver.0.as_slice())),
-            memo: None,
+            memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
         }
     }
 
-    pub fn from_burn_event(log_entry: &LogEntry, token_burned: TokenBurned) -> Self {
+    pub fn from_burn_event(
+        log_entry: &LogEntry,
+        token_burned: TokenBurned,
+        has_memo: bool,
+    ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let token = read_state(|s| {
             s.tokens
@@ -274,6 +287,10 @@ impl Ticket {
         } else {
             TxAction::Redeem
         };
+        let memo = has_memo
+            .then(|| get_memo(None, dst_chain.clone()))
+            .unwrap_or_default();
+
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),
@@ -288,16 +305,21 @@ impl Ticket {
                 hex::encode(token_burned.sender.0.as_slice())
             )),
             receiver: token_burned.receiver,
-            memo: None,
+            memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
         }
     }
 
     pub fn from_transport_event(
         log_entry: &LogEntry,
         token_transport_requested: TokenTransportRequested,
+        has_memo: bool,
     ) -> Self {
         let src_chain = read_state(|s| s.omnity_chain_id.clone());
         let dst_chain = token_transport_requested.dst_chain_id;
+        let memo = has_memo
+            .then(|| get_memo(Some(token_transport_requested.memo), dst_chain.clone()))
+            .unwrap_or_default();
+
         Ticket {
             ticket_id: format!("0x{}", hex::encode(log_entry.transaction_hash.unwrap().0)),
             ticket_time: ic_cdk::api::time(),
@@ -312,7 +334,7 @@ impl Ticket {
                 hex::encode(token_transport_requested.sender.0.as_slice())
             )),
             receiver: token_transport_requested.receiver,
-            memo: Some(token_transport_requested.memo.into_bytes()),
+            memo: memo.to_owned().map(|m| m.to_bytes().to_vec()),
         }
     }
 }
@@ -349,6 +371,20 @@ impl core::fmt::Display for Ticket {
             self.receiver,
             self.memo,
         )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Memo {
+    pub memo: Option<String>,
+    pub bridge_fee: u128,
+}
+
+impl Memo {
+    pub fn convert_to_memo_json(self) -> Result<String, Box<dyn std::error::Error>> {
+        let memo_json = serde_json::to_string_pretty(&self)
+            .map_err(|e| format!("[generate_ticket] memo convert error: {}", e.to_string()))?;
+        Ok(memo_json)
     }
 }
 

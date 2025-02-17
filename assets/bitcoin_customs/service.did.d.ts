@@ -41,8 +41,28 @@ export type ChainType = { 'SettlementChain' : null } |
 export type CustomArg = { 'Upgrade' : [] | [UpgradeArgs] } |
   { 'Init' : InitArgs };
 export interface CustomsInfo {
+  'runes_oracles' : Array<Principal>,
+  'last_fee_per_vbyte' : BigUint64Array | bigint[],
+  'etching_acount_info' : EtchingAccountInfo,
+  'hub_principal' : Principal,
+  'ecdsa_key_name' : string,
+  'next_directive_seq' : bigint,
+  'fee_collector_address' : string,
+  'icpswap_principal' : [] | [Principal],
+  'ecdsa_public_key' : [] | [ECDSAPublicKey],
+  'max_time_in_queue_nanos' : bigint,
+  'chain_id' : string,
+  'rpc_url' : [] | [string],
+  'generate_ticket_counter' : bigint,
+  'btc_network' : Network,
+  'target_chain_factor' : Array<[string, bigint]>,
+  'ord_indexer_principal' : [] | [Principal],
+  'next_ticket_seq' : bigint,
   'chain_state' : ChainState,
   'min_confirmations' : number,
+  'prod_ecdsa_public_key' : [] | [ECDSAPublicKey],
+  'release_token_counter' : bigint,
+  'fee_token_factor' : [] | [bigint],
 }
 export interface DefiniteCanisterSettings {
   'freezing_threshold' : bigint,
@@ -56,13 +76,36 @@ export interface Destination {
   'target_chain_id' : string,
   'receiver' : string,
 }
+export interface ECDSAPublicKey {
+  'public_key' : Uint8Array | number[],
+  'chain_code' : Uint8Array | number[],
+}
 export interface EstimateFeeArgs {
   'amount' : [] | [bigint],
   'rune_id' : RuneId,
 }
-export type Event = {
-    'confirmed_generate_ticket_request' : GenTicketRequestV2
-  } |
+export interface EtchingAccountInfo {
+  'derive_path' : string,
+  'pubkey' : string,
+  'address' : string,
+}
+export interface EtchingArgs {
+  'terms' : [] | [OrdinalsTerms],
+  'turbo' : boolean,
+  'premine' : [] | [bigint],
+  'logo' : [] | [LogoParams],
+  'rune_name' : string,
+  'divisibility' : [] | [number],
+  'symbol' : [] | [string],
+}
+export type EtchingStatus = { 'SendRevealSuccess' : null } |
+  { 'SendRevealFailed' : null } |
+  { 'SendCommitFailed' : null } |
+  { 'TokenAdded' : null } |
+  { 'SendCommitSuccess' : null } |
+  { 'Final' : null };
+export type Event = { 'update_icpswap' : { 'principal' : Principal } } |
+  { 'confirmed_generate_ticket_request' : GenTicketRequestV2 } |
   {
     'received_utxos' : {
       'is_runes' : boolean,
@@ -72,6 +115,7 @@ export type Event = {
   } |
   { 'added_runes_oracle' : { 'principal' : Principal } } |
   { 'removed_ticket_request' : { 'txid' : Uint8Array | number[] } } |
+  { 'update_ord_indexer' : { 'principal' : Principal } } |
   { 'removed_runes_oracle' : { 'principal' : Principal } } |
   { 'updated_fee' : { 'fee' : Factor } } |
   {
@@ -201,6 +245,19 @@ export interface InitArgs {
   'chain_state' : ChainState,
   'min_confirmations' : [] | [number],
 }
+export interface LogoParams {
+  'content_type' : string,
+  'content_base64' : string,
+}
+export type Network = { 'mainnet' : null } |
+  { 'regtest' : null } |
+  { 'testnet' : null };
+export interface OrdinalsTerms {
+  'cap' : bigint,
+  'height' : [[] | [bigint], [] | [bigint]],
+  'offset' : [[] | [bigint], [] | [bigint]],
+  'amount' : bigint,
+}
 export interface OutPoint { 'txid' : Uint8Array | number[], 'vout' : number }
 export interface QueryStats {
   'response_payload_bytes_total' : bigint,
@@ -222,11 +279,15 @@ export type ReleaseTokenStatus = { 'Signing' : null } |
   { 'Unknown' : null } |
   { 'Submitted' : string } |
   { 'Pending' : null };
-export type Result = { 'Ok' : null } |
-  { 'Err' : GenerateTicketError };
-export type Result_1 = { 'Ok' : Array<Utxo> } |
-  { 'Err' : UpdateBtcUtxosErr };
+export type Result = { 'Ok' : bigint } |
+  { 'Err' : string };
+export type Result_1 = { 'Ok' : string } |
+  { 'Err' : string };
 export type Result_2 = { 'Ok' : null } |
+  { 'Err' : GenerateTicketError };
+export type Result_3 = { 'Ok' : Array<Utxo> } |
+  { 'Err' : UpdateBtcUtxosErr };
+export type Result_4 = { 'Ok' : null } |
   { 'Err' : UpdateRunesBalanceError };
 export interface RuneId { 'tx' : number, 'block' : bigint }
 export interface RuneTxRequest {
@@ -248,6 +309,15 @@ export interface RunesChangeOutput {
   'rune_id' : RuneId,
 }
 export interface RunesUtxo { 'raw' : Utxo, 'runes' : RunesBalance }
+export interface SendEtchingInfo {
+  'status' : EtchingStatus,
+  'script_out_address' : string,
+  'err_info' : string,
+  'commit_txid' : string,
+  'time_at' : bigint,
+  'etching_args' : EtchingArgs,
+  'reveal_txid' : string,
+}
 export interface TargetChainFactor {
   'target_chain_id' : string,
   'target_chain_factor' : bigint,
@@ -261,6 +331,12 @@ export interface Token {
   'metadata' : Array<[string, string]>,
   'icon' : [] | [string],
   'name' : string,
+  'symbol' : string,
+}
+export interface TokenPrice {
+  'name' : string,
+  'priceUSD' : number,
+  'standard' : string,
   'symbol' : string,
 }
 export interface TokenResp {
@@ -302,14 +378,26 @@ export interface Utxo {
   'value' : bigint,
   'outpoint' : OutPoint,
 }
+export interface UtxoArgs { 'id' : string, 'index' : number, 'amount' : bigint }
 export interface _SERVICE {
+  'clear_etching' : ActorMethod<[], undefined>,
+  'estimate_etching_fee' : ActorMethod<
+    [bigint, string, [] | [LogoParams]],
+    Result
+  >,
   'estimate_redeem_fee' : ActorMethod<[EstimateFeeArgs], RedeemFee>,
-  'generate_ticket' : ActorMethod<[GenerateTicketArgs], Result>,
+  'etching' : ActorMethod<[bigint, EtchingArgs], Result_1>,
+  'etching_reveal' : ActorMethod<[string], undefined>,
+  'generate_ticket' : ActorMethod<[GenerateTicketArgs], Result_2>,
   'generate_ticket_status' : ActorMethod<[string], GenTicketStatus>,
   'get_btc_address' : ActorMethod<[GetBtcAddressArgs], string>,
+  'get_btc_icp_price' : ActorMethod<[], [[] | [TokenPrice], [] | [TokenPrice]]>,
   'get_canister_status' : ActorMethod<[], CanisterStatusResponse>,
   'get_chain_list' : ActorMethod<[], Array<Chain>>,
   'get_customs_info' : ActorMethod<[], CustomsInfo>,
+  'get_etching' : ActorMethod<[string], [] | [SendEtchingInfo]>,
+  'get_etching_by_user' : ActorMethod<[Principal], Array<SendEtchingInfo>>,
+  'get_etching_fee_utxos' : ActorMethod<[], Array<UtxoArgs>>,
   'get_events' : ActorMethod<[GetEventsArg], Array<Event>>,
   'get_main_btc_address' : ActorMethod<[string], string>,
   'get_pending_gen_ticket_requests' : ActorMethod<
@@ -319,14 +407,19 @@ export interface _SERVICE {
   'get_platform_fee' : ActorMethod<[string], [[] | [bigint], [] | [string]]>,
   'get_runes_oracles' : ActorMethod<[], Array<Principal>>,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
+  'query_bitcoin_balance' : ActorMethod<[string, number], bigint>,
   'release_token_status' : ActorMethod<[string], ReleaseTokenStatus>,
+  'remove_error_ticket' : ActorMethod<[string], undefined>,
   'remove_runes_oracle' : ActorMethod<[Principal], undefined>,
   'set_fee_collector' : ActorMethod<[string], undefined>,
+  'set_icpswap' : ActorMethod<[Principal], undefined>,
+  'set_ord_indexer' : ActorMethod<[Principal], undefined>,
   'set_runes_oracle' : ActorMethod<[Principal], undefined>,
   'transform' : ActorMethod<[TransformArgs], HttpResponse>,
-  'update_btc_utxos' : ActorMethod<[], Result_1>,
+  'update_btc_utxos' : ActorMethod<[], Result_3>,
+  'update_fees' : ActorMethod<[Array<UtxoArgs>], undefined>,
   'update_rpc_url' : ActorMethod<[string], undefined>,
-  'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_2>,
+  'update_runes_balance' : ActorMethod<[UpdateRunesBalanceArgs], Result_4>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

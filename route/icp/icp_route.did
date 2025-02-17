@@ -11,25 +11,7 @@ type Chain = record {
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type ChangeFeeCollector = variant { SetTo : Account; Unset };
-type Event = variant {
-  finalized_gen_ticket : record {
-    request : GenerateTicketReq;
-    ticket_id : text;
-  };
-  updated_fee : record { fee : Factor };
-  finalized_mint_token : record { block_index : nat64; ticket_id : text };
-  added_token : record { token : Token; ledger_id : principal };
-  init : InitArgs;
-  upgrade : UpgradeArgs;
-  added_chain : Chain;
-  toggle_chain_state : ToggleState;
-};
-type Factor = variant {
-  UpdateFeeTokenFactor : FeeTokenFactor;
-  UpdateTargetChainFactor : TargetChainFactor;
-};
 type FeatureFlags = record { icrc2 : bool };
-type FeeTokenFactor = record { fee_token : text; fee_token_factor : nat };
 type GenerateTicketError = variant {
   InsufficientRedeemFee : record { provided : nat64; required : nat64 };
   SendTicketErr : text;
@@ -38,6 +20,7 @@ type GenerateTicketError = variant {
   TransferFailure : text;
   UnsupportedAction : text;
   RedeemFeeNotSet;
+  InvalidTicketAmount : nat;
   UnsupportedChainId : text;
   UnsupportedToken : text;
   InsufficientFunds : record { balance : nat64 };
@@ -51,15 +34,12 @@ type GenerateTicketReq = record {
   amount : nat;
   receiver : text;
 };
-type GetEventsArg = record { start : nat64; length : nat64 };
 type IcpChainKeyToken = variant { CKBTC };
 type InitArgs = record {
   hub_principal : principal;
   chain_id : text;
   chain_state : ChainState;
 };
-type Log = record { log : text; offset : nat64 };
-type Logs = record { logs : vec Log; all_logs_count : nat64 };
 type MetadataValue = variant { Int : int; Nat : nat; Blob : blob; Text : text };
 type MintTokenStatus = variant {
   Finalized : record { block_index : nat64 };
@@ -68,7 +48,7 @@ type MintTokenStatus = variant {
 type Result = variant { Ok; Err : text };
 type Result_1 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_2 = variant { Ok; Err : GenerateTicketError };
-type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type RouteArg = variant { Upgrade : opt UpgradeArgs_1; Init : InitArgs };
 type RouteState = record {
   hub_principal : principal;
   is_timer_running : bool;
@@ -84,10 +64,6 @@ type RouteState = record {
   failed_tickets : vec Ticket;
   fee_token_factor : opt nat;
 };
-type TargetChainFactor = record {
-  target_chain_id : text;
-  target_chain_factor : nat;
-};
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -102,8 +78,6 @@ type Ticket = record {
   receiver : text;
 };
 type TicketType = variant { Resubmit; Normal };
-type ToggleAction = variant { Deactivate; Activate };
-type ToggleState = record { action : ToggleAction; chain_id : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -113,6 +87,7 @@ type Token = record {
   symbol : text;
 };
 type TokenResp = record {
+  "principal" : opt principal;
   decimals : nat8;
   token_id : text;
   icon : opt text;
@@ -127,11 +102,6 @@ type TxAction = variant {
   Transfer;
 };
 type UpgradeArgs = record {
-  hub_principal : opt principal;
-  chain_id : opt text;
-  chain_state : opt ChainState;
-};
-type UpgradeArgs_1 = record {
   token_symbol : opt text;
   transfer_fee : opt nat;
   metadata : opt vec record { text; MetadataValue };
@@ -142,13 +112,18 @@ type UpgradeArgs_1 = record {
   token_name : opt text;
   feature_flags : opt FeatureFlags;
 };
+type UpgradeArgs_1 = record {
+  hub_principal : opt principal;
+  chain_id : opt text;
+  chain_state : opt ChainState;
+};
 service : (RouteArg) -> {
   collect_ledger_fee : (principal, opt nat, Account) -> (Result);
   generate_ticket : (GenerateTicketReq) -> (Result_1);
+  generate_ticket_v2 : (GenerateTicketReq) -> (Result_1);
   get_chain_list : () -> (vec Chain) query;
-  get_events : (GetEventsArg) -> (vec Event) query;
   get_fee_account : (opt principal) -> (blob) query;
-  get_log_records : (nat64, nat64) -> (Logs) query;
+  get_readable_fee_account : (opt principal) -> (text) query;
   get_redeem_fee : (text) -> (opt nat64) query;
   get_route_state : () -> (RouteState) query;
   get_token_ledger : (text) -> (opt principal) query;
@@ -157,5 +132,5 @@ service : (RouteArg) -> {
   query_failed_tickets : () -> (vec Ticket) query;
   remove_controller : (principal, principal) -> (Result);
   resend_tickets : () -> (Result_2);
-  update_icrc_ledger : (principal, UpgradeArgs_1) -> (Result);
+  update_icrc_ledger : (principal, UpgradeArgs) -> (Result);
 }

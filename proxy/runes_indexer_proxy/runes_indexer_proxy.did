@@ -1,0 +1,6 @@
+type Args = record {
+  hub : principal;
+  customs : principal;
+  indexer : principal;
+};
+service : (Args) -> {}

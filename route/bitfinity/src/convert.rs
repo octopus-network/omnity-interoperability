@@ -1,11 +1,13 @@
 use did::transaction::TransactionReceiptLog;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
 use omnity_types::{Directive, Factor, Ticket, TicketType, ToggleAction, TxAction};
+use ic_stable_structures::Storable;
 use crate::contract_types::{RunesMintRequested, TokenBurned, TokenTransportRequested};
 use crate::contracts::{PortContractCommandIndex, PortContractFactorTypeIndex};
 use crate::state::read_state;
+use crate::evm_scan::get_memo;
 
-pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: TokenBurned) -> Ticket {
+pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: TokenBurned, has_memo: bool) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let token = read_state(|s| {
         s.tokens
@@ -19,6 +21,9 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
     } else {
         TxAction::Redeem
     };
+
+    let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
+
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
         ticket_time: ic_cdk::api::time(),
@@ -33,11 +38,11 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
             hex::encode(token_burned.sender.0.as_slice())
         )),
         receiver: token_burned.receiver,
-        memo: None,
+        memo: memo.map(|m| m.to_bytes().to_vec()),
     }
 }
 
-pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_mint: RunesMintRequested) -> Ticket {
+pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_mint: RunesMintRequested, has_memo: bool) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let token = read_state(|s| {
         s.tokens
@@ -46,6 +51,8 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
             .clone()
     });
     let dst_chain = token.token_id_info()[0].to_string();
+    let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
+
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
         ticket_time: ic_cdk::api::time(),
@@ -57,14 +64,16 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
         amount: "0".to_string(),
         sender: Some(format!("0x{}", hex::encode(runes_mint.sender.0.as_slice()))),
         receiver: format!("0x{}", hex::encode(runes_mint.receiver.0.as_slice())),
-        memo: None,
+        memo: memo.map(|m| m.to_bytes().to_vec()),
     }
 }
 
 pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
-                                   token_transport_requested: TokenTransportRequested) -> Ticket {
+                                   token_transport_requested: TokenTransportRequested, has_memo: bool) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let dst_chain = token_transport_requested.dst_chain_id;
+    let memo = has_memo.then(|| get_memo(Some(token_transport_requested.memo), dst_chain.clone())).unwrap_or_default();
+
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
         ticket_time: ic_cdk::api::time(),
@@ -79,7 +88,7 @@ pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
             hex::encode(token_transport_requested.sender.0.as_slice())
         )),
         receiver: token_transport_requested.receiver,
-        memo: Some(token_transport_requested.memo.into_bytes()),
+        memo: memo.map(|m| m.to_bytes().to_vec()),
     }
 }
 
