@@ -21,9 +21,9 @@ use super::{
 // pub const IDEMPOTENCY_KEY: &str = "idempotency-key";
 // pub const FORWARD_RPC: &str = "x-forwarded-host";
 
-pub const PROXY_URL: &str = "https://common-rpc-proxy-398338012986.us-central1.run.app";
-pub const IDEMPOTENCY_KEY: &str = "X-Idempotency";
-pub const FORWARD_RPC: &str = "X-Forward-Host";
+pub const PROXY_URL: &str = "https://doge-idempotent-proxy-219952077564.us-central1.run.app";
+pub const IDEMPOTENCY_KEY: &str = "idempotency-key";
+pub const FORWARD_RPC: &str = "x-forwarded-host";
 
 #[derive(Clone, Debug)]
 pub struct DogeRpc {
@@ -74,7 +74,7 @@ impl DogeRpc {
             }),
             headers,
         };
-        self.proxy_request(&mut request);
+        self.proxy_request(&mut request)?;
         let response = http_request_with_retry(request).await?;
         let rpc_result: DogeRpcResponse<R> =
             serde_json::from_slice(&response.body).map_err(|e| {
@@ -153,7 +153,7 @@ impl DogeRpc {
             }),
             headers,
         };
-        self.proxy_request(&mut request);
+        self.proxy_request(&mut request)?;
         let response = http_request_with_retry(request).await?;
         let tx_out_response: DogeRpcResponse<RpcTxOut> = serde_json::from_slice(&response.body)
             .map_err(|e| {
@@ -202,7 +202,7 @@ impl DogeRpc {
             headers,
         };
 
-        self.proxy_request(&mut request);
+        self.proxy_request(&mut request)?;
         let response = http_request_with_retry(request.clone()).await?;
         let rpc_response: DogeRpcResponse<String> = serde_json::from_slice(&response.body)
             .map_err(|e| {
@@ -216,20 +216,43 @@ impl DogeRpc {
         Ok(txid)
     }
 
-    fn proxy_request(&self, request: &mut CanisterHttpRequestArgument) {
-        request.url = PROXY_URL.to_string();
+    fn proxy_request(&self, request: &mut CanisterHttpRequestArgument)->Result<(), CustomsError> {
+        
+        let parsed_rpc_url = url::Url::parse(&self.url).map_err(
+            |e| CustomsError::CustomError(
+                format!("failed to parse rpc url: {}, error: {:?}", self.url, e)
+            )
+        )?;
+
+        let host_str = parsed_rpc_url.host_str().ok_or(
+            CustomsError::CustomError(
+                format!("failed to get host from rpc url: {}", self.url)
+            )
+        )?;
+
+        let path = if parsed_rpc_url.path().eq("/") {
+            // if no path, it'll failed, so we add a default path
+            "/api"
+        } else {
+            parsed_rpc_url.path()
+        };
+
+        request.url = format!("{}{}", PROXY_URL, path);
 
         let request_hasher: CanisterHttpRequestArgumentHasher = request.clone().into();
         
         let idempotency_key = format!("doge_customs-{}", request_hasher.calculate_hash());
+
         request.headers.push(HttpHeader {
             name: IDEMPOTENCY_KEY.to_string(),
             value: idempotency_key,
         });
         request.headers.push(HttpHeader {
             name: FORWARD_RPC.to_string(),
-            value: self.url.to_string(),
+            value: host_str.to_string(),
         });
+
+        Ok(())
     }
 }
 
@@ -242,11 +265,21 @@ pub async fn get_raw_transaction_by_rpc(
 }
 
 #[test]
-pub fn test() {
+pub fn test_rpc_response() {
     let body_bin = vec![123, 34, 106, 115, 111, 110, 114, 112, 99, 34, 58, 34, 50, 46, 48, 34, 44, 34, 101, 114, 114, 111, 114, 34, 58, 123, 34, 99, 111, 100, 101, 34, 58, 45, 51, 50, 48, 48, 48, 44, 34, 109, 101, 115, 115, 97, 103, 101, 34, 58, 34, 83, 101, 114, 118, 101, 114, 32, 101, 114, 114, 111, 114, 34, 125, 44, 34, 100, 97, 115, 104, 98, 111, 97, 114, 100, 76, 111, 103, 34, 58, 34, 104, 116, 116, 112, 115, 58, 47, 47, 100, 97, 115, 104, 98, 111, 97, 114, 100, 46, 116, 97, 116, 117, 109, 46, 105, 111, 47, 108, 111, 103, 115, 63, 105, 100, 61, 54, 55, 97, 57, 57, 99, 50, 49, 48, 56, 56, 53, 55, 100, 51, 57, 50, 53, 51, 56, 55, 102, 99, 97, 34, 125];
     let body_text = String::from_utf8_lossy(&body_bin).to_string();
     dbg!(&body_text);
     let doge_rpc_res: DogeRpcResponse<String> = serde_json::from_slice(&body_bin).unwrap();
     let res = doge_rpc_res.try_result().unwrap();
     dbg!(&res);
+}
+
+#[test]
+pub fn test_url_parse() {
+    let rpc_url = "https://doge-mainnet.gateway.tatum.io"; 
+    let parsed_url = url::Url::parse(rpc_url).unwrap();
+    let host_str = parsed_url.host_str().unwrap();
+    let path = parsed_url.path();
+    dbg!(&host_str);
+    dbg!(&path);
 }

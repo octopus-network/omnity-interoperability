@@ -28,6 +28,7 @@ type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type CustomsError = variant {
   SendTicketErr : text;
+  BlockHashNotEqual : record { nat64; text; text; text };
   RpcError : text;
   TemporarilyUnavailable : text;
   HttpOutCallError : record { text; text; text };
