@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use bitcoin::consensus::{Decodable, Encodable, ReadExt};
 use candid::{CandidType, Deserialize, Nat};
 use ic_cdk::api::management_canister::http_request::{
-    http_request, CanisterHttpRequestArgument, HttpResponse, TransformContext,
+    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse, TransformContext
 };
 use ic_stable_structures::{storable::Bound, Storable};
 use omnity_types::ic_log::{ERROR, WARNING};
@@ -21,6 +21,46 @@ use bitcoin::hashes::{sha256d, Hash};
 use serde_bytes::ByteArray;
 
 pub type ECDSAPublicKey = ic_cdk::api::management_canister::ecdsa::EcdsaPublicKeyResponse;
+
+
+#[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct CanisterHttpRequestArgumentHasher {
+    /// The requested URL.
+    pub url: String,
+    /// The maximal size of the response in bytes. If None, 2MiB will be the limit.
+    /// This value affects the cost of the http request and it is highly recommended
+    /// to set it as low as possible to avoid unnecessary extra costs.
+    /// See also the [pricing section of HTTP outcalls documentation](https://internetcomputer.org/docs/current/developer-docs/integrations/http_requests/http_requests-how-it-works#pricing).
+    pub max_response_bytes: Option<u64>,
+    /// The method of HTTP request.
+    pub method: HttpMethod,
+    /// List of HTTP request headers and their corresponding values.
+    pub headers: Vec<HttpHeader>,
+    /// Optionally provide request body.
+    pub body: Option<Vec<u8>>,
+    pub timestamp: u64,
+}
+
+impl CanisterHttpRequestArgumentHasher {
+    pub fn calculate_hash(&self) -> u64 {
+        let mut hasher = std::hash::DefaultHasher::new();
+        std::hash::Hash::hash(&self, &mut hasher);
+        std::hash::Hasher::finish(&hasher)
+    }
+}
+
+impl From<CanisterHttpRequestArgument> for CanisterHttpRequestArgumentHasher {
+    fn from(value: CanisterHttpRequestArgument) -> Self {
+        CanisterHttpRequestArgumentHasher {
+            url: value.url,
+            max_response_bytes: value.max_response_bytes,
+            method: value.method,
+            headers: value.headers,
+            body: value.body,
+            timestamp: ic_cdk::api::time(),
+        }
+    }
+}
 
 #[derive(CandidType, PartialEq, Eq, Clone, Default, Deserialize, Serialize, PartialOrd, Ord)]
 pub struct Txid(pub ByteArray<32>);

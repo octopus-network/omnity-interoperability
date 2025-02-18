@@ -56,6 +56,7 @@ type CustomsError = variant {
   UnsupportedToken : text;
   ValidateError : ValidationError;
   CustomError : text;
+  RpcResultParseError : text;
 };
 type Destination = record {
   token : opt text;
@@ -108,6 +109,7 @@ type Result_2 = variant { Ok; Err : CustomsError };
 type Result_3 = variant { Ok : text; Err : CustomsError };
 type Result_4 = variant { Ok : text; Err : text };
 type Result_5 = variant { Ok : nat64; Err : CustomsError };
+type Result_6 = variant { Ok : TransactionJsonResult; Err : CustomsError };
 type RpcConfig = record { url : text; api_key : opt text };
 type SendTicketResult = record { txid : blob; success : bool; time_at : nat64 };
 type StateProfile = record {
@@ -132,6 +134,7 @@ type StateProfile = record {
   next_ticket_seq : nat64;
   chain_state : ChainState;
   min_confirmations : nat32;
+  sync_doge_block_header_height : nat64;
   tatum_rpc_config : RpcConfig;
   fee_payment_utxo : vec Utxo;
   flight_unlock_ticket_map : vec record { nat64; SendTicketResult };
@@ -151,6 +154,14 @@ type TokenResp = record {
   icon : opt text;
   symbol : text;
 };
+type TransactionJsonResult = record {
+  hex : text;
+  confirmations : nat32;
+  time : nat32;
+  txid : text;
+  blockhash : text;
+  blocktime : nat32;
+};
 type Utxo = record { value : nat64; txid : blob; vout : nat32 };
 type ValidationError = variant {
   BadTarget;
@@ -167,6 +178,7 @@ service : (InitArgs) -> {
   get_finalized_lock_ticket_txids : () -> (vec text) query;
   get_finalized_unlock_ticket_results : () -> (vec SendTicketResult) query;
   get_platform_fee : (text) -> (opt nat, opt text) query;
+  get_saved_block_header : (nat64) -> (opt BlockHeaderJsonResult);
   get_token_list : () -> (vec TokenResp) query;
   get_verified_doge_block_headers : (nat64, nat64) -> (
       vec BlockHeaderJsonResult,
@@ -183,4 +195,5 @@ service : (InitArgs) -> {
   set_min_deposit_amount : (nat64) -> ();
   set_multi_rpc_config : (MultiRpcConfig) -> ();
   set_tatum_api_config : (text, opt text) -> ();
+  test_rpc_get_transaction : (RpcConfig, text) -> (Result_6);
 }

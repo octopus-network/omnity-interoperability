@@ -68,6 +68,8 @@ pub enum CustomsError {
     ValidateError(#[from] ValidationError),
     #[error("MerkleBlockVerifyError: merkle block hash: {0}, saved block hash: {1}")]
     MerkleBlockVerifyError(String, String),
+    #[error("BlockHashNotEqual at height({0}): saved: {1}, queried block({1}) pre hash: {2}")]
+    BlockHashNotEqual(u64, String, String, String),
 }
 
 /// A block validation error.

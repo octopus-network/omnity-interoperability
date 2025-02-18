@@ -9,13 +9,17 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::{
-    constants::{KB, KB10, KB100, MB}, errors::CustomsError, types::{http_request_with_retry, serialize_hex, wrap_to_customs_error, RpcConfig}
+    constants::{KB, KB10, KB100, MB}, errors::CustomsError, types::{http_request_with_retry, serialize_hex, wrap_to_customs_error, CanisterHttpRequestArgumentHasher, RpcConfig}
 };
 
 use super::{
     header::{BlockHeaderJsonResult, BlockJsonResult},
     transaction::{DogeRpcResponse, RpcTxOut, Transaction, TransactionJsonResult, Txid},
 };
+
+// pub const PROXY_URL: &str = "https://doge-idempotent-proxy-219952077564.us-central1.run.app";
+// pub const IDEMPOTENCY_KEY: &str = "idempotency-key";
+// pub const FORWARD_RPC: &str = "x-forwarded-host";
 
 pub const PROXY_URL: &str = "https://common-rpc-proxy-398338012986.us-central1.run.app";
 pub const IDEMPOTENCY_KEY: &str = "X-Idempotency";
@@ -214,7 +218,10 @@ impl DogeRpc {
 
     fn proxy_request(&self, request: &mut CanisterHttpRequestArgument) {
         request.url = PROXY_URL.to_string();
-        let idempotency_key = format!("doge_customs-{}", ic_cdk::api::time());
+
+        let request_hasher: CanisterHttpRequestArgumentHasher = request.clone().into();
+        
+        let idempotency_key = format!("doge_customs-{}", request_hasher.calculate_hash());
         request.headers.push(HttpHeader {
             name: IDEMPOTENCY_KEY.to_string(),
             value: idempotency_key,

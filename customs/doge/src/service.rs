@@ -2,7 +2,7 @@ use crate::custom_to_dogecoin::SendTicketResult;
 use crate::doge::block::DogecoinHeader;
 use crate::doge::header::BlockHeaderJsonResult;
 use crate::doge::rpc::DogeRpc;
-use crate::doge::transaction::Txid;
+use crate::doge::transaction::{TransactionJsonResult, Txid};
 use crate::dogeoin_to_custom::query_and_save_utxo_for_payment_address;
 use crate::errors::CustomsError;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketWithTxidArgs};
@@ -213,6 +213,21 @@ pub async fn resend_unlock_ticket(seq: Seq, fee_rate: Option<u64>) -> Result<Str
 }
 
 #[update(guard = "is_admin")]
+async fn get_saved_block_header(height: u64) -> Option<BlockHeaderJsonResult> {
+    read_state(|s| {
+        s.doge_block_headers
+            .get(&height)
+    })
+}
+
+#[update(guard = "is_admin")]
+async fn test_rpc_get_transaction( rpc_config: RpcConfig, txid: String) -> Result<TransactionJsonResult, CustomsError> {
+    let doge_rpc: DogeRpc = rpc_config.into();
+    let r = doge_rpc.get_raw_transaction(txid.as_str()).await?;
+    Ok(r)
+}
+
+#[update(guard = "is_admin")]
 async fn fetch_doge_block_header_as_current_height(
     height: u64,
 ) -> Result<BlockHeaderJsonResult, CustomsError> {
@@ -239,6 +254,7 @@ async fn fetch_doge_block_header_as_current_height(
         );
         s.sync_doge_block_header_height = block_header_json_result.height;
     });
+    log!(INFO, "fetch_doge_block_header_as_current_height success: {:?}", block_header_json_result);
     Ok(block_header_json_result)
 }
 

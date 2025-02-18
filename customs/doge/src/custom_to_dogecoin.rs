@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::constants::{FINALIZE_UNLOCK_TICKET_NAME, SUBMIT_UNLOCK_TICKETS_NAME};
 use crate::doge::ecdsa::sign_with;
-use crate::doge::fee::{fee_by_size, DOGE_AMOUNT, DUST_LIMIT};
+use crate::doge::fee::{fee_by_size, DOGE_AMOUNT, DUST_LIMIT, FEE_CAP};
 use crate::doge::rpc::DogeRpc;
 use crate::doge::script;
 use crate::doge::sighash::SighashCache;
@@ -39,8 +39,8 @@ pub enum CustomToBitcoinError {
     ArgumentError(String),
     #[error("InsufficientFunds")]
     InsufficientFunds,
-    #[error("InsufficientFee")]
-    InsufficientFee,
+    #[error("InsufficientFee, need: {0}, able to pay: {1}")]
+    InsufficientFee(u64, u64),
     #[error("AmountTooSmall")]
     AmountTooSmall,
     #[error("SendTransactionFailed: {0}")]
@@ -168,25 +168,26 @@ pub async fn finalize_flight_unlock_tickets() {
 }
 
 pub async fn build_and_send_transaction(
-    fee_utxo: Vec<Utxo>,
+    fee_utxo_list: Vec<Utxo>,
+    fee_utxo_total_amount: u64,
     utxos: Vec<(Utxo, Destination)>,
+    utxo_total_amount: u64,
     amount: u64,
-    total: u64,
     fee_rate: Option<u64>,
     receiver: script::Address,
 ) -> Result<(Transaction, crate::doge::transaction::Txid), CustomToBitcoinError> {
+
     // build transaction
     let all_utxos: Vec<(Utxo, Destination)> = utxos
         .clone()
         .into_iter()
         .chain(
-            fee_utxo
+            fee_utxo_list
                 .iter()
                 .map(|e| (e.clone(), Destination::fee_payment_address())),
         )
         .collect();
     let chain_params = read_state(|s| s.chain_params());
-    let total_fee_utxo_amount: u64 = fee_utxo.iter().map(|u| u.value).sum();
     let (fee_payment_address, _) =
         read_state(|s| s.get_address(Destination::fee_payment_address()))
             .map_err(|e| ArgumentError(e.to_string()))?;
@@ -208,7 +209,7 @@ pub async fn build_and_send_transaction(
                     vout: utxo.vout,
                 })
             })
-            .chain(fee_utxo.iter().map(|utxo| {
+            .chain(fee_utxo_list.iter().map(|utxo| {
                 TxIn::with_outpoint(OutPoint {
                     txid: utxo.txid.clone().into(),
                     vout: utxo.vout,
@@ -221,11 +222,11 @@ pub async fn build_and_send_transaction(
                 script_pubkey: receiver.to_script(chain_params),
             },
             TxOut {
-                value: total.saturating_sub(amount),
+                value: utxo_total_amount.saturating_sub(amount),
                 script_pubkey: change_address.to_script(chain_params),
             },
             TxOut {
-                value: total_fee_utxo_amount,
+                value: fee_utxo_total_amount,
                 script_pubkey: fee_payment_address.to_script(chain_params),
             },
         ],
@@ -235,12 +236,12 @@ pub async fn build_and_send_transaction(
         INFO,
         "send ticket fee: {}, total_fee_utxo_amount: {}",
         fee,
-        total_fee_utxo_amount
+        fee_utxo_total_amount
     );
-    if fee > total_fee_utxo_amount {
-        return Err(CustomToBitcoinError::InsufficientFee);
+    if fee > fee_utxo_total_amount {
+        return Err(CustomToBitcoinError::InsufficientFee(fee, fee_utxo_total_amount));
     }
-    send_tx.output[2].value = total_fee_utxo_amount.saturating_sub(fee);
+    send_tx.output[2].value = fee_utxo_total_amount.saturating_sub(fee);
     if send_tx.output[2].value <= DUST_LIMIT {
         send_tx.output.pop();
     }
@@ -319,14 +320,11 @@ pub async fn submit_unlock_ticket(
 
             // select utxos
             let (utxos, total) = select_utxos(amount)?;
-            let fee_utxo = mutate_state(|s| {
-                let fee_utxo = s.fee_payment_utxo.clone();
-                s.fee_payment_utxo.clear();
-                fee_utxo
-            });
+            let (fee_utxo_list, fee_utxo_total_amount) = select_fee_utxos(FEE_CAP)?;
 
             match build_and_send_transaction(
-                fee_utxo.clone(),
+                fee_utxo_list.clone(),
+                fee_utxo_total_amount,
                 utxos.clone(),
                 amount,
                 total,
@@ -357,7 +355,7 @@ pub async fn submit_unlock_ticket(
                                 value: send_tx.output[2].value,
                             });
                             if s.fee_payment_utxo.iter().map(|u| u.value).sum::<u64>()
-                                < 5 * DOGE_AMOUNT
+                                < 20 * DOGE_AMOUNT || s.fee_payment_utxo.len() < 10
                             {
                                 log!(ERROR, "Doge Customs fee_payment_utxo will not enough soon!");
                             }
@@ -371,7 +369,7 @@ pub async fn submit_unlock_ticket(
                 }
                 Err(e) => {
                     mutate_state(|s| {
-                        s.fee_payment_utxo.append(&mut fee_utxo.clone());
+                        s.fee_payment_utxo.append(&mut fee_utxo_list.clone());
                         s.deposited_utxo.append(&mut utxos.clone());
                     });
 
@@ -380,6 +378,28 @@ pub async fn submit_unlock_ticket(
             }
         }
     }
+}
+
+pub fn select_fee_utxos(fee_cap: u64) -> CustomToBitcoinResult<(Vec<Utxo>, u64)> {
+    let mut selected_utxos: Vec<Utxo> = vec![];
+    let mut total = 0u64;
+    mutate_state(|s| {
+        while total < fee_cap && s.fee_payment_utxo.len() > 0 {
+            let utxo = s
+                .fee_payment_utxo
+                .pop()
+                .ok_or(CustomToBitcoinError::InsufficientFunds)?;
+            total += utxo.value;
+            selected_utxos.push(utxo);
+        }
+        Ok(())
+    })?;
+    if total < fee_cap {
+        return Err(CustomToBitcoinError::InsufficientFunds);
+    }
+
+    Ok((selected_utxos, total))
+
 }
 
 pub fn select_utxos(amount: u64) -> CustomToBitcoinResult<(Vec<(Utxo, Destination)>, u64)> {

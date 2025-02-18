@@ -81,13 +81,60 @@ async fn process_sync_doge_block_header() -> Result<(), CustomsError> {
                 }
             }
         };
-        let r = sync_doge_block_header(next_block_hash).await?;
+
+        let r = match sync_doge_block_header(next_block_hash).await {
+            Ok(r) => {
+                r
+            },
+            Err(e) => {
+                match e {
+                    CustomsError::BlockHashNotEqual(height, last_block_hash, block_hash, prev_block_hash) => {
+                        log!(
+                            ERROR,
+                            "sync doge block header height: {:?}, hash: {:?} not equal, last_block_hash: {:?}, prev_block_hash: {:?}, maybe reorg happened.",
+                            height,
+                            block_hash,
+                            last_block_hash,
+                            prev_block_hash
+                        );
+                        mutate_state(
+                            |s| {
+                                s.sync_doge_block_header_height = height - 5;
+                            }
+                        );
+
+                        continue;
+                    },
+
+                    _ => {
+                        log!(
+                            ERROR,
+                            "sync doge block header error: {:?}",
+                            e
+                        );
+
+                        return Err(e)
+                    }
+                    
+                }
+            },
+        };
+     
         log!(
             INFO,
             "success to sync doge block header height: {:?}, hash: {:?}",
             r.height,
             r.hash
         );
+
+        if r.confirmations>10 {
+            log!(
+                ERROR,
+                "sync doge block header height: {:?}, hash: {:?} confirmations > 10",
+                r.height,
+                r.hash
+            )
+        }
 
         if r.confirmations < 2 {
             break;
@@ -112,10 +159,10 @@ async fn sync_doge_block_header(block_hash: String) -> Result<BlockHeaderJsonRes
         deserialize(&hex!(blocker_header_hex.as_str())).map_err(|e| {
             CustomsError::CustomError(format!("deserialize doge header error: {:?}", e))
         })?;
+    
     let _ = doge_header.validate_doge_pow(true)?;
 
     // verify prev hash
-
     let last_block_hash = read_state(|s| {
         s.doge_block_headers
             .get(&(block_header_json_result.height - 1))
@@ -126,8 +173,19 @@ async fn sync_doge_block_header(block_hash: String) -> Result<BlockHeaderJsonRes
     .hash;
 
     if last_block_hash != block_header_json_result.previousblockhash {
-        return Err(CustomsError::CustomError(
-            "prev block hash not match".to_string(),
+        // return Err(CustomsError::CustomError(
+        //     format!(
+        //         "prev block hash not match, last_block_hash:{}, block_header_json_result.previousblockhash:{}",
+        //         last_block_hash,
+        //         block_header_json_result.previousblockhash
+        //     )
+        // ));
+
+        return Err(CustomsError::BlockHashNotEqual(
+            block_header_json_result.height, 
+            last_block_hash, 
+            block_header_json_result.hash,
+            block_header_json_result.previousblockhash
         ));
     }
 

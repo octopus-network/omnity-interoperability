@@ -132,6 +132,8 @@ pub struct StateProfile {
     pub tatum_rpc_config: RpcConfig,
     pub multi_rpc_config: MultiRpcConfig,
     pub fee_payment_utxo: Vec<Utxo>,
+
+    pub sync_doge_block_header_height: u64,
 }
 
 impl From<&DogeState> for StateProfile {
@@ -166,6 +168,7 @@ impl From<&DogeState> for StateProfile {
             tatum_rpc_config: value.tatum_api_config.clone(),
             multi_rpc_config: value.multi_rpc_config.clone(),
             fee_payment_utxo: value.fee_payment_utxo.clone(),
+            sync_doge_block_header_height: value.sync_doge_block_header_height,
         }
     }
 }

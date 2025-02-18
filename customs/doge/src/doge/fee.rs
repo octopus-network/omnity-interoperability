@@ -7,9 +7,12 @@ pub const CENT_AMOUNT: u64 = 1_000_000;
 // 0.001 DOGE replace-by-fee increments
 pub const MIN_FEE: u64 = 1_000_000;
 pub const MIN_FEE_RATE: u64 = 1_000; // units per vByte
+pub const CUSTOMS_USED_MIN_FEE_RATE: u64 = 10 * MIN_FEE_RATE;
 pub const DUST_LIMIT: u64 = 1_000_000;
 
+pub const FEE_CAP: u64 = 100_000_000;
+
 pub fn fee_by_size(bytes: u64, fee_rate: Option<u64>) -> u64 {
-    let fee_rate = fee_rate.unwrap_or(MIN_FEE_RATE).max(MIN_FEE_RATE);
+    let fee_rate = fee_rate.unwrap_or(CUSTOMS_USED_MIN_FEE_RATE).max(CUSTOMS_USED_MIN_FEE_RATE);
     (bytes * fee_rate).max(MIN_FEE)
 }

@@ -6,6 +6,7 @@ use bitcoin::consensus::{encode, Decodable, Encodable};
 use bitcoin::hashes::{hash_newtype, sha256d, Hash};
 use bitcoin::{ScriptBuf, VarInt};
 use bitcoin_io::{BufRead, Error, Write};
+use candid::CandidType;
 use serde_json::Value;
 use core::cmp;
 use serde::{Deserialize, Serialize};
@@ -342,7 +343,7 @@ pub struct Transaction {
     pub output: Vec<TxOut>,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, CandidType, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
 pub struct TransactionJsonResult {
     pub hex: String,
     pub txid: String,
