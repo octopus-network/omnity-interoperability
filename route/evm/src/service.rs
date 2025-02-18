@@ -13,7 +13,7 @@ use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 
 use crate::{get_time_secs, hub};
-use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, SEND_EVM_TASK_NAME};
+use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, PERIODIC_TASK_INTERVAL, SEND_EVM_TASK_NAME};
 use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{process_directives, process_tickets};
@@ -55,9 +55,15 @@ fn update_consume_directive_seq(seq: Seq) {
     mutate_state(|s| s.next_consume_directive_seq = seq);
 }
 
+
+#[update(guard = "is_admin")]
+fn set_finality_blocks(b: u64) {
+    mutate_state(|s| s.finality_blocks = Some(b));
+}
+
 fn start_tasks() {
-    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), bridge_ticket_to_evm_task);
-    set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);
+    set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), bridge_ticket_to_evm_task);
+    set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), scan_evm_task);
 }
 
 pub fn bridge_ticket_to_evm_task() {

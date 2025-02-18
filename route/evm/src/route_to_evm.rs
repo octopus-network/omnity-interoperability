@@ -174,7 +174,7 @@ pub async fn send_directive(seq: Seq) -> Result<Option<String>, Error> {
                 Ok(data) => {
                     let hash = call_rpc_with_retry(data.clone(), broadcast).await;
                     match hash {
-                        Ok(h) => {
+                        Ok(_h) => {
                             let tx_hash = format!("0x{}", hex::encode(keccak256(data)));
                             pending_directive.evm_tx_hash = Some(tx_hash.clone());
                             mutate_state(|s| {

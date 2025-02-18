@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-use cketh_common::address::Address;
 use cketh_common::eth_rpc::Hash;
 use cketh_common::eth_rpc::LogEntry;
 use ethers_core::abi::RawLog;
@@ -26,8 +25,9 @@ pub fn scan_evm_task() {
             None => return,
         };
         let events = read_state(|s| s.pending_events_on_chain.clone());
+        let finality_blocks = read_state(|s| s.finality_blocks.clone()).unwrap_or(const_args::EVM_FINALIZED_CONFIRM_HEIGHT);
         let interval =
-            read_state(|s| s.block_interval_secs) * crate::const_args::EVM_FINALIZED_CONFIRM_HEIGHT;
+            read_state(|s| s.block_interval_secs) * finality_blocks;
         for (hash, time) in events {
             if read_state(|s| s.handled_evm_event.contains(&hash)) {
                 mutate_state(|s| s.pending_events_on_chain.remove(&hash));
