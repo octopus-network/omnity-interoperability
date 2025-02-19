@@ -23,8 +23,8 @@ thread_local! {
 }
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TxStatus {
-    Pending,
+pub enum ReleaseTokenStatus {
+    Unknown,
     Submitted,
     Finalized,
     Failed(String),
@@ -46,7 +46,7 @@ pub struct ReleaseTokenReq {
     pub received_at: u64,
     pub signature: Option<String>,
     pub submitted_at: Option<u64>,
-    pub status: TxStatus,
+    pub status: ReleaseTokenStatus,
 }
 
 impl Storable for ReleaseTokenReq {
@@ -154,20 +154,6 @@ impl CustomsState {
         } else if let Some(chain) = self.counterparties.get_mut(&toggle.chain_id) {
             chain.chain_state = toggle.action.into();
         }
-    }
-
-    pub fn pending_requests(&self) -> Vec<ReleaseTokenReq> {
-        self.release_token_requests
-            .iter()
-            .filter(|(_, req)| req.status == TxStatus::Pending)
-            .map(|(_, req)| req.clone())
-            .collect()
-    }
-
-    pub fn update_release_token_status(&mut self, ticket_id: &TicketId, status: TxStatus) {
-        self.release_token_requests
-            .get_mut(ticket_id)
-            .map(|req| req.status = status);
     }
 }
 

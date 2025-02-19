@@ -24,9 +24,7 @@ hex = "0.4"
 bs58 = "0.5.1"
 futures = "0.3.30"
 ic-canister-log = "0.2"
-ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
-ic-management-canister-types = { git = "https://github.com/dfinity/ic", package = "ic-management-canister-types" }
 # ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/metaplex", package = "ic-solana" }
 ic-solana = { path = "/Users/shenao/projects/octopus-network/ic-solana/src/ic-solana" }
 

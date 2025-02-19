@@ -15,8 +15,6 @@ use serde::Serialize;
 use serde_json::from_value;
 use std::borrow::Cow;
 
-const SOL_TOKEN: &str = "SOL";
-
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketArgs {
     pub target_chain_id: String,
@@ -109,7 +107,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
             src_chain: chain_id,
             dst_chain: args.target_chain_id.clone(),
             action: TxAction::Transfer,
-            token: SOL_TOKEN.into(),
+            token: args.token_id.clone(),
             amount: args.amount.to_string(),
             sender: Some(sender),
             receiver: args.receiver.clone(),

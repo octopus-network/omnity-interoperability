@@ -9,6 +9,15 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
+type CollectionTx = record {
+  signature : opt text;
+  from_path : vec blob;
+  from : blob;
+  try_cnt : nat32;
+  last_sent_at : nat64;
+  source_signature : text;
+  amount : nat64;
+};
 type CustomArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type GenTicketStatus = variant { Finalized : GenerateTicketArgs; Unknown };
 type GenerateTicketArgs = record {
@@ -22,6 +31,7 @@ type GenerateTicketError = variant {
   SendTicketErr : text;
   RpcError : text;
   TemporarilyUnavailable : text;
+  AlreadyProcessed;
   AmountIsZero;
   MismatchWithGenTicketReq;
   UnsupportedChainId : text;
@@ -30,12 +40,21 @@ type GenerateTicketError = variant {
 type GetSolAddressArgs = record { target_chain_id : text; receiver : text };
 type InitArgs = record {
   hub_principal : principal;
+  rpc_list : vec text;
   sol_canister : principal;
   chain_id : text;
   schnorr_key_name : text;
   chain_state : ChainState;
+  min_response_count : nat32;
+};
+type ReleaseTokenStatus = variant {
+  Failed : text;
+  Finalized;
+  Unknown;
+  Submitted;
 };
 type Result = variant { Ok; Err : GenerateTicketError };
+type Result_1 = variant { Ok; Err : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -50,13 +69,16 @@ type UpgradeArgs = record {
   chain_id : opt text;
   schnorr_key_name : opt text;
   chain_state : opt ChainState;
-  forward : opt text;
 };
 service : (CustomArg) -> {
   generate_ticket : (GenerateTicketArgs) -> (Result);
   generate_ticket_status : (text) -> (GenTicketStatus) query;
   get_chain_list : () -> (vec Chain) query;
+  get_fee_address : () -> (text);
+  get_main_address : () -> (text);
   get_sol_address : (GetSolAddressArgs) -> (text);
   get_token_list : () -> (vec Token) query;
-  signer : () -> (text);
+  release_token_status : (text) -> (ReleaseTokenStatus) query;
+  resubmit_release_token_tx : (text) -> (Result_1);
+  submitted_collection_txs : () -> (vec CollectionTx) query;
 }

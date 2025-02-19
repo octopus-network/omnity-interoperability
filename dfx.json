@@ -52,7 +52,12 @@
       "package": "solana_customs",
       "type": "custom",
       "candid": "customs/solana/solana_customs.did",
-      "wasm": "customs/solana/target/wasm32-unknown-unknown/release/solana_customs.wasm"
+      "wasm": "customs/solana/target/wasm32-unknown-unknown/release/solana_customs.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "bitfinity_route": {
       "gzip": true,
@@ -83,7 +88,6 @@
       "candid": "hub/omnity_hub.did",
       "package": "omnity_hub",
       "type": "rust"
-  
     },
     "icp_route": {
       "gzip": true,

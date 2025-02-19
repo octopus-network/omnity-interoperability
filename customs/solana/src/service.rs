@@ -2,12 +2,13 @@ use crate::{
     address::{fee_address_path, main_address_path},
     lifecycle::{self, init::CustomArg, upgrade::UpgradeArgs},
     process_directive_msg_task, process_release_token_task, process_ticket_msg_task, solana_rpc,
-    state::{mutate_state, read_state, GenTicketStatus},
+    state::{mutate_state, read_state, CollectionTx, GenTicketStatus, ReleaseTokenStatus},
     types::omnity_types::{Chain, Token},
     updates::{
         self,
         generate_ticket::{GenerateTicketArgs, GenerateTicketError},
         get_sol_address::GetSolAddressArgs,
+        submit_release_token_tx,
     },
     INTERVAL_PROCESSING,
 };
@@ -95,6 +96,34 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
         GenTicketStatus::Finalized(args)
     } else {
         GenTicketStatus::Unknown
+    }
+}
+
+#[query]
+fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
+    if let Some(_) = read_state(|s| s.finalized_requests.get(&ticket_id)) {
+        return ReleaseTokenStatus::Finalized;
+    }
+    read_state(|s| {
+        s.release_token_requests
+            .get(&ticket_id)
+            .map_or(ReleaseTokenStatus::Unknown, |r| r.status.clone())
+    })
+}
+
+#[query(guard = "is_controller")]
+fn submitted_collection_txs() -> Vec<CollectionTx> {
+    read_state(|s| s.submitted_collection_txs.values().cloned().collect())
+}
+
+#[update(guard = "is_controller")]
+async fn resubmit_release_token_tx(ticket_id: String) -> Result<(), String> {
+    match read_state(|s| s.release_token_requests.get(&ticket_id).cloned()) {
+        None => Err("can't find failed request".into()),
+        Some(mut req) => {
+            submit_release_token_tx(&mut req).await;
+            Ok(())
+        }
     }
 }
 
