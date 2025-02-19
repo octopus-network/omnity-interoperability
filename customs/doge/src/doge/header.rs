@@ -66,7 +66,7 @@ impl TryFrom<BlockJsonResult> for Header {
 #[serde(rename_all = "camelCase")]
 pub struct BlockHeaderJsonResult {
     pub hash: String,
-    pub confirmations: u64,
+    pub confirmations: i64,
     pub height: u64,
     pub version: i32,
     pub version_hex: String,

@@ -9,7 +9,7 @@ use crate::state::{mutate_state, read_state};
 use bitcoin::consensus::deserialize;
 use ic_canister_log::log;
 use ic_cdk_timers::set_timer_interval;
-use omnity_types::ic_log::{ERROR, INFO, WARNING};
+use omnity_types::ic_log::ERROR;
 
 use crate::constants::*;
 use crate::custom_to_dogecoin::{finalize_unlock_tickets_task, submit_unlock_tickets_task};
@@ -53,21 +53,25 @@ fn sync_doge_block_header_task() {
         match process_sync_doge_block_header().await {
             Ok(_) => {}
             Err(e) => {
-                log!(ERROR, "sync doge block header error: {:?}", e);
+                log!(ERROR, "Failed to process_sync_doge_block_header, error: {:?}", e);
             }
         }
     });
 }
 
 async fn process_sync_doge_block_header() -> Result<(), CustomsError> {
-    let mut max_sync_times = 5;
+    let mut max_sync_times = 10;
+    let mut maybe_reorg = false;
     while max_sync_times > 0 {
         let current_block_header =
             read_state(|s| s.doge_block_headers.get(&s.sync_doge_block_header_height)).ok_or(
                 CustomsError::CustomError("current block header not found".to_string()),
             )?;
-        let next_block_hash = if let Some(next_block_hash) = current_block_header.nextblockhash {
-            next_block_hash
+        let next_block_hash = 
+        if current_block_header.nextblockhash.is_some() && !maybe_reorg {
+            current_block_header.nextblockhash.ok_or(
+                CustomsError::CustomError("next block hash not found".to_string())
+            )?
         } else {
             let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
             match doge_rpc
@@ -76,56 +80,71 @@ async fn process_sync_doge_block_header() -> Result<(), CustomsError> {
             {
                 Ok(next_block_hash) => next_block_hash,
                 Err(e) => {
-                    log!(WARNING, "get next block hash error: {:?}", e);
-                    return Ok(())
+                    match &e {
+                        CustomsError::RpcResultError(rpc_error) => {
+                            if rpc_error.code==-32000{
+                                return Ok(())
+                            }
+                            log!(
+                                ERROR,
+                                "get next block hash error: {:?}",
+                                e
+                            );
+                            return Err(e)
+                        },
+                        _ => {
+                            log!(
+                                ERROR,
+                                "get next block hash error: {:?}",
+                                e
+                            );
+                            return Err(e)
+                        }
+                    }
                 }
             }
         };
 
-        let r = match sync_doge_block_header(next_block_hash).await {
+        let r = match sync_doge_block_header(next_block_hash.clone()).await {
             Ok(r) => {
                 r
             },
             Err(e) => {
-                match e {
-                    CustomsError::BlockHashNotEqual(height, last_block_hash, block_hash, prev_block_hash) => {
-                        log!(
-                            ERROR,
-                            "sync doge block header height: {:?}, hash: {:?} not equal, last_block_hash: {:?}, prev_block_hash: {:?}, maybe reorg happened.",
-                            height,
-                            block_hash,
-                            last_block_hash,
-                            prev_block_hash
-                        );
+                match &e {
+                    CustomsError::NegativeConfirmations(_) |
+                    CustomsError::BlockHashNotEqual(_, _ ,_ ,_) => {
+                        log!(ERROR, "maybe reorg, sync doge block header({:?}) error: {:?}", next_block_hash, e);
+                        
                         mutate_state(
                             |s| {
-                                s.sync_doge_block_header_height = height - 5;
+                                s.sync_doge_block_header_height = s.sync_doge_block_header_height - 6;
                             }
                         );
+                        maybe_reorg = true;
 
                         continue;
                     },
-
+                    CustomsError::RpcResultError(rpc_error) => {
+                        if rpc_error.code==-32000{
+                            return Ok(())
+                        } else {
+                            log!(ERROR, "sync doge block header({:?}) error: {:?}", next_block_hash, e);
+                            return Err(e)
+                        }
+                    },
                     _ => {
                         log!(
                             ERROR,
-                            "sync doge block header error: {:?}",
+                            "sync doge block header({:?}) error: {:?}",
+                            next_block_hash,
                             e
                         );
 
                         return Err(e)
                     }
-                    
                 }
             },
         };
-     
-        log!(
-            INFO,
-            "success to sync doge block header height: {:?}, hash: {:?}",
-            r.height,
-            r.hash
-        );
 
         if r.confirmations>10 {
             log!(
@@ -151,6 +170,9 @@ async fn sync_doge_block_header(block_hash: String) -> Result<BlockHeaderJsonRes
     // fetch block header
     let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
     let mut block_header_json_result = doge_rpc.get_block_header(block_hash.as_str()).await?;
+    if block_header_json_result.confirmations < 0 {
+        return Err(CustomsError::NegativeConfirmations(block_header_json_result.confirmations));
+    }
     let blocker_header_hex = doge_rpc.get_block_header_hex(block_hash.as_str()).await?;
     block_header_json_result.block_header_hex = Some(blocker_header_hex.clone());
 
@@ -173,13 +195,6 @@ async fn sync_doge_block_header(block_hash: String) -> Result<BlockHeaderJsonRes
     .hash;
 
     if last_block_hash != block_header_json_result.previousblockhash {
-        // return Err(CustomsError::CustomError(
-        //     format!(
-        //         "prev block hash not match, last_block_hash:{}, block_header_json_result.previousblockhash:{}",
-        //         last_block_hash,
-        //         block_header_json_result.previousblockhash
-        //     )
-        // ));
 
         return Err(CustomsError::BlockHashNotEqual(
             block_header_json_result.height, 

@@ -3,7 +3,7 @@ use std::fmt::Display;
 use candid::{CandidType, Deserialize, Nat, Principal};
 use thiserror::Error;
 
-use crate::types::Destination;
+use crate::{doge::transaction::RpcError, types::Destination};
 
 #[derive(CandidType, Clone, Default, Debug, Deserialize, PartialEq, Eq, Error)]
 pub enum CustomsError {
@@ -33,8 +33,10 @@ pub enum CustomsError {
     SendTicketErr(String),
     #[error("RpcError: {0}")]
     RpcError(String),
-    #[error("RpcResultParseError: {0}")]
-    RpcResultParseError(String),
+    #[error("RpcResultError: {0:?}")]
+    RpcResultError(RpcError),
+    #[error("RpcCustomsError: {0}")]
+    RpcCustomsError(String),
     #[error("AmountIsZero")]
     AmountIsZero,
     #[error("OrdTxError: {0}")]
@@ -70,6 +72,8 @@ pub enum CustomsError {
     MerkleBlockVerifyError(String, String),
     #[error("BlockHashNotEqual at height({0}): saved: {1}, queried block({1}) pre hash: {2}")]
     BlockHashNotEqual(u64, String, String, String),
+    #[error("NegativeConfirmations: {0}")]
+    NegativeConfirmations(i64)
 }
 
 /// A block validation error.

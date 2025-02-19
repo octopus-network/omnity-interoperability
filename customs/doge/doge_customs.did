@@ -1,6 +1,6 @@
 type BlockHeaderJsonResult = record {
   height : nat64;
-  confirmations : nat64;
+  confirmations : int64;
   chainwork : text;
   bits : text;
   hash : text;
@@ -35,8 +35,11 @@ type CustomsError = variant {
   AlreadyProcessed;
   HttpStatusError : record { nat; text; text };
   OrdTxError : text;
+  RpcResultError : RpcError;
   NotBridgeTx;
+  NegativeConfirmations : int64;
   AmountIsZero;
+  RpcCustomsError : text;
   InvalidRuneId : text;
   InvalidArgs : text;
   InvalidBits : record { text; text };
@@ -57,7 +60,6 @@ type CustomsError = variant {
   UnsupportedToken : text;
   ValidateError : ValidationError;
   CustomError : text;
-  RpcResultParseError : text;
 };
 type Destination = record {
   token : opt text;
@@ -112,6 +114,7 @@ type Result_4 = variant { Ok : text; Err : text };
 type Result_5 = variant { Ok : nat64; Err : CustomsError };
 type Result_6 = variant { Ok : TransactionJsonResult; Err : CustomsError };
 type RpcConfig = record { url : text; api_key : opt text };
+type RpcError = record { code : int32; message : text };
 type SendTicketResult = record { txid : blob; success : bool; time_at : nat64 };
 type StateProfile = record {
   next_consume_ticket_seq : nat64;

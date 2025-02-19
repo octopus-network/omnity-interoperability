@@ -182,8 +182,8 @@ pub async fn finalize_lock_ticket_request() {
             .iter()
             .filter(|&req| {
                 let wait_time = wait_time.as_nanos() as u64;
-                (req.1.received_at + wait_time < now) 
-                && (req.1.received_at + wait_time * 6 > now)
+                req.1.received_at + wait_time < now 
+                && req.1.received_at + wait_time * 6 > now
             })
             .map(|req| (req.0.clone(), req.1.clone()))
             .collect::<Vec<(Txid, LockTicketRequest)>>()
@@ -197,13 +197,13 @@ pub async fn finalize_lock_ticket_request() {
                             log!(INFO, "finalize lock success: {:?}", txid);
                         }
                         Err(e) => {
-                            log!(ERROR, "finalize lock error: {:?}", e);
+                            log!(ERROR, "finalize lock ticket error: {:?}, txid: {:?}", e, txid.to_string());
                         }
                     }
                 }
             }
             Err(e) => {
-                log!(ERROR, "finalize lock error: {:?}", e);
+                log!(ERROR, "finalize lock ticket error: {:?}, txid: {:?}", e, txid.to_string());
             }
         }
     }
