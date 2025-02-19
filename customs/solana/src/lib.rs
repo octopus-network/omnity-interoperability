@@ -186,14 +186,13 @@ async fn finalize_txs() {
 async fn finalize_collection_txs() {
     let now = ic_cdk::api::time();
     let mut waiting_finalized = vec![];
-    for (sig, mut tx) in read_state(|s| s.submitted_collection_txs.clone()) {
+    for (_, mut tx) in read_state(|s| s.submitted_collection_txs.clone()) {
         if tx.signature.is_none()
             && tx.last_sent_at + RETRY_COLLECTION_TX_INTERVAL.as_nanos() as u64 <= now
         {
             if let Err(err) = send_collection_tx(&mut tx).await {
                 log!(ERROR, "fail to resend collection tx:{}", err);
             }
-            mutate_state(|s| s.submitted_collection_txs.insert(sig, tx.clone()));
         }
         if tx.signature.is_some() {
             waiting_finalized.push(tx.clone());
@@ -224,10 +223,6 @@ async fn finalize_collection_txs() {
                             if let Err(err) = send_collection_tx(tx).await {
                                 log!(ERROR, "fail to resend collection tx:{}", err);
                             }
-                            mutate_state(|s| {
-                                s.submitted_collection_txs
-                                    .insert(tx.source_signature.clone(), tx.clone())
-                            });
                         }
                     }
                 }

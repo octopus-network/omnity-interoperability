@@ -132,10 +132,6 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
 
     mutate_state(|s| {
         s.finalized_gen_tickets.insert(args.signature.clone(), args);
-        s.submitted_collection_txs.insert(
-            collection_tx.source_signature.clone(),
-            collection_tx.clone(),
-        );
     });
     Ok(())
 }
@@ -155,7 +151,12 @@ pub async fn send_collection_tx(args: &mut CollectionTx) -> Result<(), String> {
             Ok(())
         }
         Err(err) => Err(err.to_string()),
-    }
+    }?;
+    mutate_state(|s| {
+        s.submitted_collection_txs
+            .insert(args.source_signature.clone(), args.clone())
+    });
+    Ok(())
 }
 
 fn get_transfer_amount(
