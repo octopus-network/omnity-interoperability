@@ -13,7 +13,7 @@ use crate::{
     INTERVAL_PROCESSING,
 };
 use ic_canister_log::log;
-use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use ic_solana::ic_log::{self, INFO};
@@ -157,8 +157,13 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     if ic_cdk::api::data_certificate().is_none() {
         ic_cdk::trap("update call rejected");
     }
-    let endable_debug = read_state(|s| s.enable_debug);
-    ic_log::http_log(req, endable_debug)
+    match req.path() {
+        "/logs" => {
+            let endable_debug = read_state(|s| s.enable_debug);
+            ic_log::http_log(req, endable_debug)
+        }
+        _ => HttpResponseBuilder::not_found().build(),
+    }
 }
 
 // Enable Candid export
