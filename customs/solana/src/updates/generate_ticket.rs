@@ -1,15 +1,13 @@
 use super::get_sol_address::{get_sol_address, GetSolAddressArgs};
 use crate::{
-    address::main_address_path,
     hub,
-    solana_rpc::{self, init_solana_client, query_transaction},
+    solana_rpc::query_transaction,
     state::{mutate_state, read_state, CollectionTx},
     transaction::{ParsedIns, ParsedValue, Transaction, Transfer},
     types::omnity_types::{ChainId, ChainState, Ticket, TicketType, TokenId, TxAction},
 };
 use candid::{CandidType, Deserialize};
-use ic_canister_log::log;
-use ic_solana::{ic_log::ERROR, token::constants::system_program_id};
+use ic_solana::token::constants::system_program_id;
 use ic_stable_structures::{storable::Bound, Storable};
 use serde::Serialize;
 use serde_json::from_value;
@@ -117,7 +115,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     .await
     .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
 
-    let mut collection_tx = CollectionTx {
+    let collection_tx = CollectionTx {
         source_signature: args.signature.clone(),
         from: address,
         from_path: get_address_args.to_derivation_path(),
@@ -126,35 +124,11 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         last_sent_at: 0,
         try_cnt: 0,
     };
-    if let Err(err) = send_collection_tx(&mut collection_tx).await {
-        log!(ERROR, "failed to send collection tx: {}", err);
-    }
 
     mutate_state(|s| {
+        s.collection_tx_requests
+            .insert(args.signature.clone(), collection_tx);
         s.finalized_gen_tickets.insert(args.signature.clone(), args);
-    });
-    Ok(())
-}
-
-pub async fn send_collection_tx(args: &mut CollectionTx) -> Result<(), String> {
-    let sol_client = init_solana_client().await;
-    let main_address = solana_rpc::ecdsa_public_key(main_address_path()).await;
-    args.last_sent_at = ic_cdk::api::time();
-    args.try_cnt += 1;
-
-    match sol_client
-        .transfer(args.from, args.from_path.clone(), main_address, args.amount)
-        .await
-    {
-        Ok(signature) => {
-            args.signature = Some(signature);
-            Ok(())
-        }
-        Err(err) => Err(err.to_string()),
-    }?;
-    mutate_state(|s| {
-        s.submitted_collection_txs
-            .insert(args.source_signature.clone(), args.clone())
     });
     Ok(())
 }

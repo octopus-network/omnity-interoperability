@@ -1,7 +1,10 @@
+use std::str::FromStr;
+
 use crate::{
     address::{fee_address_path, main_address_path},
     lifecycle::{self, init::CustomArg, upgrade::UpgradeArgs},
-    process_directive_msg_task, process_release_token_task, process_ticket_msg_task, solana_rpc,
+    process_directive_msg_task, process_release_token_task, process_ticket_msg_task,
+    solana_rpc::{self, init_solana_client},
     state::{mutate_state, read_state, CollectionTx, GenTicketStatus, ReleaseTokenStatus},
     types::omnity_types::{Chain, Token},
     updates::{
@@ -16,7 +19,10 @@ use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use ic_solana::ic_log::{self, INFO};
+use ic_solana::{
+    ic_log::{self, INFO},
+    types::Pubkey,
+};
 
 pub fn is_controller() -> Result<(), String> {
     if ic_cdk::api::is_controller(&ic_cdk::caller()) {
@@ -74,13 +80,13 @@ async fn get_sol_address(args: GetSolAddressArgs) -> String {
 }
 
 #[update]
-pub async fn get_fee_address() -> String {
+async fn get_fee_address() -> String {
     let pk = solana_rpc::ecdsa_public_key(fee_address_path()).await;
     pk.to_string()
 }
 
 #[update]
-pub async fn get_main_address() -> String {
+async fn get_main_address() -> String {
     let pk = solana_rpc::ecdsa_public_key(main_address_path()).await;
     pk.to_string()
 }
@@ -112,8 +118,8 @@ fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
 }
 
 #[query(guard = "is_controller")]
-fn submitted_collection_txs() -> Vec<CollectionTx> {
-    read_state(|s| s.submitted_collection_txs.values().cloned().collect())
+fn collection_txs() -> Vec<CollectionTx> {
+    read_state(|s| s.collection_tx_requests.values().cloned().collect())
 }
 
 #[update(guard = "is_controller")]
@@ -125,6 +131,25 @@ async fn resubmit_release_token_tx(ticket_id: String) -> Result<(), String> {
             Ok(())
         }
     }
+}
+
+#[update(guard = "is_controller")]
+async fn redeem_from_fee_address(receiver: String, amount: u64) -> Result<(), String> {
+    let receiver = Pubkey::from_str(&receiver).map_err(|err| err.to_string())?;
+    let client = init_solana_client().await;
+    client
+        .transfer_to(receiver, amount)
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+#[update(guard = "is_controller", hidden = true)]
+async fn update_forward(forward: Option<String>) {
+    mutate_state(|s| {
+        s.forward = forward.clone();
+        s.sol_client.as_mut().map(|c| c.forward = forward);
+    })
 }
 
 #[query]
@@ -140,11 +165,6 @@ fn get_chain_list() -> Vec<Chain> {
 #[query]
 fn get_token_list() -> Vec<Token> {
     read_state(|s| s.tokens.iter().map(|(_, token)| token.clone()).collect())
-}
-
-#[update(guard = "is_controller", hidden = true)]
-pub async fn update_forward(forward: Option<String>) {
-    mutate_state(|s| s.forward = forward)
 }
 
 #[update(guard = "is_controller", hidden = true)]

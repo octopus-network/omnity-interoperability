@@ -45,6 +45,7 @@ type InitArgs = record {
   chain_id : text;
   schnorr_key_name : text;
   chain_state : ChainState;
+  forward : opt text;
   min_response_count : nat32;
 };
 type ReleaseTokenStatus = variant {
@@ -52,6 +53,7 @@ type ReleaseTokenStatus = variant {
   Finalized;
   Unknown;
   Submitted;
+  Pending;
 };
 type Result = variant { Ok; Err : GenerateTicketError };
 type Result_1 = variant { Ok; Err : text };
@@ -71,6 +73,7 @@ type UpgradeArgs = record {
   chain_state : opt ChainState;
 };
 service : (CustomArg) -> {
+  collection_txs : () -> (vec CollectionTx) query;
   generate_ticket : (GenerateTicketArgs) -> (Result);
   generate_ticket_status : (text) -> (GenTicketStatus) query;
   get_chain_list : () -> (vec Chain) query;
@@ -78,7 +81,7 @@ service : (CustomArg) -> {
   get_main_address : () -> (text);
   get_sol_address : (GetSolAddressArgs) -> (text);
   get_token_list : () -> (vec Token) query;
+  redeem_from_fee_address : (text, nat64) -> (Result_1);
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   resubmit_release_token_tx : (text) -> (Result_1);
-  submitted_collection_txs : () -> (vec CollectionTx) query;
 }

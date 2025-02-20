@@ -22,6 +22,7 @@ pub struct InitArgs {
     pub sol_canister: Principal,
     pub chain_state: ChainState,
     pub rpc_list: Vec<String>,
+    pub forward: Option<String>,
     pub min_response_count: u32,
 }
 

@@ -1,12 +1,13 @@
+use address::main_address_path;
 use guard::{TaskType, TimerGuard};
 use ic_canister_log::log;
 use ic_solana::ic_log::ERROR;
-use solana_rpc::get_signature_status;
-use state::{mutate_state, read_state, ReleaseTokenReq, ReleaseTokenStatus};
+use solana_rpc::{get_signature_status, init_solana_client};
+use state::{mutate_state, read_state, CollectionTx, ReleaseTokenReq, ReleaseTokenStatus};
 use std::{collections::BTreeMap, time::Duration};
 use transaction::{TransactionConfirmationStatus, TransactionStatus};
 use types::omnity_types::{ChainState, Directive};
-use updates::generate_ticket::send_collection_tx;
+use updates::submit_release_token_tx;
 
 pub mod address;
 pub mod call_error;
@@ -22,7 +23,6 @@ pub mod types;
 pub mod updates;
 
 pub const BATCH_QUERY_LIMIT: u64 = 20;
-pub const FINALIZE_TIME: Duration = Duration::from_secs(15);
 pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
 pub const INTERVAL_QUERY_DIRECTIVES: Duration = Duration::from_secs(60);
 pub const RETRY_COLLECTION_TX_INTERVAL: Duration = Duration::from_secs(3600);
@@ -33,8 +33,8 @@ pub fn process_release_token_task() {
             Ok(guard) => guard,
             Err(_) => return,
         };
-        finalize_txs().await;
         finalize_collection_txs().await;
+        finalize_release_token_txs().await;
     });
 }
 
@@ -116,25 +116,28 @@ async fn process_directives() {
     };
 }
 
-async fn finalize_txs() {
-    let now = ic_cdk::api::time();
+async fn finalize_release_token_txs() {
+    for mut req in read_state(|s| {
+        s.release_token_requests
+            .iter()
+            .filter(|(_, req)| req.status == ReleaseTokenStatus::Pending)
+            .map(|(_, req)| req.clone())
+            .collect::<Vec<ReleaseTokenReq>>()
+    }) {
+        submit_release_token_tx(&mut req).await;
+    }
     let submitted_reqs: BTreeMap<String, ReleaseTokenReq> = read_state(|s| {
         s.release_token_requests
             .iter()
-            .filter(|(_, req)| {
-                req.status == ReleaseTokenStatus::Submitted
-                    && req.submitted_at.is_some_and(|submitted_at| {
-                        submitted_at + FINALIZE_TIME.as_nanos() as u64 <= now
-                    })
-            })
+            .filter(|(_, req)| req.status == ReleaseTokenStatus::Submitted)
             .map(|(_, req)| (req.signature.clone().unwrap(), req.clone()))
             .collect()
     });
     if submitted_reqs.is_empty() {
         return;
     }
-    let signatures: Vec<String> = submitted_reqs.keys().cloned().collect();
 
+    let signatures: Vec<String> = submitted_reqs.keys().cloned().collect();
     match get_signature_status(signatures.clone()).await {
         Ok(status) => {
             for (i, sig) in signatures.iter().enumerate() {
@@ -183,19 +186,54 @@ async fn finalize_txs() {
     }
 }
 
+async fn send_collection_tx(args: &mut CollectionTx) -> Result<(), String> {
+    let sol_client = init_solana_client().await;
+    let main_address = solana_rpc::ecdsa_public_key(main_address_path()).await;
+    args.last_sent_at = ic_cdk::api::time();
+    args.try_cnt += 1;
+
+    match sol_client
+        .transfer(args.from, args.from_path.clone(), main_address, args.amount)
+        .await
+    {
+        Ok(signature) => {
+            args.signature = Some(signature);
+            Ok(())
+        }
+        Err(err) => Err(err.to_string()),
+    }?;
+    mutate_state(|s| {
+        s.collection_tx_requests.remove(&args.source_signature);
+        s.submitted_collection_txs
+            .insert(args.source_signature.clone(), args.clone())
+    });
+    Ok(())
+}
+
 async fn finalize_collection_txs() {
+    for (_, mut tx) in read_state(|s| s.collection_tx_requests.clone()) {
+        if let Err(err) = send_collection_tx(&mut tx).await {
+            log!(
+                ERROR,
+                "failed to send collection tx: {:?}, signature:{}",
+                err,
+                tx.source_signature
+            );
+        }
+    }
+
     let now = ic_cdk::api::time();
     let mut waiting_finalized = vec![];
     for (_, mut tx) in read_state(|s| s.submitted_collection_txs.clone()) {
-        if tx.signature.is_none()
-            && tx.last_sent_at + RETRY_COLLECTION_TX_INTERVAL.as_nanos() as u64 <= now
-        {
-            if let Err(err) = send_collection_tx(&mut tx).await {
-                log!(ERROR, "fail to resend collection tx:{}", err);
+        match tx.signature {
+            None => {
+                if let Err(err) = send_collection_tx(&mut tx).await {
+                    log!(ERROR, "fail to resend collection tx:{}", err);
+                }
             }
-        }
-        if tx.signature.is_some() {
-            waiting_finalized.push(tx.clone());
+            Some(_) => {
+                waiting_finalized.push(tx.clone());
+            }
         }
     }
 

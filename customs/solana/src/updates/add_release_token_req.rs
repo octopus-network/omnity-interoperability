@@ -40,7 +40,7 @@ pub async fn add_release_token_req(ticket: Ticket) -> Result<(), AddReleaseToken
         received_at: ic_cdk::api::time(),
         signature: None,
         submitted_at: None,
-        status: ReleaseTokenStatus::Unknown,
+        status: ReleaseTokenStatus::Pending,
     };
 
     submit_release_token_tx(&mut req).await;
@@ -62,7 +62,10 @@ pub async fn submit_release_token_tx(req: &mut ReleaseTokenReq) {
                 req.ticket_id,
                 err
             );
-            req.status = ReleaseTokenStatus::Failed(err.to_string());
+            // Insufficient balance in the address, consider resending the transaction within the timer.
+            if !err.to_string().contains("not enough") {
+                req.status = ReleaseTokenStatus::Failed(err.to_string());
+            }
         }
         Ok(signature) => {
             req.status = ReleaseTokenStatus::Submitted;
