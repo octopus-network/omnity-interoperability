@@ -53,7 +53,7 @@ fn init(args: CustomArg) {
             set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
             set_timer_interval(INTERVAL_PROCESSING, process_ticket_msg_task);
             set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_directive_msg_task);
-            set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
+           // set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
             set_timer_interval(INTERVAL_COMMIT_ETCHING, commit_etching_task);
             #[cfg(feature = "self_check")]
             ok_or_die(check_invariants())
@@ -121,7 +121,7 @@ fn post_upgrade(custom_arg: Option<CustomArg>) {
     set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
     set_timer_interval(INTERVAL_PROCESSING, process_ticket_msg_task);
     set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_directive_msg_task);
-    set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
+   // set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
     set_timer_interval(INTERVAL_HANDLE_ETCHING, process_etching_task);
     set_timer_interval(INTERVAL_COMMIT_ETCHING, commit_etching_task);
 }

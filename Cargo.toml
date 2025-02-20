@@ -15,9 +15,6 @@ members = [
     "mock/bitcoin",
     "mock/icp",
     "mock/hub",
-    "lightclient/ethereum",
-    "lightclient/ethereum/interface",
-    "lightclient/ethereum/contracts-abi",
 ]
 exclude = ["route/solana"]
 resolver = "2"

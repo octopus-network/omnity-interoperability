@@ -241,9 +241,13 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
     /// The default fee we use on regtest networks if there are not enough data
     /// to compute the median fee.
     const DEFAULT_FEE: MillisatoshiPerByte = 5_000;
-
     let btc_network = state::read_state(|s| s.btc_network);
-    match management::get_current_fees(btc_network).await {
+    if btc_network == Network::Regtest {
+        return Some(DEFAULT_FEE);
+    }
+    let fee_rate = read_state(|s|s.bitcoin_fee_rate.high);
+    return Some(fee_rate*1000);
+   /* match management::get_current_fees(btc_network).await {
         Ok(fees) => {
             if btc_network == Network::Regtest {
                 return Some(DEFAULT_FEE);
@@ -270,7 +274,7 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
             );
             None
         }
-    }
+    }*/
 }
 
 async fn process_tickets() {
@@ -390,6 +394,7 @@ async fn process_directive() {
 /// Constructs and sends out signed bitcoin transactions for pending retrieve
 /// requests.
 async fn submit_rune_txs() {
+
     let fee_millisatoshi_per_vbyte = match estimate_fee_per_vbyte().await {
         Some(fee) => fee,
         None => return,

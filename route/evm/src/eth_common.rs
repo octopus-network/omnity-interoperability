@@ -487,8 +487,6 @@ pub async fn checked_get_receipt(hash: &String) -> Result<Option<evm_rpc::candid
 
 pub async fn get_receipt(hash: &String, api: RpcApi) -> Result<Option<evm_rpc::candid_types::TransactionReceipt>, Error> {
 
-    //curl -X POST -H "Content-Type: application/json"  --data '{"method":"eth_getTransactionReceipt","params":["0x643e670872578855d788f4b9862b1a8cdc88d36ffd477ba832a2e611212c0668"],"id":1,"jsonrpc":"2.0"}' https://rpc.ankr.com/bitlayer
-
     let url = api.url.clone();
     const MAX_CYCLES: u128 = 1_100_000_000;
     let body = EvmJsonRpcRequest {
