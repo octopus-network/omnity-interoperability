@@ -14,7 +14,7 @@ use ic_solana::compute_budget::compute_budget::Priority;
 use ic_solana::eddsa::KeyType;
 use ic_solana::ic_log::{DEBUG, ERROR};
 use ic_solana::rpc_client::JsonRpcResponse;
-use ic_solana::token::TxError;
+use ic_solana::token::{SolanaClient, TxError};
 use ic_stable_structures::StableBTreeMap;
 
 use crate::handler::gen_ticket::Instruction;
@@ -384,6 +384,8 @@ pub struct SolanaRouteState {
     pub gen_ticket_reqs: StableBTreeMap<TicketId, GenerateTicketReq, Memory>,
     #[serde(skip, default = "crate::memory::init_seed")]
     pub seeds: StableBTreeMap<String, [u8; 64], Memory>,
+    #[serde(skip_if = "Option::is_none")]
+    pub solana_client: Option<SolanaClient>
 }
 
 impl From<InitArgs> for SolanaRouteState {
@@ -426,6 +428,7 @@ impl From<InitArgs> for SolanaRouteState {
             ),
             gen_ticket_reqs: StableBTreeMap::init(crate::memory::get_gen_ticket_req_memory()),
             seeds: StableBTreeMap::init(crate::memory::get_seeds_memory()),
+            solana_client: None
         }
     }
 }
