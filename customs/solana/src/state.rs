@@ -11,11 +11,11 @@ use candid::Principal;
 use ic_solana::{token::SolanaClient, types::Pubkey};
 use ic_stable_structures::{storable::Bound, StableBTreeMap, Storable};
 use serde::{Deserialize, Serialize};
-use serde_bytes::ByteBuf;
 use std::{
     borrow::Cow,
     cell::RefCell,
     collections::{BTreeMap, HashSet},
+    str::FromStr,
 };
 
 thread_local! {
@@ -26,9 +26,8 @@ thread_local! {
 pub enum ReleaseTokenStatus {
     Unknown,
     Pending,
-    Submitted,
-    Finalized,
-    Failed(String),
+    Submitted(String),
+    Finalized(String),
 }
 
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,8 +44,8 @@ pub struct ReleaseTokenReq {
     pub amount: u64,
     pub address: Pubkey,
     pub received_at: u64,
-    pub signature: Option<String>,
-    pub submitted_at: Option<u64>,
+    pub last_sent_at: u64,
+    pub try_cnt: u32,
     pub status: ReleaseTokenStatus,
 }
 
@@ -66,19 +65,6 @@ impl Storable for ReleaseTokenReq {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-// The collection transaction means that every time the user generates a ticket successfully,
-// the canister needs to generate a transaction to transfer the assets in the derived address to the main address.
-#[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CollectionTx {
-    pub source_signature: String,
-    pub from: Pubkey,
-    pub from_path: Vec<ByteBuf>,
-    pub amount: u64,
-    pub signature: Option<String>,
-    pub last_sent_at: u64,
-    pub try_cnt: u32,
-}
-
 #[derive(Deserialize, Serialize)]
 pub struct CustomsState {
     pub chain_id: String,
@@ -87,12 +73,11 @@ pub struct CustomsState {
     pub sol_canister: Principal,
     pub sol_client: Option<SolanaClient>,
     pub forward: Option<String>,
+    pub port_program_id: Pubkey,
     pub chain_state: ChainState,
     pub counterparties: BTreeMap<ChainId, Chain>,
     pub tokens: BTreeMap<TokenId, Token>,
     pub release_token_requests: BTreeMap<TicketId, ReleaseTokenReq>,
-    pub collection_tx_requests: BTreeMap<String, CollectionTx>,
-    pub submitted_collection_txs: BTreeMap<String, CollectionTx>,
     pub rpc_list: Vec<String>,
     pub min_response_count: u32,
     pub enable_debug: bool,
@@ -120,12 +105,11 @@ impl From<InitArgs> for CustomsState {
             sol_canister: args.sol_canister,
             sol_client: None,
             forward: args.forward,
+            port_program_id: Pubkey::from_str(&args.port_program_id).unwrap(),
             chain_state: args.chain_state,
             counterparties: Default::default(),
             tokens: Default::default(),
             release_token_requests: Default::default(),
-            collection_tx_requests: Default::default(),
-            submitted_collection_txs: Default::default(),
             rpc_list: args.rpc_list,
             min_response_count: args.min_response_count,
             enable_debug: false,

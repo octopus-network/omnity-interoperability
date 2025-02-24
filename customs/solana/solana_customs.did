@@ -9,54 +9,35 @@ type Chain = record {
 };
 type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
-type CollectionTx = record {
-  signature : opt text;
-  from_path : vec blob;
-  from : blob;
-  try_cnt : nat32;
-  last_sent_at : nat64;
-  source_signature : text;
-  amount : nat64;
-};
 type CustomArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type GenTicketStatus = variant { Finalized : GenerateTicketArgs; Unknown };
-type GenerateTicketArgs = record {
-  signature : text;
-  token_id : text;
-  target_chain_id : text;
-  amount : nat64;
-  receiver : text;
-};
+type GenerateTicketArgs = record { signature : text; token_id : text };
 type GenerateTicketError = variant {
   SendTicketErr : text;
   RpcError : text;
   TemporarilyUnavailable : text;
   AlreadyProcessed;
-  AmountIsZero;
+  DecodeTxError : text;
+  TxHasNoTransports;
   MismatchWithGenTicketReq;
   UnsupportedChainId : text;
   UnsupportedToken : text;
 };
-type GetSolAddressArgs = record { target_chain_id : text; receiver : text };
 type InitArgs = record {
   hub_principal : principal;
   rpc_list : vec text;
   sol_canister : principal;
   chain_id : text;
+  port_program_id : text;
   schnorr_key_name : text;
   chain_state : ChainState;
   forward : opt text;
   min_response_count : nat32;
 };
-type ReleaseTokenStatus = variant {
-  Failed : text;
-  Finalized;
-  Unknown;
-  Submitted;
-  Pending;
-};
+type ReleaseTokenStatus = variant { Finalized; Unknown; Submitted; Pending };
 type Result = variant { Ok; Err : GenerateTicketError };
-type Result_1 = variant { Ok; Err : text };
+type Result_1 = variant { Ok : text; Err : text };
+type Result_2 = variant { Ok; Err : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -73,15 +54,13 @@ type UpgradeArgs = record {
   chain_state : opt ChainState;
 };
 service : (CustomArg) -> {
-  collection_txs : () -> (vec CollectionTx) query;
   generate_ticket : (GenerateTicketArgs) -> (Result);
   generate_ticket_status : (text) -> (GenTicketStatus) query;
   get_chain_list : () -> (vec Chain) query;
   get_fee_address : () -> (text);
-  get_main_address : () -> (text);
-  get_sol_address : (GetSolAddressArgs) -> (text);
   get_token_list : () -> (vec Token) query;
-  redeem_from_fee_address : (text, nat64) -> (Result_1);
+  init_port : () -> (Result_1);
+  redeem_from_fee_address : (text, nat64) -> (Result_2);
   release_token_status : (text) -> (ReleaseTokenStatus) query;
-  resubmit_release_token_tx : (text) -> (Result_1);
+  resubmit_release_token_tx : (text) -> (Result_2);
 }

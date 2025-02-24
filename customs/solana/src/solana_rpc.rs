@@ -1,6 +1,7 @@
 use crate::{
     address::fee_address_path,
     call_error::{CallError, Reason},
+    port_native::{self, instruction::InstSerialize, port_address, vault_address},
     state::{mutate_state, read_state},
     transaction::{Transaction, TransactionDetail, TransactionStatus},
 };
@@ -9,8 +10,8 @@ use ic_solana::{
     eddsa::KeyType,
     ic_log::ERROR,
     rpc_client::{JsonRpcResponse, RpcResult},
-    token::SolanaClient,
-    types::Pubkey,
+    token::{constants::system_program_id, SolanaClient},
+    types::{AccountMeta, Instruction, Pubkey},
 };
 use serde_bytes::ByteBuf;
 
@@ -125,6 +126,71 @@ pub async fn init_solana_client() -> SolanaClient {
     };
     mutate_state(|s| s.sol_client = Some(client.clone()));
     client
+}
+
+pub async fn init_port() -> Result<String, String> {
+    let client = init_solana_client().await;
+    let port_program_id = read_state(|s| s.port_program_id.clone());
+
+    let (port, _) = port_address();
+    let (_, vault_bump) = vault_address();
+
+    let initialize = port_native::instruction::Initialize { vault_bump };
+    let instruction = Instruction::new_with_bytes(
+        port_program_id,
+        &initialize.data(),
+        vec![
+            AccountMeta::new(port, false),
+            AccountMeta::new(client.payer, true),
+            AccountMeta::new_readonly(system_program_id(), false),
+        ],
+    );
+
+    let signature = client
+        .send_raw_transaction(
+            &vec![instruction],
+            vec![client.payer_derive_path.clone()],
+            KeyType::ChainKey,
+        )
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(signature)
+}
+
+pub async fn redeem(ticket_id: String, receiver: Pubkey, amount: u64) -> Result<String, String> {
+    let client = init_solana_client().await;
+    let port_program_id = read_state(|s| s.port_program_id.clone());
+
+    let (port, _) = port_address();
+    let (vault, _) = vault_address();
+    let (redeem_record, _) = Pubkey::find_program_address(
+        &[&b"redeem"[..], port.as_ref(), ticket_id.as_bytes()],
+        &port_program_id,
+    );
+
+    let initialize = port_native::instruction::Redeem { ticket_id, amount };
+    let instruction = Instruction::new_with_bytes(
+        port_program_id,
+        &initialize.data(),
+        vec![
+            AccountMeta::new(port, false),
+            AccountMeta::new(vault, false),
+            AccountMeta::new(redeem_record, false),
+            AccountMeta::new(client.payer, true),
+            AccountMeta::new(receiver, false),
+            AccountMeta::new_readonly(system_program_id(), false),
+        ],
+    );
+
+    let signature = client
+        .send_raw_transaction(
+            &vec![instruction],
+            vec![client.payer_derive_path.clone()],
+            KeyType::ChainKey,
+        )
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(signature)
 }
 
 pub async fn ecdsa_public_key(derived_path: Vec<ByteBuf>) -> Pubkey {

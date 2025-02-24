@@ -1,6 +1,5 @@
 use crate::{
-    address::main_address_path,
-    solana_rpc::{self, init_solana_client},
+    solana_rpc,
     state::{mutate_state, read_state, ReleaseTokenReq, ReleaseTokenStatus},
     types::omnity_types::Ticket,
 };
@@ -38,8 +37,8 @@ pub async fn add_release_token_req(ticket: Ticket) -> Result<(), AddReleaseToken
         amount: amount,
         address: address,
         received_at: ic_cdk::api::time(),
-        signature: None,
-        submitted_at: None,
+        last_sent_at: 0,
+        try_cnt: 0,
         status: ReleaseTokenStatus::Pending,
     };
 
@@ -48,32 +47,22 @@ pub async fn add_release_token_req(ticket: Ticket) -> Result<(), AddReleaseToken
 }
 
 pub async fn submit_release_token_tx(req: &mut ReleaseTokenReq) {
-    let client = init_solana_client().await;
-    let main_path = main_address_path();
-    let main_address = solana_rpc::ecdsa_public_key(main_path.clone()).await;
-    match client
-        .transfer(main_address, main_path.clone(), req.address, req.amount)
-        .await
-    {
+    match solana_rpc::redeem(req.ticket_id.clone(), req.address, req.amount).await {
         Err(err) => {
             log!(
                 ERROR,
-                "[submit_release_token_tx] failed to transfer token for ticket_id:{}, err: {:?}",
+                "[submit_release_token_tx] failed to redeem token for ticket_id:{}, err: {}",
                 req.ticket_id,
                 err
             );
-            // Insufficient balance in the address, consider resending the transaction within the timer.
-            if !err.to_string().contains("not enough") {
-                req.status = ReleaseTokenStatus::Failed(err.to_string());
-            }
         }
         Ok(signature) => {
-            req.status = ReleaseTokenStatus::Submitted;
-            req.signature = Some(signature);
-            req.submitted_at = Some(ic_cdk::api::time());
+            req.status = ReleaseTokenStatus::Submitted(signature);
         }
     }
     mutate_state(|s| {
+        req.last_sent_at = ic_cdk::api::time();
+        req.try_cnt += 1;
         s.release_token_requests
             .insert(req.ticket_id.clone(), req.clone())
     });

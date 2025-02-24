@@ -1,16 +1,15 @@
 use std::str::FromStr;
 
 use crate::{
-    address::{fee_address_path, main_address_path},
+    address::fee_address_path,
     lifecycle::{self, init::CustomArg, upgrade::UpgradeArgs},
     process_directive_msg_task, process_release_token_task, process_ticket_msg_task,
     solana_rpc::{self, init_solana_client},
-    state::{mutate_state, read_state, CollectionTx, GenTicketStatus, ReleaseTokenStatus},
+    state::{mutate_state, read_state, GenTicketStatus, ReleaseTokenStatus},
     types::omnity_types::{Chain, Token},
     updates::{
         self,
         generate_ticket::{GenerateTicketArgs, GenerateTicketError},
-        get_sol_address::GetSolAddressArgs,
         submit_release_token_tx,
     },
     INTERVAL_PROCESSING,
@@ -75,19 +74,8 @@ fn post_upgrade(args: Option<CustomArg>) {
 }
 
 #[update]
-async fn get_sol_address(args: GetSolAddressArgs) -> String {
-    updates::get_sol_address(args).await.to_string()
-}
-
-#[update]
 async fn get_fee_address() -> String {
     let pk = solana_rpc::ecdsa_public_key(fee_address_path()).await;
-    pk.to_string()
-}
-
-#[update]
-async fn get_main_address() -> String {
-    let pk = solana_rpc::ecdsa_public_key(main_address_path()).await;
     pk.to_string()
 }
 
@@ -107,19 +95,14 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
 
 #[query]
 fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
-    if let Some(_) = read_state(|s| s.finalized_requests.get(&ticket_id)) {
-        return ReleaseTokenStatus::Finalized;
+    if let Some(req) = read_state(|s| s.finalized_requests.get(&ticket_id)) {
+        return req.status;
     }
     read_state(|s| {
         s.release_token_requests
             .get(&ticket_id)
             .map_or(ReleaseTokenStatus::Unknown, |r| r.status.clone())
     })
-}
-
-#[query(guard = "is_controller")]
-fn collection_txs() -> Vec<CollectionTx> {
-    read_state(|s| s.collection_tx_requests.values().cloned().collect())
 }
 
 #[update(guard = "is_controller")]
@@ -165,6 +148,11 @@ fn get_chain_list() -> Vec<Chain> {
 #[query]
 fn get_token_list() -> Vec<Token> {
     read_state(|s| s.tokens.iter().map(|(_, token)| token.clone()).collect())
+}
+
+#[update(guard = "is_controller")]
+async fn init_port() -> Result<String, String> {
+    solana_rpc::init_port().await
 }
 
 #[update(guard = "is_controller", hidden = true)]

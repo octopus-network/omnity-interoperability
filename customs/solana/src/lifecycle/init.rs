@@ -24,6 +24,7 @@ pub struct InitArgs {
     pub rpc_list: Vec<String>,
     pub forward: Option<String>,
     pub min_response_count: u32,
+    pub port_program_id: String,
 }
 
 pub fn init(args: InitArgs) {

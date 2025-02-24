@@ -195,9 +195,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.14"
+version = "1.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c3d1b2e905a3a7b00a6141adb0e4c0bb941d11caf55349d863942a1cc44e3c9"
+checksum = "c736e259eea577f443d5c86c304f9f4ae0295c43f3ba05c21f1d66b5f06001af"
 dependencies = [
  "shlex",
 ]
@@ -414,7 +414,7 @@ dependencies = [
 [[package]]
 name = "dfn_candid"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#0923aa8f3ea2e2a251e3bfb1525442215b06b2b3"
+source = "git+https://github.com/dfinity/ic#7faa2dc7f882991508795e765daeb3b61873d384"
 dependencies = [
  "candid",
  "dfn_core",
@@ -426,7 +426,7 @@ dependencies = [
 [[package]]
 name = "dfn_core"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#0923aa8f3ea2e2a251e3bfb1525442215b06b2b3"
+source = "git+https://github.com/dfinity/ic#7faa2dc7f882991508795e765daeb3b61873d384"
 dependencies = [
  "ic-base-types",
  "on_wire",
@@ -767,7 +767,7 @@ dependencies = [
 [[package]]
 name = "ic-base-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#0923aa8f3ea2e2a251e3bfb1525442215b06b2b3"
+source = "git+https://github.com/dfinity/ic#7faa2dc7f882991508795e765daeb3b61873d384"
 dependencies = [
  "byte-unit",
  "bytes",
@@ -795,7 +795,7 @@ dependencies = [
 [[package]]
 name = "ic-canisters-http-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#0923aa8f3ea2e2a251e3bfb1525442215b06b2b3"
+source = "git+https://github.com/dfinity/ic#7faa2dc7f882991508795e765daeb3b61873d384"
 dependencies = [
  "candid",
  "dfn_candid",
@@ -874,7 +874,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-sha2"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#0923aa8f3ea2e2a251e3bfb1525442215b06b2b3"
+source = "git+https://github.com/dfinity/ic#7faa2dc7f882991508795e765daeb3b61873d384"
 dependencies = [
  "sha2",
 ]
@@ -882,7 +882,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-sha2"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#0923aa8f3ea2e2a251e3bfb1525442215b06b2b3"
+source = "git+https://github.com/dfinity/ic#7faa2dc7f882991508795e765daeb3b61873d384"
 dependencies = [
  "ic-crypto-internal-sha2",
 ]
@@ -916,7 +916,7 @@ dependencies = [
 [[package]]
 name = "ic-protobuf"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#0923aa8f3ea2e2a251e3bfb1525442215b06b2b3"
+source = "git+https://github.com/dfinity/ic#7faa2dc7f882991508795e765daeb3b61873d384"
 dependencies = [
  "bincode",
  "candid",
@@ -1210,9 +1210,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.169"
+version = "0.2.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5aba8db14291edd000dfcc4d620c7ebfb122c613afb886ca8803fa4e128a20a"
+checksum = "875b3680cb2f8f71bdcf9a30f38d48282f5d3c95cbf9b3fa57269bb5d5c06828"
 
 [[package]]
 name = "libm"
@@ -1315,7 +1315,7 @@ dependencies = [
 [[package]]
 name = "on_wire"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#0923aa8f3ea2e2a251e3bfb1525442215b06b2b3"
+source = "git+https://github.com/dfinity/ic#7faa2dc7f882991508795e765daeb3b61873d384"
 
 [[package]]
 name = "once_cell"
@@ -1366,7 +1366,7 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 [[package]]
 name = "phantom_newtype"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#0923aa8f3ea2e2a251e3bfb1525442215b06b2b3"
+source = "git+https://github.com/dfinity/ic#7faa2dc7f882991508795e765daeb3b61873d384"
 dependencies = [
  "candid",
  "num-traits",
@@ -1746,6 +1746,8 @@ name = "solana_customs"
 version = "0.1.2"
 dependencies = [
  "anyhow",
+ "borsh",
+ "borsh-derive",
  "bs58",
  "candid",
  "ciborium",
@@ -1784,9 +1786,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "stacker"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d08feb8f695b465baed819b03c128dc23f57a694510ab1f06c77f763975685e"
+checksum = "d9156ebd5870ef293bfb43f91c7a74528d363ec0d424afe24160ed5a4343d08a"
 dependencies = [
  "cc",
  "cfg-if",

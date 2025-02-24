@@ -27,7 +27,10 @@ ic-canister-log = "0.2"
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
 # ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/metaplex", package = "ic-solana" }
 ic-solana = { path = "/Users/shenao/projects/octopus-network/ic-solana/src/ic-solana" }
-
+# solana-port = { path = "/Users/shenao/projects/solana-port/programs/solana-port" }
+# anchor-lang = "0.30.1"
+borsh = "1.5.5"
+borsh-derive = "1.5.5"
 
 [patch.crates-io.curve25519-dalek]
 git = "https://github.com/solana-labs/curve25519-dalek.git"
