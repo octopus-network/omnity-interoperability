@@ -15,7 +15,7 @@ pub mod eventlog;
 use crate::lifecycle::init::InitArgs;
 use crate::lifecycle::upgrade::UpgradeArgs;
 use crate::runes_etching::transactions::SendEtchingRequest;
-use crate::runes_etching::EtchingArgs;
+use crate::runes_etching::{EtchingArgs, InternalEtchingArgs};
 use crate::storage::VMem;
 use crate::{address::BitcoinAddress, ECDSAPublicKey};
 use crate::{
@@ -33,6 +33,7 @@ use omnity_types::{
     rune_id::RuneId, Chain, ChainId, ChainState, TicketId, Token, TokenId, TxAction,
 };
 use serde::Serialize;
+use crate::runes_etching::wallet::builder::EtchingKey;
 
 /// The maximum number of finalized requests that we keep in the
 /// history.
@@ -341,6 +342,9 @@ pub struct CustomsState {
 
     pub runes_oracles: BTreeSet<Principal>,
 
+    #[serde(default)]
+    pub bitcoin_fee_rate: BitcoinFeeRate,
+
     pub rpc_url: Option<String>,
 
     /// Process one timer event at a time.
@@ -382,10 +386,41 @@ pub struct CustomsState {
 
     #[serde(skip, default = "crate::storage::init_etching_fee_utxos")]
     pub etching_fee_utxos: StableVec<crate::runes_etching::Utxo, VMem>,
+
     #[serde(skip, default = "crate::storage::init_pending_etching_requests")]
     pub pending_etching_requests: StableBTreeMap<String, SendEtchingRequest, VMem>,
     #[serde(skip, default = "crate::storage::init_finalized_etching_requests")]
     pub finalized_etching_requests: StableBTreeMap<String, SendEtchingRequest, VMem>,
+
+    #[serde(skip, default = "crate::storage::init_stash_etchings")]
+    pub stash_etchings: StableBTreeMap<String, InternalEtchingArgs, VMem>,
+
+    #[serde(skip, default = "crate::storage::init_stash_etching_ids")]
+    pub stash_etching_ids: StableVec<EtchingKey, VMem>,
+}
+
+#[derive(CandidType, Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub  struct BitcoinFeeRate {
+    pub low: u64,
+    pub medium: u64,
+    pub high: u64,
+}
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct SetTxFeePerVbyteArgs {
+    pub low: u64,
+    pub medium: u64,
+    pub high: u64,
+}
+
+impl From<SetTxFeePerVbyteArgs> for BitcoinFeeRate {
+    fn from(value: SetTxFeePerVbyteArgs) -> Self {
+        BitcoinFeeRate {
+            low: value.low,
+            medium: value.medium,
+            high: value.high,
+        }
+    }
 }
 
 pub struct EtchingRequest {
@@ -1222,6 +1257,7 @@ impl From<InitArgs> for CustomsState {
             chain_state: args.chain_state,
             hub_principal: args.hub_principal,
             runes_oracles: BTreeSet::from_iter(vec![args.runes_oracle_principal]),
+            bitcoin_fee_rate: Default::default(),
             rpc_url: None,
             last_fee_per_vbyte: vec![1; 100],
             fee_token_factor: None,
@@ -1230,9 +1266,11 @@ impl From<InitArgs> for CustomsState {
             etching_acount_info: Default::default(),
             pending_etching_requests: crate::storage::init_pending_etching_requests(),
             finalized_etching_requests: crate::storage::init_finalized_etching_requests(),
+            stash_etchings: crate::storage::init_stash_etchings(),
             ord_indexer_principal: None,
             icpswap_principal: None,
             etching_fee_utxos: crate::storage::init_etching_fee_utxos(),
+            stash_etching_ids: crate::storage::init_stash_etching_ids(),
         }
     }
 }

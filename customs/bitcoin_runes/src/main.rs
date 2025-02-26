@@ -1,6 +1,7 @@
 use base64::Engine;
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
+use std::ptr::read;
 use std::str::FromStr;
 
 use bitcoin::Amount;
@@ -22,14 +23,10 @@ use bitcoin_customs::runes_etching::fee_calculator::MAX_LOGO_CONTENT_SIZE;
 use bitcoin_customs::runes_etching::transactions::EtchingStatus::{
     SendRevealFailed, SendRevealSuccess,
 };
-use bitcoin_customs::runes_etching::transactions::{
-    estimate_tx_vbytes, internal_etching, SendEtchingInfo,
-};
+use bitcoin_customs::runes_etching::transactions::{estimate_tx_vbytes, internal_etching, SendEtchingInfo, stash_etching};
 use bitcoin_customs::runes_etching::{EtchingArgs, LogoParams};
 use bitcoin_customs::state::eventlog::Event::UpdateFeeCollector;
-use bitcoin_customs::state::{
-    audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus,
-};
+use bitcoin_customs::state::{audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus, SetTxFeePerVbyteArgs, BitcoinFeeRate};
 use bitcoin_customs::storage::record_event;
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
@@ -38,11 +35,7 @@ use bitcoin_customs::updates::{
     get_btc_address::GetBtcAddressArgs,
     update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
-use bitcoin_customs::{
-    management, process_directive_msg_task, process_etching_task, process_ticket_msg_task,
-    process_tx_task, refresh_fee_task, CustomsInfo, TokenResp, FEE_ESTIMATE_DELAY,
-    INTERVAL_HANDLE_ETCHING, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES,
-};
+use bitcoin_customs::{management, process_directive_msg_task, process_etching_task, process_ticket_msg_task, process_tx_task, refresh_fee_task, CustomsInfo, TokenResp, FEE_ESTIMATE_DELAY, INTERVAL_HANDLE_ETCHING, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES, INTERVAL_COMMIT_ETCHING, commit_etching_task};
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage,
@@ -60,8 +53,8 @@ fn init(args: CustomArg) {
             set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
             set_timer_interval(INTERVAL_PROCESSING, process_ticket_msg_task);
             set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_directive_msg_task);
-            set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
-
+           // set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
+            set_timer_interval(INTERVAL_COMMIT_ETCHING, commit_etching_task);
             #[cfg(feature = "self_check")]
             ok_or_die(check_invariants())
         }
@@ -128,8 +121,9 @@ fn post_upgrade(custom_arg: Option<CustomArg>) {
     set_timer_interval(INTERVAL_PROCESSING, process_tx_task);
     set_timer_interval(INTERVAL_PROCESSING, process_ticket_msg_task);
     set_timer_interval(INTERVAL_QUERY_DIRECTIVES, process_directive_msg_task);
-    set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
+   // set_timer_interval(FEE_ESTIMATE_DELAY, refresh_fee_task);
     set_timer_interval(INTERVAL_HANDLE_ETCHING, process_etching_task);
+    set_timer_interval(INTERVAL_COMMIT_ETCHING, commit_etching_task);
 }
 
 #[update]
@@ -158,6 +152,18 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
     }
 }
 
+#[update]
+pub fn set_tx_fee_per_vbyte(args: SetTxFeePerVbyteArgs) -> Result<(), String> {
+    if  is_controller().is_ok() {
+        audit::update_bitcoin_fee_rate(args.into());
+        Ok(())
+    } else {
+        Err("Unauthorized".to_string())
+    }
+}
+
+
+
 #[query]
 pub fn get_etching_by_user(user_addr: Principal) -> Vec<SendEtchingInfo> {
     read_state(|s| {
@@ -177,24 +183,56 @@ pub fn get_etching_by_user(user_addr: Principal) -> Vec<SendEtchingInfo> {
 }
 
 #[query]
-pub fn get_etching(commit_txid: String) -> Option<SendEtchingInfo> {
+pub fn get_etching(key: String) -> Option<SendEtchingInfo> {
     let r: Option<SendEtchingInfo> =
-        match read_state(|s| s.pending_etching_requests.get(&commit_txid.clone())) {
+        match read_state(|s| s.pending_etching_requests.get(&key.clone())) {
             None => None,
             Some(r) => Some(r.into()),
         };
     if r.is_some() {
         return r;
     }
-    match read_state(|s| s.finalized_etching_requests.get(&commit_txid)) {
+    let r = match read_state(|s| s.finalized_etching_requests.get(&key.clone())) {
+        None => None,
+        Some(r) => Some(r.into()),
+    };
+    if r.is_some() {
+        return r;
+    }
+    match read_state(|s| s.stash_etchings.get(&key.clone())) {
         None => None,
         Some(r) => Some(r.into()),
     }
 }
 
+
 #[update]
 pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
+    let fee_rate = read_state(|s|{
+        let high = s.bitcoin_fee_rate.high;
+        if high == 0 {
+            5
+        }else {
+            high + 2
+        }
+    });
     internal_etching(fee_rate, args).await
+}
+
+#[update(guard = "is_controller")]
+pub async fn etching_v2(args: EtchingArgs) -> Result<String, String> {
+    stash_etching(5, args).await
+}
+
+#[update(guard = "is_controller")]
+pub async fn remove_error_etching(commit_tx: String) {
+    mutate_state(|s|s.pending_etching_requests.remove(&commit_tx));
+}
+
+#[update(guard = "is_controller")]
+pub async fn canister_icp() {
+    let id = ic_cdk::id();
+
 }
 
 #[update(guard = "is_controller")]
@@ -212,6 +250,7 @@ pub async fn etching_reveal(commit_txid: String) {
     req.reveal_at = ic_cdk::api::time();
     mutate_state(|s| s.pending_etching_requests.insert(commit_txid, req));
 }
+
 
 #[query]
 fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
@@ -386,6 +425,7 @@ fn get_customs_info() -> CustomsInfo {
         max_time_in_queue_nanos: s.max_time_in_queue_nanos,
         generate_ticket_counter: s.generate_ticket_counter,
         release_token_counter: s.release_token_counter,
+        bitcoin_fee_rate: s.bitcoin_fee_rate.clone(),
         etching_acount_info: s.etching_acount_info.clone(),
         ord_indexer_principal: s.ord_indexer_principal,
         icpswap_principal: s.icpswap_principal,
@@ -481,6 +521,32 @@ pub async fn estimate_etching_fee(
     bitcoin_customs::runes_etching::icp_swap::estimate_etching_fee(fee_rate + 2, byte_size).await
 }
 
+#[update]
+pub async fn estimate_etching_fee_v2(
+    rune_name: String,
+    logo: Option<LogoParams>,
+) -> Result<u128, String> {
+    let space_rune = SpacedRune::from_str(rune_name.as_str()).unwrap();
+    let name = space_rune.rune.to_string();
+    if name.len() < 10 || name.len() > 26 {
+        return Err("rune name's length must be >= 10 and <=26".to_string());
+    }
+    if let Some(l) = logo.clone() {
+        let logo_content = base64::engine::general_purpose::STANDARD
+            .decode(l.content_base64)
+            .map_err(|e| e.to_string())?;
+        if logo_content.len() > MAX_LOGO_CONTENT_SIZE {
+            return Err("the max size of logo content is 128k".to_string());
+        }
+    }
+    let byte_size = match estimate_tx_vbytes(rune_name.as_str(), logo).await {
+        Ok(l) => Ok(l.1 as u128 + l.0 as u128),
+        Err(e) => Err(e.to_string()),
+    }?;
+    bitcoin_customs::runes_etching::icp_swap::estimate_etching_fee(5, byte_size).await
+}
+
+
 #[query]
 fn transform(raw: TransformArgs) -> http_request::HttpResponse {
     http_request::HttpResponse {
@@ -509,6 +575,7 @@ pub struct UtxoArgs {
     pub index: u32,
     pub amount: u64,
 }
+
 
 fn main() {}
 

@@ -1,9 +1,6 @@
 //! State modifications that should end up in the event log.
 
-use super::{
-    eventlog::Event, CustomsState, GenTicketRequestV2, RuneId, RuneTxRequest, RunesBalance,
-    SubmittedBtcTransactionV2,
-};
+use super::{eventlog::Event, CustomsState, GenTicketRequestV2, RuneId, RuneTxRequest, RunesBalance, SubmittedBtcTransactionV2, BitcoinFeeRate, mutate_state};
 use crate::storage::record_event;
 use crate::{destination::Destination, state::RUNES_TOKEN};
 use ic_btc_interface::{Txid, Utxo};
@@ -91,10 +88,13 @@ pub fn add_utxos(
         utxos: utxos.clone(),
         is_runes,
     });
-
     state.add_utxos(destination, utxos, is_runes);
 }
 
+pub fn update_bitcoin_fee_rate(fee_rate: BitcoinFeeRate) {
+    record_event(&Event::UpdateBitcoinFeeRate(fee_rate.clone()));
+    mutate_state(|s|s.bitcoin_fee_rate = fee_rate);
+}
 pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: RunesBalance) {
     record_event(&Event::UpdatedRunesBalance {
         txid,

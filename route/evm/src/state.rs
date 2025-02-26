@@ -56,6 +56,7 @@ impl EvmRouteState {
             next_directive_seq: 0,
             next_consume_ticket_seq: 0,
             next_consume_directive_seq: 0,
+            finality_blocks: None,
             handled_evm_event: Default::default(),
             tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_evm_tickets_memory()),
             directives_queue: StableBTreeMap::init(
@@ -163,6 +164,8 @@ pub struct EvmRouteState {
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
+    #[serde(default)]
+    pub finality_blocks: Option<u64>,
     pub handled_evm_event: BTreeSet<String>,
     #[serde(skip, default = "crate::stable_memory::init_to_evm_tickets_queue")]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
@@ -195,6 +198,7 @@ impl From<&EvmRouteState> for StateProfile {
             evm_chain_id: v.evm_chain_id,
             tokens: v.tokens.clone(),
             token_contracts: v.token_contracts.clone(),
+            finality_blocks: v.finality_blocks.clone(),
             counterparties: v.counterparties.clone(),
             chain_state: v.chain_state.clone(),
             evm_rpc_addr: v.evm_rpc_addr,
@@ -233,6 +237,7 @@ pub struct StateProfile {
     pub pubkey: Vec<u8>,
     pub omnity_port_contract: EvmAddress,
     pub next_ticket_seq: u64,
+    pub finality_blocks: Option<u64>,
     pub next_directive_seq: u64,
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,

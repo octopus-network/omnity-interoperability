@@ -9,7 +9,7 @@ use crate::Error::Custom;
 use crate::eth_common::{
     broadcast, call_rpc_with_retry, get_account_nonce, get_gasprice, sign_transaction,
 };
-use crate::ic_log::{WARNING, INFO};
+use crate::ic_log::{INFO, WARNING};
 use crate::state::{minter_addr, mutate_state, read_state};
 use crate::types::{Directive, PendingDirectiveStatus, PendingTicketStatus, Seq};
 
@@ -109,12 +109,12 @@ pub async fn send_ticket(seq: Seq) -> Result<Option<String>, Error> {
                 Ok(data) => {
                     let hash = call_rpc_with_retry(data.clone(), broadcast).await;
                     match hash {
-                        Ok(h) => {
-                            pending_ticket.evm_tx_hash = Some(h);
+                        Ok(_h) => {
+                            let tx_hash = format!("0x{}", hex::encode(keccak256(data)));
+                            pending_ticket.evm_tx_hash = Some(tx_hash.clone());
                             mutate_state(|s| {
                                 s.pending_tickets_map.insert(t.ticket_id, pending_ticket)
                             });
-                            let tx_hash = format!("0x{}", hex::encode(keccak256(data)));
                             mutate_state(|s| {
                                 s.pending_events_on_chain
                                     .insert(tx_hash.clone(), get_time_secs())
@@ -174,12 +174,12 @@ pub async fn send_directive(seq: Seq) -> Result<Option<String>, Error> {
                 Ok(data) => {
                     let hash = call_rpc_with_retry(data.clone(), broadcast).await;
                     match hash {
-                        Ok(h) => {
-                            pending_directive.evm_tx_hash = Some(h);
+                        Ok(_h) => {
+                            let tx_hash = format!("0x{}", hex::encode(keccak256(data)));
+                            pending_directive.evm_tx_hash = Some(tx_hash.clone());
                             mutate_state(|s| {
                                 s.pending_directive_map.insert(seq, pending_directive)
                             });
-                            let tx_hash = format!("0x{}", hex::encode(keccak256(data)));
                             mutate_state(|s| {
                                 s.pending_events_on_chain
                                     .insert(tx_hash.clone(), get_time_secs())

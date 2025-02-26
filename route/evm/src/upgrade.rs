@@ -80,6 +80,7 @@ impl From<(OldEvmRouteState, u64)> for EvmRouteState {
             next_directive_seq: old.next_directive_seq,
             next_consume_ticket_seq: old.next_consume_ticket_seq,
             next_consume_directive_seq: old.next_consume_directive_seq,
+            finality_blocks: None,
             handled_evm_event: old.handled_evm_event,
             tickets_queue: old.tickets_queue,
             directives_queue: old.directives_queue,

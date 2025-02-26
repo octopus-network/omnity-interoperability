@@ -6,13 +6,14 @@ use cketh_common::eth_rpc_client::providers::RpcApi;
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_cdk::api::is_controller;
 use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 
 use crate::{get_time_secs, hub};
-use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, SEND_EVM_TASK_NAME};
+use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, PERIODIC_TASK_INTERVAL, SEND_EVM_TASK_NAME};
 use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::hub_to_route::{process_directives, process_tickets};
@@ -54,9 +55,15 @@ fn update_consume_directive_seq(seq: Seq) {
     mutate_state(|s| s.next_consume_directive_seq = seq);
 }
 
+
+#[update(guard = "is_admin")]
+fn set_finality_blocks(b: u64) {
+    mutate_state(|s| s.finality_blocks = Some(b));
+}
+
 fn start_tasks() {
-    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), bridge_ticket_to_evm_task);
-    set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);
+    set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), bridge_ticket_to_evm_task);
+    set_timer_interval(Duration::from_secs(PERIODIC_TASK_INTERVAL), scan_evm_task);
 }
 
 pub fn bridge_ticket_to_evm_task() {
@@ -230,6 +237,9 @@ fn is_admin() -> Result<(), String> {
 
 fn is_monitor() -> Result<(), String> {
     let c = ic_cdk::caller();
+    if is_controller(&c) {
+        return Ok(())
+    }
     match c == Principal::from_text(MONITOR_PRINCIPAL).unwrap() {
         true => Ok(()),
         false => Err("permission deny".to_string()),

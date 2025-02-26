@@ -21,17 +21,18 @@ use crate::runes_etching::fee_calculator::{
 use crate::runes_etching::fees::Fees;
 use crate::runes_etching::icp_swap::estimate_etching_fee;
 use crate::runes_etching::transactions::EtchingStatus::{SendCommitFailed, SendCommitSuccess};
-use crate::runes_etching::wallet::builder::EtchingTransactionArgs;
+use crate::runes_etching::wallet::builder::{EtchingKey, EtchingTransactionArgs};
 use crate::runes_etching::wallet::{CreateCommitTransactionArgsV2, Runestone};
 use crate::runes_etching::{
     EtchingArgs, InternalEtchingArgs, LogoParams, Nft, OrdResult, OrdTransactionBuilder,
     SignCommitTransactionArgs, Utxo,
 };
+use crate::runes_etching::topup::topup;
 use crate::state::{mutate_state, read_state};
 use crate::updates::etching::init_etching_account_info;
 use crate::updates::get_btc_address::GetBtcAddressArgs;
 
-#[derive(Serialize, Deserialize, Clone, Default, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct SendEtchingRequest {
     pub etching_args: InternalEtchingArgs,
     pub txs: Vec<Transaction>,
@@ -56,11 +57,12 @@ impl From<SendEtchingRequest> for SendEtchingInfo {
             time_at: value.commit_at,
             script_out_address: value.script_out_address,
             status: value.status,
+            receiver: value.etching_args.premine_receiver_principal,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Default, Debug, Eq, PartialEq, CandidType)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, CandidType)]
 pub struct SendEtchingInfo {
     pub etching_args: EtchingArgs,
     pub commit_txid: String,
@@ -69,6 +71,7 @@ pub struct SendEtchingInfo {
     pub time_at: u64,
     pub script_out_address: String,
     pub status: EtchingStatus,
+    pub receiver: String,
 }
 
 impl Storable for SendEtchingRequest {
@@ -86,9 +89,9 @@ impl Storable for SendEtchingRequest {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-#[derive(Serialize, Deserialize, Clone, Default, Debug, Eq, PartialEq, CandidType)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, CandidType)]
 pub enum EtchingStatus {
-    #[default]
+    Initial,
     SendCommitSuccess,
     SendCommitFailed,
     SendRevealSuccess,
@@ -169,6 +172,63 @@ pub async fn etching_rune(
         });
     }
     Ok((send_res, allowance))
+}
+
+
+pub async fn etching_rune_v2(
+    fee_rate: u64,
+    args: &InternalEtchingArgs,
+) -> anyhow::Result<SendEtchingRequest> {
+    let (_, reveal_size) =
+        estimate_tx_vbytes(args.rune_name.as_str(), args.logo.clone()).await?;
+    let vins = select_utxos(fee_rate, reveal_size as u64 + FIXED_COMMIT_TX_VBYTES)?;
+    log!(INFO, "selected fee utxos: {:?}", vins);
+    let commit_size = vins.len() as u64 * INPUT_SIZE_VBYTES + FIXED_COMMIT_TX_VBYTES;
+    let fee = Fees {
+        commit_fee: Amount::from_sat(commit_size * fee_rate),
+        reveal_fee: Amount::from_sat(reveal_size as u64 * fee_rate + POSTAGE * 2),
+    };
+    let result = generate_etching_transactions(fee, vins.clone(), args)
+        .await
+        .map_err(|e| {
+            mutate_state(|s| {
+                for in_utxo in vins.clone() {
+                    s.etching_fee_utxos
+                        .push(&in_utxo)
+                        .expect("retire utxo failed");
+                }
+            });
+            e
+        })?;
+    let mut send_res = SendEtchingRequest {
+        etching_args: args.clone(),
+        txs: result.txs.clone(),
+        err_info: None,
+        commit_at: ic_cdk::api::time(),
+        reveal_at: 0,
+        script_out_address: result.script_out_address.clone(),
+        status: SendCommitSuccess,
+    };
+    if let Err(e) = crate::management::send_etching(&result.txs[0]).await {
+        send_res.status = SendCommitFailed;
+        send_res.err_info = Some(e);
+    }
+    //修改fee utxo列表
+    if send_res.status == SendCommitSuccess {
+        //insert_utxo
+        if let Some(u) = find_commit_remain_fee(&send_res.txs.first().cloned().unwrap()) {
+            let _ = mutate_state(|s| s.etching_fee_utxos.push(&u));
+        }
+    } else {
+        mutate_state(|s| {
+            for in_utxo in vins {
+                s.etching_fee_utxos
+                    .push(&in_utxo)
+                    .expect("retire utxo failed1");
+            }
+        });
+    }
+    Ok(send_res)
 }
 
 pub async fn generate_etching_transactions(
@@ -360,6 +420,30 @@ pub async fn estimate_tx_vbytes(
         })
         .await?;
     Ok((commit_tx.unsigned_tx.vsize(), reveal_transaction.vsize()))
+}
+
+
+pub async fn stash_etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
+    let space_rune = SpacedRune::from_str(args.rune_name.as_str()).map_err(|e| e.to_string())?;
+    check_name_duplication(space_rune.rune)?;
+    let caller = caller();
+    args.check().map_err(|e| e.to_string())?;
+    let (commit_tx_size, reveal_size) =
+        estimate_tx_vbytes(args.rune_name.as_str(), args.logo.clone()).await.map_err(|e|e.to_string())?;
+   let icp_fee_amt = estimate_etching_fee(fee_rate, (commit_tx_size + reveal_size) as u128)
+        .await
+        .map_err(|e| e.to_string())?;
+    let allowance = check_allowance(icp_fee_amt as u64).await.map_err(|e|e.to_string())?;
+    let _ = transfer_etching_fees(allowance as u128).await.map_err(|e|e.to_string())?;
+    let r = topup(allowance).await;
+    log!(INFO, "etching topup result:{:?}", r);
+    let internal_args: InternalEtchingArgs = (args.clone(), caller).into();
+    let etching_key = format!("Bitcoin-runes-{}", args.rune_name);
+    mutate_state(|s|{
+        s.stash_etchings.insert(etching_key.clone(), internal_args);
+        s.stash_etching_ids.push(&EtchingKey::new(etching_key.clone()));
+    });
+    Ok(etching_key)
 }
 
 pub async fn internal_etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
