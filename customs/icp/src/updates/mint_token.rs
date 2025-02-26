@@ -156,6 +156,9 @@ pub async fn unlock_icp(req: &MintTokenRequest) -> Result<u64, MintTokenError> {
     if get_finalized_mint_token_request(&req.ticket_id).is_some() {
         return Err(MintTokenError::AlreadyProcessed(req.ticket_id.clone()));
     }
+    if ICP_TRANSFER_FEE >= convert_u128_u64(req.amount) {
+        return Err(MintTokenError::CustomError("Amount is less than or eq fee".to_string()));
+    }
     let transfer_args = ic_ledger_types::TransferArgs {
         memo: ic_ledger_types::Memo(0),
         amount: Tokens::from_e8s(convert_u128_u64(req.amount) - ICP_TRANSFER_FEE),
@@ -209,6 +212,9 @@ async fn mint(ledger_id: Principal, amount: u128, to: Account) -> Result<u64, Mi
         MintTokenError::CustomError(
             format!("Failed to get icrc fee, error: {:?}", e).to_string(), 
     ))?;
+    if fee >= amount  {
+        return Err(MintTokenError::CustomError("Amount is less than or eq fee".to_string()));
+    }
     let block_index = client
         .transfer(TransferArg {
             from_subaccount: None,
@@ -225,5 +231,7 @@ async fn mint(ledger_id: Principal, amount: u128, to: Account) -> Result<u64, Mi
                 msg, code
             ))
         })??;
-    Ok(block_index.0.to_u64().expect("nat does not fit into u64"))
+    Ok(block_index.0.to_u64().ok_or(
+        MintTokenError::CustomError("Failed to convert block index to u64".to_string())
+    )?)
 }
