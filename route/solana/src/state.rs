@@ -384,7 +384,7 @@ pub struct SolanaRouteState {
     pub gen_ticket_reqs: StableBTreeMap<TicketId, GenerateTicketReq, Memory>,
     #[serde(skip, default = "crate::memory::init_seed")]
     pub seeds: StableBTreeMap<String, [u8; 64], Memory>,
-    #[serde(skip_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub solana_client: Option<SolanaClient>
 }
 
