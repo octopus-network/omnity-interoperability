@@ -16,11 +16,11 @@ pub fn vault_address() -> (Pubkey, u8) {
 #[derive(Deserialize)]
 pub struct ParsedValue {
     pub accounts: Vec<String>,
-    #[serde(deserialize_with = "decode_base64")]
+    #[serde(deserialize_with = "decode_base58")]
     pub data: Vec<u8>,
 }
 
-fn decode_base64<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+fn decode_base58<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where
     D: Deserializer<'de>,
 {

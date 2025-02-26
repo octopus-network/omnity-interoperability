@@ -11,14 +11,19 @@ type ChainState = variant { Active; Deactive };
 type ChainType = variant { SettlementChain; ExecutionChain };
 type CustomArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type GenTicketStatus = variant { Finalized : GenerateTicketArgs; Unknown };
-type GenerateTicketArgs = record { signature : text; token_id : text };
+type GenerateTicketArgs = record {
+  signature : text;
+  token_id : text;
+  target_chain_id : text;
+  amount : nat64;
+  receiver : text;
+};
 type GenerateTicketError = variant {
   SendTicketErr : text;
   RpcError : text;
   TemporarilyUnavailable : text;
   AlreadyProcessed;
   DecodeTxError : text;
-  TxHasNoTransports;
   MismatchWithGenTicketReq;
   UnsupportedChainId : text;
   UnsupportedToken : text;
@@ -34,10 +39,14 @@ type InitArgs = record {
   forward : opt text;
   min_response_count : nat32;
 };
-type ReleaseTokenStatus = variant { Finalized; Unknown; Submitted; Pending };
+type ReleaseTokenStatus = variant {
+  Finalized : text;
+  Unknown;
+  Submitted : text;
+  Pending;
+};
 type Result = variant { Ok; Err : GenerateTicketError };
-type Result_1 = variant { Ok : text; Err : text };
-type Result_2 = variant { Ok; Err : text };
+type Result_1 = variant { Ok; Err : text };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -57,10 +66,9 @@ service : (CustomArg) -> {
   generate_ticket : (GenerateTicketArgs) -> (Result);
   generate_ticket_status : (text) -> (GenTicketStatus) query;
   get_chain_list : () -> (vec Chain) query;
-  get_fee_address : () -> (text);
+  get_payer_address : () -> (text);
   get_token_list : () -> (vec Token) query;
-  init_port : () -> (Result_1);
-  redeem_from_fee_address : (text, nat64) -> (Result_2);
+  redeem_from_fee_address : (text, nat64) -> (Result_1);
   release_token_status : (text) -> (ReleaseTokenStatus) query;
-  resubmit_release_token_tx : (text) -> (Result_2);
+  resubmit_release_token_tx : (text) -> (Result_1);
 }

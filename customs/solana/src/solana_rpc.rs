@@ -1,5 +1,5 @@
 use crate::{
-    address::fee_address_path,
+    address::payer_address_path,
     call_error::{CallError, Reason},
     port_native::{self, instruction::InstSerialize, port_address, vault_address},
     state::{mutate_state, read_state},
@@ -113,7 +113,7 @@ pub async fn init_solana_client() -> SolanaClient {
     let (schnorr_key_name, sol_canister) =
         read_state(|s| (s.schnorr_key_name.to_owned(), s.sol_canister));
 
-    let derived_path = fee_address_path();
+    let derived_path = payer_address_path();
     let forward: Option<String> = read_state(|s| s.forward.clone());
     let client = SolanaClient {
         sol_canister_id: sol_canister,

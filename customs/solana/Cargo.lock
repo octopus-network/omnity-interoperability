@@ -930,6 +930,7 @@ dependencies = [
 [[package]]
 name = "ic-solana"
 version = "0.1.0"
+source = "git+https://github.com/octopus-network/ic-solana/?branch=feature%2Fmetaplex#f83fb485e8a31d8f0e394e96c569399ca94187f9"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

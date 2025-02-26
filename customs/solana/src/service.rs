@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::{
-    address::fee_address_path,
+    address::payer_address_path,
     lifecycle::{self, init::CustomArg, upgrade::UpgradeArgs},
     process_directive_msg_task, process_release_token_task, process_ticket_msg_task,
     solana_rpc::{self, init_solana_client},
@@ -74,8 +74,8 @@ fn post_upgrade(args: Option<CustomArg>) {
 }
 
 #[update]
-async fn get_fee_address() -> String {
-    let pk = solana_rpc::ecdsa_public_key(fee_address_path()).await;
+async fn get_payer_address() -> String {
+    let pk = solana_rpc::ecdsa_public_key(payer_address_path()).await;
     pk.to_string()
 }
 
@@ -150,9 +150,14 @@ fn get_token_list() -> Vec<Token> {
     read_state(|s| s.tokens.iter().map(|(_, token)| token.clone()).collect())
 }
 
-#[update(guard = "is_controller")]
+#[update(guard = "is_controller", hidden = true)]
 async fn init_port() -> Result<String, String> {
     solana_rpc::init_port().await
+}
+
+#[update(guard = "is_controller", hidden = true)]
+async fn update_port_program(program: String) {
+    mutate_state(|s| s.port_program_id = Pubkey::from_str(&program).unwrap())
 }
 
 #[update(guard = "is_controller", hidden = true)]

@@ -19,7 +19,10 @@ use std::borrow::Cow;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketArgs {
+    pub target_chain_id: String,
+    pub receiver: String,
     pub token_id: String,
+    pub amount: u64,
     pub signature: String,
 }
 
@@ -44,7 +47,6 @@ pub enum GenerateTicketError {
     TemporarilyUnavailable(String),
     SendTicketErr(String),
     RpcError(String),
-    TxHasNoTransports,
     MismatchWithGenTicketReq,
     UnsupportedChainId(ChainId),
     UnsupportedToken(TokenId),
@@ -56,6 +58,16 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
+        ));
+    }
+
+    if !read_state(|s| {
+        s.counterparties
+            .get(&args.target_chain_id)
+            .is_some_and(|c| c.chain_state == ChainState::Active)
+    }) {
+        return Err(GenerateTicketError::UnsupportedChainId(
+            args.target_chain_id.clone(),
         ));
     }
 
@@ -72,44 +84,30 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         Err(err) => return Err(GenerateTicketError::RpcError(err)),
     };
 
-    let transports = parse_transport(tx)?;
-    if transports.is_empty() {
-        return Err(GenerateTicketError::TxHasNoTransports);
+    let transport = parse_transport(tx, &args.target_chain_id, &args.receiver)?;
+    if transport.raw.amount != args.amount {
+        return Err(GenerateTicketError::MismatchWithGenTicketReq);
     }
 
     let (chain_id, hub_principal) = read_state(|s| (s.chain_id.clone(), s.hub_principal));
-    for transport in transports {
-        let target_chain = transport.raw.target_chain;
-        if !read_state(|s| {
-            s.counterparties
-                .get(&target_chain)
-                .is_some_and(|c| c.chain_state == ChainState::Active)
-        }) {
-            return Err(GenerateTicketError::UnsupportedChainId(
-                target_chain.clone(),
-            ));
-        }
-
-        // TODO merge transport, add batch_send_tickets for hub
-        hub::send_ticket(
-            hub_principal,
-            Ticket {
-                ticket_id: args.signature.clone(),
-                ticket_type: TicketType::Normal,
-                ticket_time: ic_cdk::api::time(),
-                src_chain: chain_id.clone(),
-                dst_chain: target_chain.clone(),
-                action: TxAction::Transfer,
-                token: args.token_id.clone(),
-                amount: transport.raw.amount.to_string(),
-                sender: Some(transport.sender),
-                receiver: transport.raw.recipient,
-                memo: None,
-            },
-        )
-        .await
-        .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
-    }
+    hub::send_ticket(
+        hub_principal,
+        Ticket {
+            ticket_id: args.signature.clone(),
+            ticket_type: TicketType::Normal,
+            ticket_time: ic_cdk::api::time(),
+            src_chain: chain_id.clone(),
+            dst_chain: args.target_chain_id.clone(),
+            action: TxAction::Transfer,
+            token: args.token_id.clone(),
+            amount: args.amount.to_string(),
+            sender: Some(transport.sender),
+            receiver: args.receiver.clone(),
+            memo: None,
+        },
+    )
+    .await
+    .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
 
     mutate_state(|s| {
         s.finalized_gen_tickets.insert(args.signature.clone(), args);
@@ -122,10 +120,13 @@ struct TransportWithSender {
     sender: String,
 }
 
-fn parse_transport(tx: Transaction) -> Result<Vec<TransportWithSender>, GenerateTicketError> {
+fn parse_transport(
+    tx: Transaction,
+    target_chain: &String,
+    receiver: &String,
+) -> Result<TransportWithSender, GenerateTicketError> {
     let (port, _) = port_address();
     let (vault, _) = vault_address();
-    let mut result = vec![];
     for inst in tx.message.instructions {
         if inst.program_id != read_state(|s| s.port_program_id.to_string()) {
             continue;
@@ -143,12 +144,14 @@ fn parse_transport(tx: Transaction) -> Result<Vec<TransportWithSender>, Generate
                 let transport = Transport::try_from_slice(&value.data[8..])
                     .map_err(|err| GenerateTicketError::DecodeTxError(err.to_string()))?;
 
-                result.push(TransportWithSender {
-                    raw: transport,
-                    sender: accounts[2].clone(),
-                });
+                if transport.target_chain.eq(target_chain) && transport.recipient.eq(receiver) {
+                    return Ok(TransportWithSender {
+                        sender: accounts[2].clone(),
+                        raw: transport,
+                    });
+                }
             }
         }
     }
-    Ok(result)
+    Err(GenerateTicketError::MismatchWithGenTicketReq)
 }
