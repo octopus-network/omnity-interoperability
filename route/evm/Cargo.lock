@@ -1268,6 +1268,7 @@ dependencies = [
  "itertools 0.12.1",
  "k256",
  "num-traits",
+ "scopeguard",
  "serde",
  "serde_bytes",
  "serde_derive",
