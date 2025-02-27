@@ -81,11 +81,6 @@ pub async fn generate_ticket(
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     log!(DEBUG, "[generate_ticket] generate_ticket req: {:#?}", req);
 
-    mutate_state(|s| {
-        s.gen_ticket_reqs
-            .insert(req.signature.to_owned(), req.to_owned())
-    });
-
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
@@ -108,11 +103,6 @@ pub async fn generate_ticket(
         ));
     }
 
-    // if !matches!(req.action, TxAction::Redeem) {
-    //     return Err(GenerateTicketError::UnsupportedAction(
-    //         "[generate_ticket] Transfer action is not supported".into(),
-    //     ));
-    // }
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.to_owned()));
 
@@ -170,8 +160,7 @@ pub async fn generate_ticket(
                 "[generate_ticket] successful to send ticket: {:?}",
                 ticket
             );
-            // remove the req
-            mutate_state(|s| s.gen_ticket_reqs.remove(&req.signature.to_owned()));
+ 
             Ok(GenerateTicketOk {
                 ticket_id: req.signature.to_string(),
             })
