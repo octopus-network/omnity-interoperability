@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use crate::call_error::{CallError, Reason};
 use crate::constants::FINALIZE_LOCK_TICKET_NAME;
 use crate::generate_ticket::GenerateTicketError::InvalidArgs;
@@ -86,23 +87,73 @@ pub async fn check_transaction(
     }
 }
 
+pub async fn query_bitcoin_tip() -> Result<u64, GenerateTicketError > {
+    let nw = read_state(|s| s.btc_network);
+    let network_str = match nw {
+        Network::Mainnet => "".to_string(),
+        Network::Testnet => "testnet/".to_string(),
+        Network::Regtest => {
+            panic!("unsupported network")
+        }
+    };
+    const MAX_CYCLES: u128 = 10_000_000_000;
+    let url = format!("https://mempool.space/{}api/blocks/tip/height", network_str);
+    let request = CanisterHttpRequestArgument {
+        url: url.to_string(),
+        method: HttpMethod::GET,
+        body: None,
+        max_response_bytes: Some(100),
+        transform: Some(TransformContext {
+            function: TransformFunc(candid::Func {
+                principal: ic_cdk::api::id(),
+                method: "transform".to_string(),
+            }),
+            context: vec![],
+        }),
+        headers: vec![HttpHeader {
+            name: "Content-Type".to_string(),
+            value: "application/json".to_string(),
+        }],
+    };
+    match http_request(request, MAX_CYCLES).await {
+        Ok((response,)) => {
+            let status = response.status;
+            if status == 200_u32 {
+                let body = String::from_utf8(response.body).map_err(|_| {
+                    GenerateTicketError::RpcError(
+                        "Transformed response is not UTF-8 encoded".to_string(),
+                    )
+                })?;
+                log!(INFO, "tx content: {}", &body);
+                u64::from_str(body.as_str()).map_err(|e|GenerateTicketError::RpcError(e.to_string()))
+            } else {
+                Err(GenerateTicketError::RpcError(
+                    "http response not 200".to_string(),
+                ))
+            }
+        }
+        Err((_, m)) => Err(GenerateTicketError::RpcError(m)),
+    }
+
+}
+
 pub async fn query_transaction(txid: &String) -> Result<TxInfo, GenerateTicketError> {
     let nw = read_state(|s| s.btc_network);
     let network_str = match nw {
         Network::Mainnet => "".to_string(),
-        Network::Testnet => "testnet".to_string(),
+        Network::Testnet => "testnet/".to_string(),
         Network::Regtest => {
             panic!("unsupported network")
         }
     };
     const MAX_CYCLES: u128 = 60_000_000_000;
-    let url = format!("https://mempool.space/{}/api/tx/{}", network_str, txid);
+    let url = format!("https://mempool.space/{}api/tx/{}", network_str, txid);
 
     let request = CanisterHttpRequestArgument {
         url: url.to_string(),
         method: HttpMethod::GET,
         body: None,
-        max_response_bytes: None,
+        max_response_bytes: Some(10000),
         transform: Some(TransformContext {
             function: TransformFunc(candid::Func {
                 principal: ic_cdk::api::id(),

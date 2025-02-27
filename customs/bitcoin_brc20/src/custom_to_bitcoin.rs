@@ -11,7 +11,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::bitcoin_to_custom::query_transaction;
+use crate::bitcoin_to_custom::{query_bitcoin_tip, query_transaction};
 use crate::call_error::CallError;
 use crate::constants::{
     FINALIZE_UNLOCK_TICKET_NAME, FIXED_COMMIT_TX_VBYTES, INPUT_SIZE_VBYTES, OUTPUT_SIZE_VBYTES,
@@ -123,33 +123,44 @@ pub async fn finalize_flight_unlock_tickets() {
             s.min_confirmations as u32,
         )
     });
+    let Ok(tip_height) = query_bitcoin_tip().await  else {
+        return;
+    };
     for (seq, send_result) in can_check_finalizations.clone() {
         let need_check_tx = send_result.txs.last().cloned().unwrap();
         let transfer_txid = need_check_tx.txid().to_string();
         let tx = query_transaction(&transfer_txid).await;
         match tx {
             Ok(t) => {
-                if t.status.confirmed {
-                    mutate_state(|s| {
-                        let r = s.flight_unlock_ticket_map.remove(&seq).unwrap();
-                        let reveal_utxo_index = format!("{}:0", r.txs[1].txid());
-                        s.reveal_utxo_index.remove(&reveal_utxo_index);
-                        s.finalized_unlock_ticket_map.insert(seq, r);
-                    });
-                    let (hub_principal, ticket) =
-                        read_state(|s| (s.hub_principal, s.tickets_queue.get(&seq).unwrap()));
-                    if let Err(err) =
-                        update_tx_hash(hub_principal, ticket.ticket_id, transfer_txid).await
-                    {
-                        log!(
-                            CRITICAL,
-                            "[rewrite tx_hash] failed to write brc20 release tx hash, reason: {}",
-                            err
-                        );
-                    } else {
-                        log!(INFO, "unlock ticket finalize success! ticket: {}", seq);
-                    }
+                if !t.status.confirmed {
+                    continue;
                 }
+                let Some(blk) = t.status.block_height else {
+                    continue;
+                };
+                if tip_height - blk < 6 {
+                    continue;
+                }
+                mutate_state(|s| {
+                    let r = s.flight_unlock_ticket_map.remove(&seq).unwrap();
+                    let reveal_utxo_index = format!("{}:0", r.txs[1].txid());
+                    s.reveal_utxo_index.remove(&reveal_utxo_index);
+                    s.finalized_unlock_ticket_map.insert(seq, r);
+                });
+                let (hub_principal, ticket) =
+                    read_state(|s| (s.hub_principal, s.tickets_queue.get(&seq).unwrap()));
+                if let Err(err) =
+                    update_tx_hash(hub_principal, ticket.ticket_id, transfer_txid).await
+                {
+                    log!(
+                        CRITICAL,
+                        "[rewrite tx_hash] failed to write brc20 release tx hash, reason: {}",
+                        err
+                    );
+                } else {
+                    log!(INFO, "unlock ticket finalize success! ticket: {}", seq);
+                }
+
             }
             Err(e) => {
                 log!(ERROR, "confirm flight ticket error: {:?}", e);
