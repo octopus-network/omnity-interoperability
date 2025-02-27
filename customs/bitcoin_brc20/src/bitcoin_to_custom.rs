@@ -196,6 +196,14 @@ pub async fn finalize_lock(
             let query = query_indexed_transfer(args).await;
             if let Ok(Some(t)) = query {
                 //Check success
+                if !t.valid {
+                    log!(
+                    WARNING,
+                    "transfer invalid , will retry. {}",
+                    serde_json::to_string(&gen_ticket_request).unwrap()
+                    );
+                    return;
+                }
                 //FINALIZED TO HUB:
                 let hub_principal = read_state(|s| s.hub_principal);
                 let _r = hub::finalize_ticket(hub_principal, gen_ticket_request.txid.to_string())
