@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use candid::CandidType;
 use ic_stable_structures::Storable;
@@ -70,6 +71,7 @@ pub struct TokenResp {
     pub icon: Option<String>,
     pub rune_id: Option<String>,
     pub evm_contract: Option<String>,
+    pub metadata: HashMap<String, String>,
 }
 
 impl From<Token> for TokenResp {
@@ -80,6 +82,7 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").cloned(),
+            metadata: value.metadata,
             evm_contract: None,
         }
     }

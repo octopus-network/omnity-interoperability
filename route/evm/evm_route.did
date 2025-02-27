@@ -135,6 +135,7 @@ type Token = record {
 type TokenResp = record {
   decimals : nat8;
   token_id : text;
+  metadata : vec record { text; text };
   icon : opt text;
   evm_contract : opt text;
   rune_id : opt text;

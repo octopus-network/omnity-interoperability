@@ -589,15 +589,7 @@ impl core::fmt::Display for FeeTokenFactor {
     }
 }
 
-#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
-pub struct TokenResp {
-    pub token_id: TokenId,
-    pub symbol: String,
-    pub decimals: u8,
-    pub icon: Option<String>,
-    pub rune_id: Option<String>,
-    pub evm_contract: Option<String>,
-}
+
 
 /// chain id spec:
 /// for settlement chain, the chain id is: Bitcoin, Ethereum,or ICP
@@ -799,6 +791,18 @@ pub enum MintTokenStatus {
     Unknown,
 }
 
+
+#[derive(CandidType, Clone, Debug, Serialize, Deserialize)]
+pub struct TokenResp {
+    pub token_id: TokenId,
+    pub symbol: String,
+    pub decimals: u8,
+    pub icon: Option<String>,
+    pub rune_id: Option<String>,
+    pub evm_contract: Option<String>,
+    pub metadata: HashMap<String, String>,
+}
+
 impl From<Token> for TokenResp {
     fn from(value: Token) -> Self {
         TokenResp {
@@ -807,11 +811,11 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").cloned(),
+            metadata: value.metadata,
             evm_contract: None,
         }
     }
 }
-
 #[derive(CandidType, Clone, Copy, Deserialize, Debug, Eq, PartialEq, Serialize, Hash)]
 pub enum Network {
     #[serde(rename = "local")]
