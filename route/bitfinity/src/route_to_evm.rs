@@ -72,8 +72,11 @@ pub async fn send_tickets_to_evm() {
 
             }
         }
+        let _ = scopeguard::guard((), |_| {
+            mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
+        });
     }
-    mutate_state(|s| s.next_consume_ticket_seq = to);
+
 }
 
 pub async fn send_ticket(seq: Seq) -> Result<Option<String>, BitfinityRouteError>  {
