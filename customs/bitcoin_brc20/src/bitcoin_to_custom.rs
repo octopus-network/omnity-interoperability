@@ -213,7 +213,9 @@ pub async fn finalize_lock(
                     });
                 mutate_state(|s| {
                     let v = s.pending_lock_ticket_requests.remove(&txid);
-                    s.finalized_lock_ticket_requests.insert(txid, v.unwrap());
+                    if v.is_some() {
+                        s.finalized_lock_ticket_requests.insert(txid, v.unwrap());
+                    }
                 });
                 log!(INFO, "lock ticket finalized:{:?}", t);
             } else {
