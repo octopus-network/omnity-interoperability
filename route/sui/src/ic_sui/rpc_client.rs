@@ -284,12 +284,6 @@ impl RpcClient {
             value: idempotency_key,
         });
 
-        //TODO: get api key from config
-        headers.push(HttpHeader {
-            name: "api-key".to_string(),
-            value: "c358082d-9e68-43da-a0fb-6f7240d01136".to_string(),
-        });
-
         // add forward address
         if let Some(forward) = forward {
             headers.push(HttpHeader {
@@ -297,25 +291,6 @@ impl RpcClient {
                 value: forward,
             });
         }
-
-        // headers.push(HttpHeader {
-        //     name: CLIENT_SDK_TYPE_HEADER.to_string(),
-        //     value: CLIENT_VERSION.to_string(),
-        // });
-        // headers.push(HttpHeader {
-        //     name: CLIENT_TARGET_API_VERSION_HEADER.to_string(),
-        //     value: CLIENT_VERSION.to_string(),
-        // });
-        // headers.push(HttpHeader {
-        //     name: CLIENT_SDK_VERSION_HEADER.to_string(),
-        //     value: CLIENT_VERSION.to_string(),
-        // });
-
-        // log!(
-        //     DEBUG,
-        //     "ic-sui::rpc_client::call: http header: {:?}",
-        //     headers
-        // );
 
         let request = CanisterHttpRequestArgument {
             url: self.provider.url().to_string(),
