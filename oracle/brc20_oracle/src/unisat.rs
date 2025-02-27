@@ -118,7 +118,7 @@ impl From<Brc20Event> for Brc20TransferEvent {
             amout: value.amount,
             from: value.from,
             to: value.to,
-            valid: true,
+            valid: value.valid,
             height: value.height as u64,
         }
     }
