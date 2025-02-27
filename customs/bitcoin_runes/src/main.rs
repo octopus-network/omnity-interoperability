@@ -213,7 +213,7 @@ pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String>
         if high == 0 {
             5
         }else {
-            high + 2
+            high
         }
     });
     internal_etching(fee_rate, args).await
@@ -221,7 +221,15 @@ pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String>
 
 #[update(guard = "is_controller")]
 pub async fn etching_v2(args: EtchingArgs) -> Result<String, String> {
-    stash_etching(5, args).await
+    let fee_rate = read_state(|s|{
+        let high = s.bitcoin_fee_rate.high;
+        if high == 0 {
+            5
+        }else {
+            high
+        }
+    });
+    stash_etching(fee_rate, args).await
 }
 
 #[update(guard = "is_controller")]
