@@ -74,7 +74,9 @@ pub async fn send_tickets_to_evm() {
                 }
             },
         }
-        mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
+        let _ = scopeguard::guard((), |_| {
+            mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
+        });
     }
 }
 

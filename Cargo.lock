@@ -526,6 +526,7 @@ dependencies = [
  "k256 0.13.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits",
  "omnity_types",
+ "scopeguard",
  "serde",
  "serde_bytes",
  "serde_derive",
