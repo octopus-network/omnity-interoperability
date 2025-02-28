@@ -209,19 +209,18 @@ pub fn query_failed_tickets() -> Vec<Ticket> {
 }
 
 #[update(guard = "is_controller")]
-pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
-    let tickets_sz = read_state(|s| s.failed_tickets.len());
-    while !read_state(|s| s.failed_tickets.is_empty()) {
-        let ticket = mutate_state(|rs| rs.failed_tickets.pop()).unwrap();
+pub async fn resend_ticket(ticket_id: String) -> Result<(), GenerateTicketError> {
 
-        let hub_principal = read_state(|s| (s.hub_principal));
+    let (failed_tickets, hub_principal) = read_state(|s| (
+        s.failed_tickets.clone(), s.hub_principal.clone()
+    ));
+
+    if let Some(ticket) = failed_tickets.iter().find(|t| t.ticket_id.eq(&ticket_id)) {
+
         if let Err(err) = hub::send_ticket(hub_principal, ticket.clone())
             .await
             .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))
         {
-            mutate_state(|state| {
-                state.failed_tickets.push(ticket.clone());
-            });
             log!(
                 ERROR,
                 "failed to resend ticket: {}, error: {:?}",
@@ -229,10 +228,22 @@ pub async fn resend_tickets() -> Result<(), GenerateTicketError> {
                 err
             );
             return Err(err);
+        } else {
+            mutate_state(
+                |state| {
+                    state.failed_tickets.retain(|e| e.ticket_id.ne(&ticket_id));
+                }
+            );
+            log!(
+                INFO,
+                "success to resend ticket{}.",
+                ticket.ticket_id
+            )
         }
-    }
-    log!(INFO, "successfully resend {} tickets", tickets_sz);
-    Ok(())
+    } 
+
+    return Ok(())
+  
 }
 
 #[query]

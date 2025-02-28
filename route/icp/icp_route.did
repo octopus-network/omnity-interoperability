@@ -131,6 +131,6 @@ service : (RouteArg) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   query_failed_tickets : () -> (vec Ticket) query;
   remove_controller : (principal, principal) -> (Result);
-  resend_tickets : () -> (Result_2);
+  resend_ticket : (text) -> (Result_2);
   update_icrc_ledger : (principal, UpgradeArgs) -> (Result);
 }
