@@ -877,8 +877,10 @@ async fn finalize_rune_txs() {
                     fee_per_vbyte: Some(tx_fee_per_vbyte),
                 };
 
-                state::mutate_state(|s| {
-                    state::audit::replace_transaction(s, old_txid, new_tx);
+                let  _ = scopeguard::guard((), |_| {
+                    state::mutate_state(|s| {
+                        state::audit::replace_transaction(s, old_txid, new_tx);
+                    });
                 });
             }
             Err(err) => {
