@@ -758,14 +758,21 @@ impl CustomsState {
         let mut tx_amount = 0;
         let requests = self.pending_rune_tx_requests.entry(rune_id).or_default();
 
+
         if let Some(pos) = requests.iter().position(|req| req.action == TxAction::Mint) {
-            let req = requests.remove(pos);
-            batch.push(req);
-            return batch;
+            let rand_number :u64 = rand::random();
+            if rand_number/100u64 < 50 {
+                let req = requests.remove(pos);
+                batch.push(req);
+                return batch;
+            }
         }
 
         let mut edicts = vec![];
         for req in std::mem::take(requests) {
+            if req.action == TxAction::Mint {
+                continue;
+            }
             edicts.push(Edict {
                 id: req.rune_id.into(),
                 amount: req.amount,
@@ -791,8 +798,16 @@ impl CustomsState {
                 batch.push(req.clone());
             }
         }
+        if !batch.is_empty() {
+            return batch;
+        }
 
+        if let Some(pos) = requests.iter().position(|req| req.action == TxAction::Mint) {
+            let req = requests.remove(pos);
+            batch.push(req);
+        }
         batch
+
     }
 
     /// Returns the total number of all rune tx requests that we haven't
