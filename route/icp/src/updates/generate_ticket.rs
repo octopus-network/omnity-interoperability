@@ -1,5 +1,5 @@
 use crate::state::{audit, mutate_state, read_state};
-use crate::{hub, ICP_TRANSFER_FEE};
+use crate::{hub, FEE_COLLECTOR_SUB_ACCOUNT, ICP_TRANSFER_FEE};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use ic_crypto_sha2::Sha256;
 use ic_ledger_types::{
@@ -285,7 +285,7 @@ pub async fn charge_icp_fee_by_icrc(
             from: user, 
             to: Account { 
                 owner: route, 
-                subaccount: None 
+                subaccount: Some(FEE_COLLECTOR_SUB_ACCOUNT.clone()) 
             },
             amount: Nat::from(redeem_fee), 
             fee: None, 
