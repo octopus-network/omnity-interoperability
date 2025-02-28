@@ -52,6 +52,9 @@ impl From<GuardError> for GenerateTicketError {
             GuardError::TooManyConcurrentRequests => {
                 Self::TemporarilyUnavailable("too many concurrent requests".to_string())
             }
+            GuardError::KeyIsHandling => {
+                Self::TemporarilyUnavailable("The same txid is handling".to_string())
+            }
         }
     }
 }
@@ -71,7 +74,7 @@ pub async fn generate_ticket(
     }
 
     init_ecdsa_public_key().await;
-    let _guard = generate_ticket_guard()?;
+    let _guard = generate_ticket_guard(args.txid.clone())?;
 
     let rune_id = RuneId::from_str(&args.rune_id)
         .map_err(|e| GenerateTicketError::InvalidRuneId(e.to_string()))?;

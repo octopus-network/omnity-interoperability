@@ -8,6 +8,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, VecDeque},
 };
+use std::collections::HashMap;
 
 pub mod audit;
 pub mod eventlog;
@@ -346,6 +347,9 @@ pub struct CustomsState {
     pub bitcoin_fee_rate: BitcoinFeeRate,
 
     pub rpc_url: Option<String>,
+
+    #[serde(skip)]
+    pub generating_txids: BTreeSet<String>,
 
     /// Process one timer event at a time.
     #[serde(skip)]
@@ -1288,6 +1292,7 @@ impl From<InitArgs> for CustomsState {
             icpswap_principal: None,
             etching_fee_utxos: crate::storage::init_etching_fee_utxos(),
             stash_etching_ids: crate::storage::init_stash_etching_ids(),
+            generating_txids: Default::default(),
         }
     }
 }
