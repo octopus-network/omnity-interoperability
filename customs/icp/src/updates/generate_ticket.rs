@@ -11,7 +11,7 @@ use serde::Serialize;
 use ic_canister_log::log;
 use omnity_types::ic_log::INFO;
 
-use crate::{hub, state::{get_counterparty, get_token_principal, is_icp, read_state}, utils::convert_u128_u64, ICP_TRANSFER_FEE};
+use crate::{hub, state::{get_counterparty, get_token_principal, is_icp, mutate_state, read_state}, utils::convert_u128_u64, ICP_TRANSFER_FEE};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketReq {
@@ -104,27 +104,33 @@ pub async fn generate_ticket_v2(
         bridge_fee: 0_u128,
     }.convert_to_memo_json().unwrap_or_default();
 
-    hub::send_ticket(
+    let ticket =  Ticket {
+        ticket_id: ticket_id.clone(),
+        ticket_type: omnity_types::TicketType::Normal,
+        ticket_time: ic_cdk::api::time(),
+        src_chain: chain_id,
+        dst_chain: req.target_chain_id.clone(),
+        action: TxAction::Transfer,
+        token: req.token_id.clone(),
+        amount: ticket_amount.to_string(),
+        sender: Some(ic_cdk::caller().to_text()),
+        receiver: req.receiver.clone(),
+        memo: Some(memo_json.as_bytes().to_vec()),
+    };
+    if let Err(error) = hub::send_ticket(
         hub_principal,
-        Ticket {
-            ticket_id: ticket_id.clone(),
-            ticket_type: omnity_types::TicketType::Normal,
-            ticket_time: ic_cdk::api::time(),
-            src_chain: chain_id,
-            dst_chain: req.target_chain_id.clone(),
-            action: TxAction::Transfer,
-            token: req.token_id.clone(),
-            amount: ticket_amount.to_string(),
-            sender: Some(ic_cdk::caller().to_text()),
-            receiver: req.receiver.clone(),
-            memo: Some(memo_json.as_bytes().to_vec()),
-        },
+        ticket.clone()
     )
     .await
-    .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
-    log!(INFO, "Success to generate ticket: {}", ticket_id);
+    .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err))) {
+        mutate_state(
+            |s| {
+                s.failed_send_to_hub_ticket_list.push(ticket);
+            }
+        );
+        return Err(error);
+    }
     Ok(GenerateTicketOk { ticket_id })
-
 }
 
 pub async fn generate_ticket(
