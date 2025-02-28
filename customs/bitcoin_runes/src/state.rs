@@ -777,8 +777,10 @@ impl CustomsState {
                 mint: None,
             }
             .encipher();
+            let total_amount = req.amount.checked_add(tx_amount);
             if script.len() > 82
-                || available_utxos_value < req.amount + tx_amount
+                ||total_amount.is_none()
+                || available_utxos_value < total_amount.unwrap()
                 || batch.len() >= max_size
             {
                 // Put this request back to the queue until we have enough liquid UTXOs.
