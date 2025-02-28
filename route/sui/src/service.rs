@@ -1410,40 +1410,6 @@ pub fn get_failed_ticket_to_hub(ticket_id: String) -> Option<Ticket> {
 // devops method
 // when gen ticket and send it to hub failed ,call this method
 #[update(guard = "is_admin", hidden = true)]
-pub async fn send_failed_tickets_to_hub() -> Result<(), GenerateTicketError> {
-    let tickets_size = read_state(|s| s.tickets_failed_to_hub.len());
-    while !read_state(|s| s.tickets_failed_to_hub.is_empty()) {
-        let (ticket_id, ticket) = mutate_state(|rs| rs.tickets_failed_to_hub.pop_first()).unwrap();
-
-        let hub_principal = read_config(|s| (s.get().hub_principal));
-        if let Err(err) = send_ticket(hub_principal, ticket.to_owned())
-            .await
-            .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))
-        {
-            mutate_state(|state| {
-                state
-                    .tickets_failed_to_hub
-                    .insert(ticket_id, ticket.to_owned());
-            });
-            log!(
-                ERROR,
-                "[service::send_failed_tickets_to_hub] failed to resend ticket: {}",
-                ticket.ticket_id
-            );
-            return Err(err);
-        }
-    }
-    log!(
-        DEBUG,
-        "[service::send_failed_tickets_to_hub] successfully resend {} tickets",
-        tickets_size
-    );
-    Ok(())
-}
-
-// devops method
-// when gen ticket and send it to hub failed ,call this method
-#[update(guard = "is_admin", hidden = true)]
 pub async fn send_failed_ticket_to_hub(ticket_id: String) -> Result<(), GenerateTicketError> {
     if let Some(ticket) = read_state(|rs| rs.tickets_failed_to_hub.get(&ticket_id)) {
         let hub_principal = read_config(|s| (s.get().hub_principal));
