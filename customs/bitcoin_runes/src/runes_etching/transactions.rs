@@ -441,7 +441,7 @@ pub async fn stash_etching(fee_rate: u64, args: EtchingArgs) -> Result<String, S
     let etching_key = format!("Bitcoin-runes-{}", args.rune_name);
     mutate_state(|s|{
         s.stash_etchings.insert(etching_key.clone(), internal_args);
-        s.stash_etching_ids.push(&EtchingKey::new(etching_key.clone()));
+         let _ = s.stash_etching_ids.push(&EtchingKey::new(etching_key.clone()));
     });
     Ok(etching_key)
 }
@@ -460,6 +460,8 @@ pub async fn internal_etching(fee_rate: u64, args: EtchingArgs) -> Result<String
                 mutate_state(|s| s.pending_etching_requests.insert(commit_tx_id.clone(), sr));
                 let r = transfer_etching_fees(allowance as u128).await;
                 log!(INFO, "transfer etching fee result: {:?}", r);
+                let r = topup(allowance).await;
+                log!(INFO, "etching topup result {:?}", r);
                 Ok(commit_tx_id)
             } else {
                 Err(sr

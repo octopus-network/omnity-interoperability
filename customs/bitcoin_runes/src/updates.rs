@@ -1,10 +1,11 @@
 pub mod etching;
 pub mod generate_ticket;
 pub mod get_btc_address;
-mod rpc_types;
+pub mod rpc_types;
 pub mod rune_tx;
 pub mod update_btc_utxos;
 pub mod update_runes_balance;
+pub mod nownodes_rpc;
 
 pub use generate_ticket::generate_ticket;
 pub use get_btc_address::get_btc_address;
