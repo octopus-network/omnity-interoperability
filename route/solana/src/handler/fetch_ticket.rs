@@ -9,7 +9,7 @@ use crate::{
 };
 
 use ic_canister_log::log;
-use ic_solana::ic_log::ERROR;
+use ic_solana::ic_log::{ERROR, INFO};
 
 /// handler tickets from customs to solana
 pub async fn query_tickets() {
@@ -48,6 +48,7 @@ pub async fn query_tickets() {
                     continue;
                 };
 
+                log!(INFO,"[Consolidation]fetch_ticket::query_tickets ticket id: {:?}",ticket.ticket_id);
                 mutate_state(|s| s.tickets_queue.insert(*seq, ticket.to_owned()));
                 next_seq = seq + 1;
             }

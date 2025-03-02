@@ -1,6 +1,7 @@
 use crate::constants::DIRECTIVE_LIMIT_SIZE;
+
 use crate::state::UpdateToken;
-use crate::types::{ChainId, Directive, Error, Seq, Topic};
+use crate::types::{ChainId, Directive, Error, Seq, Token, Topic};
 use candid::Principal;
 
 use crate::{
@@ -24,27 +25,51 @@ pub async fn query_directives() {
                     Directive::AddToken(token) => {
                         mutate_state(|s| s.add_token(token.to_owned()));
                     }
+
                     Directive::UpdateToken(update_token) => {
                         let t = read_state(|s| s.tokens.get(&update_token.token_id));
                         match t {
-                            // new token
                             None => mutate_state(|s| s.add_token(update_token.to_owned())),
-                            //if update_token, need to update solana token metadata
+
                             Some(current_token) => {
                                 log!(
                                     DEBUG,
                                     "[query_directives] \ncurrent token metadata :{:#?} \nupdate token metadata :{:#?} ",
                                     current_token,update_token
                                 );
-                                mutate_state(|s| {
-                                    // update token info in route
-                                    // s.tokens.insert(current_token.token_id, update_token.clone());
-                                    // update token on solana chain
-                                    s.update_token_queue.insert(
-                                        update_token.token_id.to_string(),
-                                        UpdateToken::new(update_token.to_owned(), 0),
-                                    )
-                                });
+
+                                let new_token = Token {
+                                    token_id: update_token.token_id.to_string(),
+                                    name: update_token.name.to_owned(),
+                                    symbol: update_token.symbol.to_owned(),
+                                    decimals: update_token.decimals,
+                                    metadata: update_token.metadata.to_owned(),
+                                    //keep icon
+                                    icon: current_token.icon.to_owned(),
+                                };
+                                // just support to update name and symbol, the uri need to update via cli
+                                if (!current_token.name.eq(&new_token.name))
+                                    || (!current_token.symbol.eq(&new_token.symbol))
+                                // || (!current_token
+                                //     .metadata
+                                //     .get("uri")
+                                //     .eq(&new_token.metadata.get("uri")))
+                                {
+                                    mutate_state(|s| {
+                                        s.update_token_queue.insert(
+                                            new_token.token_id.to_string(),
+                                            UpdateToken::new(new_token.to_owned()),
+                                        )
+                                    });
+                                } else {
+                                    // just update token info in route
+                                    mutate_state(|s| {
+                                        s.tokens.insert(
+                                            new_token.token_id.to_string(),
+                                            new_token.to_owned(),
+                                        )
+                                    });
+                                }
                             }
                         }
                     }
