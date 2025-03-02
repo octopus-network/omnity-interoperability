@@ -8,7 +8,6 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, VecDeque},
 };
-use std::collections::HashMap;
 
 pub mod audit;
 pub mod eventlog;
@@ -384,6 +383,9 @@ pub struct CustomsState {
 
     #[serde(default)]
     pub ord_indexer_principal: Option<Principal>,
+
+    #[serde(default)]
+    pub nownodes_apikey: String,
 
     #[serde(default)]
     pub icpswap_principal: Option<Principal>,
@@ -1289,6 +1291,7 @@ impl From<InitArgs> for CustomsState {
             finalized_etching_requests: crate::storage::init_finalized_etching_requests(),
             stash_etchings: crate::storage::init_stash_etchings(),
             ord_indexer_principal: None,
+            nownodes_apikey: "".to_string(),
             icpswap_principal: None,
             etching_fee_utxos: crate::storage::init_etching_fee_utxos(),
             stash_etching_ids: crate::storage::init_stash_etching_ids(),

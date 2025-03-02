@@ -1,7 +1,6 @@
 use base64::Engine;
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
-use std::ptr::read;
 use std::str::FromStr;
 
 use bitcoin::Amount;
@@ -26,7 +25,7 @@ use bitcoin_customs::runes_etching::transactions::EtchingStatus::{
 use bitcoin_customs::runes_etching::transactions::{estimate_tx_vbytes, internal_etching, SendEtchingInfo, stash_etching};
 use bitcoin_customs::runes_etching::{EtchingArgs, LogoParams};
 use bitcoin_customs::state::eventlog::Event::UpdateFeeCollector;
-use bitcoin_customs::state::{audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus, SetTxFeePerVbyteArgs, BitcoinFeeRate};
+use bitcoin_customs::state::{audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus, SetTxFeePerVbyteArgs};
 use bitcoin_customs::storage::record_event;
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
@@ -152,6 +151,11 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
     }
 }
 
+#[update(guard = "is_controller")]
+pub fn set_nownodes_apikey(key: String) {
+    mutate_state(|s|s.nownodes_apikey = key);
+}
+
 #[update]
 pub fn set_tx_fee_per_vbyte(args: SetTxFeePerVbyteArgs) -> Result<(), String> {
     if  is_controller().is_ok() {
@@ -205,9 +209,8 @@ pub fn get_etching(key: String) -> Option<SendEtchingInfo> {
     }
 }
 
-
 #[update]
-pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
+pub async fn etching(_fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
     let fee_rate = read_state(|s|{
         let high = s.bitcoin_fee_rate.high;
         if high == 0 {
@@ -235,12 +238,6 @@ pub async fn etching_v2(args: EtchingArgs) -> Result<String, String> {
 #[update(guard = "is_controller")]
 pub async fn remove_error_etching(commit_tx: String) {
     mutate_state(|s|s.pending_etching_requests.remove(&commit_tx));
-}
-
-#[update(guard = "is_controller")]
-pub async fn canister_icp() {
-    let id = ic_cdk::id();
-
 }
 
 #[update(guard = "is_controller")]

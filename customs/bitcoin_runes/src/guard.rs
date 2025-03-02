@@ -1,6 +1,7 @@
-use crate::state::{mutate_state, CustomsState, read_state};
 use std::marker::PhantomData;
+
 use crate::guard::GuardError::KeyIsHandling;
+use crate::state::{CustomsState, mutate_state};
 
 const MAX_CONCURRENT: u64 = 100;
 
@@ -68,14 +69,14 @@ impl PendingRequests for ReleaseTokenUpdates {
         state.release_token_counter -= 1;
     }
 
-    fn key_is_handling(state: &mut CustomsState, _requst_key: &String) -> Result<(), GuardError> {
+    fn key_is_handling(_state: &mut CustomsState, _requst_key: &String) -> Result<(), GuardError> {
         Ok(())
     }
 
-    fn set_request_key(state: &mut CustomsState, _request_key: String)  {
+    fn set_request_key(_state: &mut CustomsState, _request_key: String)  {
     }
 
-    fn remove_request_key(state: &mut CustomsState, _request_key: &String) {
+    fn remove_request_key(_state: &mut CustomsState, _request_key: &String) {
         //Nothing to do
     }
 }
@@ -218,13 +219,16 @@ pub fn release_token_guard() -> Result<Guard<ReleaseTokenUpdates>, GuardError> {
 
 #[cfg(test)]
 mod tests {
-    use super::TimerLogicGuard;
+    use ic_base_types::CanisterId;
+
+    use omnity_types::ChainState;
+
     use crate::{
-        lifecycle::init::{init, BtcNetwork, InitArgs},
+        lifecycle::init::{BtcNetwork, init, InitArgs},
         state::read_state,
     };
-    use ic_base_types::CanisterId;
-    use omnity_types::ChainState;
+
+    use super::TimerLogicGuard;
 
     fn test_state_args() -> InitArgs {
         InitArgs {

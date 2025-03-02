@@ -1,5 +1,6 @@
+use std::cmp::PartialEq;
 use crate::destination::Destination;
-use crate::guard::{generate_ticket_guard, GuardError};
+use crate::guard::{generate_ticket_guard, GenerateTicketUpdates, Guard, GuardError};
 use crate::hub;
 use crate::state::{
     audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, RUNES_TOKEN,
@@ -44,6 +45,7 @@ pub enum GenerateTicketError {
     RpcError(String),
     AmountIsZero,
     NotPayFees,
+    VerifyFailed,
 }
 
 impl From<GuardError> for GenerateTicketError {
@@ -74,7 +76,19 @@ pub async fn generate_ticket(
     }
 
     init_ecdsa_public_key().await;
-    let _guard = generate_ticket_guard(args.txid.clone())?;
+    let _guard: Guard<GenerateTicketUpdates> = match generate_ticket_guard(args.txid.clone()){
+        Ok(g) => {g}
+        Err(e) => {
+            match e {
+                GuardError::TooManyConcurrentRequests => {
+                    return Err(e.into());
+                }
+                GuardError::KeyIsHandling => {
+                    return Ok(());
+                }
+            }
+        }
+    };
 
     let rune_id = RuneId::from_str(&args.rune_id)
         .map_err(|e| GenerateTicketError::InvalidRuneId(e.to_string()))?;
@@ -192,11 +206,27 @@ pub async fn generate_ticket(
     Ok(())
 }
 
+
 async fn fetch_new_utxos(
     txid: Txid,
     address: &String,
 ) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
     fetch_new_utxos_outcall(txid, address).await
+   /* let r1 = fetch_new_utxos_outcall(txid, address).await;
+    let r2 = fetch_new_utxos_from_nownodes(txid, address).await;
+    if r1.is_ok() && r2.is_ok() {
+        let r1_content = r1.clone().unwrap();
+        let r2_content = r2.unwrap();
+        if r1_content != r2_content {
+            Err(GenerateTicketError::VerifyFailed)
+        } else {
+            r1
+        }
+    } else if r1.is_ok() {
+        r1
+    }else {
+        r2
+    }*/
 }
 
 async fn fetch_new_utxos_outcall(

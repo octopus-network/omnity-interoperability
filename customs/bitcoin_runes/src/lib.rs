@@ -24,9 +24,6 @@ use std::iter::Sum;
 use std::str::FromStr;
 use std::time::Duration;
 use updates::rune_tx::{generate_rune_tx_request, GenRuneTxReqError, RuneTxArgs};
-use crate::call_error::{CallError, Reason};
-use crate::runes_etching::fee_calculator::transfer_etching_fees;
-use crate::runes_etching::InternalEtchingArgs;
 use crate::runes_etching::transactions::etching_rune_v2;
 use crate::runes_etching::transactions::EtchingStatus::{SendCommitFailed, SendCommitSuccess};
 
@@ -429,7 +426,7 @@ async fn submit_rune_txs() {
 
         let maybe_sign_request = state::mutate_state(|s| {
             let batch = s.build_batch(rune_id, MAX_REQUESTS_PER_BATCH);
-
+            log!(INFO, "build batch success, len = {}",batch.len());
             if batch.is_empty() {
                 return None;
             }
