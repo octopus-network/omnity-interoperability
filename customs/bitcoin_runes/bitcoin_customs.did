@@ -197,6 +197,7 @@ type GenerateTicketError = variant {
   AlreadySubmitted;
   InvalidTxId;
   NotPayFees;
+  VerifyFailed;
   TxNotFoundInMemPool;
   NoNewUtxos;
   UnsupportedChainId : text;
@@ -333,7 +334,6 @@ type UpgradeArgs = record {
 type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 type UtxoArgs = record { id : text; index : nat32; amount : nat64 };
 service : (CustomArg) -> {
-  canister_icp : () -> ();
   estimate_etching_fee : (nat64, text, opt LogoParams) -> (Result);
   estimate_etching_fee_v2 : (text, opt LogoParams) -> (Result);
   estimate_redeem_fee : (EstimateFeeArgs) -> (RedeemFee) query;
@@ -363,6 +363,7 @@ service : (CustomArg) -> {
   remove_runes_oracle : (principal) -> ();
   set_fee_collector : (text) -> ();
   set_icpswap : (principal) -> ();
+  set_nownodes_apikey : (text) -> ();
   set_ord_indexer : (principal) -> ();
   set_runes_oracle : (principal) -> ();
   set_tx_fee_per_vbyte : (BitcoinFeeRate) -> (Result_3);
