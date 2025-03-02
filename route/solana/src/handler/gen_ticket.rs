@@ -81,6 +81,17 @@ pub async fn generate_ticket(
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     log!(DEBUG, "[generate_ticket] generate_ticket req: {:#?}", req);
 
+    if read_state(|s| s.gen_ticket_reqs.contains_key(&req.signature)) {
+        return Err(GenerateTicketError::TemporarilyUnavailable(
+            "duplicate request!".into(),
+        ));
+    }
+
+    mutate_state(|s| {
+        s.gen_ticket_reqs
+            .insert(req.signature.to_owned(), req.to_owned())
+    });
+
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
@@ -102,7 +113,6 @@ pub async fn generate_ticket(
             req.token_id.to_owned(),
         ));
     }
-
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.to_owned()));
 
@@ -160,7 +170,7 @@ pub async fn generate_ticket(
                 "[generate_ticket] successful to send ticket: {:?}",
                 ticket
             );
- 
+
             Ok(GenerateTicketOk {
                 ticket_id: req.signature.to_string(),
             })
