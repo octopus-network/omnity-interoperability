@@ -214,6 +214,7 @@ pub fn migrate(pre_state: PreState) -> SolanaRouteState {
         mint_token_requests: new_mint_token_requests,
         gen_ticket_reqs: StableBTreeMap::init(crate::memory::get_gen_ticket_req_memory()),
         seeds: StableBTreeMap::init(crate::memory::get_seeds_memory()),
+        solana_client: None,
     };
 
     new_state

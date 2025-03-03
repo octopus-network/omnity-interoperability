@@ -1,22 +1,23 @@
 [workspace]
 members = [
-    "hub",
-    "customs/bitcoin_runes",
-    "customs/bitcoin_brc20",
-    "customs/icp",
-    "route/icp",
-    "route/bitfinity",
-    "route/ton",
-    "proxy/cosmwasm",
-    "proxy/runes_indexer_proxy",
-    "proxy/generic_proxy",
-    "oracle/brc20_oracle",
-    "types",
-    "mock/bitcoin",
-    "mock/icp",
-    "mock/hub",
+#    "hub",
+#    "customs/bitcoin_runes",
+#    "customs/bitcoin_brc20",
+#    "customs/icp",
+#    "route/icp",
+#    "route/bitfinity",
+#    "route/ton",
+#    "proxy/cosmwasm",
+#    "proxy/runes_indexer_proxy",
+#    "proxy/generic_proxy",
+#    "oracle/brc20_oracle",
+#    "types",
+#    "mock/bitcoin",
+#    "mock/icp",
+#    "mock/hub",
+    "route/solana"
 ]
-exclude = ["route/solana"]
+#exclude = ["route/solana"]
 resolver = "2"
 
 [workspace.package]
@@ -66,3 +67,7 @@ rust_decimal_macros = "1.36"
 ic-stable-structures = "0.6.5"
 lazy_static = "1.4.0"
 anyhow = "1.0.80"
+
+
+[patch.crates-io]
+curve25519-dalek = { git = "https://github.com/solana-labs/curve25519-dalek.git", rev = "b500cdc2a920cd5bff9e2dd974d7b97349d61464" }

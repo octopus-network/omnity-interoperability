@@ -21,6 +21,11 @@ use serde_bytes::ByteBuf;
 use super::mint_token::MintTokenRequest;
 
 pub async fn solana_client() -> SolanaClient {
+    
+    if let Some(client) = read_state(|s| s.solana_client.to_owned()) {
+        return client;
+    }
+    
     let (chain_id, schnorr_key_name, sol_canister, priority, key_type) = read_state(|s| {
         (
             s.chain_id.to_owned(),
@@ -41,15 +46,20 @@ pub async fn solana_client() -> SolanaClient {
 
     let derived_path = vec![ByteBuf::from(chain_id.as_bytes())];
     let forward = read_state(|s| s.forward.to_owned());
-    SolanaClient {
+    let solana_client = SolanaClient {
         sol_canister_id: sol_canister,
-        payer: payer,
+        payer,
         payer_derive_path: derived_path,
         chainkey_name: schnorr_key_name,
-        forward: forward,
-        priority: priority,
-        key_type: key_type,
-    }
+        forward,
+        priority,
+        key_type,
+    };
+    
+    mutate_state(|s| {
+        s.solana_client = Some(solana_client.clone());
+    });
+    solana_client
 }
 
 // get account info
