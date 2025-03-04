@@ -10,7 +10,7 @@ use ic_ledger_types::AccountIdentifier;
 use ic_log::writer::Logs;
 use icp_route::lifecycle::{self, init::RouteArg, upgrade::UpgradeArgs};
 use icp_route::state::eventlog::{Event, GetEventsArg};
-use icp_route::state::{mutate_state, read_state, take_state, MintTokenStatus};
+use icp_route::state::{audit, mutate_state, read_state, take_state, MintTokenStatus};
 use icp_route::updates::add_new_token::upgrade_icrc2_ledger;
 use icp_route::updates::generate_ticket::{
     icp_get_redeem_fee, principal_to_subaccount, GenerateTicketError, GenerateTicketOk, GenerateTicketReq
@@ -209,7 +209,7 @@ pub fn query_failed_tickets() -> Vec<Ticket> {
 }
 
 #[update(guard = "is_controller")]
-pub async fn resend_ticket(ticket_id: String) -> Result<(), GenerateTicketError> {
+pub async fn resend_ticket(ticket_id: String) -> Result<(), String> {
 
     let (failed_tickets, hub_principal) = read_state(|s| (
         s.failed_tickets.clone(), s.hub_principal.clone()
@@ -219,7 +219,7 @@ pub async fn resend_ticket(ticket_id: String) -> Result<(), GenerateTicketError>
 
         if let Err(err) = hub::send_ticket(hub_principal, ticket.clone())
             .await
-            .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))
+            .map_err(|err| format!("{}", err).to_string())
         {
             log!(
                 ERROR,
@@ -238,7 +238,8 @@ pub async fn resend_ticket(ticket_id: String) -> Result<(), GenerateTicketError>
                 INFO,
                 "success to resend ticket{}.",
                 ticket.ticket_id
-            )
+            );
+            audit::finalize_gen_ticket(ticket_id.clone(), ticket.clone().try_into()?);
         }
     } 
 
