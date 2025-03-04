@@ -1,11 +1,9 @@
 use ic_canister_log::log;
-use omnity_types::{ic_log::ERROR, ChainState, Directive, Error, Factor};
 use omnity_types::hub_types::Proposal;
 use omnity_types::ic_log::WARNING;
+use omnity_types::{ic_log::ERROR, ChainState, Directive, Error, Factor};
 
-use crate::{
-    state::{with_state, with_state_mut},
-};
+use crate::state::{with_state, with_state_mut};
 
 pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>, Error> {
     if proposals.is_empty() {
@@ -95,15 +93,10 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                         Err(Error::TokenAlreadyExisting(token_meta.to_string()))
                     })?;
 
-                    //ensure the dst chains must exsits!
-                    if let Some(id) = token_meta
-                        .dst_chains
-                        .iter()
-                        .find(|id| !hub_state.chains.contains_key(*id))
-                    {
-                        log!(ERROR, "not found chain: (`{}`)", id.to_string());
-                        return Err(Error::NotFoundChain(id.to_string()));
-                    }
+                    //ensure the dst chains must exsits and active!
+                    token_meta.dst_chains.iter().for_each(|dst_chain| {
+                        let _ = hub_state.available_chain(dst_chain);
+                    });
 
                     hub_state.available_chain(&token_meta.issue_chain)
                 })?;
@@ -135,14 +128,11 @@ pub async fn validate_proposal(proposals: &Vec<Proposal>) -> Result<Vec<String>,
                 }
 
                 with_state(|hub_state| {
-                    //ensure the dst chains must exsits!
-                    if let Some(id) = token_meta
-                        .dst_chains
-                        .iter()
-                        .find(|id| !hub_state.chains.contains_key(*id))
-                    {
-                        return Err(Error::NotFoundChain(id.to_string()));
-                    }
+          
+                    //ensure the dst chains must exsits and active!
+                    token_meta.dst_chains.iter().for_each(|dst_chain| {
+                        let _ = hub_state.available_chain(dst_chain);
+                    });
 
                     hub_state.available_chain(&token_meta.issue_chain)
                 })?;

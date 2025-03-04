@@ -281,9 +281,8 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
 mod tests {
     use super::*;
 
-    use crate::types::ChainMeta;
-    use crate::types::TokenMeta;
     use candid::Principal;
+    use omnity_types::hub_types::{ChainMeta, TokenMeta};
     use omnity_types::Chain;
     use omnity_types::ChainState;
     use omnity_types::Directive;
