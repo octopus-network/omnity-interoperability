@@ -215,6 +215,7 @@ fn update_fee_token(fee_token: String) {
 }
 
 fn is_admin() -> Result<(), String> {
+    let x = ic_cdk::api::call::arg_data();
     let c = ic_cdk::caller();
     match ic_cdk::api::is_controller(&c) || read_state(|s| s.admins.contains(&c)) {
         true => Ok(()),
