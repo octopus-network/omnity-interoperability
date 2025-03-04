@@ -16,6 +16,7 @@ type CustomsState = record {
   next_directive_seq : nat64;
   ckbtc_minter_principal : opt principal;
   icp_token_id : opt text;
+  failed_send_to_hub_ticket_list : vec Ticket;
   chain_id : text;
   failed_redeem_ticket_list : vec record { nat64; Ticket };
   next_ticket_seq : nat64;
@@ -54,6 +55,7 @@ type MintTokenStatus = variant {
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
 type Result_1 = variant { Ok : nat64; Err : text };
 type Result_2 = variant { Ok : record { nat64; nat64 }; Err : text };
+type Result_3 = variant { Ok; Err : text };
 type Ticket = record {
   token : text;
   action : TxAction;
@@ -91,10 +93,11 @@ service : (InitArgs) -> {
   get_chain_list : () -> (vec Chain) query;
   get_state : () -> (CustomsState) query;
   get_token_list : () -> (vec Token) query;
-  handle_ticket : (nat64) -> (Result_1);
+  handle_failed_redeem_ticket : (nat64) -> (Result_1);
   mint_token_status : (text) -> (MintTokenStatus) query;
   query_hub_tickets : (nat64, nat64) -> (vec record { nat64; Ticket });
   refund_icp : (principal) -> (Result_2);
+  resend_ticket : (text) -> (Result_3);
   set_ckbtc_token : (text) -> ();
   set_icp_token : (text) -> ();
 }

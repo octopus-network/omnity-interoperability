@@ -47,7 +47,6 @@ type MintTokenStatus = variant {
 };
 type Result = variant { Ok; Err : text };
 type Result_1 = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-type Result_2 = variant { Ok; Err : GenerateTicketError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs_1; Init : InitArgs };
 type RouteState = record {
   hub_principal : principal;
@@ -131,6 +130,6 @@ service : (RouteArg) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   query_failed_tickets : () -> (vec Ticket) query;
   remove_controller : (principal, principal) -> (Result);
-  resend_tickets : () -> (Result_2);
+  resend_ticket : (text) -> (Result);
   update_icrc_ledger : (principal, UpgradeArgs) -> (Result);
 }

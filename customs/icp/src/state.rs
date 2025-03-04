@@ -80,7 +80,9 @@ pub struct CustomsState {
     #[serde(skip)]
     pub is_timer_running: bool,
     #[serde(default)]
-    pub failed_redeem_ticket_list: Vec<(u64, Ticket)>
+    pub failed_redeem_ticket_list: Vec<(u64, Ticket)>,
+    #[serde(default)]
+    pub failed_send_to_hub_ticket_list: Vec<Ticket>,
 }
 
 impl Storable for CustomsState {
@@ -110,7 +112,8 @@ impl From<InitArgs> for CustomsState {
             ckbtc_minter_principal: None,
             icp_token_id: None,
             ckbtc_token_id: None,
-            failed_redeem_ticket_list: vec![]
+            failed_redeem_ticket_list: vec![],
+            failed_send_to_hub_ticket_list: vec![],
         }
     }
 }
