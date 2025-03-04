@@ -20,6 +20,9 @@ use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainState, Memo, Ticket, TicketType, TxAction};
 use serde::Serialize;
 use std::str::FromStr;
+use ic_canister_log::log;
+use omnity_types::ic_log::INFO;
+use crate::updates::nownodes_rpc::fetch_new_utxos_from_nownodes;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketArgs {
@@ -211,22 +214,11 @@ async fn fetch_new_utxos(
     txid: Txid,
     address: &String,
 ) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
-    fetch_new_utxos_outcall(txid, address).await
-   /* let r1 = fetch_new_utxos_outcall(txid, address).await;
-    let r2 = fetch_new_utxos_from_nownodes(txid, address).await;
-    if r1.is_ok() && r2.is_ok() {
-        let r1_content = r1.clone().unwrap();
-        let r2_content = r2.unwrap();
-        if r1_content != r2_content {
-            Err(GenerateTicketError::VerifyFailed)
-        } else {
-            r1
-        }
-    } else if r1.is_ok() {
-        r1
-    }else {
-        r2
-    }*/
+    let r1 = fetch_new_utxos_outcall(txid, address).await;
+    if r1.is_ok() {
+        return  r1;
+    }
+    fetch_new_utxos_from_nownodes(txid, address).await
 }
 
 async fn fetch_new_utxos_outcall(
