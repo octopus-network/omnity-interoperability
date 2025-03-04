@@ -173,13 +173,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
                     .chains
                     .insert(chain.chain_id.to_string(), chain.clone());
                 // update auth
-                hub_state
-                    .caller_chain_map
-                    .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
-
-                hub_state
-                    .caller_perms
-                    .insert(chain.canister_id.to_string(), Permission::Update);
+                let _ = hub_state.update_auth(&chain);
             }
             Event::UpdatedChainCounterparties(chain) => {
                 hub_state

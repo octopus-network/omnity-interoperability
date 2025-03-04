@@ -1,8 +1,8 @@
 use crate::state::{with_state, with_state_mut};
-use candid::{CandidType};
-use serde::{Deserialize, Serialize};
+use candid::CandidType;
 use ic_canister_log::log;
 use omnity_types::ic_log::ERROR;
+use serde::{Deserialize, Serialize};
 
 #[derive(CandidType, Copy, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub enum Permission {
@@ -16,10 +16,10 @@ pub fn is_admin() -> Result<(), String> {
         return Ok(());
     }
     with_state(|s| {
-        if s.admin != caller  {
-            if let Some(cm) =  s.chains.get(&"Bitcoin".to_string()) {
+        if s.admin != caller {
+            if let Some(cm) = s.chains.get(&"Bitcoin".to_string()) {
                 if caller.to_text() == cm.canister_id {
-                    return Ok(())
+                    return Ok(());
                 }
             }
             log!(ERROR, "{:?} Not Admin!", caller.to_string());

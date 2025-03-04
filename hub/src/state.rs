@@ -7,13 +7,13 @@ use crate::metrics::with_metrics_mut;
 
 // use crate::migration::{migrate, PreHubState};
 pub use crate::self_help::{AddRunesTokenReq, FinalizeAddRunesArgs};
-use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
-use omnity_types::{Amount, TxHash};
 use candid::Principal;
 use ic_canister_log::log;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
+use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use omnity_types::ic_log::{ERROR, INFO, WARNING};
+use omnity_types::{Amount, TxHash};
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, TicketType,
     ToggleAction, ToggleState, TokenId, Topic, TxAction,
@@ -205,10 +205,7 @@ impl HubState {
         self.chains
             .insert(chain.chain_id.to_string(), chain.clone());
         // update auth
-        self.caller_perms
-            .insert(chain.canister_id.to_string(), Permission::Update);
-        self.caller_chain_map
-            .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
+        self.update_auth(&chain)?;
 
         record_event(&Event::UpdatedChain(chain.clone()));
         // update counterparties
@@ -218,6 +215,26 @@ impl HubState {
                 self.update_chain_counterparties(counterparty, &chain.chain_id)
             })?;
         }
+
+        Ok(())
+    }
+
+    pub fn update_auth(&mut self, chain: &ChainMeta) -> Result<(), Error> {
+        let (chain_id, canister_id) = (chain.chain_id.to_owned(), chain.canister_id.to_owned());
+        if let Some(old_canister) = self
+            .caller_chain_map
+            .values()
+            .find(|v| v.to_owned().eq(&chain_id))
+            .cloned()
+        {
+            self.caller_chain_map.remove(&old_canister);
+            self.caller_perms.remove(&old_canister);
+        };
+
+        self.caller_perms
+            .insert(canister_id.to_owned(), Permission::Update);
+        self.caller_chain_map
+            .insert(canister_id, chain.chain_id.to_string());
 
         Ok(())
     }
@@ -698,7 +715,7 @@ impl HubState {
             .insert(ticket.ticket_id.to_string(), ticket.clone());
         log!(INFO, "[Consolidation]Hub: pending ticket: {:?}", &ticket);
         record_event(&Event::PendingTicket { ticket });
-        
+
         Ok(())
     }
 
@@ -717,7 +734,11 @@ impl HubState {
             .ok_or(Error::CustomError(
                 "Failed to remove ticket from pending_tickets".to_string(),
             ))?;
-        log!(INFO, "[Consolidation]Hub: finalize ticket: ticket id: {:?}", &ticket_id.to_string());
+        log!(
+            INFO,
+            "[Consolidation]Hub: finalize ticket: ticket id: {:?}",
+            &ticket_id.to_string()
+        );
         record_event(&Event::FinalizeTicket {
             ticket_id: ticket_id.to_string(),
         });
@@ -741,14 +762,11 @@ impl HubState {
         //save ticket
         self.cross_ledger
             .insert(ticket.ticket_id.to_string(), ticket.clone());
-        
+
         log!(INFO, "[Consolidation] hub received ticket: {:?}", &ticket);
         //update ticket metrice
         with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket.clone()));
-        record_event(&Event::ReceivedTicket {
-            seq_key,
-            ticket
-        });
+        record_event(&Event::ReceivedTicket { seq_key, ticket });
         Ok(())
     }
 
