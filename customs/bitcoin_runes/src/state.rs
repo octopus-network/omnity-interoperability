@@ -347,6 +347,9 @@ pub struct CustomsState {
 
     pub rpc_url: Option<String>,
 
+    #[serde(skip)]
+    pub generating_txids: BTreeSet<String>,
+
     /// Process one timer event at a time.
     #[serde(skip)]
     pub is_timer_running: bool,
@@ -380,6 +383,9 @@ pub struct CustomsState {
 
     #[serde(default)]
     pub ord_indexer_principal: Option<Principal>,
+
+    #[serde(default)]
+    pub nownodes_apikey: String,
 
     #[serde(default)]
     pub icpswap_principal: Option<Principal>,
@@ -758,14 +764,21 @@ impl CustomsState {
         let mut tx_amount = 0;
         let requests = self.pending_rune_tx_requests.entry(rune_id).or_default();
 
+
         if let Some(pos) = requests.iter().position(|req| req.action == TxAction::Mint) {
-            let req = requests.remove(pos);
-            batch.push(req);
-            return batch;
+            let rand_number :u64 = rand::random();
+            if rand_number/100u64 < 50 {
+                let req = requests.remove(pos);
+                batch.push(req);
+                return batch;
+            }
         }
 
         let mut edicts = vec![];
         for req in std::mem::take(requests) {
+            if req.action == TxAction::Mint {
+                continue;
+            }
             edicts.push(Edict {
                 id: req.rune_id.into(),
                 amount: req.amount,
@@ -777,8 +790,10 @@ impl CustomsState {
                 mint: None,
             }
             .encipher();
+            let total_amount = req.amount.checked_add(tx_amount);
             if script.len() > 82
-                || available_utxos_value < req.amount + tx_amount
+                ||total_amount.is_none()
+                || available_utxos_value < total_amount.unwrap()
                 || batch.len() >= max_size
             {
                 // Put this request back to the queue until we have enough liquid UTXOs.
@@ -789,8 +804,16 @@ impl CustomsState {
                 batch.push(req.clone());
             }
         }
+        if !batch.is_empty() {
+            return batch;
+        }
 
+        if let Some(pos) = requests.iter().position(|req| req.action == TxAction::Mint) {
+            let req = requests.remove(pos);
+            batch.push(req);
+        }
         batch
+
     }
 
     /// Returns the total number of all rune tx requests that we haven't
@@ -1268,9 +1291,11 @@ impl From<InitArgs> for CustomsState {
             finalized_etching_requests: crate::storage::init_finalized_etching_requests(),
             stash_etchings: crate::storage::init_stash_etchings(),
             ord_indexer_principal: None,
+            nownodes_apikey: "".to_string(),
             icpswap_principal: None,
             etching_fee_utxos: crate::storage::init_etching_fee_utxos(),
             stash_etching_ids: crate::storage::init_stash_etching_ids(),
+            generating_txids: Default::default(),
         }
     }
 }

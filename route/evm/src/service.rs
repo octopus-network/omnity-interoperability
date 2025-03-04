@@ -52,12 +52,16 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 }
 #[update(guard = "is_admin")]
 fn update_consume_directive_seq(seq: Seq) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),seq);
     mutate_state(|s| s.next_consume_directive_seq = seq);
 }
 
 
 #[update(guard = "is_admin")]
 fn set_finality_blocks(b: u64) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),b);
     mutate_state(|s| s.finality_blocks = Some(b));
 }
 
@@ -104,6 +108,8 @@ async fn pubkey_and_evm_addr() -> (String, String) {
 
 #[update(guard = "is_admin")]
 fn set_port_address(port_addr: String) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, update port address PARAMS: {}", user.to_text(),port_addr.as_str());
     mutate_state(|s| s.omnity_port_contract = EvmAddress::from_str(port_addr.as_str()).unwrap())
 }
 
@@ -138,11 +144,15 @@ fn query_pending_directive(from: usize, limit: usize) -> Vec<(Seq, PendingDirect
 
 #[update(guard = "is_admin")]
 async fn resend_ticket(seq: Seq) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),seq);
     send_ticket(seq).await.unwrap();
 }
 
 #[update(guard = "is_admin")]
 async fn resend_directive(seq: Seq) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),seq);
     send_directive(seq).await.unwrap();
 }
 
@@ -199,20 +209,28 @@ fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
 
 #[update(guard = "is_admin")]
 async fn sync_mint_status(hash: String) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),hash.as_str());
     crate::evm_scan::sync_mint_status(hash).await;
 }
 #[update(guard = "is_admin")]
 fn update_admins(admins: Vec<Principal>) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {:?}", user.to_text(),admins.clone());
     mutate_state(|s| s.admins = admins);
 }
 
 #[update(guard = "is_admin")]
 fn update_fee_token(fee_token: String) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),fee_token.as_str());
     mutate_state(|s| s.fee_token_id = fee_token);
 }
 
 #[update(guard = "is_admin")]
 fn update_rpcs(rpcs: Vec<RpcApi>) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {:?}", user.to_text(), serde_json::to_string(&rpcs));
     mutate_state(|s| s.rpc_providers = rpcs);
 }
 
@@ -289,6 +307,8 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
 
 #[update(guard = "is_admin")]
 pub fn insert_pending_hash(tx_hash: String) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),tx_hash.as_str());
     mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
 }
 
@@ -315,13 +335,15 @@ pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
     }
 }
 
-#[update(guard = "is_admin")]
+#[query(guard = "is_admin")]
 pub fn query_handled_event(tx_hash: String) -> Option<String> {
     read_state(|s| s.handled_evm_event.get(&tx_hash).cloned())
 }
 
 #[update(guard = "is_admin")]
 pub async fn rewrite_tx_hash(ticket_id: String, tx_hash: String) {
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}, {}", user.to_text(),ticket_id.as_str(), tx_hash.as_str());
     let hub_principal = read_state(|s| s.hub_principal);
     hub::update_tx_hash(hub_principal, ticket_id, tx_hash)
         .await

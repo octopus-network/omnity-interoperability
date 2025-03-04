@@ -54,6 +54,9 @@ impl From<GuardError> for GenRuneTxReqError {
             GuardError::TooManyConcurrentRequests => {
                 Self::TemporarilyUnavailable("too many concurrent requests".to_string())
             }
+            GuardError::KeyIsHandling => {
+                Self::TemporarilyUnavailable("request key is handling".to_string())
+            }
         }
     }
 }

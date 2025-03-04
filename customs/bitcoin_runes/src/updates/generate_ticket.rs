@@ -1,5 +1,6 @@
+use std::cmp::PartialEq;
 use crate::destination::Destination;
-use crate::guard::{generate_ticket_guard, GuardError};
+use crate::guard::{generate_ticket_guard, GenerateTicketUpdates, Guard, GuardError};
 use crate::hub;
 use crate::state::{
     audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, RUNES_TOKEN,
@@ -19,6 +20,9 @@ use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainState, Memo, Ticket, TicketType, TxAction};
 use serde::Serialize;
 use std::str::FromStr;
+use ic_canister_log::log;
+use omnity_types::ic_log::INFO;
+use crate::updates::nownodes_rpc::fetch_new_utxos_from_nownodes;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketArgs {
@@ -44,6 +48,7 @@ pub enum GenerateTicketError {
     RpcError(String),
     AmountIsZero,
     NotPayFees,
+    VerifyFailed,
 }
 
 impl From<GuardError> for GenerateTicketError {
@@ -51,6 +56,9 @@ impl From<GuardError> for GenerateTicketError {
         match e {
             GuardError::TooManyConcurrentRequests => {
                 Self::TemporarilyUnavailable("too many concurrent requests".to_string())
+            }
+            GuardError::KeyIsHandling => {
+                Self::TemporarilyUnavailable("The same txid is handling".to_string())
             }
         }
     }
@@ -71,7 +79,19 @@ pub async fn generate_ticket(
     }
 
     init_ecdsa_public_key().await;
-    let _guard = generate_ticket_guard()?;
+    let _guard: Guard<GenerateTicketUpdates> = match generate_ticket_guard(args.txid.clone()){
+        Ok(g) => {g}
+        Err(e) => {
+            match e {
+                GuardError::TooManyConcurrentRequests => {
+                    return Err(e.into());
+                }
+                GuardError::KeyIsHandling => {
+                    return Ok(());
+                }
+            }
+        }
+    };
 
     let rune_id = RuneId::from_str(&args.rune_id)
         .map_err(|e| GenerateTicketError::InvalidRuneId(e.to_string()))?;
@@ -189,11 +209,16 @@ pub async fn generate_ticket(
     Ok(())
 }
 
+
 async fn fetch_new_utxos(
     txid: Txid,
     address: &String,
 ) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
-    fetch_new_utxos_outcall(txid, address).await
+    let r1 = fetch_new_utxos_outcall(txid, address).await;
+    if r1.is_ok() {
+        return  r1;
+    }
+    fetch_new_utxos_from_nownodes(txid, address).await
 }
 
 async fn fetch_new_utxos_outcall(
