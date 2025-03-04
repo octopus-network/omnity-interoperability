@@ -15,11 +15,9 @@ use omnity_hub::{proposal, self_help};
 
 use ic_canister_log::log;
 use omnity_hub::lifecycle;
-use omnity_types::hub_types::{
-    TokenResp, Proposal, Subscribers,ChainMeta, TokenMeta
-};
-use omnity_types::TxHash;
+use omnity_types::hub_types::{ChainMeta, Proposal, Subscribers, TokenMeta, TokenResp};
 use omnity_types::ic_log::INFO;
+use omnity_types::TxHash;
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
     TokenId, TokenOnChain, Topic,
@@ -66,6 +64,7 @@ pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, 
 }
 #[update(guard = "is_admin")]
 pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
+    proposal::validate_proposal(&proposals).await?;
     proposal::execute_proposal(proposals).await
 }
 
@@ -300,7 +299,7 @@ pub async fn get_fees(
 
 #[query(guard = "auth_query")]
 pub fn get_runes_oracles() -> Vec<Principal> {
-    with_state(|s|s.runes_oracles.iter().map(|s|s.clone()).collect())
+    with_state(|s| s.runes_oracles.iter().map(|s| s.clone()).collect())
 }
 
 #[query]
@@ -477,10 +476,8 @@ mod tests {
     use super::*;
 
     use ic_base_types::PrincipalId;
-    use omnity_hub::{
-        lifecycle::init::InitArgs,
-        types::{ChainMeta, TokenMeta},
-    };
+    use omnity_hub::lifecycle::init::InitArgs;
+    use omnity_types::hub_types::{ChainMeta, TokenMeta};
     use omnity_types::{
         ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketType, ToggleAction,
         ToggleState, TxAction,
