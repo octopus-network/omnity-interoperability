@@ -209,12 +209,6 @@ fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
 }
 
 #[update(guard = "is_admin")]
-async fn sync_mint_status(hash: String) {
-    let user = ic_cdk::api::caller();
-    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),hash.as_str());
-    crate::evm_scan::sync_mint_status(hash).await;
-}
-#[update(guard = "is_admin")]
 fn update_admins(admins: Vec<Principal>) {
     let user = ic_cdk::api::caller();
     log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {:?}", user.to_text(),admins.clone());
