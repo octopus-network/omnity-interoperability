@@ -6,6 +6,7 @@ use crate::{
     transaction::{Transaction, TransactionDetail, TransactionStatus},
 };
 use ic_canister_log::log;
+use ic_solana::ic_log::DEBUG;
 use ic_solana::{
     eddsa::KeyType,
     ic_log::ERROR,
@@ -159,6 +160,7 @@ pub async fn init_port() -> Result<String, String> {
 
 pub async fn redeem(ticket_id: String, receiver: Pubkey, amount: u64) -> Result<String, String> {
     let client = init_solana_client().await;
+    log!(DEBUG, "[solana_custom] init solana client");
     let port_program_id = read_state(|s| s.port_program_id.clone());
 
     let (port, _) = port_address();
@@ -168,7 +170,10 @@ pub async fn redeem(ticket_id: String, receiver: Pubkey, amount: u64) -> Result<
         &port_program_id,
     );
 
-    let initialize = port_native::instruction::Redeem { ticket_id, amount };
+    let initialize = port_native::instruction::Redeem {
+        ticket_id: ticket_id.clone(),
+        amount,
+    };
     let instruction = Instruction::new_with_bytes(
         port_program_id,
         &initialize.data(),
@@ -190,6 +195,11 @@ pub async fn redeem(ticket_id: String, receiver: Pubkey, amount: u64) -> Result<
         )
         .await
         .map_err(|err| err.to_string())?;
+    log!(
+        DEBUG,
+        "[solana_custom] send raw transaction, ticket id: {}",
+        ticket_id
+    );
     Ok(signature)
 }
 
