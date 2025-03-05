@@ -93,6 +93,7 @@ impl From<(OldEvmRouteState, u64)> for EvmRouteState {
             evm_transfer_gas_percent: value.1,
             total_required_count: 1,
             minimum_response_count: 1,
+            generating_ticketid: Default::default(),
         }
     }
 }

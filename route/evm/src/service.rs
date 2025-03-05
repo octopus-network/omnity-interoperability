@@ -16,6 +16,7 @@ use crate::{get_time_secs, hub};
 use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, PERIODIC_TASK_INTERVAL, SEND_EVM_TASK_NAME};
 use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
+use crate::guard::{CommonGuard, GenerateTicketGuardBehavior, GuardError};
 use crate::hub_to_route::{process_directives, process_tickets};
 use crate::ic_log::{CRITICAL, INFO, WARNING};
 use crate::route_to_evm::{send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm};
@@ -280,6 +281,19 @@ async fn metrics() -> MetricsStatus {
 async fn generate_ticket(hash: String) -> Result<(), String> {
     log!(INFO, "[generate ticket] received generate ticket request: {}", &hash);
     let tx_hash = hash.to_lowercase();
+    let _guard: CommonGuard<GenerateTicketGuardBehavior> = match CommonGuard::new(tx_hash.clone()) {
+        Ok(g) => { g }
+        Err(e) => {
+            return match e {
+                GuardError::TooManyConcurrentRequests => {
+                    Err("too many concurrent requests".to_string())
+                }
+                GuardError::KeyIsHandling => {
+                    Ok(())
+                }
+            }
+        }
+    };
     if read_state(|s| s.pending_events_on_chain.get(&tx_hash).is_some()) {
         return Ok(());
     }
