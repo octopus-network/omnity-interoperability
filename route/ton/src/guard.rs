@@ -1,4 +1,5 @@
-use crate::state::mutate_state;
+use omnity_types::impl_guard_behavior;
+use crate::state::{mutate_state};
 
 #[must_use]
 pub struct TimerLogicGuard(String);
@@ -25,3 +26,6 @@ impl Drop for TimerLogicGuard {
         mutate_state(|s| s.is_timer_running.remove(&self.0));
     }
 }
+
+pub struct GenerateTicketGuardBehavior;
+impl_guard_behavior!(GenerateTicketGuardBehavior, String);

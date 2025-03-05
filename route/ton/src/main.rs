@@ -22,6 +22,8 @@ use crate::toncenter::{check_bridge_fee, create_ticket_by_generate_ticket, get_a
 use crate::types::{MintTokenStatus, PendingDirectiveStatus, PendingTicketStatus, TokenResp};
 use omnity_types::ic_log::INFO;
 use omnity_types::{Chain, ChainId, Directive, Seq, Ticket};
+use omnity_types::guard::{CommonGuard, GuardError};
+use crate::guard::GenerateTicketGuardBehavior;
 
 pub mod audit;
 pub mod base;
@@ -207,6 +209,7 @@ fn get_fee(chain_id: ChainId) -> (Option<u64>, String) {
 #[update]
 async fn generate_ticket(params: GenerateTicketArgs) -> Result<Ticket, String> {
     let tx_hash = params.tx_hash.clone();
+    let _guard: CommonGuard<GenerateTicketGuardBehavior> = CommonGuard::new(tx_hash.clone()).map_err(|e|e.to_string())?;
     if read_state(|s| s.handled_ton_event.contains(&tx_hash)) {
         return Err("duplicate request".to_string());
     }

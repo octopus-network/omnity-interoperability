@@ -1,7 +1,6 @@
-use std::marker::PhantomData;
 
-pub struct CommonGuard<PR: GuardBehavior> {
-    pub request_key: PR::KeyType,
+pub struct CommonGuard<GB: GuardBehavior> {
+    pub request_key: GB::KeyType,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -10,22 +9,31 @@ pub enum GuardError {
     KeyIsHandling,
 }
 
-impl<PR: GuardBehavior> CommonGuard<PR> {
+impl ToString for GuardError {
+    fn to_string(&self) -> String {
+        match self {
+            GuardError::TooManyConcurrentRequests => {"too many concurrent requests".to_string()}
+            GuardError::KeyIsHandling => { "request is duplicate".to_string()}
+        }
+    }
+}
+
+impl<GB: GuardBehavior> CommonGuard<GB> {
     /// Attempts to create a new guard for the current block.
     /// Fails if there are at least [MAX_CONCURRENT] pending requests.
-    pub fn new(request_key: PR::KeyType) -> Result<Self, GuardError> {
+    pub fn new(request_key: GB::KeyType) -> Result<Self, GuardError> {
         let guard = Self {
             request_key,
         };
-        PR::check_lock(&guard.request_key)?;
-        PR::set_lock(&guard.request_key);
+        GB::check_lock(&guard.request_key)?;
+        GB::set_lock(&guard.request_key);
         Ok(guard)
     }
 }
 
-impl<PR: GuardBehavior> Drop for CommonGuard<PR> {
+impl<GB: GuardBehavior> Drop for CommonGuard<GB> {
     fn drop(&mut self) {
-        PR::release_lock(&self.request_key);
+        GB::release_lock(&self.request_key);
     }
 }
 
@@ -35,4 +43,31 @@ pub trait GuardBehavior {
     fn check_lock(key: &Self::KeyType) -> Result<(), GuardError>;
     fn set_lock(key: &Self::KeyType);
     fn release_lock(key: &Self::KeyType);
+}
+
+
+#[macro_export]
+macro_rules! impl_guard_behavior {
+    ($name:ty,  $ty: ty) => {
+        use omnity_types::guard::{GuardBehavior, GuardError};
+        use crate::state::{read_state};
+        impl GuardBehavior for $name {
+            type KeyType = $ty;
+            fn check_lock(key: &Self::KeyType) -> Result<(), GuardError> {
+                if read_state(|s|s.generating_ticketid.contains(key)) {
+                    Err(GuardError::KeyIsHandling)
+                }else {
+                    Ok(())
+                }
+            }
+
+            fn set_lock(key: &Self::KeyType) {
+                mutate_state(|s|s.generating_ticketid.insert(key.clone()));
+            }
+
+            fn release_lock(key: &Self::KeyType) {
+                mutate_state(|s|s.generating_ticketid.remove(key));
+            }
+        }
+    };
 }
