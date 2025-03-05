@@ -13,7 +13,7 @@ use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
 
 use crate::{get_time_secs, hub};
-use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, PERIODIC_TASK_INTERVAL, SEND_EVM_TASK_NAME};
+use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, PERIODIC_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_NAME};
 use crate::eth_common::{call_rpc_with_retry, EvmAddress, EvmTxType, get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::guard::{CommonGuard, GenerateTicketGuardBehavior, GuardError};
@@ -208,6 +208,16 @@ fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
     read_state(|s| s.pull_directives(from, to))
 }
 
+#[update(guard = "is_admin")]
+async fn sync_mint_status(hash: String) {
+    let _guard = match crate::guard::TimerLogicGuard::new(SCAN_EVM_TASK_NAME.to_string()) {
+        Some(guard) => guard,
+        None => return,
+    };
+    let user = ic_cdk::api::caller();
+    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),hash.as_str());
+    crate::evm_scan::sync_mint_status(hash).await;
+}
 #[update(guard = "is_admin")]
 fn update_admins(admins: Vec<Principal>) {
     let user = ic_cdk::api::caller();
