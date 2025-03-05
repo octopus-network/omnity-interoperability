@@ -70,8 +70,10 @@ pub async fn sync_mint_status(hash: String) {
         let res = handle_port_events(tr.logs.clone()).await;
         match res {
             Ok(_) => {
-                mutate_state(|s| s.pending_events_on_chain.remove(&hash));
-                mutate_state(|s| s.handled_evm_event.insert(hash));
+                mutate_state(|s| {
+                    s.pending_events_on_chain.remove(&hash);
+                    s.handled_evm_event.insert(hash)
+                });
             }
             Err(e) => {
                 log!(

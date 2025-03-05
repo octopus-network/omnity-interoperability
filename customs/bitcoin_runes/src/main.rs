@@ -3,7 +3,7 @@ use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
 use std::str::FromStr;
 
-use bitcoin::Amount;
+use bitcoin::{Amount, Network};
 use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::{Txid, Utxo};
 use ic_canister_log::log;
@@ -39,6 +39,7 @@ use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage,
 };
+use bitcoin_customs::address::BitcoinAddress;
 use omnity_types::ic_log::INFO;
 use omnity_types::{Chain, ChainId, TicketId};
 
@@ -403,9 +404,11 @@ fn get_platform_fee(target_chain: ChainId) -> (Option<u128>, Option<String>) {
 }
 
 #[update(guard = "is_controller")]
-pub fn set_fee_collector(addr: String) {
+pub fn set_fee_collector(addr: String, network: ic_btc_interface::Network) -> Result<(), String>{
+    BitcoinAddress::parse(addr.as_str(),network).map_err(|e|e.to_string())?;
     mutate_state(|s| s.fee_collector_address = addr.clone());
     record_event(&UpdateFeeCollector { addr });
+    Ok(())
 }
 
 #[query(guard = "is_controller")]
