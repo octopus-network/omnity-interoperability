@@ -72,3 +72,27 @@ pub enum EvmAddressError {
     #[error("String is not a hex string.")]
     FormatError,
 }
+
+pub struct GenerateTicketGuardBehavior;
+use omnity_types::guard::{GuardBehavior, GuardError};
+use crate::state::{mutate_state, read_state};
+
+impl GuardBehavior for GenerateTicketGuardBehavior {
+    type KeyType = String;
+
+    fn check_lock(key: &Self::KeyType) -> Result<(), GuardError> {
+        if read_state(|s|s.generating_ticketid.contains(key)) {
+            Err(GuardError::KeyIsHandling)
+        }else {
+            Ok(())
+        }
+    }
+
+    fn set_lock(key: &Self::KeyType) {
+        mutate_state(|s|s.generating_ticketid.insert(key.clone()));
+    }
+
+    fn release_lock(key: &Self::KeyType) {
+        mutate_state(|s|s.generating_ticketid.remove(key));
+    }
+}

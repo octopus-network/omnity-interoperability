@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::str::FromStr;
 
 use candid::{CandidType, Principal};
@@ -70,6 +70,7 @@ impl EvmRouteState {
             is_timer_running: Default::default(),
             block_interval_secs: args.block_interval_secs,
             pending_events_on_chain: Default::default(),
+            generating_ticketid: Default::default(),
         };
         Ok(ret)
     }
@@ -170,6 +171,8 @@ pub struct EvmRouteState {
     pub is_timer_running: BTreeMap<String, bool>,
     pub block_interval_secs: u64,
     pub pending_events_on_chain: BTreeMap<String, u64>,
+    #[serde(default)]
+    pub generating_ticketid: HashSet<String>,
 }
 
 impl From<&EvmRouteState> for StateProfile {

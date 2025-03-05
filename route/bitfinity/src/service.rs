@@ -7,7 +7,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
-use crate::hub;
+use crate::{GenerateTicketGuardBehavior, hub};
 use crate::get_time_secs;
 use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, SEND_EVM_TASK_NAME};
 use crate::eth_common::{EvmAddress, get_balance};
@@ -20,6 +20,7 @@ use crate::state::{
     StateProfile,
 };
 use omnity_types::{Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}, ChainState};
+use omnity_types::guard::{CommonGuard, GuardError};
 use crate::types::{TokenResp, PendingDirectiveStatus, PendingTicketStatus, MetricsStatus};
 use omnity_types::MintTokenStatus;
 
@@ -215,7 +216,6 @@ fn update_fee_token(fee_token: String) {
 }
 
 fn is_admin() -> Result<(), String> {
-    let x = ic_cdk::api::call::arg_data();
     let c = ic_cdk::caller();
     match ic_cdk::api::is_controller(&c) || read_state(|s| s.admins.contains(&c)) {
         true => Ok(()),
@@ -244,6 +244,20 @@ async fn metrics() -> MetricsStatus {
 #[update]
 async fn generate_ticket(hash: String) -> Result<(), String> {
     log!(INFO, "received generate_ticket request {}", &hash);
+
+    let guard: CommonGuard<GenerateTicketGuardBehavior> =  match CommonGuard::new(hash.clone()){
+        Ok(g) => {g}
+        Err(e) => {
+            return match e {
+                GuardError::TooManyConcurrentRequests => {
+                    Err("too many concurrent requests".to_string())
+                }
+                GuardError::KeyIsHandling => {
+                    Ok(())
+                }
+            }
+        }
+    };
     let tx_hash = hash.to_lowercase();
     if read_state(|s| s.pending_events_on_chain.contains_key(&tx_hash)) {
         return Ok(());
