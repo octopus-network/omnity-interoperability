@@ -8,10 +8,10 @@ use crate::{
     state::{mutate_state, read_state},
 };
 
+use crate::handler::mint_token::mint_token;
 use ic_canister_log::log;
 use ic_cdk::spawn;
 use ic_solana::ic_log::{ERROR, INFO};
-use crate::handler::mint_token::mint_token;
 
 /// handler tickets from customs to solana
 pub async fn query_tickets() {
@@ -28,7 +28,6 @@ pub async fn query_tickets() {
     match inner_query_tickets(hub_principal, offset, TICKET_LIMIT_SIZE).await {
         Ok(tickets) => {
             let mut next_seq = offset;
-            let tickets_number = tickets.len();
             for (seq, ticket) in tickets {
                 if let Err(e) = Pubkey::try_from(ticket.receiver.as_str()) {
                     log!(
@@ -51,16 +50,16 @@ pub async fn query_tickets() {
                     continue;
                 };
 
-                log!(INFO,"[Consolidation]fetch_ticket::query_tickets ticket id: {:?}",ticket.ticket_id);
+                log!(
+                    INFO,
+                    "[Consolidation]fetch_ticket::query_tickets ticket id: {:?}",
+                    ticket.ticket_id
+                );
                 mutate_state(|s| s.tickets_queue.insert(seq, ticket));
                 next_seq = seq + 1;
             }
-            // 根据Consolidation Latency Optimization，如果只有一个ticket，直接触发mint_token
-            if tickets_number == 1{
-                spawn(async { 
-                    mint_token().await;
-                })
-            }
+
+            spawn(mint_token());
             mutate_state(|s| s.seqs.next_ticket_seq = next_seq)
         }
         Err(e) => {

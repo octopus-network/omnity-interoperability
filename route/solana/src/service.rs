@@ -9,16 +9,18 @@ use ic_solana::compute_budget::compute_budget::Priority;
 use ic_solana::eddsa::KeyType;
 use ic_solana::types::TransactionStatus;
 
-use crate::handler::mint_token::{
-    self, update_tx_hash, 
+use crate::handler::gen_ticket::{
+    self, query_tx_from_multi_rpc, send_ticket, GenerateTicketError, GenerateTicketOk,
+    GenerateTicketReq,
 };
-use crate::handler::gen_ticket::{self,send_ticket,query_tx_from_multi_rpc,GenerateTicketError,
-    GenerateTicketOk, GenerateTicketReq};
-    
-use crate::handler::{ scheduler, solana_rpc, token_account};
+use crate::handler::mint_token::{self, update_tx_hash};
+
+use crate::handler::{scheduler, solana_rpc, token_account};
 use crate::lifecycle::{self, RouteArg, UpgradeArgs};
 use crate::service::solana_rpc::solana_client;
-use crate::state::{AccountInfo, AtaKey, MultiRpcConfig, SnorKeyType, TokenMeta, TokenResp, KEY_TYPE_NAME};
+use crate::state::{
+    AccountInfo, AtaKey, MultiRpcConfig, SnorKeyType, TokenMeta, TokenResp, KEY_TYPE_NAME,
+};
 use crate::types::{TicketId, Token, TokenId};
 use ic_solana::token::SolanaClient;
 use ic_solana::token::TokenInfo;
@@ -35,12 +37,12 @@ use ic_solana::token::associated_account::get_associated_token_address_with_prog
 use ic_solana::types::Pubkey;
 use std::str::FromStr;
 
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use ic_solana::ic_log::{self, DEBUG, ERROR};
 use crate::state::Seqs;
 use crate::state::TokenUri;
-use ic_solana::token::constants::token_program_id;
 use crate::types::Factor;
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_solana::ic_log::{self, DEBUG, ERROR};
+use ic_solana::token::constants::token_program_id;
 use std::time::Duration;
 
 async fn get_random_seed() -> [u8; 64] {
@@ -71,7 +73,7 @@ fn init(args: RouteArg) {
     ic_cdk_timers::set_timer(Duration::ZERO, || {
         ic_cdk::spawn(async move {
             let seed = get_random_seed().await;
-            mutate_state(|s|s.seeds.insert(KEY_TYPE_NAME.to_string(),seed));
+            mutate_state(|s| s.seeds.insert(KEY_TYPE_NAME.to_string(), seed));
         });
     });
 }
@@ -101,28 +103,27 @@ fn post_upgrade(args: Option<RouteArg>) {
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub fn start_schedule(tasks: Option<Vec<TaskType>>) {
-    log!(DEBUG, "start schedule task: {:?} ... ",tasks);
+    log!(DEBUG, "start schedule task: {:?} ... ", tasks);
     scheduler::start_schedule(tasks);
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub fn stop_schedule(tasks: Option<Vec<TaskType>>) {
-    log!(DEBUG, "stop schedule task: {:?} ...",tasks);
+    log!(DEBUG, "stop schedule task: {:?} ...", tasks);
     scheduler::stop_schedule(tasks);
 }
 
 // devops method
-#[query(guard = "is_admin",hidden = true)]
-pub async fn active_tasks()-> Vec<TaskType> {
-    read_state(|s|
-    s.active_tasks.iter().map(|t| t.to_owned()).collect())
+#[query(guard = "is_admin", hidden = true)]
+pub async fn active_tasks() -> Vec<TaskType> {
+    read_state(|s| s.active_tasks.iter().map(|t| t.to_owned()).collect())
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_schnorr_key(key_name: String) {
     mutate_state(|s| {
         s.schnorr_key_name = key_name;
@@ -130,23 +131,19 @@ pub async fn update_schnorr_key(key_name: String) {
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_forward(forward: Option<String>) {
-    mutate_state(|s| {
-        s.forward = forward
-    })
+    mutate_state(|s| s.forward = forward)
 }
 
 // devops method
-#[query(guard = "is_admin",hidden = true)]
-pub async fn forward()-> Option<String> {
-    read_state(|s| {
-        s.forward.to_owned()
-    })
+#[query(guard = "is_admin", hidden = true)]
+pub async fn forward() -> Option<String> {
+    read_state(|s| s.forward.to_owned())
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_multi_rpc(multi_prc_cofig: MultiRpcConfig) {
     mutate_state(|s| {
         s.multi_rpc_config = multi_prc_cofig;
@@ -154,13 +151,13 @@ pub async fn update_multi_rpc(multi_prc_cofig: MultiRpcConfig) {
 }
 
 // devops method
-#[query(guard = "is_admin",hidden = true)]
+#[query(guard = "is_admin", hidden = true)]
 pub async fn multi_rpc_config() -> MultiRpcConfig {
     read_state(|s| s.multi_rpc_config.to_owned())
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 async fn valid_tx_from_multi_rpc(signature: String) -> Result<String, CallError> {
     use crate::service::solana_rpc::solana_client;
     let client = solana_client().await;
@@ -181,25 +178,25 @@ async fn valid_tx_from_multi_rpc(signature: String) -> Result<String, CallError>
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn query_priority()-> Option<Priority> {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn query_priority() -> Option<Priority> {
     read_state(|s| s.priority.to_owned())
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_priority(priority: Priority) {
-    mutate_state(|s| s.priority=Some(priority))
+    mutate_state(|s| s.priority = Some(priority))
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn query_key_type() -> SnorKeyType {
     read_state(|s| s.key_type.to_owned().into())
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_key_type(key_type: SnorKeyType) {
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,
@@ -208,18 +205,20 @@ pub async fn update_key_type(key_type: SnorKeyType) {
             KeyType::Native(seed.to_vec())
         }
     };
-    mutate_state(|s| s.key_type =key_type)
+    mutate_state(|s| s.key_type = key_type)
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn signer(key_type: SnorKeyType) -> Result<String, String> {
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,
         SnorKeyType::Native => {
-            let seed =read_state(|s| s.seeds
-                .get(&KEY_TYPE_NAME.to_string())
-                .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string())));
+            let seed = read_state(|s| {
+                s.seeds
+                    .get(&KEY_TYPE_NAME.to_string())
+                    .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string()))
+            });
             KeyType::Native(seed.to_vec())
         }
     };
@@ -228,22 +227,24 @@ pub async fn signer(key_type: SnorKeyType) -> Result<String, String> {
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn sign(msg: String,key_type: SnorKeyType) -> Result<Vec<u8>, String> {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn sign(msg: String, key_type: SnorKeyType) -> Result<Vec<u8>, String> {
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,
         SnorKeyType::Native => {
-            let seed =read_state(|s| s.seeds
-                .get(&KEY_TYPE_NAME.to_string())
-                .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string())));
+            let seed = read_state(|s| {
+                s.seeds
+                    .get(&KEY_TYPE_NAME.to_string())
+                    .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string()))
+            });
             KeyType::Native(seed.to_vec())
         }
     };
-    let signature = solana_rpc::sign(msg,key_type).await?;
+    let signature = solana_rpc::sign(msg, key_type).await?;
     Ok(signature)
 }
 
-// query supported chain list 
+// query supported chain list
 #[query]
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
@@ -255,7 +256,7 @@ fn get_chain_list() -> Vec<Chain> {
     })
 }
 
-// query supported chain list 
+// query supported chain list
 #[query]
 fn get_token_list() -> Vec<TokenResp> {
     read_state(|s| {
@@ -277,15 +278,13 @@ fn get_token_list() -> Vec<TokenResp> {
 }
 
 // devops method
-#[query(guard = "is_admin",hidden = true)]
-fn get_token(token_id:TokenId) -> Option<Token> {
-    read_state(|s| {
-        s.tokens.get(&token_id)
-    })
+#[query(guard = "is_admin", hidden = true)]
+fn get_token(token_id: TokenId) -> Option<Token> {
+    read_state(|s| s.tokens.get(&token_id))
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 async fn get_latest_blockhash() -> Result<String, CallError> {
     use crate::service::solana_rpc::solana_client;
     let client = solana_client().await;
@@ -301,7 +300,7 @@ async fn get_latest_blockhash() -> Result<String, CallError> {
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 async fn get_transaction(signature: String, forward: Option<String>) -> Result<String, CallError> {
     use crate::service::solana_rpc::solana_client;
     let client = solana_client().await;
@@ -315,7 +314,7 @@ async fn get_transaction(signature: String, forward: Option<String>) -> Result<S
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 async fn get_signature_status(
     signatures: Vec<String>,
 ) -> Result<Vec<TransactionStatus>, CallError> {
@@ -323,44 +322,51 @@ async fn get_signature_status(
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 async fn search_signature_from_address(
     target_sig: String,
     pubkey: String,
     limit: Option<usize>,
 ) -> Result<bool, CallError> {
-    solana_rpc::search_signature_from_address(target_sig,pubkey,limit).await
+    solana_rpc::search_signature_from_address(target_sig, pubkey, limit).await
 }
 
-
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, CallError> {
     solana_rpc::transfer_to(to_account, amount).await
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn derive_mint_account(req: TokenInfo,key_type:SnorKeyType) -> Result<String, CallError> {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn derive_mint_account(
+    req: TokenInfo,
+    key_type: SnorKeyType,
+) -> Result<String, CallError> {
     let sol_client = solana_client().await;
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,
         SnorKeyType::Native => {
-            let seed =read_state(|s| s.seeds
-                .get(&KEY_TYPE_NAME.to_string())
-                .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string())));
+            let seed = read_state(|s| {
+                s.seeds
+                    .get(&KEY_TYPE_NAME.to_string())
+                    .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string()))
+            });
             KeyType::Native(seed.to_vec())
         }
     };
-    let mint_account =
-        SolanaClient::derive_account(key_type,sol_client.chainkey_name.to_owned(), req.token_id.to_string())
-            .await;
+    let mint_account = SolanaClient::derive_account(
+        key_type,
+        sol_client.chainkey_name.to_owned(),
+        req.token_id.to_string(),
+    )
+    .await;
 
     Ok(mint_account.to_string())
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn get_account_info(account: String) -> Result<Option<String>, CallError> {
     let sol_client = solana_client().await;
 
@@ -400,7 +406,6 @@ pub async fn get_balance(pubkey: String) -> Result<u64, String> {
     Ok(balance)
 }
 
-
 #[query]
 pub async fn query_mint_address(token_id: TokenId) -> Option<String> {
     read_state(|s| match s.token_mint_accounts.get(&token_id) {
@@ -423,63 +428,63 @@ pub async fn query_mint_account(token_id: TokenId) -> Option<AccountInfo> {
 
 // devops method
 #[query(hidden = true)]
-pub async fn failed_mint_accounts() -> Vec<(TokenId,AccountInfo)> {
+pub async fn failed_mint_accounts() -> Vec<(TokenId, AccountInfo)> {
     read_state(|s| {
-        s.token_mint_accounts.iter().
-                filter(|(_,v)|v.retry_4_building>=RETRY_4_BUILDING && !matches!(v.status,TxStatus::Finalized))
-                .map(|(k,v)| (k,v))
-                .collect()
-        
+        s.token_mint_accounts
+            .iter()
+            .filter(|(_, v)| {
+                v.retry_4_building >= RETRY_4_BUILDING && !matches!(v.status, TxStatus::Finalized)
+            })
+            .map(|(k, v)| (k, v))
+            .collect()
     })
-
 }
 
 // devops method
 #[query(hidden = true)]
-pub async fn failed_ata() -> Vec<(AtaKey,AccountInfo)> {
+pub async fn failed_ata() -> Vec<(AtaKey, AccountInfo)> {
     read_state(|s| {
-        s.associated_accounts.iter().
-        filter(|(_,v)|v.retry_4_building>=RETRY_4_BUILDING && !matches!(v.status,TxStatus::Finalized))
-        .map(|(k,v)| (k,v))
-        .take(3)
-        .collect()
-        
+        s.associated_accounts
+            .iter()
+            .filter(|(_, v)| {
+                v.retry_4_building >= RETRY_4_BUILDING && !matches!(v.status, TxStatus::Finalized)
+            })
+            .map(|(k, v)| (k, v))
+            .take(3)
+            .collect()
     })
-
 }
 
 // devops method
-// add token manually 
-#[update(guard = "is_admin",hidden = true)]
+// add token manually
+#[update(guard = "is_admin", hidden = true)]
 pub async fn add_token(token: Token) -> Option<Token> {
-      mutate_state(|s| {
+    mutate_state(|s| {
         s.tokens
             .insert(token.token_id.to_string(), token.to_owned())
     })
-
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 fn update_token(token: Token) -> Result<Option<Token>, CallError> {
-    mutate_state(|s| {
-        match s.tokens.get(&token.token_id) {
-            None => Err(CallError {
-                method: "[service::update_token] update_token".to_string(),
-                reason: Reason::CanisterError(format!(
-                    "Not found token id {} ",
-                    token.token_id.to_string()
-                )),
-            }),
-            Some(_) => Ok(s.tokens.insert(token.token_id.to_string(), token.to_owned()))
-        }
-        
+    mutate_state(|s| match s.tokens.get(&token.token_id) {
+        None => Err(CallError {
+            method: "[service::update_token] update_token".to_string(),
+            reason: Reason::CanisterError(format!(
+                "Not found token id {} ",
+                token.token_id.to_string()
+            )),
+        }),
+        Some(_) => Ok(s
+            .tokens
+            .insert(token.token_id.to_string(), token.to_owned())),
     })
     // Ok(())
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 fn remove_token_and_account(token_id: TokenId) {
     mutate_state(|s| {
         s.tokens.remove(&token_id);
@@ -488,21 +493,29 @@ fn remove_token_and_account(token_id: TokenId) {
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn create_mint_account(req: TokenInfo,key_type:SnorKeyType) -> Result<AccountInfo, CallError> {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn create_mint_account(
+    req: TokenInfo,
+    key_type: SnorKeyType,
+) -> Result<AccountInfo, CallError> {
     let sol_client = solana_client().await;
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,
         SnorKeyType::Native => {
-            let seed =read_state(|s| s.seeds
-                .get(&KEY_TYPE_NAME.to_string())
-                .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string())));
+            let seed = read_state(|s| {
+                s.seeds
+                    .get(&KEY_TYPE_NAME.to_string())
+                    .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string()))
+            });
             KeyType::Native(seed.to_vec())
         }
     };
-    let mint_account =
-        SolanaClient::derive_account(key_type,sol_client.chainkey_name.to_owned(), req.token_id.to_string())
-            .await;
+    let mint_account = SolanaClient::derive_account(
+        key_type,
+        sol_client.chainkey_name.to_owned(),
+        req.token_id.to_string(),
+    )
+    .await;
     log!(
         DEBUG,
         "[service::create_mint_account] mint_account from schonnor chainkey: {:?} ",
@@ -518,7 +531,7 @@ pub async fn create_mint_account(req: TokenInfo,key_type:SnorKeyType) -> Result<
                 signature: None,
                 status: TxStatus::New,
                 retry_4_building: 0,
-                retry_4_status:0
+                retry_4_status: 0,
             };
 
             new_account_info
@@ -577,11 +590,19 @@ pub async fn create_mint_account(req: TokenInfo,key_type:SnorKeyType) -> Result<
                     });
 
                     // update mint account status
-                    token_account::update_mint_account_status(sig.to_string(), req.token_id.to_string()).await;
+                    token_account::update_mint_account_status(
+                        sig.to_string(),
+                        req.token_id.to_string(),
+                    )
+                    .await;
                 }
                 Some(sig) => {
                     // update mint account status
-                    token_account::update_mint_account_status(sig.to_string(), req.token_id.to_string()).await;
+                    token_account::update_mint_account_status(
+                        sig.to_string(),
+                        req.token_id.to_string(),
+                    )
+                    .await;
                 }
             }
         }
@@ -593,7 +614,6 @@ pub async fn create_mint_account(req: TokenInfo,key_type:SnorKeyType) -> Result<
                         DEBUG,
                         "[directive::create_token_mint] the token mint ({:?}) is creating, please waite ... ",
                         mint_account_info
-                        
                     );
                 }
                 // already created,but not finallized
@@ -602,11 +622,13 @@ pub async fn create_mint_account(req: TokenInfo,key_type:SnorKeyType) -> Result<
                         DEBUG,
                         "[directive::create_token_mint]the token mint ({:?}) was already submited and waiting for the tx({:}) to be finallized ... ",
                         mint_account,sig
-                        
                     );
-
                     // update status
-                    token_account::update_mint_account_status(sig.to_string(), req.token_id.to_string()).await;
+                    token_account::update_mint_account_status(
+                        sig.to_string(),
+                        req.token_id.to_string(),
+                    )
+                    .await;
                 }
             }
         }
@@ -625,8 +647,8 @@ pub async fn create_mint_account(req: TokenInfo,key_type:SnorKeyType) -> Result<
     }
 }
 
-#[update(guard = "is_admin",hidden = true)]
-pub async fn rebuild_mint_account(token_id:String,) -> Result<String, CallError> {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn rebuild_mint_account(token_id: String) -> Result<String, CallError> {
     let token = read_state(|s| s.tokens.get(&token_id)).unwrap();
     let token_info = TokenInfo {
         token_id: token.token_id.to_string(),
@@ -635,99 +657,106 @@ pub async fn rebuild_mint_account(token_id:String,) -> Result<String, CallError>
         decimals: token.decimals,
         uri: token.icon.unwrap_or_default(),
     };
-    let mint_account_info = if let Some(account_info) = 
-    read_state(|s| s.token_mint_accounts.get(&token_id)) {
-        account_info
-    }else {
-        return Err(CallError{
-            method:"rebuild_mint_account".to_string(),
-            reason:Reason::CanisterError("not found token mint account".to_string())
-        })
-    };
-    
+    let mint_account_info =
+        if let Some(account_info) = read_state(|s| s.token_mint_accounts.get(&token_id)) {
+            account_info
+        } else {
+            return Err(CallError {
+                method: "rebuild_mint_account".to_string(),
+                reason: Reason::CanisterError("not found token mint account".to_string()),
+            });
+        };
+
     log!(
         DEBUG,
         "[service::rebuild_mint_account] mint_account_info from solana route: {:?} ",
         mint_account_info,
     );
-    let mint_account=Pubkey::from_str(&mint_account_info.account).unwrap();
+    let mint_account = Pubkey::from_str(&mint_account_info.account).unwrap();
 
-    let ret: Result<String, CallError> = solana_rpc::create_mint_account(mint_account, token_info).await;
+    let ret: Result<String, CallError> =
+        solana_rpc::create_mint_account(mint_account, token_info).await;
     log!(
         DEBUG,
         "[service::rebuild_mint_account] rebuild_mint_account ret: {:?} ",
         ret,
     );
     match &ret {
-        Ok(sig) =>{
+        Ok(sig) => {
             // update signature
             let mint = AccountInfo {
                 account: mint_account_info.account.to_string(),
-                retry_4_building: mint_account_info.retry_4_building+1,
+                retry_4_building: mint_account_info.retry_4_building + 1,
                 retry_4_status: 0,
                 signature: Some(sig.to_string()),
                 status: TxStatus::Pending,
             };
-              // update status and signature
-              mutate_state(|s| {
-                s.token_mint_accounts.insert(token_id.to_owned(), mint)
-            });
-
+            // update status and signature
+            mutate_state(|s| s.token_mint_accounts.insert(token_id.to_owned(), mint));
         }
         Err(e) => {
-            let tx_error=   match &e.reason {
-                Reason::QueueIsFull| Reason::OutOfCycles|Reason::CanisterError(_)|Reason::Rejected(_)=> todo!(),
+            let tx_error = match &e.reason {
+                Reason::QueueIsFull
+                | Reason::OutOfCycles
+                | Reason::CanisterError(_)
+                | Reason::Rejected(_) => todo!(),
                 Reason::TxError(tx_error) => tx_error,
             };
             // update status and error
             let mint = AccountInfo {
                 account: mint_account_info.account.to_string(),
-                retry_4_building: mint_account_info.retry_4_building+1,
+                retry_4_building: mint_account_info.retry_4_building + 1,
                 retry_4_status: 0,
                 signature: None,
-                status: TxStatus::TxFailed { e: tx_error.to_owned() },
+                status: TxStatus::TxFailed {
+                    e: tx_error.to_owned(),
+                },
             };
-             mutate_state(|s| {
-                s.token_mint_accounts.insert(token_id.to_owned(), mint)
-            });
+            mutate_state(|s| s.token_mint_accounts.insert(token_id.to_owned(), mint));
         }
     }
-   ret
+    ret
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn update_mint_account_status(sig: String, token_id: String) -> Result<AccountInfo, CallError>  {
-    let mint_account = if let Some(mint_account) = read_state(|s| s.token_mint_accounts.get(&token_id)) {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn update_mint_account_status(
+    sig: String,
+    token_id: String,
+) -> Result<AccountInfo, CallError> {
+    let mint_account =
+        if let Some(mint_account) = read_state(|s| s.token_mint_accounts.get(&token_id)) {
+            mint_account
+        } else {
+            return Err(CallError {
+                method: "update_mint_account_status".to_string(),
+                reason: Reason::CanisterError("not found mint account".to_string()),
+            });
+        };
+    log!(
+        DEBUG,
+        "[service::update_mint_account_status] mint account: {:?} ",
         mint_account
-    }else {
-        return Err(CallError{
-            method:"update_mint_account_status".to_string(),
-            reason:Reason::CanisterError("not found mint account".to_string())
-        })
-    };
-    log!(DEBUG, "[service::update_mint_account_status] mint account: {:?} ", mint_account);
+    );
 
     token_account::update_mint_account_status(sig, token_id.to_owned()).await;
 
     let latest_account = read_state(|s| s.token_mint_accounts.get(&token_id)).unwrap();
-        
+
     Ok(latest_account)
-   
 }
 // devops method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn update_mint_account(token_id:TokenId,mint_account: AccountInfo) -> Option<AccountInfo>{
-           //update mint account info
-           mutate_state(|s| {
-            s.token_mint_accounts
-                .insert(token_id, mint_account)
-        })
-   
+#[update(guard = "is_admin", hidden = true)]
+pub async fn update_mint_account(
+    token_id: TokenId,
+    mint_account: AccountInfo,
+) -> Option<AccountInfo> {
+    //update mint account info
+    mutate_state(|s| s.token_mint_accounts.insert(token_id, mint_account))
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> {
     log!(
         DEBUG,
@@ -780,30 +809,29 @@ pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> 
     }
 }
 
-
-
 // devops method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn update_token22_metadata(token_mint:String,token_info: TokenInfo) -> Result<String, CallError> {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn update_token22_metadata(
+    token_mint: String,
+    token_info: TokenInfo,
+) -> Result<String, CallError> {
     log!(
         DEBUG,
         "[service::update_token_metadata] token_mint:{}, token_info: {:?} ",
-        token_mint,token_info,
+        token_mint,
+        token_info,
     );
-    let signature =
-    solana_rpc::update_token22_metadata(token_mint, token_info).await?;
+    let signature = solana_rpc::update_token22_metadata(token_mint, token_info).await?;
     log!(
         DEBUG,
         "[service::update_token_metadata] update_token_metadata signature: {:?} ",
         signature.to_string(),
     );
     Ok(signature)
-    
 }
 
-
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn derive_aossicated_account(
     owner: String,
     token_mint: String,
@@ -833,7 +861,6 @@ pub async fn query_aossicated_account(
     read_state(|s| s.associated_accounts.get(&AtaKey { owner, token_mint }))
 }
 
-
 // devops method
 #[query(hidden = true)]
 pub async fn query_aossicated_account_address(
@@ -855,7 +882,7 @@ pub async fn query_aossicated_account_address(
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn create_aossicated_account(
     owner: String,
     token_mint: String,
@@ -883,7 +910,7 @@ pub async fn create_aossicated_account(
         let new_account_info = AccountInfo {
             account: associated_account.to_string(),
             retry_4_building: 0,
-            retry_4_status:0,
+            retry_4_status: 0,
             signature: None,
             status: TxStatus::New,
         };
@@ -956,31 +983,40 @@ pub async fn create_aossicated_account(
                         )
                     });
                     // update ata status
-                    associated_account::update_ata_status(sig.to_string(), owner.to_string(), token_mint.to_string())
-                        .await;
+                    associated_account::update_ata_status(
+                        sig.to_string(),
+                        owner.to_string(),
+                        token_mint.to_string(),
+                    )
+                    .await;
                 }
                 Some(sig) => {
-                    associated_account::update_ata_status(sig.to_string(), owner.to_string(), token_mint.to_string())
-                        .await;
+                    associated_account::update_ata_status(
+                        sig.to_string(),
+                        owner.to_string(),
+                        token_mint.to_string(),
+                    )
+                    .await;
                 }
             }
         }
-        TxStatus::Pending => {
-            match ata_account.signature.to_owned() {
-                None => {
-                    log!(
+        TxStatus::Pending => match ata_account.signature.to_owned() {
+            None => {
+                log!(
                         DEBUG,
                         "[service::create_associated_account] the associated account ({:?}) is creating,pls wait ...",
                         ata_account
                     );
-                  
-                }
-                Some(sig) => {
-                    associated_account::update_ata_status(sig.to_string(), owner.to_string(), token_mint.to_string())
-                        .await;
-                }
             }
-        }
+            Some(sig) => {
+                associated_account::update_ata_status(
+                    sig.to_string(),
+                    owner.to_string(),
+                    token_mint.to_string(),
+                )
+                .await;
+            }
+        },
         TxStatus::Finalized => return Ok(ata_account),
     }
     match read_state(|s| {
@@ -1002,7 +1038,7 @@ pub async fn create_aossicated_account(
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn rebuild_aossicated_account(
     owner: String,
     token_mint: String,
@@ -1023,15 +1059,13 @@ pub async fn rebuild_aossicated_account(
         owner: owner.to_string(),
         token_mint: token_mint.to_string(),
     };
-    let  ata = if let Some(account_info) = read_state(|s| {
-        s.associated_accounts.get(&ata_key)
-    }) {
+    let ata = if let Some(account_info) = read_state(|s| s.associated_accounts.get(&ata_key)) {
         account_info
     } else {
-        return Err(CallError{
-            method:"rebuild_aossicated_account".to_string(),
-            reason:Reason::CanisterError("not found associated_accounts info ".to_string())
-        })
+        return Err(CallError {
+            method: "rebuild_aossicated_account".to_string(),
+            reason: Reason::CanisterError("not found associated_accounts info ".to_string()),
+        });
     };
 
     log!(
@@ -1040,7 +1074,6 @@ pub async fn rebuild_aossicated_account(
         ata
     );
 
- 
     let ret = solana_rpc::create_ata(owner.to_string(), token_mint.to_string()).await;
     log!(
         DEBUG,
@@ -1049,50 +1082,50 @@ pub async fn rebuild_aossicated_account(
     );
 
     match &ret {
-        Ok(sig) =>{
+        Ok(sig) => {
             // update signature and status
             let ata = AccountInfo {
                 account: ata.account.to_string(),
-                retry_4_building: ata.retry_4_building+1,
+                retry_4_building: ata.retry_4_building + 1,
                 retry_4_status: 0,
                 signature: Some(sig.to_owned()),
                 status: TxStatus::Pending,
             };
-             // update status and signature
-             mutate_state(|s| {
-                s.associated_accounts.insert(ata_key, ata)
-            });
+            // update status and signature
+            mutate_state(|s| s.associated_accounts.insert(ata_key, ata));
         }
         Err(e) => {
-            let tx_error=   match &e.reason {
-                Reason::QueueIsFull| Reason::OutOfCycles|Reason::CanisterError(_)|Reason::Rejected(_)=> todo!(),
+            let tx_error = match &e.reason {
+                Reason::QueueIsFull
+                | Reason::OutOfCycles
+                | Reason::CanisterError(_)
+                | Reason::Rejected(_) => todo!(),
                 Reason::TxError(tx_error) => tx_error,
             };
-             // update status and error
+            // update status and error
             let ata = AccountInfo {
                 account: ata.account.to_string(),
-                retry_4_building: ata.retry_4_building+1,
+                retry_4_building: ata.retry_4_building + 1,
                 retry_4_status: 0,
                 signature: None,
-                status: TxStatus::TxFailed { e: tx_error.to_owned()},
+                status: TxStatus::TxFailed {
+                    e: tx_error.to_owned(),
+                },
             };
-            
-            mutate_state(|s| {
-                s.associated_accounts.insert(ata_key, ata)
-            });
+
+            mutate_state(|s| s.associated_accounts.insert(ata_key, ata));
         }
     }
     ret
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_associated_account(
     owner: String,
     token_mint: String,
     associated_account: AccountInfo,
 ) -> Result<AccountInfo, CallError> {
-
     log!(
         DEBUG,
         "[service::update_associated_account] owner: {} and token_mint: {}  associated_account: {:?}",
@@ -1109,7 +1142,6 @@ pub async fn update_associated_account(
     match read_state(|s| {
         s.associated_accounts
             .get(&AtaKey::new(owner.to_string(), token_mint.to_string()))
-            
     }) {
         None => Err(CallError {
             method: "[service::update_associated_account] update_associated_account".to_string(),
@@ -1123,47 +1155,46 @@ pub async fn update_associated_account(
     }
 }
 
-#[update(guard = "is_admin",hidden = true)]
-pub async fn update_ata_status(sig: String, ata_key:AtaKey) -> Result<AccountInfo, CallError>  {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn update_ata_status(sig: String, ata_key: AtaKey) -> Result<AccountInfo, CallError> {
     let ata = if let Some(ata) = read_state(|s| s.associated_accounts.get(&ata_key)) {
         ata
-    }else {
-        return Err(CallError{
-            method:"update_ata_status".to_string(),
-            reason:Reason::CanisterError("not associated account".to_string())
-        })
+    } else {
+        return Err(CallError {
+            method: "update_ata_status".to_string(),
+            reason: Reason::CanisterError("not associated account".to_string()),
+        });
     };
     log!(DEBUG, "[service::update_ata_status] ata: {:?} ", ata);
-    associated_account::update_ata_status(sig, ata_key.owner.to_owned(),ata_key.token_mint.to_owned()).await;
+    associated_account::update_ata_status(
+        sig,
+        ata_key.owner.to_owned(),
+        ata_key.token_mint.to_owned(),
+    )
+    .await;
 
     let latest_account = read_state(|s| s.associated_accounts.get(&ata_key)).unwrap();
-        
+
     Ok(latest_account)
-   
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn remove_associated_account(
-    owner: String,
-    token_mint: String,
-) -> Result<(), CallError> {
-
+#[update(guard = "is_admin", hidden = true)]
+pub async fn remove_associated_account(owner: String, token_mint: String) -> Result<(), CallError> {
     log!(
         DEBUG,
         "[service::remove_associated_account] owner: {} and token_mint: {} ",
-        owner,token_mint
+        owner,
+        token_mint
     );
 
     mutate_state(|s| {
-        s.associated_accounts.remove(
-            &AtaKey::new(owner.to_string(), token_mint.to_string())
-        )
+        s.associated_accounts
+            .remove(&AtaKey::new(owner.to_string(), token_mint.to_string()))
     });
 
-  Ok(())
+    Ok(())
 }
-
 
 // devops method
 #[query(hidden = true)]
@@ -1187,7 +1218,7 @@ fn get_tickets_from_queue() -> Vec<(u64, Ticket)> {
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn remove_ticket_from_quene(ticket_id: String) -> Option<Ticket> {
     mutate_state(|s| {
         let ticket = s
@@ -1201,7 +1232,6 @@ pub async fn remove_ticket_from_quene(ticket_id: String) -> Option<Ticket> {
         }
     })
 }
-
 
 // query mint_token_statue for the given ticket id
 #[query]
@@ -1255,7 +1285,7 @@ pub async fn mint_token_req(ticket_id: String) -> Result<MintTokenRequest, CallE
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenRequest, CallError> {
     mutate_state(|s| {
         s.mint_token_requests
@@ -1275,7 +1305,7 @@ pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenReq
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn mint_to(ata: String, token_mint: String, amount: u64) -> Result<String, CallError> {
     let sol_client = solana_client().await;
     let associated_account = Pubkey::from_str(&ata).expect("Invalid ata address");
@@ -1294,23 +1324,21 @@ pub async fn mint_to(ata: String, token_mint: String, amount: u64) -> Result<Str
 
 // devops method
 #[query(hidden = true)]
-pub async fn failed_mint_reqs() -> Vec<(TicketId,MintTokenRequest)> {
+pub async fn failed_mint_reqs() -> Vec<(TicketId, MintTokenRequest)> {
     read_state(|s| {
-        s.mint_token_requests.iter().
-        filter(|(_,v)|matches!(v.status,TxStatus::TxFailed { .. }))
-        .map(|(k,v)| (k,v))
-        .take(3)
-        .collect()
-        
+        s.mint_token_requests
+            .iter()
+            .filter(|(_, v)| matches!(v.status, TxStatus::TxFailed { .. }))
+            .map(|(k, v)| (k, v))
+            .take(3)
+            .collect()
     })
-
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, CallError> {
-
-   let mut req =  match read_state(|s| s.mint_token_requests.get(&n_req.ticket_id)) {
+    let mut req = match read_state(|s| s.mint_token_requests.get(&n_req.ticket_id)) {
         None => {
             log!(
                 DEBUG,
@@ -1322,34 +1350,38 @@ pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, Ca
         Some(o_req) => {
             if o_req.eq(&n_req) {
                 o_req
-            }else {
+            } else {
                 n_req
             }
         }
     };
 
-    log!(DEBUG, "[service::mint_token] mint token request: {:?} ", req);
+    log!(
+        DEBUG,
+        "[service::mint_token] mint token request: {:?} ",
+        req
+    );
 
     match &req.status {
         TxStatus::New | TxStatus::TxFailed { .. } => {
             match req.signature.to_owned() {
                 None => {
                     // new mint req
-                    let sig = solana_rpc::mint_to_with_req(
-                      req.to_owned(),
-                    )
-                    .await?;
+                    let sig = solana_rpc::mint_to_with_req(req.to_owned()).await?;
 
                     // update signature
                     req.signature = Some(sig.to_string());
                     mutate_state(|s| {
-                        s.mint_token_requests.insert(req.ticket_id.to_owned(), req.to_owned())
+                        s.mint_token_requests
+                            .insert(req.ticket_id.to_owned(), req.to_owned())
                     });
 
                     // update req status
-                    mint_token::update_mint_token_status(req.to_owned(),sig.to_owned()).await
+                    mint_token::update_mint_token_status(req.to_owned(), sig.to_owned()).await
                 }
-                Some(sig) =>  mint_token::update_mint_token_status(req.to_owned(),sig.to_owned()).await,
+                Some(sig) => {
+                    mint_token::update_mint_token_status(req.to_owned(), sig.to_owned()).await
+                }
             }
         }
         TxStatus::Pending => {
@@ -1357,7 +1389,9 @@ pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, Ca
                 None => {
                     log!(DEBUG, "[service::mint_token] the mint token request ({:?}) is handling,pls wait ...", req);
                 }
-                Some(sig) =>  mint_token::update_mint_token_status(req.to_owned(),sig.to_owned()).await,
+                Some(sig) => {
+                    mint_token::update_mint_token_status(req.to_owned(), sig.to_owned()).await
+                }
             }
         }
         TxStatus::Finalized => {
@@ -1384,91 +1418,105 @@ pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, Ca
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn retry_mint_token(ticket_id: String) -> Result<String, CallError> {
-    log!(DEBUG, "[service::retry_mint_token] retry mint token ticket_id: {:?} ", ticket_id);
+    log!(
+        DEBUG,
+        "[service::retry_mint_token] retry mint token ticket_id: {:?} ",
+        ticket_id
+    );
 
     let mint_req = if let Some(mint_req) = read_state(|s| s.mint_token_requests.get(&ticket_id)) {
         mint_req
-    }else {
-        return Err(CallError{
-            method:"retry_mint_token".to_string(),
-            reason:Reason::CanisterError("not found ticket id ".to_string())
-        })
+    } else {
+        return Err(CallError {
+            method: "retry_mint_token".to_string(),
+            reason: Reason::CanisterError("not found ticket id ".to_string()),
+        });
     };
 
     // retry mint token
-    let ret = solana_rpc::mint_to_with_req(
-        mint_req.to_owned(),
-      )
-      .await;
+    let ret = solana_rpc::mint_to_with_req(mint_req.to_owned()).await;
 
     match &ret {
-        Ok(sig) =>{
-            let new_req = MintTokenRequest{ 
-                ticket_id:mint_req.ticket_id.to_owned(), 
+        Ok(sig) => {
+            let new_req = MintTokenRequest {
+                ticket_id: mint_req.ticket_id.to_owned(),
                 associated_account: mint_req.associated_account,
-                amount: mint_req.amount, 
-                token_mint:mint_req.token_mint, 
+                amount: mint_req.amount,
+                token_mint: mint_req.token_mint,
                 status: TxStatus::Pending,
-                signature: Some(sig.to_string()), 
+                signature: Some(sig.to_string()),
                 retry_4_building: mint_req.retry_4_building + 1,
-                retry_4_status: 0 };
-                
-                // update status and signature
-                mutate_state(|s| {
-                    s.mint_token_requests.insert(mint_req.ticket_id.to_owned(), new_req)
-                });
+                retry_4_status: 0,
+            };
+
+            // update status and signature
+            mutate_state(|s| {
+                s.mint_token_requests
+                    .insert(mint_req.ticket_id.to_owned(), new_req)
+            });
         }
         Err(e) => {
-            let tx_error=   match &e.reason {
-                Reason::QueueIsFull| Reason::OutOfCycles|Reason::CanisterError(_)|Reason::Rejected(_)=> todo!(),
+            let tx_error = match &e.reason {
+                Reason::QueueIsFull
+                | Reason::OutOfCycles
+                | Reason::CanisterError(_)
+                | Reason::Rejected(_) => todo!(),
                 Reason::TxError(tx_error) => tx_error,
             };
-            let new_req = MintTokenRequest{ 
-                ticket_id:mint_req.ticket_id.to_owned(), 
+            let new_req = MintTokenRequest {
+                ticket_id: mint_req.ticket_id.to_owned(),
                 associated_account: mint_req.associated_account,
-                amount: mint_req.amount, 
-                token_mint:mint_req.token_mint, 
-                status: TxStatus::TxFailed {e:tx_error.to_owned()},
-                signature: None, 
+                amount: mint_req.amount,
+                token_mint: mint_req.token_mint,
+                status: TxStatus::TxFailed {
+                    e: tx_error.to_owned(),
+                },
+                signature: None,
                 retry_4_building: mint_req.retry_4_building + 1,
-                retry_4_status: 0};
-                // update status and error
-                mutate_state(|s| {
-                    s.mint_token_requests.insert(mint_req.ticket_id.to_owned(), new_req)
-                });
+                retry_4_status: 0,
+            };
+            // update status and error
+            mutate_state(|s| {
+                s.mint_token_requests
+                    .insert(mint_req.ticket_id.to_owned(), new_req)
+            });
         }
-        
     }
-   ret
-
+    ret
 }
 
-#[update(guard = "is_admin",hidden = true)]
-pub async fn update_mint_token_status(ticket_id:String,sig: String) -> Result<MintTokenRequest, CallError> {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn update_mint_token_status(
+    ticket_id: String,
+    sig: String,
+) -> Result<MintTokenRequest, CallError> {
     let mint_req = if let Some(mint_req) = read_state(|s| s.mint_token_requests.get(&ticket_id)) {
         mint_req
-    }else {
-        return Err(CallError{
-            method:"update_mint_token_status".to_string(),
-            reason:Reason::CanisterError("not found ticket id account".to_string())
-        })
+    } else {
+        return Err(CallError {
+            method: "update_mint_token_status".to_string(),
+            reason: Reason::CanisterError("not found ticket id account".to_string()),
+        });
     };
-    log!(DEBUG, "[service::update_mint_token_status] mint token request: {:?} ", mint_req);
-    mint_token::update_mint_token_status(mint_req,sig).await;
+    log!(
+        DEBUG,
+        "[service::update_mint_token_status] mint token request: {:?} ",
+        mint_req
+    );
+    mint_token::update_mint_token_status(mint_req, sig).await;
     let latest_req = read_state(|s| s.mint_token_requests.get(&ticket_id)).unwrap();
-        
-    Ok(latest_req)
 
+    Ok(latest_req)
 }
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_tx_hash_to_hub(sig: String, ticket_id: String) -> Result<(), CallError> {
     let hub_principal = read_state(|s| s.hub_principal);
-  
-    match update_tx_hash(hub_principal, ticket_id.to_string(),  sig.to_owned()).await {
-        Ok(()) =>{
+
+    match update_tx_hash(hub_principal, ticket_id.to_string(), sig.to_owned()).await {
+        Ok(()) => {
             log!(
                 DEBUG,
                 "[service::update_tx_hash_to_hub] successfully update tx hash ({})) to hub! ",
@@ -1477,68 +1525,62 @@ pub async fn update_tx_hash_to_hub(sig: String, ticket_id: String) -> Result<(),
             //only finalized mint_req, remove the handled ticket from queue
             // remove_ticket_from_quene(ticket_id.to_string()).await;
         }
-        Err(err) =>  {
+        Err(err) => {
             log!(
                 ERROR,
                 "[service::update_tx_hash_to_hub] failed to update tx hash ({})) to hub : {}",
-                sig,err
+                sig,
+                err
             );
         }
-       }
-        
+    }
+
     Ok(())
 }
 
-// query collect fee account 
+// query collect fee account
 #[query]
 pub async fn get_fee_account() -> String {
     read_state(|s| s.fee_account.to_string())
 }
 
-// update collect fee account 
-#[update(guard = "is_admin",hidden = true)]
-pub async fn update_fee_account(fee_account: String)  {
+// update collect fee account
+#[update(guard = "is_admin", hidden = true)]
+pub async fn update_fee_account(fee_account: String) {
     mutate_state(|s| s.fee_account = fee_account)
 }
 
-// query fee account for the dst chain 
+// query fee account for the dst chain
 #[query]
 pub fn get_redeem_fee(chain_id: ChainId) -> Option<u128> {
     read_state(|s| s.get_fee(chain_id))
 }
 
-#[update(guard = "is_admin",hidden = true)]
-pub async fn update_redeem_fee(fee: Factor)  {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn update_redeem_fee(fee: Factor) {
     mutate_state(|s| s.update_fee(fee))
 }
 
 // generate ticket ,called by front end or other sys
 #[update]
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
-   gen_ticket::generate_ticket(args).await
+    gen_ticket::generate_ticket(args).await
 }
 
 // devops method
 #[query(guard = "is_admin")]
-pub fn gen_tickets_req(signature:String) -> Option<GenerateTicketReq> {
-    read_state(|s| {
-        s.gen_ticket_reqs.get(&signature)
-    })
+pub fn gen_tickets_req(signature: String) -> Option<GenerateTicketReq> {
+    read_state(|s| s.gen_ticket_reqs.get(&signature))
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn remove_gen_tickets_req(signature:String) -> Option<GenerateTicketReq> {
-    mutate_state(|state| {
-        state
-            .gen_ticket_reqs
-            .remove(&signature)
-    })
-
+#[update(guard = "is_admin", hidden = true)]
+pub async fn remove_gen_tickets_req(signature: String) -> Option<GenerateTicketReq> {
+    mutate_state(|state| state.gen_ticket_reqs.remove(&signature))
 }
 
 // devops method
-#[query(guard = "is_admin",hidden = true)]
+#[query(guard = "is_admin", hidden = true)]
 pub fn get_failed_tickets_to_hub() -> Vec<Ticket> {
     read_state(|s| {
         s.tickets_failed_to_hub
@@ -1549,16 +1591,14 @@ pub fn get_failed_tickets_to_hub() -> Vec<Ticket> {
 }
 
 // devops method
-#[query(guard = "is_admin",hidden = true)]
-pub fn get_failed_ticket_to_hub(ticket_id:String) -> Option<Ticket> {
-    read_state(|s| {
-        s.tickets_failed_to_hub.get(&ticket_id)
-    })
+#[query(guard = "is_admin", hidden = true)]
+pub fn get_failed_ticket_to_hub(ticket_id: String) -> Option<Ticket> {
+    read_state(|s| s.tickets_failed_to_hub.get(&ticket_id))
 }
 
 // devops method
 // when gen ticket and send it to hub failed ,call this method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn send_failed_tickets_to_hub() -> Result<(), GenerateTicketError> {
     let tickets_size = read_state(|s| s.tickets_failed_to_hub.len());
     while !read_state(|s| s.tickets_failed_to_hub.is_empty()) {
@@ -1574,66 +1614,67 @@ pub async fn send_failed_tickets_to_hub() -> Result<(), GenerateTicketError> {
                     .tickets_failed_to_hub
                     .insert(ticket_id, ticket.to_owned());
             });
-            log!(ERROR, "[service::send_failed_tickets_to_hub] failed to resend ticket: {}", ticket.ticket_id);
+            log!(
+                ERROR,
+                "[service::send_failed_tickets_to_hub] failed to resend ticket: {}",
+                ticket.ticket_id
+            );
             return Err(err);
         }
     }
-    log!(DEBUG, "[service::send_failed_tickets_to_hub] successfully resend {} tickets", tickets_size);
+    log!(
+        DEBUG,
+        "[service::send_failed_tickets_to_hub] successfully resend {} tickets",
+        tickets_size
+    );
     Ok(())
 }
 
 // devops method
 // when gen ticket and send it to hub failed ,call this method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn send_failed_ticket_to_hub(ticket_id:String) -> Result<(), GenerateTicketError> {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn send_failed_ticket_to_hub(ticket_id: String) -> Result<(), GenerateTicketError> {
     if let Some(ticket) = read_state(|rs| rs.tickets_failed_to_hub.get(&ticket_id)) {
         let hub_principal = read_state(|s| (s.hub_principal));
-        match send_ticket(hub_principal, ticket.to_owned())
-            .await
-           
-        {
-           Ok(()) => {
-                mutate_state(|state| {
-                state
-                    .tickets_failed_to_hub
-                    .remove(&ticket_id)});
-                log!(DEBUG, "[service::send_failed_ticket_to_hub] successfully resend ticket : {} ", ticket_id);
-                return Ok(())
-           },
-           Err(err) =>{
-                log!(ERROR, "[service::send_failed_ticket_to_hub] failed to resend ticket: {}, error: {:?}", ticket_id,err);
-                return Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
-           }
+        match send_ticket(hub_principal, ticket.to_owned()).await {
+            Ok(()) => {
+                mutate_state(|state| state.tickets_failed_to_hub.remove(&ticket_id));
+                log!(
+                    DEBUG,
+                    "[service::send_failed_ticket_to_hub] successfully resend ticket : {} ",
+                    ticket_id
+                );
+                return Ok(());
+            }
+            Err(err) => {
+                log!(
+                    ERROR,
+                    "[service::send_failed_ticket_to_hub] failed to resend ticket: {}, error: {:?}",
+                    ticket_id,
+                    err
+                );
+                return Err(GenerateTicketError::SendTicketErr(format!("{}", err)));
+            }
         }
-
     }
 
     Ok(())
-   
-   
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn remove_failed_tickets_to_hub(ticket_id: String) -> Option<Ticket> {
-    mutate_state(|state| {
-        state
-            .tickets_failed_to_hub
-            .remove(&ticket_id)
-    })
-
+    mutate_state(|state| state.tickets_failed_to_hub.remove(&ticket_id))
 }
 
 // devops method
-#[query(guard = "is_admin",hidden = true)]
-pub async fn seqs()-> Seqs {
-    read_state(|s| {
-        s.seqs.to_owned()
-    })
+#[query(guard = "is_admin", hidden = true)]
+pub async fn seqs() -> Seqs {
+    read_state(|s| s.seqs.to_owned())
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_seqs(seqs: Seqs) {
     mutate_state(|s| {
         s.seqs = seqs;
@@ -1641,13 +1682,13 @@ pub async fn update_seqs(seqs: Seqs) {
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub async fn set_permissions(caller: Principal, perm: Permission) {
     set_perms(caller.to_string(), perm)
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "is_admin", hidden = true)]
 pub fn debug(enable: bool) {
     mutate_state(|s| s.enable_debug = enable);
 }
@@ -1657,98 +1698,97 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     if ic_cdk::api::data_certificate().is_none() {
         ic_cdk::trap("update call rejected");
     }
-   
-    match  req.path() {
+
+    match req.path() {
         "/logs" => {
-            let endable_debug = read_state(|s|s.enable_debug);
-            ic_log::http_log(req,endable_debug)
-        },
-        "/token_uri" => {
-            match req.raw_query_param("id") {
-                None => HttpResponseBuilder::bad_request()
-                .with_body_and_content_length("pls provide token id")
-                .build(),
-                Some(id) => {
-                    use urlencoding::decode;
-                    let id:String = decode(id).unwrap().into_owned();
-                    let token = read_state(|s|s.tokens.get(&id).to_owned());
-                    
-            
-                    match token {
-                        None => HttpResponseBuilder::bad_request()
-                        .with_body_and_content_length(format!("not found the {} token uri ",id))
-                        .build(),
-                        Some(t) => {
-                            let token_uri: TokenUri = t.into();
-                            HttpResponseBuilder::ok()
-                            .header("Content-Type", "application/json; charset=utf-8")
-                            .with_body_and_content_length(serde_json::to_string(&token_uri).unwrap_or_default())
-                            .build()
-                        }
-
-                    }
-
-                   
-                }
-            }
-        },
-        "/token_meta" => {
-            match req.raw_query_param("id") {
-                None => HttpResponseBuilder::bad_request()
-                .with_body_and_content_length("pls provide token id")
-                .build(),
-                Some(id) => {
-                    use urlencoding::decode;
-                    let id:String = decode(id).unwrap().into_owned();
-                    let token = read_state(|s|s.tokens.get(&id).to_owned());
-                    
-            
-                    match token {
-                        None => HttpResponseBuilder::bad_request()
-                        .with_body_and_content_length(format!("not found the {} token meta",id))
-                        .build(),
-                        Some(t) => {
-                            let token_meta: TokenMeta = t.into();
-                            HttpResponseBuilder::ok()
-                            .header("Content-Type", "application/json; charset=utf-8")
-                            .with_body_and_content_length(serde_json::to_string(&token_meta).unwrap_or_default())
-                            .build()
-                        }
-
-                    }
-
-                   
-                }
-            }
+            let endable_debug = read_state(|s| s.enable_debug);
+            ic_log::http_log(req, endable_debug)
         }
-       
-        _ => HttpResponseBuilder::not_found().build()
+        "/token_uri" => match req.raw_query_param("id") {
+            None => HttpResponseBuilder::bad_request()
+                .with_body_and_content_length("pls provide token id")
+                .build(),
+            Some(id) => {
+                use urlencoding::decode;
+                let id: String = decode(id).unwrap().into_owned();
+                let token = read_state(|s| s.tokens.get(&id).to_owned());
+
+                match token {
+                    None => HttpResponseBuilder::bad_request()
+                        .with_body_and_content_length(format!("not found the {} token uri ", id))
+                        .build(),
+                    Some(t) => {
+                        let token_uri: TokenUri = t.into();
+                        HttpResponseBuilder::ok()
+                            .header("Content-Type", "application/json; charset=utf-8")
+                            .with_body_and_content_length(
+                                serde_json::to_string(&token_uri).unwrap_or_default(),
+                            )
+                            .build()
+                    }
+                }
+            }
+        },
+        "/token_meta" => match req.raw_query_param("id") {
+            None => HttpResponseBuilder::bad_request()
+                .with_body_and_content_length("pls provide token id")
+                .build(),
+            Some(id) => {
+                use urlencoding::decode;
+                let id: String = decode(id).unwrap().into_owned();
+                let token = read_state(|s| s.tokens.get(&id).to_owned());
+
+                match token {
+                    None => HttpResponseBuilder::bad_request()
+                        .with_body_and_content_length(format!("not found the {} token meta", id))
+                        .build(),
+                    Some(t) => {
+                        let token_meta: TokenMeta = t.into();
+                        HttpResponseBuilder::ok()
+                            .header("Content-Type", "application/json; charset=utf-8")
+                            .with_body_and_content_length(
+                                serde_json::to_string(&token_meta).unwrap_or_default(),
+                            )
+                            .build()
+                    }
+                }
+            }
+        },
+
+        _ => HttpResponseBuilder::not_found().build(),
     }
-  
 }
 
 // devops method,just for test
-#[update(guard = "is_admin",hidden = true)]
-async fn create_token_with_metaplex_delay(token_info: TokenInfo, key_type:SnorKeyType,delay: u64)  {
+#[update(guard = "is_admin", hidden = true)]
+async fn create_token_with_metaplex_delay(
+    token_info: TokenInfo,
+    key_type: SnorKeyType,
+    delay: u64,
+) {
     //mock delay
-    use ic_solana::eddsa::hash_with_sha256;
-    use std::time::Duration;
-    use std::sync::{Arc, Mutex};
     use ic_cdk::api;
+    use ic_solana::eddsa::hash_with_sha256;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
     let sol_client = solana_client().await;
     let delay_duration = Duration::from_secs(delay);
     let derive_path = hash_with_sha256(token_info.token_id.to_owned().as_str());
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,
         SnorKeyType::Native => {
-            let seed =read_state(|s| s.seeds
-                .get(&KEY_TYPE_NAME.to_string())
-                .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string())));
+            let seed = read_state(|s| {
+                s.seeds
+                    .get(&KEY_TYPE_NAME.to_string())
+                    .unwrap_or_else(|| panic!("No key with name {:?}", &KEY_TYPE_NAME.to_string()))
+            });
             KeyType::Native(seed.to_vec())
         }
     };
-    let token_mint =
-        Arc::new(SolanaClient::derive_account(key_type,sol_client.chainkey_name.to_owned(), derive_path).await);
+    let token_mint = Arc::new(
+        SolanaClient::derive_account(key_type, sol_client.chainkey_name.to_owned(), derive_path)
+            .await,
+    );
     let start = api::time();
     let blockhash = Arc::new(sol_client.get_latest_blockhash().await.unwrap());
     let end = api::time();
@@ -1781,8 +1821,7 @@ async fn create_token_with_metaplex_delay(token_info: TokenInfo, key_type:SnorKe
                     token_info.to_owned(),
                     *Arc::clone(&blockhash),
                 )
-                .await
-                ;
+                .await;
             log!(
                 DEBUG,
                 "[service::create_token_with_metaplex_delay] test_create_mint_with_metaplex resuslt: {:?}",
@@ -1797,28 +1836,24 @@ async fn create_token_with_metaplex_delay(token_info: TokenInfo, key_type:SnorKe
             );
         });
     });
-    
 }
 
 // Enable Candid export
 ic_cdk::export_candid!();
 
 mod test {
-    
     // use urlencoding::decode;
-
     #[test]
     fn test_urlencode_decode() {
         let encoded = "Bitcoin-runes-HOPE%E2%80%A2YOU%E2%80%A2GET%E2%80%A2NICE202410141209";
         let decoded = urlencoding::decode(encoded).unwrap();
-        println!("Decoded: {}", decoded);  // Bitcoin-runes-HOPE•YOU•GET•NICE202410141209
+        println!("Decoded: {}", decoded); // Bitcoin-runes-HOPE•YOU•GET•NICE202410141209
         let decoded_string: String = decoded.into_owned();
-        println!("decoded_string: {}", decoded_string);  
+        println!("decoded_string: {}", decoded_string);
         let encoded = "Bitcoin-runes-HOPE•YOU•GET•NICE202410141209";
         let decoded = urlencoding::decode(encoded).unwrap();
-        println!("Decoded: {}", decoded);  // Bitcoin-runes-HOPE•YOU•GET•NICE202410141209
+        println!("Decoded: {}", decoded); // Bitcoin-runes-HOPE•YOU•GET•NICE202410141209
         let decoded_string: String = decoded.into_owned();
-        println!("decoded_string: {}", decoded_string);  
-    
+        println!("decoded_string: {}", decoded_string);
     }
 }

@@ -31,6 +31,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
 };
+
 pub type CanisterId = Principal;
 pub type Owner = String;
 pub type MintAccount = String;
@@ -353,6 +354,8 @@ pub struct SolanaRouteState {
     pub schnorr_key_name: String,
     pub sol_canister: Principal,
     pub fee_account: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub solana_client_cache: Option<(KeyType, SolanaClient)>,
     // Locks preventing concurrent execution timer tasks
     pub active_tasks: HashSet<TaskType>,
     pub admin: Principal,
@@ -384,8 +387,6 @@ pub struct SolanaRouteState {
     pub gen_ticket_reqs: StableBTreeMap<TicketId, GenerateTicketReq, Memory>,
     #[serde(skip, default = "crate::memory::init_seed")]
     pub seeds: StableBTreeMap<String, [u8; 64], Memory>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub solana_client: Option<SolanaClient>
 }
 
 impl From<InitArgs> for SolanaRouteState {
@@ -428,7 +429,7 @@ impl From<InitArgs> for SolanaRouteState {
             ),
             gen_ticket_reqs: StableBTreeMap::init(crate::memory::get_gen_ticket_req_memory()),
             seeds: StableBTreeMap::init(crate::memory::get_seeds_memory()),
-            solana_client: None
+            solana_client_cache: None,
         }
     }
 }

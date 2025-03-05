@@ -21,11 +21,6 @@ use serde_bytes::ByteBuf;
 use super::mint_token::MintTokenRequest;
 
 pub async fn solana_client() -> SolanaClient {
-    
-    if let Some(client) = read_state(|s| s.solana_client.to_owned()) {
-        return client;
-    }
-    
     let (chain_id, schnorr_key_name, sol_canister, priority, key_type) = read_state(|s| {
         (
             s.chain_id.to_owned(),
@@ -35,6 +30,12 @@ pub async fn solana_client() -> SolanaClient {
             s.key_type.to_owned(),
         )
     });
+
+    if let Some((_, client)) = read_state(|s| s.solana_client_cache.clone())
+        .filter(|(cache_key_type, _)| *cache_key_type == key_type)
+    {
+        return client;
+    }
 
     let payer = eddsa_public_key(key_type.to_owned())
         .await
@@ -53,11 +54,10 @@ pub async fn solana_client() -> SolanaClient {
         chainkey_name: schnorr_key_name,
         forward,
         priority,
-        key_type,
+        key_type: key_type.clone(),
     };
-    
     mutate_state(|s| {
-        s.solana_client = Some(solana_client.clone());
+        s.solana_client_cache = Some((key_type, solana_client.clone()));
     });
     solana_client
 }

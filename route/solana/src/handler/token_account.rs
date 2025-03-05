@@ -6,16 +6,15 @@ use crate::state::{AccountInfo, TxStatus, UpdateToken};
 
 use ic_solana::types::{Pubkey, TransactionConfirmationStatus};
 
-use crate::handler::solana_rpc::{self, create_mint_account};
 use crate::handler::solana_rpc::update_with_metaplex;
+use crate::handler::solana_rpc::{self, create_mint_account};
 use crate::state::{mutate_state, read_state};
 use ic_canister_log::log;
-use ic_solana::ic_log::{ DEBUG, ERROR,WARNING};
-use ic_solana::token::{SolanaClient, TokenInfo, TxError};
 use ic_solana::eddsa::hash_with_sha256;
+use ic_solana::ic_log::{DEBUG, ERROR, WARNING};
+use ic_solana::token::{SolanaClient, TokenInfo, TxError};
 
 use super::solana_rpc::solana_client;
-
 
 pub async fn create_token_mint() {
     let creating_token_mint = read_state(|s| {
@@ -40,9 +39,9 @@ pub async fn create_token_mint() {
     let sol_client = solana_client().await;
     for token in creating_token_mint.into_iter() {
         // get uri
-        let uri =if let Some(uri) = token.metadata.get("uri"){
+        let uri = if let Some(uri) = token.metadata.get("uri") {
             uri.to_string()
-        }else {
+        } else {
             token.icon.to_owned().unwrap_or_default()
         };
 
@@ -56,12 +55,11 @@ pub async fn create_token_mint() {
         let mint_account = if let Some(account) =
             read_state(|s| s.token_mint_accounts.get(&token.token_id))
         {
-           
             account
-
         } else {
             let derive_path = hash_with_sha256(token.token_id.as_str());
-            let new_account_address = SolanaClient::derive_account(sol_client.key_type.to_owned(),
+            let new_account_address = SolanaClient::derive_account(
+                sol_client.key_type.to_owned(),
                 sol_client.chainkey_name.to_owned(),
                 derive_path,
             )
@@ -74,7 +72,7 @@ pub async fn create_token_mint() {
             let new_account_info = AccountInfo {
                 account: new_account_address.to_string(),
                 retry_4_building: 0,
-                retry_4_status:0,
+                retry_4_status: 0,
                 signature: None,
                 status: TxStatus::New,
             };
@@ -96,14 +94,17 @@ pub async fn create_token_mint() {
         );
 
         // check mint account exists on solana
-        let mint_account_info = sol_client.get_account_info(mint_account.account.to_string()).await;
+        let mint_account_info = sol_client
+            .get_account_info(mint_account.account.to_string())
+            .await;
         log!(
             DEBUG,
             "[token_account::create_token_mint] token mint: {:?} account_info from solana: {:?} ",
-            mint_account.account.to_string(),mint_account_info,
+            mint_account.account.to_string(),
+            mint_account_info,
         );
         if let Ok(account_info) = mint_account_info {
-            if matches!(account_info,Some(..)){
+            if matches!(account_info, Some(..)) {
                 let mint = AccountInfo {
                     account: mint_account.account.to_string(),
                     retry_4_building: mint_account.retry_4_building,
@@ -118,29 +119,20 @@ pub async fn create_token_mint() {
                 });
                 //skip this mint account
                 continue;
-
             }
-            
         }
 
         match &mint_account.status {
             TxStatus::New => {
                 match &mint_account.signature {
                     // not exists,need to create it
-                    None => {
-                        build_mint_account(
-                            mint_account.account.to_string(),
-                            token_info,
-                        )
-                        .await
-                    }
+                    None => build_mint_account(mint_account.account.to_string(), token_info).await,
                     // signature exists,but not finallized
                     Some(sig) => {
                         log!(
                             DEBUG,
                             "[token_account::create_token_mint] the token mint ({:?}) already submited and waiting for the tx({:}) to be finallized ... ",
                             mint_account,sig
-                            
                         );
                         // update status
                         update_mint_account_status(sig.to_string(), token_info.token_id).await;
@@ -155,23 +147,19 @@ pub async fn create_token_mint() {
                             DEBUG,
                             "[token_account::create_token_mint] the token mint ({:?}) is creating, please waite ... ",
                             mint_account
-                            
                         );
                     }
-                  // signature exists,but not finallized
+                    // signature exists,but not finallized
                     Some(sig) => {
                         log!(
                             DEBUG,
                             "[token_account::create_token_mint] the token mint ({:?}) already submited and waiting for the tx({:}) to be finallized ... ",
                             mint_account,sig
-                            
                         );
                         // update status
                         update_mint_account_status(sig.to_string(), token_info.token_id).await;
                     }
                 }
-            
-            
             }
             TxStatus::Finalized => {
                 log!(
@@ -186,23 +174,16 @@ pub async fn create_token_mint() {
                     "[token_account::create_token_mint] failed to create mint token for {:},error:{:}, retry ..",
                     token.token_id,e.to_string()
                 );
-              
+
                 match &mint_account.signature {
                     // not exists,need to create it
-                    None => {
-                        build_mint_account(
-                            mint_account.account.to_string(),
-                            token_info,
-                        )
-                        .await
-                    }
+                    None => build_mint_account(mint_account.account.to_string(), token_info).await,
                     // already created,but not finallized
                     Some(sig) => {
                         log!(
                             DEBUG,
                             "[token_account::create_token_mint] the token mint ({:?}) was already submited and waiting for the tx({:}) to be finallized ... ",
                             mint_account,sig
-                            
                         );
                         // update status
                         update_mint_account_status(sig.to_string(), token_info.token_id).await;
@@ -220,18 +201,18 @@ pub async fn build_mint_account(account_address: String, token_info: TokenInfo) 
             log!(
                 DEBUG,
                 "[token_account::build_mint_account] create_mint_account signature: {:?} for {:}",
-                sig.to_string(),mint_account.to_string()
+                sig.to_string(),
+                mint_account.to_string()
             );
             // update account.signature and account.retry ,but not finalized
             mutate_state(|s| {
-                if let Some(account) = s.token_mint_accounts
-                    .get(&token_info.token_id).as_mut() {
-                        //only this place ,update signature
-                        account.signature = Some(sig.to_string());
-                        // account.retry_4_building += 1;
-                        s.token_mint_accounts.insert(token_info.token_id.to_string(),account.to_owned());
-                    }
-                    
+                if let Some(account) = s.token_mint_accounts.get(&token_info.token_id).as_mut() {
+                    //only this place ,update signature
+                    account.signature = Some(sig.to_string());
+                    // account.retry_4_building += 1;
+                    s.token_mint_accounts
+                        .insert(token_info.token_id.to_string(), account.to_owned());
+                }
             });
             // update status
             // update_mint_account_status(sig.to_string(), token_info.token_id).await;
@@ -240,24 +221,28 @@ pub async fn build_mint_account(account_address: String, token_info: TokenInfo) 
             log!(
                 ERROR,
                 "[token_account::build_mint_account] create token mint for {:}, error: {:?}  ",
-                token_info.token_id,e
+                token_info.token_id,
+                e
             );
 
-            let tx_error=   match e.reason {
-                Reason::QueueIsFull| Reason::OutOfCycles|Reason::CanisterError(_)|Reason::Rejected(_)=> todo!(),
+            let tx_error = match e.reason {
+                Reason::QueueIsFull
+                | Reason::OutOfCycles
+                | Reason::CanisterError(_)
+                | Reason::Rejected(_) => todo!(),
                 Reason::TxError(tx_error) => tx_error,
             };
-    
+
             // update retry
             mutate_state(|s| {
-                if let Some(account) = s.token_mint_accounts
-                    .get(&token_info.token_id).as_mut() {
-                        account.status = TxStatus::TxFailed { e: tx_error};
-                        account.retry_4_building += 1;
-                        //: reset signature
-                        account.signature = None;
-                        s.token_mint_accounts.insert(token_info.token_id.to_string(),account.to_owned());
-                    }
+                if let Some(account) = s.token_mint_accounts.get(&token_info.token_id).as_mut() {
+                    account.status = TxStatus::TxFailed { e: tx_error };
+                    account.retry_4_building += 1;
+                    //: reset signature
+                    account.signature = None;
+                    s.token_mint_accounts
+                        .insert(token_info.token_id.to_string(), account.to_owned());
+                }
             });
         }
     }
@@ -274,32 +259,41 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
                 sig.to_string(),
                 e
             );
-            let tx_error=   match e.reason {
-                Reason::QueueIsFull| Reason::OutOfCycles|Reason::TxError(_) |Reason::Rejected(_)=> todo!(),
-                Reason::CanisterError(tx_error)=> tx_error,
+            let tx_error = match e.reason {
+                Reason::QueueIsFull
+                | Reason::OutOfCycles
+                | Reason::TxError(_)
+                | Reason::Rejected(_) => todo!(),
+                Reason::CanisterError(tx_error) => tx_error,
             };
 
             mutate_state(|s| {
-                if let Some(account) = s.token_mint_accounts
-                    .get(&token_id).as_mut() {
-                        // if update statue is up to the RETRY_4_STATUS and the tx is droped , rebuild the account
-                        if account.retry_4_status > RETRY_4_STATUS {
-                            log!(
+                if let Some(account) = s.token_mint_accounts.get(&token_id).as_mut() {
+                    // if update statue is up to the RETRY_4_STATUS and the tx is droped , rebuild the account
+                    if account.retry_4_status > RETRY_4_STATUS {
+                        log!(
                                 WARNING,
                                 "[token_account::update_mint_account_status] retry for get_signature_status up to limit size :{} ,and need to rebuild the account",
                                 RETRY_4_STATUS,);
-                            account.status = TxStatus::New;
-                            account.retry_4_building =0;
-                            account.retry_4_status = 0;
-                            account.signature = None;
-                            s.token_mint_accounts.insert(token_id.to_string(),account.to_owned());
-                        } else {
-                            account.retry_4_status += 1;
-                            account.status = TxStatus::TxFailed { e: TxError { block_hash:String::default(), signature: sig.to_owned(), error: tx_error.to_owned() } };
-                            s.token_mint_accounts.insert(token_id.to_string(),account.to_owned());
-                        }
-                      
+                        account.status = TxStatus::New;
+                        account.retry_4_building = 0;
+                        account.retry_4_status = 0;
+                        account.signature = None;
+                        s.token_mint_accounts
+                            .insert(token_id.to_string(), account.to_owned());
+                    } else {
+                        account.retry_4_status += 1;
+                        account.status = TxStatus::TxFailed {
+                            e: TxError {
+                                block_hash: String::default(),
+                                signature: sig.to_owned(),
+                                error: tx_error.to_owned(),
+                            },
+                        };
+                        s.token_mint_accounts
+                            .insert(token_id.to_string(), account.to_owned());
                     }
+                }
             });
         }
         Ok(status_vec) => {
@@ -314,10 +308,10 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
                     if matches!(status, TransactionConfirmationStatus::Finalized) {
                         // update account status to Finalized
                         mutate_state(|s| {
-                            if let Some(account) = s.token_mint_accounts
-                            .get(&token_id).as_mut() {
+                            if let Some(account) = s.token_mint_accounts.get(&token_id).as_mut() {
                                 account.status = TxStatus::Finalized;
-                                s.token_mint_accounts.insert(token_id.to_string(),account.to_owned());
+                                s.token_mint_accounts
+                                    .insert(token_id.to_string(), account.to_owned());
                             }
                         });
                     }
@@ -328,14 +322,11 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
 }
 
 pub async fn update_token() {
-
     let update_tokens = read_state(|s| {
         s.update_token_queue
             .iter()
             .take(1)
-            .map(|(token_id, update_token)| {
-                (token_id.to_owned(), update_token)
-            })
+            .map(|(token_id, update_token)| (token_id.to_owned(), update_token))
             .collect::<Vec<_>>()
     });
 
@@ -346,13 +337,17 @@ pub async fn update_token() {
         }
         let account_info = read_state(|s| s.token_mint_accounts.get(&token_id));
         if let Some(account_info) = account_info {
-            log!(DEBUG,"[token_account::update_token] token mint info : {:?} ",account_info);
+            log!(
+                DEBUG,
+                "[token_account::update_token] token mint info : {:?} ",
+                account_info
+            );
             //query token metadata from solana chain and comparison metadata with new metadata
             // if not eq, execute update token metadata
             // get uri
-            let uri =if let Some(uri) = update_token.token.metadata.get("uri"){
+            let uri = if let Some(uri) = update_token.token.metadata.get("uri") {
                 uri.to_string()
-            }else {
+            } else {
                 update_token.token.icon.to_owned().unwrap_or_default()
             };
             let token_update_info = TokenInfo {
@@ -362,7 +357,11 @@ pub async fn update_token() {
                 decimals: update_token.token.decimals,
                 uri,
             };
-            log!(DEBUG,"[token_account::update_token] token_update_info: {:?} ",token_update_info);
+            log!(
+                DEBUG,
+                "[token_account::update_token] token_update_info: {:?} ",
+                token_update_info
+            );
             match update_with_metaplex(account_info.account, token_update_info).await {
                 Ok(signature) => {
                     log!(DEBUG,"[token_account::update_token]  update token metadata for {:?} already submited to solana and waiting for the tx({:}) to be finallized ...",
@@ -383,15 +382,18 @@ pub async fn update_token() {
                         "[token_account::update_token] update token metadata error: {:?}  ",
                         e
                     );
-                    let tx_error=   match e.reason {
-                        Reason::QueueIsFull| Reason::OutOfCycles|Reason::CanisterError(_)|Reason::Rejected(_)=> todo!(),
+                    let tx_error = match e.reason {
+                        Reason::QueueIsFull
+                        | Reason::OutOfCycles
+                        | Reason::CanisterError(_)
+                        | Reason::Rejected(_) => todo!(),
                         Reason::TxError(tx_error) => tx_error,
                     };
                     mutate_state(|s| {
-                        // update 
+                        // update
                         let retry_4_building = update_token.retry_4_building + 1;
                         let update_token = UpdateToken {
-                            token: update_token.token.to_owned(), 
+                            token: update_token.token.to_owned(),
                             retry_4_building,
                             retry_4_status: update_token.retry_4_status,
                             signature: None,
