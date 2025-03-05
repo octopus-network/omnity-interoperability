@@ -1,12 +1,12 @@
 use candid::{CandidType, Principal};
+pub use ic_canister_log::log;
 use icrc_ledger_types::icrc1::account::{Account, Subaccount};
+pub use omnity_types::ic_log::{DEBUG, ERROR, INFO};
 use omnity_types::{ChainState, Directive, Token, TokenId};
 use serde::{Deserialize, Serialize};
 use state::{audit, mutate_state, read_state};
 use std::str::FromStr;
 use updates::mint_token::{MintTokenError, MintTokenRequest};
-pub use ic_canister_log::log;
-pub use omnity_types::ic_log::{INFO, ERROR};
 
 pub mod call_error;
 pub mod guard;
@@ -33,6 +33,9 @@ async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
+            if !tickets.is_empty() {
+                log!(DEBUG, "[icp_route] query tickets: {:?}", tickets);
+            }
             let mut next_seq = offset;
             for (seq, ticket) in &tickets {
                 let receiver_parse_result = if ticket.receiver.contains(".") {
@@ -49,7 +52,8 @@ async fn process_tickets() {
                 let receiver = match receiver_parse_result {
                     Ok(receiver) => receiver,
                     Err(err) => {
-                        log!(ERROR,
+                        log!(
+                            ERROR,
                             "[process tickets] failed to parse ticket receiver: {}, err: {}",
                             ticket.receiver,
                             err
@@ -62,11 +66,12 @@ async fn process_tickets() {
                 let amount: u128 = if let Ok(amount) = ticket.amount.parse() {
                     amount
                 } else {
-                    log!(ERROR,
+                    log!(
+                        ERROR,
                         "[process tickets] failed to parse ticket amount: {}",
                         ticket.amount
                     );
-                    
+
                     next_seq = seq + 1;
                     continue;
                 };
@@ -79,13 +84,15 @@ async fn process_tickets() {
                 .await
                 {
                     Ok(_) => {
-                        log!(INFO,
+                        log!(
+                            INFO,
                             "[process tickets] process successful for ticket id: {}",
                             ticket.ticket_id
                         );
                     }
                     Err(MintTokenError::TemporarilyUnavailable(desc)) => {
-                        log!(ERROR,
+                        log!(
+                            ERROR,
                             "[process tickets] failed to mint token for ticket id: {}, err: {}",
                             ticket.ticket_id,
                             desc
@@ -93,7 +100,8 @@ async fn process_tickets() {
                         break;
                     }
                     Err(err) => {
-                        log!(ERROR,
+                        log!(
+                            ERROR,
                             "[process tickets] process failure for ticket id: {}, err: {:?}",
                             ticket.ticket_id,
                             err
@@ -105,7 +113,11 @@ async fn process_tickets() {
             mutate_state(|s| s.next_ticket_seq = next_seq)
         }
         Err(err) => {
-            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
+            log!(
+                ERROR,
+                "[process tickets] failed to query tickets, err: {}",
+                err
+            );
         }
     }
 }
@@ -122,7 +134,8 @@ async fn process_directives() {
                     Directive::AddToken(token) | Directive::UpdateToken(token) => {
                         match updates::add_new_token(token.clone()).await {
                             Ok(_) => {
-                                log!(INFO,
+                                log!(
+                                    INFO,
                                     "[process directives] add token successful, token id: {}",
                                     token.token_id
                                 );
@@ -141,7 +154,8 @@ async fn process_directives() {
                     }
                     Directive::UpdateFee(fee) => {
                         mutate_state(|s| audit::update_fee(s, fee.clone()));
-                        log!(INFO,
+                        log!(
+                            INFO,
                             "[process directives] success to update fee, fee: {}",
                             fee
                         );
@@ -154,7 +168,8 @@ async fn process_directives() {
             });
         }
         Err(err) => {
-            log!(ERROR,
+            log!(
+                ERROR,
                 "[process directives] failed to query directives, err: {:?}",
                 err
             );
@@ -198,7 +213,7 @@ impl From<Token> for TokenResp {
             decimals: value.decimals,
             icon: value.icon,
             rune_id: value.metadata.get("rune_id").map(|rune_id| rune_id.clone()),
-            principal: None
+            principal: None,
         }
     }
 }
