@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use candid::{CandidType, Principal};
 use ic_stable_structures::StableBTreeMap;
@@ -50,6 +50,7 @@ impl TonRouteState {
             is_timer_running: Default::default(),
             pending_events_on_chain: Default::default(),
             last_success_seqno: 0,
+            generating_ticketid: Default::default(),
         };
         Ok(ret)
     }
@@ -131,6 +132,8 @@ pub struct TonRouteState {
     pub pending_events_on_chain: BTreeMap<String, u64>,
     #[serde(default)]
     pub last_success_seqno: i32,
+    #[serde(default)]
+    pub generating_ticketid: HashSet<String>,
 }
 
 impl From<&TonRouteState> for StateProfile {

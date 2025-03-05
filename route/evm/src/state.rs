@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::str::FromStr;
 
 use candid::{CandidType, Principal};
@@ -75,6 +75,7 @@ impl EvmRouteState {
             evm_transfer_gas_percent: 110,
             total_required_count: 0,
             minimum_response_count: 0,
+            generating_ticketid: Default::default(),
         };
         Ok(ret)
     }
@@ -185,6 +186,8 @@ pub struct EvmRouteState {
     pub total_required_count: usize,
     #[serde(default = "default_rpcs_count")]
     pub minimum_response_count: usize,
+    #[serde(default)]
+    pub generating_ticketid: HashSet<String>,
 }
 
 pub fn default_rpcs_count() -> usize { 1usize }
