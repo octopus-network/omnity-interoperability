@@ -3,8 +3,7 @@ use std::str::FromStr;
 use crate::{
     address::payer_address_path,
     lifecycle::{self, init::CustomArg, upgrade::UpgradeArgs},
-    process_directive_msg_task, process_release_token_task, process_ticket_msg_task,
-    solana_rpc::{self, init_solana_client},
+    process_directive_msg_task, process_release_token_task, process_ticket_msg_task, solana_rpc,
     state::{mutate_state, read_state, GenTicketStatus, ReleaseTokenStatus},
     types::omnity_types::{Chain, Token},
     updates::{
@@ -19,7 +18,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
 use ic_solana::{
-    ic_log::{self, INFO},
+    logs::{self, INFO},
     types::Pubkey,
 };
 
@@ -75,7 +74,7 @@ fn post_upgrade(args: Option<CustomArg>) {
 
 #[update]
 async fn get_payer_address() -> String {
-    let pk = solana_rpc::ecdsa_public_key(payer_address_path()).await;
+    let pk = solana_rpc::eddsa_public_key(payer_address_path()).await;
     pk.to_string()
 }
 
@@ -116,25 +115,6 @@ async fn resubmit_release_token_tx(ticket_id: String) -> Result<(), String> {
     }
 }
 
-#[update(guard = "is_controller")]
-async fn redeem_from_fee_address(receiver: String, amount: u64) -> Result<(), String> {
-    let receiver = Pubkey::from_str(&receiver).map_err(|err| err.to_string())?;
-    let client = init_solana_client().await;
-    client
-        .transfer_to(receiver, amount)
-        .await
-        .map_err(|err| err.to_string())?;
-    Ok(())
-}
-
-#[update(guard = "is_controller", hidden = true)]
-async fn update_forward(forward: Option<String>) {
-    mutate_state(|s| {
-        s.forward = forward.clone();
-        s.sol_client.as_mut().map(|c| c.forward = forward);
-    })
-}
-
 #[query]
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
@@ -161,6 +141,11 @@ async fn update_port_program(program: String) {
 }
 
 #[update(guard = "is_controller", hidden = true)]
+async fn update_rpc_list(rpc_list: Vec<String>) {
+    mutate_state(|s| s.rpc_list = rpc_list)
+}
+
+#[update(guard = "is_controller", hidden = true)]
 pub fn debug(enable: bool) {
     mutate_state(|s| s.enable_debug = enable);
 }
@@ -173,7 +158,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     match req.path() {
         "/logs" => {
             let endable_debug = read_state(|s| s.enable_debug);
-            ic_log::http_log(req, endable_debug)
+            logs::http_log(req, endable_debug)
         }
         _ => HttpResponseBuilder::not_found().build(),
     }

@@ -8,7 +8,7 @@ use crate::{
     updates::generate_ticket::GenerateTicketArgs,
 };
 use candid::Principal;
-use ic_solana::{token::SolanaClient, types::Pubkey};
+use ic_solana::types::Pubkey;
 use ic_stable_structures::{storable::Bound, StableBTreeMap, Storable};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -71,14 +71,13 @@ pub struct CustomsState {
     pub hub_principal: Principal,
     pub schnorr_key_name: String,
     pub sol_canister: Principal,
-    pub sol_client: Option<SolanaClient>,
-    pub forward: Option<String>,
     pub port_program_id: Pubkey,
     pub chain_state: ChainState,
     pub counterparties: BTreeMap<ChainId, Chain>,
     pub tokens: BTreeMap<TokenId, Token>,
     pub release_token_requests: BTreeMap<TicketId, ReleaseTokenReq>,
     pub rpc_list: Vec<String>,
+    pub proxy_rpc: String,
     pub min_response_count: u32,
     pub enable_debug: bool,
 
@@ -103,14 +102,13 @@ impl From<InitArgs> for CustomsState {
             hub_principal: args.hub_principal,
             schnorr_key_name: args.schnorr_key_name,
             sol_canister: args.sol_canister,
-            sol_client: None,
-            forward: args.forward,
             port_program_id: Pubkey::from_str(&args.port_program_id).unwrap(),
             chain_state: args.chain_state,
             counterparties: Default::default(),
             tokens: Default::default(),
             release_token_requests: Default::default(),
             rpc_list: args.rpc_list,
+            proxy_rpc: args.proxy_rpc,
             min_response_count: args.min_response_count,
             enable_debug: false,
             next_ticket_seq: 0,

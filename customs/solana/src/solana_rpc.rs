@@ -1,136 +1,183 @@
+use std::str::FromStr;
+
 use crate::{
     address::payer_address_path,
-    call_error::{CallError, Reason},
     port_native::{self, instruction::InstSerialize, port_address, vault_address},
-    state::{mutate_state, read_state},
-    transaction::{Transaction, TransactionDetail, TransactionStatus},
+    state::read_state,
+    SYSTEM_PROGRAM_ID,
 };
 use ic_canister_log::log;
+use ic_cdk::api::{call::call_with_payment, management_canister::http_request::HttpHeader};
 use ic_solana::{
-    eddsa::KeyType,
-    ic_log::ERROR,
-    rpc_client::{JsonRpcResponse, RpcResult},
-    token::{constants::system_program_id, SolanaClient},
-    types::{AccountMeta, Instruction, Pubkey},
+    eddsa::{sign_with_eddsa, KeyType},
+    logs::DEBUG,
+    rpc_client::{RpcApi, RpcConfig, RpcResult, RpcServices},
+    types::{
+        tagged::{EncodedConfirmedTransactionWithStatusMeta, EncodedTransaction, UiTransaction},
+        AccountMeta, BlockHash, Instruction, Message, Pubkey, RpcBlockhash, RpcContextConfig,
+        RpcSendTransactionConfig, RpcSignatureStatusConfig, RpcTransactionConfig, Signature,
+        Transaction, TransactionStatus, UiTransactionEncoding,
+    },
 };
 use serde_bytes::ByteBuf;
 
-pub async fn query_transaction(signature: String) -> Result<Transaction, String> {
-    let (rpc_list, min_resp_cnt) = read_state(|s| (s.rpc_list.clone(), s.min_response_count));
-    let client = init_solana_client().await;
-    let mut fut = Vec::with_capacity(rpc_list.len());
-    for rpc_url in rpc_list {
-        fut.push(async {
-            client
-                .query_transaction(signature.to_owned(), Some(rpc_url))
-                .await
-        });
+const CYCLE_COST: u64 = 10_000_000_000;
+
+pub async fn query_transaction(signature: String) -> Result<UiTransaction, String> {
+    let (sol_canister, rpc_list) = read_state(|s| (s.sol_canister, s.rpc_list.clone()));
+    // We can directly access normal RPC because query_transaction does not have consensus issues.
+    let source = RpcServices::Custom(
+        rpc_list
+            .iter()
+            .map(|rpc| RpcApi {
+                network: rpc.clone(),
+                headers: None,
+            })
+            .collect(),
+    );
+    let tx_config = RpcTransactionConfig {
+        encoding: Some(UiTransactionEncoding::Json),
+        commitment: None,
+        max_supported_transaction_version: None,
+    };
+    let result =
+        call_with_payment::<_, (RpcResult<Option<EncodedConfirmedTransactionWithStatusMeta>>,)>(
+            sol_canister,
+            "sol_getTransaction",
+            (
+                source,
+                None::<Option<RpcConfig>>,
+                signature,
+                Some(tx_config),
+            ),
+            CYCLE_COST,
+        )
+        .await
+        .map_err(|(_, err)| err)?
+        .0
+        .map_err(|err| err.to_string())?;
+
+    match result {
+        None => Err("result of query_transaction is None".into()),
+        Some(tx) => match tx.transaction.transaction {
+            EncodedTransaction::Json(tx) => Ok(tx),
+            _ => Err("invalid type of query_transaction".into()),
+        },
+    }
+}
+
+pub async fn send_transaction(
+    instructions: &[Instruction],
+    paths: Vec<Vec<ByteBuf>>,
+) -> Result<String, String> {
+    let blockhash = get_latest_block_hash().await?;
+    log!(
+        DEBUG,
+        "[solana_client::send_raw_transaction] get_latest_blockhash : {:?}",
+        blockhash
+    );
+
+    let message = Message::new_with_blockhash(
+        instructions.iter().as_ref(),
+        None,
+        &BlockHash::from_str(&blockhash).unwrap(),
+    );
+    let mut tx = Transaction::new_unsigned(message);
+
+    let (sol_canister, proxy_rpc, rpc_list, key_name) = read_state(|s| {
+        (
+            s.sol_canister,
+            s.proxy_rpc.clone(),
+            s.rpc_list.clone(),
+            s.schnorr_key_name.clone(),
+        )
+    });
+    for i in 0..paths.len() {
+        let signature = sign_with_eddsa(
+            &KeyType::ChainKey,
+            key_name.clone(),
+            paths[i].clone(),
+            tx.message_data(),
+        )
+        .await;
+        tx.add_signature(i, Signature::try_from(signature).unwrap());
     }
 
-    let response_list = futures::future::join_all(fut).await;
-    let mut transactions = vec![];
-    for response in response_list {
-        match response {
-            Ok(resp) => match serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&resp) {
-                Ok(t) => {
-                    if let Some(e) = t.error {
-                        return Err(format!("{}", e.message));
-                    } else {
-                        match t.result {
-                            Some(tx_detail) => {
-                                transactions.push(tx_detail.transaction);
-                            }
-                            None => return Err("result of query_transaction is None".into()),
-                        }
-                    }
-                }
-                Err(e) => {
-                    log!(
-                        ERROR,
-                        "[query_transaction] serde_json::from_str error: {:?}",
-                        e
-                    );
-                    continue;
-                }
-            },
-            Err(e) => {
-                log!(ERROR, "[query_transaction] response error: {:?}", e);
-                continue;
-            }
-        }
-    }
-    if transactions.len() < min_resp_cnt as usize {
-        return Err(format!(
-            "not enough valid response, expected: {}, actual: {}",
-            min_resp_cnt,
-            transactions.len()
-        ));
-    }
-    let first_tx = transactions.first().unwrap();
-    if transactions.iter().any(|tx| tx != first_tx) {
-        return Err("response is not all same".into());
-    }
-    Ok(first_tx.clone())
+    log!(
+        DEBUG,
+        "[solana_client::get_compute_units] signed_tx : {:?} and string : {:?}",
+        tx,
+        tx.to_string()
+    );
+
+    let signature = call_with_payment::<_, (RpcResult<String>,)>(
+        sol_canister,
+        "sol_sendTransaction",
+        (
+            // Use idempotent-proxy to avoid sending transactions multiple times
+            RpcServices::Custom(vec![RpcApi {
+                network: proxy_rpc,
+                headers: Some(vec![HttpHeader {
+                    name: "X-Forward-Solana".into(),
+                    value: rpc_list[0].clone(),
+                }]),
+            }]),
+            None::<Option<RpcConfig>>,
+            tx.to_string(),
+            None::<Option<RpcSendTransactionConfig>>,
+        ),
+        10_000_000_000,
+    )
+    .await
+    .map_err(|(_, err)| err)?
+    .0
+    .map_err(|err| err.to_string())?;
+
+    Ok(signature)
 }
 
 pub async fn get_signature_status(
     signatures: Vec<String>,
-) -> Result<Vec<Option<TransactionStatus>>, CallError> {
-    let (sol_canister, forward) = read_state(|s| (s.sol_canister, s.forward.to_owned()));
-
-    let response: Result<(RpcResult<String>,), _> = ic_cdk::call(
+) -> Result<Vec<Option<TransactionStatus>>, String> {
+    let (sol_canister, proxy_rpc, rpc_list) =
+        read_state(|s| (s.sol_canister, s.proxy_rpc.clone(), s.rpc_list.clone()));
+    let result = call_with_payment::<_, (RpcResult<Vec<Option<TransactionStatus>>>,)>(
         sol_canister,
         "sol_getSignatureStatuses",
-        (signatures, forward),
+        (
+            // Using normal RPC will not allow consensus to be reached
+            // due to inconsistent slots.
+            RpcServices::Custom(
+                rpc_list
+                    .iter()
+                    .map(|rpc| RpcApi {
+                        network: proxy_rpc.clone(),
+                        headers: Some(vec![HttpHeader {
+                            name: "X-Forward-Solana".into(),
+                            value: rpc.clone(),
+                        }]),
+                    })
+                    .collect(),
+            ),
+            None::<Option<RpcConfig>>,
+            signatures,
+            Some(RpcSignatureStatusConfig {
+                search_transaction_history: true,
+            }),
+        ),
+        CYCLE_COST,
     )
-    .await;
+    .await
+    .map_err(|(_, err)| err)?
+    .0
+    .map_err(|err| err.to_string())?;
 
-    let tx_status = response
-        .map_err(|(code, message)| CallError {
-            method: "sol_getSignatureStatuses".to_string(),
-            reason: Reason::from_reject(code, message),
-        })?
-        .0
-        .map_err(|rpc_error| CallError {
-            method: "sol_getSignatureStatuses".to_string(),
-            reason: Reason::CanisterError(rpc_error.to_string()),
-        })?;
-
-    let status: Vec<Option<TransactionStatus>> = serde_json::from_str::<
-        Vec<Option<TransactionStatus>>,
-    >(&tx_status)
-    .map_err(|err| CallError {
-        method: "sol_getSignatureStatuses".to_string(),
-        reason: Reason::CanisterError(err.to_string()),
-    })?;
-    Ok(status)
-}
-
-pub async fn init_solana_client() -> SolanaClient {
-    if let Some(client) = read_state(|s| s.sol_client.clone()) {
-        return client;
-    }
-    let (schnorr_key_name, sol_canister) =
-        read_state(|s| (s.schnorr_key_name.to_owned(), s.sol_canister));
-
-    let derived_path = payer_address_path();
-    let forward: Option<String> = read_state(|s| s.forward.clone());
-    let client = SolanaClient {
-        sol_canister_id: sol_canister,
-        payer: ecdsa_public_key(derived_path.clone()).await,
-        payer_derive_path: derived_path,
-        chainkey_name: schnorr_key_name,
-        forward: forward,
-        priority: None,
-        key_type: KeyType::ChainKey,
-    };
-    mutate_state(|s| s.sol_client = Some(client.clone()));
-    client
+    Ok(result)
 }
 
 pub async fn init_port() -> Result<String, String> {
-    let client = init_solana_client().await;
     let port_program_id = read_state(|s| s.port_program_id.clone());
+    let payer = eddsa_public_key(payer_address_path()).await;
 
     let (port, _) = port_address();
     let (_, vault_bump) = vault_address();
@@ -141,25 +188,20 @@ pub async fn init_port() -> Result<String, String> {
         &initialize.data(),
         vec![
             AccountMeta::new(port, false),
-            AccountMeta::new(client.payer, true),
-            AccountMeta::new_readonly(system_program_id(), false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(Pubkey::from_str(SYSTEM_PROGRAM_ID).unwrap(), false),
         ],
     );
 
-    let signature = client
-        .send_raw_transaction(
-            &vec![instruction],
-            vec![client.payer_derive_path.clone()],
-            KeyType::ChainKey,
-        )
+    let signature = send_transaction(&vec![instruction], vec![payer_address_path()])
         .await
         .map_err(|err| err.to_string())?;
     Ok(signature)
 }
 
 pub async fn redeem(ticket_id: String, receiver: Pubkey, amount: u64) -> Result<String, String> {
-    let client = init_solana_client().await;
     let port_program_id = read_state(|s| s.port_program_id.clone());
+    let payer = eddsa_public_key(payer_address_path()).await;
 
     let (port, _) = port_address();
     let (vault, _) = vault_address();
@@ -176,27 +218,49 @@ pub async fn redeem(ticket_id: String, receiver: Pubkey, amount: u64) -> Result<
             AccountMeta::new(port, false),
             AccountMeta::new(vault, false),
             AccountMeta::new(redeem_record, false),
-            AccountMeta::new(client.payer, true),
+            AccountMeta::new(payer, true),
             AccountMeta::new(receiver, false),
-            AccountMeta::new_readonly(system_program_id(), false),
+            AccountMeta::new_readonly(Pubkey::from_str(SYSTEM_PROGRAM_ID).unwrap(), false),
         ],
     );
 
-    let signature = client
-        .send_raw_transaction(
-            &vec![instruction],
-            vec![client.payer_derive_path.clone()],
-            KeyType::ChainKey,
-        )
+    let signature = send_transaction(&vec![instruction], vec![payer_address_path()])
         .await
         .map_err(|err| err.to_string())?;
     Ok(signature)
 }
 
-pub async fn ecdsa_public_key(derived_path: Vec<ByteBuf>) -> Pubkey {
+pub async fn eddsa_public_key(derived_path: Vec<ByteBuf>) -> Pubkey {
     let schnorr_key_name = read_state(|s| s.schnorr_key_name.to_owned());
 
     let pk =
         ic_solana::eddsa::eddsa_public_key(KeyType::ChainKey, schnorr_key_name, derived_path).await;
     Pubkey::try_from(pk.as_slice()).unwrap()
+}
+
+async fn get_latest_block_hash() -> Result<String, String> {
+    let (sol_canister, proxy_rpc, rpc_list) =
+        read_state(|s| (s.sol_canister, s.proxy_rpc.clone(), s.rpc_list.clone()));
+    let result = call_with_payment::<_, (RpcResult<RpcBlockhash>,)>(
+        sol_canister,
+        "sol_getLatestBlockhash",
+        (
+            RpcServices::Custom(vec![RpcApi {
+                network: proxy_rpc,
+                headers: Some(vec![HttpHeader {
+                    name: "X-Forward-Solana".into(),
+                    value: rpc_list[0].clone(),
+                }]),
+            }]),
+            None::<Option<RpcConfig>>,
+            None::<Option<RpcContextConfig>>,
+        ),
+        CYCLE_COST,
+    )
+    .await
+    .map_err(|(_, err)| err)?
+    .0
+    .map_err(|err| err.to_string())?;
+
+    Ok(result.blockhash)
 }

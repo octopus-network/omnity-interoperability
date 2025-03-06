@@ -5,7 +5,7 @@ use crate::{
 };
 use candid::CandidType;
 use ic_canister_log::log;
-use ic_solana::{ic_log::ERROR, types::Pubkey};
+use ic_solana::{logs::ERROR, types::Pubkey};
 use serde::Deserialize;
 use std::str::FromStr;
 

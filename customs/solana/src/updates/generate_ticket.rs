@@ -2,19 +2,18 @@ use crate::{
     hub,
     port_native::{
         instruction::{InstSerialize, Transport},
-        port_address, vault_address, ParsedValue,
+        port_address, vault_address,
     },
     solana_rpc::query_transaction,
     state::{mutate_state, read_state},
-    transaction::Transaction,
     types::omnity_types::{ChainId, ChainState, Ticket, TicketType, TokenId, TxAction},
+    SYSTEM_PROGRAM_ID,
 };
 use borsh::BorshDeserialize;
 use candid::{CandidType, Deserialize};
-use ic_solana::token::constants::system_program_id;
+use ic_solana::types::tagged::{UiMessage, UiTransaction};
 use ic_stable_structures::{storable::Bound, Storable};
 use serde::Serialize;
-use serde_json::from_value;
 use std::borrow::Cow;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -121,35 +120,48 @@ struct TransportWithSender {
 }
 
 fn parse_transport(
-    tx: Transaction,
+    tx: UiTransaction,
     target_chain: &String,
     receiver: &String,
 ) -> Result<TransportWithSender, GenerateTicketError> {
     let (port, _) = port_address();
     let (vault, _) = vault_address();
-    for inst in tx.message.instructions {
-        if inst.program_id != read_state(|s| s.port_program_id.to_string()) {
+    let message = match tx.message {
+        UiMessage::Raw(message) => message,
+        _ => {
+            return Err(GenerateTicketError::DecodeTxError(
+                "invalid message type".into(),
+            ));
+        }
+    };
+
+    let account_key = |index: u8| -> String { message.account_keys[index as usize].clone() };
+
+    for inst in message.instructions {
+        let program_id = account_key(inst.program_id_index);
+        if program_id != read_state(|s| s.port_program_id.to_string()) {
             continue;
         }
-        if let Ok(value) = from_value::<ParsedValue>(inst.parsed.to_owned().unwrap()) {
-            let accounts = &value.accounts;
-            if accounts.len() != 4
-                || accounts[0] != port.to_string()
-                || accounts[1] != vault.to_string()
-                || accounts[3] != system_program_id().to_string()
-            {
-                continue;
-            }
-            if value.data[..8] == Transport::discriminator() {
-                let transport = Transport::try_from_slice(&value.data[8..])
-                    .map_err(|err| GenerateTicketError::DecodeTxError(err.to_string()))?;
+        if inst.accounts.len() != 4
+            || account_key(inst.accounts[0]) != port.to_string()
+            || account_key(inst.accounts[1]) != vault.to_string()
+            || account_key(inst.accounts[3]) != SYSTEM_PROGRAM_ID
+        {
+            continue;
+        }
+        let inst_data = bs58::decode(&inst.data)
+            .into_vec()
+            .map_err(|err| GenerateTicketError::DecodeTxError(err.to_string()))?;
 
-                if transport.target_chain.eq(target_chain) && transport.recipient.eq(receiver) {
-                    return Ok(TransportWithSender {
-                        sender: accounts[2].clone(),
-                        raw: transport,
-                    });
-                }
+        if inst_data[..8] == Transport::discriminator() {
+            let transport = Transport::try_from_slice(&inst_data[8..])
+                .map_err(|err| GenerateTicketError::DecodeTxError(err.to_string()))?;
+
+            if transport.target_chain.eq(target_chain) && transport.recipient.eq(receiver) {
+                return Ok(TransportWithSender {
+                    sender: account_key(inst.accounts[2]),
+                    raw: transport,
+                });
             }
         }
     }

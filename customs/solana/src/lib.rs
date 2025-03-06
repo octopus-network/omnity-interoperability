@@ -1,10 +1,11 @@
 use guard::{TaskType, TimerGuard};
 use ic_canister_log::log;
-use ic_solana::ic_log::ERROR;
-use solana_rpc::get_signature_status;
+use ic_solana::{
+    logs::ERROR,
+    types::{TransactionConfirmationStatus, TransactionStatus},
+};
 use state::{mutate_state, read_state, ReleaseTokenStatus};
 use std::time::Duration;
-use transaction::{TransactionConfirmationStatus, TransactionStatus};
 use types::omnity_types::{ChainState, Directive};
 use updates::submit_release_token_tx;
 
@@ -18,10 +19,10 @@ pub mod port_native;
 pub mod service;
 pub mod solana_rpc;
 pub mod state;
-pub mod transaction;
 pub mod types;
 pub mod updates;
 
+pub const SYSTEM_PROGRAM_ID: &str = "11111111111111111111111111111111";
 pub const BATCH_QUERY_LIMIT: u64 = 20;
 pub const INTERVAL_PROCESSING: Duration = Duration::from_secs(5);
 pub const INTERVAL_QUERY_DIRECTIVES: Duration = Duration::from_secs(60);
@@ -136,7 +137,7 @@ async fn finalize_release_token_txs() {
     }
 
     let now = ic_cdk::api::time();
-    match get_signature_status(signatures.clone()).await {
+    match solana_rpc::get_signature_status(signatures.clone()).await {
         Ok(status) => {
             for (i, sig) in signatures.iter().enumerate() {
                 let request = waiting_finalized.get_mut(i).unwrap();
