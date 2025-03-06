@@ -1,7 +1,7 @@
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
-use crate::call_error::{CallError, Reason};
+use omnity_types::call_error::{CallError, Reason};
 use crate::state::read_state;
 
 #[derive(Serialize, Deserialize, CandidType, Default, Clone)]

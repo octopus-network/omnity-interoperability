@@ -16,6 +16,8 @@ pub mod ic_log;
 pub mod brc20;
 pub mod hub_types;
 pub mod guard;
+pub mod hub;
+pub mod call_error;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
