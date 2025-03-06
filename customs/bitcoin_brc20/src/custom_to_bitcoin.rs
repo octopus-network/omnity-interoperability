@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::bitcoin_to_custom::{query_bitcoin_tip, query_transaction};
-use crate::call_error::CallError;
+use omnity_types::call_error::CallError;
 use crate::constants::{
     FINALIZE_UNLOCK_TICKET_NAME, FIXED_COMMIT_TX_VBYTES, INPUT_SIZE_VBYTES, OUTPUT_SIZE_VBYTES,
     REVEAL_TX_VBYTES, SUBMIT_UNLOCK_TICKETS_NAME, TRANSFER_TX_VBYTES, TX_OVERHEAD_VBYTES,
@@ -24,7 +24,7 @@ use crate::custom_to_bitcoin::CustomToBitcoinError::{
     ArgumentError, BuildTransactionFailed, SignFailed,
 };
 
-use crate::hub::update_tx_hash;
+use omnity_types::hub::update_tx_hash;
 use crate::ord::builder::fees::Fees;
 use crate::ord::builder::signer::MixSigner;
 use crate::ord::builder::spend_transaction::spend_utxo_transaction;

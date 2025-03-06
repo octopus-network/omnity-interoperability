@@ -1,9 +1,9 @@
 use std::str::FromStr;
-use crate::call_error::{CallError, Reason};
+use omnity_types::call_error::{CallError, Reason};
 use crate::constants::FINALIZE_LOCK_TICKET_NAME;
 use crate::generate_ticket::GenerateTicketError::InvalidArgs;
 use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
-use crate::hub;
+use omnity_types::hub;
 use crate::ord::inscription::brc20::{Brc20, Brc20Transfer201};
 use crate::ord::mempool_rpc_types::TxInfo;
 use crate::ord::parser::OrdParser;
