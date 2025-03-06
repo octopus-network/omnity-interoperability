@@ -13,7 +13,7 @@ use omnity_types::ic_log::INFO;
 use ordinals::{Etching, Rune, SpacedRune, Terms};
 use serde::Serialize;
 
-use crate::call_error::{CallError, Reason};
+use omnity_types::call_error::{CallError, Reason};
 use crate::runes_etching::constants::POSTAGE;
 use crate::runes_etching::fee_calculator::{
     check_allowance, select_utxos, transfer_etching_fees, FIXED_COMMIT_TX_VBYTES, INPUT_SIZE_VBYTES,

@@ -1,6 +1,6 @@
 //! This module contains async functions for interacting with the management canister.
 
-use crate::call_error::{CallError, Reason};
+use omnity_types::call_error::{CallError, Reason};
 use crate::state::read_state;
 use crate::tx;
 use crate::ECDSAPublicKey;

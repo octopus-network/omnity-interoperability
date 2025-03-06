@@ -11,7 +11,7 @@ use thiserror::Error;
 use omnity_types::hub_types::{Proposal, TokenMeta};
 use omnity_types::ic_log::{ERROR, INFO};
 
-use crate::call_error::{CallError, Reason};
+use omnity_types::call_error::{CallError, Reason};
 use crate::hub::execute_proposal;
 use crate::management::{get_bitcoin_balance, CallSource};
 use crate::runes_etching::transactions::EtchingStatus::{
