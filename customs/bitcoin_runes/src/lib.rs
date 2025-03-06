@@ -11,7 +11,7 @@ use ic_ic00_types::DerivationPath;
 use num_traits::SaturatingSub;
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO, WARNING};
 use omnity_types::rune_id::RuneId;
-use omnity_types::{ChainId, ChainState, Directive, TokenId, TxAction};
+use omnity_types::{ChainId, ChainState, Directive, hub, TokenId, TxAction};
 use scopeguard::{guard, ScopeGuard};
 use serde::Serialize;
 use serde_bytes::ByteBuf;
@@ -23,15 +23,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::iter::Sum;
 use std::str::FromStr;
 use std::time::Duration;
+use omnity_types::call_error::CallError;
 use updates::rune_tx::{generate_rune_tx_request, GenRuneTxReqError, RuneTxArgs};
 use crate::runes_etching::transactions::etching_rune_v2;
 use crate::runes_etching::transactions::EtchingStatus::{SendCommitFailed, SendCommitSuccess};
 
 pub mod address;
-pub mod call_error;
 pub mod destination;
 pub mod guard;
-pub mod hub;
 pub mod lifecycle;
 pub mod management;
 pub mod metrics;
@@ -1110,7 +1109,7 @@ pub fn fake_sign(unsigned_tx: &tx::UnsignedTransaction) -> tx::SignedTransaction
 pub async fn sign_transaction(
     output_destinations: &BTreeMap<tx::OutPoint, Destination>,
     unsigned_tx: tx::UnsignedTransaction,
-) -> Result<tx::SignedTransaction, call_error::CallError> {
+) -> Result<tx::SignedTransaction, CallError> {
     use crate::address::{derivation_path, derive_public_key};
 
     let mut signed_inputs = Vec::with_capacity(unsigned_tx.inputs.len());

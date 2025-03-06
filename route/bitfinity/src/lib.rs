@@ -2,7 +2,6 @@ use ic_cdk::api::call::RejectionCode;
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub mod call_error;
 pub mod contract_types;
 pub mod contracts;
 pub mod eth_common;
@@ -13,13 +12,11 @@ pub mod route_to_evm;
 //mod stable_log;
 pub mod service;
 mod convert;
-pub mod hub;
 pub mod audit;
 pub mod updates;
 pub mod state;
 pub mod stable_memory;
 pub mod types;
-//mod upgrade;
 
 #[derive(Error, Debug)]
 pub enum BitfinityRouteError {
