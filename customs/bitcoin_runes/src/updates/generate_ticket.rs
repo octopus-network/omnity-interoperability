@@ -20,8 +20,6 @@ use omnity_types::rune_id::RuneId;
 use omnity_types::{ChainState, Memo, Ticket, TicketType, TxAction};
 use serde::Serialize;
 use std::str::FromStr;
-use ic_canister_log::log;
-use omnity_types::ic_log::INFO;
 use crate::updates::nownodes_rpc::fetch_new_utxos_from_nownodes;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
