@@ -361,7 +361,7 @@ service : (CustomArg) -> {
   remove_error_etching : (text) -> ();
   remove_error_ticket : (text) -> ();
   remove_runes_oracle : (principal) -> ();
-  set_fee_collector : (text) -> ();
+  set_fee_collector : (text, Network) -> (Result_3);
   set_icpswap : (principal) -> ();
   set_nownodes_apikey : (text) -> ();
   set_ord_indexer : (principal) -> ();

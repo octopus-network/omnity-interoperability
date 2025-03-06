@@ -3,7 +3,7 @@ use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
 use std::str::FromStr;
 
-use bitcoin::{Amount, Network};
+use bitcoin::{Amount};
 use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::{Txid, Utxo};
 use ic_canister_log::log;
@@ -34,7 +34,8 @@ use bitcoin_customs::updates::{
     get_btc_address::GetBtcAddressArgs,
     update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
-use bitcoin_customs::{commit_etching_task, management, process_directive_msg_task, process_etching_task, process_ticket_msg_task, process_tx_task, refresh_fee_task, CustomsInfo, ECDSAPublicKey, TokenResp, FEE_ESTIMATE_DELAY, INTERVAL_COMMIT_ETCHING, INTERVAL_HANDLE_ETCHING, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES};
+use bitcoin_customs::{commit_etching_task, management, process_directive_msg_task, process_etching_task, process_ticket_msg_task, process_tx_task,
+                      CustomsInfo, ECDSAPublicKey, TokenResp, INTERVAL_COMMIT_ETCHING, INTERVAL_HANDLE_ETCHING, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES};
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage,
