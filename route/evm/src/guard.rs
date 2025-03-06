@@ -77,7 +77,7 @@ pub struct GenerateTicketGuardBehavior;
 impl GuardBehavior for GenerateTicketGuardBehavior {
     type KeyType = String;
     fn check_lock(key: &Self::KeyType) -> Result<(), GuardError> {
-        if read_state(|s| s.generating_ticketid.contains(key)) {
+        if mutate_state(|s| s.generating_ticketid.contains(key)) {
             Err(GuardError::KeyIsHandling)
         } else {
             Ok(())

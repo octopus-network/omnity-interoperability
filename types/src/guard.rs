@@ -50,11 +50,10 @@ pub trait GuardBehavior {
 macro_rules! impl_guard_behavior {
     ($name:ty,  $ty: ty) => {
         use omnity_types::guard::{GuardBehavior, GuardError};
-        use crate::state::{read_state};
         impl GuardBehavior for $name {
             type KeyType = $ty;
             fn check_lock(key: &Self::KeyType) -> Result<(), GuardError> {
-                if read_state(|s|s.generating_ticketid.contains(key)) {
+                if mutate_state(|s|s.generating_ticketid.contains(key)) {
                     Err(GuardError::KeyIsHandling)
                 }else {
                     Ok(())
