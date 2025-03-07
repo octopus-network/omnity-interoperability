@@ -35,7 +35,7 @@ pub async fn estimate_etching_fee(_fee_rate: u64, _etching_size: u128) -> Result
 
 pub async fn get_token_price() -> Result<(Option<TokenPrice>, Option<TokenPrice>), CallError> {
     let method = "getAllTokens";
-    let ord_principal = read_state(|s| s.icpswap_principal.clone().unwrap());
+    let ord_principal = read_state(|s| s.icpswap_principal.unwrap());
     let resp: (Vec<TokenPrice>,) = ic_cdk::api::call::call(ord_principal, method, ())
         .await
         .map_err(|(code, message)| CallError {

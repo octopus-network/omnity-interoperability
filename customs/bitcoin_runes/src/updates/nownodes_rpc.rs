@@ -1,4 +1,3 @@
-use candid::Nat;
 use ic_btc_interface::{OutPoint, Txid, Utxo};
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext, TransformFunc};
 use serde::{Deserialize, Serialize};
@@ -29,7 +28,7 @@ pub async fn fetch_new_utxos_from_nownodes(
     let url = format!(
         "https://btcbook.nownodes.io/{}/api/v2/tx/{}",
         read_state(|s| s.nownodes_apikey.clone()),
-        txid.to_string()
+        txid
     );
 
     let request = CanisterHttpRequestArgument {
@@ -53,7 +52,7 @@ pub async fn fetch_new_utxos_from_nownodes(
     match http_request(request, MAX_CYCLES).await {
         Ok((response,)) => {
             let status = response.status;
-            if status == Nat::from(200_u32) {
+            if status == 200_u32 {
                 let body = String::from_utf8(response.body).map_err(|_| {
                     GenerateTicketError::RpcError(
                         "Transformed response is not UTF-8 encoded".to_string(),
@@ -66,7 +65,7 @@ pub async fn fetch_new_utxos_from_nownodes(
                 })?;
                 let vouts:Vec<TxOut> = tx.vout.iter().enumerate().map(|out| {
                     let addr = if out.1.is_address {
-                        out.1.addresses.get(0).cloned()
+                        out.1.addresses.first().cloned()
                     }else { None };
                     let value: u64 = out.1.value.parse().unwrap_or_default();
                     TxOut {
@@ -98,12 +97,12 @@ pub async fn fetch_new_utxos_from_nownodes(
                     vout: vouts,
                 };
                 Ok((transfer_utxos, tx))
-            } else if status == Nat::from(404_u32) {
+            } else if status == 404_u32 {
                 Err(GenerateTicketError::TxNotFoundInMemPool)
             } else {
                 Err(GenerateTicketError::RpcError(format!(
                     "status code:{}",
-                    status.to_string()
+                    status
                 )))
             }
         }
