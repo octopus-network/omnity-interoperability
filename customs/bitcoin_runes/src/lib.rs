@@ -242,7 +242,7 @@ pub async fn estimate_fee_per_vbyte() -> Option<MillisatoshiPerByte> {
         return Some(DEFAULT_FEE);
     }
     let fee_rate = read_state(|s|s.bitcoin_fee_rate.high);
-    return Some(fee_rate*1000);
+    Some(fee_rate*1000)
    /* match management::get_current_fees(btc_network).await {
         Ok(fees) => {
             if btc_network == Network::Regtest {
@@ -290,7 +290,7 @@ async fn process_tickets() {
         Ok(tickets) => {
             let mut next_seq = offset;
             for (seq, ticket) in tickets {
-                let amount = if let Ok(amount) = u128::from_str_radix(ticket.amount.as_str(), 10) {
+                let amount = if let Ok(amount) = ticket.amount.as_str().parse::<u128>() {
                     amount
                 } else {
                     // Shouldn't happen, the hub must ensure the correctness of the data.
@@ -398,8 +398,8 @@ async fn submit_rune_txs() {
 
     let runes_list = read_state(|s| {
         s.pending_rune_tx_requests
-            .iter()
-            .map(|(rune_id, _)| rune_id.clone())
+            .keys()
+            .map(|rune_id| *rune_id)
             .collect::<Vec<RuneId>>()
     });
     for rune_id in runes_list {
@@ -529,7 +529,7 @@ async fn submit_rune_txs() {
                                 state::audit::sent_transaction(
                                     s,
                                     SubmittedBtcTransactionV2 {
-                                        rune_id: rune_id.clone(),
+                                        rune_id,
                                         requests,
                                         txid,
                                         runes_utxos,
@@ -623,8 +623,8 @@ async fn finalize_rune_txs() {
     );
 
     let main_runes_addresses: Vec<(Destination, BitcoinAddress)> = maybe_finalized_transactions
-        .iter()
-        .map(|(_, tx)| {
+        .values()
+        .map(|tx| {
             (
                 main_destination(main_chain_id.clone(), tx.rune_id.to_string()),
                 address::main_bitcoin_address(
@@ -645,8 +645,7 @@ async fn finalize_rune_txs() {
         fetch_main_utxos(main_runes_addresses.clone(), btc_network, min_confirmations).await;
 
     let new_btc_utxos = dest_btc_utxos
-        .iter()
-        .map(|(_, utxos)| utxos)
+        .values()
         .flatten()
         .map(|u| u.clone())
         .collect::<Vec<Utxo>>();
@@ -673,7 +672,7 @@ async fn finalize_rune_txs() {
             state::audit::confirm_transaction(s, &tx.txid);
             if tx.runes_change_output.value > 0 {
                 let balance = RunesBalance {
-                    rune_id: tx.runes_change_output.rune_id.clone(),
+                    rune_id: tx.runes_change_output.rune_id,
                     vout: tx.runes_change_output.vout,
                     amount: tx.runes_change_output.value,
                 };
@@ -707,7 +706,7 @@ async fn finalize_rune_txs() {
             // The change value of mint rune tx is 0.
             if tx.runes_change_output.value > 0 {
                 let balance = RunesBalance {
-                    rune_id: tx.runes_change_output.rune_id.clone(),
+                    rune_id: tx.runes_change_output.rune_id,
                     vout: tx.runes_change_output.vout,
                     amount: tx.runes_change_output.value,
                 };
@@ -923,7 +922,7 @@ async fn finalize_gen_ticket_txs() {
                     "failed to call get_utxos in finalize_gen_ticket_txs: {}",
                     err
                 );
-                return false;
+                false
             },
             |resp| {
                 // Just include any utxo
@@ -1076,7 +1075,7 @@ where
     }
 
     debug_assert!(
-        solution.is_empty() || solution.iter().map(|u| get_value(u)).sum::<T>() >= target
+        solution.is_empty() || solution.iter().map(get_value).sum::<T>() >= target
     );
 
     solution
@@ -1240,7 +1239,7 @@ pub fn build_unsigned_transaction(
             let mut edicts = vec![];
             if burn_amount > 0 {
                 edicts.push(Edict {
-                    id: rune_id.into(),
+                    id: rune_id,
                     amount: burn_amount,
                     output: 0,
                 });
@@ -1251,7 +1250,7 @@ pub fn build_unsigned_transaction(
                     .iter()
                     .enumerate()
                     .map(|(idx, (_, amount))| Edict {
-                        id: rune_id.into(),
+                        id: rune_id,
                         amount: *amount,
                         output: (idx + 2) as u32,
                     })
@@ -1352,7 +1351,7 @@ pub fn build_unsigned_transaction(
     let mut btc_utxos: Vec<Utxo> = vec![];
 
     let selected_btc_amount = if is_resubmission {
-        btc_utxos = available_btc_utxos.iter().map(|u| u.clone()).collect();
+        btc_utxos = available_btc_utxos.iter().cloned().collect();
         available_btc_utxos.clear();
         btc_utxos.iter().map(|u| u.value).sum::<u64>()
     } else if input_btc_amount < select_fee {

@@ -39,7 +39,7 @@ pub fn update_next_directive_seq(state: &mut CustomsState, next_seq: u64) {
 
 pub fn update_next_ticket_seq(state: &mut CustomsState, next_seq: u64) {
     if next_seq > state.next_ticket_seq {
-        record_event(&&Event::UpdateNextTicketSeq(next_seq));
+        record_event(&Event::UpdateNextTicketSeq(next_seq));
         state.next_ticket_seq = next_seq;
     }
 }
@@ -105,7 +105,7 @@ pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: Runes
 }
 
 pub fn remove_confirmed_request(state: &mut CustomsState, txid: &Txid) {
-    record_event(&Event::RemovedTicketRequest { txid: txid.clone() });
+    record_event(&Event::RemovedTicketRequest { txid: *txid });
     state
         .confirmed_gen_ticket_requests
         .remove(txid)

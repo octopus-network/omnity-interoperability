@@ -554,7 +554,7 @@ impl CustomsState {
             }
         }
 
-        for (_, requests) in &self.pending_rune_tx_requests {
+        for  requests in self.pending_rune_tx_requests.values() {
             for (l, r) in requests.iter().zip(requests.iter().skip(1)) {
                 ensure!(
                     l.received_at <= r.received_at,
@@ -720,13 +720,9 @@ impl CustomsState {
             return ReleaseTokenStatus::Submitted(txid.to_string());
         }
 
-        match self.finalized_rune_tx_requests.get(ticket_id) {
-            Some(FinalizedStatus::Confirmed(txid)) => {
-                return ReleaseTokenStatus::Confirmed(txid.to_string())
-            }
-            None => (),
+        if let Some(FinalizedStatus::Confirmed(txid)) = self.finalized_rune_tx_requests.get(ticket_id) {
+            return ReleaseTokenStatus::Confirmed(txid.to_string());
         }
-
         ReleaseTokenStatus::Unknown
     }
 
@@ -780,7 +776,7 @@ impl CustomsState {
                 continue;
             }
             edicts.push(Edict {
-                id: req.rune_id.into(),
+                id: req.rune_id,
                 amount: req.amount,
                 output: 0,
             });
@@ -981,10 +977,9 @@ impl CustomsState {
 
     /// Removes a pending release_token request with the specified block index.
     fn remove_pending_request(&mut self, ticket_id: TicketId) -> Option<RuneTxRequest> {
-        for (_, requests) in &mut self.pending_rune_tx_requests {
-            match requests.iter().position(|req| req.ticket_id == ticket_id) {
-                Some(pos) => return Some(requests.remove(pos)),
-                None => {}
+        for requests in  self.pending_rune_tx_requests.values_mut() {
+            if let Some(pos) = requests.iter().position(|req| req.ticket_id == ticket_id) {
+                return Some(requests.remove(pos));
             }
         }
         None

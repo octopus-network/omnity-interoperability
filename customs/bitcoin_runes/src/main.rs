@@ -146,7 +146,7 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
             amount: Amount::from_sat(a.amount),
         };
         mutate_state(|s| {
-            if s.etching_fee_utxos.iter().find(|x| *x == utxo).is_none() {
+            if !s.etching_fee_utxos.iter().any(|x| x == utxo) {
                 let _ = s.etching_fee_utxos.push(&utxo);
             }
         });
@@ -191,24 +191,15 @@ pub fn get_etching_by_user(user_addr: Principal) -> Vec<SendEtchingInfo> {
 #[query]
 pub fn get_etching(key: String) -> Option<SendEtchingInfo> {
     let r: Option<SendEtchingInfo> =
-        match read_state(|s| s.pending_etching_requests.get(&key.clone())) {
-            None => None,
-            Some(r) => Some(r.into()),
-        };
+        read_state(|s| s.pending_etching_requests.get(&key.clone())).map(|r|r.into());
     if r.is_some() {
         return r;
     }
-    let r = match read_state(|s| s.finalized_etching_requests.get(&key.clone())) {
-        None => None,
-        Some(r) => Some(r.into()),
-    };
+    let r = read_state(|s| s.finalized_etching_requests.get(&key.clone())).map(|r|r.into());
     if r.is_some() {
         return r;
     }
-    match read_state(|s| s.stash_etchings.get(&key.clone())) {
-        None => None,
-        Some(r) => Some(r.into()),
-    }
+    read_state(|s| s.stash_etchings.get(&key.clone())).map(|r|r.into())
 }
 
 #[update]
@@ -279,7 +270,7 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
 /// but considering that it will affect runes oracle, it will be retained temporarily.
 #[query]
 fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequestV2> {
-    let start = args.start_txid.map_or(Unbounded, |txid| Excluded(txid));
+    let start = args.start_txid.map_or(Unbounded, Excluded);
     let count = max(50, args.max_count) as usize;
     read_state(|s| {
         s.confirmed_gen_ticket_requests
@@ -423,7 +414,7 @@ fn get_customs_info() -> CustomsInfo {
         runes_oracles: s.runes_oracles.clone(),
         rpc_url: s.rpc_url.clone(),
         last_fee_per_vbyte: s.last_fee_per_vbyte.clone(),
-        fee_token_factor: s.fee_token_factor.clone(),
+        fee_token_factor: s.fee_token_factor,
         target_chain_factor: s.target_chain_factor.clone(),
         fee_collector_address: s.fee_collector_address.clone(),
         btc_network: s.btc_network,
@@ -445,9 +436,7 @@ fn get_customs_info() -> CustomsInfo {
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
         s.counterparties
-            .iter()
-            .map(|(_, chain)| chain.clone())
-            .collect()
+            .values().cloned().collect()
     })
 }
 
@@ -562,7 +551,6 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
         status: raw.response.status.clone(),
         body: raw.response.body.clone(),
         headers: vec![],
-        ..Default::default()
     }
 }
 

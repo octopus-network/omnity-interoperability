@@ -253,7 +253,7 @@ impl Memo {
         let memo_json= serde_json::to_string_pretty(&self).map_err(|e| {
             format!(
                 "[generate_ticket] memo convert error: {}",
-                e.to_string()
+                e
             )
         })?;
         Ok(memo_json) 

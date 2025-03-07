@@ -253,17 +253,15 @@ pub async fn generate_etching_transactions(
             cs.first().cloned()
         }
     };
-    let terms = match args.terms {
-        Some(t) => Some(Terms {
-            amount: Some(t.amount),
-            cap: Some(t.cap),
-            height: t.height,
-            offset: t.offset,
-        }),
-        None => None,
-    };
+
+    let terms = args.terms.map(|t| Terms {
+                    amount: Some(t.amount),
+                    cap: Some(t.cap),
+                    height: t.height,
+                    offset: t.offset,
+                });
     let etching = Etching {
-        rune: Some(space_rune.rune.clone()),
+        rune: Some(space_rune.rune),
         divisibility: args.divisibility,
         premine: args.premine,
         spacers: Some(space_rune.spacers),
@@ -360,7 +358,7 @@ pub async fn estimate_tx_vbytes(
     let space_rune = SpacedRune::from_str(rune_name).unwrap();
 
     let etching = Etching {
-        rune: Some(space_rune.rune.clone()),
+        rune: Some(space_rune.rune),
         divisibility: Some(2),
         premine: Some(1000000),
         spacers: Some(space_rune.spacers),
