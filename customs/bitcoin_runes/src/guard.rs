@@ -15,9 +15,9 @@ pub trait PendingRequests {
     fn pending_requests(state: &mut CustomsState)  -> Result<(), GuardError>;
     fn incre_counter(state: &mut CustomsState);
     fn decre_counter(state: &mut CustomsState);
-    fn key_is_handling(state: &mut CustomsState, requst_key: &String) -> Result<(), GuardError>;
+    fn key_is_handling(state: &mut CustomsState, requst_key: &str) -> Result<(), GuardError>;
     fn set_request_key(state: &mut CustomsState, request_key: String);
-    fn remove_request_key(state: &mut CustomsState, request_key: &String);
+    fn remove_request_key(state: &mut CustomsState, request_key: &str);
 }
 
 pub struct GenerateTicketUpdates;
@@ -38,7 +38,7 @@ impl PendingRequests for GenerateTicketUpdates {
         state.generate_ticket_counter -= 1;
     }
 
-    fn key_is_handling(state: &mut CustomsState, request_key: &String) -> Result<(), GuardError> {
+    fn key_is_handling(state: &mut CustomsState, request_key: &str) -> Result<(), GuardError> {
         if state.generating_txids.contains(request_key) {
             return Err(KeyIsHandling);
         }
@@ -49,7 +49,7 @@ impl PendingRequests for GenerateTicketUpdates {
         state.generating_txids.insert(request_key);
     }
 
-    fn remove_request_key(state: &mut CustomsState, request_key: &String) {
+    fn remove_request_key(state: &mut CustomsState, request_key: &str) {
         state.generating_txids.remove(request_key);
     }
 }
@@ -69,14 +69,14 @@ impl PendingRequests for ReleaseTokenUpdates {
         state.release_token_counter -= 1;
     }
 
-    fn key_is_handling(_state: &mut CustomsState, _requst_key: &String) -> Result<(), GuardError> {
+    fn key_is_handling(_state: &mut CustomsState, _requst_key: &str) -> Result<(), GuardError> {
         Ok(())
     }
 
     fn set_request_key(_state: &mut CustomsState, _request_key: String)  {
     }
 
-    fn remove_request_key(_state: &mut CustomsState, _request_key: &String) {
+    fn remove_request_key(_state: &mut CustomsState, _request_key: &str) {
         //Nothing to do
     }
 }

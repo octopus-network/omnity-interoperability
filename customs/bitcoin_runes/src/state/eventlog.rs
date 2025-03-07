@@ -384,7 +384,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.replace_transaction(
                     &old_txid,
                     SubmittedBtcTransactionV2 {
-                        rune_id: runes_change_output.rune_id.clone(),
+                        rune_id: runes_change_output.rune_id,
                         txid: new_txid,
                         requests,
                         runes_utxos,
