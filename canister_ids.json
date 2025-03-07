@@ -38,6 +38,9 @@
   "runes_indexer_proxy": {
     "ic": "l542s-aiaaa-aaaar-qam6q-cai"
   },
+  "solana_customs": {
+    "ic": "v76zi-jyaaa-aaaar-qaotq-cai"
+  },
   "ton_route": {
     "ic": "p5ykc-qaaaa-aaaar-qalyq-cai"
   }

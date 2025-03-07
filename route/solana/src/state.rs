@@ -250,7 +250,7 @@ impl MultiRpcConfig {
         response_list: &Vec<anyhow::Result<String>>,
     ) -> Result<Vec<Instruction>, String> {
         self.check_config_valid()?;
-        let mut instructions_list = vec![];
+        let mut tx_list = vec![];
 
         for response in response_list {
             log!(
@@ -263,15 +263,17 @@ impl MultiRpcConfig {
                 {
                     Ok(t) => {
                         if let Some(e) = t.error {
-                            return Err(format!("{}", e.message));
+                            log!(
+                                DEBUG,
+                                "[state::valid_and_get_result] json rpc error: {:?}",
+                                e
+                            );
+                            continue;
                         } else {
                             match t.result {
                                 None => {
-                                    return Err(format!(
-                                        "{}",
-                                        "[state::valid_and_get_result] tx result is None"
-                                            .to_string()
-                                    ))
+                                    log!(DEBUG, "[state::valid_and_get_result] tx result is None ",);
+                                    continue;
                                 }
                                 Some(tx_detail) => {
                                     log!(
@@ -279,9 +281,7 @@ impl MultiRpcConfig {
                                         "[state::valid_and_get_result] tx detail: {:?}",
                                         tx_detail
                                     );
-                                    instructions_list
-                                        .push(tx_detail.transaction.message.instructions);
-                                    // success_response_body_list.push(t.result.to_owned())
+                                    tx_list.push(tx_detail.transaction.message.instructions);
                                 }
                             }
                         }
@@ -306,24 +306,24 @@ impl MultiRpcConfig {
             }
         }
 
-        if instructions_list.len() < self.minimum_response_count as usize {
+        if tx_list.len() < self.minimum_response_count as usize {
             return Err(format!(
                 "Not enough valid response, expected: {}, actual: {}",
                 self.minimum_response_count,
-                instructions_list.len()
+                tx_list.len()
             ));
         }
 
         // The minimum_response_count should greater than 0
         let mut i = 1;
-        while i < instructions_list.len() {
-            if instructions_list[i - 1] != instructions_list[i] {
+        while i < tx_list.len() {
+            if tx_list[i - 1] != tx_list[i] {
                 return Err("Response mismatch".to_string());
             }
             i += 1;
         }
 
-        Ok(instructions_list[0].to_owned())
+        Ok(tx_list[0].to_owned())
     }
 }
 

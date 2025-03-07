@@ -81,6 +81,12 @@ pub async fn generate_ticket(
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     log!(DEBUG, "[generate_ticket] generate_ticket req: {:#?}", req);
 
+    if read_state(|s| s.gen_ticket_reqs.contains_key(&req.signature)) {
+        return Err(GenerateTicketError::TemporarilyUnavailable(
+            "duplicate request!".into(),
+        ));
+    }
+
     mutate_state(|s| {
         s.gen_ticket_reqs
             .insert(req.signature.to_owned(), req.to_owned())
@@ -107,12 +113,6 @@ pub async fn generate_ticket(
             req.token_id.to_owned(),
         ));
     }
-
-    // if !matches!(req.action, TxAction::Redeem) {
-    //     return Err(GenerateTicketError::UnsupportedAction(
-    //         "[generate_ticket] Transfer action is not supported".into(),
-    //     ));
-    // }
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.to_owned()));
 
@@ -170,8 +170,7 @@ pub async fn generate_ticket(
                 "[generate_ticket] successful to send ticket: {:?}",
                 ticket
             );
-            // remove the req
-            mutate_state(|s| s.gen_ticket_reqs.remove(&req.signature.to_owned()));
+
             Ok(GenerateTicketOk {
                 ticket_id: req.signature.to_string(),
             })
