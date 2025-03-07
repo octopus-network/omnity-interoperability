@@ -39,6 +39,7 @@ pub enum GenerateTicketError {
     UnsupportedChainId(String),
     /// The redeem account does not hold the requested token amount.
     InsufficientFunds {
+        ledger_id: Principal,
         balance: u64,
     },
     /// The caller didn't approve enough funds for spending.
@@ -186,6 +187,7 @@ async fn burn_token_icrc2(
     match result {
         Ok(block_index) => Ok(block_index.0.to_u64().expect("nat does not fit into u64")),
         Err(TransferFromError::InsufficientFunds { balance }) => Err(GenerateTicketError::InsufficientFunds {
+            ledger_id: ledger_id,
             balance: balance.0.to_u64().expect("unreachable: ledger balance does not fit into u64")
         }),
         Err(TransferFromError::InsufficientAllowance { allowance }) => Err(GenerateTicketError::InsufficientAllowance {
@@ -300,7 +302,7 @@ pub async fn charge_icp_fee_by_icrc(
             msg, code
         ))
     })?
-    .map_err(|err| GenerateTicketError::TransferFailure(format!("{:?}", err)))
+    .map_err(|err| GenerateTicketError::TransferFailure(format!("Failed to transferFrom icp {:?}", err)))
 }
 
 async fn ic_balance_of(subaccount: &IcSubaccount) -> Result<Tokens, GenerateTicketError> {
