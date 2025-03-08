@@ -1,6 +1,7 @@
 use crate::types::{ChainState, Error, TicketType, TxAction};
 use crate::types::{Memo, Ticket};
 use candid::{CandidType, Principal};
+use ic_solana::types::{Pubkey, Signature};
 
 use crate::handler::solana_rpc::solana_client;
 use ic_solana::token::constants::{memo_program_id, system_program_id, token_program_id};
@@ -9,6 +10,7 @@ use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::str::FromStr;
 
 use crate::{
     call_error::{CallError, Reason},
@@ -17,6 +19,7 @@ use crate::{
 
 use ic_canister_log::log;
 use ic_solana::ic_log::{DEBUG, WARNING};
+use omnity_types::address;
 use serde_json::from_value;
 use serde_json::Value;
 
@@ -81,38 +84,12 @@ pub async fn generate_ticket(
 ) -> Result<GenerateTicketOk, GenerateTicketError> {
     log!(DEBUG, "[generate_ticket] generate_ticket req: {:#?}", req);
 
-    if read_state(|s| s.gen_ticket_reqs.contains_key(&req.signature)) {
-        return Err(GenerateTicketError::TemporarilyUnavailable(
-            "duplicate request!".into(),
-        ));
-    }
+    validate_req(&req)?;
 
     mutate_state(|s| {
         s.gen_ticket_reqs
             .insert(req.signature.to_owned(), req.to_owned())
     });
-
-    if read_state(|s| s.chain_state == ChainState::Deactive) {
-        return Err(GenerateTicketError::TemporarilyUnavailable(
-            "chain state is deactive!".into(),
-        ));
-    }
-
-    if !read_state(|s| {
-        s.counterparties
-            .get(&req.target_chain_id)
-            .is_some_and(|c| c.chain_state == ChainState::Active)
-    }) {
-        return Err(GenerateTicketError::UnsupportedChainId(
-            req.target_chain_id.to_owned(),
-        ));
-    }
-
-    if !read_state(|s| s.tokens.contains_key(&req.token_id.to_string())) {
-        return Err(GenerateTicketError::UnsupportedToken(
-            req.token_id.to_owned(),
-        ));
-    }
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.to_owned()));
 
@@ -176,6 +153,51 @@ pub async fn generate_ticket(
             })
         }
     }
+}
+
+pub fn validate_req(req: &GenerateTicketReq) -> Result<(), GenerateTicketError> {
+    Signature::from_str(&req.signature)
+        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
+    Pubkey::from_str(&req.sender)
+        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
+    address::validate_account(&req.target_chain_id, &req.receiver)
+        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
+
+    if read_state(|s| s.chain_state == ChainState::Deactive) {
+        return Err(GenerateTicketError::TemporarilyUnavailable(
+            "chain state is deactive!".into(),
+        ));
+    }
+
+    if !read_state(|s| {
+        s.counterparties
+            .get(&req.target_chain_id)
+            .is_some_and(|c| c.chain_state == ChainState::Active)
+    }) {
+        return Err(GenerateTicketError::UnsupportedChainId(
+            req.target_chain_id.to_owned(),
+        ));
+    } else {
+        //validate receiver address
+    }
+    if req.amount <= 0 {
+        return Err(GenerateTicketError::TemporarilyUnavailable(
+            "amount must be > 0".into(),
+        ));
+    }
+    if !read_state(|s| s.tokens.contains_key(&req.token_id.to_string())) {
+        return Err(GenerateTicketError::UnsupportedToken(
+            req.token_id.to_owned(),
+        ));
+    }
+
+    if read_state(|s| s.gen_ticket_reqs.contains_key(&req.signature)) {
+        return Err(GenerateTicketError::TemporarilyUnavailable(
+            "duplicate request!".into(),
+        ));
+    }
+
+    Ok(())
 }
 
 pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketError> {
@@ -527,10 +549,14 @@ pub struct TokenAmount {
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use super::*;
     use candid::Principal;
-    use ic_solana::rpc_client::JsonRpcResponse;
-    use serde_json::from_value;
+    use ic_solana::{
+        rpc_client::JsonRpcResponse,
+        types::{Pubkey, Signature},
+    };
 
     #[test]
     fn test_parse_tx_with_transfer_burn_memo() {
@@ -1077,5 +1103,28 @@ mod test {
         let memo = serde_json::to_string_pretty(&memo_with_fee).unwrap();
 
         println!("[generate_ticket] Memo is None and fee: {:?}", memo);
+    }
+
+    #[test]
+    fn test_gen_req_valid() {
+        let sig_str = "pbYU5f3rvBdofxWCNSFcwGKFJoVERxXMumd8CECzHdb7tMAxNHig9kvMjVgtcR4o7ShSeCgQ9rs5zT27HiTkFco";
+        let sig = Signature::from_str(sig_str);
+        assert!(sig.is_ok());
+        let send_str = "6fprKjprjWKKLFEyiX7f7kHb2EVxpK1eYfMTSM1SkTkk".to_string();
+        let send = Pubkey::from_str(&send_str);
+        assert!(send.is_ok());
+
+        let chain_id = "Base";
+        let receiver_str = "0x5106f3AFa0e27BdD3faffEb9158526FA678895F3".to_string();
+        let ret = address::validate_account(&chain_id.to_string(), &receiver_str);
+        println!("address::validate_account ret: {:?}", ret);
+        assert!(ret.is_ok());
+
+        let chain_id = "sICP";
+        let receiver_str =
+            "ytoqu-ey42w-sb2ul-m7xgn-oc7xo-i4btp-kuxjc-b6pt4-dwdzu-kfqs4-nae".to_string();
+        let ret = address::validate_account(&chain_id.to_string(), &receiver_str);
+        println!("address::validate_account ret: {:?}", ret);
+        assert!(ret.is_ok());
     }
 }

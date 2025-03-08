@@ -19,7 +19,7 @@ use ic_solana::types::TransactionConfirmationStatus;
 
 use crate::constants::{ TAKE_SIZE, RETRY_4_STATUS};
 use ic_canister_log::log;
-use ic_solana::ic_log::{DEBUG, CRITICAL, WARNING, INFO};
+use ic_solana::ic_log::{DEBUG, CRITICAL, WARNING};
 
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -127,14 +127,6 @@ pub async fn mint_token() {
         let mint_req = if let Some(req) =
             read_state(|s| s.mint_token_requests.get(&ticket.ticket_id))
         {
-
-            // check mint_token_requests , if ticket id already finallizd or retry_4_building reach to limit ,skip it
-            // if matches!(req.status,TxStatus::Finalized) || req.retry_4_building >= RETRY_4_BUILDING {
-            //     continue;
-            // }
-            // if req.retry_4_building >= RETRY_4_BUILDING {
-            //     continue;
-            // }
 
             // skip ticket casued by get_signature_status error
             if req.retry_4_status >= RETRY_4_STATUS {
@@ -251,7 +243,6 @@ pub async fn mint_token() {
                     }
                 }
                  
- 
             },
             
         }
