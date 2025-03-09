@@ -1,5 +1,7 @@
+use std::str::FromStr;
+
 use crate::state::{audit, mutate_state, read_state};
-use crate::{hub, ICP_TRANSFER_FEE};
+use crate::{hub, FEE_COLLECTOR_SUB_ACCOUNT, ICP_TRANSFER_FEE};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use ic_crypto_sha2::Sha256;
 use ic_ledger_types::{
@@ -24,6 +26,29 @@ pub struct GenerateTicketReq {
     // The subaccount to burn token from.
     pub from_subaccount: Option<Subaccount>,
     pub action: TxAction,
+}
+
+impl TryFrom<Ticket> for GenerateTicketReq {
+    type Error = String;
+    
+    fn try_from(value: Ticket) -> Result<Self, Self::Error> {
+ 
+        let sub_account = value.sender.and_then(
+            |sender| {
+                Account::from_str(&sender).ok().and_then(
+                    |e|  e.subaccount
+                )
+            }
+        );
+        Ok(Self {
+            target_chain_id: value.dst_chain,
+            receiver: value.receiver,
+            token_id: value.token,
+            amount: value.amount.parse().unwrap_or_default(),
+            from_subaccount: sub_account,
+            action: value.action,
+        })
+    }
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -287,7 +312,7 @@ pub async fn charge_icp_fee_by_icrc(
             from: user, 
             to: Account { 
                 owner: route, 
-                subaccount: None 
+                subaccount: Some(FEE_COLLECTOR_SUB_ACCOUNT.clone()) 
             },
             amount: Nat::from(redeem_fee), 
             fee: None, 
