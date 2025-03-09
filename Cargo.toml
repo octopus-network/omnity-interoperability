@@ -4,6 +4,7 @@ members = [
     "customs/bitcoin_runes",
     "customs/bitcoin_brc20",
     "customs/icp",
+    "customs/doge",
     "route/icp",
     "route/bitfinity",
     "route/ton",
@@ -14,7 +15,7 @@ members = [
     "types",
     "mock/bitcoin",
     "mock/icp",
-    "mock/hub",
+    "mock/hub"
 ]
 exclude = ["route/solana"]
 resolver = "2"

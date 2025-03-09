@@ -1,0 +1,203 @@
+type BlockHeaderJsonResult = record {
+  height : nat64;
+  confirmations : int64;
+  chainwork : text;
+  bits : text;
+  hash : text;
+  previousblockhash : text;
+  difficulty : float64;
+  time : nat32;
+  block_header_hex : opt text;
+  version : int32;
+  merkleroot : text;
+  nonce : nat32;
+  nextblockhash : opt text;
+  version_hex : text;
+  mediantime : nat64;
+};
+type Chain = record {
+  fee_token : opt text;
+  canister_id : text;
+  chain_id : text;
+  counterparties : opt vec text;
+  chain_state : ChainState;
+  chain_type : ChainType;
+  contract_address : opt text;
+};
+type ChainState = variant { Active; Deactive };
+type ChainType = variant { SettlementChain; ExecutionChain };
+type CustomsError = variant {
+  SendTicketErr : text;
+  BlockHashNotEqual : record { nat64; text; text; text };
+  RpcError : text;
+  TemporarilyUnavailable : text;
+  HttpOutCallError : record { text; text; text };
+  AlreadyProcessed;
+  HttpStatusError : record { nat; text; text };
+  OrdTxError : text;
+  RpcResultError : RpcError;
+  NotBridgeTx;
+  NegativeConfirmations : int64;
+  AmountIsZero;
+  RpcCustomsError : text;
+  InvalidRuneId : text;
+  InvalidArgs : text;
+  InvalidBits : record { text; text };
+  InvalidMerkleRoot : record { text; text };
+  AlreadySubmitted;
+  InvalidTxId;
+  NotPayFees;
+  InvalidBlockHash : record { text; text };
+  CallError : record { principal; text; text };
+  TxNotFoundInMemPool;
+  Unknown;
+  InvalidTxReceiver;
+  UnsupportedChainId : text;
+  ECDSAPublicKeyNotFound;
+  MerkleBlockVerifyError : record { text; text };
+  HttpOutExceedRetryLimit : text;
+  DepositUtxoNotFound : record { text; Destination };
+  UnsupportedToken : text;
+  ValidateError : ValidationError;
+  CustomError : text;
+};
+type Destination = record {
+  token : opt text;
+  target_chain_id : text;
+  receiver : text;
+};
+type EcdsaPublicKeyResponse = record { public_key : blob; chain_code : blob };
+type GenerateTicketArgs = record {
+  token_id : text;
+  target_chain_id : text;
+  receiver : text;
+};
+type GenerateTicketWithTxidArgs = record {
+  token_id : text;
+  txid : text;
+  target_chain_id : text;
+  receiver : text;
+};
+type InitArgs = record {
+  fee_token : text;
+  hub_principal : principal;
+  chain_id : text;
+  default_doge_rpc_config : RpcConfig;
+  admins : vec principal;
+};
+type LockTicketRequest = record {
+  received_at : nat64;
+  transaction_hex : text;
+  token_id : text;
+  txid : blob;
+  target_chain_id : text;
+  amount : text;
+  receiver : text;
+};
+type MultiRpcConfig = record {
+  rpc_list : vec RpcConfig;
+  minimum_response_count : nat32;
+};
+type ReleaseTokenStatus = variant {
+  Signing;
+  Confirmed : text;
+  Sending : text;
+  Unknown;
+  Submitted : text;
+  Pending;
+};
+type Result = variant { Ok : BlockHeaderJsonResult; Err : CustomsError };
+type Result_1 = variant { Ok : vec text; Err : CustomsError };
+type Result_2 = variant { Ok; Err : CustomsError };
+type Result_3 = variant { Ok : text; Err : CustomsError };
+type Result_4 = variant { Ok : text; Err : text };
+type Result_5 = variant { Ok : nat64; Err : CustomsError };
+type Result_6 = variant { Ok : TransactionJsonResult; Err : CustomsError };
+type RpcConfig = record { url : text; api_key : opt text };
+type RpcError = record { code : int32; message : text };
+type SendTicketResult = record { txid : blob; success : bool; time_at : nat64 };
+type StateProfile = record {
+  next_consume_ticket_seq : nat64;
+  fee_token : text;
+  hub_principal : principal;
+  ecdsa_key_name : text;
+  doge_chain : nat8;
+  next_directive_seq : nat64;
+  doge_fee_rate : opt nat64;
+  deposited_utxo : vec record { Utxo; Destination };
+  fee_collector : text;
+  ecdsa_public_key : opt EcdsaPublicKeyResponse;
+  chain_id : text;
+  pending_lock_ticket_requests : vec record { text; LockTicketRequest };
+  tokens : vec record { text; Token };
+  admins : vec principal;
+  target_chain_factor : vec record { text; nat };
+  multi_rpc_config : MultiRpcConfig;
+  counterparties : vec record { text; Chain };
+  min_deposit_amount : nat64;
+  next_ticket_seq : nat64;
+  chain_state : ChainState;
+  min_confirmations : nat32;
+  sync_doge_block_header_height : nat64;
+  tatum_rpc_config : RpcConfig;
+  fee_payment_utxo : vec Utxo;
+  flight_unlock_ticket_map : vec record { nat64; SendTicketResult };
+  fee_token_factor : opt nat;
+};
+type Token = record {
+  decimals : nat8;
+  token_id : text;
+  metadata : vec record { text; text };
+  icon : opt text;
+  name : text;
+  symbol : text;
+};
+type TokenResp = record {
+  decimals : nat8;
+  token_id : text;
+  icon : opt text;
+  symbol : text;
+};
+type TransactionJsonResult = record {
+  hex : text;
+  confirmations : nat32;
+  time : nat32;
+  txid : text;
+  blockhash : text;
+  blocktime : nat32;
+};
+type Utxo = record { value : nat64; txid : blob; vout : nat32 };
+type ValidationError = variant {
+  BadTarget;
+  BadVersion;
+  BadProofOfWork;
+  BadAuxPow : text;
+};
+service : (InitArgs) -> {
+  fetch_doge_block_header_as_current_height : (nat64) -> (Result);
+  generate_ticket : (GenerateTicketArgs) -> (Result_1);
+  generate_ticket_by_txid : (GenerateTicketWithTxidArgs) -> (Result_2);
+  get_deposit_address : (text, text) -> (Result_3) query;
+  get_fee_payment_address : () -> (Result_3) query;
+  get_finalized_lock_ticket_txids : () -> (vec text) query;
+  get_finalized_unlock_ticket_results : () -> (vec SendTicketResult) query;
+  get_platform_fee : (text) -> (opt nat, opt text) query;
+  get_saved_block_header : (nat64) -> (opt BlockHeaderJsonResult);
+  get_token_list : () -> (vec TokenResp) query;
+  get_verified_doge_block_headers : (nat64, nat64) -> (
+      vec BlockHeaderJsonResult,
+    ) query;
+  init_ecdsa_public_key : () -> (Result_2);
+  pending_unlock_tickets : (nat64) -> (text) query;
+  query_finalized_lock_tickets : (text) -> (opt LockTicketRequest) query;
+  query_state : () -> (StateProfile) query;
+  release_token_status : (text) -> (ReleaseTokenStatus) query;
+  resend_unlock_ticket : (nat64, opt nat64) -> (Result_4);
+  save_utxo_for_payment_address : (text) -> (Result_5);
+  set_default_doge_rpc_config : (text, opt text) -> ();
+  set_fee_collector : (text) -> ();
+  set_min_deposit_amount : (nat64) -> ();
+  set_multi_rpc_config : (MultiRpcConfig) -> ();
+  set_tatum_api_config : (text, opt text) -> ();
+  test_rpc_get_transaction : (RpcConfig, text) -> (Result_6);
+}

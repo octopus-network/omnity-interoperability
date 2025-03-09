@@ -1,0 +1,303 @@
+use crate::custom_to_dogecoin::SendTicketResult;
+use crate::doge::block::DogecoinHeader;
+use crate::doge::header::BlockHeaderJsonResult;
+use crate::doge::rpc::DogeRpc;
+use crate::doge::transaction::{TransactionJsonResult, Txid};
+use crate::dogeoin_to_custom::query_and_save_utxo_for_payment_address;
+use crate::errors::CustomsError;
+use crate::generate_ticket::{GenerateTicketArgs, GenerateTicketWithTxidArgs};
+use crate::state::{mutate_state, read_state, replace_state, DogeState, StateProfile};
+use crate::tasks::start_tasks;
+use crate::types::{
+    Destination, LockTicketRequest, MultiRpcConfig, ReleaseTokenStatus, RpcConfig, TokenResp,
+};
+use bitcoin::consensus::deserialize;
+use candid::{CandidType, Deserialize, Principal};
+use ic_canister_log::log;
+use ic_canisters_http_types::{HttpRequest, HttpResponse};
+use ic_cdk::api::management_canister::http_request;
+use ic_cdk::api::management_canister::http_request::TransformArgs;
+use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
+use omnity_types::ic_log::{ERROR, INFO};
+use omnity_types::{ChainId, Seq};
+use std::str::FromStr;
+
+#[init]
+fn init(args: InitArgs) {
+    replace_state(DogeState::init(args).expect("params error"));
+    start_tasks();
+}
+
+#[pre_upgrade]
+fn pre_upgrade() {
+    read_state(|s| s.pre_upgrade());
+}
+
+#[post_upgrade]
+fn post_upgrade() {
+    DogeState::post_upgrade();
+    start_tasks();
+}
+
+#[query]
+pub fn get_finalized_lock_ticket_txids() -> Vec<String> {
+    read_state(|s| {
+        s.finalized_lock_ticket_requests_map
+            .iter()
+            .map(|e| e.1.txid.to_string())
+            .collect()
+    })
+}
+
+#[query]
+pub fn get_finalized_unlock_ticket_results() -> Vec<SendTicketResult> {
+    read_state(|s| {
+        s.finalized_unlock_ticket_results_map
+            .iter()
+            .map(|e| e.1.clone())
+            .collect()
+    })
+}
+
+#[query(hidden = true)]
+fn http_request(req: HttpRequest) -> HttpResponse {
+    if ic_cdk::api::data_certificate().is_none() {
+        ic_cdk::trap("update call rejected");
+    }
+    omnity_types::ic_log::http_request(req)
+}
+
+#[update]
+pub async fn generate_ticket_by_txid(req: GenerateTicketWithTxidArgs) -> Result<(), CustomsError> {
+    match crate::generate_ticket::generate_ticket(req.clone()).await {
+        Ok(_) => {
+            log!(INFO, "success to generate_ticket_by_txid, req: {:?}", req);
+            Ok(())
+        }
+        Err(e) => {
+            log!(ERROR, "failed to generate_ticket_by_txid error: {:?}", e);
+            Err(CustomsError::from(e))
+        }
+    }
+}
+
+#[update]
+pub async fn generate_ticket(req: GenerateTicketArgs) -> Result<Vec<String>, CustomsError> {
+    let txids = crate::generate_ticket::get_ungenerated_txids(req.clone()).await?;
+    log!(INFO, "find txids for generate_ticket: {:?}", txids);
+    let mut success_txids = vec![];
+    for txid in txids {
+        let args = GenerateTicketWithTxidArgs {
+            txid: txid.to_string(),
+            target_chain_id: req.target_chain_id.clone(),
+            token_id: req.token_id.clone(),
+            receiver: req.receiver.clone(),
+        };
+        match crate::generate_ticket::generate_ticket(args).await {
+            Ok(_) => {
+                log!(INFO, "success to generate_ticket, txid: {:?}", txid);
+                success_txids.push(txid.to_string());
+            }
+            Err(e) => {
+                log!(ERROR, "generate_ticket error: {:?}", e);
+            }
+        }
+    }
+
+    Ok(success_txids)
+}
+
+#[query]
+fn get_platform_fee(target_chain: ChainId) -> (Option<u128>, Option<String>) {
+    read_state(|s| s.get_transfer_fee_info(&target_chain))
+}
+
+#[query]
+pub fn get_deposit_address(
+    target_chain_id: String,
+    receiver: String,
+) -> Result<String, CustomsError> {
+    let dest = Destination::new(target_chain_id, receiver, None);
+    read_state(|s| s.get_address(dest)).map(|a| a.0.to_string())
+}
+
+#[query(guard = "is_admin")]
+pub fn query_state() -> StateProfile {
+    read_state(|s| StateProfile::from(s))
+}
+
+#[update(guard = "is_admin")]
+pub fn set_fee_collector(addr: String) {
+    mutate_state(|s| s.fee_collector = addr);
+}
+
+#[query]
+pub fn get_fee_payment_address() -> Result<String, CustomsError> {
+    mutate_state(|s| s.get_address(Destination::fee_payment_address())).map(|a| a.0.to_string())
+}
+
+#[update(guard = "is_admin")]
+pub async fn save_utxo_for_payment_address(txid: String) -> Result<u64, CustomsError> {
+    query_and_save_utxo_for_payment_address(txid).await
+}
+
+#[update(guard = "is_admin")]
+pub fn set_min_deposit_amount(amount: u64) {
+    mutate_state(|s| s.min_deposit_amount = amount);
+}
+
+#[query]
+fn release_token_status(ticket_id: String) -> ReleaseTokenStatus {
+    read_state(|s| s.unlock_tx_status(&ticket_id))
+}
+
+#[query(guard = "is_admin")]
+pub fn pending_unlock_tickets(seq: Seq) -> String {
+    let r = read_state(|s| s.flight_unlock_ticket_map.get(&seq).cloned().unwrap());
+    serde_json::to_string(&r).unwrap()
+}
+
+#[update(guard = "is_admin")]
+pub async fn init_ecdsa_public_key() -> Result<(), CustomsError> {
+    crate::state::init_ecdsa_public_key().await.map(|_| ())
+}
+
+#[update(guard = "is_admin")]
+pub async fn set_tatum_api_config(url: String, api_key: Option<String>) {
+    mutate_state(|s| {
+        s.tatum_api_config = RpcConfig { url, api_key };
+    });
+}
+
+#[update(guard = "is_admin")]
+pub async fn set_default_doge_rpc_config(url: String, api_key: Option<String>) {
+    mutate_state(|s| {
+        s.default_doge_rpc_config = RpcConfig { url, api_key };
+    });
+}
+
+#[update(guard = "is_admin")]
+pub async fn set_multi_rpc_config(multi_rpc_config: MultiRpcConfig) {
+    mutate_state(|s| {
+        s.multi_rpc_config = multi_rpc_config;
+    });
+}
+
+#[query(hidden = true)]
+fn transform(raw: TransformArgs) -> http_request::HttpResponse {
+    http_request::HttpResponse {
+        status: raw.response.status.clone(),
+        body: raw.response.body.clone(),
+        headers: vec![],
+    }
+}
+
+#[update(guard = "is_admin")]
+pub async fn resend_unlock_ticket(seq: Seq, fee_rate: Option<u64>) -> Result<String, String> {
+    match crate::custom_to_dogecoin::submit_unlock_ticket(seq, fee_rate).await {
+        Ok(r) => {
+            log!(
+                INFO,
+                "success to resend_unlock_ticket, seq: {:?}, txid: {:?}",
+                seq,
+                r.txid.to_string()
+            );
+            mutate_state(|s| s.flight_unlock_ticket_map.insert(seq, r.clone()));
+            Ok(serde_json::to_string(&r).unwrap())
+        }
+        Err(e) => {
+            log!(ERROR, "resend_unlock_ticket error: {:?}", e);
+            return Err("resend_unlock_ticket error".to_string());
+        }
+    }
+}
+
+#[update(guard = "is_admin")]
+async fn get_saved_block_header(height: u64) -> Option<BlockHeaderJsonResult> {
+    read_state(|s| {
+        s.doge_block_headers
+            .get(&height)
+    })
+}
+
+#[update(guard = "is_admin")]
+async fn test_rpc_get_transaction( rpc_config: RpcConfig, txid: String) -> Result<TransactionJsonResult, CustomsError> {
+    let doge_rpc: DogeRpc = rpc_config.into();
+    let r = doge_rpc.get_raw_transaction(txid.as_str()).await?;
+    Ok(r)
+}
+
+#[update(guard = "is_admin")]
+async fn fetch_doge_block_header_as_current_height(
+    height: u64,
+) -> Result<BlockHeaderJsonResult, CustomsError> {
+    use hex::test_hex_unwrap as hex;
+
+    let doge_rpc: DogeRpc = read_state(|s| s.default_doge_rpc_config.clone()).into();
+    let block_hash = doge_rpc.get_block_hash(height).await?;
+    let mut block_header_json_result = doge_rpc.get_block_header(block_hash.as_str()).await?;
+    let blocker_header_hex = doge_rpc.get_block_header_hex(block_hash.as_str()).await?;
+    block_header_json_result.block_header_hex = Some(blocker_header_hex.clone());
+
+    let doge_header: DogecoinHeader =
+        deserialize(&hex!(blocker_header_hex.as_str())).map_err(|e| {
+            CustomsError::CustomError(format!("deserialize doge header error: {:?}", e))
+        })?;
+
+    let _ = doge_header.validate_doge_pow(true)?;
+
+    // save to state
+    mutate_state(|s| {
+        s.doge_block_headers.insert(
+            block_header_json_result.height,
+            block_header_json_result.clone(),
+        );
+        s.sync_doge_block_header_height = block_header_json_result.height;
+    });
+    log!(INFO, "fetch_doge_block_header_as_current_height success: {:?}", block_header_json_result);
+    Ok(block_header_json_result)
+}
+
+#[query]
+fn get_verified_doge_block_headers(start: usize, length: usize) -> Vec<BlockHeaderJsonResult> {
+    read_state(|s| {
+        s.doge_block_headers
+            .iter()
+            .skip(start)
+            .take(length)
+            .map(|e| e.1.clone())
+            .collect()
+    })
+}
+
+#[query]
+fn get_token_list() -> Vec<TokenResp> {
+    read_state(|s| s.tokens.values().map(|t| t.clone().into()).collect())
+}
+
+#[query(guard = "is_admin")]
+fn query_finalized_lock_tickets(txid: String) -> Option<LockTicketRequest> {
+    let txid = Txid::from_str(txid.as_str()).unwrap();
+    read_state(|s| s.finalized_lock_ticket_requests_map.get(&txid.into()))
+}
+
+#[derive(CandidType, Deserialize)]
+pub struct InitArgs {
+    pub admins: Vec<Principal>,
+    pub hub_principal: Principal,
+    // pub network: Network,
+    pub chain_id: String,
+    // pub indexer_principal: Principal,
+    pub fee_token: String,
+    pub default_doge_rpc_config: RpcConfig,
+}
+
+fn is_admin() -> Result<(), String> {
+    let c = ic_cdk::caller();
+    match ic_cdk::api::is_controller(&c) || read_state(|s| s.admins.contains(&c)) {
+        true => Ok(()),
+        false => Err("permission deny".to_string()),
+    }
+}
+
+ic_cdk::export_candid!();
