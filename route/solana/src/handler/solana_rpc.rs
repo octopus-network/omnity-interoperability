@@ -31,6 +31,12 @@ pub async fn solana_client() -> SolanaClient {
         )
     });
 
+    if let Some((_, client)) = read_state(|s| s.solana_client_cache.clone())
+        .filter(|(cache_key_type, _)| *cache_key_type == key_type)
+    {
+        return client;
+    }
+
     let payer = eddsa_public_key(key_type.to_owned())
         .await
         .map_err(|message| CallError {
@@ -41,15 +47,19 @@ pub async fn solana_client() -> SolanaClient {
 
     let derived_path = vec![ByteBuf::from(chain_id.as_bytes())];
     let forward = read_state(|s| s.forward.to_owned());
-    SolanaClient {
+    let solana_client = SolanaClient {
         sol_canister_id: sol_canister,
-        payer: payer,
+        payer,
         payer_derive_path: derived_path,
         chainkey_name: schnorr_key_name,
-        forward: forward,
-        priority: priority,
-        key_type: key_type,
-    }
+        forward,
+        priority,
+        key_type: key_type.clone(),
+    };
+    mutate_state(|s| {
+        s.solana_client_cache = Some((key_type, solana_client.clone()));
+    });
+    solana_client
 }
 
 // get account info

@@ -14,7 +14,7 @@ use ic_solana::compute_budget::compute_budget::Priority;
 use ic_solana::eddsa::KeyType;
 use ic_solana::ic_log::{DEBUG, ERROR};
 use ic_solana::rpc_client::JsonRpcResponse;
-use ic_solana::token::TxError;
+use ic_solana::token::{SolanaClient, TxError};
 use ic_stable_structures::StableBTreeMap;
 
 use crate::handler::gen_ticket::Instruction;
@@ -31,6 +31,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
 };
+
 pub type CanisterId = Principal;
 pub type Owner = String;
 pub type MintAccount = String;
@@ -353,6 +354,8 @@ pub struct SolanaRouteState {
     pub schnorr_key_name: String,
     pub sol_canister: Principal,
     pub fee_account: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub solana_client_cache: Option<(KeyType, SolanaClient)>,
     // Locks preventing concurrent execution timer tasks
     pub active_tasks: HashSet<TaskType>,
     pub admin: Principal,
@@ -426,6 +429,7 @@ impl From<InitArgs> for SolanaRouteState {
             ),
             gen_ticket_reqs: StableBTreeMap::init(crate::memory::get_gen_ticket_req_memory()),
             seeds: StableBTreeMap::init(crate::memory::get_seeds_memory()),
+            solana_client_cache: None,
         }
     }
 }
