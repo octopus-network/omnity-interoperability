@@ -1,10 +1,9 @@
 use base64::Engine;
 use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
-use std::ptr::read;
 use std::str::FromStr;
 
-use bitcoin::Amount;
+use bitcoin::{Amount};
 use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::{Txid, Utxo};
 use ic_canister_log::log;
@@ -26,7 +25,7 @@ use bitcoin_customs::runes_etching::transactions::EtchingStatus::{
 use bitcoin_customs::runes_etching::transactions::{estimate_tx_vbytes, internal_etching, SendEtchingInfo, stash_etching};
 use bitcoin_customs::runes_etching::{EtchingArgs, LogoParams};
 use bitcoin_customs::state::eventlog::Event::UpdateFeeCollector;
-use bitcoin_customs::state::{audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus, SetTxFeePerVbyteArgs, BitcoinFeeRate};
+use bitcoin_customs::state::{audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, ReleaseTokenStatus, SetTxFeePerVbyteArgs};
 use bitcoin_customs::storage::record_event;
 use bitcoin_customs::updates::generate_ticket::{GenerateTicketArgs, GenerateTicketError};
 use bitcoin_customs::updates::update_btc_utxos::UpdateBtcUtxosErr;
@@ -35,11 +34,13 @@ use bitcoin_customs::updates::{
     get_btc_address::GetBtcAddressArgs,
     update_runes_balance::{UpdateRunesBalanceArgs, UpdateRunesBalanceError},
 };
-use bitcoin_customs::{commit_etching_task, management, process_directive_msg_task, process_etching_task, process_ticket_msg_task, process_tx_task, refresh_fee_task, CustomsInfo, ECDSAPublicKey, TokenResp, FEE_ESTIMATE_DELAY, INTERVAL_COMMIT_ETCHING, INTERVAL_HANDLE_ETCHING, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES};
+use bitcoin_customs::{commit_etching_task, management, process_directive_msg_task, process_etching_task, process_ticket_msg_task, process_tx_task,
+                      CustomsInfo, ECDSAPublicKey, TokenResp, INTERVAL_COMMIT_ETCHING, INTERVAL_HANDLE_ETCHING, INTERVAL_PROCESSING, INTERVAL_QUERY_DIRECTIVES};
 use bitcoin_customs::{
     state::eventlog::{Event, GetEventsArg},
     storage,
 };
+use bitcoin_customs::address::BitcoinAddress;
 use omnity_types::ic_log::INFO;
 use omnity_types::{Chain, ChainId, TicketId};
 
@@ -145,11 +146,16 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
             amount: Amount::from_sat(a.amount),
         };
         mutate_state(|s| {
-            if s.etching_fee_utxos.iter().find(|x| *x == utxo).is_none() {
+            if !s.etching_fee_utxos.iter().any(|x| x == utxo) {
                 let _ = s.etching_fee_utxos.push(&utxo);
             }
         });
     }
+}
+
+#[update(guard = "is_controller")]
+pub fn set_nownodes_apikey(key: String) {
+    mutate_state(|s|s.nownodes_apikey = key);
 }
 
 #[update]
@@ -185,35 +191,25 @@ pub fn get_etching_by_user(user_addr: Principal) -> Vec<SendEtchingInfo> {
 #[query]
 pub fn get_etching(key: String) -> Option<SendEtchingInfo> {
     let r: Option<SendEtchingInfo> =
-        match read_state(|s| s.pending_etching_requests.get(&key.clone())) {
-            None => None,
-            Some(r) => Some(r.into()),
-        };
+        read_state(|s| s.pending_etching_requests.get(&key.clone())).map(|r|r.into());
     if r.is_some() {
         return r;
     }
-    let r = match read_state(|s| s.finalized_etching_requests.get(&key.clone())) {
-        None => None,
-        Some(r) => Some(r.into()),
-    };
+    let r = read_state(|s| s.finalized_etching_requests.get(&key.clone())).map(|r|r.into());
     if r.is_some() {
         return r;
     }
-    match read_state(|s| s.stash_etchings.get(&key.clone())) {
-        None => None,
-        Some(r) => Some(r.into()),
-    }
+    read_state(|s| s.stash_etchings.get(&key.clone())).map(|r|r.into())
 }
 
-
 #[update]
-pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
+pub async fn etching(_fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
     let fee_rate = read_state(|s|{
         let high = s.bitcoin_fee_rate.high;
         if high == 0 {
             5
         }else {
-            high + 2
+            high
         }
     });
     internal_etching(fee_rate, args).await
@@ -221,18 +217,20 @@ pub async fn etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String>
 
 #[update(guard = "is_controller")]
 pub async fn etching_v2(args: EtchingArgs) -> Result<String, String> {
-    stash_etching(5, args).await
+    let fee_rate = read_state(|s|{
+        let high = s.bitcoin_fee_rate.high;
+        if high == 0 {
+            5
+        }else {
+            high
+        }
+    });
+    stash_etching(fee_rate, args).await
 }
 
 #[update(guard = "is_controller")]
 pub async fn remove_error_etching(commit_tx: String) {
     mutate_state(|s|s.pending_etching_requests.remove(&commit_tx));
-}
-
-#[update(guard = "is_controller")]
-pub async fn canister_icp() {
-    let id = ic_cdk::id();
-
 }
 
 #[update(guard = "is_controller")]
@@ -272,7 +270,7 @@ fn generate_ticket_status(ticket_id: String) -> GenTicketStatus {
 /// but considering that it will affect runes oracle, it will be retained temporarily.
 #[query]
 fn get_pending_gen_ticket_requests(args: GetGenTicketReqsArgs) -> Vec<GenTicketRequestV2> {
-    let start = args.start_txid.map_or(Unbounded, |txid| Excluded(txid));
+    let start = args.start_txid.map_or(Unbounded, Excluded);
     let count = max(50, args.max_count) as usize;
     read_state(|s| {
         s.confirmed_gen_ticket_requests
@@ -398,9 +396,11 @@ fn get_platform_fee(target_chain: ChainId) -> (Option<u128>, Option<String>) {
 }
 
 #[update(guard = "is_controller")]
-pub fn set_fee_collector(addr: String) {
+pub fn set_fee_collector(addr: String, network: ic_btc_interface::Network) -> Result<(), String>{
+    BitcoinAddress::parse(addr.as_str(),network).map_err(|e|e.to_string())?;
     mutate_state(|s| s.fee_collector_address = addr.clone());
     record_event(&UpdateFeeCollector { addr });
+    Ok(())
 }
 
 #[query(guard = "is_controller")]
@@ -414,7 +414,7 @@ fn get_customs_info() -> CustomsInfo {
         runes_oracles: s.runes_oracles.clone(),
         rpc_url: s.rpc_url.clone(),
         last_fee_per_vbyte: s.last_fee_per_vbyte.clone(),
-        fee_token_factor: s.fee_token_factor.clone(),
+        fee_token_factor: s.fee_token_factor,
         target_chain_factor: s.target_chain_factor.clone(),
         fee_collector_address: s.fee_collector_address.clone(),
         btc_network: s.btc_network,
@@ -436,9 +436,7 @@ fn get_customs_info() -> CustomsInfo {
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
         s.counterparties
-            .iter()
-            .map(|(_, chain)| chain.clone())
-            .collect()
+            .values().cloned().collect()
     })
 }
 
@@ -553,7 +551,6 @@ fn transform(raw: TransformArgs) -> http_request::HttpResponse {
         status: raw.response.status.clone(),
         body: raw.response.body.clone(),
         headers: vec![],
-        ..Default::default()
     }
 }
 

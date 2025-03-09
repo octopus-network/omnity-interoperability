@@ -15,6 +15,9 @@ pub mod signer;
 pub mod ic_log;
 pub mod brc20;
 pub mod hub_types;
+pub mod guard;
+pub mod hub;
+pub mod call_error;
 
 pub type Signature = Vec<u8>;
 pub type Seq = u64;
@@ -250,7 +253,7 @@ impl Memo {
         let memo_json= serde_json::to_string_pretty(&self).map_err(|e| {
             format!(
                 "[generate_ticket] memo convert error: {}",
-                e.to_string()
+                e
             )
         })?;
         Ok(memo_json) 

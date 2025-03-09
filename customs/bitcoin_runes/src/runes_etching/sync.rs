@@ -11,7 +11,7 @@ use thiserror::Error;
 use omnity_types::hub_types::{Proposal, TokenMeta};
 use omnity_types::ic_log::{ERROR, INFO};
 
-use crate::call_error::{CallError, Reason};
+use omnity_types::call_error::{CallError, Reason};
 use crate::hub::execute_proposal;
 use crate::management::{get_bitcoin_balance, CallSource};
 use crate::runes_etching::transactions::EtchingStatus::{
@@ -25,7 +25,7 @@ use crate::{finalization_time_estimate, state, updates};
 
 pub async fn get_etching(txid: &str) -> Result<Option<GetEtchingResult>, CallError> {
     let method = "get_etching";
-    let ord_principal = read_state(|s| s.ord_indexer_principal.clone().unwrap());
+    let ord_principal = read_state(|s| s.ord_indexer_principal.unwrap());
     let resp: (Option<GetEtchingResult>,) =
         ic_cdk::api::call::call(ord_principal, method, (txid,))
             .await

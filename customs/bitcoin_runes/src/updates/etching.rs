@@ -11,7 +11,7 @@ pub async fn init_etching_account_info() -> EtchingAccountInfo {
     if account_info.is_inited() {
         return account_info;
     }
-    let btc_network = read_state(|s| s.btc_network.clone());
+    let btc_network = read_state(|s| s.btc_network);
     let key_name = read_state(|s| s.ecdsa_key_name.clone());
     let derive_path_str = "etching_address";
     let dp = DerivationPath::new(vec![ByteBuf::from(derive_path_str.as_bytes())]);

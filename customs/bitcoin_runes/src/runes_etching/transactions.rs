@@ -13,7 +13,7 @@ use omnity_types::ic_log::INFO;
 use ordinals::{Etching, Rune, SpacedRune, Terms};
 use serde::Serialize;
 
-use crate::call_error::{CallError, Reason};
+use omnity_types::call_error::{CallError, Reason};
 use crate::runes_etching::constants::POSTAGE;
 use crate::runes_etching::fee_calculator::{
     check_allowance, select_utxos, transfer_etching_fees, FIXED_COMMIT_TX_VBYTES, INPUT_SIZE_VBYTES,
@@ -253,17 +253,15 @@ pub async fn generate_etching_transactions(
             cs.first().cloned()
         }
     };
-    let terms = match args.terms {
-        Some(t) => Some(Terms {
-            amount: Some(t.amount),
-            cap: Some(t.cap),
-            height: t.height,
-            offset: t.offset,
-        }),
-        None => None,
-    };
+
+    let terms = args.terms.map(|t| Terms {
+                    amount: Some(t.amount),
+                    cap: Some(t.cap),
+                    height: t.height,
+                    offset: t.offset,
+                });
     let etching = Etching {
-        rune: Some(space_rune.rune.clone()),
+        rune: Some(space_rune.rune),
         divisibility: args.divisibility,
         premine: args.premine,
         spacers: Some(space_rune.spacers),
@@ -360,7 +358,7 @@ pub async fn estimate_tx_vbytes(
     let space_rune = SpacedRune::from_str(rune_name).unwrap();
 
     let etching = Etching {
-        rune: Some(space_rune.rune.clone()),
+        rune: Some(space_rune.rune),
         divisibility: Some(2),
         premine: Some(1000000),
         spacers: Some(space_rune.spacers),
@@ -441,7 +439,7 @@ pub async fn stash_etching(fee_rate: u64, args: EtchingArgs) -> Result<String, S
     let etching_key = format!("Bitcoin-runes-{}", args.rune_name);
     mutate_state(|s|{
         s.stash_etchings.insert(etching_key.clone(), internal_args);
-        s.stash_etching_ids.push(&EtchingKey::new(etching_key.clone()));
+         let _ = s.stash_etching_ids.push(&EtchingKey::new(etching_key.clone()));
     });
     Ok(etching_key)
 }
@@ -460,6 +458,8 @@ pub async fn internal_etching(fee_rate: u64, args: EtchingArgs) -> Result<String
                 mutate_state(|s| s.pending_etching_requests.insert(commit_tx_id.clone(), sr));
                 let r = transfer_etching_fees(allowance as u128).await;
                 log!(INFO, "transfer etching fee result: {:?}", r);
+                let r = topup(allowance).await;
+                log!(INFO, "etching topup result {:?}", r);
                 Ok(commit_tx_id)
             } else {
                 Err(sr

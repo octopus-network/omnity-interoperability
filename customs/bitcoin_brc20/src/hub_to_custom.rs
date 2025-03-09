@@ -1,9 +1,9 @@
 use crate::constants::{BATCH_QUERY_LIMIT, FETCH_HUB_DIRECTIVE_NAME, FETCH_HUB_TICKET_NAME};
 use crate::state::{mutate_state, read_state};
-use crate::{audit, hub};
+use crate::{audit};
 use ic_canister_log::log;
 use omnity_types::ic_log::ERROR;
-use omnity_types::{ChainState, Directive, Factor, Seq, Ticket};
+use omnity_types::{ChainState, Directive, Factor, hub, Seq, Ticket};
 
 async fn process_tickets() {
     if read_state(|s| s.chain_state == ChainState::Deactive) {
