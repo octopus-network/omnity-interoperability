@@ -8,7 +8,7 @@ use crate::{
     updates::generate_ticket::GenerateTicketArgs,
 };
 use candid::Principal;
-use ic_solana::{token::SolanaClient, types::Pubkey};
+use ic_solana::types::Pubkey;
 use ic_stable_structures::{storable::Bound, StableBTreeMap, Storable};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -65,20 +65,37 @@ impl Storable for ReleaseTokenReq {
     const BOUND: Bound = Bound::Unbounded;
 }
 
+#[derive(candid::CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct RpcProvider {
+    pub host: String,
+    pub api_key_param: Option<String>,
+}
+
+impl RpcProvider {
+    pub fn rpc_url(&self) -> String {
+        format!(
+            "https://{}{}",
+            self.host,
+            self.api_key_param
+                .clone()
+                .map_or("".into(), |param| format!("/?{}", param))
+        )
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct CustomsState {
     pub chain_id: String,
     pub hub_principal: Principal,
     pub schnorr_key_name: String,
     pub sol_canister: Principal,
-    pub sol_client: Option<SolanaClient>,
-    pub forward: Option<String>,
     pub port_program_id: Pubkey,
     pub chain_state: ChainState,
     pub counterparties: BTreeMap<ChainId, Chain>,
     pub tokens: BTreeMap<TokenId, Token>,
     pub release_token_requests: BTreeMap<TicketId, ReleaseTokenReq>,
-    pub rpc_list: Vec<String>,
+    pub providers: Vec<RpcProvider>,
+    pub proxy_rpc: String,
     pub min_response_count: u32,
     pub enable_debug: bool,
 
@@ -88,6 +105,7 @@ pub struct CustomsState {
     // Next index of query directives from hub
     pub next_directive_seq: u64,
 
+    #[serde(skip)]
     pub active_tasks: HashSet<TaskType>,
 
     #[serde(skip, default = "crate::memory::init_finalized_requests")]
@@ -103,14 +121,13 @@ impl From<InitArgs> for CustomsState {
             hub_principal: args.hub_principal,
             schnorr_key_name: args.schnorr_key_name,
             sol_canister: args.sol_canister,
-            sol_client: None,
-            forward: args.forward,
             port_program_id: Pubkey::from_str(&args.port_program_id).unwrap(),
             chain_state: args.chain_state,
             counterparties: Default::default(),
             tokens: Default::default(),
             release_token_requests: Default::default(),
-            rpc_list: args.rpc_list,
+            providers: args.providers,
+            proxy_rpc: args.proxy_rpc,
             min_response_count: args.min_response_count,
             enable_debug: false,
             next_ticket_seq: 0,
@@ -127,10 +144,10 @@ impl CustomsState {
         if self.schnorr_key_name.is_empty() {
             ic_cdk::trap("schnorr_key_name is not set");
         }
-        if self.rpc_list.is_empty() {
+        if self.providers.is_empty() {
             ic_cdk::trap("rpc_list is empty");
         }
-        if self.min_response_count == 0 || self.min_response_count as usize > self.rpc_list.len() {
+        if self.min_response_count == 0 || self.min_response_count as usize > self.providers.len() {
             ic_cdk::trap("invalid min_response_count");
         }
     }

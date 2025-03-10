@@ -2,7 +2,7 @@ use candid::{CandidType, Deserialize, Principal};
 use serde::Serialize;
 
 use crate::{
-    state::{replace_state, CustomsState},
+    state::{replace_state, CustomsState, RpcProvider},
     types::omnity_types::ChainState,
 };
 
@@ -21,7 +21,8 @@ pub struct InitArgs {
     pub schnorr_key_name: String,
     pub sol_canister: Principal,
     pub chain_state: ChainState,
-    pub rpc_list: Vec<String>,
+    pub providers: Vec<RpcProvider>,
+    pub proxy_rpc: String,
     pub forward: Option<String>,
     pub min_response_count: u32,
     pub port_program_id: String,

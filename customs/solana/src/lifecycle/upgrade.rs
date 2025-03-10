@@ -1,6 +1,6 @@
 use crate::{
     memory,
-    state::{read_state, replace_state, CustomsState},
+    state::{read_state, replace_state, CustomsState, RpcProvider},
     types::omnity_types::ChainState,
 };
 use candid::{CandidType, Principal};
@@ -14,6 +14,7 @@ pub struct UpgradeArgs {
     pub chain_state: Option<ChainState>,
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Option<Principal>,
+    pub providers: Option<Vec<RpcProvider>>,
 }
 
 pub fn pre_upgrade() {
@@ -61,6 +62,9 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         }
         if let Some(sol_canister) = args.sol_canister {
             state.sol_canister = sol_canister;
+        }
+        if let Some(providers) = args.providers {
+            state.providers = providers;
         }
     }
 

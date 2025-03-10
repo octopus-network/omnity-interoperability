@@ -30,11 +30,12 @@ type GenerateTicketError = variant {
 };
 type InitArgs = record {
   hub_principal : principal;
-  rpc_list : vec text;
   sol_canister : principal;
   chain_id : text;
   port_program_id : text;
   schnorr_key_name : text;
+  proxy_rpc : text;
+  providers : vec RpcProvider;
   chain_state : ChainState;
   forward : opt text;
   min_response_count : nat32;
@@ -47,6 +48,7 @@ type ReleaseTokenStatus = variant {
 };
 type Result = variant { Ok; Err : GenerateTicketError };
 type Result_1 = variant { Ok; Err : text };
+type RpcProvider = record { host : text; api_key_param : opt text };
 type Token = record {
   decimals : nat8;
   token_id : text;
@@ -60,6 +62,7 @@ type UpgradeArgs = record {
   sol_canister : opt principal;
   chain_id : opt text;
   schnorr_key_name : opt text;
+  providers : opt vec RpcProvider;
   chain_state : opt ChainState;
 };
 service : (CustomArg) -> {
@@ -68,7 +71,6 @@ service : (CustomArg) -> {
   get_chain_list : () -> (vec Chain) query;
   get_payer_address : () -> (text);
   get_token_list : () -> (vec Token) query;
-  redeem_from_fee_address : (text, nat64) -> (Result_1);
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   resubmit_release_token_tx : (text) -> (Result_1);
 }
