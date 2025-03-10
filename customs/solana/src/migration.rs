@@ -43,16 +43,22 @@ impl From<OldState> for CustomsState {
             chain_id: args.chain_id,
             hub_principal: args.hub_principal,
             schnorr_key_name: args.schnorr_key_name,
-            sol_canister: Principal::from_str("by6od-j4aaa-aaaaa-qaadq-cai").unwrap(),
+            sol_canister: Principal::from_str("zsiic-gaaaa-aaaar-qap7a-cai").unwrap(),
             port_program_id: args.port_program_id,
             chain_state: args.chain_state,
             counterparties: args.counterparties,
             tokens: args.tokens,
             release_token_requests: args.release_token_requests,
-            providers: vec![RpcProvider {
-                host: "api.devnet.solana.com".into(),
-                api_key_param: None,
-            }],
+            providers: vec![
+                RpcProvider {
+                    host: "solana-mainnet.g.alchemy.com/v2/F65yLjKD1bJ3R7Doyfkwr-qFY7tn63FK".into(),
+                    api_key_param: None,
+                },
+                RpcProvider {
+                    host: "mainnet.helius-rpc.com".into(),
+                    api_key_param: Some("api-key=3b29de8d-4b52-456e-913d-4ee1478894cd".into()),
+                },
+            ],
             proxy_rpc: "https://solana-idempotent-proxy-219952077564.us-central1.run.app/api"
                 .into(),
             min_response_count: args.min_response_count,
