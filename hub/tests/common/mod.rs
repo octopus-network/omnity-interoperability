@@ -10,7 +10,7 @@ use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_state_machine_tests::{StateMachine, WasmResult};
 use omnity_hub::event::{Event, GetEventsArg};
 use omnity_hub::lifecycle::init::{HubArg, InitArgs};
-use omnity_hub::types::{ChainMeta, Proposal, Subscribers, TokenMeta, TokenResp};
+use omnity_types::hub_types::{ChainMeta, Proposal, Subscribers, TokenMeta, TokenResp};
 use omnity_types::{Chain, ChainId, Directive, Seq, Ticket, TokenId, TokenOnChain, Topic};
 use omnity_types::{ChainState, ChainType, Error, Factor};
 

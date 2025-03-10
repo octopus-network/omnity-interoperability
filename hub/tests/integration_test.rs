@@ -1,5 +1,5 @@
 use ic_base_types::PrincipalId;
-use omnity_hub::types::Proposal;
+use omnity_types::hub_types::Proposal;
 use omnity_types::{ChainState, ChainType, Factor, FeeTokenFactor, Ticket, TicketType, TxAction};
 use omnity_types::{ToggleAction, ToggleState, Topic};
 mod common;
