@@ -147,7 +147,7 @@ pub async fn generate_ticket(
                 "[generate_ticket] successful to send ticket: {:?}",
                 ticket
             );
-
+            mutate_state(|s| s.gen_ticket_reqs.remove(&req.signature.to_owned()));
             Ok(GenerateTicketOk {
                 ticket_id: req.signature.to_string(),
             })
@@ -159,8 +159,6 @@ pub fn validate_req(req: &GenerateTicketReq) -> Result<(), GenerateTicketError> 
     Signature::from_str(&req.signature)
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
     Pubkey::from_str(&req.sender)
-        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
-    address::validate_account(&req.target_chain_id, &req.receiver)
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
 
     if read_state(|s| s.chain_state == ChainState::Deactive) {
@@ -178,7 +176,8 @@ pub fn validate_req(req: &GenerateTicketReq) -> Result<(), GenerateTicketError> 
             req.target_chain_id.to_owned(),
         ));
     } else {
-        //validate receiver address
+        address::validate_account(&req.target_chain_id, &req.receiver)
+            .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
     }
     if req.amount <= 0 {
         return Err(GenerateTicketError::TemporarilyUnavailable(
