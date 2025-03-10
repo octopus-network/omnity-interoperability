@@ -15,3 +15,5 @@ cp .dfx/local/canisters/icp_route/service.did.d.ts assets/icp_route/
 cp .dfx/local/canisters/icp_route/service.did.js assets/icp_route/
 cp .dfx/local/canisters/icp_customs/service.did.d.ts assets/icp_customs/
 cp .dfx/local/canisters/icp_customs/service.did.js assets/icp_customs/
+cp .dfx/ic/canisters/solana_customs/service.did.d.ts assets/solana_customs/
+cp .dfx/ic/canisters/solana_customs/service.did.js assets/solana_customs/

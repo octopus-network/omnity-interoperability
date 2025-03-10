@@ -9,7 +9,7 @@ cargo build --release --target wasm32-unknown-unknown --package $CANISTER
 # Extract the did file
 echo "extractor did file ..."
 candid-extractor $CANISTER_WASM > ./assets/$CANISTER.did
-
+cp ./assets/$CANISTER.did ./
 # optimize wasm file
 # ic-wasm $CANISTER_WASM -o $CANISTER_WASM metadata candid:service -f $DID_PATH -v public
 
