@@ -1249,7 +1249,7 @@ dependencies = [
 [[package]]
 name = "ic-solana"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/ic-solana/?branch=feature%2Fmetaplex#e53aaacf36ea9d33b5ed054191622281a4e2652a"
+source = "git+https://github.com/octopus-network/ic-solana/?branch=feature%2Fmetaplex#ff31c984fcbe0d9b8677a44f725d6dc19d76bc36"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
