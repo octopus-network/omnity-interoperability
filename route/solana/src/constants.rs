@@ -16,6 +16,7 @@ pub const FEE_ACCOUNT: &str = "3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia";
 // 1 sol =1_000_000_000
 pub const FEE_TOKEN: &str = "SOL";
 
+pub const IC_GATEWAY: &str = "raw.icp0.io";
 // redeem fee = gas fee + service fee
 // the service fee,there is 3 solutions
 // s2e: free; e2s: 2$; e2e: 1$
@@ -24,11 +25,12 @@ pub const FEE_TOKEN: &str = "SOL";
 
 pub const DIRECTIVE_LIMIT_SIZE: u64 = 20;
 pub const TICKET_LIMIT_SIZE: u64 = 20;
-pub const COUNTER_SIZE: u64 = 5;
-pub const QUERY_DERECTIVE_INTERVAL: Duration = Duration::from_secs(30);
-pub const CREATE_MINT_INTERVAL: Duration = Duration::from_secs(15);
+pub const TAKE_SIZE: u64 = 3;
+pub const QUERY_DERECTIVE_INTERVAL: Duration = Duration::from_secs(50);
+pub const CREATE_MINT_INTERVAL: Duration = Duration::from_secs(50);
 pub const UPDATE_TOKEN_INTERVAL: Duration = Duration::from_secs(30);
+pub const QUERY_TICKET_INTERVAL: Duration = Duration::from_secs(15);
 pub const CREATE_ATA_INTERVAL: Duration = Duration::from_secs(15);
-pub const QUERY_TICKET_INTERVAL: Duration = Duration::from_secs(10);
 pub const MINT_TOKEN_INTERVAL: Duration = Duration::from_secs(15);
-pub const RETRY_LIMIT_SIZE: u64 = 10;
+pub const RETRY_4_BUILDING: u64 = 10;
+pub const RETRY_4_STATUS: u64 = 10;

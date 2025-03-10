@@ -47,6 +47,18 @@
         }
       ]
     },
+    "solana_customs": {
+      "gzip": true,
+      "package": "solana_customs",
+      "type": "custom",
+      "candid": "customs/solana/solana_customs.did",
+      "wasm": "customs/solana/target/wasm32-unknown-unknown/release/solana_customs.wasm",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
     "bitfinity_route": {
       "gzip": true,
       "candid": "route/bitfinity/bitfinity_route.did",
@@ -75,13 +87,7 @@
       "gzip": true,
       "candid": "hub/omnity_hub.did",
       "package": "omnity_hub",
-      "type": "custom",
-      "wasm": "target/wasm32-unknown-unknown/release/omnity_hub.wasm",
-      "metadata": [
-        {
-          "name": "candid:service"
-        }
-      ]
+      "type": "rust"
     },
     "icp_route": {
       "gzip": true,
