@@ -6065,6 +6065,7 @@ dependencies = [
  "tiny-keccak",
  "tonlib-core",
  "urlencoding",
+ "uuid",
 ]
 
 [[package]]

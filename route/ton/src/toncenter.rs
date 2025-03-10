@@ -15,9 +15,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tonlib_core::cell::BagOfCells;
 use tonlib_core::TonAddress;
+use uuid::Uuid;
 
 const MAX_CYCLES: u128 = 3_100_000_000;
-pub const TONCENTER_BASE_URL: &str = "https://toncenter.com";
+pub const TONCENTER_BASE_URL: &str = "toncenter.com";
 pub const PROXY_URL: &str = "https://ton-idempotent-proxy-219952077564.us-central1.run.app";
 pub const IDEMPOTENCY_KEY: &str = "idempotency-key";
 pub const FORWARD_RPC: &str = "x-forwarded-host";
@@ -169,8 +170,7 @@ async fn do_http_request(request: CanisterHttpRequestArgument) -> anyhow::Result
 
 pub fn proxy_request(request: &mut CanisterHttpRequestArgument) {
     request.url = request.url.replace(TONCENTER_BASE_URL, PROXY_URL);
-    let hasher: CanisterHttpRequestArgumentHasher = request.clone().into();
-    let idempotency_key = format!("toncenter-{}", ic_cdk::api::time());
+    let idempotency_key = format!("ton_route-{}{}", ic_cdk::api::time(), uuid::Uuid::new_v4().to_string());
     request.headers.push(HttpHeader {
         name: IDEMPOTENCY_KEY.to_string(),
         value: idempotency_key,
