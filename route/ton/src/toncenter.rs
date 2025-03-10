@@ -18,9 +18,9 @@ use tonlib_core::TonAddress;
 
 const MAX_CYCLES: u128 = 3_100_000_000;
 pub const TONCENTER_BASE_URL: &str = "https://toncenter.com";
-pub const PROXY_URL: &str = "https://common-rpc-proxy-398338012986.us-central1.run.app";
-pub const IDEMPOTENCY_KEY: &str = "X-Idempotency";
-pub const FORWARD_RPC: &str = "X-Forward-Host";
+pub const PROXY_URL: &str = "https://ton-idempotent-proxy-219952077564.us-central1.run.app";
+pub const IDEMPOTENCY_KEY: &str = "idempotency-key";
+pub const FORWARD_RPC: &str = "x-forwarded-host";
 
 pub async fn send_boc(boc: String) -> anyhow::Result<String> {
     let url = format!("{TONCENTER_BASE_URL}/api/v3/message");
@@ -169,6 +169,7 @@ async fn do_http_request(request: CanisterHttpRequestArgument) -> anyhow::Result
 
 pub fn proxy_request(request: &mut CanisterHttpRequestArgument) {
     request.url = request.url.replace(TONCENTER_BASE_URL, PROXY_URL);
+    let hasher: CanisterHttpRequestArgumentHasher = request.clone().into();
     let idempotency_key = format!("toncenter-{}", ic_cdk::api::time());
     request.headers.push(HttpHeader {
         name: IDEMPOTENCY_KEY.to_string(),

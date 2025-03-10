@@ -155,7 +155,7 @@ service : (InitArgs) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   pubkey_and_evm_addr : () -> (text, text);
   query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;
-  query_handled_event : (text) -> (opt text);
+  query_handled_event : (text) -> (opt text) query;
   query_hub_tickets : (nat64) -> (vec record { nat64; Ticket });
   query_pending_directive : (nat64, nat64) -> (
       vec record { nat64; PendingDirectiveStatus },
