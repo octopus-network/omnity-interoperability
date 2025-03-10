@@ -24,13 +24,13 @@ use serde_bytes::ByteBuf;
 const CYCLE_COST: u64 = 10_000_000_000;
 
 pub async fn query_transaction(signature: String) -> Result<UiTransaction, String> {
-    let (sol_canister, rpc_list) = read_state(|s| (s.sol_canister, s.rpc_list.clone()));
+    let (sol_canister, providers) = read_state(|s| (s.sol_canister, s.providers.clone()));
     // We can directly access normal RPC because query_transaction does not have consensus issues.
     let source = RpcServices::Custom(
-        rpc_list
+        providers
             .iter()
-            .map(|rpc| RpcApi {
-                network: rpc.clone(),
+            .map(|p| RpcApi {
+                network: p.rpc_url(),
                 headers: None,
             })
             .collect(),
@@ -84,14 +84,7 @@ pub async fn send_transaction(
     );
     let mut tx = Transaction::new_unsigned(message);
 
-    let (sol_canister, proxy_rpc, rpc_list, key_name) = read_state(|s| {
-        (
-            s.sol_canister,
-            s.proxy_rpc.clone(),
-            s.rpc_list.clone(),
-            s.schnorr_key_name.clone(),
-        )
-    });
+    let (sol_canister, key_name) = read_state(|s| (s.sol_canister, s.schnorr_key_name.clone()));
     for i in 0..paths.len() {
         let signature = sign_with_eddsa(
             &KeyType::ChainKey,
@@ -110,23 +103,18 @@ pub async fn send_transaction(
         tx.to_string()
     );
 
+    let rpc_list = proxy_rpc_api_list();
     let signature = call_with_payment::<_, (RpcResult<String>,)>(
         sol_canister,
         "sol_sendTransaction",
         (
             // Use idempotent-proxy to avoid sending transactions multiple times
-            RpcServices::Custom(vec![RpcApi {
-                network: proxy_rpc,
-                headers: Some(vec![HttpHeader {
-                    name: "X-Forward-Solana".into(),
-                    value: rpc_list[0].clone(),
-                }]),
-            }]),
+            RpcServices::Custom(vec![rpc_list[0].clone()]),
             None::<Option<RpcConfig>>,
             tx.to_string(),
             None::<Option<RpcSendTransactionConfig>>,
         ),
-        10_000_000_000,
+        CYCLE_COST,
     )
     .await
     .map_err(|(_, err)| err)?
@@ -139,26 +127,14 @@ pub async fn send_transaction(
 pub async fn get_signature_status(
     signatures: Vec<String>,
 ) -> Result<Vec<Option<TransactionStatus>>, String> {
-    let (sol_canister, proxy_rpc, rpc_list) =
-        read_state(|s| (s.sol_canister, s.proxy_rpc.clone(), s.rpc_list.clone()));
+    let sol_canister = read_state(|s| s.sol_canister);
     let result = call_with_payment::<_, (RpcResult<Vec<Option<TransactionStatus>>>,)>(
         sol_canister,
         "sol_getSignatureStatuses",
         (
             // Using normal RPC will not allow consensus to be reached
             // due to inconsistent slots.
-            RpcServices::Custom(
-                rpc_list
-                    .iter()
-                    .map(|rpc| RpcApi {
-                        network: proxy_rpc.clone(),
-                        headers: Some(vec![HttpHeader {
-                            name: "X-Forward-Solana".into(),
-                            value: rpc.clone(),
-                        }]),
-                    })
-                    .collect(),
-            ),
+            RpcServices::Custom(proxy_rpc_api_list()),
             None::<Option<RpcConfig>>,
             signatures,
             Some(RpcSignatureStatusConfig {
@@ -239,19 +215,13 @@ pub async fn eddsa_public_key(derived_path: Vec<ByteBuf>) -> Pubkey {
 }
 
 async fn get_latest_block_hash() -> Result<String, String> {
-    let (sol_canister, proxy_rpc, rpc_list) =
-        read_state(|s| (s.sol_canister, s.proxy_rpc.clone(), s.rpc_list.clone()));
+    let sol_canister = read_state(|s| s.sol_canister);
+    let rpc_list = proxy_rpc_api_list();
     let result = call_with_payment::<_, (RpcResult<RpcBlockhash>,)>(
         sol_canister,
         "sol_getLatestBlockhash",
         (
-            RpcServices::Custom(vec![RpcApi {
-                network: proxy_rpc,
-                headers: Some(vec![HttpHeader {
-                    name: "X-Forward-Solana".into(),
-                    value: rpc_list[0].clone(),
-                }]),
-            }]),
+            RpcServices::Custom(vec![rpc_list[0].clone()]),
             None::<Option<RpcConfig>>,
             None::<Option<RpcContextConfig>>,
         ),
@@ -263,4 +233,24 @@ async fn get_latest_block_hash() -> Result<String, String> {
     .map_err(|err| err.to_string())?;
 
     Ok(result.blockhash)
+}
+
+fn proxy_rpc_api_list() -> Vec<RpcApi> {
+    let (proxy_rpc, providers) = read_state(|s| (s.proxy_rpc.clone(), s.providers.clone()));
+    providers
+        .iter()
+        .map(|p| RpcApi {
+            network: format!(
+                "{}{}",
+                proxy_rpc,
+                p.api_key_param
+                    .clone()
+                    .map_or("".into(), |param| format!("/?{}", param))
+            ),
+            headers: Some(vec![HttpHeader {
+                name: "x-forwarded-host".into(),
+                value: p.host.clone(),
+            }]),
+        })
+        .collect()
 }

@@ -65,6 +65,24 @@ impl Storable for ReleaseTokenReq {
     const BOUND: Bound = Bound::Unbounded;
 }
 
+#[derive(candid::CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct RpcProvider {
+    pub host: String,
+    pub api_key_param: Option<String>,
+}
+
+impl RpcProvider {
+    pub fn rpc_url(&self) -> String {
+        format!(
+            "https://{}{}",
+            self.host,
+            self.api_key_param
+                .clone()
+                .map_or("".into(), |param| format!("/?{}", param))
+        )
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct CustomsState {
     pub chain_id: String,
@@ -76,7 +94,7 @@ pub struct CustomsState {
     pub counterparties: BTreeMap<ChainId, Chain>,
     pub tokens: BTreeMap<TokenId, Token>,
     pub release_token_requests: BTreeMap<TicketId, ReleaseTokenReq>,
-    pub rpc_list: Vec<String>,
+    pub providers: Vec<RpcProvider>,
     pub proxy_rpc: String,
     pub min_response_count: u32,
     pub enable_debug: bool,
@@ -87,6 +105,7 @@ pub struct CustomsState {
     // Next index of query directives from hub
     pub next_directive_seq: u64,
 
+    #[serde(skip)]
     pub active_tasks: HashSet<TaskType>,
 
     #[serde(skip, default = "crate::memory::init_finalized_requests")]
@@ -107,7 +126,7 @@ impl From<InitArgs> for CustomsState {
             counterparties: Default::default(),
             tokens: Default::default(),
             release_token_requests: Default::default(),
-            rpc_list: args.rpc_list,
+            providers: args.providers,
             proxy_rpc: args.proxy_rpc,
             min_response_count: args.min_response_count,
             enable_debug: false,
@@ -125,10 +144,10 @@ impl CustomsState {
         if self.schnorr_key_name.is_empty() {
             ic_cdk::trap("schnorr_key_name is not set");
         }
-        if self.rpc_list.is_empty() {
+        if self.providers.is_empty() {
             ic_cdk::trap("rpc_list is empty");
         }
-        if self.min_response_count == 0 || self.min_response_count as usize > self.rpc_list.len() {
+        if self.min_response_count == 0 || self.min_response_count as usize > self.providers.len() {
             ic_cdk::trap("invalid min_response_count");
         }
     }

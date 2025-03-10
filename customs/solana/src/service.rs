@@ -4,7 +4,7 @@ use crate::{
     address::payer_address_path,
     lifecycle::{self, init::CustomArg, upgrade::UpgradeArgs},
     process_directive_msg_task, process_release_token_task, process_ticket_msg_task, solana_rpc,
-    state::{mutate_state, read_state, GenTicketStatus, ReleaseTokenStatus},
+    state::{mutate_state, read_state, GenTicketStatus, ReleaseTokenStatus, RpcProvider},
     types::omnity_types::{Chain, Token},
     updates::{
         self,
@@ -13,6 +13,7 @@ use crate::{
     },
     INTERVAL_PROCESSING,
 };
+use candid::Principal;
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
@@ -141,8 +142,18 @@ async fn update_port_program(program: String) {
 }
 
 #[update(guard = "is_controller", hidden = true)]
-async fn update_rpc_list(rpc_list: Vec<String>) {
-    mutate_state(|s| s.rpc_list = rpc_list)
+async fn update_providers(providers: Vec<RpcProvider>) {
+    mutate_state(|s| s.providers = providers)
+}
+
+#[update(guard = "is_controller", hidden = true)]
+async fn update_proxy_rpc(rpc: String) {
+    mutate_state(|s| s.proxy_rpc = rpc)
+}
+
+#[update(guard = "is_controller", hidden = true)]
+async fn update_sol_canister(canister: Principal) {
+    mutate_state(|s| s.sol_canister = canister)
 }
 
 #[update(guard = "is_controller", hidden = true)]

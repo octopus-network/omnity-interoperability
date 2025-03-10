@@ -1,7 +1,5 @@
 use crate::{
-    memory,
-    state::{read_state, replace_state, CustomsState},
-    types::omnity_types::ChainState,
+    memory, migration::OldState, state::{read_state, replace_state, CustomsState, RpcProvider}, types::omnity_types::ChainState
 };
 use candid::{CandidType, Principal};
 use ic_stable_structures::{writer::Writer, Memory};
@@ -14,6 +12,7 @@ pub struct UpgradeArgs {
     pub chain_state: Option<ChainState>,
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Option<Principal>,
+    pub providers: Option<Vec<RpcProvider>>,
 }
 
 pub fn pre_upgrade() {
@@ -43,8 +42,10 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     let mut state_bytes = vec![0; state_len];
     memory.read(4, &mut state_bytes);
 
-    let mut state: CustomsState =
+    let old_state: OldState =
         ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
+
+    let mut state = CustomsState::from(old_state);
 
     if let Some(args) = args {
         if let Some(chain_id) = args.chain_id {
@@ -61,6 +62,9 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         }
         if let Some(sol_canister) = args.sol_canister {
             state.sol_canister = sol_canister;
+        }
+        if let Some(providers) = args.providers {
+            state.providers = providers;
         }
     }
 
