@@ -1,7 +1,7 @@
 use guard::{TaskType, TimerGuard};
 use ic_canister_log::log;
 use ic_solana::{
-    logs::ERROR,
+    logs::{DEBUG, ERROR},
     types::{TransactionConfirmationStatus, TransactionStatus},
 };
 use state::{mutate_state, read_state, ReleaseTokenStatus};
@@ -66,6 +66,9 @@ async fn process_tickets() {
     let (hub_principal, offset) = read_state(|s| (s.hub_principal, s.next_ticket_seq));
     match hub::query_tickets(hub_principal, offset, BATCH_QUERY_LIMIT).await {
         Ok(tickets) => {
+            if !tickets.is_empty() {
+                log!(DEBUG, "[solana_custom] query tickets: {:?}", tickets);
+            }
             for (_, ticket) in &tickets {
                 if let Err(err) = updates::add_release_token_req(ticket.clone()).await {
                     log!(ERROR, "[process_tickets] err: {:?}", err);

@@ -186,7 +186,10 @@ pub async fn redeem(ticket_id: String, receiver: Pubkey, amount: u64) -> Result<
         &port_program_id,
     );
 
-    let initialize = port_native::instruction::Redeem { ticket_id, amount };
+    let initialize = port_native::instruction::Redeem {
+        ticket_id: ticket_id.clone(),
+        amount,
+    };
     let instruction = Instruction::new_with_bytes(
         port_program_id,
         &initialize.data(),
@@ -203,6 +206,11 @@ pub async fn redeem(ticket_id: String, receiver: Pubkey, amount: u64) -> Result<
     let signature = send_transaction(&vec![instruction], vec![payer_address_path()])
         .await
         .map_err(|err| err.to_string())?;
+    log!(
+        DEBUG,
+        "[solana_custom] send raw transaction, ticket id: {}",
+        ticket_id
+    );
     Ok(signature)
 }
 

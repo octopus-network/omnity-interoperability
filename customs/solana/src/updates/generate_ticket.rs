@@ -11,7 +11,8 @@ use crate::{
 };
 use borsh::BorshDeserialize;
 use candid::{CandidType, Deserialize};
-use ic_solana::types::tagged::{UiMessage, UiTransaction};
+use ic_canister_log::log;
+use ic_solana::{logs::DEBUG, types::tagged::{UiMessage, UiTransaction}};
 use ic_stable_structures::{storable::Bound, Storable};
 use serde::Serialize;
 use std::borrow::Cow;
@@ -54,6 +55,7 @@ pub enum GenerateTicketError {
 }
 
 pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTicketError> {
+    log!(DEBUG, "[solana-custom] generate_ticket: {:?}", args);
     if read_state(|s| s.chain_state == ChainState::Deactive) {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "chain state is deactive!".into(),
@@ -82,6 +84,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
         Ok(transaction) => transaction,
         Err(err) => return Err(GenerateTicketError::RpcError(err)),
     };
+    log!(DEBUG, "[solana-custom] query transaction: {:?}", args);
 
     let transport = parse_transport(tx, &args.target_chain_id, &args.receiver)?;
     if transport.raw.amount != args.amount {
@@ -107,6 +110,7 @@ pub async fn generate_ticket(args: GenerateTicketArgs) -> Result<(), GenerateTic
     )
     .await
     .map_err(|err| GenerateTicketError::SendTicketErr(format!("{}", err)))?;
+    log!(DEBUG, "[solana-custom] send ticket: {:?}", args);
 
     mutate_state(|s| {
         s.finalized_gen_tickets.insert(args.signature.clone(), args);

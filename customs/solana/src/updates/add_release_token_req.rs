@@ -5,7 +5,7 @@ use crate::{
 };
 use candid::CandidType;
 use ic_canister_log::log;
-use ic_solana::{logs::ERROR, types::Pubkey};
+use ic_solana::{logs::{DEBUG, ERROR}, types::Pubkey};
 use serde::Deserialize;
 use std::str::FromStr;
 
@@ -60,6 +60,7 @@ pub async fn submit_release_token_tx(req: &mut ReleaseTokenReq) {
             req.status = ReleaseTokenStatus::Submitted(signature);
         }
     }
+    log!(DEBUG, "[solana_custom] submit_release_token_tx: {:?}", req);
     mutate_state(|s| {
         req.last_sent_at = ic_cdk::api::time();
         req.try_cnt += 1;
