@@ -41,10 +41,16 @@ impl DogeRpc {
     where
         R: for<'de> Deserialize<'de>,
     {
-        let mut headers = vec![HttpHeader {
-            name: "Content-Type".to_string(),
-            value: "application/json".to_string(),
-        }];
+        let mut headers = vec![
+            HttpHeader {
+                name: "Content-Type".to_string(),
+                value: "application/json".to_string(),
+            }, 
+            HttpHeader {
+                name: "Timestamp".to_string(),
+                value: ic_cdk::api::time().to_string(),
+            }
+        ];
         if self.api_key.is_some() {
             headers.push(HttpHeader {
                 name: "x-api-key".to_string(),
