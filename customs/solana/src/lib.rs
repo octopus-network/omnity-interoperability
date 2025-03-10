@@ -15,7 +15,6 @@ pub mod guard;
 pub mod hub;
 pub mod lifecycle;
 pub mod memory;
-pub mod migration;
 pub mod port_native;
 pub mod service;
 pub mod solana_rpc;

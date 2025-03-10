@@ -1,5 +1,7 @@
 use crate::{
-    memory, migration::OldState, state::{read_state, replace_state, CustomsState, RpcProvider}, types::omnity_types::ChainState
+    memory,
+    state::{read_state, replace_state, CustomsState, RpcProvider},
+    types::omnity_types::ChainState,
 };
 use candid::{CandidType, Principal};
 use ic_stable_structures::{writer::Writer, Memory};
@@ -42,10 +44,8 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     let mut state_bytes = vec![0; state_len];
     memory.read(4, &mut state_bytes);
 
-    let old_state: OldState =
+    let mut state: CustomsState =
         ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-
-    let mut state = CustomsState::from(old_state);
 
     if let Some(args) = args {
         if let Some(chain_id) = args.chain_id {
