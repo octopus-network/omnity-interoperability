@@ -3,9 +3,6 @@ name = "solana_route"
 version = "0.1.0"
 edition = "2021"
 
-# [[bin]]
-# name = "solana_route"
-# path = "src/service.rs"
 [lib]
 crate-type = ["cdylib"]
 
@@ -23,20 +20,18 @@ anyhow = "1.0.86"
 strum_macros = "0.25.3"
 strum = { version = "0.25.0", features = ["derive"] }
 sha2 = "0.10"
-hex = "0.4"
 ic-canister-log = "0.2"
-ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
-ic-management-canister-types = { git = "https://github.com/dfinity/ic", package = "ic-management-canister-types" }
-# ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/metaplex", package = "ic-solana" }
-ic-solana = { path = "/home/boern/workspace/ultraspace/ic-solana/src/ic-solana" }
+ic-crypto-ed25519 = { package = "ic-ed25519", version = "0.2.0" }
+ic-management-canister-types = "0.1.0"
+ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/metaplex", package = "ic-solana" }
+omnity-types = { git = "https://github.com/octopus-network/omnity-types.git" }
+# omnity-types = { path = "/home/boern/workspace/ultraspace/omnity-types" }
+
 
 futures = "0.3.30"
 urlencoding = "2.1"
 
-[patch.crates-io.curve25519-dalek]
-git = "https://github.com/solana-labs/curve25519-dalek.git"
-rev = "b500cdc2a920cd5bff9e2dd974d7b97349d61464"
 
 [profile.release]
 debug = false
@@ -44,14 +39,10 @@ lto = true
 strip = true
 opt-level = 's'
 
+[patch.crates-io]
+curve25519-dalek = { git = "https://github.com/solana-labs/curve25519-dalek.git", rev = "b500cdc2a920cd5bff9e2dd974d7b97349d61464" }
+
 [dev-dependencies]
-ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
+# omnity-types = { git = "https://github.com/octopus-network/omnity-types.git" }
+# ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
 urlencoding = "2.1"
-#pocket-ic = "3.1.0"
-#solana-program = "2.0.0"
-#spl-token-2022 = { git = "https://github.com/solana-labs/solana-program-library.git" }
-# spl-token = { git = "https://github.com/solana-labs/solana-program-library.git", tag = "token-cli-v4.0.0", features = [
-#    "no-entrypoint",
-# ] }
-# solana-sdk = "1.18.8"
-# anchor-client = "0.30.1"
