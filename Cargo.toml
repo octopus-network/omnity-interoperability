@@ -14,7 +14,7 @@ members = [
     "types",
     "mock/bitcoin",
     "mock/icp",
-    "mock/hub",
+    "mock/hub", "oracle/ethereum_oracle",
 ]
 exclude = ["route/solana"]
 resolver = "2"
