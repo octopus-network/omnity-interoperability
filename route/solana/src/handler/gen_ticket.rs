@@ -19,7 +19,7 @@ use crate::{
 
 use ic_canister_log::log;
 use ic_solana::ic_log::{DEBUG, WARNING};
-use omnity_types::address;
+// use omnity_types::address;
 use serde_json::from_value;
 use serde_json::Value;
 
@@ -175,10 +175,8 @@ pub fn validate_req(req: &GenerateTicketReq) -> Result<(), GenerateTicketError> 
         return Err(GenerateTicketError::UnsupportedChainId(
             req.target_chain_id.to_owned(),
         ));
-    } else {
-        address::validate_account(&req.target_chain_id, &req.receiver)
-            .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
     }
+
     if req.amount <= 0 {
         return Err(GenerateTicketError::TemporarilyUnavailable(
             "amount must be > 0".into(),
@@ -548,14 +546,14 @@ pub struct TokenAmount {
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
-
     use super::*;
     use candid::Principal;
     use ic_solana::{
         rpc_client::JsonRpcResponse,
         types::{Pubkey, Signature},
     };
+    use omnity_types::address;
+    use std::str::FromStr;
 
     #[test]
     fn test_parse_tx_with_transfer_burn_memo() {

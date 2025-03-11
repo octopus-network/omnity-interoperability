@@ -406,6 +406,7 @@ impl From<InitArgs> for SolanaRouteState {
             admin: args.admin,
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             fee_account: args.fee_account.unwrap_or(FEE_ACCOUNT.to_string()),
+            solana_client_cache: None,
             multi_rpc_config: MultiRpcConfig::default(),
             forward: None,
             enable_debug: false,
@@ -429,7 +430,6 @@ impl From<InitArgs> for SolanaRouteState {
             ),
             gen_ticket_reqs: StableBTreeMap::init(crate::memory::get_gen_ticket_req_memory()),
             seeds: StableBTreeMap::init(crate::memory::get_seeds_memory()),
-            solana_client_cache: None,
         }
     }
 }
