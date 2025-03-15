@@ -46,7 +46,7 @@ pub async fn update_runes_balance(
         if req
             .new_utxos
             .iter()
-            .any(|u| u.outpoint == outpoint)
+            .find(|u| u.outpoint == outpoint).is_none()
         {
             return Err(UpdateRunesBalanceError::UtxoNotFound);
         }

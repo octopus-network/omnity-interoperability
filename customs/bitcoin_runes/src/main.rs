@@ -41,8 +41,9 @@ use bitcoin_customs::{
     storage,
 };
 use bitcoin_customs::address::BitcoinAddress;
-use omnity_types::ic_log::INFO;
+use omnity_types::ic_log::{ERROR, INFO};
 use omnity_types::{Chain, ChainId, TicketId};
+
 
 #[init]
 fn init(args: CustomArg) {
@@ -158,12 +159,23 @@ pub fn set_nownodes_apikey(key: String) {
     mutate_state(|s|s.nownodes_apikey = key);
 }
 
+#[update(guard = "is_controller")]
+pub fn set_mpc_principal(p: Principal) {
+    mutate_state(|s|s.mpc_principal = Some(p));
+}
+
 #[update]
 pub fn set_tx_fee_per_vbyte(args: SetTxFeePerVbyteArgs) -> Result<(), String> {
-    if  is_controller().is_ok() {
+    if  read_state(|s|{
+        let Some(p) = s.mpc_principal.clone() else {
+            return false;
+        };
+        p == ic_cdk::api::caller()
+    }){
         audit::update_bitcoin_fee_rate(args.into());
         Ok(())
     } else {
+        log!(ERROR, "update fee rate unauthorized");
         Err("Unauthorized".to_string())
     }
 }

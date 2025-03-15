@@ -345,6 +345,10 @@ pub struct CustomsState {
     #[serde(default)]
     pub bitcoin_fee_rate: BitcoinFeeRate,
 
+    #[serde(default)]
+    pub mpc_principal: Option<Principal>,
+
+
     pub rpc_url: Option<String>,
 
     #[serde(skip)]
@@ -1276,6 +1280,7 @@ impl From<InitArgs> for CustomsState {
             hub_principal: args.hub_principal,
             runes_oracles: BTreeSet::from_iter(vec![args.runes_oracle_principal]),
             bitcoin_fee_rate: Default::default(),
+            mpc_principal: Default::default(),
             rpc_url: None,
             last_fee_per_vbyte: vec![1; 100],
             fee_token_factor: None,

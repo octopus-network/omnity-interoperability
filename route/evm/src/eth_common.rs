@@ -589,7 +589,7 @@ pub async fn call_rpc_with_retry<P: Clone, T, R: Future<Output = Result<T, Error
     }
     for i in 0..const_args::RPC_RETRY_TIMES {
         let r = rpcs[i % rpcs.len()].clone();
-        log!(INFO, "[evm route]request rpc request times: {}, rpc_url: {}", i+1, r.url.clone());
+        log!(INFO, "[evm route]request rpc request times: {}", i+1);
         let call_res = call_rpc(params.clone(), r).await;
         if call_res.is_ok() {
             rs = call_res;

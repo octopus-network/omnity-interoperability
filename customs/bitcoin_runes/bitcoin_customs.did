@@ -363,6 +363,7 @@ service : (CustomArg) -> {
   remove_runes_oracle : (principal) -> ();
   set_fee_collector : (text, Network) -> (Result_3);
   set_icpswap : (principal) -> ();
+  set_mpc_principal : (principal) -> ();
   set_nownodes_apikey : (text) -> ();
   set_ord_indexer : (principal) -> ();
   set_runes_oracle : (principal) -> ();
