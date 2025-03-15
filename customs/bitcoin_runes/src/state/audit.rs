@@ -100,7 +100,6 @@ pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: Runes
         txid,
         balance: balance.clone(),
     });
-
     state.update_runes_balance(txid, balance);
 }
 
@@ -141,7 +140,6 @@ pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransactionV2)
         submitted_at: tx.submitted_at,
         fee_per_vbyte: tx.fee_per_vbyte,
     });
-
     state.push_submitted_transaction(tx);
 }
 

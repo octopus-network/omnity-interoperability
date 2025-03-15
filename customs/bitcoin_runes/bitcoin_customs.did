@@ -52,6 +52,7 @@ type CustomsInfo = record {
   ord_indexer_principal : opt principal;
   next_ticket_seq : nat64;
   chain_state : ChainState;
+  mpc_principal : opt principal;
   min_confirmations : nat32;
   prod_ecdsa_public_key : opt ECDSAPublicKey;
   release_token_counter : nat64;

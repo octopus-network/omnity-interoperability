@@ -162,12 +162,16 @@ pub fn set_nownodes_apikey(key: String) {
 #[update(guard = "is_controller")]
 pub fn set_mpc_principal(p: Principal) {
     mutate_state(|s|s.mpc_principal = Some(p));
+    record_event(&Event::SetMpcPrincipal {principal:p});
 }
+
 
 #[update]
 pub fn set_tx_fee_per_vbyte(args: SetTxFeePerVbyteArgs) -> Result<(), String> {
+
     if  read_state(|s|{
         let Some(p) = s.mpc_principal.clone() else {
+            log!(ERROR, "mpc_principal not set");
             return false;
         };
         p == ic_cdk::api::caller()
@@ -175,7 +179,7 @@ pub fn set_tx_fee_per_vbyte(args: SetTxFeePerVbyteArgs) -> Result<(), String> {
         audit::update_bitcoin_fee_rate(args.into());
         Ok(())
     } else {
-        log!(ERROR, "update fee rate unauthorized");
+        log!(ERROR, "update fee rate unauthorized {}", ic_cdk::api::caller());
         Err("Unauthorized".to_string())
     }
 }
@@ -417,10 +421,12 @@ pub fn set_fee_collector(addr: String, network: ic_btc_interface::Network) -> Re
 
 #[query(guard = "is_controller")]
 fn get_customs_info() -> CustomsInfo {
+
     read_state(|s| CustomsInfo {
         min_confirmations: s.min_confirmations,
         chain_state: s.chain_state.clone(),
         next_ticket_seq: s.next_ticket_seq,
+        mpc_principal: s.mpc_principal.clone(),
         next_directive_seq: s.next_directive_seq,
         hub_principal: s.hub_principal,
         runes_oracles: s.runes_oracles.clone(),

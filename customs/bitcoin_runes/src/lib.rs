@@ -97,6 +97,8 @@ pub struct CustomsInfo {
     // Next index of query tickets from hub
     pub next_ticket_seq: u64,
 
+    pub mpc_principal: Option<Principal>,
+
     // Next index of query directives from hub
     pub next_directive_seq: u64,
 

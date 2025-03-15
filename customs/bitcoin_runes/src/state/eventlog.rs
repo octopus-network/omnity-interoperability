@@ -180,6 +180,8 @@ pub enum Event {
     UpdatedOrdIndexer { principal: Principal },
     #[serde(rename = "update_icpswap")]
     UpdateIcpswap { principal: Principal },
+    #[serde(rename = "set_mpc_principal")]
+    SetMpcPrincipal { principal: Principal },
 }
 
 #[derive(Debug)]
@@ -432,6 +434,9 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::UpdateBitcoinFeeRate(f) => {
                 state.bitcoin_fee_rate = f;
+            }
+            Event::SetMpcPrincipal { principal } => {
+                state.mpc_principal = Some(principal);
             }
         }
     }
