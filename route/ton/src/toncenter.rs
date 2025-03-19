@@ -61,7 +61,7 @@ pub async fn send_boc(boc: String) -> anyhow::Result<String> {
 
 pub async fn get_account_seqno(addr: &str) -> anyhow::Result<i32> {
     let addr = urlencoding::encode(addr).to_string();
-    let url = format!("{TONCENTER_BASE_URL}/api/v3/walletInformation?address={addr}&use_v2=false");
+    let url = format!("https://{TONCENTER_BASE_URL}/api/v3/walletInformation?address={addr}&use_v2=false");
     let mut request = CanisterHttpRequestArgument {
         url,
         method: HttpMethod::GET,
@@ -97,8 +97,8 @@ pub async fn query_burn_events(
     log!(INFO, "query burn: {} {}", addr, jetton_master);
     let addr = urlencoding::encode(addr).to_string();
     let jetton_master = urlencoding::encode(jetton_master).to_string();
-    let url = format!("{TONCENTER_BASE_URL}/api/v3/jetton/burns?address={addr}&jetton_master={jetton_master}&limit=5&offset=0&sort=desc");
-    log!(INFO, "query burn url:{}", &url);
+    let url = format!("https://{TONCENTER_BASE_URL}/api/v3/jetton/burns?address={addr}&jetton_master={jetton_master}&limit=5&offset=0&sort=desc");
+    log!(INFO, "query burn url::{}", &url);
     let mut request = CanisterHttpRequestArgument {
         url,
         method: HttpMethod::GET,
@@ -177,7 +177,7 @@ pub fn proxy_request(request: &mut CanisterHttpRequestArgument) {
     });
     request.headers.push(HttpHeader {
         name: FORWARD_RPC.to_string(),
-        value: TONCENTER_BASE_URL.to_string(),
+        value: TONCENTER_BASE_URL.to_string().replace("https://",""),
     });
 }
 
