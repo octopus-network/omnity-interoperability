@@ -1,29 +1,31 @@
 use crate::auth::{is_admin, set_perms, Permission};
 use crate::call_error::{CallError, Reason};
 use crate::constants::RETRY_4_BUILDING;
+use crate::eddsa::KeyType;
 use crate::guard::TaskType;
 use crate::handler::associated_account;
+use crate::solana_client::solana_client;
+use crate::solana_client::solana_rpc::{SolanaClient, TokenInfo};
+
 use candid::Principal;
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
-use ic_solana::compute_budget::compute_budget::Priority;
-use ic_solana::eddsa::KeyType;
+use ic_solana::rpc_client::{RpcApi, RpcServices};
+use ic_solana::types::tagged::{UiAccount, UiTransaction};
 use ic_solana::types::TransactionStatus;
+use ic_spl::compute_budget::compute_budget::Priority;
 
 use crate::handler::gen_ticket::{
-    self, query_tx_from_multi_rpc, send_ticket, GenerateTicketError, GenerateTicketOk,
-    GenerateTicketReq,
+    self, send_ticket, GenerateTicketError, GenerateTicketOk, GenerateTicketReq,
 };
 use crate::handler::mint_token::{self, update_tx_hash};
 
-use crate::handler::{scheduler, solana_rpc, token_account};
+use crate::handler::{scheduler, token_account};
 use crate::lifecycle::{self, RouteArg, UpgradeArgs};
-use crate::service::solana_rpc::solana_client;
+
 use crate::state::{
-    AccountInfo, AtaKey, MultiRpcConfig, SnorKeyType, TokenMeta, TokenResp, KEY_TYPE_NAME,
+    http_log, AccountInfo, AtaKey, RpcProvider, SnorKeyType, TokenMeta, TokenResp, KEY_TYPE_NAME,
 };
 use crate::types::{TicketId, Token, TokenId};
-use ic_solana::token::SolanaClient;
-use ic_solana::token::TokenInfo;
 
 use crate::service::mint_token::MintTokenRequest;
 use crate::state::MintAccount;
@@ -32,7 +34,7 @@ use crate::state::{mutate_state, read_state, TxStatus};
 use crate::types::ChainState;
 use crate::types::{Chain, ChainId, Ticket};
 use ic_canister_log::log;
-use ic_solana::token::associated_account::get_associated_token_address_with_program_id;
+use ic_spl::token::associated_account::get_associated_token_address_with_program_id;
 
 use ic_solana::types::Pubkey;
 use std::str::FromStr;
@@ -41,8 +43,8 @@ use crate::state::Seqs;
 use crate::state::TokenUri;
 use crate::types::Factor;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use ic_solana::ic_log::{self, DEBUG, ERROR};
-use ic_solana::token::constants::token_program_id;
+use ic_solana::logs::{DEBUG, ERROR};
+use ic_spl::token::constants::token_program_id;
 use std::time::Duration;
 
 async fn get_random_seed() -> [u8; 64] {
@@ -132,49 +134,14 @@ pub async fn update_schnorr_key(key_name: String) {
 
 // devops method
 #[update(guard = "is_admin", hidden = true)]
-pub async fn update_forward(forward: Option<String>) {
-    mutate_state(|s| s.forward = forward)
+pub async fn update_providers(providers: Vec<RpcProvider>) {
+    mutate_state(|s| s.providers = providers)
 }
 
 // devops method
 #[query(guard = "is_admin", hidden = true)]
-pub async fn forward() -> Option<String> {
-    read_state(|s| s.forward.to_owned())
-}
-
-// devops method
-#[update(guard = "is_admin", hidden = true)]
-pub async fn update_multi_rpc(multi_prc_cofig: MultiRpcConfig) {
-    mutate_state(|s| {
-        s.multi_rpc_config = multi_prc_cofig;
-    })
-}
-
-// devops method
-#[query(guard = "is_admin", hidden = true)]
-pub async fn multi_rpc_config() -> MultiRpcConfig {
-    read_state(|s| s.multi_rpc_config.to_owned())
-}
-
-// devops method
-#[update(guard = "is_admin", hidden = true)]
-async fn valid_tx_from_multi_rpc(signature: String) -> Result<String, CallError> {
-    use crate::service::solana_rpc::solana_client;
-    let client = solana_client().await;
-    let multi_rpc_config = read_state(|s| s.multi_rpc_config.to_owned());
-    let tx_response =
-        query_tx_from_multi_rpc(&client, signature, multi_rpc_config.rpc_list.to_owned()).await;
-    let json_response = multi_rpc_config
-        .valid_and_get_result(&tx_response)
-        .map_err(|err| CallError {
-            method: "valid_and_get_result".to_string(),
-            reason: Reason::CanisterError(err.to_string()),
-        })?;
-    let ret = serde_json::to_string(&json_response).map_err(|err| CallError {
-        method: "serde_json::to_string".to_string(),
-        reason: Reason::CanisterError(err.to_string()),
-    })?;
-    Ok(ret)
+pub async fn provider() -> Vec<RpcProvider> {
+    read_state(|s| s.providers.to_owned())
 }
 
 // devops method
@@ -222,7 +189,7 @@ pub async fn signer(key_type: SnorKeyType) -> Result<String, String> {
             KeyType::Native(seed.to_vec())
         }
     };
-    let pk = solana_rpc::eddsa_public_key(key_type).await?;
+    let pk = crate::solana_client::eddsa_public_key(key_type).await?;
     Ok(pk.to_string())
 }
 
@@ -240,7 +207,7 @@ pub async fn sign(msg: String, key_type: SnorKeyType) -> Result<Vec<u8>, String>
             KeyType::Native(seed.to_vec())
         }
     };
-    let signature = solana_rpc::sign(msg, key_type).await?;
+    let signature = crate::solana_client::sign(msg, key_type).await?;
     Ok(signature)
 }
 
@@ -284,9 +251,8 @@ fn get_token(token_id: TokenId) -> Option<Token> {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_admin")]
 async fn get_latest_blockhash() -> Result<String, CallError> {
-    use crate::service::solana_rpc::solana_client;
     let client = solana_client().await;
 
     let block_hash = client
@@ -300,12 +266,14 @@ async fn get_latest_blockhash() -> Result<String, CallError> {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
-async fn get_transaction(signature: String, forward: Option<String>) -> Result<String, CallError> {
-    use crate::service::solana_rpc::solana_client;
+#[update(guard = "is_admin")]
+async fn get_transaction(
+    signature: String,
+    // forward: Option<String>,
+) -> Result<UiTransaction, CallError> {
     let client = solana_client().await;
     client
-        .query_transaction(signature, forward)
+        .query_transaction(signature)
         .await
         .map_err(|err| CallError {
             method: "get_transaction".to_string(),
@@ -314,27 +282,81 @@ async fn get_transaction(signature: String, forward: Option<String>) -> Result<S
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
-async fn get_signature_status(
-    signatures: Vec<String>,
-) -> Result<Vec<TransactionStatus>, CallError> {
-    solana_rpc::get_signature_status(signatures).await
+#[update(guard = "is_admin")]
+async fn get_raw_transaction(
+    signature: String,
+    // forward: Option<String>,
+) -> Result<String, CallError> {
+    let client = solana_client().await;
+    let providers = read_state(|s| (s.providers.to_owned()));
+
+    let rpc_apis: Vec<_> = providers
+        .iter()
+        .map(|p| RpcApi {
+            network: p.rpc_url(),
+            headers: p.headers.to_owned(),
+        })
+        .collect();
+    let source = RpcServices::Custom(rpc_apis[0..1].to_vec());
+    let resp = client
+        .query_raw_transaction(source, signature)
+        .await
+        .map_err(|err| CallError {
+            method: "get_raw_transaction".to_string(),
+            reason: Reason::CanisterError(err.to_string()),
+        })?;
+    String::from_utf8(resp).map_err(|err| CallError {
+        method: "String::from_utf8".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
-async fn search_signature_from_address(
-    target_sig: String,
-    pubkey: String,
-    limit: Option<usize>,
-) -> Result<bool, CallError> {
-    solana_rpc::search_signature_from_address(target_sig, pubkey, limit).await
+#[update(guard = "is_admin")]
+async fn get_tx_instructions(
+    signature: String,
+    // forward: Option<String>,
+) -> Result<String, CallError> {
+    let client = solana_client().await;
+    let providers = read_state(|s| (s.providers.to_owned()));
+
+    let rpc_apis: Vec<_> = providers
+        .iter()
+        .map(|p| RpcApi {
+            network: p.rpc_url(),
+            headers: p.headers.to_owned(),
+        })
+        .collect();
+    let source = RpcServices::Custom(rpc_apis[0..1].to_vec());
+    let resp = client
+        .query_raw_transaction(source, signature)
+        .await
+        .map_err(|err| CallError {
+            method: "query_parsed_transaction".to_string(),
+            reason: Reason::CanisterError(err.to_string()),
+        })?;
+    let instructions = gen_ticket::get_instruction(&resp).map_err(|err| CallError {
+        method: "get_instruction".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })?;
+    serde_json::to_string(&instructions).map_err(|err| CallError {
+        method: "serde_json::to_string".to_string(),
+        reason: Reason::CanisterError(err.to_string()),
+    })
+}
+
+// devops method
+#[update(guard = "is_admin")]
+async fn get_signature_status(
+    signatures: Vec<String>,
+) -> Result<Vec<Option<TransactionStatus>>, CallError> {
+    crate::solana_client::get_signature_status(signatures).await
 }
 
 // devops method
 #[update(guard = "is_admin", hidden = true)]
 pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, CallError> {
-    solana_rpc::transfer_to(to_account, amount).await
+    crate::solana_client::transfer_to(to_account, amount).await
 }
 
 // devops method
@@ -366,8 +388,8 @@ pub async fn derive_mint_account(
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
-pub async fn get_account_info(account: String) -> Result<Option<String>, CallError> {
+#[update(guard = "is_admin")]
+pub async fn get_account_info(account: String) -> Result<Option<UiAccount>, CallError> {
     let sol_client = solana_client().await;
 
     // query account info from solana
@@ -384,11 +406,12 @@ pub async fn get_account_info(account: String) -> Result<Option<String>, CallErr
         account.to_string(),
         account_info,
     );
+
     Ok(account_info)
 }
 
 // devops method
-#[update(hidden = true)]
+#[update]
 pub async fn get_balance(pubkey: String) -> Result<u64, String> {
     let sol_client = solana_client().await;
 
@@ -574,7 +597,9 @@ pub async fn create_mint_account(
         TxStatus::New | TxStatus::TxFailed { .. } => {
             match &mint_account_info.signature {
                 None => {
-                    let sig = solana_rpc::create_mint_account(mint_account, req.to_owned()).await?;
+                    let sig =
+                        crate::solana_client::create_mint_account(mint_account, req.to_owned())
+                            .await?;
                     log!(
                         DEBUG,
                         "[service::create_mint_account] create_mint_account signature: {:?} ",
@@ -675,7 +700,7 @@ pub async fn rebuild_mint_account(token_id: String) -> Result<String, CallError>
     let mint_account = Pubkey::from_str(&mint_account_info.account).unwrap();
 
     let ret: Result<String, CallError> =
-        solana_rpc::create_mint_account(mint_account, token_info).await;
+        crate::solana_client::create_mint_account(mint_account, token_info).await;
     log!(
         DEBUG,
         "[service::rebuild_mint_account] rebuild_mint_account ret: {:?} ",
@@ -776,7 +801,8 @@ pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> 
         }
         Some(account_info) => {
             let signature =
-                solana_rpc::update_with_metaplex(account_info.account, req.to_owned()).await?;
+                crate::solana_client::update_with_metaplex(account_info.account, req.to_owned())
+                    .await?;
             log!(
                 DEBUG,
                 "[service::update_token_metaplex] update_token_metaplex signature: {:?} ",
@@ -807,27 +833,6 @@ pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> 
             Ok(signature)
         }
     }
-}
-
-// devops method
-#[update(guard = "is_admin", hidden = true)]
-pub async fn update_token22_metadata(
-    token_mint: String,
-    token_info: TokenInfo,
-) -> Result<String, CallError> {
-    log!(
-        DEBUG,
-        "[service::update_token_metadata] token_mint:{}, token_info: {:?} ",
-        token_mint,
-        token_info,
-    );
-    let signature = solana_rpc::update_token22_metadata(token_mint, token_info).await?;
-    log!(
-        DEBUG,
-        "[service::update_token_metadata] update_token_metadata signature: {:?} ",
-        signature.to_string(),
-    );
-    Ok(signature)
 }
 
 // devops method
@@ -964,7 +969,8 @@ pub async fn create_aossicated_account(
             match ata_account.signature.to_owned() {
                 None => {
                     let sig =
-                        solana_rpc::create_ata(owner.to_string(), token_mint.to_string()).await?;
+                        crate::solana_client::create_ata(owner.to_string(), token_mint.to_string())
+                            .await?;
                     log!(
                         DEBUG,
                         "[service::create_aossicated_account] create_aossicated_account signature: {:?} ",
@@ -1074,7 +1080,7 @@ pub async fn rebuild_aossicated_account(
         ata
     );
 
-    let ret = solana_rpc::create_ata(owner.to_string(), token_mint.to_string()).await;
+    let ret = crate::solana_client::create_ata(owner.to_string(), token_mint.to_string()).await;
     log!(
         DEBUG,
         "[service::create_aossicated_account] create_aossicated_account signature: {:?} ",
@@ -1367,7 +1373,7 @@ pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, Ca
             match req.signature.to_owned() {
                 None => {
                     // new mint req
-                    let sig = solana_rpc::mint_to_with_req(req.to_owned()).await?;
+                    let sig = crate::solana_client::mint_to_with_req(req.to_owned()).await?;
 
                     // update signature
                     req.signature = Some(sig.to_string());
@@ -1436,7 +1442,7 @@ pub async fn retry_mint_token(ticket_id: String) -> Result<String, CallError> {
     };
 
     // retry mint token
-    let ret = solana_rpc::mint_to_with_req(mint_req.to_owned()).await;
+    let ret = crate::solana_client::mint_to_with_req(mint_req.to_owned()).await;
 
     match &ret {
         Ok(sig) => {
@@ -1598,8 +1604,8 @@ pub fn get_failed_ticket_to_hub(ticket_id: String) -> Option<Ticket> {
 
 // devops method
 // when gen ticket and send it to hub failed ,call this method
-#[update(guard = "is_admin",hidden = true)]
-pub async fn send_failed_ticket_to_hub(ticket_id:String) -> Result<(), GenerateTicketError> {
+#[update(guard = "is_admin", hidden = true)]
+pub async fn send_failed_ticket_to_hub(ticket_id: String) -> Result<(), GenerateTicketError> {
     if let Some(ticket) = read_state(|rs| rs.tickets_failed_to_hub.get(&ticket_id)) {
         let hub_principal = read_state(|s| (s.hub_principal));
         match send_ticket(hub_principal, ticket.to_owned()).await {
@@ -1668,7 +1674,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     match req.path() {
         "/logs" => {
             let endable_debug = read_state(|s| s.enable_debug);
-            ic_log::http_log(req, endable_debug)
+            http_log(req, endable_debug)
         }
         "/token_uri" => match req.raw_query_param("id") {
             None => HttpResponseBuilder::bad_request()

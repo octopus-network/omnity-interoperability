@@ -13,7 +13,7 @@ use crate::{
 };
 use ic_canister_log::log;
 use ic_cdk_timers::TimerId;
-use ic_solana::ic_log::{DEBUG, WARNING};
+use ic_solana::logs::{DEBUG, WARNING};
 use std::cell::RefCell;
 use std::collections::HashMap;
 

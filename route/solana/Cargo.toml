@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 candid = { version = "0.10" }
 ciborium = "0.2.1"
-ic-cdk = "0.14"
+ic-cdk = "0.17.1"
 serde = "1"
 serde_json = "^1.0.117"
 serde_bytes = "^0.11.14"
@@ -20,13 +20,19 @@ anyhow = "1.0.86"
 strum_macros = "0.25.3"
 strum = { version = "0.25.0", features = ["derive"] }
 sha2 = "0.10"
+hex = "0.4"
+time = "0.3.36"
+ed25519-dalek = "2.1"
+bip32 = { version = "0.5.1", features = ["k256"] }
 ic-canister-log = "0.2"
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
 ic-crypto-ed25519 = { package = "ic-ed25519", version = "0.2.0" }
 ic-management-canister-types = "0.1.0"
-ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/metaplex", package = "ic-solana" }
-omnity-types = { git = "https://github.com/octopus-network/omnity-types.git" }
-# omnity-types = { path = "/home/boern/workspace/ultraspace/omnity-types" }
+ic-spl = { path = "/home/boern/workspace/ultraspace/ic-spl" }
+# ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/metaplex", package = "ic-solana" }
+ic-solana = { path = "/home/boern/workspace/ultraspace/ic-solana/src/ic-solana" }
+# omnity-types = { git = "https://github.com/octopus-network/omnity-types.git" }
+omnity-types = { path = "/home/boern/workspace/ultraspace/omnity-types" }
 
 
 futures = "0.3.30"
@@ -38,9 +44,6 @@ debug = false
 lto = true
 strip = true
 opt-level = 's'
-
-[patch.crates-io]
-curve25519-dalek = { git = "https://github.com/solana-labs/curve25519-dalek.git", rev = "b500cdc2a920cd5bff9e2dd974d7b97349d61464" }
 
 [dev-dependencies]
 # omnity-types = { git = "https://github.com/octopus-network/omnity-types.git" }

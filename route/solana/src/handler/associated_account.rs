@@ -1,13 +1,14 @@
 use std::str::FromStr;
 
-use ic_solana::token::associated_account::get_associated_token_address_with_program_id;
-use ic_solana::token::constants::token_program_id;
-use ic_solana::token::TxError;
+use ic_spl::token::associated_account::get_associated_token_address_with_program_id;
+use ic_spl::token::constants::token_program_id;
+
 use ic_solana::types::Pubkey;
 
-use super::solana_rpc::{self, create_ata};
+use crate::solana_client::solana_rpc::TxError;
+use crate::solana_client::create_ata;
+use crate::solana_client::solana_client;
 use crate::call_error::Reason;
-use crate::handler::solana_rpc::solana_client;
 use crate::state::TxStatus;
 use crate::state::{mutate_state, read_state};
 use crate::state::{AccountInfo, AtaKey};
@@ -16,7 +17,7 @@ use ic_solana::types::TransactionConfirmationStatus;
 
 use crate::constants::{RETRY_4_BUILDING, RETRY_4_STATUS, TAKE_SIZE};
 use ic_canister_log::log;
-use ic_solana::ic_log::{DEBUG, ERROR, WARNING};
+use ic_solana::logs::{DEBUG, ERROR, WARNING};
 
 pub async fn create_associated_account() {
     let tickets = read_state(|s| {
@@ -285,7 +286,7 @@ pub async fn build_ata(owner: String, mint_address: String) {
 }
 
 pub async fn update_ata_status(sig: String, owner: String, mint_address: String) {
-	let tx_status_ret = solana_rpc::get_signature_status(vec![sig.to_string()]).await;
+	let tx_status_ret = crate::solana_client::get_signature_status(vec![sig.to_string()]).await;
 	match tx_status_ret {
 		Err(e) => {
 			log!(
@@ -341,8 +342,11 @@ pub async fn update_ata_status(sig: String, owner: String, mint_address: String)
                     sig.to_string(),
                     tx_status,
                 );
-				if let Some(status) = &tx_status.confirmation_status {
-					if matches!(status, TransactionConfirmationStatus::Finalized) {
+                if let Some(status) = &tx_status {
+                    if matches!(
+                        status.confirmation_status,
+                        Some(TransactionConfirmationStatus::Finalized)
+                    ) {
 						// update account status to Finalized
 						mutate_state(|s| {
 							let ata_key = AtaKey {

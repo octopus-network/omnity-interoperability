@@ -5,6 +5,13 @@ type AccountInfo = record {
   account : text;
   retry_4_status : nat64;
 };
+type AccountKey = record {
+  writable : bool;
+  source : opt AccountKeySource;
+  pubkey : text;
+  signer : bool;
+};
+type AccountKeySource = variant { Transaction; LookupTable };
 type CallError = record { method : text; reason : Reason };
 type Chain = record {
   fee_token : opt text;
@@ -40,6 +47,7 @@ type GenerateTicketReq = record {
   amount : nat64;
   receiver : text;
 };
+type HttpHeader = record { value : text; name : text };
 type InitArgs = record {
   admin : principal;
   hub_principal : principal;
@@ -47,7 +55,71 @@ type InitArgs = record {
   sol_canister : principal;
   chain_id : text;
   schnorr_key_name : opt text;
+  providers : vec RpcProvider;
   chain_state : ChainState;
+  proxy : text;
+  minimum_response_count : nat32;
+};
+type InstructionError = variant {
+  ModifiedProgramId;
+  CallDepth;
+  Immutable;
+  GenericError;
+  ExecutableAccountNotRentExempt;
+  IncorrectAuthority;
+  PrivilegeEscalation;
+  ReentrancyNotAllowed;
+  InvalidInstructionData;
+  RentEpochModified;
+  IllegalOwner;
+  ComputationalBudgetExceeded;
+  ExecutableDataModified;
+  ExecutableLamportChange;
+  UnbalancedInstruction;
+  ProgramEnvironmentSetupFailure;
+  IncorrectProgramId;
+  UnsupportedSysvar;
+  UnsupportedProgramId;
+  AccountDataTooSmall;
+  NotEnoughAccountKeys;
+  AccountBorrowFailed;
+  InvalidRealloc;
+  AccountNotExecutable;
+  AccountNotRentExempt;
+  Custom : nat32;
+  AccountDataSizeChanged;
+  MaxAccountsDataAllocationsExceeded;
+  ExternalAccountLamportSpend;
+  ExternalAccountDataModified;
+  MissingAccount;
+  ProgramFailedToComplete;
+  MaxInstructionTraceLengthExceeded;
+  InvalidAccountData;
+  ProgramFailedToCompile;
+  ExecutableModified;
+  InvalidAccountOwner;
+  MaxSeedLengthExceeded;
+  AccountAlreadyInitialized;
+  AccountBorrowOutstanding;
+  ReadonlyDataModified;
+  UninitializedAccount;
+  InvalidArgument;
+  BorshIoError : text;
+  BuiltinProgramsMustConsumeComputeUnits;
+  MissingRequiredSignature;
+  DuplicateAccountOutOfSync;
+  MaxAccountsExceeded;
+  ArithmeticOverflow;
+  InvalidError;
+  InvalidSeeds;
+  DuplicateAccountIndex;
+  ReadonlyLamportChange;
+  InsufficientFunds;
+};
+type MessageHeader = record {
+  numReadonlySignedAccounts : nat8;
+  numRequiredSignatures : nat8;
+  numReadonlyUnsignedAccounts : nat8;
 };
 type MintTokenRequest = record {
   status : TxStatus;
@@ -59,6 +131,13 @@ type MintTokenRequest = record {
   amount : nat64;
   token_mint : text;
 };
+type ParsedAccount = record { space : nat64; parsed : text; program : text };
+type ParsedInstruction = record {
+  stackHeight : opt nat32;
+  programId : text;
+  parsed : blob;
+  program : text;
+};
 type Reason = variant {
   QueueIsFull;
   CanisterError : text;
@@ -67,16 +146,78 @@ type Reason = variant {
   TxError : TxError;
 };
 type Result = variant { Ok : GenerateTicketOk; Err : GenerateTicketError };
-type Result_1 = variant { Ok : MintTokenRequest; Err : CallError };
-type Result_2 = variant { Ok : TxStatus; Err : CallError };
-type Result_3 = variant { Ok : opt text; Err : CallError };
+type Result_1 = variant { Ok : opt UiAccount; Err : CallError };
+type Result_2 = variant { Ok : nat64; Err : text };
+type Result_3 = variant { Ok : text; Err : CallError };
+type Result_4 = variant { Ok; Err : TransactionError };
+type Result_5 = variant { Ok : vec opt TransactionStatus; Err : CallError };
+type Result_6 = variant { Ok : UiTransaction; Err : CallError };
+type Result_7 = variant { Ok : MintTokenRequest; Err : CallError };
+type Result_8 = variant { Ok : TxStatus; Err : CallError };
+type Result_9 = variant { Ok : opt text; Err : CallError };
 type RouteArg = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type RpcProvider = record {
+  host : text;
+  headers : opt vec HttpHeader;
+  api_key_param : opt text;
+};
 type TokenResp = record {
   decimals : nat8;
   token_id : text;
   icon : opt text;
   rune_id : opt text;
   symbol : text;
+};
+type TransactionConfirmationStatus = variant {
+  finalized;
+  confirmed;
+  processed;
+};
+type TransactionError = variant {
+  InvalidAccountForFee;
+  AddressLookupTableNotFound;
+  MissingSignatureForFee;
+  WouldExceedAccountDataBlockLimit;
+  AccountInUse;
+  DuplicateInstruction : nat8;
+  AccountNotFound;
+  TooManyAccountLocks;
+  InvalidAccountIndex;
+  AlreadyProcessed;
+  WouldExceedAccountDataTotalLimit;
+  InvalidAddressLookupTableIndex;
+  SanitizeFailure;
+  ResanitizationNeeded;
+  InvalidRentPayingAccount;
+  MaxLoadedAccountsDataSizeExceeded;
+  InvalidAddressLookupTableData;
+  InvalidWritableAccount;
+  WouldExceedMaxAccountCostLimit;
+  InvalidLoadedAccountsDataSizeLimit;
+  InvalidProgramForExecution;
+  InstructionError : record { nat8; InstructionError };
+  InsufficientFundsForRent : record { account_index : nat8 };
+  UnsupportedVersion;
+  ClusterMaintenance;
+  WouldExceedMaxVoteCostLimit;
+  SignatureFailure;
+  ProgramAccountNotFound;
+  AccountLoadedTwice;
+  ProgramExecutionTemporarilyRestricted : record { account_index : nat8 };
+  AccountBorrowOutstanding;
+  WouldExceedMaxBlockCostLimit;
+  InvalidAddressLookupTableOwner;
+  InsufficientFundsForFee;
+  CallChainTooDeep;
+  UnbalancedTransaction;
+  BlockhashNotFound;
+};
+type TransactionStatus = record {
+  err : opt TransactionError;
+  confirmations : opt nat64;
+  status : Result_4;
+  confirmationStatus : opt TransactionConfirmationStatus;
+  slot : nat64;
 };
 type TxAction = variant { Burn; Redeem; Mint; Transfer };
 type TxError = record { signature : text; block_hash : text; error : text };
@@ -86,6 +227,66 @@ type TxStatus = variant {
   TxFailed : record { e : TxError };
   Pending;
 };
+type UiAccount = record {
+  executable : bool;
+  owner : text;
+  lamports : nat64;
+  data : UiAccountData;
+  space : opt nat64;
+  rentEpoch : nat64;
+};
+type UiAccountData = variant {
+  json : ParsedAccount;
+  legacyBinary : text;
+  binary : record { text; UiAccountEncoding };
+};
+type UiAccountEncoding = variant {
+  "base64+zstd";
+  jsonParsed;
+  base58;
+  base64;
+  binary;
+};
+type UiAddressTableLookup = record {
+  accountKey : text;
+  writableIndexes : blob;
+  readonlyIndexes : blob;
+};
+type UiCompiledInstruction = record {
+  data : text;
+  accounts : blob;
+  programIdIndex : nat8;
+  stackHeight : opt nat32;
+};
+type UiInstruction = variant {
+  Parsed : UiParsedInstruction;
+  Compiled : UiCompiledInstruction;
+};
+type UiMessage = variant { raw : UiRawMessage; parsed : UiParsedMessage };
+type UiParsedInstruction = variant {
+  Parsed : ParsedInstruction;
+  PartiallyDecoded : UiPartiallyDecodedInstruction;
+};
+type UiParsedMessage = record {
+  addressTableLookups : opt vec UiAddressTableLookup;
+  instructions : vec UiInstruction;
+  accountKeys : vec AccountKey;
+  recentBlockhash : text;
+};
+type UiPartiallyDecodedInstruction = record {
+  data : text;
+  accounts : vec text;
+  stackHeight : opt nat32;
+  programId : text;
+};
+type UiRawMessage = record {
+  addressTableLookups : opt vec UiAddressTableLookup;
+  instructions : vec UiCompiledInstruction;
+  accountKeys : vec text;
+  recentBlockhash : text;
+  header : MessageHeader;
+};
+type UiTransaction = record { message : UiMessage; signatures : vec text };
 type UpgradeArgs = record {
   admin : opt principal;
   hub_principal : opt principal;
@@ -93,18 +294,27 @@ type UpgradeArgs = record {
   sol_canister : opt principal;
   chain_id : opt text;
   schnorr_key_name : opt text;
+  providers : opt vec RpcProvider;
   chain_state : opt ChainState;
+  proxy : opt text;
 };
 service : (RouteArg) -> {
   gen_tickets_req : (text) -> (opt GenerateTicketReq) query;
   generate_ticket : (GenerateTicketReq) -> (Result);
+  get_account_info : (text) -> (Result_1);
+  get_balance : (text) -> (Result_2);
   get_chain_list : () -> (vec Chain) query;
   get_fee_account : () -> (text) query;
+  get_latest_blockhash : () -> (Result_3);
+  get_raw_transaction : (text) -> (Result_3);
   get_redeem_fee : (text) -> (opt nat) query;
+  get_signature_status : (vec text) -> (Result_5);
   get_token_list : () -> (vec TokenResp) query;
-  mint_token_req : (text) -> (Result_1) query;
-  mint_token_status : (text) -> (Result_2) query;
-  mint_token_tx_hash : (text) -> (Result_3) query;
+  get_transaction : (text) -> (Result_6);
+  get_tx_instructions : (text) -> (Result_3);
+  mint_token_req : (text) -> (Result_7) query;
+  mint_token_status : (text) -> (Result_8) query;
+  mint_token_tx_hash : (text) -> (Result_9) query;
   query_mint_account : (text) -> (opt AccountInfo) query;
   query_mint_address : (text) -> (opt text) query;
 }

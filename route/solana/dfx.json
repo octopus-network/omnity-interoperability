@@ -19,11 +19,11 @@
       "gzip": true,
       "candid": "assets/solana_route.did"
     },
-    "ic-solana-provider": {
-      "package": "ic-solana-provider",
+    "ic-solana-rpc": {
+      "package": "ic-solana-rpc",
       "type": "custom",
-      "wasm": "assets/ic_solana_provider.wasm.gz",
-      "candid": "assets/ic-solana-provider.did"
+      "wasm": "assets/ic-solana-rpc.wasm.gz",
+      "candid": "assets/ic-solana-rpc.did"
     }
   },
   "defaults": {

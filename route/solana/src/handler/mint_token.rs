@@ -1,8 +1,8 @@
-use crate::handler::solana_rpc;
+
+use crate::solana_client::solana_rpc::TxError;
 use crate::types::{Error, TicketId};
 use candid::{CandidType, Principal};
 
-use ic_solana::token::TxError;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
@@ -18,7 +18,7 @@ use ic_solana::types::TransactionConfirmationStatus;
 
 use crate::constants::{RETRY_4_STATUS, TAKE_SIZE};
 use ic_canister_log::log;
-use ic_solana::ic_log::{CRITICAL, DEBUG, WARNING};
+use ic_solana::logs::{CRITICAL, DEBUG, WARNING};
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MintTokenError {
@@ -291,7 +291,7 @@ pub async fn update_mint_token_status(mut mint_req: MintTokenRequest, sig: Strin
         "[mint_token::update_mint_token_status] start to get_signature_status for {}",
         mint_req.ticket_id
     );
-    let tx_status_ret = solana_rpc::get_signature_status(vec![sig.to_string()]).await;
+    let tx_status_ret = crate::solana_client::get_signature_status(vec![sig.to_string()]).await;
     match tx_status_ret {
         Err(e) => {
             log!(
@@ -342,8 +342,11 @@ pub async fn update_mint_token_status(mut mint_req: MintTokenRequest, sig: Strin
                     sig.to_string(),
                     tx_status,
                 );
-                if let Some(status) = &tx_status.confirmation_status {
-                    if matches!(status, TransactionConfirmationStatus::Finalized) {
+                if let Some(status) = &tx_status {
+                    if matches!(
+                        status.confirmation_status,
+                        Some(TransactionConfirmationStatus::Finalized)
+                    ) {
                         // update mint token req status
                         mint_req.status = TxStatus::Finalized;
                         mutate_state(|s| {
@@ -359,7 +362,7 @@ pub async fn update_mint_token_status(mut mint_req: MintTokenRequest, sig: Strin
 
 /// send tx to solana for mint token
 pub async fn mint_to_with_req(req: MintTokenRequest) -> Result<String, CallError> {
-    let signature = solana_rpc::mint_to_with_req(req.to_owned()).await?;
+    let signature = crate::solana_client::mint_to_with_req(req.to_owned()).await?;
 
     Ok(signature)
 }

@@ -1,11 +1,14 @@
+use crate::solana_client::solana_rpc::SolanaClient;
 use crate::types::{ChainState, Error, TicketType, TxAction};
 use crate::types::{Memo, Ticket};
 use candid::{CandidType, Principal};
+use ic_solana::rpc_client::{JsonRpcResponse, RpcApi, RpcServices};
+
 use ic_solana::types::{Pubkey, Signature};
 
-use crate::handler::solana_rpc::solana_client;
-use ic_solana::token::constants::{memo_program_id, system_program_id, token_program_id};
-use ic_solana::token::SolanaClient;
+use crate::solana_client::solana_client;
+
+use ic_spl::token::constants::{memo_program_id, system_program_id, token_program_id};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
 use serde::{Deserialize, Serialize};
@@ -18,7 +21,7 @@ use crate::{
 };
 
 use ic_canister_log::log;
-use ic_solana::ic_log::{DEBUG, WARNING};
+use ic_solana::logs::{DEBUG, ERROR, WARNING};
 // use omnity_types::address;
 use serde_json::from_value;
 use serde_json::Value;
@@ -198,32 +201,17 @@ pub fn validate_req(req: &GenerateTicketReq) -> Result<(), GenerateTicketError> 
 }
 
 pub async fn verify_tx(req: GenerateTicketReq) -> Result<bool, GenerateTicketError> {
-    // let mut receiver = String::from("");
-    // let mut tx = String::from("");
     let client = solana_client().await;
-    log!(
-        DEBUG,
-        "[generate_ticket] verify_tx build client, req: {:#?}",
-        req
-    );
-    let multi_rpc_config = read_state(|s| s.multi_rpc_config.to_owned());
-    multi_rpc_config
-        .check_config_valid()
-        .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
-    let tx_response = query_tx_from_multi_rpc(
-        &client,
-        req.signature.to_owned(),
-        multi_rpc_config.rpc_list.to_owned(),
-    )
-    .await;
+
+    let tx_response = query_tx_from_multi_rpc(&client, req.signature.to_owned()).await;
+
     log!(
         DEBUG,
         "[generate_ticket] query_tx_from_multi_rpc tx_response: {:?}",
         tx_response
     );
 
-    let instructions = multi_rpc_config
-        .valid_and_get_result(&tx_response)
+    let instructions = valid_and_get_result(&tx_response)
         .map_err(|e| GenerateTicketError::TemporarilyUnavailable(e.to_string()))?;
     log!(
         DEBUG,
@@ -387,17 +375,170 @@ pub async fn send_ticket(hub_principal: Principal, ticket: Ticket) -> Result<(),
 pub async fn query_tx_from_multi_rpc(
     client: &SolanaClient,
     signature: String,
-    rpc_url_vec: Vec<String>,
-) -> Vec<anyhow::Result<String>> {
-    let mut fut = Vec::with_capacity(rpc_url_vec.len());
-    for rpc_url in rpc_url_vec {
+) -> Vec<anyhow::Result<Vec<u8>>> {
+    let (providers, minimum_response_count) =
+        read_state(|s| (s.providers.to_owned(), s.minimum_response_count));
+    if minimum_response_count == 0 {
+        return vec![Err(anyhow::anyhow!(
+            "minimum_response_count should be greater than 0"
+        ))];
+    }
+    if providers.len() < minimum_response_count as usize {
+        return vec![Err(anyhow::anyhow!(
+            "rpc_list length should be greater than minimum_response_count"
+        ))];
+    }
+
+    let mut fut = vec![];
+    let rpc_apis: Vec<_> = providers
+        .iter()
+        .map(|p| RpcApi {
+            network: p.rpc_url(),
+            headers: p.headers.to_owned(),
+        })
+        .collect();
+
+    let rpc_slice: Vec<_> = rpc_apis[0..minimum_response_count as usize].to_vec();
+    for rpc in rpc_slice {
+        let source = RpcServices::Custom(vec![rpc]);
         fut.push(async {
             client
-                .query_transaction(signature.to_owned(), Some(rpc_url))
+                .query_raw_transaction(source, signature.to_owned())
                 .await
         });
     }
+
     futures::future::join_all(fut).await
+}
+
+pub fn valid_and_get_result(
+    response_list: &Vec<anyhow::Result<Vec<u8>>>,
+) -> Result<Vec<Instruction>, String> {
+    let (providers, minimum_response_count) =
+        read_state(|s| (s.providers.to_owned(), s.minimum_response_count));
+    if minimum_response_count == 0 {
+        return Err("minimum_response_count should be greater than 0".to_string());
+    }
+    if providers.len() < minimum_response_count as usize {
+        return Err("rpc_list length should be greater than minimum_response_count".to_string());
+    }
+    let mut tx_instructions = vec![];
+
+    for response in response_list {
+        log!(
+            DEBUG,
+            "[state::valid_and_get_result] input response: {:?}",
+            response
+        );
+        match response {
+            Ok(resp) => match serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(
+                &String::from_utf8_lossy(&resp),
+            ) {
+                Ok(t) => {
+                    if let Some(e) = t.error {
+                        log!(
+                            DEBUG,
+                            "[state::valid_and_get_result] json rpc error: {:?}",
+                            e
+                        );
+                        continue;
+                    } else {
+                        match t.result {
+                            None => {
+                                log!(DEBUG, "[state::valid_and_get_result] tx result is None ",);
+                                continue;
+                            }
+                            Some(tx_detail) => {
+                                log!(
+                                    DEBUG,
+                                    "[state::valid_and_get_result] tx detail: {:?}",
+                                    tx_detail
+                                );
+                                tx_instructions.push(tx_detail.transaction.message.instructions);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log!(
+                        ERROR,
+                        "[state::valid_and_get_result] serde_json::from_str error: {:?}",
+                        e.to_string()
+                    );
+                    continue;
+                }
+            },
+            Err(e) => {
+                log!(
+                    ERROR,
+                    "[state::valid_and_get_result] response error: {:?}",
+                    e.to_string()
+                );
+                continue;
+            }
+        }
+    }
+
+    if tx_instructions.len() < minimum_response_count as usize {
+        return Err(format!(
+            "Not enough valid response, expected: {}, actual: {}",
+            minimum_response_count,
+            tx_instructions.len()
+        ));
+    }
+
+    // The minimum_response_count should greater than 0
+    let mut i = 1;
+    while i < tx_instructions.len() {
+        if tx_instructions[i - 1] != tx_instructions[i] {
+            return Err("Response mismatch".to_string());
+        }
+        i += 1;
+    }
+
+    Ok(tx_instructions[0].to_owned())
+}
+
+pub fn get_instruction(raw_tx: &Vec<u8>) -> Result<Vec<Instruction>, String> {
+    match String::from_utf8(raw_tx.to_vec()) {
+        Ok(tx) => match serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&tx) {
+            Ok(t) => {
+                if let Some(e) = t.error {
+                    log!(
+                        DEBUG,
+                        "[gen_ticket::get_instruction] json rpc error: {:?}",
+                        e
+                    );
+                    return Err(e.to_string());
+                } else {
+                    match t.result {
+                        None => {
+                            log!(DEBUG, "[gen_ticket::get_instruction] tx result is None ",);
+                            return Err("tx result is None".to_string());
+                        }
+                        Some(tx_detail) => {
+                            log!(
+                                DEBUG,
+                                "[gen_ticket::get_instruction] tx detail: {:?}",
+                                tx_detail
+                            );
+                            // tx_instructions.push(tx_detail.transaction.message.instructions);
+                            return Ok(tx_detail.transaction.message.instructions);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                log!(
+                    ERROR,
+                    "[gen_ticket::get_instruction] serde_json::from_str error: {:?}",
+                    e.to_string()
+                );
+                return Err(e.to_string());
+            }
+        },
+        Err(error) => Err(error.to_string()),
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -550,7 +691,7 @@ mod test {
     use candid::Principal;
     use ic_solana::{
         rpc_client::JsonRpcResponse,
-        types::{Pubkey, Signature},
+        types::{EncodedConfirmedTransactionWithStatusMeta, Pubkey, Signature},
     };
     use omnity_types::address;
     use std::str::FromStr;
@@ -839,6 +980,292 @@ mod test {
                 println!("Unknown Parsed Value: {:#?}", instruction.parsed);
             }
         }
+    }
+
+    #[test]
+    fn test_parse_tx_with_ic_solana() {
+        let json_data = r#"
+           {
+                "jsonrpc": "2.0",
+                "result": {
+                    "blockTime": 1737104745,
+                    "meta": {
+                    "computeUnitsConsumed": 32584,
+                    "err": null,
+                    "fee": 25000,
+                    "innerInstructions": [],
+                    "logMessages": [
+                        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+                        "Program ComputeBudget111111111111111111111111111111 success",
+                        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+                        "Program ComputeBudget111111111111111111111111111111 success",
+                        "Program 11111111111111111111111111111111 invoke [1]",
+                        "Program 11111111111111111111111111111111 success",
+                        "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]",
+                        "Program log: Instruction: Burn",
+                        "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4752 of 199550 compute units",
+                        "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr invoke [1]",
+                        "Program log: Memo (len 63): \"wzooq-tiwcy-7ucai-dvsb3-2oukm-ov4mw-mjwo7-co5lh-rbhnv-rydi4-yqe\"",
+                        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr consumed 24050 of 194798 compute units",
+                        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr success",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 invoke [1]",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 consumed 1424 of 170748 compute units",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 success",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 invoke [1]",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 consumed 1908 of 169324 compute units",
+                        "Program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 success"
+                    ],
+                    "postBalances": [
+                        90018000,
+                        1461600,
+                        4300648890,
+                        2039280,
+                        1,
+                        1,
+                        1141440,
+                        521498880,
+                        934087680
+                    ],
+                    "postTokenBalances": [
+                        {
+                        "accountIndex": 3,
+                        "mint": "79yjxQmS7NWd3a5ZDrVrVcP9xEPsT4tFCys5SUdG8VxN",
+                        "owner": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC",
+                        "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                        "uiTokenAmount": {
+                            "amount": "0",
+                            "decimals": 8,
+                            "uiAmount": null,
+                            "uiAmountString": "0"
+                        }
+                        }
+                    ],
+                    "preBalances": [
+                        98893000,
+                        1461600,
+                        4291798890,
+                        2039280,
+                        1,
+                        1,
+                        1141440,
+                        521498880,
+                        934087680
+                    ],
+                    "preTokenBalances": [
+                        {
+                        "accountIndex": 3,
+                        "mint": "79yjxQmS7NWd3a5ZDrVrVcP9xEPsT4tFCys5SUdG8VxN",
+                        "owner": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC",
+                        "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                        "uiTokenAmount": {
+                            "amount": "30000000",
+                            "decimals": 8,
+                            "uiAmount": 0.3,
+                            "uiAmountString": "0.3"
+                        }
+                        }
+                    ],
+                    "rewards": [],
+                    "status": {
+                        "Ok": null
+                    }
+                    },
+                    "slot": 314544092,
+                    "transaction": {
+                    "message": {
+                        "accountKeys": [
+                        {
+                            "pubkey": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC",
+                            "signer": true,
+                            "source": "transaction",
+                            "writable": true
+                        },
+                        {
+                            "pubkey": "79yjxQmS7NWd3a5ZDrVrVcP9xEPsT4tFCys5SUdG8VxN",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": true
+                        },
+                        {
+                            "pubkey": "B3zfZ9CvfCHd23jzM7UqrVR2sid4y4eJYtxzZA4azqaD",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": true
+                        },
+                        {
+                            "pubkey": "BM2zuCg7SYNtzzrGQMFoJeHZLtXe5XGPJ4G3vyvviprj",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": true
+                        },
+                        {
+                            "pubkey": "11111111111111111111111111111111",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        },
+                        {
+                            "pubkey": "ComputeBudget111111111111111111111111111111",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        },
+                        {
+                            "pubkey": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        },
+                        {
+                            "pubkey": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        },
+                        {
+                            "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                            "signer": false,
+                            "source": "transaction",
+                            "writable": false
+                        }
+                        ],
+                        "instructions": [
+                        {
+                            "accounts": [],
+                            "data": "3gJqkocMWaMm",
+                            "programId": "ComputeBudget111111111111111111111111111111",
+                            "stackHeight": null
+                        },
+                        {
+                            "accounts": [],
+                            "data": "Fj2Eoy",
+                            "programId": "ComputeBudget111111111111111111111111111111",
+                            "stackHeight": null
+                        },
+                        {
+                            "parsed": {
+                            "info": {
+                                "destination": "B3zfZ9CvfCHd23jzM7UqrVR2sid4y4eJYtxzZA4azqaD",
+                                "lamports": 8850000,
+                                "source": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC"
+                            },
+                            "type": "transfer"
+                            },
+                            "program": "system",
+                            "programId": "11111111111111111111111111111111",
+                            "stackHeight": null
+                        },
+                        {
+                            "parsed": {
+                            "info": {
+                                "account": "BM2zuCg7SYNtzzrGQMFoJeHZLtXe5XGPJ4G3vyvviprj",
+                                "amount": "30000000",
+                                "authority": "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC",
+                                "mint": "79yjxQmS7NWd3a5ZDrVrVcP9xEPsT4tFCys5SUdG8VxN"
+                            },
+                            "type": "burn"
+                            },
+                            "program": "spl-token",
+                            "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                            "stackHeight": null
+                        },
+                        {
+                            "parsed": "wzooq-tiwcy-7ucai-dvsb3-2oukm-ov4mw-mjwo7-co5lh-rbhnv-rydi4-yqe",
+                            "program": "spl-memo",
+                            "programId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+                            "stackHeight": null
+                        },
+                        {
+                            "accounts": [
+                            "6TqNg48mSd5evmY66JVfGeGTwszrU1YLCeSw3GJ2qsUC"
+                            ],
+                            "data": "k5umEZ8fQejzcNNamn9fV",
+                            "programId": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
+                            "stackHeight": null
+                        },
+                        {
+                            "accounts": [
+                            "BM2zuCg7SYNtzzrGQMFoJeHZLtXe5XGPJ4G3vyvviprj"
+                            ],
+                            "data": "8A8uiXy3AqR3n36X8SDrAta8hgTXYYZUKFLfPuNNnoMp3N1dxQsdWxn8wHUzEMuMaYKh",
+                            "programId": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
+                            "stackHeight": null
+                        }
+                        ],
+                        "recentBlockhash": "3TpXpgoSn2dkvw9ydnfrJsNT2LGqjrD6QzjBdjMK6nx8"
+                    },
+                    "signatures": [
+                        "5DF8ctxn2YkwuztEstDcmR6mjY4GdcfGUZtsMedWiXJBJBqagDKwBnfm6M6ZLZ1suL6wVeN1qnhrQKMQkTaFYTgq"
+                    ]
+                    }
+                },
+                "id": 1
+                }
+        "#;
+
+        let transaction_response = serde_json::from_str::<
+            JsonRpcResponse<EncodedConfirmedTransactionWithStatusMeta>,
+        >(json_data);
+
+        println!("transaction_response: {:#?}", transaction_response);
+        // for instruction in &transaction_response
+        //     .result
+        //     .unwrap()
+        //     .transaction
+        //     .message
+        //     .instructions
+        // {
+        //     if instruction.parsed.is_none() {
+        //         println!("Skipped unknown instruction");
+        //         continue;
+        //     }
+
+        //     if let Ok(parsed_value) =
+        //         from_value::<ParsedValue>(instruction.parsed.to_owned().unwrap())
+        //     {
+        //         println!("Parsed value: {:#?}", parsed_value);
+
+        //         if let Ok(pi) = from_value::<ParsedInfo>(parsed_value.parsed.to_owned()) {
+        //             match pi.instr_type.as_str() {
+        //                 "transfer" => {
+        //                     println!("instruction program id: {}", instruction.program_id);
+        //                     println!("system_program_id: {}", system_program_id().to_string());
+        //                     assert!(instruction.program_id.eq(&system_program_id().to_string()));
+        //                     let transfer = from_value::<Transfer>(pi.info.to_owned());
+        //                     println!("Parsed transfer: {:#?}", transfer);
+        //                 }
+        //                 "burnChecked" => {
+        //                     println!("instruction program id: {}", instruction.program_id);
+        //                     println!("token_program_id: {}", token_program_id().to_string());
+        //                     assert!(instruction.program_id.eq(&token_program_id().to_string()));
+        //                     let burn = from_value::<BurnChecked>(pi.info.to_owned());
+        //                     println!("Parsed burn: {:#?}", burn);
+        //                 }
+        //                 "burn" => {
+        //                     println!("instruction program id: {}", instruction.program_id);
+        //                     println!("token_program_id: {}", token_program_id().to_string());
+        //                     assert!(instruction.program_id.eq(&token_program_id().to_string()));
+        //                     let burn = from_value::<Burn>(pi.info.to_owned());
+        //                     println!("Parsed burn: {:#?}", burn);
+        //                 }
+        //                 _ => {
+        //                     println!("Skipped non-relevant instruction: {:#?}", pi.instr_type);
+        //                 }
+        //             }
+        //         } else if let Ok(memo) = from_value::<String>(parsed_value.parsed.to_owned()) {
+        //             println!("instruction program id: {}", instruction.program_id);
+        //             println!("memo_program_id: {}", memo_program_id().to_string());
+        //             assert!(instruction.program_id.eq(&memo_program_id().to_string()));
+        //             println!("Parsed memo: {:?}", memo);
+        //         } else {
+        //             println!("unkown program id: {}", instruction.program_id);
+        //             println!("Unknown Parsed instruction: {:#?}", parsed_value.parsed);
+        //         }
+        //     } else {
+        //         println!("Unknown Parsed Value: {:#?}", instruction.parsed);
+        //     }
+        // }
     }
 
     #[test]

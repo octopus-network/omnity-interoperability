@@ -26,11 +26,16 @@ pub const IC_GATEWAY: &str = "raw.icp0.io";
 pub const DIRECTIVE_LIMIT_SIZE: u64 = 20;
 pub const TICKET_LIMIT_SIZE: u64 = 20;
 pub const TAKE_SIZE: u64 = 3;
-pub const QUERY_DERECTIVE_INTERVAL: Duration = Duration::from_secs(50);
-pub const CREATE_MINT_INTERVAL: Duration = Duration::from_secs(50);
+pub const QUERY_DERECTIVE_INTERVAL: Duration = Duration::from_secs(30);
+pub const CREATE_MINT_INTERVAL: Duration = Duration::from_secs(30);
 pub const UPDATE_TOKEN_INTERVAL: Duration = Duration::from_secs(30);
 pub const QUERY_TICKET_INTERVAL: Duration = Duration::from_secs(15);
 pub const CREATE_ATA_INTERVAL: Duration = Duration::from_secs(15);
 pub const MINT_TOKEN_INTERVAL: Duration = Duration::from_secs(15);
 pub const RETRY_4_BUILDING: u64 = 10;
 pub const RETRY_4_STATUS: u64 = 10;
+
+// https://internetcomputer.org/docs/current/references/t-sigs-how-it-works/#fees-for-the-t-schnorr-production-key
+// pub const EDDSA_SIGN_COST: u128 = 26_153_846_153;
+pub const ECDSA_SIGN_COST: u128 = 26_200_000_000;
+pub const RPC_CYCLE_COST: u64 = 58_000_000_000;

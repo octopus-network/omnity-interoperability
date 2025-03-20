@@ -3,18 +3,25 @@ use crate::guard::TaskType;
 
 // use crate::lifecycle::InitArgs;
 use crate::state::Seqs;
-use crate::state::{MultiRpcConfig, SolanaRouteState};
+use crate::state::SolanaRouteState;
 use crate::types::{ChainId, ChainState};
+use candid::CandidType;
 use candid::Principal;
 
-use ic_solana::compute_budget::compute_budget::Priority;
-use ic_solana::eddsa::KeyType;
+use crate::eddsa::KeyType;
+use ic_spl::compute_budget::compute_budget::Priority;
 
 use ic_stable_structures::StableBTreeMap;
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
+
+#[derive(CandidType, Clone, Debug, Deserialize, Serialize, Default, PartialEq, Eq)]
+pub struct MultiRpcConfig {
+    pub rpc_list: Vec<String>,
+    pub minimum_response_count: u32,
+}
 
 #[derive(Deserialize, Serialize)]
 pub struct PreState {
@@ -56,11 +63,13 @@ pub fn migrate(pre_state: PreState) -> SolanaRouteState {
         active_tasks: pre_state.active_tasks,
         admin: pre_state.admin,
         caller_perms: pre_state.caller_perms,
-        multi_rpc_config: pre_state.multi_rpc_config,
-        forward: pre_state.forward,
+
         enable_debug: pre_state.enable_debug,
         priority: pre_state.priority,
         key_type: pre_state.key_type,
+        providers: vec![],
+        proxy: String::default(),
+        minimum_response_count: 1,
 
         tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
         tickets_failed_to_hub: StableBTreeMap::init(crate::memory::get_failed_tickets_memory()),

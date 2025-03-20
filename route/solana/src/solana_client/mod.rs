@@ -7,18 +7,20 @@ use crate::{call_error::CallError, state::read_state};
 
 use crate::state::AtaKey;
 use crate::state::TxStatus;
+// use anyhow::Ok;
 use ic_canister_log::log;
+use ic_solana::types::tagged::UiAccount;
+use solana_rpc::{SolanaClient, TokenInfo};
 
-use ic_solana::eddsa::KeyType;
-use ic_solana::ic_log::DEBUG;
-use ic_solana::response::RpcConfirmedTransactionStatusWithSignature;
-use ic_solana::rpc_client::RpcResult;
-use ic_solana::token::constants::token_program_id;
-use ic_solana::token::{SolanaClient, TokenInfo};
+use crate::eddsa::KeyType;
+
+use ic_solana::logs::DEBUG;
+
 use ic_solana::types::{Pubkey, TransactionStatus};
+use ic_spl::token::constants::token_program_id;
 use serde_bytes::ByteBuf;
-
-use super::mint_token::MintTokenRequest;
+pub mod solana_rpc;
+use crate::handler::mint_token::MintTokenRequest;
 
 pub async fn solana_client() -> SolanaClient {
     let (chain_id, schnorr_key_name, sol_canister, priority, key_type) = read_state(|s| {
@@ -46,13 +48,12 @@ pub async fn solana_client() -> SolanaClient {
         .unwrap();
 
     let derived_path = vec![ByteBuf::from(chain_id.as_bytes())];
-    let forward = read_state(|s| s.forward.to_owned());
+
     let solana_client = SolanaClient {
         sol_canister_id: sol_canister,
         payer,
         payer_derive_path: derived_path,
         chainkey_name: schnorr_key_name,
-        forward,
         priority,
         key_type: key_type.clone(),
     };
@@ -63,7 +64,7 @@ pub async fn solana_client() -> SolanaClient {
 }
 
 // get account info
-pub async fn get_account_info(account: String) -> Result<Option<String>, CallError> {
+pub async fn get_account_info(account: String) -> Result<Option<UiAccount>, CallError> {
     let sol_client = solana_client().await;
 
     let account_info = sol_client
@@ -192,30 +193,6 @@ pub async fn mint_to_with_req(req: MintTokenRequest) -> Result<String, CallError
     Ok(signature)
 }
 
-// create mint token account with token metadata
-pub async fn update_token22_metadata(
-    token_mint: String,
-    req: TokenInfo,
-) -> Result<String, CallError> {
-    let sol_client = solana_client().await;
-    let token_mint = Pubkey::from_str(&token_mint).expect("Invalid token mint address");
-
-    let signature = sol_client
-        .update_token22_metadata(token_mint, req)
-        .await
-        .map_err(|e| CallError {
-            method: "[solana_rpc::update_token22_metadata] update_token22_metadata".to_string(),
-            reason: Reason::CanisterError(e.to_string()),
-        })?;
-
-    log!(
-        DEBUG,
-        "[solana_rpc::update_token22_metadata] signature: {:?}",
-        signature
-    );
-
-    Ok(signature.to_string())
-}
 
 // create mint token account with token metadata
 pub async fn update_with_metaplex(token_mint: String, req: TokenInfo) -> Result<String, CallError> {
@@ -261,91 +238,25 @@ pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, Call
     Ok(signature.to_string())
 }
 
-// query solana tx signature status
-pub async fn search_signature_from_address(
-    target_sig: String,
-    pubkey: String,
-    limit: Option<usize>,
-) -> Result<bool, CallError> {
-    let (sol_canister, forward) = read_state(|s| (s.sol_canister, s.forward.to_owned()));
-
-    let response: Result<(RpcResult<String>,), _> = ic_cdk::call(
-        sol_canister,
-        "sol_getSignatureForAddress",
-        (pubkey, limit, forward),
-    )
-    .await;
-    log!(
-        DEBUG,
-        "[solana_rpc::get_signatures_for_address] call sol_getSignatureForAddress resp: {:?}",
-        response
-    );
-    let sigs = response
-        .map_err(|(code, message)| CallError {
-            method: "sol_getSignatureForAddress".to_string(),
-            reason: Reason::from_reject(code, message),
-        })?
-        .0
-        .map_err(|rpc_error| CallError {
-            method: "sol_getSignatureForAddress".to_string(),
-            reason: Reason::CanisterError(rpc_error.to_string()),
-        })?;
-
-    log!(
-        DEBUG,
-        "[solana_rpc::get_signatures_for_address] call sol_getSignatureForAddress resp: {:?}",
-        sigs
-    );
-    let signatures = serde_json::from_str::<Vec<RpcConfirmedTransactionStatusWithSignature>>(&sigs)
-        .map_err(|err| CallError {
-            method: "sol_getSignatureForAddress".to_string(),
-            reason: Reason::CanisterError(err.to_string()),
-        })?;
-
-    if signatures
-        .iter()
-        .any(|s| s.signature.to_string().eq(&target_sig))
-    {
-        return Ok(true);
-    }
-
-    Ok(false)
-}
-
-// query solana tx signature status
+// query solana tx signatures status
 pub async fn get_signature_status(
     signatures: Vec<String>,
-) -> Result<Vec<TransactionStatus>, CallError> {
-    let (sol_canister, forward) = read_state(|s| (s.sol_canister, s.forward.to_owned()));
+) -> Result<Vec<Option<TransactionStatus>>, CallError> {
+    let sol_client = solana_client().await;
 
-    let response: Result<(RpcResult<String>,), _> = ic_cdk::call(
-        sol_canister,
-        "sol_getSignatureStatuses",
-        (signatures, forward),
-    )
-    .await;
-    let tx_status = response
-        .map_err(|(code, message)| CallError {
-            method: "sol_getSignatureStatuses".to_string(),
-            reason: Reason::from_reject(code, message),
-        })?
-        .0
-        .map_err(|rpc_error| CallError {
-            method: "sol_getSignatureStatuses".to_string(),
-            reason: Reason::CanisterError(rpc_error.to_string()),
+    let status = sol_client
+        .get_signature_status(signatures.to_owned())
+        .await
+        .map_err(|e| CallError {
+            method: "[solana_rpc::get_signature_status] get_signature_status".to_string(),
+            reason: Reason::CanisterError(e.to_string()),
         })?;
-
     log!(
         DEBUG,
-        "[solana_rpc::get_signature_status] call sol_getSignatureStatuses resp: {:?}",
-        tx_status
+        "[solana_rpc::get_signature_status] signatures ({:?}) status: {:?}",
+        signatures,
+        status,
     );
-
-    let status =
-        serde_json::from_str::<Vec<TransactionStatus>>(&tx_status).map_err(|err| CallError {
-            method: "sol_getSignatureStatuses".to_string(),
-            reason: Reason::CanisterError(err.to_string()),
-        })?;
 
     Ok(status)
 }
@@ -355,7 +266,7 @@ pub async fn eddsa_public_key(key_type: KeyType) -> Result<Pubkey, String> {
         read_state(|s| (s.chain_id.to_owned(), s.schnorr_key_name.to_owned()));
     let derived_path = vec![ByteBuf::from(chain_id.as_bytes())];
 
-    let pk = ic_solana::eddsa::eddsa_public_key(key_type, schnorr_key_name, derived_path).await;
+    let pk = crate::eddsa::eddsa_public_key(key_type, schnorr_key_name, derived_path).await;
     Pubkey::try_from(pk.as_slice()).map_err(|e| e.to_string())
 }
 
@@ -365,7 +276,7 @@ pub async fn sign(msg: String, key_type: KeyType) -> Result<Vec<u8>, String> {
     let derived_path = vec![ByteBuf::from(chain_id.as_bytes())];
     let msg = msg.as_bytes().to_vec();
     let signature =
-        ic_solana::eddsa::sign_with_eddsa(&key_type, schnorr_key_name, derived_path, msg).await;
+        crate::eddsa::sign_with_eddsa(&key_type, schnorr_key_name, derived_path, msg).await;
     // let sig = String::from_utf8_lossy(&signature).to_string();
     Ok(signature)
 }

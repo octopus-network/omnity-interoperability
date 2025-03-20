@@ -1,11 +1,13 @@
 pub mod auth;
 pub mod call_error;
 pub mod constants;
+pub mod eddsa;
 pub mod guard;
 pub mod handler;
 pub mod lifecycle;
 pub mod memory;
 pub mod migration;
 pub mod service;
+pub mod solana_client;
 pub mod state;
 pub mod types;

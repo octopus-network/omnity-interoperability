@@ -1,7 +1,8 @@
 use candid::CandidType;
 use ic_cdk::api::call::RejectionCode;
-use ic_solana::token::TxError;
 use std::fmt;
+
+use crate::solana_client::solana_rpc::TxError;
 
 /// Represents an error from a management canister call, such as
 /// `sign_with_ecdsa` or `bitcoin_send_transaction`.

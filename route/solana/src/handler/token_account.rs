@@ -2,19 +2,20 @@ use std::str::FromStr;
 
 use crate::call_error::Reason;
 use crate::constants::{RETRY_4_BUILDING, RETRY_4_STATUS};
+use crate::solana_client::solana_rpc::{SolanaClient, TokenInfo, TxError};
 use crate::state::{AccountInfo, TxStatus, UpdateToken};
 
 use ic_solana::types::{Pubkey, TransactionConfirmationStatus};
 
-use crate::handler::solana_rpc::update_with_metaplex;
-use crate::handler::solana_rpc::{self, create_mint_account};
+use crate::eddsa::hash_with_sha256;
+use crate::solana_client::create_mint_account;
+use crate::solana_client::update_with_metaplex;
+
 use crate::state::{mutate_state, read_state};
 use ic_canister_log::log;
-use ic_solana::eddsa::hash_with_sha256;
-use ic_solana::ic_log::{DEBUG, ERROR, WARNING};
-use ic_solana::token::{SolanaClient, TokenInfo, TxError};
+use ic_solana::logs::{DEBUG, ERROR, WARNING};
 
-use super::solana_rpc::solana_client;
+use crate::solana_client::solana_client;
 
 pub async fn create_token_mint() {
     let creating_token_mint = read_state(|s| {
@@ -250,7 +251,7 @@ pub async fn build_mint_account(account_address: String, token_info: TokenInfo) 
 
 pub async fn update_mint_account_status(sig: String, token_id: String) {
     // query signature status
-    let tx_status_ret = solana_rpc::get_signature_status(vec![sig.to_string()]).await;
+    let tx_status_ret = crate::solana_client::get_signature_status(vec![sig.to_string()]).await;
     match tx_status_ret {
         Err(e) => {
             log!(
@@ -304,8 +305,11 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
                     sig.to_string(),
                     tx_status,
                 );
-                if let Some(status) = &tx_status.confirmation_status {
-                    if matches!(status, TransactionConfirmationStatus::Finalized) {
+                if let Some(status) = &tx_status {
+                    if matches!(
+                        status.confirmation_status,
+                        Some(TransactionConfirmationStatus::Finalized)
+                    ) {
                         // update account status to Finalized
                         mutate_state(|s| {
                             if let Some(account) = s.token_mint_accounts.get(&token_id).as_mut() {

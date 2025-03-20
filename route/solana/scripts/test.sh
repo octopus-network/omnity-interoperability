@@ -74,6 +74,7 @@ PROTO="Bitcoin-runes"
 TOKEN_NAME="RUNES•X•BITCOIN"
 TIMESTAMP=$(date +"%Y%m%d%H%M")
 TOKEN_ID="${PROTO}-${TOKEN_NAME}${TIMESTAMP}"
+echo $TOKEN_ID
 export TOKEN_ID
 # TOKEN_SYMBOL=$(echo "$TOKEN_NAME" | grep -oE 'NICE[0-9]+')
 TOKEN_SYMBOL="X"
@@ -152,7 +153,7 @@ echo
 # A-B tansfer/redeem
 echo "mock: transfer from Bitcoin to Solana ..."
 echo 
-TID="28b47548-55dc-4e89-b41d-76bc0247828f"
+TID="28b47548-55dc-4e89-b41d-76bc024782dfe"
 AMOUNT=22222222
 SOL_RECEIVER="3gghk7mHWtFsJcg6EZGK7sbHj3qW6ExUdZLs9q8GRjia"
 dfx canister call omnity_hub send_ticket "(record { ticket_id = \"${TID}\"; 
@@ -221,6 +222,7 @@ BURN_AMOUNT=11111111
 # echo "burn signature: $SIGNAURE"
 
 SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
+SOLANA_RPC_URL="https://api.devnet.solana.com"
 KEYPAIR=$(bat -p ~/.config/solana/boern.json)
 echo "redeem tx vars:"
 echo "rpc_url: $SOLANA_RPC_URL"
@@ -234,18 +236,18 @@ echo "owner_account: $SOL_RECEIVER"
 echo "burn_amount: $BURN_AMOUNT"
 echo "memo_msg: $CUSTOMS_RECEIVER"
 
-# python ./scripts/redeem_tx.py \
-#   --rpc_url $SOLANA_RPC_URL \
-#   --keypair $KEYPAIR \
-#   --from_account $SOL_RECEIVER \
-#   --fee_account $FEE_ACCOUNT \
-#   --fee_amount $FEE_AMOUNT \
-#   --token_mint $TOKEN_MINT \
-#   --burn_account $ATA \
-#   --owner_account $SOL_RECEIVER \
-#   --burn_amount $BURN_AMOUNT \
-#   --memo_msg $CUSTOMS_RECEIVER | \
-#   echo "Transaction Output: $(cat)"
+python ./scripts/redeem_tx.py \
+  --rpc_url $SOLANA_RPC_URL \
+  --keypair $KEYPAIR \
+  --from_account $SOL_RECEIVER \
+  --fee_account $FEE_ACCOUNT \
+  --fee_amount $FEE_AMOUNT \
+  --token_mint $TOKEN_MINT \
+  --burn_account $ATA \
+  --owner_account $SOL_RECEIVER \
+  --burn_amount $BURN_AMOUNT \
+  --memo_msg $CUSTOMS_RECEIVER | \
+  echo "Transaction Output: $(cat)"
 
 sleep 30
 # check minto token result
@@ -291,24 +293,32 @@ echo "TOKEN_BALANCE is : $TOKEN_BALANCE"
 #   --burn_amount $BURN_AMOUNT \
 #   --memo_msg $CUSTOMS_RECEIVER )
 
-SIGNATURE=$(python ./scripts/redeem_tx.py \
-  --rpc_url $SOLANA_RPC_URL \
-  --keypair $KEYPAIR \
-  --from_account $SOL_RECEIVER \
-  --fee_account $FEE_ACCOUNT \
-  --fee_amount $FEE_AMOUNT \
-  --token_mint $TOKEN_MINT \
-  --burn_account $ATA \
-  --owner_account $SOL_RECEIVER \
-  --burn_amount $BURN_AMOUNT \
-  --memo_msg $CUSTOMS_RECEIVER  \
-| tail -n 1 )
+# SIGNATURE=$(python ./scripts/redeem_tx.py \
+#   --rpc_url $SOLANA_RPC_URL \
+#   --keypair $KEYPAIR \
+#   --from_account $SOL_RECEIVER \
+#   --fee_account $FEE_ACCOUNT \
+#   --fee_amount $FEE_AMOUNT \
+#   --token_mint $TOKEN_MINT \
+#   --burn_account $ATA \
+#   --owner_account $SOL_RECEIVER \
+#   --burn_amount $BURN_AMOUNT \
+#   --memo_msg $CUSTOMS_RECEIVER  \
+# | tail -n 1 )
 
-echo "redeem tx signature: $SIGNATURE"
+# echo "redeem tx signature: $SIGNATURE"
 
 sleep 15
 
+
+sig="4FjfBGwCfqQL5iXy4mWkNQ29fQXmZ1NNcoFC8o2y5S7J1PQa7vjC27a9Mg12Y6j43p7CirYmczoJtfBE3UworXHj"
+dfx canister call solana_route get_transaction "(\"${sig}\")" 
+dfx canister call solana_route get_raw_transaction "(\"${sig}\")" 
+dfx canister call solana_route get_tx_instructions "(\"${sig}\")" 
+
+# dfx canister call solana_route valid_tx_from_multi_rpc "(\"${sig}\")" 
 # finally,generate ticket and send to hub
+SIGNATURE="4FjfBGwCfqQL5iXy4mWkNQ29fQXmZ1NNcoFC8o2y5S7J1PQa7vjC27a9Mg12Y6j43p7CirYmczoJtfBE3UworXHj"
 dfx canister call solana_route generate_ticket "(record {
         signature=\"$SIGNATURE\";
         action = variant { Redeem };
@@ -429,3 +439,4 @@ dfx canister call solana_route stop_schedule '(null)'
 #         variant { MintToken };
 #         })' 
 # dfx canister call solana_route stop_schedule '(null)' 
+

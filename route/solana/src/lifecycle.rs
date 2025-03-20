@@ -1,5 +1,6 @@
-// use crate::migration::{migrate, PreState};
+use crate::migration::{migrate, PreState};
 
+use crate::state::RpcProvider;
 use crate::types::ChainState;
 use crate::{
     memory,
@@ -21,10 +22,12 @@ pub struct InitArgs {
     pub chain_id: String,
     pub hub_principal: Principal,
     pub chain_state: ChainState,
-
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Principal,
     pub fee_account: Option<String>,
+    pub providers: Vec<RpcProvider>,
+    pub proxy: String,
+    pub minimum_response_count:u32
 }
 
 pub fn init(args: InitArgs) {
@@ -60,6 +63,8 @@ pub struct UpgradeArgs {
     pub schnorr_key_name: Option<String>,
     pub sol_canister: Option<Principal>,
     pub fee_account: Option<String>,
+    pub providers: Option<Vec<RpcProvider>>,
+    pub proxy: Option<String>,
 }
 
 pub fn post_upgrade(args: Option<UpgradeArgs>) {
@@ -76,7 +81,7 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     let mut state: SolanaRouteState =
         ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
-    // // Deserialize pre state
+    // Deserialize pre state
     // let pre_state: PreState =
     //     ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
     // // migrate
@@ -104,6 +109,12 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         }
         if let Some(fee_account) = args.fee_account {
             state.fee_account = fee_account;
+        }
+        if let Some(providers) = args.providers {
+            state.providers = providers;
+        }
+        if let Some(proxy) = args.proxy {
+            state.proxy = proxy;
         }
     }
 

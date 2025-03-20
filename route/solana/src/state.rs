@@ -1,6 +1,8 @@
 use crate::constants::IC_GATEWAY;
-use crate::handler::gen_ticket::{GenerateTicketReq, TransactionDetail};
+use crate::eddsa::KeyType;
+use crate::handler::gen_ticket::GenerateTicketReq;
 use crate::memory::Memory;
+use crate::solana_client::solana_rpc::{SolanaClient, TxError};
 use crate::{
     auth::Permission,
     constants::{FEE_ACCOUNT, FEE_TOKEN, SCHNORR_KEY_NAME},
@@ -8,16 +10,16 @@ use crate::{
     lifecycle::InitArgs,
 };
 use candid::{CandidType, Principal};
-
-use ic_canister_log::log;
-use ic_solana::compute_budget::compute_budget::Priority;
-use ic_solana::eddsa::KeyType;
-use ic_solana::ic_log::{DEBUG, ERROR};
-use ic_solana::rpc_client::JsonRpcResponse;
-use ic_solana::token::{SolanaClient, TxError};
+use ic_canister_log::{export as export_logs, GlobalBuffer};
+use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+use ic_cdk::api::management_canister::http_request::HttpHeader;
+use ic_solana::logs::{
+    Log, LogEntry, Priority as LogPriority, CRITICAL_BUF, DEBUG_BUF, ERROR_BUF, INFO_BUF,
+    WARNING_BUF,
+};
+use ic_spl::compute_budget::compute_budget::Priority;
 use ic_stable_structures::StableBTreeMap;
 
-use crate::handler::gen_ticket::Instruction;
 use crate::handler::mint_token::MintTokenRequest;
 use crate::types::{
     Chain, ChainId, ChainState, Factor, Ticket, TicketId, ToggleState, Token, TokenId,
@@ -31,6 +33,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
 };
+use time::OffsetDateTime;
 
 pub type CanisterId = Principal;
 pub type Owner = String;
@@ -216,114 +219,22 @@ pub struct Seqs {
     pub next_directive_seq: u64,
 }
 
-#[derive(CandidType, Clone, Debug, Deserialize, Serialize, Default, PartialEq, Eq)]
-pub struct MultiRpcConfig {
-    pub rpc_list: Vec<String>,
-    pub minimum_response_count: u32,
+#[derive(candid::CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct RpcProvider {
+    pub host: String,
+    pub api_key_param: Option<String>,
+    pub headers: Option<Vec<HttpHeader>>,
 }
 
-impl MultiRpcConfig {
-    pub fn new(rpc_list: Vec<String>, minimum_response_count: u32) -> Result<Self, String> {
-        let s = Self {
-            rpc_list,
-            minimum_response_count,
-        };
-        s.check_config_valid()?;
-
-        Ok(s)
-    }
-
-    pub fn check_config_valid(&self) -> Result<(), String> {
-        if self.minimum_response_count == 0 {
-            return Err("minimum_response_count should be greater than 0".to_string());
-        }
-        if self.rpc_list.len() < self.minimum_response_count as usize {
-            return Err(
-                "rpc_list length should be greater than minimum_response_count".to_string(),
-            );
-        }
-        Ok(())
-    }
-
-    pub fn valid_and_get_result(
-        &self,
-        response_list: &Vec<anyhow::Result<String>>,
-    ) -> Result<Vec<Instruction>, String> {
-        self.check_config_valid()?;
-        let mut tx_list = vec![];
-
-        for response in response_list {
-            log!(
-                DEBUG,
-                "[state::valid_and_get_result] input response: {:?}",
-                response
-            );
-            match response {
-                Ok(resp) => match serde_json::from_str::<JsonRpcResponse<TransactionDetail>>(&resp)
-                {
-                    Ok(t) => {
-                        if let Some(e) = t.error {
-                            log!(
-                                DEBUG,
-                                "[state::valid_and_get_result] json rpc error: {:?}",
-                                e
-                            );
-                            continue;
-                        } else {
-                            match t.result {
-                                None => {
-                                    log!(DEBUG, "[state::valid_and_get_result] tx result is None ",);
-                                    continue;
-                                }
-                                Some(tx_detail) => {
-                                    log!(
-                                        DEBUG,
-                                        "[state::valid_and_get_result] tx detail: {:?}",
-                                        tx_detail
-                                    );
-                                    tx_list.push(tx_detail.transaction.message.instructions);
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        log!(
-                            ERROR,
-                            "[state::valid_and_get_result] serde_json::from_str error: {:?}",
-                            e.to_string()
-                        );
-                        continue;
-                    }
-                },
-                Err(e) => {
-                    log!(
-                        ERROR,
-                        "[state::valid_and_get_result] response error: {:?}",
-                        e.to_string()
-                    );
-                    continue;
-                }
-            }
-        }
-
-        if tx_list.len() < self.minimum_response_count as usize {
-            return Err(format!(
-                "Not enough valid response, expected: {}, actual: {}",
-                self.minimum_response_count,
-                tx_list.len()
-            ));
-        }
-
-        // The minimum_response_count should greater than 0
-        let mut i = 1;
-        while i < tx_list.len() {
-            if tx_list[i - 1] != tx_list[i] {
-                return Err("Response mismatch".to_string());
-            }
-            i += 1;
-        }
-
-        Ok(tx_list[0].to_owned())
+impl RpcProvider {
+    pub fn rpc_url(&self) -> String {
+        format!(
+            "https://{}{}",
+            self.host,
+            self.api_key_param
+                .clone()
+                .map_or("".into(), |param| format!("/?{}", param))
+        )
     }
 }
 
@@ -360,11 +271,14 @@ pub struct SolanaRouteState {
     pub active_tasks: HashSet<TaskType>,
     pub admin: Principal,
     pub caller_perms: HashMap<String, Permission>,
-    pub multi_rpc_config: MultiRpcConfig,
-    pub forward: Option<String>,
+
     pub enable_debug: bool,
     pub priority: Option<Priority>,
     pub key_type: KeyType,
+
+    pub providers: Vec<RpcProvider>,
+    pub proxy: String,
+    pub minimum_response_count: u32,
 
     // stable storage
     #[serde(skip, default = "crate::memory::init_ticket_queue")]
@@ -407,12 +321,13 @@ impl From<InitArgs> for SolanaRouteState {
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             fee_account: args.fee_account.unwrap_or(FEE_ACCOUNT.to_string()),
             solana_client_cache: None,
-            multi_rpc_config: MultiRpcConfig::default(),
-            forward: None,
+
             enable_debug: false,
             priority: Some(Priority::None),
             key_type: KeyType::ChainKey,
-
+            providers: args.providers,
+            proxy: args.proxy,
+            minimum_response_count: args.minimum_response_count,
             // init stable storage
             tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
             tickets_failed_to_hub: StableBTreeMap::init(crate::memory::get_failed_tickets_memory()),
@@ -518,4 +433,86 @@ pub fn replace_state(state: SolanaRouteState) {
     STATE.with(|s| {
         *s.borrow_mut() = Some(state);
     });
+}
+
+pub fn http_log(req: HttpRequest, enable_debug: bool) -> HttpResponse {
+    use std::str::FromStr;
+    let max_skip_timestamp = match req.raw_query_param("time") {
+        Some(arg) => match u64::from_str(arg) {
+            Ok(value) => value,
+            Err(_) => {
+                return HttpResponseBuilder::bad_request()
+                    .with_body_and_content_length("failed to parse the 'time' parameter")
+                    .build()
+            }
+        },
+        None => 0,
+    };
+
+    let limit = match req.raw_query_param("limit") {
+        Some(arg) => match u64::from_str(arg) {
+            Ok(value) => value,
+            Err(_) => {
+                return HttpResponseBuilder::bad_request()
+                    .with_body_and_content_length("failed to parse the 'time' parameter")
+                    .build()
+            }
+        },
+        None => 1000,
+    };
+
+    let offset = match req.raw_query_param("offset") {
+        Some(arg) => match u64::from_str(arg) {
+            Ok(value) => value,
+            Err(_) => {
+                return HttpResponseBuilder::bad_request()
+                    .with_body_and_content_length("failed to parse the 'time' parameter")
+                    .build()
+            }
+        },
+        None => 0,
+    };
+
+    let mut entries: Log = Default::default();
+    if enable_debug {
+        merge_log(&mut entries, &DEBUG_BUF, LogPriority::DEBUG);
+    }
+    merge_log(&mut entries, &INFO_BUF, LogPriority::INFO);
+    merge_log(&mut entries, &WARNING_BUF, LogPriority::WARNING);
+    merge_log(&mut entries, &ERROR_BUF, LogPriority::ERROR);
+    merge_log(&mut entries, &CRITICAL_BUF, LogPriority::CRITICAL);
+    entries
+        .entries
+        .retain(|entry| entry.timestamp >= max_skip_timestamp);
+    entries
+        .entries
+        .sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+    let logs = entries
+        .entries
+        .into_iter()
+        .skip(offset as usize)
+        .take(limit as usize)
+        .collect::<Vec<_>>();
+    HttpResponseBuilder::ok()
+        .header("Content-Type", "application/json; charset=utf-8")
+        .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())
+        .build()
+}
+
+fn merge_log(entries: &mut Log, buffer: &'static GlobalBuffer, priority: LogPriority) {
+    let canister_id = ic_cdk::api::id();
+    for entry in export_logs(buffer) {
+        entries.entries.push(LogEntry {
+            timestamp: entry.timestamp,
+            canister_id: canister_id.to_string(),
+            time_str: OffsetDateTime::from_unix_timestamp_nanos(entry.timestamp as i128)
+                .unwrap()
+                .to_string(),
+            counter: entry.counter,
+            priority: priority,
+            file: entry.file.to_string(),
+            line: entry.line,
+            message: entry.message,
+        });
+    }
 }
