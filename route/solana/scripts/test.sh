@@ -214,7 +214,7 @@ echo "fee amount: $FEE_AMOUNT lamports"
 # second, burn token
 CUSTOMS_RECEIVER="D58qMHmDAoEaviG8s9VmGwRhcw2z1apJHt6RnPtgxdVj"
 # WALLET_ADDRESS=~/.config/solana/boern.json
-BURN_AMOUNT=11111111
+BURN_AMOUNT=1111111
 # echo spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $WALLET_ADDRESS
 # # echo $(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $OWNER)
 # SIGNAURE=$(spl-token burn $ATA $BURN_AMOUNT  --with-memo $CUSTOMS_RECEIVER  --owner $WALLET_ADDRESS)
@@ -311,14 +311,14 @@ echo "TOKEN_BALANCE is : $TOKEN_BALANCE"
 sleep 15
 
 
-sig="4FjfBGwCfqQL5iXy4mWkNQ29fQXmZ1NNcoFC8o2y5S7J1PQa7vjC27a9Mg12Y6j43p7CirYmczoJtfBE3UworXHj"
-dfx canister call solana_route get_transaction "(\"${sig}\")" 
+sig="4tZapjUCNhrhHpHKRcn1giFxsjL7JVd3L9N2Yk7A6BLHTWx8rG9FHYHg1aX33L8tYjksAWVwjQ3nJadXwTuhuyxK"
+# dfx canister call solana_route get_transaction "(\"${sig}\")" 
 dfx canister call solana_route get_raw_transaction "(\"${sig}\")" 
 dfx canister call solana_route get_tx_instructions "(\"${sig}\")" 
 
 # dfx canister call solana_route valid_tx_from_multi_rpc "(\"${sig}\")" 
 # finally,generate ticket and send to hub
-SIGNATURE="4FjfBGwCfqQL5iXy4mWkNQ29fQXmZ1NNcoFC8o2y5S7J1PQa7vjC27a9Mg12Y6j43p7CirYmczoJtfBE3UworXHj"
+SIGNATURE="4tZapjUCNhrhHpHKRcn1giFxsjL7JVd3L9N2Yk7A6BLHTWx8rG9FHYHg1aX33L8tYjksAWVwjQ3nJadXwTuhuyxK"
 dfx canister call solana_route generate_ticket "(record {
         signature=\"$SIGNATURE\";
         action = variant { Redeem };

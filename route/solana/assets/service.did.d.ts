@@ -312,6 +312,7 @@ export interface UpgradeArgs {
   'providers' : [] | [Array<RpcProvider>],
   'chain_state' : [] | [ChainState],
   'proxy' : [] | [string],
+  'minimum_response_count' : [] | [number],
 }
 export interface _SERVICE {
   'gen_tickets_req' : ActorMethod<[string], [] | [GenerateTicketReq]>,

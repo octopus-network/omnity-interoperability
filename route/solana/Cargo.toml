@@ -28,11 +28,12 @@ ic-canister-log = "0.2"
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
 ic-crypto-ed25519 = { package = "ic-ed25519", version = "0.2.0" }
 ic-management-canister-types = "0.1.0"
-ic-spl = { path = "/home/boern/workspace/ultraspace/ic-spl" }
-# ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/metaplex", package = "ic-solana" }
-ic-solana = { path = "/home/boern/workspace/ultraspace/ic-solana/src/ic-solana" }
-# omnity-types = { git = "https://github.com/octopus-network/omnity-types.git" }
-omnity-types = { path = "/home/boern/workspace/ultraspace/omnity-types" }
+ic-spl = { git = "https://github.com/octopus-network/ic-spl.git" }
+# ic-spl = { path = "/home/boern/workspace/ultraspace/ic-spl" }
+ic-solana = { git = "https://github.com/octopus-network/ic-solana/", branch = "feature/omnity-solana", package = "ic-solana" }
+# ic-solana = { path = "/home/boern/workspace/ultraspace/ic-solana/src/ic-solana" }
+omnity-types = { git = "https://github.com/octopus-network/omnity-types.git" }
+# omnity-types = { path = "/home/boern/workspace/ultraspace/omnity-types" }
 
 
 futures = "0.3.30"

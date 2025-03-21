@@ -117,11 +117,7 @@ fn build_rpc_service<P: Serialize + Clone>(method: RpcRequest, params: P) -> Rpc
                     .clone()
                     .map_or("".into(), |param| format!("/?{}", param))
             );
-            log!(
-                DEBUG,
-                "[solana_rpc::build_rpc_service] network: {}",
-                network,
-            );
+
             let payload = method.build_json(next_request_id(), params.clone());
             let idempotency_key = hash_with_sha256(&format!("{}{}", p.host, payload));
             let mut headers = vec![
@@ -137,11 +133,7 @@ fn build_rpc_service<P: Serialize + Clone>(method: RpcRequest, params: P) -> Rpc
             if let Some(p_headers) = p.headers.as_ref() {
                 headers.extend(p_headers.iter().cloned());
             }
-            log!(
-                DEBUG,
-                "[solana_rpc::build_rpc_service] headers: {:?}",
-                headers,
-            );
+
             RpcApi {
                 network,
                 headers: Some(headers),
@@ -324,14 +316,6 @@ impl SolanaClient {
 
         let config = None::<Option<RpcConfig>>;
 
-        // let params = Some(RpcSimulateTransactionConfig {
-        //     sig_verify: false,
-        //     replace_recent_blockhash: true,
-        //     commitment: Some(CommitmentLevel::Confirmed),
-        //     encoding: Some(UiTransactionEncoding::Base64),
-        //     ..Default::default()
-        // });
-
         let params = None::<Option<RpcSimulateTransactionConfig>>;
         let source = build_rpc_service(
             RpcRequest::SimulateTransaction,
@@ -510,7 +494,6 @@ impl SolanaClient {
         signature: String,
         // forward: Option<String>,
     ) -> anyhow::Result<Vec<u8>> {
-    
         let config = None::<Option<RpcConfig>>;
         let params = Some(RpcTransactionConfig {
             encoding: Some(UiTransactionEncoding::JsonParsed),

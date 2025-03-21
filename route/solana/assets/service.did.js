@@ -19,6 +19,7 @@ export const idlFactory = ({ IDL }) => {
     'providers' : IDL.Opt(IDL.Vec(RpcProvider)),
     'chain_state' : IDL.Opt(ChainState),
     'proxy' : IDL.Opt(IDL.Text),
+    'minimum_response_count' : IDL.Opt(IDL.Nat32),
   });
   const InitArgs = IDL.Record({
     'admin' : IDL.Principal,
@@ -394,6 +395,7 @@ export const init = ({ IDL }) => {
     'providers' : IDL.Opt(IDL.Vec(RpcProvider)),
     'chain_state' : IDL.Opt(ChainState),
     'proxy' : IDL.Opt(IDL.Text),
+    'minimum_response_count' : IDL.Opt(IDL.Nat32),
   });
   const InitArgs = IDL.Record({
     'admin' : IDL.Principal,

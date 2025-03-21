@@ -164,6 +164,18 @@ pub async fn query_key_type() -> SnorKeyType {
 
 // devops method
 #[update(guard = "is_admin", hidden = true)]
+pub async fn update_minimum_response_count(count: u32) {
+    mutate_state(|s| s.minimum_response_count = count)
+}
+
+// devops method
+#[update(guard = "is_admin", hidden = true)]
+pub async fn minimum_response_count() -> u32 {
+    read_state(|s| s.minimum_response_count)
+}
+
+// devops method
+#[update(guard = "is_admin", hidden = true)]
 pub async fn update_key_type(key_type: SnorKeyType) {
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,

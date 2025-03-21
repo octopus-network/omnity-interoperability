@@ -272,10 +272,9 @@ pub async fn update_mint_account_status(sig: String, token_id: String) {
                 if let Some(account) = s.token_mint_accounts.get(&token_id).as_mut() {
                     // if update statue is up to the RETRY_4_STATUS and the tx is droped , rebuild the account
                     if account.retry_4_status > RETRY_4_STATUS {
-                        log!(
-                                WARNING,
-                                "[token_account::update_mint_account_status] retry for get_signature_status up to limit size :{} ,and need to rebuild the account",
-                                RETRY_4_STATUS,);
+                        log!(WARNING,
+                            "[token_account::update_mint_account_status] retry for get_signature_status up to limit size :{} ,and need to rebuild the account",
+                            RETRY_4_STATUS,);
                         account.status = TxStatus::New;
                         account.retry_4_building = 0;
                         account.retry_4_status = 0;

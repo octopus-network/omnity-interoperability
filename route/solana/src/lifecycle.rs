@@ -27,7 +27,7 @@ pub struct InitArgs {
     pub fee_account: Option<String>,
     pub providers: Vec<RpcProvider>,
     pub proxy: String,
-    pub minimum_response_count:u32
+    pub minimum_response_count: u32,
 }
 
 pub fn init(args: InitArgs) {
@@ -65,6 +65,7 @@ pub struct UpgradeArgs {
     pub fee_account: Option<String>,
     pub providers: Option<Vec<RpcProvider>>,
     pub proxy: Option<String>,
+    pub minimum_response_count: Option<u32>,
 }
 
 pub fn post_upgrade(args: Option<UpgradeArgs>) {
@@ -115,6 +116,9 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         }
         if let Some(proxy) = args.proxy {
             state.proxy = proxy;
+        }
+        if let Some(minimum_response_count) = args.minimum_response_count {
+            state.minimum_response_count = minimum_response_count;
         }
     }
 

@@ -297,6 +297,7 @@ type UpgradeArgs = record {
   providers : opt vec RpcProvider;
   chain_state : opt ChainState;
   proxy : opt text;
+  minimum_response_count : opt nat32;
 };
 service : (RouteArg) -> {
   gen_tickets_req : (text) -> (opt GenerateTicketReq) query;

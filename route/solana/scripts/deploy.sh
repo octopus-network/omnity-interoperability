@@ -95,15 +95,38 @@ dfx deploy solana_route --argument "(variant { Init = record { \
 --mode=reinstall -y
 
 
-# dfx canister install $SOLANA_ROUTE_CANISTER_ID --argument '(null)' \
-#     --mode=upgrade -y \
+# dfx deploy solana_route --argument '(variant { Upgrade = null})' --mode=upgrade -y 
 
-dfx deploy solana_route --argument '(variant { Upgrade = null})' --mode=upgrade -y 
+dfx canister install solana_route --argument "(opt variant { Upgrade = record { \
+    admin = opt principal \"${ADMIN}\";\
+    chain_id=opt \"${CHAIN_ID}\";\
+    hub_principal= opt principal \"${HUB_CANISTER_ID}\";\
+    chain_state= opt variant { Active }; \
+    schnorr_key_name = opt \"${SCHNORR_KEY_NAME}\"; \
+    sol_canister = opt principal \"${SOL_PROVIDER_CANISTER_ID}\";\
+    fee_account= opt \"${FEE_ACCOUNT}\"; 
+    providers= opt vec{
+        record{host=\"${HELIUS_RPC_HOST}\"; api_key_param=opt \"${HELIUS_API_KEY}\"; headers=null;};
+        record{host=\"${ALCHEMY_RPC_HOST}\"; api_key_param=null; headers=null;};
+        record{host=\"${SOLANA_RPC_HOST}\"; api_key_param=null; headers=null;}; 
+         record{host=\"${SNOW_RPC_HOST}\"; 
+                api_key_param=null; 
+                headers=opt vec{record{name=\"api-key\"; value=\"5a89f7b5-4679-4ac3-a516-000b64ed0bc8\";}};
+                }; 
+        };
+    proxy= opt \"${PROXY_URL}\";
+    minimum_response_count= opt 3;
+} })" \
+--mode=upgrade -y \
+--wasm=./assets/solana_route.wasm.gz
+
 
 SOLANA_ROUTE_CANISTER_ID=$(dfx canister id solana_route)
 echo "Solana route canister id: $SOLANA_ROUTE_CANISTER_ID"
 dfx canister status $SOLANA_ROUTE_CANISTER_ID 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID provider '()'
+dfx canister call $SOLANA_ROUTE_CANISTER_ID minimum_response_count '()'
+# dfx canister call $SOLANA_ROUTE_CANISTER_ID update_minimum_response_count '(3:nat32)'
 dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '(variant { ChainKey })' 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID signer '(variant { Native })' 
 dfx canister call $SOLANA_ROUTE_CANISTER_ID get_latest_blockhash '()'
