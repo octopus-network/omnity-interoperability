@@ -17,6 +17,7 @@ serde_json = "^1.0.117"
 serde_bytes = "^0.11.14"
 ic-cdk-timers = "0.6"
 ic-stable-structures = "0.6"
+ic-management-canister-types = "0.1.0"
 thiserror = "1"
 anyhow = "1.0.86"
 strum_macros = "0.25.3"
@@ -27,11 +28,7 @@ bs58 = "0.5.1"
 futures = "0.3.30"
 ic-canister-log = "0.2"
 ic-canisters-http-types = { git = "https://github.com/dfinity/ic", package = "ic-canisters-http-types" }
-ic-solana = { git = "https://github.com/octopus-network/ic-solana/", package = "ic-solana", branch = "feature/support_solana_customs"}
-
-[patch.crates-io.curve25519-dalek]
-git = "https://github.com/solana-labs/curve25519-dalek.git"
-rev = "b500cdc2a920cd5bff9e2dd974d7b97349d61464"
+ic-solana = { git = "https://github.com/octopus-network/ic-solana/", package = "ic-solana", branch = "feature/omnity-solana"}
 
 [profile.release]
 debug = false

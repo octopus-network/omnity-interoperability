@@ -2,15 +2,16 @@ use std::str::FromStr;
 
 use crate::{
     address::payer_address_path,
+    management,
     port_native::{self, instruction::InstSerialize, port_address, vault_address},
-    state::read_state,
+    state::{mutate_state, read_state},
     SYSTEM_PROGRAM_ID,
 };
 use ic_canister_log::log;
 use ic_cdk::api::{call::call_with_payment, management_canister::http_request::HttpHeader};
 use ic_solana::{
-    eddsa::{sign_with_eddsa, KeyType},
     logs::DEBUG,
+    request::RpcRequest,
     rpc_client::{RpcApi, RpcConfig, RpcResult, RpcServices},
     types::{
         tagged::{EncodedConfirmedTransactionWithStatusMeta, EncodedTransaction, UiTransaction},
@@ -19,37 +20,28 @@ use ic_solana::{
         Transaction, TransactionStatus, UiTransactionEncoding,
     },
 };
+use serde::Serialize;
 use serde_bytes::ByteBuf;
+use sha2::Digest;
 
 const CYCLE_COST: u64 = 10_000_000_000;
 
 pub async fn query_transaction(signature: String) -> Result<UiTransaction, String> {
-    let (sol_canister, providers) = read_state(|s| (s.sol_canister, s.providers.clone()));
-    // We can directly access normal RPC because query_transaction does not have consensus issues.
-    let source = RpcServices::Custom(
-        providers
-            .iter()
-            .map(|p| RpcApi {
-                network: p.rpc_url(),
-                headers: None,
-            })
-            .collect(),
-    );
-    let tx_config = RpcTransactionConfig {
+    let sol_canister = read_state(|s| s.sol_canister);
+    let params = Some(RpcTransactionConfig {
         encoding: Some(UiTransactionEncoding::Json),
         commitment: None,
         max_supported_transaction_version: None,
-    };
+    });
+    let source = RpcServices::Custom(proxy_rpc_api_list(
+        RpcRequest::GetTransaction,
+        (signature.clone(), params.clone()),
+    ));
     let result =
         call_with_payment::<_, (RpcResult<Option<EncodedConfirmedTransactionWithStatusMeta>>,)>(
             sol_canister,
             "sol_getTransaction",
-            (
-                source,
-                None::<Option<RpcConfig>>,
-                signature,
-                Some(tx_config),
-            ),
+            (source, None::<Option<RpcConfig>>, signature, params),
             CYCLE_COST,
         )
         .await
@@ -86,24 +78,21 @@ pub async fn send_transaction(
 
     let (sol_canister, key_name) = read_state(|s| (s.sol_canister, s.schnorr_key_name.clone()));
     for i in 0..paths.len() {
-        let signature = sign_with_eddsa(
-            &KeyType::ChainKey,
-            key_name.clone(),
-            paths[i].clone(),
-            tx.message_data(),
-        )
-        .await;
+        let signature =
+            management::sign_with_eddsa(key_name.clone(), paths[i].clone(), tx.message_data())
+                .await;
         tx.add_signature(i, Signature::try_from(signature).unwrap());
     }
 
     log!(
         DEBUG,
-        "[solana_client::get_compute_units] signed_tx : {:?} and string : {:?}",
+        "[solana_client::send_transaction] signed_tx : {:?} and string : {:?}",
         tx,
         tx.to_string()
     );
 
-    let rpc_list = proxy_rpc_api_list();
+    let params = None::<Option<RpcSendTransactionConfig>>;
+    let rpc_list = proxy_rpc_api_list(RpcRequest::SendTransaction, (tx.to_string(), params));
     let signature = call_with_payment::<_, (RpcResult<String>,)>(
         sol_canister,
         "sol_sendTransaction",
@@ -112,7 +101,7 @@ pub async fn send_transaction(
             RpcServices::Custom(vec![rpc_list[0].clone()]),
             None::<Option<RpcConfig>>,
             tx.to_string(),
-            None::<Option<RpcSendTransactionConfig>>,
+            params,
         ),
         CYCLE_COST,
     )
@@ -128,18 +117,20 @@ pub async fn get_signature_status(
     signatures: Vec<String>,
 ) -> Result<Vec<Option<TransactionStatus>>, String> {
     let sol_canister = read_state(|s| s.sol_canister);
+    let params = Some(RpcSignatureStatusConfig {
+        search_transaction_history: true,
+    });
     let result = call_with_payment::<_, (RpcResult<Vec<Option<TransactionStatus>>>,)>(
         sol_canister,
         "sol_getSignatureStatuses",
         (
-            // Using normal RPC will not allow consensus to be reached
-            // due to inconsistent slots.
-            RpcServices::Custom(proxy_rpc_api_list()),
+            RpcServices::Custom(proxy_rpc_api_list(
+                RpcRequest::GetSignatureStatuses,
+                (signatures.clone(), params.clone()),
+            )),
             None::<Option<RpcConfig>>,
             signatures,
-            Some(RpcSignatureStatusConfig {
-                search_transaction_history: true,
-            }),
+            params,
         ),
         CYCLE_COST,
     )
@@ -216,22 +207,21 @@ pub async fn redeem(ticket_id: String, receiver: Pubkey, amount: u64) -> Result<
 
 pub async fn eddsa_public_key(derived_path: Vec<ByteBuf>) -> Pubkey {
     let schnorr_key_name = read_state(|s| s.schnorr_key_name.to_owned());
-
-    let pk =
-        ic_solana::eddsa::eddsa_public_key(KeyType::ChainKey, schnorr_key_name, derived_path).await;
+    let pk = management::eddsa_public_key(schnorr_key_name, derived_path).await;
     Pubkey::try_from(pk.as_slice()).unwrap()
 }
 
 async fn get_latest_block_hash() -> Result<String, String> {
     let sol_canister = read_state(|s| s.sol_canister);
-    let rpc_list = proxy_rpc_api_list();
+    let params = None::<Option<RpcContextConfig>>;
+    let rpc_list = proxy_rpc_api_list(RpcRequest::GetLatestBlockhash, (params,));
     let result = call_with_payment::<_, (RpcResult<RpcBlockhash>,)>(
         sol_canister,
         "sol_getLatestBlockhash",
         (
             RpcServices::Custom(vec![rpc_list[0].clone()]),
             None::<Option<RpcConfig>>,
-            None::<Option<RpcContextConfig>>,
+            params,
         ),
         CYCLE_COST,
     )
@@ -243,22 +233,44 @@ async fn get_latest_block_hash() -> Result<String, String> {
     Ok(result.blockhash)
 }
 
-fn proxy_rpc_api_list() -> Vec<RpcApi> {
-    let (proxy_rpc, providers) = read_state(|s| (s.proxy_rpc.clone(), s.providers.clone()));
+fn proxy_rpc_api_list<P: Serialize + Clone>(method: RpcRequest, params: P) -> Vec<RpcApi> {
+    let (proxy_rpc, providers, request_id) = mutate_state(|s| {
+        (
+            s.proxy_rpc.clone(),
+            s.providers.clone(),
+            s.next_request_id(),
+        )
+    });
     providers
         .iter()
-        .map(|p| RpcApi {
-            network: format!(
-                "{}{}",
-                proxy_rpc,
-                p.api_key_param
-                    .clone()
-                    .map_or("".into(), |param| format!("/?{}", param))
-            ),
-            headers: Some(vec![HttpHeader {
-                name: "x-forwarded-host".into(),
-                value: p.host.clone(),
-            }]),
+        .map(|p| {
+            let payload = method.build_json(request_id, params.clone());
+            let idempotency_key = hash_with_sha256(&format!("{}{}", p.host, payload));
+            RpcApi {
+                network: format!(
+                    "{}{}",
+                    proxy_rpc,
+                    p.api_key_param
+                        .clone()
+                        .map_or("".into(), |param| format!("/?{}", param))
+                ),
+                headers: Some(vec![
+                    HttpHeader {
+                        name: "x-forwarded-host".into(),
+                        value: p.host.clone(),
+                    },
+                    HttpHeader {
+                        name: "idempotency-key".into(),
+                        value: idempotency_key,
+                    },
+                ]),
+            }
         })
         .collect()
+}
+
+pub fn hash_with_sha256(input: &str) -> String {
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(input.as_bytes());
+    hex::encode(hasher.finalize())
 }

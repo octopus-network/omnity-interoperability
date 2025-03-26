@@ -71,18 +71,6 @@ pub struct RpcProvider {
     pub api_key_param: Option<String>,
 }
 
-impl RpcProvider {
-    pub fn rpc_url(&self) -> String {
-        format!(
-            "https://{}{}",
-            self.host,
-            self.api_key_param
-                .clone()
-                .map_or("".into(), |param| format!("/?{}", param))
-        )
-    }
-}
-
 #[derive(Deserialize, Serialize)]
 pub struct CustomsState {
     pub chain_id: String,
@@ -107,6 +95,9 @@ pub struct CustomsState {
 
     #[serde(skip)]
     pub active_tasks: HashSet<TaskType>,
+
+    #[serde(skip_deserializing)]
+    pub next_request_id: u64,
 
     #[serde(skip, default = "crate::memory::init_finalized_requests")]
     pub finalized_requests: StableBTreeMap<TicketId, ReleaseTokenReq, VMem>,
@@ -133,6 +124,7 @@ impl From<InitArgs> for CustomsState {
             next_ticket_seq: 0,
             next_directive_seq: 0,
             active_tasks: Default::default(),
+            next_request_id: 0,
             finalized_requests: init_finalized_requests(),
             finalized_gen_tickets: init_finalized_gen_tickets(),
         }
@@ -158,6 +150,11 @@ impl CustomsState {
         } else if let Some(chain) = self.counterparties.get_mut(&toggle.chain_id) {
             chain.chain_state = toggle.action.into();
         }
+    }
+
+    pub fn next_request_id(&mut self) -> u64 {
+        self.next_request_id += 1;
+        self.next_request_id
     }
 }
 
