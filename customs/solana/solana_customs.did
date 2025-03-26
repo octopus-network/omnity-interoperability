@@ -37,7 +37,6 @@ type InitArgs = record {
   proxy_rpc : text;
   providers : vec RpcProvider;
   chain_state : ChainState;
-  forward : opt text;
   min_response_count : nat32;
 };
 type ReleaseTokenStatus = variant {

@@ -23,7 +23,6 @@ pub struct InitArgs {
     pub chain_state: ChainState,
     pub providers: Vec<RpcProvider>,
     pub proxy_rpc: String,
-    pub forward: Option<String>,
     pub min_response_count: u32,
     pub port_program_id: String,
 }

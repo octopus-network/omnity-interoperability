@@ -120,14 +120,15 @@ pub async fn get_signature_status(
     let params = Some(RpcSignatureStatusConfig {
         search_transaction_history: true,
     });
+    let rpc_list = proxy_rpc_api_list(
+        RpcRequest::GetSignatureStatuses,
+        (signatures.clone(), params.clone()),
+    );
     let result = call_with_payment::<_, (RpcResult<Vec<Option<TransactionStatus>>>,)>(
         sol_canister,
         "sol_getSignatureStatuses",
         (
-            RpcServices::Custom(proxy_rpc_api_list(
-                RpcRequest::GetSignatureStatuses,
-                (signatures.clone(), params.clone()),
-            )),
+            RpcServices::Custom(vec![rpc_list[0].clone()]),
             None::<Option<RpcConfig>>,
             signatures,
             params,
