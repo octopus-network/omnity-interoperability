@@ -96,7 +96,6 @@ pub struct CustomsState {
     #[serde(skip)]
     pub active_tasks: HashSet<TaskType>,
 
-    #[serde(skip_deserializing)]
     pub next_request_id: u64,
 
     #[serde(skip, default = "crate::memory::init_finalized_requests")]
