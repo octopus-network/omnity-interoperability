@@ -609,7 +609,7 @@ async fn finalize_rune_txs() {
             let wait_time = finalization_time_estimate(s.min_confirmations, s.btc_network);
             s.submitted_transactions
                 .iter()
-                .filter(|&req| (req.submitted_at + (wait_time.as_nanos() as u64) < now))
+                .filter(|&req| req.submitted_at != 0u64 && (req.submitted_at + (wait_time.as_nanos() as u64) < now))
                 .map(|req| (req.txid, req.clone()))
                 .collect()
         });
@@ -842,6 +842,11 @@ async fn finalize_rune_txs() {
             }
         };
 
+
+        let  gaurd = scopeguard::guard((), |_| {
+            mutate_state(|s|state::audit::stop_transaction(old_txid, s));
+        });
+
         match management::send_transaction(&signed_tx, btc_network).await {
             Ok(()) => {
                 if old_txid == new_txid {
@@ -873,12 +878,10 @@ async fn finalize_rune_txs() {
                     btc_change_output: btc_change,
                     fee_per_vbyte: Some(tx_fee_per_vbyte),
                 };
-
-                let  _ = scopeguard::guard((), |_| {
-                    state::mutate_state(|s| {
-                        state::audit::replace_transaction(s, old_txid, new_tx);
-                    });
+                state::mutate_state(|s| {
+                    state::audit::replace_transaction(s, old_txid, new_tx);
                 });
+                scopeguard::ScopeGuard::into_inner(gaurd);
             }
             Err(err) => {
                 log!(ERROR, "[finalize_requests]: failed to send transaction bytes {} to replace stuck transaction {}: {}",

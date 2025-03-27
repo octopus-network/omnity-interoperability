@@ -182,6 +182,10 @@ pub enum Event {
     UpdateIcpswap { principal: Principal },
     #[serde(rename = "set_mpc_principal")]
     SetMpcPrincipal { principal: Principal },
+
+    #[serde(rename = "stop_retry_btc_transaction")]
+    StopRetryBtcTransaction { tx_id: Txid },
+
 }
 
 #[derive(Debug)]
@@ -437,6 +441,14 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::SetMpcPrincipal { principal } => {
                 state.mpc_principal = Some(principal);
+            }
+            Event::StopRetryBtcTransaction { tx_id } => {
+                if let Some(pos) = state
+                    .submitted_transactions
+                    .iter()
+                    .position(|tx| &tx.txid == &tx_id) {
+                    state.submitted_transactions[pos].submitted_at = 0u64;
+                };
             }
         }
     }

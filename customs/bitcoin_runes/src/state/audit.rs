@@ -166,6 +166,11 @@ pub fn replace_transaction(
     state.replace_transaction(&old_txid, new_tx);
 }
 
+pub fn stop_transaction(txid: Txid,state: &mut CustomsState,) {
+    record_event(&Event::StopRetryBtcTransaction {tx_id: txid.clone()});
+    state.stop_retry_transaction(txid);
+}
+
 pub fn update_fee(state: &mut CustomsState, fee: Factor) {
     record_event(&Event::UpdatedFee { fee: fee.clone() });
     match fee {

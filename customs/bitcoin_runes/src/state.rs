@@ -969,6 +969,15 @@ impl CustomsState {
         self.rev_replacement_txid.insert(new_txid, *old_txid);
     }
 
+    pub fn stop_retry_transaction(&mut self, txid: Txid) {
+        let Some(pos) = self
+            .submitted_transactions
+            .iter()
+            .position(|tx| &tx.txid == &txid) else {
+            return;
+        };
+        self.submitted_transactions[pos].submitted_at = 0u64;
+    }
     /// Returns the identifier of the most recent replacement transaction for the given stuck
     /// transaction id.
     pub fn find_last_replacement_tx(&self, txid: &Txid) -> Option<&Txid> {
