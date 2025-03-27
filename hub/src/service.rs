@@ -465,6 +465,11 @@ pub async fn get_pending_tickets(
     Ok(pending_tickets)
 }
 
+#[query]
+pub async fn admin() -> String {
+    with_state(|s| s.admin.to_text())
+}
+
 fn main() {}
 
 ic_cdk::export_candid!();
