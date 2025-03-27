@@ -9,7 +9,7 @@ use crate::{
     state::{mutate_state, read_state},
 };
 use ic_canister_log::log;
-use ic_solana::logs::{DEBUG, ERROR};
+use crate::logs::{DEBUG, ERROR};
 
 /// query directives from hub and save to route state
 pub async fn query_directives() {

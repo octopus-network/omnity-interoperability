@@ -18,7 +18,7 @@ use ic_solana::types::TransactionConfirmationStatus;
 
 use crate::constants::{RETRY_4_STATUS, TAKE_SIZE};
 use ic_canister_log::log;
-use ic_solana::logs::{CRITICAL, DEBUG, WARNING};
+use crate::logs::{CRITICAL, DEBUG, WARNING};
 
 #[derive(CandidType, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MintTokenError {

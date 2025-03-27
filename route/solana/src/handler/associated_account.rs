@@ -17,7 +17,7 @@ use ic_solana::types::TransactionConfirmationStatus;
 
 use crate::constants::{RETRY_4_BUILDING, RETRY_4_STATUS, TAKE_SIZE};
 use ic_canister_log::log;
-use ic_solana::logs::{DEBUG, ERROR, WARNING};
+use crate::logs::{DEBUG, ERROR, WARNING};
 
 pub async fn create_associated_account() {
     let tickets = read_state(|s| {

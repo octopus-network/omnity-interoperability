@@ -13,7 +13,7 @@ use crate::solana_client::update_with_metaplex;
 
 use crate::state::{mutate_state, read_state};
 use ic_canister_log::log;
-use ic_solana::logs::{DEBUG, ERROR, WARNING};
+use crate::logs::{DEBUG, ERROR, WARNING};
 
 use crate::solana_client::solana_client;
 

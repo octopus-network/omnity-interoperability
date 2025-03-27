@@ -221,7 +221,6 @@ BURN_AMOUNT=1111111
 # SIGNAURE=$(echo "$SIGNAURE" | awk '/Signature:/ {line=$2} END {print line}')
 # echo "burn signature: $SIGNAURE"
 
-SOLANA_RPC_URL="https://solana-devnet.g.alchemy.com/v2/ClRAj3-CPTvcl7CljBv-fdtwhVK-XWYQ"
 SOLANA_RPC_URL="https://api.devnet.solana.com"
 KEYPAIR=$(bat -p ~/.config/solana/boern.json)
 echo "redeem tx vars:"
@@ -236,18 +235,18 @@ echo "owner_account: $SOL_RECEIVER"
 echo "burn_amount: $BURN_AMOUNT"
 echo "memo_msg: $CUSTOMS_RECEIVER"
 
-python ./scripts/redeem_tx.py \
-  --rpc_url $SOLANA_RPC_URL \
-  --keypair $KEYPAIR \
-  --from_account $SOL_RECEIVER \
-  --fee_account $FEE_ACCOUNT \
-  --fee_amount $FEE_AMOUNT \
-  --token_mint $TOKEN_MINT \
-  --burn_account $ATA \
-  --owner_account $SOL_RECEIVER \
-  --burn_amount $BURN_AMOUNT \
-  --memo_msg $CUSTOMS_RECEIVER | \
-  echo "Transaction Output: $(cat)"
+# python ./scripts/redeem_tx.py \
+#   --rpc_url $SOLANA_RPC_URL \
+#   --keypair $KEYPAIR \
+#   --from_account $SOL_RECEIVER \
+#   --fee_account $FEE_ACCOUNT \
+#   --fee_amount $FEE_AMOUNT \
+#   --token_mint $TOKEN_MINT \
+#   --burn_account $ATA \
+#   --owner_account $SOL_RECEIVER \
+#   --burn_amount $BURN_AMOUNT \
+#   --memo_msg $CUSTOMS_RECEIVER | \
+#   echo "Transaction Output: $(cat)"
 
 sleep 30
 # check minto token result

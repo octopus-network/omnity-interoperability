@@ -11,7 +11,7 @@ use crate::{
 use crate::handler::mint_token::mint_token;
 use ic_canister_log::log;
 use ic_cdk::spawn;
-use ic_solana::logs::{ERROR, INFO};
+use crate::logs::{ERROR, INFO};
 
 /// handler tickets from customs to solana
 pub async fn query_tickets() {

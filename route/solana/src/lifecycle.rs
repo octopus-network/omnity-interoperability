@@ -1,4 +1,4 @@
-use crate::migration::{migrate, PreState};
+// use crate::migration::{migrate, PreState};
 
 use crate::state::RpcProvider;
 use crate::types::ChainState;
@@ -85,7 +85,7 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     // Deserialize pre state
     // let pre_state: PreState =
     //     ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-    // // migrate
+    // migrate
     // let mut state = migrate(pre_state);
 
     // update state

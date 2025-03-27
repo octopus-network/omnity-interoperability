@@ -14,7 +14,7 @@ use solana_rpc::{SolanaClient, TokenInfo};
 
 use crate::eddsa::KeyType;
 
-use ic_solana::logs::DEBUG;
+use crate::logs::DEBUG;
 
 use ic_solana::types::{Pubkey, TransactionStatus};
 use ic_spl::token::constants::token_program_id;
@@ -192,7 +192,6 @@ pub async fn mint_to_with_req(req: MintTokenRequest) -> Result<String, CallError
     );
     Ok(signature)
 }
-
 
 // create mint token account with token metadata
 pub async fn update_with_metaplex(token_mint: String, req: TokenInfo) -> Result<String, CallError> {

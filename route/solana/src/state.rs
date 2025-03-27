@@ -1,6 +1,7 @@
 use crate::constants::IC_GATEWAY;
 use crate::eddsa::KeyType;
 use crate::handler::gen_ticket::GenerateTicketReq;
+
 use crate::memory::Memory;
 use crate::solana_client::solana_rpc::{SolanaClient, TxError};
 use crate::{
@@ -10,13 +11,8 @@ use crate::{
     lifecycle::InitArgs,
 };
 use candid::{CandidType, Principal};
-use ic_canister_log::{export as export_logs, GlobalBuffer};
-use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
+
 use ic_cdk::api::management_canister::http_request::HttpHeader;
-use ic_solana::logs::{
-    Log, LogEntry, Priority as LogPriority, CRITICAL_BUF, DEBUG_BUF, ERROR_BUF, INFO_BUF,
-    WARNING_BUF,
-};
 use ic_spl::compute_budget::compute_budget::Priority;
 use ic_stable_structures::StableBTreeMap;
 
@@ -33,7 +29,6 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
 };
-use time::OffsetDateTime;
 
 pub type CanisterId = Principal;
 pub type Owner = String;
@@ -433,86 +428,4 @@ pub fn replace_state(state: SolanaRouteState) {
     STATE.with(|s| {
         *s.borrow_mut() = Some(state);
     });
-}
-
-pub fn http_log(req: HttpRequest, enable_debug: bool) -> HttpResponse {
-    use std::str::FromStr;
-    let max_skip_timestamp = match req.raw_query_param("time") {
-        Some(arg) => match u64::from_str(arg) {
-            Ok(value) => value,
-            Err(_) => {
-                return HttpResponseBuilder::bad_request()
-                    .with_body_and_content_length("failed to parse the 'time' parameter")
-                    .build()
-            }
-        },
-        None => 0,
-    };
-
-    let limit = match req.raw_query_param("limit") {
-        Some(arg) => match u64::from_str(arg) {
-            Ok(value) => value,
-            Err(_) => {
-                return HttpResponseBuilder::bad_request()
-                    .with_body_and_content_length("failed to parse the 'time' parameter")
-                    .build()
-            }
-        },
-        None => 1000,
-    };
-
-    let offset = match req.raw_query_param("offset") {
-        Some(arg) => match u64::from_str(arg) {
-            Ok(value) => value,
-            Err(_) => {
-                return HttpResponseBuilder::bad_request()
-                    .with_body_and_content_length("failed to parse the 'time' parameter")
-                    .build()
-            }
-        },
-        None => 0,
-    };
-
-    let mut entries: Log = Default::default();
-    if enable_debug {
-        merge_log(&mut entries, &DEBUG_BUF, LogPriority::DEBUG);
-    }
-    merge_log(&mut entries, &INFO_BUF, LogPriority::INFO);
-    merge_log(&mut entries, &WARNING_BUF, LogPriority::WARNING);
-    merge_log(&mut entries, &ERROR_BUF, LogPriority::ERROR);
-    merge_log(&mut entries, &CRITICAL_BUF, LogPriority::CRITICAL);
-    entries
-        .entries
-        .retain(|entry| entry.timestamp >= max_skip_timestamp);
-    entries
-        .entries
-        .sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
-    let logs = entries
-        .entries
-        .into_iter()
-        .skip(offset as usize)
-        .take(limit as usize)
-        .collect::<Vec<_>>();
-    HttpResponseBuilder::ok()
-        .header("Content-Type", "application/json; charset=utf-8")
-        .with_body_and_content_length(serde_json::to_string(&logs).unwrap_or_default())
-        .build()
-}
-
-fn merge_log(entries: &mut Log, buffer: &'static GlobalBuffer, priority: LogPriority) {
-    let canister_id = ic_cdk::api::id();
-    for entry in export_logs(buffer) {
-        entries.entries.push(LogEntry {
-            timestamp: entry.timestamp,
-            canister_id: canister_id.to_string(),
-            time_str: OffsetDateTime::from_unix_timestamp_nanos(entry.timestamp as i128)
-                .unwrap()
-                .to_string(),
-            counter: entry.counter,
-            priority: priority,
-            file: entry.file.to_string(),
-            line: entry.line,
-            message: entry.message,
-        });
-    }
 }

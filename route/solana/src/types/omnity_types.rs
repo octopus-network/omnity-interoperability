@@ -233,7 +233,106 @@ impl core::fmt::Display for Ticket {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
+pub struct TicketWithMemo {
+    pub ticket_id: TicketId,
+    pub ticket_type: TicketType,
+    pub ticket_time: Timestamp,
+    pub src_chain: ChainId,
+    pub dst_chain: ChainId,
+    pub action: TxAction,
+    pub token: TokenId,
+    pub amount: String,
+    pub sender: Option<Account>,
+    pub receiver: Account,
+    pub memo: Memo,
+}
+
+impl Storable for TicketWithMemo {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut bytes = vec![];
+        let _ = ciborium::ser::into_writer(self, &mut bytes);
+        Cow::Owned(bytes)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        let ticket = ciborium::de::from_reader(bytes.as_ref()).expect("failed to decode Ticket");
+        ticket
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl core::fmt::Display for TicketWithMemo {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(
+            f,
+            "\nticket id:{} \nticket type:{:?} \ncreated time:{} \nsrc chain:{} \ndst_chain:{} \naction:{:?} \ntoken:{} \namount:{} \nsender:{:?} \nrecevier:{} \nmemo:{:?}",
+            self.ticket_id,
+            self.ticket_type,
+            self.ticket_time,
+            self.src_chain,
+            self.dst_chain,
+            self.action,
+            self.token,
+            self.amount,
+            self.sender,
+            self.receiver,
+            self.memo,
+        )
+    }
+}
+
+impl From<Ticket> for TicketWithMemo {
+    fn from(ticket: Ticket) -> Self {
+        let memo = match ticket.memo {
+            Some(bytes) => {
+                let memo_str = String::from_utf8_lossy(&bytes);
+                serde_json::from_str(&memo_str).unwrap_or_default()
+            }
+            None => Memo::default(),
+        };
+
+        TicketWithMemo {
+            ticket_id: ticket.ticket_id,
+            ticket_type: ticket.ticket_type,
+            ticket_time: ticket.ticket_time,
+            src_chain: ticket.src_chain,
+            dst_chain: ticket.dst_chain,
+            action: ticket.action,
+            token: ticket.token,
+            amount: ticket.amount,
+            sender: ticket.sender,
+            receiver: ticket.receiver,
+            memo,
+        }
+    }
+}
+
+impl From<TicketWithMemo> for Ticket {
+    fn from(ticket_with_memo: TicketWithMemo) -> Self {
+        let memo_json = serde_json::to_string_pretty(&ticket_with_memo.memo).unwrap_or_default();
+        Ticket {
+            ticket_id: ticket_with_memo.ticket_id,
+            ticket_type: ticket_with_memo.ticket_type,
+            ticket_time: ticket_with_memo.ticket_time,
+            src_chain: ticket_with_memo.src_chain,
+            dst_chain: ticket_with_memo.dst_chain,
+            action: ticket_with_memo.action,
+            token: ticket_with_memo.token,
+            amount: ticket_with_memo.amount,
+            sender: ticket_with_memo.sender,
+            receiver: ticket_with_memo.receiver,
+            memo: Some(memo_json.into_bytes()),
+        }
+    }
+}
+
+#[derive(
+    CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 pub struct Memo {
     pub memo: Option<String>,
     pub bridge_fee: u128,

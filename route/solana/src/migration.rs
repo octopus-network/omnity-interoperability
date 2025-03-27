@@ -67,6 +67,8 @@ pub fn migrate(pre_state: PreState) -> SolanaRouteState {
         enable_debug: pre_state.enable_debug,
         priority: pre_state.priority,
         key_type: pre_state.key_type,
+
+        //new fields
         providers: vec![],
         proxy: String::default(),
         minimum_response_count: 1,

@@ -1,6 +1,7 @@
 use crate::constants::RPC_CYCLE_COST;
 use crate::eddsa::{eddsa_public_key, KeyType};
 use crate::eddsa::{hash_with_sha256, sign_with_eddsa};
+use crate::logs::DEBUG;
 use crate::state::read_state;
 use anyhow::anyhow;
 use anyhow::Error;
@@ -10,7 +11,6 @@ use ic_canister_log::log;
 use ic_cdk::api;
 use ic_cdk::api::call::call_with_payment;
 use ic_cdk::api::management_canister::http_request::HttpHeader;
-use ic_solana::logs::DEBUG;
 use ic_solana::request::RpcRequest;
 use ic_solana::rpc_client::{RpcApi, RpcConfig, RpcServices};
 use ic_solana::types::tagged::{
@@ -107,6 +107,7 @@ pub struct SolanaClient {
 
 fn build_rpc_service<P: Serialize + Clone>(method: RpcRequest, params: P) -> RpcServices {
     let (proxy, providers) = read_state(|s| (s.proxy.to_owned(), s.providers.to_owned()));
+
     let rpc_apis: Vec<_> = providers
         .iter()
         .map(|p| {
@@ -140,6 +141,7 @@ fn build_rpc_service<P: Serialize + Clone>(method: RpcRequest, params: P) -> Rpc
             }
         })
         .collect();
+
     RpcServices::Custom(rpc_apis[0..1].to_vec())
 }
 
@@ -159,8 +161,9 @@ impl SolanaClient {
         let source = build_rpc_service(RpcRequest::GetLatestBlockhash, (params,));
         log!(
             DEBUG,
-            "[solana_rpc::get_latest_blockhash] rpc sources: {:?}",
+            "[solana_rpc::get_latest_blockhash] rpc sources: {:?},sol_canister_id: {}",
             source,
+            self.sol_canister_id.to_text()
         );
         let response = call_with_payment::<_, (RpcResult<RpcBlockhash>,)>(
             self.sol_canister_id,

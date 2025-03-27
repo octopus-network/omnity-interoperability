@@ -21,7 +21,7 @@ use crate::{
 };
 
 use ic_canister_log::log;
-use ic_solana::logs::{DEBUG, ERROR, WARNING};
+use crate::logs::{DEBUG, ERROR, WARNING};
 // use omnity_types::address;
 use serde_json::from_value;
 use serde_json::Value;

@@ -50,3 +50,4 @@ opt-level = 's'
 # omnity-types = { git = "https://github.com/octopus-network/omnity-types.git" }
 # ic-crypto-ed25519 = { git = "https://github.com/dfinity/ic", package = "ic-crypto-ed25519" }
 urlencoding = "2.1"
+proptest = "1.6.0"

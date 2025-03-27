@@ -327,7 +327,6 @@ export interface _SERVICE {
   'get_signature_status' : ActorMethod<[Array<string>], Result_5>,
   'get_token_list' : ActorMethod<[], Array<TokenResp>>,
   'get_transaction' : ActorMethod<[string], Result_6>,
-  'get_tx_instructions' : ActorMethod<[string], Result_3>,
   'mint_token_req' : ActorMethod<[string], Result_7>,
   'mint_token_status' : ActorMethod<[string], Result_8>,
   'mint_token_tx_hash' : ActorMethod<[string], Result_9>,

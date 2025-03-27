@@ -1,4 +1,4 @@
-use crate::auth::{is_admin, set_perms, Permission};
+use crate::auth::{auth_update, is_admin};
 use crate::call_error::{CallError, Reason};
 use crate::constants::RETRY_4_BUILDING;
 use crate::eddsa::KeyType;
@@ -23,9 +23,9 @@ use crate::handler::{scheduler, token_account};
 use crate::lifecycle::{self, RouteArg, UpgradeArgs};
 
 use crate::state::{
-    http_log, AccountInfo, AtaKey, RpcProvider, SnorKeyType, TokenMeta, TokenResp, KEY_TYPE_NAME,
+    AccountInfo, AtaKey, RpcProvider, SnorKeyType, TokenMeta, TokenResp, KEY_TYPE_NAME,
 };
-use crate::types::{TicketId, Token, TokenId};
+use crate::types::{TicketId, TicketWithMemo, Token, TokenId};
 
 use crate::service::mint_token::MintTokenRequest;
 use crate::state::MintAccount;
@@ -39,11 +39,11 @@ use ic_spl::token::associated_account::get_associated_token_address_with_program
 use ic_solana::types::Pubkey;
 use std::str::FromStr;
 
+use crate::logs::{http_log, DEBUG, ERROR};
 use crate::state::Seqs;
 use crate::state::TokenUri;
 use crate::types::Factor;
 use ic_canisters_http_types::{HttpRequest, HttpResponse, HttpResponseBuilder};
-use ic_solana::logs::{DEBUG, ERROR};
 use ic_spl::token::constants::token_program_id;
 use std::time::Duration;
 
@@ -133,6 +133,18 @@ pub async fn update_schnorr_key(key_name: String) {
 }
 
 // devops method
+#[query(guard = "is_admin", hidden = true)]
+pub async fn proxy() -> String {
+    read_state(|s| s.proxy.to_owned())
+}
+
+// devops method
+#[update(guard = "is_admin", hidden = true)]
+pub async fn update_proxy(proxy: String) {
+    mutate_state(|s| s.proxy = proxy)
+}
+
+// devops method
 #[update(guard = "is_admin", hidden = true)]
 pub async fn update_providers(providers: Vec<RpcProvider>) {
     mutate_state(|s| s.providers = providers)
@@ -146,7 +158,7 @@ pub async fn provider() -> Vec<RpcProvider> {
 
 // devops method
 #[update(guard = "is_admin", hidden = true)]
-pub async fn query_priority() -> Option<Priority> {
+pub async fn priority() -> Option<Priority> {
     read_state(|s| s.priority.to_owned())
 }
 
@@ -158,20 +170,8 @@ pub async fn update_priority(priority: Priority) {
 
 // devops method
 #[update(guard = "is_admin", hidden = true)]
-pub async fn query_key_type() -> SnorKeyType {
+pub async fn key_type() -> SnorKeyType {
     read_state(|s| s.key_type.to_owned().into())
-}
-
-// devops method
-#[update(guard = "is_admin", hidden = true)]
-pub async fn update_minimum_response_count(count: u32) {
-    mutate_state(|s| s.minimum_response_count = count)
-}
-
-// devops method
-#[update(guard = "is_admin", hidden = true)]
-pub async fn minimum_response_count() -> u32 {
-    read_state(|s| s.minimum_response_count)
 }
 
 // devops method
@@ -185,6 +185,18 @@ pub async fn update_key_type(key_type: SnorKeyType) {
         }
     };
     mutate_state(|s| s.key_type = key_type)
+}
+
+// devops method
+#[update(guard = "is_admin", hidden = true)]
+pub async fn minimum_response_count() -> u32 {
+    read_state(|s| s.minimum_response_count)
+}
+
+// devops method
+#[update(guard = "is_admin", hidden = true)]
+pub async fn update_minimum_response_count(count: u32) {
+    mutate_state(|s| s.minimum_response_count = count)
 }
 
 // devops method
@@ -324,7 +336,7 @@ async fn get_raw_transaction(
 }
 
 // devops method
-#[update(guard = "is_admin")]
+#[update(guard = "is_admin",hidden = true)]
 async fn get_tx_instructions(
     signature: String,
     // forward: Option<String>,
@@ -797,7 +809,7 @@ pub async fn update_mint_account(
 pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> {
     log!(
         DEBUG,
-        "[service::update_token_metaplex]  token_info: {:?} ",
+        "[service::update_token_metaplex] token_info: {:?} ",
         req,
     );
     // token_mint must be exists
@@ -1616,33 +1628,19 @@ pub fn get_failed_ticket_to_hub(ticket_id: String) -> Option<Ticket> {
 
 // devops method
 // when gen ticket and send it to hub failed ,call this method
-#[update(guard = "is_admin", hidden = true)]
-pub async fn send_failed_ticket_to_hub(ticket_id: String) -> Result<(), GenerateTicketError> {
-    if let Some(ticket) = read_state(|rs| rs.tickets_failed_to_hub.get(&ticket_id)) {
-        let hub_principal = read_state(|s| (s.hub_principal));
-        match send_ticket(hub_principal, ticket.to_owned()).await {
-            Ok(()) => {
-                mutate_state(|state| state.tickets_failed_to_hub.remove(&ticket_id));
-                log!(
-                    DEBUG,
-                    "[service::send_failed_ticket_to_hub] successfully resend ticket : {} ",
-                    ticket_id
-                );
-                return Ok(());
-            }
-            Err(err) => {
-                log!(
-                    ERROR,
-                    "[service::send_failed_ticket_to_hub] failed to resend ticket: {}, error: {:?}",
-                    ticket_id,
-                    err
-                );
-                return Err(GenerateTicketError::SendTicketErr(format!("{}", err)));
-            }
+#[update(guard = "auth_update", hidden = true)]
+pub async fn send_failed_ticket_to_hub(ticket: TicketWithMemo) -> Result<(), GenerateTicketError> {
+    let ticket: Ticket = ticket.into();
+    let hub_principal = read_state(|s| (s.hub_principal));
+    match send_ticket(hub_principal, ticket.to_owned()).await {
+        Ok(()) => {
+            mutate_state(|state| state.tickets_failed_to_hub.remove(&ticket.ticket_id));
+            return Ok(());
+        }
+        Err(err) => {
+            return Err(GenerateTicketError::SendTicketErr(format!("{}", err)));
         }
     }
-
-    Ok(())
 }
 
 // devops method
@@ -1666,9 +1664,17 @@ pub async fn update_seqs(seqs: Seqs) {
 }
 
 // devops method
+#[query(guard = "is_admin", hidden = true)]
+pub async fn sol_canister() -> Principal {
+    read_state(|s| s.sol_canister)
+}
+
+// devops method
 #[update(guard = "is_admin", hidden = true)]
-pub async fn set_permissions(caller: Principal, perm: Permission) {
-    set_perms(caller.to_string(), perm)
+pub async fn update_sol_canister(sol_canister: Principal) {
+    mutate_state(|s| {
+        s.sol_canister = sol_canister;
+    })
 }
 
 // devops method

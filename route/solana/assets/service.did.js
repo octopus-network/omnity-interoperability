@@ -362,7 +362,6 @@ export const idlFactory = ({ IDL }) => {
     'get_signature_status' : IDL.Func([IDL.Vec(IDL.Text)], [Result_5], []),
     'get_token_list' : IDL.Func([], [IDL.Vec(TokenResp)], ['query']),
     'get_transaction' : IDL.Func([IDL.Text], [Result_6], []),
-    'get_tx_instructions' : IDL.Func([IDL.Text], [Result_3], []),
     'mint_token_req' : IDL.Func([IDL.Text], [Result_7], ['query']),
     'mint_token_status' : IDL.Func([IDL.Text], [Result_8], ['query']),
     'mint_token_tx_hash' : IDL.Func([IDL.Text], [Result_9], ['query']),

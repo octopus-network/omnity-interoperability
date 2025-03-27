@@ -5,6 +5,7 @@ pub mod eddsa;
 pub mod guard;
 pub mod handler;
 pub mod lifecycle;
+pub mod logs;
 pub mod memory;
 pub mod migration;
 pub mod service;
