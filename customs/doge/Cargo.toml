@@ -1,6 +1,6 @@
 [package]
 name = "doge_customs"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 [lib]
@@ -17,7 +17,7 @@ bitcoin = { version = "=0.32.2", default-features = false, features = [
 # bitcoin = { version = "=0.32.2", features = ["rand", "serde", "std", "secp-lowmemory"] }
 bitcoin-io = "=0.1.2"
 # candid = { workspace = true }
-candid = { version = "0.10" }
+candid = { version = "0.10.10" }
 # ciborium = { workspace = true }
 ciborium = "0.2.1"
 hex = { package = "hex-conservative", version = "0.2", default-features = false, features = [

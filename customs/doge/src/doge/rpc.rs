@@ -236,14 +236,7 @@ impl DogeRpc {
             )
         )?;
 
-        let path = if parsed_rpc_url.path().eq("/") {
-            // if no path, it'll failed, so we add a default path
-            "/api"
-        } else {
-            parsed_rpc_url.path()
-        };
-
-        request.url = format!("{}{}", PROXY_URL, path);
+        request.url = format!("{}{}", PROXY_URL, parsed_rpc_url.path());
 
         let request_hasher: CanisterHttpRequestArgumentHasher = request.clone().into();
         

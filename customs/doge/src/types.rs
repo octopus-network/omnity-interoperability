@@ -271,6 +271,13 @@ pub async fn http_request_with_retry(
         let response = match http_request(request.clone(), 60_000_000_000).await {
             Ok((response,)) => response,
             Err(e) => {
+                let mut request_filter_api_key = request.clone();
+                request_filter_api_key.headers = request_filter_api_key
+                    .headers
+                    .into_iter()
+                    .filter(|h| !h.name.contains("api-key"))
+                    .collect();
+
                 log!(
                     WARNING,
                     "http request error, request: {:?} \n, error {:?}",
