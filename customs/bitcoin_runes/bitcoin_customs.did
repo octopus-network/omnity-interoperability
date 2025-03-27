@@ -356,6 +356,7 @@ service : (CustomArg) -> {
   get_platform_fee : (text) -> (opt nat, opt text) query;
   get_runes_oracles : () -> (vec principal) query;
   get_token_list : () -> (vec TokenResp) query;
+  get_xpub_key : () -> (ECDSAPublicKey) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   remove_error_etching : (text) -> ();
   remove_error_ticket : (text) -> ();
