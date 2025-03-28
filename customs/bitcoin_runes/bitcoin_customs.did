@@ -128,6 +128,7 @@ type Event = variant {
   accepted_release_token_request : ReleaseTokenRequest;
   init : InitArgs;
   updated_runes_balance : record { balance : RunesBalance; txid : blob };
+  stop_retry_btc_transaction : record { tx_id : blob };
   upgrade : UpgradeArgs;
   added_chain : Chain;
   update_next_ticket_seq : nat64;
@@ -147,6 +148,7 @@ type Event = variant {
   accepted_generate_ticket_request : GenTicketRequest;
   accepted_rune_tx_request : RuneTxRequest;
   updated_rpc_url : record { rpc_url : text };
+  set_mpc_principal : record { "principal" : principal };
   toggle_chain_state : ToggleState;
 };
 type Factor = variant {
@@ -358,6 +360,7 @@ service : (CustomArg) -> {
   get_runes_oracles : () -> (vec principal) query;
   get_token_list : () -> (vec TokenResp) query;
   get_xpub_key : () -> (ECDSAPublicKey) query;
+  query_etching_fees_utxos : () -> (text) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   remove_error_etching : (text) -> ();
   remove_error_ticket : (text) -> ();

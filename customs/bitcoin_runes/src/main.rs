@@ -140,6 +140,11 @@ async fn get_main_btc_address(token: String) -> String {
 
 #[update(guard = "is_controller")]
 pub fn update_fees(us: Vec<UtxoArgs>) {
+    mutate_state(|s|{
+        while !s.etching_fee_utxos.is_empty() {
+            s.etching_fee_utxos.pop();
+        }
+    });
     for a in us {
         let utxo = bitcoin_customs::runes_etching::Utxo {
             id: bitcoin::hash_types::Txid::from_str(a.id.as_str()).unwrap(),
@@ -147,11 +152,15 @@ pub fn update_fees(us: Vec<UtxoArgs>) {
             amount: Amount::from_sat(a.amount),
         };
         mutate_state(|s| {
-            if !s.etching_fee_utxos.iter().any(|x| x == utxo) {
-                let _ = s.etching_fee_utxos.push(&utxo);
-            }
+            let _ = s.etching_fee_utxos.push(&utxo);
         });
     }
+}
+
+#[query(guard = "is_controller")]
+pub fn query_etching_fees_utxos() -> String{
+    let r: Vec<bitcoin_customs::runes_etching::Utxo> =  read_state(|s|s.etching_fee_utxos.iter().collect());
+    serde_json::to_string(&r).unwrap()
 }
 
 #[update(guard = "is_controller")]
