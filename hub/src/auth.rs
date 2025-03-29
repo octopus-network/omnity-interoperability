@@ -30,8 +30,7 @@ pub fn is_runes_oracle() -> Result<(), String> {
 pub fn auth_update() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
     with_state(|s| {
-        if s.admin != caller
-            && !ic_cdk::api::is_controller(&caller)
+        if !ic_cdk::api::is_controller(&caller)
             && !s
                 .caller_perms
                 .get(&caller.to_string())
@@ -47,9 +46,7 @@ pub fn auth_update() -> Result<(), String> {
 pub fn auth_query() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
     with_state(|s| {
-        if s.admin != caller
-            && !ic_cdk::api::is_controller(&caller)
-            && !s.caller_perms.contains_key(&caller.to_string())
+        if !ic_cdk::api::is_controller(&caller) && !s.caller_perms.contains_key(&caller.to_string())
         {
             Err("Unauthorized!".into())
         } else {
