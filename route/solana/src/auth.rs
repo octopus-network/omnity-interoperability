@@ -2,7 +2,7 @@ use candid::CandidType;
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{mutate_state, read_state};
+use crate::state::mutate_state;
 
 #[derive(CandidType, Copy, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub enum Permission {
@@ -10,28 +10,19 @@ pub enum Permission {
     Update,
 }
 
-pub fn is_admin() -> Result<(), String> {
-    let caller = ic_cdk::api::caller();
-    read_state(|s| {
-        if s.admin == caller
-            || ic_cdk::api::is_controller(&caller)
-            || s.caller_perms
-                .get(&caller.to_string())
-                .is_some_and(|perm| *perm == Permission::Update)
-        {
-            Ok(())
-        } else {
-            Err("Not Admin!".into())
-        }
-    })
+pub fn is_controller() -> Result<(), String> {
+    if ic_cdk::api::is_controller(&ic_cdk::caller()) {
+        Ok(())
+    } else {
+        Err("caller is not controller".to_string())
+    }
 }
 
 pub fn auth_update() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
 
     mutate_state(|s| {
-        if s.admin != caller
-            && !ic_cdk::api::is_controller(&caller)
+        if !ic_cdk::api::is_controller(&caller)
             && !s
                 .caller_perms
                 .get(&caller.to_string())
@@ -47,9 +38,7 @@ pub fn auth_update() -> Result<(), String> {
 pub fn auth_query() -> Result<(), String> {
     let caller = ic_cdk::api::caller();
     mutate_state(|s| {
-        if s.admin != caller
-            && !ic_cdk::api::is_controller(&caller)
-            && !s.caller_perms.contains_key(&caller.to_string())
+        if !ic_cdk::api::is_controller(&caller) && !s.caller_perms.contains_key(&caller.to_string())
         {
             Err("Unauthorized!".into())
         } else {

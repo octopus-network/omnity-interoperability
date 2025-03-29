@@ -300,7 +300,6 @@ type UpgradeArgs = record {
   minimum_response_count : opt nat32;
 };
 service : (RouteArg) -> {
-  gen_tickets_req : (text) -> (opt GenerateTicketReq) query;
   generate_ticket : (GenerateTicketReq) -> (Result);
   get_account_info : (text) -> (Result_1);
   get_balance : (text) -> (Result_2);

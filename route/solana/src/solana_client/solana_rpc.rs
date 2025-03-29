@@ -159,12 +159,7 @@ impl SolanaClient {
         let config = None::<Option<RpcConfig>>;
         let params = None::<Option<RpcContextConfig>>;
         let source = build_rpc_service(RpcRequest::GetLatestBlockhash, (params,));
-        log!(
-            DEBUG,
-            "[solana_rpc::get_latest_blockhash] rpc sources: {:?},sol_canister_id: {}",
-            source,
-            self.sol_canister_id.to_text()
-        );
+
         let response = call_with_payment::<_, (RpcResult<RpcBlockhash>,)>(
             self.sol_canister_id,
             "sol_getLatestBlockhash",

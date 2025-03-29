@@ -315,7 +315,6 @@ export interface UpgradeArgs {
   'minimum_response_count' : [] | [number],
 }
 export interface _SERVICE {
-  'gen_tickets_req' : ActorMethod<[string], [] | [GenerateTicketReq]>,
   'generate_ticket' : ActorMethod<[GenerateTicketReq], Result>,
   'get_account_info' : ActorMethod<[string], Result_1>,
   'get_balance' : ActorMethod<[string], Result_2>,

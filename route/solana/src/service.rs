@@ -1,4 +1,4 @@
-use crate::auth::{auth_update, is_admin};
+use crate::auth::{auth_update, is_controller};
 use crate::call_error::{CallError, Reason};
 use crate::constants::RETRY_4_BUILDING;
 use crate::eddsa::KeyType;
@@ -105,27 +105,27 @@ fn post_upgrade(args: Option<RouteArg>) {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub fn start_schedule(tasks: Option<Vec<TaskType>>) {
     log!(DEBUG, "start schedule task: {:?} ... ", tasks);
     scheduler::start_schedule(tasks);
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub fn stop_schedule(tasks: Option<Vec<TaskType>>) {
     log!(DEBUG, "stop schedule task: {:?} ...", tasks);
     scheduler::stop_schedule(tasks);
 }
 
 // devops method
-#[query(guard = "is_admin", hidden = true)]
+#[query(guard = "is_controller", hidden = true)]
 pub async fn active_tasks() -> Vec<TaskType> {
     read_state(|s| s.active_tasks.iter().map(|t| t.to_owned()).collect())
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_schnorr_key(key_name: String) {
     mutate_state(|s| {
         s.schnorr_key_name = key_name;
@@ -133,49 +133,49 @@ pub async fn update_schnorr_key(key_name: String) {
 }
 
 // devops method
-#[query(guard = "is_admin", hidden = true)]
+#[query(guard = "is_controller", hidden = true)]
 pub async fn proxy() -> String {
     read_state(|s| s.proxy.to_owned())
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_proxy(proxy: String) {
     mutate_state(|s| s.proxy = proxy)
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_providers(providers: Vec<RpcProvider>) {
     mutate_state(|s| s.providers = providers)
 }
 
 // devops method
-#[query(guard = "is_admin", hidden = true)]
+#[query(guard = "is_controller", hidden = true)]
 pub async fn provider() -> Vec<RpcProvider> {
     read_state(|s| s.providers.to_owned())
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn priority() -> Option<Priority> {
     read_state(|s| s.priority.to_owned())
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_priority(priority: Priority) {
     mutate_state(|s| s.priority = Some(priority))
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn key_type() -> SnorKeyType {
     read_state(|s| s.key_type.to_owned().into())
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_key_type(key_type: SnorKeyType) {
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,
@@ -188,19 +188,19 @@ pub async fn update_key_type(key_type: SnorKeyType) {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn minimum_response_count() -> u32 {
     read_state(|s| s.minimum_response_count)
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_minimum_response_count(count: u32) {
     mutate_state(|s| s.minimum_response_count = count)
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn signer(key_type: SnorKeyType) -> Result<String, String> {
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,
@@ -218,7 +218,7 @@ pub async fn signer(key_type: SnorKeyType) -> Result<String, String> {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn sign(msg: String, key_type: SnorKeyType) -> Result<Vec<u8>, String> {
     let key_type = match key_type {
         SnorKeyType::ChainKey => KeyType::ChainKey,
@@ -269,13 +269,13 @@ fn get_token_list() -> Vec<TokenResp> {
 }
 
 // devops method
-#[query(guard = "is_admin", hidden = true)]
+#[query(guard = "auth_update", hidden = true)]
 fn get_token(token_id: TokenId) -> Option<Token> {
     read_state(|s| s.tokens.get(&token_id))
 }
 
 // devops method
-#[update(guard = "is_admin")]
+#[update(guard = "auth_update")]
 async fn get_latest_blockhash() -> Result<String, CallError> {
     let client = solana_client().await;
 
@@ -290,7 +290,7 @@ async fn get_latest_blockhash() -> Result<String, CallError> {
 }
 
 // devops method
-#[update(guard = "is_admin")]
+#[update(guard = "auth_update")]
 async fn get_transaction(
     signature: String,
     // forward: Option<String>,
@@ -306,7 +306,7 @@ async fn get_transaction(
 }
 
 // devops method
-#[update(guard = "is_admin")]
+#[update(guard = "auth_update")]
 async fn get_raw_transaction(
     signature: String,
     // forward: Option<String>,
@@ -336,7 +336,7 @@ async fn get_raw_transaction(
 }
 
 // devops method
-#[update(guard = "is_admin",hidden = true)]
+#[update(guard = "auth_update", hidden = true)]
 async fn get_tx_instructions(
     signature: String,
     // forward: Option<String>,
@@ -370,7 +370,7 @@ async fn get_tx_instructions(
 }
 
 // devops method
-#[update(guard = "is_admin")]
+#[update(guard = "auth_update")]
 async fn get_signature_status(
     signatures: Vec<String>,
 ) -> Result<Vec<Option<TransactionStatus>>, CallError> {
@@ -378,13 +378,13 @@ async fn get_signature_status(
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn transfer_to(to_account: String, amount: u64) -> Result<String, CallError> {
     crate::solana_client::transfer_to(to_account, amount).await
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn derive_mint_account(
     req: TokenInfo,
     key_type: SnorKeyType,
@@ -412,7 +412,7 @@ pub async fn derive_mint_account(
 }
 
 // devops method
-#[update(guard = "is_admin")]
+#[update(guard = "auth_update")]
 pub async fn get_account_info(account: String) -> Result<Option<UiAccount>, CallError> {
     let sol_client = solana_client().await;
 
@@ -504,7 +504,7 @@ pub async fn failed_ata() -> Vec<(AtaKey, AccountInfo)> {
 
 // devops method
 // add token manually
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn add_token(token: Token) -> Option<Token> {
     mutate_state(|s| {
         s.tokens
@@ -513,7 +513,7 @@ pub async fn add_token(token: Token) -> Option<Token> {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 fn update_token(token: Token) -> Result<Option<Token>, CallError> {
     mutate_state(|s| match s.tokens.get(&token.token_id) {
         None => Err(CallError {
@@ -531,7 +531,7 @@ fn update_token(token: Token) -> Result<Option<Token>, CallError> {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 fn remove_token_and_account(token_id: TokenId) {
     mutate_state(|s| {
         s.tokens.remove(&token_id);
@@ -540,7 +540,7 @@ fn remove_token_and_account(token_id: TokenId) {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn create_mint_account(
     req: TokenInfo,
     key_type: SnorKeyType,
@@ -696,7 +696,7 @@ pub async fn create_mint_account(
     }
 }
 
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn rebuild_mint_account(token_id: String) -> Result<String, CallError> {
     let token = read_state(|s| s.tokens.get(&token_id)).unwrap();
     let token_info = TokenInfo {
@@ -768,7 +768,7 @@ pub async fn rebuild_mint_account(token_id: String) -> Result<String, CallError>
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_mint_account_status(
     sig: String,
     token_id: String,
@@ -795,7 +795,7 @@ pub async fn update_mint_account_status(
     Ok(latest_account)
 }
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_mint_account(
     token_id: TokenId,
     mint_account: AccountInfo,
@@ -805,7 +805,7 @@ pub async fn update_mint_account(
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> {
     log!(
         DEBUG,
@@ -860,7 +860,7 @@ pub async fn update_token_metaplex(req: TokenInfo) -> Result<String, CallError> 
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn derive_aossicated_account(
     owner: String,
     token_mint: String,
@@ -911,7 +911,7 @@ pub async fn query_aossicated_account_address(
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn create_aossicated_account(
     owner: String,
     token_mint: String,
@@ -1068,7 +1068,7 @@ pub async fn create_aossicated_account(
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn rebuild_aossicated_account(
     owner: String,
     token_mint: String,
@@ -1150,7 +1150,7 @@ pub async fn rebuild_aossicated_account(
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_associated_account(
     owner: String,
     token_mint: String,
@@ -1185,7 +1185,7 @@ pub async fn update_associated_account(
     }
 }
 
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_ata_status(sig: String, ata_key: AtaKey) -> Result<AccountInfo, CallError> {
     let ata = if let Some(ata) = read_state(|s| s.associated_accounts.get(&ata_key)) {
         ata
@@ -1209,7 +1209,7 @@ pub async fn update_ata_status(sig: String, ata_key: AtaKey) -> Result<AccountIn
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn remove_associated_account(owner: String, token_mint: String) -> Result<(), CallError> {
     log!(
         DEBUG,
@@ -1248,7 +1248,7 @@ fn get_tickets_from_queue() -> Vec<(u64, Ticket)> {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn remove_ticket_from_quene(ticket_id: String) -> Option<Ticket> {
     mutate_state(|s| {
         let ticket = s
@@ -1315,7 +1315,7 @@ pub async fn mint_token_req(ticket_id: String) -> Result<MintTokenRequest, CallE
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "auth_update", hidden = true)]
 pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenRequest, CallError> {
     mutate_state(|s| {
         s.mint_token_requests
@@ -1335,7 +1335,7 @@ pub async fn update_mint_token_req(req: MintTokenRequest) -> Result<MintTokenReq
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn mint_to(ata: String, token_mint: String, amount: u64) -> Result<String, CallError> {
     let sol_client = solana_client().await;
     let associated_account = Pubkey::from_str(&ata).expect("Invalid ata address");
@@ -1366,7 +1366,7 @@ pub async fn failed_mint_reqs() -> Vec<(TicketId, MintTokenRequest)> {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "auth_update", hidden = true)]
 pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, CallError> {
     let mut req = match read_state(|s| s.mint_token_requests.get(&n_req.ticket_id)) {
         None => {
@@ -1448,7 +1448,7 @@ pub async fn mint_token_with_req(n_req: MintTokenRequest) -> Result<TxStatus, Ca
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn retry_mint_token(ticket_id: String) -> Result<String, CallError> {
     log!(
         DEBUG,
@@ -1517,7 +1517,7 @@ pub async fn retry_mint_token(ticket_id: String) -> Result<String, CallError> {
     ret
 }
 
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "auth_update", hidden = true)]
 pub async fn update_mint_token_status(
     ticket_id: String,
     sig: String,
@@ -1541,7 +1541,7 @@ pub async fn update_mint_token_status(
     Ok(latest_req)
 }
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "auth_update", hidden = true)]
 pub async fn update_tx_hash_to_hub(sig: String, ticket_id: String) -> Result<(), CallError> {
     let hub_principal = read_state(|s| s.hub_principal);
 
@@ -1575,7 +1575,7 @@ pub async fn get_fee_account() -> String {
 }
 
 // update collect fee account
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_fee_account(fee_account: String) {
     mutate_state(|s| s.fee_account = fee_account)
 }
@@ -1586,7 +1586,7 @@ pub fn get_redeem_fee(chain_id: ChainId) -> Option<u128> {
     read_state(|s| s.get_fee(chain_id))
 }
 
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_redeem_fee(fee: Factor) {
     mutate_state(|s| s.update_fee(fee))
 }
@@ -1598,19 +1598,19 @@ async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, Ge
 }
 
 // devops method
-#[query(guard = "is_admin")]
+#[query(hidden = true)]
 pub fn gen_tickets_req(signature: String) -> Option<GenerateTicketReq> {
     read_state(|s| s.gen_ticket_reqs.get(&signature))
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn remove_gen_tickets_req(signature: String) -> Option<GenerateTicketReq> {
     mutate_state(|state| state.gen_ticket_reqs.remove(&signature))
 }
 
 // devops method
-#[query(guard = "is_admin", hidden = true)]
+#[query(hidden = true)]
 pub fn get_failed_tickets_to_hub() -> Vec<Ticket> {
     read_state(|s| {
         s.tickets_failed_to_hub
@@ -1621,7 +1621,7 @@ pub fn get_failed_tickets_to_hub() -> Vec<Ticket> {
 }
 
 // devops method
-#[query(guard = "is_admin", hidden = true)]
+#[query(hidden = true)]
 pub fn get_failed_ticket_to_hub(ticket_id: String) -> Option<Ticket> {
     read_state(|s| s.tickets_failed_to_hub.get(&ticket_id))
 }
@@ -1644,19 +1644,19 @@ pub async fn send_failed_ticket_to_hub(ticket: TicketWithMemo) -> Result<(), Gen
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "auth_update", hidden = true)]
 pub async fn remove_failed_tickets_to_hub(ticket_id: String) -> Option<Ticket> {
     mutate_state(|state| state.tickets_failed_to_hub.remove(&ticket_id))
 }
 
 // devops method
-#[query(guard = "is_admin", hidden = true)]
+#[query(guard = "is_controller", hidden = true)]
 pub async fn seqs() -> Seqs {
     read_state(|s| s.seqs.to_owned())
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_seqs(seqs: Seqs) {
     mutate_state(|s| {
         s.seqs = seqs;
@@ -1664,13 +1664,13 @@ pub async fn update_seqs(seqs: Seqs) {
 }
 
 // devops method
-#[query(guard = "is_admin", hidden = true)]
+#[query(guard = "is_controller", hidden = true)]
 pub async fn sol_canister() -> Principal {
     read_state(|s| s.sol_canister)
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub async fn update_sol_canister(sol_canister: Principal) {
     mutate_state(|s| {
         s.sol_canister = sol_canister;
@@ -1678,7 +1678,7 @@ pub async fn update_sol_canister(sol_canister: Principal) {
 }
 
 // devops method
-#[update(guard = "is_admin", hidden = true)]
+#[update(guard = "is_controller", hidden = true)]
 pub fn debug(enable: bool) {
     mutate_state(|s| s.enable_debug = enable);
 }

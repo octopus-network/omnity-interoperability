@@ -346,11 +346,6 @@ export const idlFactory = ({ IDL }) => {
     'retry_4_status' : IDL.Nat64,
   });
   return IDL.Service({
-    'gen_tickets_req' : IDL.Func(
-        [IDL.Text],
-        [IDL.Opt(GenerateTicketReq)],
-        ['query'],
-      ),
     'generate_ticket' : IDL.Func([GenerateTicketReq], [Result], []),
     'get_account_info' : IDL.Func([IDL.Text], [Result_1], []),
     'get_balance' : IDL.Func([IDL.Text], [Result_2], []),
