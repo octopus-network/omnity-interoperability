@@ -3,8 +3,7 @@ use crate::{hub, ICP_TRANSFER_FEE};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use ic_crypto_sha2::Sha256;
 use ic_ledger_types::{
-    AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT,
-    MAINNET_LEDGER_CANISTER_ID,
+    AccountIdentifier, Subaccount as IcSubaccount, Tokens, DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID
 };
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::{Account, Subaccount};
@@ -40,7 +39,7 @@ pub enum GenerateTicketError {
     /// The redeem account does not hold the requested token amount.
     InsufficientFunds {
         ledger_id: Principal,
-        balance: u64,
+        balance: Nat,
     },
     /// The caller didn't approve enough funds for spending.
     InsufficientAllowance {
@@ -91,13 +90,7 @@ pub async fn generate_ticket(
         subaccount: req.from_subaccount,
     };
 
-    let block_index = if is_charge_icp_fee_by_icrc {
-        charge_icp_fee_by_icrc(user.clone(), &req.target_chain_id).await?
-    } else {
-        charge_icp_fee(caller, &req.target_chain_id).await?
-    };
-
-    log!(INFO, "successfully charged icp fee, block_index:{}", block_index);
+    ensure_balance_enough(&req).await?;
 
     let ticket_id = match req.action {
         TxAction::Mint => {
@@ -114,6 +107,22 @@ pub async fn generate_ticket(
     }?;
 
     log!(INFO, "successfully get ticket_id: {:?}", ticket_id);
+
+    let charge_icp_result = if is_charge_icp_fee_by_icrc {
+        charge_icp_fee_by_icrc(user.clone(), &req.target_chain_id).await
+    } else {
+        charge_icp_fee(caller, &req.target_chain_id).await
+    };
+
+    match charge_icp_result {
+        Ok(block_index) => {
+            log!(INFO, "successfully charged icp fee, block_index:{}", block_index);
+        },
+        Err(err) => {
+            // just record log, not block process
+            log!(ERROR, "Failed to charge icp fee: {:?}", err);
+        },
+    }
 
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     let action = req.action.clone();
@@ -188,7 +197,7 @@ async fn burn_token_icrc2(
         Ok(block_index) => Ok(block_index.0.to_u64().expect("nat does not fit into u64")),
         Err(TransferFromError::InsufficientFunds { balance }) => Err(GenerateTicketError::InsufficientFunds {
             ledger_id: ledger_id,
-            balance: balance.0.to_u64().expect("unreachable: ledger balance does not fit into u64")
+            balance: balance
         }),
         Err(TransferFromError::InsufficientAllowance { allowance }) => Err(GenerateTicketError::InsufficientAllowance {
             allowance: allowance.0.to_u64().expect("unreachable: ledger balance does not fit into u64")
@@ -261,6 +270,63 @@ pub async fn charge_icp_fee(
         .map_err(|(_, reason)| GenerateTicketError::TemporarilyUnavailable(reason))?
         .map_err(|err| GenerateTicketError::TransferFailure(err.to_string()))
         .map(|block_index| block_index.into())
+}
+
+pub async fn ensure_balance_enough(
+    req: &GenerateTicketReq,
+)->Result<(), GenerateTicketError> {
+
+    let ledger_id = read_state(|s| s.token_ledgers.get(&req.token_id).cloned().unwrap());
+
+    let icrc_client = ICRC1Client {
+        runtime: CdkRuntime,
+        ledger_canister_id: ledger_id,
+    };
+
+    let redeem_fee = read_state(|s| match s.target_chain_factor.get(&req.target_chain_id) {
+        Some(target_chain_factor) => s.fee_token_factor.map_or(
+            Err(GenerateTicketError::RedeemFeeNotSet),
+            |fee_token_factor| Ok((target_chain_factor * fee_token_factor) as u64),
+        ),
+        None => Err(GenerateTicketError::RedeemFeeNotSet),
+    })?;
+
+    let icp_balance = ic_balance_of(& req.from_subaccount.map(|e| IcSubaccount(e)).unwrap_or(DEFAULT_SUBACCOUNT) ).await?;
+    icp_balance
+        .e8s()
+        .checked_sub(redeem_fee + ICP_TRANSFER_FEE)
+        .ok_or(GenerateTicketError::InsufficientRedeemFee {
+            required: redeem_fee + ICP_TRANSFER_FEE,
+            provided: icp_balance.e8s(),
+    })?;
+
+    let icrc_transfer_fee = icrc_client
+    .fee()
+    .await
+    .map_err(|(code, msg)| GenerateTicketError::TemporarilyUnavailable(format!(
+        "cannot query icrc transfer fee: {} (reject_code = {})",
+        msg, code
+    )))?;
+    let icrc_balance = icrc_client.balance_of(
+        Account {
+            owner: ic_cdk::caller(),
+            subaccount: req.from_subaccount.clone(),
+        }
+    ).await.map_err(
+        |(code, msg)| GenerateTicketError::TemporarilyUnavailable(format!(
+            "cannot query icrc balance_of transaction: {} (reject_code = {})",
+            msg, code
+        ))
+    )?;
+
+    if icrc_balance < Nat::from(req.amount) + icrc_transfer_fee {
+        return Err(GenerateTicketError::InsufficientFunds {
+            ledger_id,
+            balance : icrc_balance,
+        });
+    }
+
+    Ok(())
 }
 
 pub async fn charge_icp_fee_by_icrc(
