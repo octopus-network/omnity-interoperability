@@ -12,7 +12,7 @@ use ic_cdk::api::{call::call_with_payment, management_canister::http_request::Ht
 use ic_solana::{
     logs::DEBUG,
     request::RpcRequest,
-    rpc_client::{RpcApi, RpcConfig, RpcResult, RpcServices},
+    rpc_client::{ConsensusStrategy, RpcApi, RpcConfig, RpcResult, RpcServices},
     types::{
         tagged::{EncodedConfirmedTransactionWithStatusMeta, EncodedTransaction, UiTransaction},
         AccountMeta, BlockHash, Instruction, Message, Pubkey, RpcBlockhash, RpcContextConfig,
@@ -27,7 +27,7 @@ use sha2::Digest;
 const CYCLE_COST: u64 = 10_000_000_000;
 
 pub async fn query_transaction(signature: String) -> Result<UiTransaction, String> {
-    let sol_canister = read_state(|s| s.sol_canister);
+    let (sol_canister, response_count) = read_state(|s| (s.sol_canister, s.min_response_count));
     let params = Some(RpcTransactionConfig {
         encoding: Some(UiTransactionEncoding::Json),
         commitment: None,
@@ -37,11 +37,15 @@ pub async fn query_transaction(signature: String) -> Result<UiTransaction, Strin
         RpcRequest::GetTransaction,
         (signature.clone(), params.clone()),
     ));
+    let rpc_config = Some(RpcConfig {
+        response_size_estimate: None,
+        response_consensus: Some(ConsensusStrategy::Threshold(response_count as u8)),
+    });
     let result =
         call_with_payment::<_, (RpcResult<Option<EncodedConfirmedTransactionWithStatusMeta>>,)>(
             sol_canister,
             "sol_getTransaction",
-            (source, None::<Option<RpcConfig>>, signature, params),
+            (source, rpc_config, signature, params),
             CYCLE_COST,
         )
         .await

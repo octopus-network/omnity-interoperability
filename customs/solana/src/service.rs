@@ -142,11 +142,6 @@ async fn update_port_program(program: String) {
 }
 
 #[update(guard = "is_controller", hidden = true)]
-async fn update_providers(providers: Vec<RpcProvider>) {
-    mutate_state(|s| s.providers = providers)
-}
-
-#[update(guard = "is_controller", hidden = true)]
 async fn update_proxy_rpc(rpc: String) {
     mutate_state(|s| s.proxy_rpc = rpc)
 }
@@ -159,6 +154,14 @@ async fn update_sol_canister(canister: Principal) {
 #[update(guard = "is_controller", hidden = true)]
 pub fn debug(enable: bool) {
     mutate_state(|s| s.enable_debug = enable);
+}
+
+#[update(guard = "is_controller")]
+pub fn update_rpc_providers(providers: Vec<RpcProvider>, resp_cnt: u32) {
+    mutate_state(|s| {
+        s.providers = providers;
+        s.min_response_count = resp_cnt;
+    })
 }
 
 #[query(hidden = true)]

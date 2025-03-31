@@ -72,4 +72,5 @@ service : (CustomArg) -> {
   get_token_list : () -> (vec Token) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   resubmit_release_token_tx : (text) -> (Result_1);
+  update_rpc_providers : (vec RpcProvider, nat32) -> ();
 }
