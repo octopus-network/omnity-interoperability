@@ -1,3 +1,5 @@
+use std::clone;
+
 use crate::state::{audit, mutate_state, read_state};
 use crate::{hub, ICP_TRANSFER_FEE};
 use crate::{log, ERROR};
@@ -158,7 +160,20 @@ pub async fn generate_ticket(
         receiver: req.receiver.clone(),
         memo: Some(memo_json.as_bytes().to_vec()),
     };
-    match hub::send_ticket(hub_principal, ticket.clone()).await {
+
+    let scope_guard = scopeguard::guard(
+        ticket.clone(),
+         |ticket| {
+        log!(
+            ERROR,
+            "failed to send ticket trigger in scope_guard: {:?}",
+            ticket.clone()
+        );
+        mutate_state(|s| {
+            s.failed_tickets.push(ticket.clone());
+        });
+    }); 
+    let r = match hub::send_ticket(hub_principal, ticket.clone()).await {
         Err(err) => {
             mutate_state(|s| {
                 s.failed_tickets.push(ticket.clone());
@@ -176,7 +191,9 @@ pub async fn generate_ticket(
             log!(INFO, "successfully send ticket: {}", ticket_id);
             Ok(GenerateTicketOk { ticket_id })
         }
-    }
+    };
+    scopeguard::ScopeGuard::into_inner(scope_guard);
+    r
 }
 
 async fn burn_token_icrc2(

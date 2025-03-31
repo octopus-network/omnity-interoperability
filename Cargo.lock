@@ -3416,6 +3416,7 @@ dependencies = [
  "log",
  "num-traits",
  "omnity_types",
+ "scopeguard",
  "serde",
  "serde_json",
  "thiserror",
