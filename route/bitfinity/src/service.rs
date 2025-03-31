@@ -6,6 +6,7 @@ use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
+use scopeguard::ScopeGuard;
 use serde_derive::Deserialize;
 use crate::get_time_secs;
 use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, SEND_EVM_TASK_NAME};
@@ -64,7 +65,12 @@ fn start_tasks() {
 }
 
 pub fn bridge_ticket_to_evm_task() {
+
     ic_cdk::spawn(async {
+        let scguard = scopeguard::guard((), |_| {
+            log!(ERROR, "bridge ticket to evm task failed");
+        });
+        
         if read_state(|s| s.chain_state == ChainState::Deactive) {
             return;
         }
@@ -76,6 +82,7 @@ pub fn bridge_ticket_to_evm_task() {
         process_tickets().await;
         send_directives_to_evm().await;
         send_tickets_to_evm().await;
+        scopeguard::ScopeGuard::into_inner(scguard);
     });
 }
 
