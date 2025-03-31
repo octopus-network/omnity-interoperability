@@ -1,6 +1,3 @@
-use std::str::FromStr;
-use std::time::Duration;
-
 use candid::{CandidType, Principal};
 use cketh_common::eth_rpc_client::providers::RpcApi;
 use ic_canister_log::log;
@@ -11,6 +8,9 @@ use ic_cdk::api::management_canister::http_request;
 use ic_cdk::api::management_canister::http_request::TransformArgs;
 use ic_cdk_timers::set_timer_interval;
 use serde_derive::Deserialize;
+
+use std::str::FromStr;
+use std::time::Duration;
 
 use crate::{get_time_secs, hub};
 use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, PERIODIC_TASK_INTERVAL, SCAN_EVM_TASK_NAME, SEND_EVM_TASK_NAME};
@@ -77,10 +77,14 @@ pub fn bridge_ticket_to_evm_task() {
             Some(guard) => guard,
             None => return,
         };
+        let scguard = scopeguard::guard((), |_| {
+            log!(WARNING, "bridge ticket to evm task failed");
+        });
         process_directives().await;
         process_tickets().await;
         send_directives_to_evm().await;
         send_tickets_to_evm().await;
+        scopeguard::ScopeGuard::into_inner(scguard);
     });
 }
 

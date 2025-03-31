@@ -42,6 +42,9 @@ pub async fn send_tickets_to_evm() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     for seq in from..to {
+        let scguard = scopeguard::guard((), |_| {
+            log!(ERROR, "send ticket to bitfinity panic, ticket seq: {}", seq);
+        });
         if read_state(|s| s.chain_state == ChainState::Deactive) {
             mutate_state(|s| s.next_consume_ticket_seq = seq);
             return;
@@ -72,9 +75,8 @@ pub async fn send_tickets_to_evm() {
 
             }
         }
-        let _ = scopeguard::guard((), |_| {
-            mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
-        });
+        mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
+        scopeguard::ScopeGuard::into_inner(scguard);
     }
 
 }
