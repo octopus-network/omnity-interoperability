@@ -38,6 +38,8 @@ ic-crypto-sha2 = { git = "https://github.com/dfinity/ic", tag = "release-2024-01
 ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 hex = "0.4.3"
 
+futures="0.3"
+
 [dev-dependencies]
 ic-test-utilities-load-wasm = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 icp-ledger = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }

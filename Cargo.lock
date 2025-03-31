@@ -3393,6 +3393,7 @@ dependencies = [
  "candid",
  "ciborium",
  "dfn_candid",
+ "futures",
  "hex",
  "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic?tag=release-2024-01-18_23-01)",
  "ic-canister-log",
