@@ -1,5 +1,8 @@
+use std::clone;
+
 use crate::state::{audit, mutate_state, read_state};
 use crate::{hub, ICP_TRANSFER_FEE};
+use crate::{log, ERROR};
 use candid::{CandidType, Deserialize, Nat, Principal};
 use ic_crypto_sha2::Sha256;
 use ic_ledger_types::{
@@ -11,9 +14,8 @@ use icrc_ledger_types::icrc1::account::{Account, Subaccount};
 use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use num_traits::cast::ToPrimitive;
 use omnity_types::ic_log::INFO;
-use omnity_types::{ChainId, ChainState, Ticket, TxAction, Memo};
+use omnity_types::{ChainId, ChainState, Memo, Ticket, TxAction};
 use serde::Serialize;
-use crate::{log, ERROR};
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketReq {
@@ -40,7 +42,7 @@ pub enum GenerateTicketError {
     /// The redeem account does not hold the requested token amount.
     InsufficientFunds {
         ledger_id: Principal,
-        balance: u64,
+        balance: Nat,
     },
     /// The caller didn't approve enough funds for spending.
     InsufficientAllowance {
@@ -54,6 +56,7 @@ pub enum GenerateTicketError {
     RedeemFeeNotSet,
     TransferFailure(String),
     UnsupportedAction(String),
+    TokenNotFound(String),
 }
 
 pub async fn generate_ticket(
@@ -91,22 +94,20 @@ pub async fn generate_ticket(
         subaccount: req.from_subaccount,
     };
 
-    let block_index = if is_charge_icp_fee_by_icrc {
-        charge_icp_fee_by_icrc(user.clone(), &req.target_chain_id).await?
-    } else {
-        charge_icp_fee(caller, &req.target_chain_id).await?
-    };
-
-    log!(INFO, "successfully charged icp fee, block_index:{}", block_index);
+    ensure_balance_enough(&req).await?;
 
     let ticket_id = match req.action {
         TxAction::Mint => {
             let ledger_id = ic_cdk::id().to_string();
-            let ticket_id = Sha256::hash(format!("MINT_{}_{}", ledger_id, ic_cdk::api::time()).as_bytes());
-        
+            let ticket_id =
+                Sha256::hash(format!("MINT_{}_{}", ledger_id, ic_cdk::api::time()).as_bytes());
+
             Ok(hex::encode(&ticket_id))
         }
-        TxAction::Burn | TxAction::Redeem | TxAction::RedeemIcpChainKeyAssets(_) | TxAction::Transfer => {
+        TxAction::Burn
+        | TxAction::Redeem
+        | TxAction::RedeemIcpChainKeyAssets(_)
+        | TxAction::Transfer => {
             let block_index = burn_token_icrc2(ledger_id, user, req.amount).await?;
             let ticket_id = format!("{}_{}", ledger_id.to_string(), block_index.to_string());
             Ok(ticket_id)
@@ -115,6 +116,26 @@ pub async fn generate_ticket(
 
     log!(INFO, "successfully get ticket_id: {:?}", ticket_id);
 
+    let charge_icp_result = if is_charge_icp_fee_by_icrc {
+        charge_icp_fee_by_icrc(user.clone(), &req.target_chain_id).await
+    } else {
+        charge_icp_fee(caller, &req.target_chain_id).await
+    };
+
+    match charge_icp_result {
+        Ok(block_index) => {
+            log!(
+                INFO,
+                "successfully charged icp fee, block_index:{}",
+                block_index
+            );
+        }
+        Err(err) => {
+            // just record log, not block process
+            log!(ERROR, "Failed to charge icp fee: {:?}", err);
+        }
+    }
+
     let (hub_principal, chain_id) = read_state(|s| (s.hub_principal, s.chain_id.clone()));
     let action = req.action.clone();
 
@@ -122,7 +143,9 @@ pub async fn generate_ticket(
     let memo_json = Memo {
         memo: None,
         bridge_fee: fee.unwrap_or_default() as u128,
-    }.convert_to_memo_json().unwrap_or_default();
+    }
+    .convert_to_memo_json()
+    .unwrap_or_default();
 
     let ticket = Ticket {
         ticket_id: ticket_id.clone(),
@@ -137,12 +160,30 @@ pub async fn generate_ticket(
         receiver: req.receiver.clone(),
         memo: Some(memo_json.as_bytes().to_vec()),
     };
-    match hub::send_ticket(hub_principal, ticket.clone()).await {
+
+    let scope_guard = scopeguard::guard(
+        ticket.clone(),
+         |ticket| {
+        log!(
+            ERROR,
+            "failed to send ticket trigger in scope_guard: {:?}",
+            ticket.clone()
+        );
+        mutate_state(|s| {
+            s.failed_tickets.push(ticket.clone());
+        });
+    }); 
+    let r = match hub::send_ticket(hub_principal, ticket.clone()).await {
         Err(err) => {
             mutate_state(|s| {
                 s.failed_tickets.push(ticket.clone());
             });
-            log!(ERROR, "failed to send ticket: {}, err: {:?}", ticket_id, err);
+            log!(
+                ERROR,
+                "failed to send ticket: {}, err: {:?}",
+                ticket_id,
+                err
+            );
             Err(GenerateTicketError::SendTicketErr(format!("{}", err)))
         }
         Ok(()) => {
@@ -150,7 +191,9 @@ pub async fn generate_ticket(
             log!(INFO, "successfully send ticket: {}", ticket_id);
             Ok(GenerateTicketOk { ticket_id })
         }
-    }
+    };
+    scopeguard::ScopeGuard::into_inner(scope_guard);
+    r
 }
 
 async fn burn_token_icrc2(
@@ -188,7 +231,7 @@ async fn burn_token_icrc2(
         Ok(block_index) => Ok(block_index.0.to_u64().expect("nat does not fit into u64")),
         Err(TransferFromError::InsufficientFunds { balance }) => Err(GenerateTicketError::InsufficientFunds {
             ledger_id: ledger_id,
-            balance: balance.0.to_u64().expect("unreachable: ledger balance does not fit into u64")
+            balance: balance
         }),
         Err(TransferFromError::InsufficientAllowance { allowance }) => Err(GenerateTicketError::InsufficientAllowance {
             allowance: allowance.0.to_u64().expect("unreachable: ledger balance does not fit into u64")
@@ -263,10 +306,79 @@ pub async fn charge_icp_fee(
         .map(|block_index| block_index.into())
 }
 
+pub async fn ensure_balance_enough(req: &GenerateTicketReq) -> Result<(), GenerateTicketError> {
+    let ledger_id = read_state(|s| s.token_ledgers.get(&req.token_id).cloned())
+        .ok_or(GenerateTicketError::TokenNotFound(req.token_id.clone()))?;
+
+    let icrc_client = ICRC1Client {
+        runtime: CdkRuntime,
+        ledger_canister_id: ledger_id,
+    };
+
+    let redeem_fee = read_state(|s| match s.target_chain_factor.get(&req.target_chain_id) {
+        Some(target_chain_factor) => s.fee_token_factor.map_or(
+            Err(GenerateTicketError::RedeemFeeNotSet),
+            |fee_token_factor| Ok((target_chain_factor * fee_token_factor) as u64),
+        ),
+        None => Err(GenerateTicketError::RedeemFeeNotSet),
+    })?;
+
+    let (icp_balance_res, icrc_transfer_fee_res, icrc_balance_res) = futures::future::join3(
+        async {
+            ic_balance_of(
+                &req.from_subaccount
+                    .map(|e| IcSubaccount(e))
+                    .unwrap_or(DEFAULT_SUBACCOUNT),
+            )
+            .await
+        },
+        async { icrc_client.fee().await },
+        async {
+            icrc_client
+                .balance_of(Account {
+                    owner: ic_cdk::caller(),
+                    subaccount: req.from_subaccount.clone(),
+                })
+                .await
+        },
+    )
+    .await;
+
+    let icp_balance = icp_balance_res?;
+    let icrc_transfer_fee = icrc_transfer_fee_res.map_err(|(code, msg)| {
+        GenerateTicketError::TemporarilyUnavailable(format!(
+            "cannot query icrc transfer fee: {} (reject_code = {})",
+            msg, code
+        ))
+    })?;
+    let icrc_balance = icrc_balance_res.map_err(|(code, msg)| {
+        GenerateTicketError::TemporarilyUnavailable(format!(
+            "cannot query icrc balance_of transaction: {} (reject_code = {})",
+            msg, code
+        ))
+    })?;
+
+    if icp_balance.e8s() < redeem_fee + ICP_TRANSFER_FEE {
+        return Err(GenerateTicketError::InsufficientRedeemFee {
+            required: redeem_fee + ICP_TRANSFER_FEE,
+            provided: icp_balance.e8s(),
+        });
+    }
+
+    if icrc_balance < Nat::from(req.amount) + icrc_transfer_fee {
+        return Err(GenerateTicketError::InsufficientFunds {
+            ledger_id,
+            balance: icrc_balance,
+        });
+    }
+
+    Ok(())
+}
+
 pub async fn charge_icp_fee_by_icrc(
     user: Account,
     chain_id: &ChainId,
-)-> Result<Nat, GenerateTicketError> {
+) -> Result<Nat, GenerateTicketError> {
     let redeem_fee = read_state(|s| match s.target_chain_factor.get(chain_id) {
         Some(target_chain_factor) => s.fee_token_factor.map_or(
             Err(GenerateTicketError::RedeemFeeNotSet),
@@ -281,28 +393,29 @@ pub async fn charge_icp_fee_by_icrc(
     };
     let route = ic_cdk::id();
 
-    client.transfer_from(
-        TransferFromArgs { 
-            spender_subaccount: None, 
-            from: user, 
-            to: Account { 
-                owner: route, 
-                subaccount: None 
+    client
+        .transfer_from(TransferFromArgs {
+            spender_subaccount: None,
+            from: user,
+            to: Account {
+                owner: route,
+                subaccount: None,
             },
-            amount: Nat::from(redeem_fee), 
-            fee: None, 
-            memo: None, 
-            created_at_time: None 
-        }
-    )
-    .await
-    .map_err(|(code, msg)| {
-        GenerateTicketError::TemporarilyUnavailable(format!(
-            "cannot enqueue a icp transferFrom transaction: {} (reject_code = {})",
-            msg, code
-        ))
-    })?
-    .map_err(|err| GenerateTicketError::TransferFailure(format!("Failed to transferFrom icp {:?}", err)))
+            amount: Nat::from(redeem_fee),
+            fee: None,
+            memo: None,
+            created_at_time: None,
+        })
+        .await
+        .map_err(|(code, msg)| {
+            GenerateTicketError::TemporarilyUnavailable(format!(
+                "cannot enqueue a icp transferFrom transaction: {} (reject_code = {})",
+                msg, code
+            ))
+        })?
+        .map_err(|err| {
+            GenerateTicketError::TransferFailure(format!("Failed to transferFrom icp {:?}", err))
+        })
 }
 
 async fn ic_balance_of(subaccount: &IcSubaccount) -> Result<Tokens, GenerateTicketError> {
@@ -324,7 +437,7 @@ pub fn principal_to_subaccount(principal_id: &Principal) -> IcSubaccount {
     IcSubaccount(subaccount)
 }
 
-pub fn icp_get_redeem_fee(chain_id: ChainId) -> Option<u64>  {
+pub fn icp_get_redeem_fee(chain_id: ChainId) -> Option<u64> {
     read_state(|s| {
         s.target_chain_factor
             .get(&chain_id)

@@ -60,7 +60,7 @@ fn check_anonymous_caller() {
 async fn generate_ticket(args: GenerateTicketReq) -> Result<GenerateTicketOk, GenerateTicketError> {
     check_anonymous_caller();
     
-    log!(INFO, "generate_ticket: {:?}", args);
+    log!(INFO, "generate_ticket: {:?}, caller: {:?}", args, ic_cdk::caller().to_text());
     match updates::generate_ticket(args, false).await {
         Ok(r) => {
             log!(INFO, "generate_ticket success, result: {:?}", r);

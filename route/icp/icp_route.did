@@ -23,7 +23,7 @@ type GenerateTicketError = variant {
   InvalidTicketAmount : nat;
   UnsupportedChainId : text;
   UnsupportedToken : text;
-  InsufficientFunds : record { balance : nat64 };
+  InsufficientFunds : record { balance : nat; ledger_id : principal };
 };
 type GenerateTicketOk = record { ticket_id : text };
 type GenerateTicketReq = record {
