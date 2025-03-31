@@ -53,6 +53,7 @@ pub enum GenerateTicketError {
     RedeemFeeNotSet,
     TransferFailure(String),
     UnsupportedAction(String),
+    TokenNotFound(String),
 }
 
 pub async fn generate_ticket(
@@ -276,7 +277,8 @@ pub async fn ensure_balance_enough(
     req: &GenerateTicketReq,
 )->Result<(), GenerateTicketError> {
 
-    let ledger_id = read_state(|s| s.token_ledgers.get(&req.token_id).cloned().unwrap());
+    let ledger_id = read_state(|s| s.token_ledgers.get(&req.token_id).cloned())
+    .ok_or(GenerateTicketError::TokenNotFound(req.token_id.clone()))?;
 
     let icrc_client = ICRC1Client {
         runtime: CdkRuntime,
