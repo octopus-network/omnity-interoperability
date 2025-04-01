@@ -160,13 +160,13 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
     for event in events {
         match event {
             Event::Init(args) => {
-                hub_state
+         /*       hub_state
                     .caller_perms
                     .insert(args.admin.to_string(), Permission::Update);
-                hub_state.admin = args.admin;
+                hub_state.admin = args.admin;*/
             }
             Event::Upgrade(args) => {
-                hub_state.upgrade(args);
+             //   hub_state.upgrade(args);
             }
             Event::UpdatedChain(chain) => {
                 hub_state

@@ -58,7 +58,6 @@ pub struct HubState {
     // memory variable
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
-    pub admin: Principal,
     pub caller_chain_map: HashMap<String, ChainId>,
     pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
@@ -85,7 +84,6 @@ impl From<InitArgs> for HubState {
             pending_tickets: StableBTreeMap::init(memory::get_pending_tickets_memory()),
             directive_seq: HashMap::default(),
             ticket_seq: HashMap::default(),
-            admin: args.admin,
             caller_chain_map: HashMap::default(),
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             last_resubmit_ticket_time: 0,
@@ -154,32 +152,7 @@ impl HubState {
         let mut hub_state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
-        // migrate state
-        // let mut cur_state = migrate(pre_state);
-
-        if let Some(args) = args {
-            match args {
-                HubArg::Upgrade(upgrade_args) => {
-                    if let Some(args) = upgrade_args {
-                        if let Some(admin) = args.admin {
-                            hub_state.admin = admin;
-                        }
-                        record_event(&Event::Upgrade(args));
-                    }
-                }
-                HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
-            };
-        }
-        // update state
         set_state(hub_state);
-    }
-
-    pub fn upgrade(&mut self, args: UpgradeArgs) {
-        if let Some(admin) = args.admin {
-            self.caller_perms
-                .insert(admin.to_string(), Permission::Update);
-            self.admin = admin;
-        }
     }
 
     //Determine whether the token is from the issuing chain

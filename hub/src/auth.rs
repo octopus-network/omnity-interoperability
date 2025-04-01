@@ -44,7 +44,7 @@ pub fn auth_update() -> Result<(), String> {
 }
 
 pub fn auth_query() -> Result<(), String> {
-    let caller = ic_cdk::api::caller();
+   /* let caller = ic_cdk::api::caller();
     with_state(|s| {
         if !ic_cdk::api::is_controller(&caller) && !s.caller_perms.contains_key(&caller.to_string())
         {
@@ -52,7 +52,8 @@ pub fn auth_query() -> Result<(), String> {
         } else {
             Ok(())
         }
-    })
+    })*/
+    Ok(())
 }
 
 pub fn set_perms(caller: String, perm: Permission) {

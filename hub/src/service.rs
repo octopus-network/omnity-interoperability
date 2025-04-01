@@ -61,7 +61,7 @@ fn post_upgrade(args: Option<HubArg>) {
 pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, Error> {
     proposal::validate_proposal(&proposals).await
 }
-#[update(guard = "is_controller")]
+#[update(guard = "auth_update")]
 pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
     proposal::validate_proposal(&proposals).await?;
     proposal::execute_proposal(proposals).await
@@ -463,11 +463,6 @@ pub async fn get_pending_tickets(
             .collect::<Vec<_>>()
     });
     Ok(pending_tickets)
-}
-
-#[query]
-pub async fn admin() -> String {
-    with_state(|s| s.admin.to_text())
 }
 
 fn main() {}
