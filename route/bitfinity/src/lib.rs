@@ -10,13 +10,13 @@ pub mod guard;
 pub mod hub_to_route;
 pub mod route_to_evm;
 //mod stable_log;
-pub mod service;
-mod convert;
 pub mod audit;
-pub mod updates;
-pub mod state;
+mod convert;
+pub mod service;
 pub mod stable_memory;
+pub mod state;
 pub mod types;
+pub mod updates;
 
 #[derive(Error, Debug)]
 pub enum BitfinityRouteError {
@@ -37,7 +37,7 @@ pub enum BitfinityRouteError {
     #[error(transparent)]
     Custom(#[from] anyhow::Error),
     #[error("Temporay error")]
-    Temporary
+    Temporary,
 }
 
 pub mod const_args {

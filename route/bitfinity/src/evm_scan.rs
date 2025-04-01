@@ -1,21 +1,23 @@
 use anyhow::anyhow;
-use did::{TransactionReceipt, transaction::TransactionReceiptLog};
+use did::{transaction::TransactionReceiptLog, TransactionReceipt};
 use ethers_core::abi::RawLog;
 use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
 use itertools::Itertools;
 
-use omnity_types::{ChainState, Directive, Ticket, ChainId, Memo, hub};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
+use omnity_types::{hub, ChainId, ChainState, Directive, Memo, Ticket};
 
-use crate::*;
 use crate::const_args::SCAN_EVM_TASK_NAME;
 use crate::contract_types::{
-    AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded,
-    TokenBurned, TokenMinted, TokenTransportRequested,
+    AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
+    TokenMinted, TokenTransportRequested,
 };
-use crate::convert::{ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event};
-use crate::state::{mutate_state, read_state, bitfinity_get_redeem_fee};
+use crate::convert::{
+    ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event,
+};
+use crate::state::{bitfinity_get_redeem_fee, mutate_state, read_state};
+use crate::*;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -26,7 +28,7 @@ pub fn scan_evm_task() {
         let events = read_state(|s| s.pending_events_on_chain.clone());
         let interval =
             read_state(|s| s.block_interval_secs) * crate::const_args::EVM_FINALIZED_CONFIRM_HEIGHT;
-        let port_address = read_state(|s|s.omnity_port_contract.clone());
+        let port_address = read_state(|s| s.omnity_port_contract.clone());
         for (hash, time) in events {
             if read_state(|s| s.handled_evm_event.contains(&hash)) {
                 mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -41,10 +43,10 @@ pub fn scan_evm_task() {
                 .map_err(|e| {
                     log!(ERROR, "user query transaction receipt error: {:?}", e);
                     "rpc".to_string()
-                });           
+                });
             if let Ok(Some(tr)) = receipt {
                 match tr.status {
-                    None => { continue }
+                    None => continue,
                     Some(s) => {
                         if s == did::U64::zero() {
                             mutate_state(|s| s.pending_events_on_chain.remove(&hash));
@@ -74,7 +76,11 @@ pub fn scan_evm_task() {
                         mutate_state(|s| s.handled_evm_event.insert(hash));
                     }
                     Err(e) => {
-                        log!(ERROR, "[bitfinity route] handle evm logs error: {}", e.to_string());
+                        log!(
+                            ERROR,
+                            "[bitfinity route] handle evm logs error: {}",
+                            e.to_string()
+                        );
                     }
                 }
             }
@@ -83,7 +89,7 @@ pub fn scan_evm_task() {
 }
 
 pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Result<()> {
-    let port = read_state(|s|s.omnity_port_contract.clone());
+    let port = read_state(|s| s.omnity_port_contract.clone());
     for l in logs {
         if l.address.to_hex_str() != port.to_hex() {
             continue;
@@ -91,15 +97,17 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
         if l.removed {
             return Err(anyhow!("log is removed"));
         }
-        let tx_hash = l
-            .transaction_hash.to_hex_str();
-        let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.0;
+        let tx_hash = l.transaction_hash.to_hex_str();
+        let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0 .0;
         let raw_log: RawLog = RawLog {
             topics: l.topics.iter().map(|topic| topic.0).collect_vec(),
             data: l.data.clone().into(),
         };
 
-        if read_state(|s| s.handled_evm_event.contains(&l.transaction_hash.to_hex_str())) {
+        if read_state(|s| {
+            s.handled_evm_event
+                .contains(&l.transaction_hash.to_hex_str())
+        }) {
             continue;
         }
         if topic1 == TokenBurned::signature_hash() {
@@ -140,13 +148,15 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
                 Directive::AddToken(token) => {
                     match crate::updates::add_new_token(token.clone()).await {
                         Ok(_) => {
-                            log!(INFO,
+                            log!(
+                                INFO,
                                 "[process directives] add token successful, token id: {}",
                                 token.token_id
                             );
                         }
                         Err(err) => {
-                            log!(ERROR,
+                            log!(
+                                ERROR,
                                 "[process directives] failed to add token: token id: {}, err: {:?}",
                                 token.token_id,
                                 err
@@ -159,7 +169,11 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
                 }
                 Directive::UpdateFee(fee) => {
                     mutate_state(|s| audit::update_fee(s, fee.clone()));
-                    log!(INFO, "[process_directives] success to update fee, fee: {}", fee);
+                    log!(
+                        INFO,
+                        "[process_directives] success to update fee, fee: {}",
+                        fee
+                    );
                 }
                 Directive::UpdateChain(_) | Directive::UpdateToken(_) | Directive::AddChain(_) => {
                     //the directive need not send to port, it had been processed in fetch hub task.
@@ -191,19 +205,27 @@ pub async fn handle_runes_mint(
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
-    log!(INFO,
+    log!(
+        INFO,
         "[bitfinity route] rune_mint_ticket sent to hub success: {:?}",
         ticket
     );
     Ok(())
 }
 
-pub async fn handle_token_burn(log_entry: &TransactionReceiptLog, event: TokenBurned) -> anyhow::Result<()> {
+pub async fn handle_token_burn(
+    log_entry: &TransactionReceiptLog,
+    event: TokenBurned,
+) -> anyhow::Result<()> {
     let ticket = ticket_from_burn_event(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
-    log!(INFO, "[bitfinity route] burn_ticket sent to hub success: {:?}", ticket);
+    log!(
+        INFO,
+        "[bitfinity route] burn_ticket sent to hub success: {:?}",
+        ticket
+    );
     Ok(())
 }
 
@@ -215,7 +237,8 @@ pub async fn handle_token_transport(
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
-    log!(INFO,
+    log!(
+        INFO,
         "[bitfinity route] transport_ticket sent to hub success: {:?}",
         ticket
     );
@@ -233,7 +256,7 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
         None => Err("not find".to_string()),
         Some(tr) => {
             let return_tr = tr.clone();
-            assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");         
+            assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");
             let ticket = generate_ticket_by_logs(tr.logs);
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))
@@ -246,7 +269,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         if l.removed {
             return Err(anyhow!("log is removed"));
         }
-        let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0.0;
+        let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0 .0;
         let raw_log: RawLog = RawLog {
             topics: l.topics.iter().map(|topic| topic.0).collect_vec(),
             data: l.data.clone().into(),
@@ -285,20 +308,24 @@ pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
     let memo_json = Memo {
         memo,
         bridge_fee: fee.unwrap_or_default() as u128,
-    }.convert_to_memo_json().unwrap_or_default();
+    }
+    .convert_to_memo_json()
+    .unwrap_or_default();
     Some(memo_json)
 }
 
 #[cfg(test)]
 mod bitfinity_test {
-    use omnity_types::Memo;
     use ic_stable_structures::Storable;
+    use omnity_types::Memo;
 
     pub fn get_test_memo(memo: Option<String>) -> Option<String> {
         let memo_json = Memo {
             memo,
             bridge_fee: 999_u128,
-        }.convert_to_memo_json().unwrap_or_default();
+        }
+        .convert_to_memo_json()
+        .unwrap_or_default();
         Some(memo_json)
     }
 
@@ -307,9 +334,14 @@ mod bitfinity_test {
         let memo = Some("some memo".to_string());
         // let has_memo = false;
         let has_memo = true;
-        let _memo = has_memo.then(|| get_test_memo(memo.clone())).unwrap_or_default();
+        let _memo = has_memo
+            .then(|| get_test_memo(memo.clone()))
+            .unwrap_or_default();
 
-        let encoded = _memo.clone().map(|m| m.to_bytes().to_vec()).unwrap_or_default();
+        let encoded = _memo
+            .clone()
+            .map(|m| m.to_bytes().to_vec())
+            .unwrap_or_default();
         let decoded = std::str::from_utf8(&encoded).unwrap_or_default();
         println!("memo {:?}", _memo);
         println!("decoded: {:?}", decoded);

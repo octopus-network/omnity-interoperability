@@ -6,11 +6,11 @@ use ethers_core::types::{Bytes, NameOrAddress, U256};
 use ic_canister_log::log;
 
 use crate::contract_types::{PrivilegedExecuteDirectiveCall, PrivilegedMintTokenCall};
-use crate::eth_common::{EvmAddress};
-use crate::state::read_state;
-use omnity_types::{Directive, Factor, Ticket};
-use omnity_types::ic_log::INFO;
 use crate::convert::{convert_factor_to_port_factor_type_index, directive_to_port_command_index};
+use crate::eth_common::EvmAddress;
+use crate::state::read_state;
+use omnity_types::ic_log::INFO;
+use omnity_types::{Directive, Factor, Ticket};
 
 pub type PortContractCommandIndex = u8;
 pub type PortContractFactorTypeIndex = u8;

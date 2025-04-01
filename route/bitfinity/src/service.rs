@@ -1,28 +1,37 @@
 use std::str::FromStr;
 use std::time::Duration;
 
+use crate::const_args::{
+    BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
+    SEND_EVM_TASK_NAME,
+};
+use crate::eth_common::{get_balance, EvmAddress};
+use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
+use crate::get_time_secs;
+use crate::guard::GenerateTicketGuardBehavior;
+use crate::hub_to_route::{process_directives, process_tickets};
+use crate::route_to_evm::{
+    send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm,
+};
+use crate::state::bitfinity_get_redeem_fee;
+use crate::state::{
+    init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, EvmRouteState,
+    StateProfile,
+};
+use crate::types::{MetricsStatus, PendingDirectiveStatus, PendingTicketStatus, TokenResp};
 use candid::{CandidType, Principal};
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
 use ic_cdk_timers::set_timer_interval;
-use serde_derive::Deserialize;
-use crate::get_time_secs;
-use crate::const_args::{BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL, SEND_EVM_TASK_NAME};
-use crate::eth_common::{EvmAddress, get_balance};
-use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
-use crate::hub_to_route::{process_directives, process_tickets};
-use crate::route_to_evm::{ send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm};
-use crate::state::bitfinity_get_redeem_fee;
-use crate::state::{
-    EvmRouteState, init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state,
-    StateProfile,
-};
-use omnity_types::{Chain, ChainId, Directive, Network, Seq, Ticket, TicketId, ic_log::{INFO, ERROR}, ChainState, hub};
 use omnity_types::guard::{CommonGuard, GuardError};
-use crate::types::{TokenResp, PendingDirectiveStatus, PendingTicketStatus, MetricsStatus};
 use omnity_types::MintTokenStatus;
-use crate::guard::GenerateTicketGuardBehavior;
+use omnity_types::{
+    hub,
+    ic_log::{ERROR, INFO},
+    Chain, ChainId, ChainState, Directive, Network, Seq, Ticket, TicketId,
+};
+use serde_derive::Deserialize;
 
 #[init]
 fn init(args: InitArgs) {
@@ -39,9 +48,12 @@ fn pre_upgrade() {
 fn post_upgrade() {
     EvmRouteState::post_upgrade();
     start_tasks();
-    log!(INFO, "[bitfinity_route] upgraded successed at {}", ic_cdk::api::time());
+    log!(
+        INFO,
+        "[bitfinity_route] upgraded successed at {}",
+        ic_cdk::api::time()
+    );
 }
-
 
 #[query(hidden = true)]
 fn http_request(req: HttpRequest) -> HttpResponse {
@@ -54,22 +66,29 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 #[update(guard = "is_controller")]
 fn update_consume_directive_seq(seq: Seq) {
     let user = ic_cdk::api::caller();
-    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),seq);
+    log!(
+        INFO,
+        "CONTROLLER_OPERATION: {}, PARAMS: {}",
+        user.to_text(),
+        seq
+    );
     mutate_state(|s| s.next_consume_directive_seq = seq);
 }
 
 fn start_tasks() {
-    set_timer_interval(Duration::from_secs(SEND_EVM_TASK_INTERVAL), bridge_ticket_to_evm_task);
+    set_timer_interval(
+        Duration::from_secs(SEND_EVM_TASK_INTERVAL),
+        bridge_ticket_to_evm_task,
+    );
     set_timer_interval(Duration::from_secs(SCAN_EVM_TASK_INTERVAL), scan_evm_task);
 }
 
 pub fn bridge_ticket_to_evm_task() {
-
     ic_cdk::spawn(async {
         let scguard = scopeguard::guard((), |_| {
             log!(ERROR, "bridge ticket to evm task failed");
         });
-        
+
         if read_state(|s| s.chain_state == ChainState::Deactive) {
             return;
         }
@@ -84,8 +103,6 @@ pub fn bridge_ticket_to_evm_task() {
         scopeguard::ScopeGuard::into_inner(scguard);
     });
 }
-
-
 
 #[query]
 fn get_ticket(ticket_id: String) -> Option<(u64, Ticket)> {
@@ -112,9 +129,13 @@ async fn pubkey_and_evm_addr() -> (String, String) {
 
 #[update(guard = "is_controller")]
 fn set_port_address(port_addr: String) {
-
     let user = ic_cdk::api::caller();
-    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),port_addr.as_str());
+    log!(
+        INFO,
+        "CONTROLLER_OPERATION: {}, PARAMS: {}",
+        user.to_text(),
+        port_addr.as_str()
+    );
     mutate_state(|s| s.omnity_port_contract = EvmAddress::from_str(port_addr.as_str()).unwrap())
 }
 
@@ -148,22 +169,30 @@ fn query_pending_directive(from: usize, limit: usize) -> Vec<(Seq, PendingDirect
 #[update(guard = "is_controller")]
 async fn resend_ticket(seq: Seq) {
     let user = ic_cdk::api::caller();
-    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),seq);
+    log!(
+        INFO,
+        "CONTROLLER_OPERATION: {}, PARAMS: {}",
+        user.to_text(),
+        seq
+    );
     send_ticket(seq).await.unwrap();
 }
 
 #[update(guard = "is_controller")]
 async fn resend_directive(seq: Seq) {
     let user = ic_cdk::api::caller();
-    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),seq);
+    log!(
+        INFO,
+        "CONTROLLER_OPERATION: {}, PARAMS: {}",
+        user.to_text(),
+        seq
+    );
     send_directive(seq).await.unwrap();
 }
 
 #[query]
 fn get_chain_list() -> Vec<Chain> {
-    read_state(|s| {
-        s.counterparties.values().cloned().collect()
-    })
+    read_state(|s| s.counterparties.values().cloned().collect())
 }
 
 #[query]
@@ -210,7 +239,12 @@ fn query_directives(from: usize, to: usize) -> Vec<(Seq, Directive)> {
 #[update(guard = "is_controller")]
 fn update_fee_token(fee_token: String) {
     let user = ic_cdk::api::caller();
-    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),fee_token.as_str());
+    log!(
+        INFO,
+        "CONTROLLER_OPERATION: {}, PARAMS: {}",
+        user.to_text(),
+        fee_token.as_str()
+    );
     mutate_state(|s| s.fee_token_id = fee_token);
 }
 
@@ -243,16 +277,14 @@ async fn metrics() -> MetricsStatus {
 #[update]
 async fn generate_ticket(hash: String) -> Result<(), String> {
     log!(INFO, "received generate_ticket request {}", &hash);
-    let _guard: CommonGuard<GenerateTicketGuardBehavior> =  match CommonGuard::new(hash.clone()){
-        Ok(g) => {g}
+    let _guard: CommonGuard<GenerateTicketGuardBehavior> = match CommonGuard::new(hash.clone()) {
+        Ok(g) => g,
         Err(e) => {
             return match e {
                 GuardError::TooManyConcurrentRequests => {
                     Err("too many concurrent requests".to_string())
                 }
-                GuardError::KeyIsHandling => {
-                    Ok(())
-                }
+                GuardError::KeyIsHandling => Ok(()),
             }
         }
     };
@@ -271,7 +303,12 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
         return Err("The ticket id already exists".to_string());
     }
     let (ticket, _transaction_receipt) = create_ticket_by_tx(&tx_hash).await?;
-    log!(INFO, "[Consolidation]Bitfinity Route: generate ticket: hash {}, ticket: {}", &tx_hash, &ticket);
+    log!(
+        INFO,
+        "[Consolidation]Bitfinity Route: generate ticket: hash {}, ticket: {}",
+        &tx_hash,
+        &ticket
+    );
     let hub_principal = read_state(|s| s.hub_principal);
     hub::pending_ticket(hub_principal, ticket)
         .await
@@ -286,7 +323,12 @@ async fn generate_ticket(hash: String) -> Result<(), String> {
 #[update(guard = "is_controller")]
 pub fn insert_pending_hash(tx_hash: String) {
     let user = ic_cdk::api::caller();
-    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}", user.to_text(),tx_hash.as_str());
+    log!(
+        INFO,
+        "CONTROLLER_OPERATION: {}, PARAMS: {}",
+        user.to_text(),
+        tx_hash.as_str()
+    );
     mutate_state(|s| s.pending_events_on_chain.insert(tx_hash, get_time_secs()));
 }
 
@@ -294,11 +336,13 @@ pub fn insert_pending_hash(tx_hash: String) {
 pub async fn query_hub_tickets(start: u64) -> Vec<(Seq, Ticket)> {
     let hub_principal = read_state(|s| s.hub_principal);
     match hub::query_tickets(hub_principal, start, BATCH_QUERY_LIMIT).await {
-        Ok(tickets) => {
-            tickets
-        }
+        Ok(tickets) => tickets,
         Err(err) => {
-            log!(ERROR, "[process tickets] failed to query tickets, err: {}", err);
+            log!(
+                ERROR,
+                "[process tickets] failed to query tickets, err: {}",
+                err
+            );
             vec![]
         }
     }
@@ -312,9 +356,17 @@ pub fn query_handled_event(tx_hash: String) -> Option<String> {
 #[update(guard = "is_controller")]
 pub async fn rewrite_tx_hash(ticket_id: String, tx_hash: String) {
     let user = ic_cdk::api::caller();
-    log!(INFO, "CONTROLLER_OPERATION: {}, PARAMS: {}, {}", user.to_text(),ticket_id.as_str(), tx_hash.as_str());
+    log!(
+        INFO,
+        "CONTROLLER_OPERATION: {}, PARAMS: {}, {}",
+        user.to_text(),
+        ticket_id.as_str(),
+        tx_hash.as_str()
+    );
     let hub_principal = read_state(|s| s.hub_principal);
-    hub::update_tx_hash(hub_principal, ticket_id, tx_hash).await.unwrap();
+    hub::update_tx_hash(hub_principal, ticket_id, tx_hash)
+        .await
+        .unwrap();
 }
 
 #[derive(CandidType, Deserialize)]

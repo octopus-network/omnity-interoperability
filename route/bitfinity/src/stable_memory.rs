@@ -1,7 +1,7 @@
 use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
-use omnity_types::{Directive, Seq, Ticket, TicketId};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
+use omnity_types::{Directive, Seq, Ticket, TicketId};
 use std::cell::RefCell;
 
 pub type InnerMemory = DefaultMemoryImpl;

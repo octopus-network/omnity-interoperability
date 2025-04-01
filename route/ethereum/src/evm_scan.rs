@@ -60,10 +60,12 @@ pub async fn sync_mint_status(hash: String) {
             "rpc".to_string()
         })
     } else {
-        call_rpc_with_retry(hash.as_str(), get_receipt).await.map_err(|e| {
-            log!(WARNING, "user query transaction receipt error: {:?}", e);
-            "rpc".to_string()
-        })
+        call_rpc_with_retry(hash.as_str(), get_receipt)
+            .await
+            .map_err(|e| {
+                log!(WARNING, "user query transaction receipt error: {:?}", e);
+                "rpc".to_string()
+            })
     };
     let port_address = read_state(|s| s.omnity_port_contract.clone());
     if let Ok(Some(tr)) = receipt {

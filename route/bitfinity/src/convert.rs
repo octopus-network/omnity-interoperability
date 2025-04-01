@@ -1,13 +1,17 @@
-use did::transaction::TransactionReceiptLog;
-use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
-use omnity_types::{Directive, Factor, Ticket, TicketType, ToggleAction, TxAction};
-use ic_stable_structures::Storable;
 use crate::contract_types::{RunesMintRequested, TokenBurned, TokenTransportRequested};
 use crate::contracts::{PortContractCommandIndex, PortContractFactorTypeIndex};
-use crate::state::read_state;
 use crate::evm_scan::get_memo;
+use crate::state::read_state;
+use did::transaction::TransactionReceiptLog;
+use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId};
+use ic_stable_structures::Storable;
+use omnity_types::{Directive, Factor, Ticket, TicketType, ToggleAction, TxAction};
 
-pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: TokenBurned, has_memo: bool) -> Ticket {
+pub fn ticket_from_burn_event(
+    log_entry: &TransactionReceiptLog,
+    token_burned: TokenBurned,
+    has_memo: bool,
+) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let token = read_state(|s| {
         s.tokens
@@ -22,7 +26,9 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
         TxAction::Redeem
     };
 
-    let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
+    let memo = has_memo
+        .then(|| get_memo(None, dst_chain.clone()))
+        .unwrap_or_default();
 
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
@@ -42,7 +48,11 @@ pub fn ticket_from_burn_event(log_entry: &TransactionReceiptLog, token_burned: T
     }
 }
 
-pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_mint: RunesMintRequested, has_memo: bool) -> Ticket {
+pub fn ticket_from_runes_mint_event(
+    log_entry: &TransactionReceiptLog,
+    runes_mint: RunesMintRequested,
+    has_memo: bool,
+) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let token = read_state(|s| {
         s.tokens
@@ -51,7 +61,9 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
             .clone()
     });
     let dst_chain = token.token_id_info()[0].to_string();
-    let memo = has_memo.then(|| get_memo(None, dst_chain.clone())).unwrap_or_default();
+    let memo = has_memo
+        .then(|| get_memo(None, dst_chain.clone()))
+        .unwrap_or_default();
 
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
@@ -68,11 +80,16 @@ pub fn ticket_from_runes_mint_event(log_entry: &TransactionReceiptLog, runes_min
     }
 }
 
-pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
-                                   token_transport_requested: TokenTransportRequested, has_memo: bool) -> Ticket {
+pub fn ticket_from_transport_event(
+    log_entry: &TransactionReceiptLog,
+    token_transport_requested: TokenTransportRequested,
+    has_memo: bool,
+) -> Ticket {
     let src_chain = read_state(|s| s.omnity_chain_id.clone());
     let dst_chain = token_transport_requested.dst_chain_id;
-    let memo = has_memo.then(|| get_memo(Some(token_transport_requested.memo), dst_chain.clone())).unwrap_or_default();
+    let memo = has_memo
+        .then(|| get_memo(Some(token_transport_requested.memo), dst_chain.clone()))
+        .unwrap_or_default();
 
     Ticket {
         ticket_id: log_entry.transaction_hash.to_hex_str(),
@@ -92,7 +109,9 @@ pub fn ticket_from_transport_event(log_entry: &TransactionReceiptLog,
     }
 }
 
-pub fn convert_ecdsa_key_id(k: &omnity_types::EcdsaKeyId) -> ic_cdk::api::management_canister::ecdsa::EcdsaKeyId {
+pub fn convert_ecdsa_key_id(
+    k: &omnity_types::EcdsaKeyId,
+) -> ic_cdk::api::management_canister::ecdsa::EcdsaKeyId {
     EcdsaKeyId {
         curve: EcdsaCurve::Secp256k1,
         name: k.name.clone(),
@@ -106,8 +125,7 @@ pub fn convert_factor_to_port_factor_type_index(f: &Factor) -> PortContractFacto
     }
 }
 
-
-pub fn  directive_to_port_command_index(directive: &Directive) ->  Option<PortContractCommandIndex> {
+pub fn directive_to_port_command_index(directive: &Directive) -> Option<PortContractCommandIndex> {
     match directive {
         Directive::AddChain(_) => None,
         Directive::AddToken(_) => Some(0u8),
@@ -120,4 +138,3 @@ pub fn  directive_to_port_command_index(directive: &Directive) ->  Option<PortCo
         Directive::UpdateToken(_) => None,
     }
 }
-

@@ -202,7 +202,8 @@ async fn resend_directive(seq: Seq) {
 #[query]
 fn get_chain_list() -> Vec<Chain> {
     read_state(|s| {
-        s.counterparties.values()
+        s.counterparties
+            .values()
             .map(|chain| chain.clone())
             .collect()
     })

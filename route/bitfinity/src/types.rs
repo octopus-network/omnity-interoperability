@@ -2,8 +2,8 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use candid::CandidType;
-use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
+use ic_stable_structures::Storable;
 use serde_derive::{Deserialize, Serialize};
 
 use omnity_types::{TicketId, Token, TokenId};
@@ -55,8 +55,6 @@ impl Storable for PendingTicketStatus {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-
-
 #[derive(candid::CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetricsStatus {
     pub latest_scan_interval_secs: u64,
@@ -87,5 +85,3 @@ impl From<Token> for TokenResp {
         }
     }
 }
-
-

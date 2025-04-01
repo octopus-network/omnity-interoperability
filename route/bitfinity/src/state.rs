@@ -6,23 +6,21 @@ use candid::{CandidType, Principal};
 use ethers_core::abi::ethereum_types;
 use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{
-    ecdsa_public_key, EcdsaPublicKeyArgument, EcdsaKeyId,
+    ecdsa_public_key, EcdsaKeyId, EcdsaPublicKeyArgument,
 };
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
 
-use crate::eth_common::{EvmAddress};
-use crate::stable_memory::Memory;
-use omnity_types::{Chain, ChainState, Token, TokenId};
-use omnity_types::{
-    ChainId, Directive, Seq, Ticket, TicketId,
-};
-use crate::types::{ PendingDirectiveStatus, PendingTicketStatus};
-use crate::{stable_memory, BitfinityRouteError};
 use crate::convert::convert_ecdsa_key_id;
+use crate::eth_common::EvmAddress;
 use crate::service::InitArgs;
+use crate::stable_memory::Memory;
+use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
+use crate::{stable_memory, BitfinityRouteError};
+use omnity_types::{Chain, ChainState, Token, TokenId};
+use omnity_types::{ChainId, Directive, Seq, Ticket, TicketId};
 
 thread_local! {
     static STATE: RefCell<Option<EvmRouteState >> = RefCell::new(None);

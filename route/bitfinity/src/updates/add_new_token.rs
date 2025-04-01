@@ -1,7 +1,7 @@
 use crate::audit;
 use crate::state::{mutate_state, read_state};
-use omnity_types::Token;
 use candid::{CandidType, Deserialize};
+use omnity_types::Token;
 
 #[derive(CandidType, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub enum AddNewTokenError {

@@ -1,5 +1,5 @@
-use omnity_types::impl_guard_behavior;
 use crate::state::mutate_state;
+use omnity_types::impl_guard_behavior;
 
 #[must_use]
 pub struct TimerLogicGuard(String);
