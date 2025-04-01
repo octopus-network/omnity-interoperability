@@ -1,36 +1,19 @@
-// use crate::migration::{migrate, PreState};
-
-use crate::types::ChainState;
 use crate::{
     memory,
-    state::{read_state, replace_state, SolanaRouteState},
+    state::{read_state, replace_state, CustomsState},
+    types::omnity_types::ChainState,
 };
 use candid::{CandidType, Principal};
-
 use ic_stable_structures::{writer::Writer, Memory};
 use serde::{Deserialize, Serialize};
-#[derive(CandidType, serde::Deserialize, Clone, Debug)]
-pub enum RouteArg {
-    Init(InitArgs),
-    Upgrade(Option<UpgradeArgs>),
-}
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct InitArgs {
-    pub admin: Principal,
-    pub chain_id: String,
-    pub hub_principal: Principal,
-    pub chain_state: ChainState,
-
+pub struct UpgradeArgs {
+    pub chain_id: Option<String>,
+    pub hub_principal: Option<Principal>,
+    pub chain_state: Option<ChainState>,
     pub schnorr_key_name: Option<String>,
-    pub sol_canister: Principal,
-    pub fee_account: Option<String>,
-}
-
-pub fn init(args: InitArgs) {
-    let state = SolanaRouteState::from(args);
-    state.validate_config();
-    replace_state(state);
+    pub sol_canister: Option<Principal>,
 }
 
 pub fn pre_upgrade() {
@@ -45,21 +28,8 @@ pub fn pre_upgrade() {
     let mut writer = Writer::new(&mut memory, 0);
     writer
         .write(&len.to_le_bytes())
-        .expect("failed to save hub state len");
-    writer
-        .write(&state_bytes)
-        .expect("failed to save hub state");
-}
-
-#[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct UpgradeArgs {
-    pub admin: Option<Principal>,
-    pub chain_id: Option<String>,
-    pub hub_principal: Option<Principal>,
-    pub chain_state: Option<ChainState>,
-    pub schnorr_key_name: Option<String>,
-    pub sol_canister: Option<Principal>,
-    pub fee_account: Option<String>,
+        .expect("failed to save state len");
+    writer.write(&state_bytes).expect("failed to save state");
 }
 
 pub fn post_upgrade(args: Option<UpgradeArgs>) {
@@ -73,20 +43,10 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
     let mut state_bytes = vec![0; state_len];
     memory.read(4, &mut state_bytes);
 
-    let mut state: SolanaRouteState =
+    let mut state: CustomsState =
         ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
-    // // Deserialize pre state
-    // let pre_state: PreState =
-    //     ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-    // // migrate
-    // let mut state = migrate(pre_state);
-
-    // update state
     if let Some(args) = args {
-        if let Some(admin) = args.admin {
-            state.admin = admin;
-        }
         if let Some(chain_id) = args.chain_id {
             state.chain_id = chain_id;
         }
@@ -101,9 +61,6 @@ pub fn post_upgrade(args: Option<UpgradeArgs>) {
         }
         if let Some(sol_canister) = args.sol_canister {
             state.sol_canister = sol_canister;
-        }
-        if let Some(fee_account) = args.fee_account {
-            state.fee_account = fee_account;
         }
     }
 

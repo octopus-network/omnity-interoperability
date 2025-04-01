@@ -1,16 +1,22 @@
 use crate::auth::Permission;
 use crate::guard::TaskType;
-use crate::lifecycle::InitArgs;
+
+// use crate::lifecycle::InitArgs;
 use crate::state::Seqs;
 use crate::state::{MultiRpcConfig, SolanaRouteState};
 use crate::types::{ChainId, ChainState};
-use candid::{Deserialize, Principal};
+use candid::Principal;
 
-use serde::Serialize;
+use ic_solana::compute_budget::compute_budget::Priority;
+use ic_solana::eddsa::KeyType;
+
+use ic_stable_structures::StableBTreeMap;
+use serde::{Deserialize, Serialize};
+
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct PreState {
     pub chain_id: String,
     pub hub_principal: Principal,
@@ -27,29 +33,52 @@ pub struct PreState {
     pub caller_perms: HashMap<String, Permission>,
     pub multi_rpc_config: MultiRpcConfig,
     pub forward: Option<String>,
+    pub enable_debug: bool,
+    pub priority: Option<Priority>,
+    pub key_type: KeyType,
 }
 
 pub fn migrate(pre_state: PreState) -> SolanaRouteState {
-    let init_args = InitArgs {
-        admin: pre_state.admin,
+    // migrate old struct to new struct
+
+    let new_state = SolanaRouteState {
         chain_id: pre_state.chain_id,
         hub_principal: pre_state.hub_principal,
+        seqs: pre_state.seqs,
+        fee_token_factor: pre_state.fee_token_factor,
+        target_chain_factor: pre_state.target_chain_factor,
         chain_state: pre_state.chain_state,
-        schnorr_key_name: Some(pre_state.schnorr_key_name),
+        schnorr_key_name: pre_state.schnorr_key_name,
         sol_canister: pre_state.sol_canister,
-        fee_account: Some(pre_state.fee_account),
-        // multi_rpc_config: pre_state.multi_rpc_config,
-        // forward: pre_state.forward,
-    };
-    let mut new_state = SolanaRouteState::from(init_args);
+        fee_account: pre_state.fee_account,
+        //new fields
+        solana_client_cache: None,
+        active_tasks: pre_state.active_tasks,
+        admin: pre_state.admin,
+        caller_perms: pre_state.caller_perms,
+        multi_rpc_config: pre_state.multi_rpc_config,
+        forward: pre_state.forward,
+        enable_debug: pre_state.enable_debug,
+        priority: pre_state.priority,
+        key_type: pre_state.key_type,
 
-    new_state.fee_token_factor = pre_state.fee_token_factor;
-    new_state.target_chain_factor = pre_state.target_chain_factor;
-    new_state.caller_perms = pre_state.caller_perms;
-    new_state.multi_rpc_config = pre_state.multi_rpc_config;
-    new_state.forward = pre_state.forward;
-    new_state.seqs = pre_state.seqs;
-    new_state.enable_debug = false;
+        tickets_queue: StableBTreeMap::init(crate::memory::get_ticket_queue_memory()),
+        tickets_failed_to_hub: StableBTreeMap::init(crate::memory::get_failed_tickets_memory()),
+        counterparties: StableBTreeMap::init(crate::memory::get_counterparties_memory()),
+        tokens: StableBTreeMap::init(crate::memory::get_tokens_memory()),
+        update_token_queue: StableBTreeMap::init(crate::memory::get_update_tokens_v2_memory()),
+        token_mint_accounts: StableBTreeMap::init(
+            crate::memory::get_token_mint_accounts_v2_memory(),
+        ),
+        associated_accounts: StableBTreeMap::init(
+            crate::memory::get_associated_accounts_v2_memory(),
+        ),
+        mint_token_requests: StableBTreeMap::init(
+            crate::memory::get_mint_token_requests_v2_memory(),
+        ),
+        gen_ticket_reqs: StableBTreeMap::init(crate::memory::get_gen_ticket_req_memory()),
+        seeds: StableBTreeMap::init(crate::memory::get_seeds_memory()),
+    };
 
     new_state
 }
