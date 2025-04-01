@@ -15,7 +15,7 @@ pub trait PendingRequests {
     fn pending_requests(state: &mut CustomsState)  -> Result<(), GuardError>;
     fn incre_counter(state: &mut CustomsState);
     fn decre_counter(state: &mut CustomsState);
-    fn key_is_handling(state: &mut CustomsState, requst_key: &str) -> Result<(), GuardError>;
+    fn key_is_handling(state: &mut CustomsState, request_key: &str) -> Result<(), GuardError>;
     fn set_request_key(state: &mut CustomsState, request_key: String);
     fn remove_request_key(state: &mut CustomsState, request_key: &str);
 }
@@ -69,7 +69,7 @@ impl PendingRequests for ReleaseTokenUpdates {
         state.release_token_counter -= 1;
     }
 
-    fn key_is_handling(_state: &mut CustomsState, _requst_key: &str) -> Result<(), GuardError> {
+    fn key_is_handling(_state: &mut CustomsState, _reqeust_key: &str) -> Result<(), GuardError> {
         Ok(())
     }
 
