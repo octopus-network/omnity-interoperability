@@ -1,4 +1,4 @@
-use crate::state::{mutate_state, read_state};
+use crate::state::mutate_state;
 
 #[must_use]
 pub struct TimerLogicGuard(String);
