@@ -53,6 +53,12 @@
       "package": "bitfinity_route",
       "type": "rust"
     },
+    "ethereum_route": {
+      "gzip": true,
+      "candid": "route/ethereum/ethereum_route.did",
+      "package": "ethereum_route",
+      "type": "rust"
+    },
     "ton_route": {
       "gzip": true,
       "candid": "route/ton/ton_route.did",

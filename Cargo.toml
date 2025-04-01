@@ -11,10 +11,11 @@ members = [
     "proxy/runes_indexer_proxy",
     "proxy/generic_proxy",
     "oracle/brc20_oracle",
+    "route/ethereum",
     "types",
     "mock/bitcoin",
     "mock/icp",
-    "mock/hub",
+    "mock/hub", "route/ethereum_common",
 ]
 exclude = ["route/solana"]
 resolver = "2"

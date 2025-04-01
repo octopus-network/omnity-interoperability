@@ -40,5 +40,8 @@
   },
   "ton_route": {
     "ic": "p5ykc-qaaaa-aaaar-qalyq-cai"
+  },
+  "ethereum_route": {
+    "ic": "3zfof-myaaa-aaaar-qaioa-cai"
   }
 }
