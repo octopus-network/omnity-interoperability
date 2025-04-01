@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::state::mutate_state;
 
 #[must_use]
@@ -36,12 +38,13 @@ pub enum GuardError {
     KeyIsHandling,
 }
 
-impl ToString for GuardError {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for GuardError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             GuardError::TooManyConcurrentRequests => { "too many concurrent requests".to_string() }
             GuardError::KeyIsHandling => { "request is duplicate".to_string() }
-        }
+        };
+        write!(f, "{}", str)
     }
 }
 
