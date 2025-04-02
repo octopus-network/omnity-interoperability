@@ -180,6 +180,12 @@ pub enum Event {
     UpdatedOrdIndexer { principal: Principal },
     #[serde(rename = "update_icpswap")]
     UpdateIcpswap { principal: Principal },
+    #[serde(rename = "set_mpc_principal")]
+    SetMpcPrincipal { principal: Principal },
+
+    #[serde(rename = "stop_retry_btc_transaction")]
+    StopRetryBtcTransaction { tx_id: Txid },
+
 }
 
 #[derive(Debug)]
@@ -384,7 +390,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
                 state.replace_transaction(
                     &old_txid,
                     SubmittedBtcTransactionV2 {
-                        rune_id: runes_change_output.rune_id.clone(),
+                        rune_id: runes_change_output.rune_id,
                         txid: new_txid,
                         requests,
                         runes_utxos,
@@ -432,6 +438,17 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<CustomsState, R
             }
             Event::UpdateBitcoinFeeRate(f) => {
                 state.bitcoin_fee_rate = f;
+            }
+            Event::SetMpcPrincipal { principal } => {
+                state.mpc_principal = Some(principal);
+            }
+            Event::StopRetryBtcTransaction { tx_id } => {
+                if let Some(pos) = state
+                    .submitted_transactions
+                    .iter()
+                    .position(|tx| &tx.txid == &tx_id) {
+                    state.submitted_transactions[pos].submitted_at = 0u64;
+                };
             }
         }
     }

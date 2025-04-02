@@ -58,7 +58,6 @@ impl From<(OldEvmRouteState, u64)> for EvmRouteState {
     fn from(value: (OldEvmRouteState, u64)) -> Self {
         let old = value.0;
         Self {
-            admins: old.admins,
             hub_principal: old.hub_principal,
             omnity_chain_id: old.omnity_chain_id,
             evm_chain_id: old.evm_chain_id,
@@ -93,6 +92,7 @@ impl From<(OldEvmRouteState, u64)> for EvmRouteState {
             evm_transfer_gas_percent: value.1,
             total_required_count: 1,
             minimum_response_count: 1,
+            generating_ticketid: Default::default(),
         }
     }
 }

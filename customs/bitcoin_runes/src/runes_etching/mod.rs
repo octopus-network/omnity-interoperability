@@ -1,28 +1,30 @@
 use std::borrow::Cow;
+use std::str::FromStr;
+
 use anyhow::anyhow;
 use base64::Engine;
 pub use bitcoin;
 use candid::{CandidType, Deserialize, Principal};
-use ordinals::{Etching, SpacedRune};
-use serde::Serialize;
-use std::str::FromStr;
 use ic_stable_structures::Storable;
 use ic_stable_structures::storable::Bound;
+use ordinals::{Etching, SpacedRune};
+use serde::Serialize;
 
-use crate::runes_etching::fee_calculator::MAX_LOGO_CONTENT_SIZE;
 pub use error::{InscriptionParseError, OrdError};
 pub use inscription::iid::InscriptionId;
-pub use inscription::nft::Nft;
 pub use inscription::Inscription;
+pub use inscription::nft::Nft;
 pub use result::OrdResult;
-pub use utils::fees::{self, MultisigConfig};
 pub use utils::{constants, push_bytes};
+pub use utils::fees::{self, MultisigConfig};
 pub use wallet::{
     CreateCommitTransaction, OrdTransactionBuilder, RevealTransactionArgs,
     SignCommitTransactionArgs, Utxo, Wallet,
 };
-use crate::runes_etching::transactions::{SendEtchingInfo, SendEtchingRequest};
+
+use crate::runes_etching::fee_calculator::MAX_LOGO_CONTENT_SIZE;
 use crate::runes_etching::transactions::EtchingStatus::Initial;
+use crate::runes_etching::transactions::SendEtchingInfo;
 
 pub mod error;
 pub mod fee_calculator;

@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::str::FromStr;
 
 use candid::{CandidType, Principal};
@@ -36,7 +36,6 @@ impl EvmRouteState {
         };
         let ret = EvmRouteState {
             bitfinity_canister: args.bitfinity_canister_pricipal,
-            admins: args.admins,
             hub_principal: args.hub_principal,
             omnity_chain_id: args.chain_id,
             evm_chain_id: args.evm_chain_id,
@@ -70,6 +69,7 @@ impl EvmRouteState {
             is_timer_running: Default::default(),
             block_interval_secs: args.block_interval_secs,
             pending_events_on_chain: Default::default(),
+            generating_ticketid: Default::default(),
         };
         Ok(ret)
     }
@@ -137,7 +137,6 @@ pub async fn init_chain_pubkey() {
 #[derive(Deserialize, Serialize)]
 pub struct EvmRouteState {
     pub bitfinity_canister: Principal,
-    pub admins: Vec<Principal>,
     pub hub_principal: Principal,
     pub omnity_chain_id: String,
     pub evm_chain_id: u64,
@@ -170,12 +169,13 @@ pub struct EvmRouteState {
     pub is_timer_running: BTreeMap<String, bool>,
     pub block_interval_secs: u64,
     pub pending_events_on_chain: BTreeMap<String, u64>,
+    #[serde(default)]
+    pub generating_ticketid: HashSet<String>,
 }
 
 impl From<&EvmRouteState> for StateProfile {
     fn from(v: &EvmRouteState) -> Self {
         StateProfile {
-            admins: v.admins.clone(),
             hub_principal: v.hub_principal,
             omnity_chain_id: v.omnity_chain_id.clone(),
             evm_chain_id: v.evm_chain_id,
@@ -199,7 +199,6 @@ impl From<&EvmRouteState> for StateProfile {
 
 #[derive(Deserialize, Serialize, CandidType)]
 pub struct StateProfile {
-    pub admins: Vec<Principal>,
     pub hub_principal: Principal,
     pub omnity_chain_id: String,
     pub evm_chain_id: u64,

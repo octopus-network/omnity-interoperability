@@ -1,24 +1,33 @@
-use crate::state::{mutate_state, CustomsState};
 use std::marker::PhantomData;
+
+use crate::guard::GuardError::KeyIsHandling;
+use crate::state::{CustomsState, mutate_state};
 
 const MAX_CONCURRENT: u64 = 100;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum GuardError {
     TooManyConcurrentRequests,
+    KeyIsHandling,
 }
 
 pub trait PendingRequests {
-    fn pending_requests(state: &mut CustomsState) -> u64;
+    fn pending_requests(state: &mut CustomsState)  -> Result<(), GuardError>;
     fn incre_counter(state: &mut CustomsState);
     fn decre_counter(state: &mut CustomsState);
+    fn key_is_handling(state: &mut CustomsState, request_key: &str) -> Result<(), GuardError>;
+    fn set_request_key(state: &mut CustomsState, request_key: String);
+    fn remove_request_key(state: &mut CustomsState, request_key: &str);
 }
 
 pub struct GenerateTicketUpdates;
 
 impl PendingRequests for GenerateTicketUpdates {
-    fn pending_requests(state: &mut CustomsState) -> u64 {
-        state.generate_ticket_counter
+    fn pending_requests(state: &mut CustomsState) -> Result<(), GuardError> {
+        if state.generate_ticket_counter >= MAX_CONCURRENT {
+            return Err(GuardError::TooManyConcurrentRequests);
+        }
+        Ok(())
     }
 
     fn incre_counter(state: &mut CustomsState) {
@@ -28,40 +37,70 @@ impl PendingRequests for GenerateTicketUpdates {
     fn decre_counter(state: &mut CustomsState) {
         state.generate_ticket_counter -= 1;
     }
+
+    fn key_is_handling(state: &mut CustomsState, request_key: &str) -> Result<(), GuardError> {
+        if state.generating_txids.contains(request_key) {
+            return Err(KeyIsHandling);
+        }
+        Ok(())
+    }
+
+    fn set_request_key(state: &mut CustomsState, request_key: String){
+        state.generating_txids.insert(request_key);
+    }
+
+    fn remove_request_key(state: &mut CustomsState, request_key: &str) {
+        state.generating_txids.remove(request_key);
+    }
 }
 pub struct ReleaseTokenUpdates;
 
 impl PendingRequests for ReleaseTokenUpdates {
-    fn pending_requests(state: &mut CustomsState) -> u64 {
-        state.release_token_counter
+    fn pending_requests(state: &mut CustomsState) -> Result<(), GuardError> {
+        if state.release_token_counter >= MAX_CONCURRENT {
+            return Err(GuardError::TooManyConcurrentRequests);
+        }
+        Ok(())
     }
-
     fn incre_counter(state: &mut CustomsState) {
         state.release_token_counter += 1;
     }
-
     fn decre_counter(state: &mut CustomsState) {
         state.release_token_counter -= 1;
+    }
+
+    fn key_is_handling(_state: &mut CustomsState, _reqeust_key: &str) -> Result<(), GuardError> {
+        Ok(())
+    }
+
+    fn set_request_key(_state: &mut CustomsState, _request_key: String)  {
+    }
+
+    fn remove_request_key(_state: &mut CustomsState, _request_key: &str) {
+        //Nothing to do
     }
 }
 
 /// Guards a block from being executed [MAX_CONCURRENT] or more times in parallel.
 #[must_use]
 pub struct Guard<PR: PendingRequests> {
+    request_key: String,
     _marker: PhantomData<PR>,
 }
 
 impl<PR: PendingRequests> Guard<PR> {
     /// Attempts to create a new guard for the current block.
     /// Fails if there are at least [MAX_CONCURRENT] pending requests.
-    pub fn new() -> Result<Self, GuardError> {
+    pub fn new(request_key: String) -> Result<Self, GuardError> {
         mutate_state(|s| {
-            let counter = PR::pending_requests(s);
-            if counter >= MAX_CONCURRENT {
-                return Err(GuardError::TooManyConcurrentRequests);
-            }
+            //check
+            PR::pending_requests(s)?;
+            PR::key_is_handling(s, &request_key)?;
+            //lock
+            PR::set_request_key(s, request_key.clone());
             PR::incre_counter(s);
             Ok(Self {
+                request_key,
                 _marker: PhantomData,
             })
         })
@@ -70,7 +109,11 @@ impl<PR: PendingRequests> Guard<PR> {
 
 impl<PR: PendingRequests> Drop for Guard<PR> {
     fn drop(&mut self) {
-        mutate_state(|s| PR::decre_counter(s));
+        mutate_state(|s| {
+            PR::remove_request_key(s, &self.request_key);
+            PR::decre_counter(s)
+        });
+
     }
 }
 
@@ -166,23 +209,26 @@ impl Drop for crate::guard::ProcessEtchingMsgGuard {
     }
 }
 
-pub fn generate_ticket_guard() -> Result<Guard<GenerateTicketUpdates>, GuardError> {
-    Guard::new()
+pub fn generate_ticket_guard(txid: String) -> Result<Guard<GenerateTicketUpdates>, GuardError> {
+    Guard::new(txid)
 }
 
 pub fn release_token_guard() -> Result<Guard<ReleaseTokenUpdates>, GuardError> {
-    Guard::new()
+    Guard::new("".to_string())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::TimerLogicGuard;
+    use ic_base_types::CanisterId;
+
+    use omnity_types::ChainState;
+
     use crate::{
-        lifecycle::init::{init, BtcNetwork, InitArgs},
+        lifecycle::init::{BtcNetwork, init, InitArgs},
         state::read_state,
     };
-    use ic_base_types::CanisterId;
-    use omnity_types::ChainState;
+
+    use super::TimerLogicGuard;
 
     fn test_state_args() -> InitArgs {
         InitArgs {

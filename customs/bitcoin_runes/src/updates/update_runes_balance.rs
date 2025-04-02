@@ -27,7 +27,7 @@ pub enum UpdateRunesBalanceError {
 pub async fn update_runes_balance(
     args: UpdateRunesBalanceArgs,
 ) -> Result<(), UpdateRunesBalanceError> {
-    if args.balances.len() == 0 {
+    if args.balances.is_empty() {
         return Err(UpdateRunesBalanceError::BalancesIsEmpty);
     }
 
@@ -46,8 +46,7 @@ pub async fn update_runes_balance(
         if req
             .new_utxos
             .iter()
-            .find(|u| u.outpoint == outpoint)
-            .is_none()
+            .find(|u| u.outpoint == outpoint).is_none()
         {
             return Err(UpdateRunesBalanceError::UtxoNotFound);
         }

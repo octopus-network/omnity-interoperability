@@ -10,6 +10,7 @@ use bitcoin::{
     secp256k1, Address, Amount, OutPoint, PublicKey, ScriptBuf, Sequence, Transaction, TxIn, TxOut,
     Txid, Witness, XOnlyPublicKey,
 };
+use candid::CandidType;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::Storable;
 use ordinals::Runestone as OrdRunestone;

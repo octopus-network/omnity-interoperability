@@ -9,7 +9,7 @@ use ic_ic00_types::{
 use serde::de::DeserializeOwned;
 
 use crate::bitcoin::ECDSAPublicKey;
-use crate::call_error::{CallError, Reason};
+use omnity_types::call_error::{CallError, Reason};
 use crate::state::read_state;
 
 async fn call<I, O>(method: &str, payment: u64, input: &I) -> Result<O, CallError>

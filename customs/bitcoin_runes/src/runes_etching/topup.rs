@@ -1,6 +1,6 @@
 use candid::{CandidType, Principal};
 use ic_cdk::{call};
-use ic_ledger_types::{AccountIdentifier, BlockIndex, Memo, Subaccount, Tokens, TransferArgs};
+use ic_ledger_types::{AccountIdentifier, BlockIndex, Memo, Subaccount, Tokens};
 use serde::{Deserialize, Serialize};
 
 

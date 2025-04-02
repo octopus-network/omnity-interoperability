@@ -114,24 +114,21 @@ impl Nft {
             for ch in hex.chunks(MAX_SCRIPT_ELEMENT_SIZE) {
                 builder = builder.push_slice::<&PushBytes>(ch.try_into().unwrap());
             }
-        } else {
-            if self.body.is_some() && self.content_type.is_some() {
-                Self::append(
-                    constants::CONTENT_TYPE_TAG,
-                    &mut builder,
-                    &self.content_type,
-                );
-                if let Some(body) = &self.body {
-                    builder = builder.push_slice(constants::BODY_TAG);
-                    for chunk in body.chunks(MAX_SCRIPT_ELEMENT_SIZE) {
-                        builder = builder.push_slice::<&PushBytes>(chunk.try_into().unwrap());
-                    }
+        } else if self.body.is_some() && self.content_type.is_some() {
+            Self::append(
+                constants::CONTENT_TYPE_TAG,
+                &mut builder,
+                &self.content_type,
+            );
+            if let Some(body) = &self.body {
+                builder = builder.push_slice(constants::BODY_TAG);
+                for chunk in body.chunks(MAX_SCRIPT_ELEMENT_SIZE) {
+                    builder = builder.push_slice::<&PushBytes>(chunk.try_into().unwrap());
                 }
             }
         }
 
         builder = builder.push_opcode(opcodes::all::OP_ENDIF);
-        println!("{}", builder.as_script().to_string());
         Ok(builder)
     }
 

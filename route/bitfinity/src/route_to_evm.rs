@@ -6,9 +6,9 @@ use crate::contracts::{gen_evm_eip1559_tx, gen_execute_directive_data, gen_mint_
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
 use crate::state::{minter_addr, mutate_state, read_state};
 use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
-use omnity_types::{Seq, Directive, ChainState};
+use omnity_types::{Seq, Directive, ChainState, hub};
 use omnity_types::ic_log::{CRITICAL, INFO, ERROR};
-use crate::{BitfinityRouteError, get_time_secs, hub};
+use crate::{BitfinityRouteError, get_time_secs};
 
 
 
@@ -42,6 +42,9 @@ pub async fn send_tickets_to_evm() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     for seq in from..to {
+        let scguard = scopeguard::guard((), |_| {
+            log!(ERROR, "send ticket to bitfinity panic, ticket seq: {}", seq);
+        });
         if read_state(|s| s.chain_state == ChainState::Deactive) {
             mutate_state(|s| s.next_consume_ticket_seq = seq);
             return;
@@ -72,8 +75,10 @@ pub async fn send_tickets_to_evm() {
 
             }
         }
+        mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
+        scopeguard::ScopeGuard::into_inner(scguard);
     }
-    mutate_state(|s| s.next_consume_ticket_seq = to);
+
 }
 
 pub async fn send_ticket(seq: Seq) -> Result<Option<String>, BitfinityRouteError>  {

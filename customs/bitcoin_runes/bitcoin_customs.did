@@ -52,6 +52,7 @@ type CustomsInfo = record {
   ord_indexer_principal : opt principal;
   next_ticket_seq : nat64;
   chain_state : ChainState;
+  mpc_principal : opt principal;
   min_confirmations : nat32;
   prod_ecdsa_public_key : opt ECDSAPublicKey;
   release_token_counter : nat64;
@@ -127,6 +128,7 @@ type Event = variant {
   accepted_release_token_request : ReleaseTokenRequest;
   init : InitArgs;
   updated_runes_balance : record { balance : RunesBalance; txid : blob };
+  stop_retry_btc_transaction : record { tx_id : blob };
   upgrade : UpgradeArgs;
   added_chain : Chain;
   update_next_ticket_seq : nat64;
@@ -146,6 +148,7 @@ type Event = variant {
   accepted_generate_ticket_request : GenTicketRequest;
   accepted_rune_tx_request : RuneTxRequest;
   updated_rpc_url : record { rpc_url : text };
+  set_mpc_principal : record { "principal" : principal };
   toggle_chain_state : ToggleState;
 };
 type Factor = variant {
@@ -197,6 +200,7 @@ type GenerateTicketError = variant {
   AlreadySubmitted;
   InvalidTxId;
   NotPayFees;
+  VerifyFailed;
   TxNotFoundInMemPool;
   NoNewUtxos;
   UnsupportedChainId : text;
@@ -333,7 +337,6 @@ type UpgradeArgs = record {
 type Utxo = record { height : nat32; value : nat64; outpoint : OutPoint };
 type UtxoArgs = record { id : text; index : nat32; amount : nat64 };
 service : (CustomArg) -> {
-  canister_icp : () -> ();
   estimate_etching_fee : (nat64, text, opt LogoParams) -> (Result);
   estimate_etching_fee_v2 : (text, opt LogoParams) -> (Result);
   estimate_redeem_fee : (EstimateFeeArgs) -> (RedeemFee) query;
@@ -357,12 +360,15 @@ service : (CustomArg) -> {
   get_runes_oracles : () -> (vec principal) query;
   get_token_list : () -> (vec TokenResp) query;
   get_xpub_key : () -> (ECDSAPublicKey) query;
+  query_etching_fees_utxos : () -> (text) query;
   release_token_status : (text) -> (ReleaseTokenStatus) query;
   remove_error_etching : (text) -> ();
   remove_error_ticket : (text) -> ();
   remove_runes_oracle : (principal) -> ();
-  set_fee_collector : (text) -> ();
+  set_fee_collector : (text, Network) -> (Result_3);
   set_icpswap : (principal) -> ();
+  set_mpc_principal : (principal) -> ();
+  set_nownodes_apikey : (text) -> ();
   set_ord_indexer : (principal) -> ();
   set_runes_oracle : (principal) -> ();
   set_tx_fee_per_vbyte : (BitcoinFeeRate) -> (Result_3);

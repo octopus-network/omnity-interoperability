@@ -37,6 +37,7 @@ sha2 = "0.10.8"
 ethers-contract = "2.0.14"
 ethers-providers = "2.0.14"
 futures = "0.3"
+scopeguard = "1.2.0"
 time = "0.3.36"
 ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 [workspace]

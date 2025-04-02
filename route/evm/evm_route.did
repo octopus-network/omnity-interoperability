@@ -93,7 +93,6 @@ type StateProfile = record {
   key_derivation_path : vec vec nat8;
   omnity_chain_id : text;
   tokens : vec record { text; Token };
-  admins : vec principal;
   target_chain_factor : vec record { text; nat };
   evm_rpc_addr : principal;
   counterparties : vec record { text; Chain };
@@ -155,7 +154,7 @@ service : (InitArgs) -> {
   mint_token_status : (text) -> (MintTokenStatus) query;
   pubkey_and_evm_addr : () -> (text, text);
   query_directives : (nat64, nat64) -> (vec record { nat64; Directive }) query;
-  query_handled_event : (text) -> (opt text);
+  query_handled_event : (text) -> (opt text) query;
   query_hub_tickets : (nat64) -> (vec record { nat64; Ticket });
   query_pending_directive : (nat64, nat64) -> (
       vec record { nat64; PendingDirectiveStatus },
@@ -172,7 +171,6 @@ service : (InitArgs) -> {
   set_port_address : (text) -> ();
   sync_mint_status : (text) -> ();
   transform : (TransformArgs) -> (HttpResponse_1) query;
-  update_admins : (vec principal) -> ();
   update_consume_directive_seq : (nat64) -> ();
   update_fee_token : (text) -> ();
   update_rpc_check_rate : (nat64, nat64) -> ();

@@ -5,7 +5,7 @@ use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
 use itertools::Itertools;
 
-use omnity_types::{ChainState, Directive, Ticket, ChainId, Memo};
+use omnity_types::{ChainState, Directive, Ticket, ChainId, Memo, hub};
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 
 use crate::*;

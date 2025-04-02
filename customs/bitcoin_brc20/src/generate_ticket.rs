@@ -13,7 +13,7 @@ use omnity_types::ic_log::INFO;
 use omnity_types::{ChainState, Ticket, TicketType, TxAction, Memo};
 
 use crate::bitcoin_to_custom::check_transaction;
-use crate::hub;
+use omnity_types::hub;
 use crate::state::{mutate_state, read_state};
 use crate::types::{GenTicketStatus, LockTicketRequest};
 

@@ -1,24 +1,29 @@
+use std::cmp::PartialEq;
+use std::str::FromStr;
+
+use candid::{CandidType, Deserialize};
+use ic_btc_interface::{OutPoint, Txid, Utxo};
+use ic_cdk::api::management_canister::http_request::{
+    CanisterHttpRequestArgument, http_request, HttpHeader, HttpMethod, TransformContext,
+    TransformFunc,
+};
+use serde::Serialize;
+
+use omnity_types::{ChainState, Memo, Ticket, TicketType, TxAction};
+use omnity_types::rune_id::RuneId;
+
 use crate::destination::Destination;
-use crate::guard::{generate_ticket_guard, GuardError};
+use crate::guard::{generate_ticket_guard, GenerateTicketUpdates, Guard, GuardError};
 use crate::hub;
 use crate::state::{
-    audit, mutate_state, read_state, GenTicketRequestV2, GenTicketStatus, RUNES_TOKEN,
+    audit, GenTicketRequestV2, GenTicketStatus, mutate_state, read_state, RUNES_TOKEN,
 };
 use crate::updates::get_btc_address::{
     destination_to_p2wpkh_address_from_state, init_ecdsa_public_key,
 };
+use crate::updates::nownodes_rpc::fetch_new_utxos_from_nownodes;
 use crate::updates::rpc_types;
 use crate::updates::rpc_types::Transaction;
-use candid::{CandidType, Deserialize, Nat};
-use ic_btc_interface::{OutPoint, Txid, Utxo};
-use ic_cdk::api::management_canister::http_request::{
-    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, TransformContext,
-    TransformFunc,
-};
-use omnity_types::rune_id::RuneId;
-use omnity_types::{ChainState, Memo, Ticket, TicketType, TxAction};
-use serde::Serialize;
-use std::str::FromStr;
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GenerateTicketArgs {
@@ -44,6 +49,7 @@ pub enum GenerateTicketError {
     RpcError(String),
     AmountIsZero,
     NotPayFees,
+    VerifyFailed,
 }
 
 impl From<GuardError> for GenerateTicketError {
@@ -51,6 +57,9 @@ impl From<GuardError> for GenerateTicketError {
         match e {
             GuardError::TooManyConcurrentRequests => {
                 Self::TemporarilyUnavailable("too many concurrent requests".to_string())
+            }
+            GuardError::KeyIsHandling => {
+                Self::TemporarilyUnavailable("The same txid is handling".to_string())
             }
         }
     }
@@ -71,7 +80,19 @@ pub async fn generate_ticket(
     }
 
     init_ecdsa_public_key().await;
-    let _guard = generate_ticket_guard()?;
+    let _guard: Guard<GenerateTicketUpdates> = match generate_ticket_guard(args.txid.clone()){
+        Ok(g) => {g}
+        Err(e) => {
+            match e {
+                GuardError::TooManyConcurrentRequests => {
+                    return Err(e.into());
+                }
+                GuardError::KeyIsHandling => {
+                    return Ok(());
+                }
+            }
+        }
+    };
 
     let rune_id = RuneId::from_str(&args.rune_id)
         .map_err(|e| GenerateTicketError::InvalidRuneId(e.to_string()))?;
@@ -189,11 +210,16 @@ pub async fn generate_ticket(
     Ok(())
 }
 
+
 async fn fetch_new_utxos(
     txid: Txid,
     address: &String,
 ) -> Result<(Vec<Utxo>, Transaction), GenerateTicketError> {
-    fetch_new_utxos_outcall(txid, address).await
+    let r1 = fetch_new_utxos_outcall(txid, address).await;
+    if r1.is_ok() {
+        return  r1;
+    }
+    fetch_new_utxos_from_nownodes(txid, address).await
 }
 
 async fn fetch_new_utxos_outcall(
@@ -206,7 +232,7 @@ async fn fetch_new_utxos_outcall(
     let url = format!(
         "{}/{}",
         read_state(|s| s.rpc_url.clone().unwrap_or(DERAULT_RPC_URL.to_string())),
-        txid.to_string()
+        txid
     );
 
     let request = CanisterHttpRequestArgument {
@@ -230,7 +256,7 @@ async fn fetch_new_utxos_outcall(
     match http_request(request, MAX_CYCLES).await {
         Ok((response,)) => {
             let status = response.status;
-            if status == Nat::from(200_u32) {
+            if status == 200_u32 {
                 let body = String::from_utf8(response.body).map_err(|_| {
                     GenerateTicketError::RpcError(
                         "Transformed response is not UTF-8 encoded".to_string(),
@@ -265,12 +291,12 @@ async fn fetch_new_utxos_outcall(
                     .collect();
 
                 Ok((transfer_utxos, tx))
-            } else if status == Nat::from(404_u32) {
+            } else if status == 404_u32 {
                 Err(GenerateTicketError::TxNotFoundInMemPool)
             } else {
                 Err(GenerateTicketError::RpcError(format!(
                     "status code:{}",
-                    status.to_string()
+                    status
                 )))
             }
         }

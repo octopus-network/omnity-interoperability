@@ -39,7 +39,7 @@ pub fn update_next_directive_seq(state: &mut CustomsState, next_seq: u64) {
 
 pub fn update_next_ticket_seq(state: &mut CustomsState, next_seq: u64) {
     if next_seq > state.next_ticket_seq {
-        record_event(&&Event::UpdateNextTicketSeq(next_seq));
+        record_event(&Event::UpdateNextTicketSeq(next_seq));
         state.next_ticket_seq = next_seq;
     }
 }
@@ -100,12 +100,11 @@ pub fn update_runes_balance(state: &mut CustomsState, txid: Txid, balance: Runes
         txid,
         balance: balance.clone(),
     });
-
     state.update_runes_balance(txid, balance);
 }
 
 pub fn remove_confirmed_request(state: &mut CustomsState, txid: &Txid) {
-    record_event(&Event::RemovedTicketRequest { txid: txid.clone() });
+    record_event(&Event::RemovedTicketRequest { txid: *txid });
     state
         .confirmed_gen_ticket_requests
         .remove(txid)
@@ -141,7 +140,6 @@ pub fn sent_transaction(state: &mut CustomsState, tx: SubmittedBtcTransactionV2)
         submitted_at: tx.submitted_at,
         fee_per_vbyte: tx.fee_per_vbyte,
     });
-
     state.push_submitted_transaction(tx);
 }
 
@@ -166,6 +164,11 @@ pub fn replace_transaction(
             .expect("bug: all replacement transactions must have the fee"),
     });
     state.replace_transaction(&old_txid, new_tx);
+}
+
+pub fn stop_transaction(txid: Txid,state: &mut CustomsState,) {
+    record_event(&Event::StopRetryBtcTransaction {tx_id: txid.clone()});
+    state.stop_retry_transaction(txid);
 }
 
 pub fn update_fee(state: &mut CustomsState, fee: Factor) {

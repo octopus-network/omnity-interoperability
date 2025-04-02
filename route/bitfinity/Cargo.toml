@@ -42,3 +42,4 @@ did = {git = "https://github.com/bitfinity-network/bitfinity-evm-sdk.git", tag =
 ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-01-18_23-01" }
 env_filter = "=0.1.1"
 time = "0.3.36"
+scopeguard = "1.2.0"

@@ -34,7 +34,11 @@ pub fn scan_evm_task() {
                 continue;
             }
             let now = get_time_secs();
-            if now - time < interval || now - time > interval * 5 {
+            if now - time < interval {
+                continue;
+            }
+            if now - time > interval * 5 {
+                mutate_state(|s| s.pending_events_on_chain.remove(&hash));
                 continue;
             }
             sync_mint_status(hash).await;
@@ -70,8 +74,10 @@ pub async fn sync_mint_status(hash: String) {
         let res = handle_port_events(tr.logs.clone()).await;
         match res {
             Ok(_) => {
-                mutate_state(|s| s.pending_events_on_chain.remove(&hash));
-                mutate_state(|s| s.handled_evm_event.insert(hash));
+                mutate_state(|s| {
+                    s.pending_events_on_chain.remove(&hash);
+                    s.handled_evm_event.insert(hash)
+                });
             }
             Err(e) => {
                 log!(
@@ -105,6 +111,9 @@ pub async fn handle_port_events(logs: Vec<LogEntry>) -> anyhow::Result<()> {
             topics: l.topics.iter().map(|topic| topic.0.into()).collect_vec(),
             data: l.data.0.clone(),
         };
+        //just for proventing history mistakes. In history.
+        // we use log_key as event identifier instead of transaction's hash,
+        // so we putted some log_keys into handled_evm_events
         if read_state(|s| s.handled_evm_event.contains(&log_key)) {
             continue;
         }

@@ -345,7 +345,14 @@ pub struct CustomsState {
     #[serde(default)]
     pub bitcoin_fee_rate: BitcoinFeeRate,
 
+    #[serde(default)]
+    pub mpc_principal: Option<Principal>,
+
+
     pub rpc_url: Option<String>,
+
+    #[serde(skip)]
+    pub generating_txids: BTreeSet<String>,
 
     /// Process one timer event at a time.
     #[serde(skip)]
@@ -380,6 +387,9 @@ pub struct CustomsState {
 
     #[serde(default)]
     pub ord_indexer_principal: Option<Principal>,
+
+    #[serde(default)]
+    pub nownodes_apikey: String,
 
     #[serde(default)]
     pub icpswap_principal: Option<Principal>,
@@ -548,7 +558,7 @@ impl CustomsState {
             }
         }
 
-        for (_, requests) in &self.pending_rune_tx_requests {
+        for  requests in self.pending_rune_tx_requests.values() {
             for (l, r) in requests.iter().zip(requests.iter().skip(1)) {
                 ensure!(
                     l.received_at <= r.received_at,
@@ -714,13 +724,9 @@ impl CustomsState {
             return ReleaseTokenStatus::Submitted(txid.to_string());
         }
 
-        match self.finalized_rune_tx_requests.get(ticket_id) {
-            Some(FinalizedStatus::Confirmed(txid)) => {
-                return ReleaseTokenStatus::Confirmed(txid.to_string())
-            }
-            None => (),
+        if let Some(FinalizedStatus::Confirmed(txid)) = self.finalized_rune_tx_requests.get(ticket_id) {
+            return ReleaseTokenStatus::Confirmed(txid.to_string());
         }
-
         ReleaseTokenStatus::Unknown
     }
 
@@ -758,16 +764,23 @@ impl CustomsState {
         let mut tx_amount = 0;
         let requests = self.pending_rune_tx_requests.entry(rune_id).or_default();
 
+
         if let Some(pos) = requests.iter().position(|req| req.action == TxAction::Mint) {
-            let req = requests.remove(pos);
-            batch.push(req);
-            return batch;
+            let rand_number :u64 = rand::random();
+            if rand_number/100u64 < 50 {
+                let req = requests.remove(pos);
+                batch.push(req);
+                return batch;
+            }
         }
 
         let mut edicts = vec![];
         for req in std::mem::take(requests) {
+            if req.action == TxAction::Mint {
+                continue;
+            }
             edicts.push(Edict {
-                id: req.rune_id.into(),
+                id: req.rune_id,
                 amount: req.amount,
                 output: 0,
             });
@@ -777,8 +790,10 @@ impl CustomsState {
                 mint: None,
             }
             .encipher();
+            let total_amount = req.amount.checked_add(tx_amount);
             if script.len() > 82
-                || available_utxos_value < req.amount + tx_amount
+                ||total_amount.is_none()
+                || available_utxos_value < total_amount.unwrap()
                 || batch.len() >= max_size
             {
                 // Put this request back to the queue until we have enough liquid UTXOs.
@@ -789,8 +804,16 @@ impl CustomsState {
                 batch.push(req.clone());
             }
         }
+        if !batch.is_empty() {
+            return batch;
+        }
 
+        if let Some(pos) = requests.iter().position(|req| req.action == TxAction::Mint) {
+            let req = requests.remove(pos);
+            batch.push(req);
+        }
         batch
+
     }
 
     /// Returns the total number of all rune tx requests that we haven't
@@ -946,6 +969,15 @@ impl CustomsState {
         self.rev_replacement_txid.insert(new_txid, *old_txid);
     }
 
+    pub fn stop_retry_transaction(&mut self, txid: Txid) {
+        let Some(pos) = self
+            .submitted_transactions
+            .iter()
+            .position(|tx| &tx.txid == &txid) else {
+            return;
+        };
+        self.submitted_transactions[pos].submitted_at = 0u64;
+    }
     /// Returns the identifier of the most recent replacement transaction for the given stuck
     /// transaction id.
     pub fn find_last_replacement_tx(&self, txid: &Txid) -> Option<&Txid> {
@@ -958,10 +990,9 @@ impl CustomsState {
 
     /// Removes a pending release_token request with the specified block index.
     fn remove_pending_request(&mut self, ticket_id: TicketId) -> Option<RuneTxRequest> {
-        for (_, requests) in &mut self.pending_rune_tx_requests {
-            match requests.iter().position(|req| req.ticket_id == ticket_id) {
-                Some(pos) => return Some(requests.remove(pos)),
-                None => {}
+        for requests in  self.pending_rune_tx_requests.values_mut() {
+            if let Some(pos) = requests.iter().position(|req| req.ticket_id == ticket_id) {
+                return Some(requests.remove(pos));
             }
         }
         None
@@ -1258,6 +1289,7 @@ impl From<InitArgs> for CustomsState {
             hub_principal: args.hub_principal,
             runes_oracles: BTreeSet::from_iter(vec![args.runes_oracle_principal]),
             bitcoin_fee_rate: Default::default(),
+            mpc_principal: Default::default(),
             rpc_url: None,
             last_fee_per_vbyte: vec![1; 100],
             fee_token_factor: None,
@@ -1268,9 +1300,11 @@ impl From<InitArgs> for CustomsState {
             finalized_etching_requests: crate::storage::init_finalized_etching_requests(),
             stash_etchings: crate::storage::init_stash_etchings(),
             ord_indexer_principal: None,
+            nownodes_apikey: "".to_string(),
             icpswap_principal: None,
             etching_fee_utxos: crate::storage::init_etching_fee_utxos(),
             stash_etching_ids: crate::storage::init_stash_etching_ids(),
+            generating_txids: Default::default(),
         }
     }
 }

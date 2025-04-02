@@ -1,33 +1,5 @@
 use std::fmt::Display;
 
-use crate::state::mutate_state;
-
-#[must_use]
-pub struct TimerLogicGuard(String);
-
-impl TimerLogicGuard {
-    pub fn new(task_name: String) -> Option<Self> {
-        mutate_state(|s| {
-            let running = s
-                .is_timer_running
-                .get(&task_name)
-                .cloned()
-                .unwrap_or_default();
-            if running {
-                return None;
-            }
-            s.is_timer_running.insert(task_name.clone(), true);
-            Some(TimerLogicGuard(task_name))
-        })
-    }
-}
-
-impl Drop for TimerLogicGuard {
-    fn drop(&mut self) {
-        mutate_state(|s| s.is_timer_running.remove(&self.0));
-    }
-}
-
 pub struct CommonGuard<GB: GuardBehavior> {
     pub request_key: GB::KeyType,
 }
@@ -75,23 +47,28 @@ pub trait GuardBehavior {
     fn release_lock(key: &Self::KeyType);
 }
 
-pub struct GenerateTicketGuardBehavior;
 
-impl GuardBehavior for GenerateTicketGuardBehavior {
-    type KeyType = String;
-    fn check_lock(key: &Self::KeyType) -> Result<(), GuardError> {
-        if mutate_state(|s| s.generating_ticketid.contains(key)) {
-            Err(GuardError::KeyIsHandling)
-        } else {
-            Ok(())
+#[macro_export]
+macro_rules! impl_guard_behavior {
+    ($name:ty,  $ty: ty) => {
+        use omnity_types::guard::{GuardBehavior, GuardError};
+        impl GuardBehavior for $name {
+            type KeyType = $ty;
+            fn check_lock(key: &Self::KeyType) -> Result<(), GuardError> {
+                if mutate_state(|s|s.generating_ticketid.contains(key)) {
+                    Err(GuardError::KeyIsHandling)
+                }else {
+                    Ok(())
+                }
+            }
+
+            fn set_lock(key: &Self::KeyType) {
+                mutate_state(|s|s.generating_ticketid.insert(key.clone()));
+            }
+
+            fn release_lock(key: &Self::KeyType) {
+                mutate_state(|s|s.generating_ticketid.remove(key));
+            }
         }
-    }
-
-    fn set_lock(key: &Self::KeyType) {
-        mutate_state(|s| s.generating_ticketid.insert(key.clone()));
-    }
-
-    fn release_lock(key: &Self::KeyType) {
-        mutate_state(|s| s.generating_ticketid.remove(key));
-    }
+    };
 }

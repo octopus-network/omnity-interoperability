@@ -1,6 +1,7 @@
 use ethers_core::types::U256;
 use ethers_core::utils::keccak256;
 use ic_canister_log::log;
+use scopeguard::ScopeGuard;
 
 use crate::{Error, get_time_secs, hub};
 use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE, SEND_EVM_TASK_NAME};
@@ -48,6 +49,9 @@ pub async fn send_tickets_to_evm() {
     let from = read_state(|s| s.next_consume_ticket_seq);
     let to = read_state(|s| s.next_ticket_seq);
     for seq in from..to {
+        let scope_guard = scopeguard::guard((), |_| {
+            log!(WARNING, "send ticket panic, ticket id: {}", seq);
+        });
         match send_ticket(seq).await {
             Ok(h) => match h {
                 None => {}
@@ -75,6 +79,7 @@ pub async fn send_tickets_to_evm() {
             },
         }
         mutate_state(|s| s.next_consume_ticket_seq = seq + 1);
+        ScopeGuard::into_inner(scope_guard);
     }
 }
 
