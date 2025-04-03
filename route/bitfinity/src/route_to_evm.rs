@@ -1,14 +1,15 @@
 use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE};
-use crate::contracts::{gen_evm_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
+use ethereum_common::contracts::{gen_evm_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
 use crate::state::{minter_addr, mutate_state, read_state};
-use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
+use ethereum_common::base_types::{PendingDirectiveStatus, PendingTicketStatus};
 use crate::{get_time_secs, BitfinityRouteError};
 use anyhow::anyhow;
 use ethers_core::types::U256;
 use ic_canister_log::log;
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use omnity_types::{hub, ChainState, Directive, Seq};
+use crate::state_profile::BitfinityStateProvider;
 
 pub async fn send_directives_to_evm() {
     let from = read_state(|s| s.next_consume_directive_seq);
@@ -91,10 +92,10 @@ pub async fn send_ticket(seq: Seq) -> Result<Option<String>, BitfinityRouteError
             }
             let data_result = gen_mint_token_data(&t);
             let nonce = get_account_nonce(minter_addr()).await.unwrap_or_default().0;
-            let tx = gen_evm_eip1559_tx(
+            let tx = gen_evm_eip1559_tx::<BitfinityStateProvider>(
                 data_result,
                 get_gasprice().await.ok(),
-                nonce,
+                nonce.as_u64(),
                 DEFAULT_EVM_TX_FEE,
             );
             log!(
@@ -152,7 +153,7 @@ pub async fn send_directive(seq: Seq) -> Result<Option<String>, BitfinityRouteEr
     match read_state(|s| s.directives_queue.get(&seq)) {
         None => Ok(None),
         Some(d) => {
-            let data = gen_execute_directive_data(&d, U256::from(seq));
+            let data = gen_execute_directive_data::<BitfinityStateProvider>(&d, U256::from(seq));
             if data.is_empty() {
                 //the directive needn't send to evm.
                 return Ok(None);
@@ -162,7 +163,7 @@ pub async fn send_directive(seq: Seq) -> Result<Option<String>, BitfinityRouteEr
                 Directive::AddToken(_) => ADD_TOKEN_EVM_TX_FEE,
                 _ => DEFAULT_EVM_TX_FEE,
             };
-            let tx = gen_evm_eip1559_tx(data, get_gasprice().await.ok(), nonce, fee);
+            let tx = gen_evm_eip1559_tx::<BitfinityStateProvider>(data, get_gasprice().await.ok(), nonce.as_u64(), fee);
             log!(
                 INFO,
                 "[bitfinity route] send directive tx content: {:?}",

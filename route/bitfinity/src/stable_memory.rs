@@ -1,4 +1,4 @@
-use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
+use ethereum_common::base_types::{PendingDirectiveStatus, PendingTicketStatus};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
 use omnity_types::{Directive, Seq, Ticket, TicketId};

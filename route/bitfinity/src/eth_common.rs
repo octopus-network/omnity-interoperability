@@ -1,77 +1,21 @@
 use std::ops::{Div, Mul};
-use std::str::FromStr;
 
 use anyhow::anyhow;
-use candid::CandidType;
 use did::error::{EvmError, TransactionPoolError};
 use did::{BlockNumber, H256};
 
-use ethereum_types::Address;
-use ethers_core::abi::ethereum_types;
 use ethers_core::types::{Eip1559TransactionRequest, U256, U64};
 use ethers_core::utils::keccak256;
 use evm_canister_client::{EvmCanisterClient, IcCanisterClient};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
+use ethereum_common::const_args::EIP1559_TX_ID;
+use ethereum_common::signs::y_parity;
 use omnity_types::ic_log::ERROR;
-use serde_derive::{Deserialize, Serialize};
 
-use crate::const_args::EVM_ADDR_BYTES_LEN;
-use crate::eth_common::EvmAddressError::LengthError;
 use crate::state::{minter_addr, read_state};
 use crate::BitfinityRouteError::{EvmRpcError, Temporary};
-use crate::{BitfinityRouteError, EvmAddressError};
-
-pub fn hex_to_u64(hex_str: &str) -> u64 {
-    u64::from_str_radix(hex_str.strip_prefix("0x").unwrap(), 16).unwrap()
-}
-
-#[derive(Deserialize, CandidType, Serialize, Default, Clone, Eq, PartialEq)]
-pub struct EvmAddress(pub(crate) [u8; EVM_ADDR_BYTES_LEN]);
-
-impl EvmAddress {
-    pub fn to_hex(&self) -> String {
-        format!("0x{}", hex::encode(self.0))
-    }
-}
-
-impl From<EvmAddress> for Address {
-    fn from(value: EvmAddress) -> Self {
-        Address::from(value.0)
-    }
-}
-impl AsRef<[u8]> for EvmAddress {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_slice()
-    }
-}
-
-impl FromStr for EvmAddress {
-    type Err = EvmAddressError;
-
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let t = if text.starts_with("0x") {
-            text.strip_prefix("0x").unwrap()
-        } else {
-            text
-        };
-        let r = hex::decode(t).map_err(|_e| EvmAddressError::FormatError)?;
-        EvmAddress::try_from(r)
-    }
-}
-
-impl TryFrom<Vec<u8>> for EvmAddress {
-    type Error = EvmAddressError;
-
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        if value.len() != EVM_ADDR_BYTES_LEN {
-            return Err(LengthError);
-        }
-        let mut c = [0u8; EVM_ADDR_BYTES_LEN];
-        c.copy_from_slice(value.as_slice());
-        Ok(EvmAddress(c))
-    }
-}
+use crate::{BitfinityRouteError};
 
 pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<did::Transaction> {
     sign_transaction_eip1559(tx).await
@@ -80,7 +24,6 @@ pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<d
 pub async fn sign_transaction_eip1559(
     tx: Eip1559TransactionRequest,
 ) -> anyhow::Result<did::Transaction> {
-    use crate::const_args::EIP1559_TX_ID;
     use ethers_core::types::Signature;
     let mut unsigned_tx_bytes = tx.rlp().to_vec();
     unsigned_tx_bytes.insert(0, EIP1559_TX_ID);
@@ -168,25 +111,6 @@ pub async fn broadcast(tx: did::Transaction) -> Result<String, super::BitfinityR
             )))
         }
     }
-}
-
-fn y_parity(prehash: &[u8], sig: &[u8], pubkey: &[u8]) -> u64 {
-    use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
-    let orig_key = VerifyingKey::from_sec1_bytes(pubkey).expect("failed to parse the pubkey");
-    let signature = Signature::try_from(sig).unwrap();
-    for parity in [0u8, 1] {
-        let recid = RecoveryId::try_from(parity).unwrap();
-        let recovered_key = VerifyingKey::recover_from_prehash(prehash, &signature, recid)
-            .expect("failed to recover key");
-        if recovered_key == orig_key {
-            return parity as u64;
-        }
-    }
-    panic!(
-        "failed to recover the parity bit from a signature; sig: {}, pubkey: {}",
-        hex::encode(sig),
-        hex::encode(pubkey)
-    )
 }
 
 pub async fn get_account_nonce(addr: String) -> Result<did::U256, super::BitfinityRouteError> {
@@ -298,21 +222,6 @@ pub async fn get_transaction_receipt(
             ))
         })?;
     Ok(r)
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct EvmJsonRpcRequest {
-    pub method: String,
-    pub params: Vec<String>,
-    pub id: u64,
-    pub jsonrpc: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct JsonRpcResponse<T> {
-    pub jsonrpc: String,
-    pub result: T,
-    pub id: u32,
 }
 
 fn bitfinity_evm_canister_client() -> EvmCanisterClient<IcCanisterClient> {

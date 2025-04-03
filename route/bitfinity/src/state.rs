@@ -12,12 +12,12 @@ use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
+use ethereum_common::address::EvmAddress;
 
-use crate::convert::convert_ecdsa_key_id;
-use crate::eth_common::EvmAddress;
+use ethereum_common::convert::convert_ecdsa_key_id;
 use crate::service::InitArgs;
 use crate::stable_memory::Memory;
-use crate::types::{PendingDirectiveStatus, PendingTicketStatus};
+use ethereum_common::base_types::{PendingDirectiveStatus, PendingTicketStatus};
 use crate::{stable_memory, BitfinityRouteError};
 use omnity_types::{Chain, ChainState, Token, TokenId};
 use omnity_types::{ChainId, Directive, Seq, Ticket, TicketId};

@@ -68,7 +68,7 @@ pub async fn sign_transaction_legacy<P: StateProvider>(
     Ok(signed_tx_bytes)
 }
 
-fn y_parity(prehash: &[u8], sig: &[u8], pubkey: &[u8]) -> u64 {
+pub fn y_parity(prehash: &[u8], sig: &[u8], pubkey: &[u8]) -> u64 {
     use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
     let orig_key = VerifyingKey::from_sec1_bytes(pubkey).expect("failed to parse the pubkey");
     let signature = Signature::try_from(sig).unwrap();
