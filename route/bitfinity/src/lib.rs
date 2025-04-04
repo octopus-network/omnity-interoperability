@@ -9,7 +9,6 @@ pub mod hub_to_route;
 pub mod route_to_evm;
 pub mod audit;
 pub mod service;
-pub mod stable_memory;
 pub mod state;
 pub mod updates;
 mod state_profile;

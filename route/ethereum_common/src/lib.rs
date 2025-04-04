@@ -11,3 +11,4 @@ pub mod signs;
 pub mod token_resp;
 pub mod traits;
 pub mod tx_types;
+pub mod stable_memory;

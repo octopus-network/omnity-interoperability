@@ -6,7 +6,6 @@ pub mod hub_to_route;
 pub mod lightclient;
 pub mod route_to_evm;
 pub mod service;
-pub mod stable_memory;
 pub mod state;
 mod state_provider;
 pub mod updates;

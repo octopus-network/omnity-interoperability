@@ -16,9 +16,10 @@ use ethereum_common::address::EvmAddress;
 
 use ethereum_common::convert::convert_ecdsa_key_id;
 use crate::service::InitArgs;
-use crate::stable_memory::Memory;
+use ethereum_common::stable_memory::Memory;
+use ethereum_common::stable_memory;
 use ethereum_common::base_types::{PendingDirectiveStatus, PendingTicketStatus};
-use crate::{stable_memory, BitfinityRouteError};
+use crate::BitfinityRouteError;
 use omnity_types::{Chain, ChainState, Token, TokenId};
 use omnity_types::{ChainId, Directive, Seq, Ticket, TicketId};
 
@@ -54,15 +55,15 @@ impl EvmRouteState {
             next_consume_ticket_seq: 0,
             next_consume_directive_seq: 0,
             handled_evm_event: Default::default(),
-            tickets_queue: StableBTreeMap::init(crate::stable_memory::get_to_evm_tickets_memory()),
+            tickets_queue: StableBTreeMap::init(stable_memory::get_to_evm_tickets_memory()),
             directives_queue: StableBTreeMap::init(
-                crate::stable_memory::get_to_evm_directives_memory(),
+                stable_memory::get_to_evm_directives_memory(),
             ),
             pending_tickets_map: StableBTreeMap::init(
-                crate::stable_memory::get_pending_ticket_map_memory(),
+                stable_memory::get_pending_ticket_map_memory(),
             ),
             pending_directive_map: StableBTreeMap::init(
-                crate::stable_memory::get_pending_directive_map_memory(),
+                stable_memory::get_pending_directive_map_memory(),
             ),
             is_timer_running: Default::default(),
             block_interval_secs: args.block_interval_secs,
@@ -76,7 +77,7 @@ impl EvmRouteState {
         let mut state_bytes = vec![];
         let _ = ciborium::ser::into_writer(self, &mut state_bytes);
         let len = state_bytes.len() as u32;
-        let mut memory = crate::stable_memory::get_upgrade_stash_memory();
+        let mut memory = stable_memory::get_upgrade_stash_memory();
         let mut writer = Writer::new(&mut memory, 0);
         writer
             .write(&len.to_le_bytes())
@@ -155,13 +156,13 @@ pub struct EvmRouteState {
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
     pub handled_evm_event: BTreeSet<String>,
-    #[serde(skip, default = "crate::stable_memory::init_to_evm_tickets_queue")]
+    #[serde(skip, default = "ethereum_common::stable_memory::init_to_evm_tickets_queue")]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
-    #[serde(skip, default = "crate::stable_memory::init_to_evm_directives_queue")]
+    #[serde(skip, default = "ethereum_common::stable_memory::init_to_evm_directives_queue")]
     pub directives_queue: StableBTreeMap<u64, Directive, Memory>,
-    #[serde(skip, default = "crate::stable_memory::init_pending_ticket_map")]
+    #[serde(skip, default = "ethereum_common::stable_memory::init_pending_ticket_map")]
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
-    #[serde(skip, default = "crate::stable_memory::init_pending_directive_map")]
+    #[serde(skip, default = "ethereum_common::stable_memory::init_pending_directive_map")]
     pub pending_directive_map: StableBTreeMap<Seq, PendingDirectiveStatus, Memory>,
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,
