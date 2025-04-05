@@ -20,7 +20,7 @@ use ethereum_common::traits::StateProvider;
 use crate::state::{bitfinity_get_redeem_fee, mutate_state, read_state};
 use crate::*;
 use crate::log_converter::transform_transaction_log;
-use crate::state_profile::BitfinityStateProvider;
+use crate::state_provider::BitfinityStateProvider;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {

@@ -9,7 +9,7 @@ use ethers_core::types::U256;
 use ic_canister_log::log;
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use omnity_types::{hub, ChainState, Directive, Seq};
-use crate::state_profile::BitfinityStateProvider;
+use crate::state_provider::BitfinityStateProvider;
 
 pub async fn send_directives_to_evm() {
     let from = read_state(|s| s.next_consume_directive_seq);

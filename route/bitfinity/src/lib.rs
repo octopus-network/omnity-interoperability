@@ -1,5 +1,4 @@
 use ic_cdk::api::call::RejectionCode;
-use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod eth_common;
@@ -11,7 +10,7 @@ pub mod audit;
 pub mod service;
 pub mod state;
 pub mod updates;
-mod state_profile;
+mod state_provider;
 mod log_converter;
 
 #[derive(Error, Debug)]
@@ -55,12 +54,4 @@ pub mod const_args {
 
 pub fn get_time_secs() -> u64 {
     ic_cdk::api::time() / 1_000_000_000
-}
-
-#[derive(Error, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum EvmAddressError {
-    #[error("Bytes isn't 20 bytes.")]
-    LengthError,
-    #[error("String is not a hex string.")]
-    FormatError,
 }
