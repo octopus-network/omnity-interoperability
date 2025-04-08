@@ -65,8 +65,8 @@ pub fn ticket_from_runes_mint_event<P: StateProvider>(
         action: TxAction::Mint,
         token: runes_mint.token_id,
         amount: "0".to_string(),
-        sender: Some(format!("0x{}", hex::encode(runes_mint.sender.0.as_slice()))),
-        receiver: format!("0x{}", hex::encode(runes_mint.receiver.0.as_slice())),
+        sender: Some(runes_mint.sender.encode_hex_with_prefix()),
+        receiver: runes_mint.receiver.encode_hex_with_prefix(),
         memo: memo.map(|m| m.to_bytes().to_vec()),
     }
 }
@@ -91,10 +91,7 @@ pub fn ticket_from_transport_event<P: StateProvider>(
         action: TxAction::Transfer,
         token: token_transport_requested.token_id.to_string(),
         amount: token_transport_requested.amount.to_string(),
-        sender: Some(format!(
-            "0x{}",
-            hex::encode(token_transport_requested.sender.0.as_slice())
-        )),
+        sender: Some(token_transport_requested.sender.encode_hex_with_prefix()),
         receiver: token_transport_requested.receiver,
         memo: memo.map(|m| m.to_bytes().to_vec()),
     }

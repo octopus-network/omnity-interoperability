@@ -22,6 +22,7 @@ use crate::state::{
 use ethereum_common::base_types::{MetricsStatus, PendingDirectiveStatus, PendingTicketStatus};
 use ethereum_common::token_resp::TokenResp;
 use candid::{CandidType, Principal};
+use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
@@ -124,7 +125,7 @@ async fn pubkey_and_evm_addr() -> (String, String) {
         init_chain_pubkey().await;
         key = read_state(|s| s.pubkey.clone());
     }
-    let key_str = format!("0x{}", hex::encode(key.as_slice()));
+    let key_str = key.encode_hex_with_prefix();
     let addr = minter_addr();
     (key_str, addr)
 }
