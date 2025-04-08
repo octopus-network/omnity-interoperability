@@ -1,22 +1,17 @@
 use ic_cdk::api::call::RejectionCode;
-use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub mod contract_types;
-pub mod contracts;
 pub mod eth_common;
 pub mod evm_scan;
 pub mod guard;
 pub mod hub_to_route;
 pub mod route_to_evm;
-//mod stable_log;
 pub mod audit;
-mod convert;
 pub mod service;
-pub mod stable_memory;
 pub mod state;
-pub mod types;
 pub mod updates;
+mod state_provider;
+mod log_converter;
 
 #[derive(Error, Debug)]
 pub enum BitfinityRouteError {
@@ -49,7 +44,6 @@ pub mod const_args {
     pub const SEND_EVM_TASK_NAME: &str = "SEND_EVM";
     pub const SCAN_EVM_TASK_INTERVAL: u64 = 10;
     pub const SCAN_EVM_TASK_NAME: &str = "SCAN_EVM";
-    pub const EIP1559_TX_ID: u8 = 2;
     pub const EVM_FINALIZED_CONFIRM_HEIGHT: u64 = 10;
     pub const DEFAULT_EVM_TX_FEE: u32 = 200_000u32;
     pub const ADD_TOKEN_EVM_TX_FEE: u32 = 3_000_000u32;
@@ -60,12 +54,4 @@ pub mod const_args {
 
 pub fn get_time_secs() -> u64 {
     ic_cdk::api::time() / 1_000_000_000
-}
-
-#[derive(Error, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum EvmAddressError {
-    #[error("Bytes isn't 20 bytes.")]
-    LengthError,
-    #[error("String is not a hex string.")]
-    FormatError,
 }

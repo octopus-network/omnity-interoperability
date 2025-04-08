@@ -41,3 +41,5 @@ ic-canister-log = { git = "https://github.com/dfinity/ic", tag = "release-2024-0
 env_filter = "=0.1.1"
 time = "0.3.36"
 scopeguard = "1.2.0"
+ethereum_common = {path = "../ethereum_common"}
+tree_hash = { git = "https://github.com/octopus-network/ethereum-lightclient-canister", package = "tree_hash"}

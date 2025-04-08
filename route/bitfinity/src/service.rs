@@ -5,7 +5,8 @@ use crate::const_args::{
     BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
     SEND_EVM_TASK_NAME,
 };
-use crate::eth_common::{get_balance, EvmAddress};
+use ethereum_common::address::EvmAddress;
+use crate::eth_common::{get_balance};
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::get_time_secs;
 use crate::guard::GenerateTicketGuardBehavior;
@@ -18,8 +19,10 @@ use crate::state::{
     init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, EvmRouteState,
     StateProfile,
 };
-use crate::types::{MetricsStatus, PendingDirectiveStatus, PendingTicketStatus, TokenResp};
+use ethereum_common::base_types::{MetricsStatus, PendingDirectiveStatus, PendingTicketStatus};
+use ethereum_common::token_resp::TokenResp;
 use candid::{CandidType, Principal};
+use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
 use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
@@ -122,7 +125,7 @@ async fn pubkey_and_evm_addr() -> (String, String) {
         init_chain_pubkey().await;
         key = read_state(|s| s.pubkey.clone());
     }
-    let key_str = format!("0x{}", hex::encode(key.as_slice()));
+    let key_str = key.encode_hex_with_prefix();
     let addr = minter_addr();
     (key_str, addr)
 }

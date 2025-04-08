@@ -1,10 +1,8 @@
-use std::cell::RefCell;
-
+use crate::base_types::{PendingDirectiveStatus, PendingTicketStatus};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
 use omnity_types::{Directive, Seq, Ticket, TicketId};
-
-use ethereum_common::base_types::{PendingDirectiveStatus, PendingTicketStatus};
+use std::cell::RefCell;
 
 pub type InnerMemory = DefaultMemoryImpl;
 pub type Memory = VirtualMemory<InnerMemory>;
@@ -49,6 +47,7 @@ pub fn get_pending_directive_map_memory() -> Memory {
 pub fn get_upgrade_stash_memory() -> Memory {
     with_memory_manager(|m| m.get(UPGRADE_STASH_MEMORY_ID))
 }
+
 pub fn init_to_evm_tickets_queue() -> StableBTreeMap<u64, Ticket, Memory> {
     StableBTreeMap::init(get_to_evm_tickets_memory())
 }

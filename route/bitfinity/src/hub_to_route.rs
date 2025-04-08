@@ -1,6 +1,6 @@
 use crate::audit;
 use crate::const_args::BATCH_QUERY_LIMIT;
-use crate::eth_common::EvmAddress;
+use ethereum_common::address::EvmAddress;
 use crate::state::{mutate_state, read_state};
 use ic_canister_log::log;
 use omnity_types::ic_log::{CRITICAL, ERROR};

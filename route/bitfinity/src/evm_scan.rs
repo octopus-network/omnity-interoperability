@@ -9,15 +9,18 @@ use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use omnity_types::{hub, ChainId, ChainState, Directive, Memo, Ticket};
 
 use crate::const_args::SCAN_EVM_TASK_NAME;
-use crate::contract_types::{
+use ethereum_common::contract_types::{
     AbiSignature, DecodeLog, DirectiveExecuted, RunesMintRequested, TokenAdded, TokenBurned,
     TokenMinted, TokenTransportRequested,
 };
-use crate::convert::{
+use ethereum_common::convert::{
     ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event,
 };
+use ethereum_common::traits::StateProvider;
 use crate::state::{bitfinity_get_redeem_fee, mutate_state, read_state};
 use crate::*;
+use crate::log_converter::transform_transaction_log;
+use crate::state_provider::BitfinityStateProvider;
 
 pub fn scan_evm_task() {
     ic_cdk::spawn(async {
@@ -61,7 +64,7 @@ pub fn scan_evm_task() {
                         continue;
                     }
                     Some(h) => {
-                        if h.to_hex_str() != port_address.to_hex() {
+                        if h.to_hex_str() != port_address.encode_hex_with_prefix() {
                             log!(ERROR, "attack: receipt to address is not port address");
                             mutate_state(|s| s.pending_events_on_chain.remove(&hash));
                             continue;
@@ -91,7 +94,7 @@ pub fn scan_evm_task() {
 pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Result<()> {
     let port = read_state(|s| s.omnity_port_contract.clone());
     for l in logs {
-        if l.address.to_hex_str() != port.to_hex() {
+        if l.address.to_hex_str() != port.encode_hex_with_prefix() {
             continue;
         }
         if l.removed {
@@ -110,10 +113,11 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
         }) {
             continue;
         }
+        let common_log: ethereum_common::evm_log::LogEntry = transform_transaction_log(&l);
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
-            handle_token_burn(&l, token_burned.clone()).await?;
+            handle_token_burn(&common_log, token_burned.clone()).await?;
         } else if topic1 == TokenMinted::signature_hash() {
             let token_mint = TokenMinted::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
@@ -133,7 +137,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
                 }
             });
             if dst_check_result {
-                handle_token_transport(&l, token_transport).await?;
+                handle_token_transport(&common_log, token_transport).await?;
             } else {
                 log!(INFO, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,&tx_hash);
             }
@@ -191,17 +195,17 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| BitfinityRouteError::ParseEventError(e.to_string()))?;
-            handle_runes_mint(&l, runes_mint).await?;
+            handle_runes_mint(&common_log, runes_mint).await?;
         }
     }
     Ok(())
 }
 
 pub async fn handle_runes_mint(
-    log_entry: &TransactionReceiptLog,
+    log_entry: &ethereum_common::evm_log::LogEntry,
     event: RunesMintRequested,
 ) -> anyhow::Result<()> {
-    let ticket = ticket_from_runes_mint_event(log_entry, event, false);
+    let ticket = ticket_from_runes_mint_event::<BitfinityStateProvider>(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -214,10 +218,10 @@ pub async fn handle_runes_mint(
 }
 
 pub async fn handle_token_burn(
-    log_entry: &TransactionReceiptLog,
+    log_entry: &ethereum_common::evm_log::LogEntry,
     event: TokenBurned,
 ) -> anyhow::Result<()> {
-    let ticket = ticket_from_burn_event(log_entry, event, false);
+    let ticket = ticket_from_burn_event::<BitfinityStateProvider>(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -230,10 +234,10 @@ pub async fn handle_token_burn(
 }
 
 pub async fn handle_token_transport(
-    log_entry: &TransactionReceiptLog,
+    log_entry: &ethereum_common::evm_log::LogEntry,
     event: TokenTransportRequested,
 ) -> anyhow::Result<()> {
-    let ticket = ticket_from_transport_event(log_entry, event, false);
+    let ticket = ticket_from_transport_event::<BitfinityStateProvider>(log_entry, event, false);
     hub::finalize_ticket(crate::state::hub_addr(), ticket.ticket_id.clone())
         .await
         .map_err(|e| BitfinityRouteError::HubError(e.to_string()))?;
@@ -257,18 +261,19 @@ pub async fn create_ticket_by_tx(tx_hash: &String) -> Result<(Ticket, Transactio
         Some(tr) => {
             let return_tr = tr.clone();
             assert_eq!(tr.status, Some(did::U64::one()), "transaction failed");
-            let ticket = generate_ticket_by_logs(tr.logs);
+            let ticket = generate_ticket_by_logs::<BitfinityStateProvider>(tr.logs);
             let t = ticket.map_err(|e| e.to_string())?;
             Ok((t, return_tr))
         }
     }
 }
 
-pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Result<Ticket> {
+pub fn generate_ticket_by_logs<P: StateProvider>(logs: Vec<TransactionReceiptLog>) -> anyhow::Result<Ticket> {
     for l in logs {
         if l.removed {
             return Err(anyhow!("log is removed"));
         }
+        let common_log: ethereum_common::evm_log::LogEntry = transform_transaction_log(&l);
         let topic1 = l.topics.first().ok_or(anyhow!("topic is none"))?.0 .0;
         let raw_log: RawLog = RawLog {
             topics: l.topics.iter().map(|topic| topic.0).collect_vec(),
@@ -277,7 +282,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         if topic1 == TokenBurned::signature_hash() {
             let token_burned = TokenBurned::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
-            return Ok(ticket_from_burn_event(&l, token_burned, true));
+            return Ok(ticket_from_burn_event::<P>(&common_log, token_burned, true));
         } else if topic1 == TokenTransportRequested::signature_hash() {
             let token_transport = TokenTransportRequested::decode_log(&raw_log)
                 .map_err(|e| super::BitfinityRouteError::ParseEventError(e.to_string()))?;
@@ -289,7 +294,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
                 }
             });
             if dst_check_result {
-                return Ok(ticket_from_transport_event(&l, token_transport, true));
+                return Ok(ticket_from_transport_event::<P>(&common_log, token_transport, true));
             } else {
                 let tx_hash = l.transaction_hash.to_hex_str();
                 log!(INFO, "[bitfinity route] received a transport ticket with a unknown or deactived dst chain, ignore, txhash={}" ,tx_hash);
@@ -297,7 +302,7 @@ pub fn generate_ticket_by_logs(logs: Vec<TransactionReceiptLog>) -> anyhow::Resu
         } else if topic1 == RunesMintRequested::signature_hash() {
             let runes_mint = RunesMintRequested::decode_log(&raw_log)
                 .map_err(|e| BitfinityRouteError::ParseEventError(e.to_string()))?;
-            return Ok(ticket_from_runes_mint_event(&l, runes_mint, true));
+            return Ok(ticket_from_runes_mint_event::<P>(&common_log, runes_mint, true));
         }
     }
     Err(anyhow!("not found ticket"))
