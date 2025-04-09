@@ -5,8 +5,7 @@ use crate::const_args::{
     BATCH_QUERY_LIMIT, MONITOR_PRINCIPAL, SCAN_EVM_TASK_INTERVAL, SEND_EVM_TASK_INTERVAL,
     SEND_EVM_TASK_NAME,
 };
-use ethereum_common::address::EvmAddress;
-use crate::eth_common::{get_balance};
+use crate::eth_common::get_balance;
 use crate::evm_scan::{create_ticket_by_tx, scan_evm_task};
 use crate::get_time_secs;
 use crate::guard::GenerateTicketGuardBehavior;
@@ -18,10 +17,12 @@ use crate::state::{
     init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, EvmRouteState,
     StateProfile,
 };
-use ethereum_common::traits::StateProvider;
+use crate::state_provider::BitfinityStateProvider;
+use candid::{CandidType, Principal};
+use ethereum_common::address::EvmAddress;
 use ethereum_common::base_types::{MetricsStatus, PendingDirectiveStatus, PendingTicketStatus};
 use ethereum_common::token_resp::TokenResp;
-use candid::{CandidType, Principal};
+use ethereum_common::traits::StateProvider;
 use ethers_core::utils::hex::ToHexExt;
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
@@ -35,7 +36,6 @@ use omnity_types::{
     Chain, ChainId, ChainState, Directive, Network, Seq, Ticket, TicketId,
 };
 use serde_derive::Deserialize;
-use crate::state_provider::BitfinityStateProvider;
 
 #[init]
 fn init(args: InitArgs) {

@@ -1,21 +1,20 @@
 use std::ops::{Div, Mul};
 
-use anyhow::anyhow;
 use did::error::{EvmError, TransactionPoolError};
 use did::{BlockNumber, H256};
 
+use ethereum_common::const_args::EIP1559_TX_ID;
+use ethereum_common::error::Error;
+use ethereum_common::signs::y_parity;
 use ethers_core::types::{Eip1559TransactionRequest, U256, U64};
 use ethers_core::utils::keccak256;
 use evm_canister_client::{EvmCanisterClient, IcCanisterClient};
 use ic_canister_log::log;
 use ic_cdk::api::management_canister::ecdsa::{sign_with_ecdsa, SignWithEcdsaArgument};
-use ethereum_common::const_args::EIP1559_TX_ID;
-use ethereum_common::signs::y_parity;
 use omnity_types::ic_log::ERROR;
 
 use crate::state::{minter_addr, read_state};
-use crate::BitfinityRouteError::{EvmRpcError, Temporary};
-use crate::{BitfinityRouteError};
+use ethereum_common::error::Error::{EvmRpcError, Temporary};
 
 pub async fn sign_transaction(tx: Eip1559TransactionRequest) -> anyhow::Result<did::Transaction> {
     sign_transaction_eip1559(tx).await
@@ -36,7 +35,7 @@ pub async fn sign_transaction_eip1559(
     // The signatures are encoded as the concatenation of the 32-byte big endian encodings of the two values r and s.
     let (r,) = sign_with_ecdsa(arg)
         .await
-        .map_err(|(_, e)| super::BitfinityRouteError::ChainKeyError(e))?;
+        .map_err(|(_, e)| Error::ChainKeyError(e))?;
     let signature = Signature {
         v: y_parity(&txhash, &r.signature, crate::state::public_key().as_ref()),
         r: U256::from_big_endian(&r.signature[0..32]),
@@ -64,7 +63,7 @@ pub async fn sign_transaction_eip1559(
     Ok(transaction.into())
 }
 
-pub async fn broadcast(tx: did::Transaction) -> Result<String, super::BitfinityRouteError> {
+pub async fn broadcast(tx: did::Transaction) -> Result<String, Error> {
     let client = bitfinity_evm_canister_client();
     let r = client.send_raw_transaction(tx.clone()).await.map_err(|e| {
         log!(
@@ -72,7 +71,7 @@ pub async fn broadcast(tx: did::Transaction) -> Result<String, super::BitfinityR
             "[bitfinity route]broadcasts canister client error: {}",
             e.to_string()
         );
-        BitfinityRouteError::EvmRpcError(e.to_string())
+        Error::EvmRpcError(e.to_string())
     })?;
     match r {
         Ok(r) => Ok(r.to_hex_str()),
@@ -105,15 +104,12 @@ pub async fn broadcast(tx: did::Transaction) -> Result<String, super::BitfinityR
                 EvmError::TransactionReverted(_) => {}
                 EvmError::Precompile(_) => {}
             }
-            Err(BitfinityRouteError::Custom(anyhow::anyhow!(
-                "broadcast error: {}",
-                e.to_string()
-            )))
+            Err(Error::Custom(format!("broadcast error: {}", e.to_string())))
         }
     }
 }
 
-pub async fn get_account_nonce(addr: String) -> Result<did::U256, super::BitfinityRouteError> {
+pub async fn get_account_nonce(addr: String) -> Result<did::U256, Error> {
     let client = bitfinity_evm_canister_client();
     let r = client
         .eth_get_transaction_count(
@@ -147,10 +143,7 @@ pub async fn get_gasprice() -> anyhow::Result<U256> {
     let r = r
         .map_err(|e| {
             log!(ERROR, "[bitfinity route]query gas price error: {:?}", &e);
-            BitfinityRouteError::Custom(anyhow!(format!(
-                "[bitfinity route]query gas price error: {:?}",
-                &e
-            )))
+            Error::Custom(format!("[bitfinity route]query gas price error: {:?}", &e))
         })?
         .0;
     Ok(r.mul(11i32).div(10i32))
@@ -168,10 +161,10 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
                 "[bitfinity route]query chainkey address evm balance error: {:?}",
                 &e
             );
-            BitfinityRouteError::Custom(anyhow!(format!(
+            Error::Custom(format!(
                 "[bitfinity route]query chainkey address evm balance error: {:?}",
                 &e
-            )))
+            ))
         })?
         .map_err(|e| {
             log!(
@@ -179,7 +172,7 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
                 "[bitfinity route]query chainkey address evm balance evm error: {:?}",
                 &e
             );
-            BitfinityRouteError::EvmRpcError(format!(
+            Error::EvmRpcError(format!(
                 "[bitfinity route]query chainkey address evm balance evm error: {:?}",
                 &e
             ))
@@ -189,11 +182,11 @@ pub async fn get_balance(addr: String) -> anyhow::Result<U256> {
 
 pub async fn get_transaction_receipt(
     hash: &String,
-) -> std::result::Result<Option<did::TransactionReceipt>, BitfinityRouteError> {
+) -> std::result::Result<Option<did::TransactionReceipt>, Error> {
     let client = bitfinity_evm_canister_client();
     let h = did::H256::from_hex_str(hash).map_err(|e| {
         log!(ERROR, "[bitfinity route] decode tx hash error: {:?}", &e);
-        BitfinityRouteError::Custom(anyhow!("[bitfinity route] decode tx hash error: {:?}", &e))
+        Error::Custom(format!("[bitfinity route] decode tx hash error: {:?}", &e))
     })?;
     let r = client.eth_get_transaction_receipt(h).await;
     let r = r
@@ -204,10 +197,10 @@ pub async fn get_transaction_receipt(
                 hash,
                 &e
             );
-            BitfinityRouteError::Custom(anyhow!(format!(
+            Error::Custom(format!(
                 "[bitfinity route]query transaction receipt client error: {:?}",
                 &e
-            )))
+            ))
         })?
         .map_err(|e| {
             log!(
@@ -216,7 +209,7 @@ pub async fn get_transaction_receipt(
                 hash,
                 &e
             );
-            BitfinityRouteError::EvmRpcError(format!(
+            Error::EvmRpcError(format!(
                 "[bitfinity route]query transaction receipt evm error: {:?}",
                 &e
             ))

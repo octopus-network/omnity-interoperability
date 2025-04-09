@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::str::FromStr;
 
 use candid::{CandidType, Principal};
+use ethereum_common::address::EvmAddress;
 use ethers_core::abi::ethereum_types;
 use ethers_core::utils::keccak256;
 use ic_cdk::api::management_canister::ecdsa::{
@@ -12,14 +13,13 @@ use ic_stable_structures::writer::Writer;
 use ic_stable_structures::StableBTreeMap;
 use k256::PublicKey;
 use serde::{Deserialize, Serialize};
-use ethereum_common::address::EvmAddress;
 
-use ethereum_common::convert::convert_ecdsa_key_id;
 use crate::service::InitArgs;
-use ethereum_common::stable_memory::Memory;
-use ethereum_common::stable_memory;
 use ethereum_common::base_types::{PendingDirectiveStatus, PendingTicketStatus};
-use crate::BitfinityRouteError;
+use ethereum_common::convert::convert_ecdsa_key_id;
+use ethereum_common::error::Error;
+use ethereum_common::stable_memory;
+use ethereum_common::stable_memory::Memory;
 use omnity_types::{Chain, ChainState, Token, TokenId};
 use omnity_types::{ChainId, Directive, Seq, Ticket, TicketId};
 
@@ -56,9 +56,7 @@ impl EvmRouteState {
             next_consume_directive_seq: 0,
             handled_evm_event: Default::default(),
             tickets_queue: StableBTreeMap::init(stable_memory::get_to_evm_tickets_memory()),
-            directives_queue: StableBTreeMap::init(
-                stable_memory::get_to_evm_directives_memory(),
-            ),
+            directives_queue: StableBTreeMap::init(stable_memory::get_to_evm_directives_memory()),
             pending_tickets_map: StableBTreeMap::init(
                 stable_memory::get_pending_ticket_map_memory(),
             ),
@@ -128,7 +126,7 @@ pub async fn init_chain_pubkey() {
     };
     let res = ecdsa_public_key(arg)
         .await
-        .map_err(|(_, e)| BitfinityRouteError::ChainKeyError(e))
+        .map_err(|(_, e)| Error::ChainKeyError(e))
         .unwrap();
     mutate_state(|s| s.pubkey = res.0.public_key.clone());
 }
@@ -156,13 +154,25 @@ pub struct EvmRouteState {
     pub next_consume_ticket_seq: u64,
     pub next_consume_directive_seq: u64,
     pub handled_evm_event: BTreeSet<String>,
-    #[serde(skip, default = "ethereum_common::stable_memory::init_to_evm_tickets_queue")]
+    #[serde(
+        skip,
+        default = "ethereum_common::stable_memory::init_to_evm_tickets_queue"
+    )]
     pub tickets_queue: StableBTreeMap<u64, Ticket, Memory>,
-    #[serde(skip, default = "ethereum_common::stable_memory::init_to_evm_directives_queue")]
+    #[serde(
+        skip,
+        default = "ethereum_common::stable_memory::init_to_evm_directives_queue"
+    )]
     pub directives_queue: StableBTreeMap<u64, Directive, Memory>,
-    #[serde(skip, default = "ethereum_common::stable_memory::init_pending_ticket_map")]
+    #[serde(
+        skip,
+        default = "ethereum_common::stable_memory::init_pending_ticket_map"
+    )]
     pub pending_tickets_map: StableBTreeMap<TicketId, PendingTicketStatus, Memory>,
-    #[serde(skip, default = "ethereum_common::stable_memory::init_pending_directive_map")]
+    #[serde(
+        skip,
+        default = "ethereum_common::stable_memory::init_pending_directive_map"
+    )]
     pub pending_directive_map: StableBTreeMap<Seq, PendingDirectiveStatus, Memory>,
     #[serde(skip)]
     pub is_timer_running: BTreeMap<String, bool>,

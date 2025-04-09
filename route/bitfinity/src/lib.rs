@@ -1,38 +1,13 @@
-use ic_cdk::api::call::RejectionCode;
-use thiserror::Error;
-
+pub mod audit;
 pub mod eth_common;
 pub mod evm_scan;
 pub mod guard;
 pub mod hub_to_route;
+mod log_converter;
 pub mod route_to_evm;
-pub mod audit;
 pub mod service;
 pub mod state;
 mod state_provider;
-mod log_converter;
-
-#[derive(Error, Debug)]
-pub enum BitfinityRouteError {
-    #[error("Hub error: {0}")]
-    HubError(String),
-    #[error("Evm rpc canister error: {0}")]
-    EvmRpcCanisterError(String),
-    #[error("Evm rpc error: {0}")]
-    EvmRpcError(String),
-    #[error("Chain key error: {0}")]
-    ChainKeyError(String),
-    #[error("Parse event error: {0}")]
-    ParseEventError(String),
-    #[error("Route not initialized")]
-    RouteNotInitialized,
-    #[error("IC call error: {0:?}, {1}")]
-    IcCallError(RejectionCode, String),
-    #[error(transparent)]
-    Custom(#[from] anyhow::Error),
-    #[error("Temporay error")]
-    Temporary,
-}
 
 pub mod const_args {
     pub const MAX_SCAN_BLOCKS: u64 = 200;

@@ -333,7 +333,7 @@ pub async fn call_rpc_with_retry<P: Clone, T, R: Future<Output = Result<T, Error
             log!(
                 WARNING,
                 "[evm route]call  rpc error: {}",
-                err.clone().to_string()
+                err.to_string()
             );
             rs = Err(err);
         }

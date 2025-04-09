@@ -1,8 +1,8 @@
+use crate::audit;
 use crate::state::{mutate_state, read_state};
 use ethereum_common::traits::{AddNewTokenError, ChainInfo, SignatureBase, StateProvider};
 use ethereum_common::tx_types::EvmTxType;
 use omnity_types::{ChainId, Token, TokenId};
-use crate::audit;
 
 pub struct BitfinityStateProvider;
 

@@ -1,15 +1,17 @@
 use crate::const_args::{ADD_TOKEN_EVM_TX_FEE, DEFAULT_EVM_TX_FEE};
-use ethereum_common::contracts::{gen_evm_eip1559_tx, gen_execute_directive_data, gen_mint_token_data};
 use crate::eth_common::{broadcast, get_account_nonce, get_gasprice, sign_transaction};
+use crate::get_time_secs;
 use crate::state::{minter_addr, mutate_state, read_state};
+use crate::state_provider::BitfinityStateProvider;
 use ethereum_common::base_types::{PendingDirectiveStatus, PendingTicketStatus};
-use crate::{get_time_secs, BitfinityRouteError};
-use anyhow::anyhow;
+use ethereum_common::contracts::{
+    gen_evm_eip1559_tx, gen_execute_directive_data, gen_mint_token_data,
+};
+use ethereum_common::error::Error;
 use ethers_core::types::U256;
 use ic_canister_log::log;
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
 use omnity_types::{hub, ChainState, Directive, Seq};
-use crate::state_provider::BitfinityStateProvider;
 
 pub async fn send_directives_to_evm() {
     let from = read_state(|s| s.next_consume_directive_seq);
@@ -23,7 +25,7 @@ pub async fn send_directives_to_evm() {
         match ret {
             Ok(_) => {}
             Err(e) => match e {
-                BitfinityRouteError::Temporary => {
+                Error::Temporary => {
                     return;
                 }
                 _ => {
@@ -66,7 +68,7 @@ pub async fn send_tickets_to_evm() {
                 }
             },
             Err(e) => match e {
-                BitfinityRouteError::Temporary => {
+                Error::Temporary => {
                     return;
                 }
                 _ => {
@@ -83,7 +85,7 @@ pub async fn send_tickets_to_evm() {
     }
 }
 
-pub async fn send_ticket(seq: Seq) -> Result<Option<String>, BitfinityRouteError> {
+pub async fn send_ticket(seq: Seq) -> Result<Option<String>, Error> {
     match read_state(|s| s.tickets_queue.get(&seq)) {
         None => Ok(None),
         Some(t) => {
@@ -132,7 +134,7 @@ pub async fn send_ticket(seq: Seq) -> Result<Option<String>, BitfinityRouteError
                             Ok(Some(tx_hash))
                         }
                         Err(e) => match e {
-                            BitfinityRouteError::Temporary => Err(e),
+                            Error::Temporary => Err(e),
                             _ => {
                                 pending_ticket.error = Some(e.to_string());
                                 mutate_state(|s| {
@@ -143,13 +145,13 @@ pub async fn send_ticket(seq: Seq) -> Result<Option<String>, BitfinityRouteError
                         },
                     }
                 }
-                Err(e) => Err(BitfinityRouteError::Custom(anyhow!(e.to_string()))),
+                Err(e) => Err(Error::Custom(e.to_string())),
             }
         }
     }
 }
 
-pub async fn send_directive(seq: Seq) -> Result<Option<String>, BitfinityRouteError> {
+pub async fn send_directive(seq: Seq) -> Result<Option<String>, Error> {
     match read_state(|s| s.directives_queue.get(&seq)) {
         None => Ok(None),
         Some(d) => {
@@ -163,7 +165,12 @@ pub async fn send_directive(seq: Seq) -> Result<Option<String>, BitfinityRouteEr
                 Directive::AddToken(_) => ADD_TOKEN_EVM_TX_FEE,
                 _ => DEFAULT_EVM_TX_FEE,
             };
-            let tx = gen_evm_eip1559_tx::<BitfinityStateProvider>(data, get_gasprice().await.ok(), nonce.as_u64(), fee);
+            let tx = gen_evm_eip1559_tx::<BitfinityStateProvider>(
+                data,
+                get_gasprice().await.ok(),
+                nonce.as_u64(),
+                fee,
+            );
             log!(
                 INFO,
                 "[bitfinity route] send directive tx content: {:?}",
@@ -191,7 +198,7 @@ pub async fn send_directive(seq: Seq) -> Result<Option<String>, BitfinityRouteEr
                             Ok(Some(tx_hash))
                         }
                         Err(e) => match e {
-                            BitfinityRouteError::Temporary => Err(e),
+                            Error::Temporary => Err(e),
                             _ => {
                                 pending_directive.error = Some(e.to_string());
                                 mutate_state(|s| {
@@ -202,7 +209,7 @@ pub async fn send_directive(seq: Seq) -> Result<Option<String>, BitfinityRouteEr
                         },
                     }
                 }
-                Err(e) => Err(BitfinityRouteError::Custom(anyhow!(e.to_string()))),
+                Err(e) => Err(Error::Custom(e.to_string())),
             }
         }
     }
