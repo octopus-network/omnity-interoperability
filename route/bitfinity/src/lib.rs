@@ -9,7 +9,6 @@ pub mod route_to_evm;
 pub mod audit;
 pub mod service;
 pub mod state;
-pub mod updates;
 mod state_provider;
 mod log_converter;
 

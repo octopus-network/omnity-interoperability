@@ -14,11 +14,11 @@ use crate::hub_to_route::{process_directives, process_tickets};
 use crate::route_to_evm::{
     send_directive, send_directives_to_evm, send_ticket, send_tickets_to_evm,
 };
-use crate::state::bitfinity_get_redeem_fee;
 use crate::state::{
     init_chain_pubkey, minter_addr, mutate_state, read_state, replace_state, EvmRouteState,
     StateProfile,
 };
+use ethereum_common::traits::StateProvider;
 use ethereum_common::base_types::{MetricsStatus, PendingDirectiveStatus, PendingTicketStatus};
 use ethereum_common::token_resp::TokenResp;
 use candid::{CandidType, Principal};
@@ -35,6 +35,7 @@ use omnity_types::{
     Chain, ChainId, ChainState, Directive, Network, Seq, Ticket, TicketId,
 };
 use serde_derive::Deserialize;
+use crate::state_provider::BitfinityStateProvider;
 
 #[init]
 fn init(args: InitArgs) {
@@ -226,7 +227,7 @@ fn mint_token_status(ticket_id: String) -> MintTokenStatus {
 
 #[query]
 fn get_fee(chain_id: ChainId) -> Option<u64> {
-    bitfinity_get_redeem_fee(chain_id)
+    BitfinityStateProvider::get_redeem_fee(chain_id)
 }
 
 #[query(guard = "is_controller")]

@@ -8,7 +8,6 @@ pub mod route_to_evm;
 pub mod service;
 pub mod state;
 mod state_provider;
-pub mod updates;
 
 pub mod const_args {
     pub const MAX_SCAN_BLOCKS: u64 = 200;

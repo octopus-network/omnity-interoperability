@@ -6,7 +6,7 @@ use ic_canister_log::log;
 use itertools::Itertools;
 
 use omnity_types::ic_log::{CRITICAL, ERROR, INFO};
-use omnity_types::{hub, ChainId, ChainState, Directive, Memo, Ticket};
+use omnity_types::{hub, ChainState, Directive, Ticket};
 
 use crate::const_args::SCAN_EVM_TASK_NAME;
 use ethereum_common::contract_types::{
@@ -17,7 +17,7 @@ use ethereum_common::convert::{
     ticket_from_burn_event, ticket_from_runes_mint_event, ticket_from_transport_event,
 };
 use ethereum_common::traits::StateProvider;
-use crate::state::{bitfinity_get_redeem_fee, mutate_state, read_state};
+use crate::state::{mutate_state, read_state};
 use crate::*;
 use crate::log_converter::transform_transaction_log;
 use crate::state_provider::BitfinityStateProvider;
@@ -150,7 +150,7 @@ pub async fn handle_port_events(logs: Vec<TransactionReceiptLog>) -> anyhow::Res
                     .expect("directive not found");
             match directive.clone() {
                 Directive::AddToken(token) => {
-                    match crate::updates::add_new_token(token.clone()).await {
+                    match BitfinityStateProvider::add_new_token(token.clone()){
                         Ok(_) => {
                             log!(
                                 INFO,
@@ -308,16 +308,6 @@ pub fn generate_ticket_by_logs<P: StateProvider>(logs: Vec<TransactionReceiptLog
     Err(anyhow!("not found ticket"))
 }
 
-pub fn get_memo(memo: Option<String>, dst_chain: ChainId) -> Option<String> {
-    let fee = bitfinity_get_redeem_fee(dst_chain);
-    let memo_json = Memo {
-        memo,
-        bridge_fee: fee.unwrap_or_default() as u128,
-    }
-    .convert_to_memo_json()
-    .unwrap_or_default();
-    Some(memo_json)
-}
 
 #[cfg(test)]
 mod bitfinity_test {

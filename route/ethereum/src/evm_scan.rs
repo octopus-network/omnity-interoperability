@@ -21,6 +21,7 @@ use ethereum_common::contract_types::{
 };
 use ethereum_common::error::Error;
 use ethereum_common::evm_log::LogEntry;
+use ethereum_common::traits::StateProvider;
 use omnity_types::hub;
 use omnity_types::ic_log::{INFO, WARNING};
 use omnity_types::{ChainId, ChainState, Directive, Memo, Ticket};
@@ -170,7 +171,7 @@ pub async fn handle_port_events(
                     .expect("directive not found");
             match directive.clone() {
                 Directive::AddToken(token) => {
-                    match crate::updates::add_new_token(token.clone()).await {
+                    match EthereumStateProvider::add_new_token(token.clone()) {
                         Ok(_) => {
                             log!(
                                 INFO,

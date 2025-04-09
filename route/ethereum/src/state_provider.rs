@@ -1,7 +1,8 @@
-use crate::state::read_state;
-use ethereum_common::traits::{ChainInfo, SignatureBase, StateProvider};
+use crate::state::{mutate_state, read_state};
+use ethereum_common::traits::{AddNewTokenError, ChainInfo, SignatureBase, StateProvider};
 use ethereum_common::tx_types::EvmTxType;
 use omnity_types::{ChainId, Token, TokenId};
+use crate::audit;
 
 pub struct EthereumStateProvider;
 
@@ -41,5 +42,16 @@ impl StateProvider for EthereumStateProvider {
             key_id: s.key_id.clone(),
             public_key: s.pubkey.clone(),
         })
+    }
+
+    fn add_new_token(token: Token) -> Result<(), AddNewTokenError> {
+        if read_state(|s| s.tokens.contains_key(&token.token_id)) {
+            return Err(AddNewTokenError::AlreadyAdded(token.token_id));
+        }
+
+        mutate_state(|s| {
+            audit::add_token(s, token);
+        });
+        Ok(())
     }
 }
