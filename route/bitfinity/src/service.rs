@@ -89,7 +89,7 @@ fn start_tasks() {
 pub fn bridge_ticket_to_evm_task() {
     ic_cdk::spawn(async {
         let scguard = scopeguard::guard((), |_| {
-            log!(ERROR, "bridge ticket to evm task failed");
+            log!(INFO, "bridge ticket to evm task failed");
         });
 
         if read_state(|s| s.chain_state == ChainState::Deactive) {
