@@ -65,6 +65,7 @@ pub struct HubState {
     pub runes_oracles: BTreeSet<Principal>,
     pub dire_map: BTreeMap<SeqKey, Directive>,
     pub ticket_map: BTreeMap<SeqKey, String>,
+    pub audit_programer_principal: Option<Principal>
 }
 
 impl From<InitArgs> for HubState {
@@ -91,6 +92,7 @@ impl From<InitArgs> for HubState {
             runes_oracles: Default::default(),
             dire_map: BTreeMap::default(),
             ticket_map: BTreeMap::default(),
+            audit_programer_principal: Default::default(),
         }
     }
 }

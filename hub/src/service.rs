@@ -1,7 +1,7 @@
 use candid::Principal;
 use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
-use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_cdk::{caller, init, post_upgrade, pre_upgrade, query, update};
 use ic_ledger_types::AccountIdentifier;
 use omnity_hub::auth::{auth_update, is_controller, is_runes_oracle, set_perms, Permission};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
@@ -16,7 +16,7 @@ use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::{proposal, self_help};
 use omnity_types::hub_types::{ChainMeta, Proposal, Subscribers, TokenMeta, TokenResp};
 use omnity_types::ic_log::INFO;
-use omnity_types::TxHash;
+use omnity_types::{ToggleAction, ToggleState, TxHash};
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
     TokenId, TokenOnChain, Topic,
@@ -227,6 +227,23 @@ pub async fn finalize_add_runes_token_req(
 #[update]
 pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), SelfServiceError> {
     self_help::add_dest_chain_for_token(args).await
+}
+
+#[update]
+pub async fn audit_stop_chain(chain_id: ChainId) {
+    let caller = caller();
+    let audit_programer = with_state(|s|s.audit_programer_principal.clone()).unwrap();
+    assert_eq!(audit_programer, caller, "permission deny");
+    let proposal = Proposal::ToggleChainState(ToggleState {
+        chain_id,
+        action: ToggleAction::Deactivate,
+    });
+    proposal::execute_proposal(vec![proposal]).await;
+}
+
+#[update(guard = "is_controller")]
+pub fn set_audit_programer(programer: Principal) {
+    with_state_mut(|s|s.audit_programer_principal = Some(programer));
 }
 
 #[query]
