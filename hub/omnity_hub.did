@@ -210,6 +210,7 @@ type UpgradeArgs = record { admin : opt principal };
 service : (HubArg) -> {
   add_dest_chain_for_token : (AddDestChainArgs) -> (Result);
   add_runes_token : (AddRunesTokenReq) -> (Result);
+  audit_stop_chain : (text) -> ();
   batch_update_tx_hash : (vec text, text) -> (Result_1);
   execute_proposal : (vec Proposal) -> (Result_1);
   finalize_add_runes_token_req : (FinalizeAddRunesArgs) -> (Result);
@@ -267,6 +268,7 @@ service : (HubArg) -> {
   remove_runes_oracle : (principal) -> ();
   resubmit_ticket : (Ticket) -> (Result_1);
   send_ticket : (Ticket) -> (Result_1);
+  set_audit_programer : (principal) -> ();
   set_permissions : (principal, Permission) -> ();
   set_runes_oracle : (principal) -> ();
   sub_directives : (opt text, vec Topic) -> (Result_1);

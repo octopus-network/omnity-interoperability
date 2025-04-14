@@ -1,9 +1,11 @@
 use candid::Principal;
+use ic_canister_log::log;
 use ic_canisters_http_types::{HttpRequest, HttpResponse};
-use ic_cdk::{init, post_upgrade, pre_upgrade, query, update};
+use ic_cdk::{caller, init, post_upgrade, pre_upgrade, query, update};
 use ic_ledger_types::AccountIdentifier;
-use omnity_hub::auth::{auth_query, auth_update, is_admin, is_runes_oracle, set_perms, Permission};
+use omnity_hub::auth::{auth_update, is_controller, is_runes_oracle, set_perms, Permission};
 use omnity_hub::event::{self, record_event, Event, GetEventsArg};
+use omnity_hub::lifecycle;
 use omnity_hub::lifecycle::init::HubArg;
 use omnity_hub::metrics::{self, with_metrics};
 use omnity_hub::self_help::{
@@ -12,14 +14,9 @@ use omnity_hub::self_help::{
 };
 use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::{proposal, self_help};
-
-use ic_canister_log::log;
-use omnity_hub::lifecycle;
-use omnity_types::hub_types::{
-    TokenResp, Proposal, Subscribers,ChainMeta, TokenMeta
-};
-use omnity_types::TxHash;
+use omnity_types::hub_types::{ChainMeta, Proposal, Subscribers, TokenMeta, TokenResp};
 use omnity_types::ic_log::INFO;
+use omnity_types::{ToggleAction, ToggleState, TxHash};
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
     TokenId, TokenOnChain, Topic,
@@ -60,16 +57,17 @@ fn post_upgrade(args: Option<HubArg>) {
 }
 
 /// validate directive ,this method will be called by sns
-#[query(guard = "is_admin")]
+#[query(guard = "is_controller")]
 pub async fn validate_proposal(proposals: Vec<Proposal>) -> Result<Vec<String>, Error> {
     proposal::validate_proposal(&proposals).await
 }
-#[update(guard = "is_admin")]
+#[update(guard = "auth_update")]
 pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
+    proposal::validate_proposal(&proposals).await?;
     proposal::execute_proposal(proposals).await
 }
 
-#[update(guard = "is_admin")]
+#[update(guard = "is_controller")]
 pub async fn handle_chain(proposals: Vec<Proposal>) -> Result<(), Error> {
     // The proposals must be AddToken or UpdateToken
     proposals.iter().try_for_each(|p| {
@@ -87,7 +85,7 @@ pub async fn handle_chain(proposals: Vec<Proposal>) -> Result<(), Error> {
     proposal::execute_proposal(proposals).await
 }
 
-#[update(guard = "is_admin")]
+#[update(guard = "is_controller")]
 pub async fn handle_token(proposals: Vec<Proposal>) -> Result<(), Error> {
     // The proposals must be AddToken or UpdateToken
     proposals.iter().try_for_each(|p| {
@@ -106,7 +104,7 @@ pub async fn handle_token(proposals: Vec<Proposal>) -> Result<(), Error> {
 }
 
 /// check and build update fee directive and push it to the directive queue
-#[update(guard = "is_admin")]
+#[update(guard = "is_controller")]
 pub async fn update_fee(factors: Vec<Factor>) -> Result<(), Error> {
     let proposals: Vec<Proposal> = factors.into_iter().map(Proposal::UpdateFee).collect();
     proposal::validate_proposal(&proposals).await?;
@@ -131,13 +129,13 @@ pub async fn unsub_directives(chain_id: Option<ChainId>, topics: Vec<Topic>) -> 
     with_state_mut(|hub_state| hub_state.unsub_directives(&dst_chain_id, &topics))
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn query_subscribers(topic: Option<Topic>) -> Result<Vec<(Topic, Subscribers)>, Error> {
     with_state(|hub_state| hub_state.query_subscribers(topic))
 }
 
 /// query directives for chain id filter by topic,this method will be called by route and custom
-#[query(guard = "auth_query")]
+#[query]
 pub async fn query_directives(
     chain_id: Option<ChainId>,
     topic: Option<Topic>,
@@ -166,7 +164,7 @@ pub async fn resubmit_ticket(ticket: Ticket) -> Result<(), Error> {
 }
 
 /// query tickets for chain id,this method will be called by route and custom
-#[query(guard = "auth_query")]
+#[query]
 pub async fn query_tickets(
     chain_id: Option<ChainId>,
     offset: usize,
@@ -189,22 +187,22 @@ pub async fn batch_update_tx_hash(ticket_ids: Vec<TicketId>, tx_hash: String) ->
     Ok(())
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn query_tx_hash(ticket_id: TicketId) -> Result<TxHash, Error> {
     with_state(|hub_state| hub_state.get_tx_hash(&ticket_id))
 }
 
-#[update(guard = "is_admin")]
+#[update(guard = "is_controller")]
 pub async fn set_permissions(caller: Principal, perm: Permission) {
     set_perms(caller.to_string(), perm)
 }
 
-#[update(guard = "is_admin")]
+#[update(guard = "is_controller")]
 fn set_runes_oracle(oracle: Principal) {
     with_state_mut(|s| s.runes_oracles.insert(oracle));
 }
 
-#[update(guard = "is_admin")]
+#[update(guard = "is_controller")]
 fn remove_runes_oracle(oracle: Principal) {
     with_state_mut(|s| s.runes_oracles.remove(&oracle));
 }
@@ -229,6 +227,23 @@ pub async fn finalize_add_runes_token_req(
 #[update]
 pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), SelfServiceError> {
     self_help::add_dest_chain_for_token(args).await
+}
+
+#[update]
+pub async fn audit_stop_chain(chain_id: ChainId) {
+    let caller = caller();
+    let audit_programer = with_state(|s|s.audit_programer_principal.clone()).unwrap();
+    assert_eq!(audit_programer, caller, "permission deny");
+    let proposal = Proposal::ToggleChainState(ToggleState {
+        chain_id,
+        action: ToggleAction::Deactivate,
+    });
+    proposal::execute_proposal(vec![proposal]).await;
+}
+
+#[update(guard = "is_controller")]
+pub fn set_audit_programer(programer: Principal) {
+    with_state_mut(|s|s.audit_programer_principal = Some(programer));
 }
 
 #[query]
@@ -288,7 +303,7 @@ pub async fn get_tokens(
         .map(|tokens| tokens.iter().map(|t| t.clone().into()).collect())
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_fees(
     chain_id: Option<ChainId>,
     token_id: Option<TokenId>,
@@ -298,9 +313,9 @@ pub async fn get_fees(
     metrics::get_fees(chain_id, token_id, offset, limit).await
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub fn get_runes_oracles() -> Vec<Principal> {
-    with_state(|s|s.runes_oracles.iter().map(|s|s.clone()).collect())
+    with_state(|s| s.runes_oracles.iter().map(|s| s.clone()).collect())
 }
 
 #[query]
@@ -365,52 +380,52 @@ fn http_request(req: HttpRequest) -> HttpResponse {
     omnity_types::ic_log::http_request(req)
 }
 
-#[query(guard = "auth_query")]
+#[query]
 fn get_events(args: GetEventsArg) -> Vec<Event> {
     event::events(args)
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_chain_metas(offset: usize, limit: usize) -> Result<Vec<ChainMeta>, Error> {
     metrics::get_chain_metas(offset, limit).await
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_chain_size() -> Result<u64, Error> {
     metrics::get_chain_size().await
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_token_metas(offset: usize, limit: usize) -> Result<Vec<TokenMeta>, Error> {
     metrics::get_token_metas(offset, limit).await
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_token_size() -> Result<u64, Error> {
     metrics::get_token_size().await
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_directive_size() -> Result<u64, Error> {
     metrics::get_directive_size().await
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_directives(offset: usize, limit: usize) -> Result<Vec<Directive>, Error> {
     metrics::get_directives(offset, limit).await
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn sync_ticket_size() -> Result<u64, Error> {
     with_metrics(|metrics| metrics.sync_ticket_size())
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn sync_tickets(offset: usize, limit: usize) -> Result<Vec<(u64, Ticket)>, Error> {
     with_metrics(|metrics| metrics.sync_tickets(offset, limit))
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_tx_hash_size() -> Result<u64, Error> {
     with_state(|hub_state| {
         let tx_hash_size = hub_state.tx_hashes.len();
@@ -418,7 +433,7 @@ pub async fn get_tx_hash_size() -> Result<u64, Error> {
     })
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_tx_hashes(offset: usize, limit: usize) -> Result<Vec<(TicketId, TxHash)>, Error> {
     let tx_hashes = with_state(|hub_state| {
         hub_state
@@ -442,7 +457,7 @@ pub async fn finalize_ticket(ticket_id: String) -> Result<(), Error> {
     with_state_mut(|hub_state| hub_state.finalize_ticket(&ticket_id))
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_pending_ticket_size() -> Result<u64, Error> {
     with_state(|hub_state| {
         let pending_size = hub_state.pending_tickets.len();
@@ -450,7 +465,7 @@ pub async fn get_pending_ticket_size() -> Result<u64, Error> {
     })
 }
 
-#[query(guard = "auth_query")]
+#[query]
 pub async fn get_pending_tickets(
     offset: usize,
     limit: usize,
@@ -477,10 +492,8 @@ mod tests {
     use super::*;
 
     use ic_base_types::PrincipalId;
-    use omnity_hub::{
-        lifecycle::init::InitArgs,
-        types::{ChainMeta, TokenMeta},
-    };
+    use omnity_hub::lifecycle::init::InitArgs;
+    use omnity_types::hub_types::{ChainMeta, TokenMeta};
     use omnity_types::{
         ChainType, Factor, FeeTokenFactor, TargetChainFactor, Ticket, TicketType, ToggleAction,
         ToggleState, TxAction,

@@ -160,26 +160,20 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
     for event in events {
         match event {
             Event::Init(args) => {
-                hub_state
+         /*       hub_state
                     .caller_perms
                     .insert(args.admin.to_string(), Permission::Update);
-                hub_state.admin = args.admin;
+                hub_state.admin = args.admin;*/
             }
             Event::Upgrade(args) => {
-                hub_state.upgrade(args);
+             //   hub_state.upgrade(args);
             }
             Event::UpdatedChain(chain) => {
                 hub_state
                     .chains
                     .insert(chain.chain_id.to_string(), chain.clone());
                 // update auth
-                hub_state
-                    .caller_chain_map
-                    .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
-
-                hub_state
-                    .caller_perms
-                    .insert(chain.canister_id.to_string(), Permission::Update);
+                let _ = hub_state.update_auth(&chain);
             }
             Event::UpdatedChainCounterparties(chain) => {
                 hub_state
@@ -281,9 +275,8 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<HubState, Repla
 mod tests {
     use super::*;
 
-    use crate::types::ChainMeta;
-    use crate::types::TokenMeta;
     use candid::Principal;
+    use omnity_types::hub_types::{ChainMeta, TokenMeta};
     use omnity_types::Chain;
     use omnity_types::ChainState;
     use omnity_types::Directive;

@@ -7,13 +7,13 @@ use crate::metrics::with_metrics_mut;
 
 // use crate::migration::{migrate, PreHubState};
 pub use crate::self_help::{AddRunesTokenReq, FinalizeAddRunesArgs};
-use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
-use omnity_types::{Amount, TxHash};
 use candid::Principal;
 use ic_canister_log::log;
 use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
+use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use omnity_types::ic_log::{ERROR, INFO, WARNING};
+use omnity_types::{Amount, TxHash};
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, TicketType,
     ToggleAction, ToggleState, TokenId, Topic, TxAction,
@@ -58,7 +58,6 @@ pub struct HubState {
     // memory variable
     pub directive_seq: HashMap<String, Seq>,
     pub ticket_seq: HashMap<String, Seq>,
-    pub admin: Principal,
     pub caller_chain_map: HashMap<String, ChainId>,
     pub caller_perms: HashMap<String, Permission>,
     pub last_resubmit_ticket_time: u64,
@@ -66,6 +65,7 @@ pub struct HubState {
     pub runes_oracles: BTreeSet<Principal>,
     pub dire_map: BTreeMap<SeqKey, Directive>,
     pub ticket_map: BTreeMap<SeqKey, String>,
+    pub audit_programer_principal: Option<Principal>
 }
 
 impl From<InitArgs> for HubState {
@@ -85,7 +85,6 @@ impl From<InitArgs> for HubState {
             pending_tickets: StableBTreeMap::init(memory::get_pending_tickets_memory()),
             directive_seq: HashMap::default(),
             ticket_seq: HashMap::default(),
-            admin: args.admin,
             caller_chain_map: HashMap::default(),
             caller_perms: HashMap::from([(args.admin.to_string(), Permission::Update)]),
             last_resubmit_ticket_time: 0,
@@ -93,6 +92,7 @@ impl From<InitArgs> for HubState {
             runes_oracles: Default::default(),
             dire_map: BTreeMap::default(),
             ticket_map: BTreeMap::default(),
+            audit_programer_principal: Default::default(),
         }
     }
 }
@@ -154,32 +154,7 @@ impl HubState {
         let mut hub_state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
 
-        // migrate state
-        // let mut cur_state = migrate(pre_state);
-
-        if let Some(args) = args {
-            match args {
-                HubArg::Upgrade(upgrade_args) => {
-                    if let Some(args) = upgrade_args {
-                        if let Some(admin) = args.admin {
-                            hub_state.admin = admin;
-                        }
-                        record_event(&Event::Upgrade(args));
-                    }
-                }
-                HubArg::Init(_) => panic!("expected Option<UpgradeArgs> got InitArgs."),
-            };
-        }
-        // update state
         set_state(hub_state);
-    }
-
-    pub fn upgrade(&mut self, args: UpgradeArgs) {
-        if let Some(admin) = args.admin {
-            self.caller_perms
-                .insert(admin.to_string(), Permission::Update);
-            self.admin = admin;
-        }
     }
 
     //Determine whether the token is from the issuing chain
@@ -205,10 +180,7 @@ impl HubState {
         self.chains
             .insert(chain.chain_id.to_string(), chain.clone());
         // update auth
-        self.caller_perms
-            .insert(chain.canister_id.to_string(), Permission::Update);
-        self.caller_chain_map
-            .insert(chain.canister_id.to_string(), chain.chain_id.to_string());
+        self.update_auth(&chain)?;
 
         record_event(&Event::UpdatedChain(chain.clone()));
         // update counterparties
@@ -218,6 +190,26 @@ impl HubState {
                 self.update_chain_counterparties(counterparty, &chain.chain_id)
             })?;
         }
+
+        Ok(())
+    }
+
+    pub fn update_auth(&mut self, chain: &ChainMeta) -> Result<(), Error> {
+        let (chain_id, canister_id) = (chain.chain_id.to_owned(), chain.canister_id.to_owned());
+        if let Some(old_canister) = self
+            .caller_chain_map
+            .values()
+            .find(|v| v.to_owned().eq(&chain_id))
+            .cloned()
+        {
+            self.caller_chain_map.remove(&old_canister);
+            self.caller_perms.remove(&old_canister);
+        };
+
+        self.caller_perms
+            .insert(canister_id.to_owned(), Permission::Update);
+        self.caller_chain_map
+            .insert(canister_id, chain.chain_id.to_string());
 
         Ok(())
     }
@@ -698,7 +690,7 @@ impl HubState {
             .insert(ticket.ticket_id.to_string(), ticket.clone());
         log!(INFO, "[Consolidation]Hub: pending ticket: {:?}", &ticket);
         record_event(&Event::PendingTicket { ticket });
-        
+
         Ok(())
     }
 
@@ -717,7 +709,11 @@ impl HubState {
             .ok_or(Error::CustomError(
                 "Failed to remove ticket from pending_tickets".to_string(),
             ))?;
-        log!(INFO, "[Consolidation]Hub: finalize ticket: ticket id: {:?}", &ticket_id.to_string());
+        log!(
+            INFO,
+            "[Consolidation]Hub: finalize ticket: ticket id: {:?}",
+            &ticket_id.to_string()
+        );
         record_event(&Event::FinalizeTicket {
             ticket_id: ticket_id.to_string(),
         });
@@ -741,14 +737,11 @@ impl HubState {
         //save ticket
         self.cross_ledger
             .insert(ticket.ticket_id.to_string(), ticket.clone());
-        
+
         log!(INFO, "[Consolidation] hub received ticket: {:?}", &ticket);
         //update ticket metrice
         with_metrics_mut(|metrics| metrics.update_ticket_metric(ticket.clone()));
-        record_event(&Event::ReceivedTicket {
-            seq_key,
-            ticket
-        });
+        record_event(&Event::ReceivedTicket { seq_key, ticket });
         Ok(())
     }
 

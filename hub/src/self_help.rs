@@ -1,18 +1,18 @@
+use crate::self_help::SelfServiceError::LinkError;
 use crate::{
     proposal::{execute_proposal, validate_proposal},
-    state::{with_state, with_state_mut}
+    state::{with_state, with_state_mut},
 };
-use omnity_types::hub_types::{Proposal, TokenMeta};
 use candid::{CandidType, Deserialize, Principal};
 use ic_ledger_types::{
     account_balance, AccountBalanceArgs, AccountIdentifier, Memo, Subaccount, Tokens, TransferArgs,
     DEFAULT_SUBACCOUNT, MAINNET_LEDGER_CANISTER_ID,
 };
+use omnity_types::hub_types::Proposal::UpdateChain;
+use omnity_types::hub_types::{Proposal, TokenMeta};
 use omnity_types::{rune_id::RuneId, ChainId};
 use serde::Serialize;
 use std::{collections::HashMap, str::FromStr};
-use crate::self_help::SelfServiceError::LinkError;
-use omnity_types::hub_types::Proposal::UpdateChain;
 
 pub const ADD_TOKEN_FEE: u64 = 1_000_000_000;
 pub const ADD_CHAIN_FEE: u64 = 300_000_000;
@@ -28,7 +28,7 @@ pub struct AddRunesTokenReq {
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct LinkChainReq{
+pub struct LinkChainReq {
     pub chain1: ChainId,
     pub chain2: ChainId,
 }
@@ -50,24 +50,22 @@ pub enum SelfServiceError {
 }
 
 pub async fn link_chains(args: LinkChainReq) -> Result<(), SelfServiceError> {
-    with_state(|s| {
-        if !s.chains.contains_key(&args.chain1) {
-            Err(SelfServiceError::ChainNotFound(args.chain1.clone()))
-        }else if !s.chains.contains_key(&args.chain2) {
-            Err(SelfServiceError::ChainNotFound(args.chain2.clone()))
-        }else {
-            Ok(())
-        }
-    })?;
-    let mut chain1 = with_state(|s|s.chain(&args.chain1)).unwrap();
-    let mut chain2 = with_state(|s|s.chain(&args.chain2)).unwrap();
+    let mut chain1 = with_state(|s| s.available_chain(&args.chain1))
+        .map_err(|e| SelfServiceError::TemporarilyUnavailable(e.to_string()))?;
+    let mut chain2 = with_state(|s| s.available_chain(&args.chain1))
+        .map_err(|e| SelfServiceError::TemporarilyUnavailable(e.to_string()))?;
+
     if chain1.contains_counterparty(&args.chain2) && chain2.contains_counterparty(&args.chain1) {
         return Err(SelfServiceError::ChainsAlreadyLinked);
     }
     chain1.add_counterparty(args.chain2.clone());
     chain2.add_counterparty(args.chain1.clone());
-    execute_proposal(vec![UpdateChain(chain1)]).await.map_err(|e| LinkError(e))?;
-    execute_proposal(vec![UpdateChain(chain2)]).await.map_err(|e| LinkError(e))?;
+    execute_proposal(vec![UpdateChain(chain1)])
+        .await
+        .map_err(|e| LinkError(e))?;
+    execute_proposal(vec![UpdateChain(chain2)])
+        .await
+        .map_err(|e| LinkError(e))?;
     Ok(())
 }
 
