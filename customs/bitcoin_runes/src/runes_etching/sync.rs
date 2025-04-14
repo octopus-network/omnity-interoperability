@@ -1,8 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
+use std::str::FromStr;
 use std::time::Duration;
+use bitcoin::Network::Bitcoin;
 
 use candid::CandidType;
-use ic_btc_interface::Network;
+use ic_btc_interface::{Address, Network};
 use ic_canister_log::log;
 use runes_indexer_interface::GetEtchingResult;
 use serde::Deserialize;
@@ -164,6 +166,16 @@ pub async fn handle_etching_result_task() {
                             Some(resp) => {
                                 log!(INFO, "Etching result:  {}.{}, {}",tx, resp.rune_id.clone(),resp.confirmations);
                                 if resp.confirmations >= 1 {
+                                    if let Ok(addr) = bitcoin::Address::from_str(req.etching_args.premine_receiver_principal.as_str()){
+                                        // receiver is
+                                        mutate_state(|s| {
+                                            req.status = Final;
+                                            s.finalized_etching_requests.insert(k.clone(), req);
+                                        });
+                                        mutate_state(|s| s.pending_etching_requests.remove(&k));
+                                        continue;
+
+                                    }
                                     let r = send_add_token(
                                         req.etching_args.clone(),
                                         resp.rune_id.clone(),

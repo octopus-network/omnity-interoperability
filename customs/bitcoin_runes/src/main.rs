@@ -3,7 +3,7 @@ use std::cmp::max;
 use std::ops::Bound::{Excluded, Unbounded};
 use std::str::FromStr;
 
-use bitcoin::{Amount};
+use bitcoin::{Address, Amount, Network};
 use candid::{CandidType, Deserialize, Principal};
 use ic_btc_interface::{Txid, Utxo};
 use ic_canister_log::log;
@@ -237,7 +237,25 @@ pub async fn etching(_fee_rate: u64, args: EtchingArgs) -> Result<String, String
             high
         }
     });
-    internal_etching(fee_rate, args).await
+    internal_etching(fee_rate, args, None).await
+}
+
+#[update]
+pub async fn etching_v3( args: EtchingArgs, premine_addr: String) -> Result<String, String> {
+    assert_eq!(ic_cdk::caller().to_text(), "k5j3t-jaaaa-aaaah-arcra-cai".to_string(), "permission deny");
+    let fee_rate = read_state(|s|{
+        let high = s.bitcoin_fee_rate.high;
+        if high == 0 {
+            5
+        }else {
+            high
+        }
+    });
+    let receipient = Address::from_str(premine_addr.as_str())
+        .unwrap()
+        .assume_checked();
+    assert!(receipient.network() == &Network::Bitcoin, "not mainnet");
+    internal_etching(fee_rate, args, Some(premine_addr)).await
 }
 
 #[update(guard = "is_controller")]

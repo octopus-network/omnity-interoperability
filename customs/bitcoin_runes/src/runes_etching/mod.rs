@@ -105,6 +105,7 @@ pub struct InternalEtchingArgs {
     pub symbol: Option<String>,
     pub terms: Option<OrdinalsTerms>,
     pub turbo: bool,
+
 }
 
 impl Into<SendEtchingInfo> for InternalEtchingArgs {
@@ -152,15 +153,20 @@ impl Storable for InternalEtchingArgs {
     const BOUND: Bound = Bound::Unbounded;
 }
 
-impl Into<InternalEtchingArgs> for (EtchingArgs, Principal) {
+impl Into<InternalEtchingArgs> for (EtchingArgs, Principal, Option<String>) {
     fn into(self) -> InternalEtchingArgs {
-        let (args, receiver) = self;
+        let (args, receiver, bitcoin_addr) = self;
+        let premine_addr = if let Some(b) = bitcoin_addr {
+            b
+        } else {
+            receiver.to_text()
+        };
         let token_id = format!("Bitcoin-runes-{}", args.rune_name.clone());
         InternalEtchingArgs {
             rune_name: args.rune_name,
             divisibility: args.divisibility,
             premine: args.premine,
-            premine_receiver_principal: receiver.to_text(),
+            premine_receiver_principal: premine_addr,
             logo: args.logo,
             token_id,
             target_chain_id: "eICP".to_string(),

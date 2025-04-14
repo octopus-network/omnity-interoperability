@@ -427,7 +427,7 @@ async fn submit_rune_txs() {
 
         let maybe_sign_request = state::mutate_state(|s| {
             let batch = s.build_batch(rune_id, MAX_REQUESTS_PER_BATCH);
-            log!(INFO, "build batch success, len = {}",batch.len());
+            //log!(INFO, "build batch success, rune_id = {}, len = {}", rune_id.clone().to_string(), batch.len());
             if batch.is_empty() {
                 return None;
             }

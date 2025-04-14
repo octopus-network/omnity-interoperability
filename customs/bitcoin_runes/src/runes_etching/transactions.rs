@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use bitcoin::{Address, Amount, PublicKey, Transaction, Txid};
-use candid::{CandidType, Deserialize};
+use candid::{CandidType, Deserialize, Principal};
 use ic_canister_log::log;
 use ic_cdk::caller;
 use ic_stable_structures::storable::Bound;
@@ -123,7 +123,11 @@ pub async fn etching_rune(
     let icp_fee_amt = estimate_etching_fee(fee_rate, (commit_tx_size + reveal_size) as u128)
         .await
         .map_err(|e| anyhow!(e))?;
-    let allowance = check_allowance(icp_fee_amt as u64).await?;
+    let allowance = if args.premine_receiver_principal.contains("-") {
+        check_allowance(icp_fee_amt as u64).await?
+    } else {
+        0u64
+    };
     let vins = select_utxos(fee_rate, reveal_size as u64 + FIXED_COMMIT_TX_VBYTES)?;
     log!(INFO, "selected fee utxos: {:?}", vins);
     let commit_size = vins.len() as u64 * INPUT_SIZE_VBYTES + FIXED_COMMIT_TX_VBYTES;
@@ -307,11 +311,17 @@ pub async fn generate_etching_transactions(
         mint: None,
         pointer,
     };
-    let get_btc_address_args = GetBtcAddressArgs {
-        target_chain_id: "eICP".to_string(),
-        receiver: args.premine_receiver_principal.to_string(),
+    let  receipient = if let Ok(p) = Principal::from_text(args.premine_receiver_principal.as_str())  {
+        let get_btc_address_args = GetBtcAddressArgs {
+            target_chain_id: "eICP".to_string(),
+            receiver: args.premine_receiver_principal.to_string(),
+        };
+        crate::updates::get_btc_address::get_btc_address(get_btc_address_args).await
+    } else if let Ok(t) = Address::from_str(args.premine_receiver_principal.as_str()){
+            args.premine_receiver_principal.clone()
+    }else {
+        return Err(anyhow!("unsupport receiver"));
     };
-    let receipient = crate::updates::get_btc_address::get_btc_address(get_btc_address_args).await;
     let receipient = Address::from_str(receipient.as_str())
         .unwrap()
         .assume_checked();
@@ -435,7 +445,7 @@ pub async fn stash_etching(fee_rate: u64, args: EtchingArgs) -> Result<String, S
     let _ = transfer_etching_fees(allowance as u128).await.map_err(|e|e.to_string())?;
     let r = topup(allowance).await;
     log!(INFO, "etching topup result:{:?}", r);
-    let internal_args: InternalEtchingArgs = (args.clone(), caller).into();
+    let internal_args: InternalEtchingArgs = (args.clone(), caller, None).into();
     let etching_key = format!("Bitcoin-runes-{}", args.rune_name);
     mutate_state(|s|{
         s.stash_etchings.insert(etching_key.clone(), internal_args);
@@ -444,22 +454,24 @@ pub async fn stash_etching(fee_rate: u64, args: EtchingArgs) -> Result<String, S
     Ok(etching_key)
 }
 
-pub async fn internal_etching(fee_rate: u64, args: EtchingArgs) -> Result<String, String> {
+pub async fn internal_etching(fee_rate: u64, args: EtchingArgs, premine_address: Option<String>) -> Result<String, String> {
     let space_rune = SpacedRune::from_str(args.rune_name.as_str()).map_err(|e| e.to_string())?;
     check_name_duplication(space_rune.rune)?;
     let caller = caller();
     args.check().map_err(|e| e.to_string())?;
-    let internal_args: InternalEtchingArgs = (args, caller).into();
+    let internal_args: InternalEtchingArgs = (args, caller, premine_address).into();
     let r = etching_rune(fee_rate, &internal_args).await;
     match r {
         Ok((sr, allowance)) => {
             if sr.status == SendCommitSuccess {
                 let commit_tx_id = sr.txs[0].txid().to_string();
                 mutate_state(|s| s.pending_etching_requests.insert(commit_tx_id.clone(), sr));
-                let r = transfer_etching_fees(allowance as u128).await;
-                log!(INFO, "transfer etching fee result: {:?}", r);
-                let r = topup(allowance).await;
-                log!(INFO, "etching topup result {:?}", r);
+                if allowance > 0 {
+                    let r = transfer_etching_fees(allowance as u128).await;
+                    log!(INFO, "transfer etching fee result: {:?}", r);
+                    let r = topup(allowance).await;
+                    log!(INFO, "etching topup result {:?}", r);
+                }
                 Ok(commit_tx_id)
             } else {
                 Err(sr

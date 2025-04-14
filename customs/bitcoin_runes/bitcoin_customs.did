@@ -343,6 +343,7 @@ service : (CustomArg) -> {
   etching : (nat64, EtchingArgs) -> (Result_1);
   etching_reveal : (text) -> ();
   etching_v2 : (EtchingArgs) -> (Result_1);
+  etching_v3 : (EtchingArgs, text) -> (Result_1);
   generate_ticket : (GenerateTicketArgs) -> (Result_2);
   generate_ticket_status : (text) -> (GenTicketStatus) query;
   get_btc_address : (GetBtcAddressArgs) -> (text);
