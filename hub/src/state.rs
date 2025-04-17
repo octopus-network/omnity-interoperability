@@ -1,7 +1,6 @@
 use crate::auth::Permission;
 use crate::event::{record_event, Event};
-use crate::lifecycle::init::{HubArg, InitArgs};
-use crate::lifecycle::upgrade::UpgradeArgs;
+use crate::lifecycle::init::InitArgs;
 use crate::memory::{self, Memory};
 use crate::metrics::with_metrics_mut;
 
@@ -13,7 +12,7 @@ use ic_stable_structures::writer::Writer;
 use ic_stable_structures::{Memory as _, StableBTreeMap};
 use omnity_types::hub_types::{ChainMeta, ChainTokenFactor, Subscribers, TokenKey, TokenMeta};
 use omnity_types::ic_log::{ERROR, INFO, WARNING};
-use omnity_types::{Amount, TxHash};
+use omnity_types::{Amount, FlowLimitKey, TxHash};
 use omnity_types::{
     ChainId, ChainState, Directive, Error, Factor, Seq, SeqKey, Ticket, TicketId, TicketType,
     ToggleAction, ToggleState, TokenId, Topic, TxAction,
@@ -22,6 +21,8 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::num::ParseIntError;
+use std::str::FromStr;
+
 const HOUR: u64 = 3_600_000_000_000;
 
 thread_local! {
@@ -65,7 +66,9 @@ pub struct HubState {
     pub runes_oracles: BTreeSet<Principal>,
     pub dire_map: BTreeMap<SeqKey, Directive>,
     pub ticket_map: BTreeMap<SeqKey, String>,
-    pub audit_programer_principal: Option<Principal>
+    pub audit_programer_principal: Option<Principal>,
+    #[serde(default)]
+    pub flow_limit: BTreeMap<FlowLimitKey, u128>,
 }
 
 impl From<InitArgs> for HubState {
@@ -93,6 +96,7 @@ impl From<InitArgs> for HubState {
             dire_map: BTreeMap::default(),
             ticket_map: BTreeMap::default(),
             audit_programer_principal: Default::default(),
+            flow_limit: Default::default(),
         }
     }
 }
@@ -139,7 +143,7 @@ impl HubState {
             .expect("failed to save hub state");
     }
 
-    pub fn post_upgrade(args: Option<HubArg>) {
+    pub fn post_upgrade() {
         let memory = memory::get_upgrades_memory();
         // Read the length of the state bytes.
         let mut state_len_bytes = [0; 4];
@@ -151,9 +155,8 @@ impl HubState {
         memory.read(4, &mut state_bytes);
 
         // Deserialize pre state
-        let mut hub_state: HubState =
+        let hub_state: HubState =
             ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
-
         set_state(hub_state);
     }
 
@@ -699,6 +702,8 @@ impl HubState {
             .pending_tickets
             .get(ticket_id)
             .ok_or(Error::NotFoundTicketId(ticket_id.to_string()))?;
+        //check rate limit
+        self.check_flow_limit(&ticket)?;
         // check ticket and update token on chain
         self.check_and_update(&ticket)?;
         // push ticket into queue
@@ -898,4 +903,48 @@ impl HubState {
             .map(|(chain_id, _)| chain_id)
             .collect()
     }
+
+    pub fn get_total_transfer_amt_past_hour(&self, flow_limit_key: FlowLimitKey) -> u128 {
+
+        let targets = self
+            .ticket_map
+            .iter().rev()
+            .filter(|(seq_key, _)| seq_key.chain_id.eq(&flow_limit_key.dst_chain))
+            .take(100)
+            .map(|(seq_key, ticket_id)| (seq_key.seq, ticket_id))
+            .collect::<Vec<_>>();
+        let mut total_amt = 0;
+        let start_time = ic_cdk::api::time() - HOUR;
+        for (_, ticket_id) in targets {
+            if let Some(ticket) = self.cross_ledger.get(&ticket_id) {
+                if ticket.src_chain ==  flow_limit_key.src_chain && ticket.token == flow_limit_key.token_id && ticket.ticket_time > start_time {
+                    let amt = u128::from_str(ticket.amount.as_str()).unwrap_or_default();
+                    total_amt += amt;
+                }
+            }
+        }
+        total_amt
+    }
+
+    pub fn check_flow_limit(&self, ticket: &Ticket) -> Result<(), Error> {
+        let Some(limit) = self.flow_limit.get(&FlowLimitKey {
+            src_chain: ticket.src_chain.clone(),
+            dst_chain: ticket.dst_chain.clone(),
+            token_id: ticket.token.clone(),
+        }).cloned() else {
+            return Ok(());
+        };
+        let total_amt_past_hour = self.get_total_transfer_amt_past_hour(FlowLimitKey {
+            src_chain: ticket.src_chain.clone(),
+            dst_chain: ticket.dst_chain.clone(),
+            token_id: ticket.ticket_id.clone(),
+        });
+        if total_amt_past_hour > limit {
+            log!(ERROR, "Transfer limit exceed, ticket: {:?}", &ticket);
+            return Err(Error::CustomError(format!("flow limit exceed, limit: {}, total flow past hour: {} ", limit, total_amt_past_hour)));
+        }
+        Ok(())
+    }
+
+
 }

@@ -265,6 +265,16 @@ pub struct SeqKey {
     pub seq: Seq,
 }
 
+#[derive(
+CandidType, Deserialize, Serialize, Default, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash,
+)]
+pub struct FlowLimitKey {
+    pub src_chain: ChainId,
+    pub dst_chain: ChainId,
+    pub token_id: TokenId,
+}
+
+
 impl SeqKey {
     pub fn from(chain_id: ChainId, seq: Seq) -> Self {
         Self { chain_id, seq }

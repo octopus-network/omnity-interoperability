@@ -16,7 +16,7 @@ use omnity_hub::state::{with_state, with_state_mut};
 use omnity_hub::{proposal, self_help};
 use omnity_types::hub_types::{ChainMeta, Proposal, Subscribers, TokenMeta, TokenResp};
 use omnity_types::ic_log::INFO;
-use omnity_types::{ToggleAction, ToggleState, TxHash};
+use omnity_types::{FlowLimitKey, ToggleAction, ToggleState, TxHash};
 use omnity_types::{
     Chain, ChainId, ChainState, ChainType, Directive, Error, Factor, Seq, Ticket, TicketId,
     TokenId, TokenOnChain, Topic,
@@ -46,9 +46,8 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade(args: Option<HubArg>) {
-    log!(INFO, "begin to execute post_upgrade with :{:?}", args);
-    HubState::post_upgrade(args);
+fn post_upgrade() {
+    HubState::post_upgrade();
     log!(
         INFO,
         "post_upgrade successfully, current version: {}",
@@ -66,6 +65,7 @@ pub async fn execute_proposal(proposals: Vec<Proposal>) -> Result<(), Error> {
     proposal::validate_proposal(&proposals).await?;
     proposal::execute_proposal(proposals).await
 }
+
 
 #[update(guard = "is_controller")]
 pub async fn handle_chain(proposals: Vec<Proposal>) -> Result<(), Error> {
@@ -230,7 +230,7 @@ pub async fn add_dest_chain_for_token(args: AddDestChainArgs) -> Result<(), Self
 }
 
 #[update]
-pub async fn audit_stop_chain(chain_id: ChainId) {
+pub async fn audit_stop_chain(chain_id: ChainId) -> Result<(), Error>{
     let caller = caller();
     let audit_programer = with_state(|s|s.audit_programer_principal.clone()).unwrap();
     assert_eq!(audit_programer, caller, "permission deny");
@@ -238,7 +238,7 @@ pub async fn audit_stop_chain(chain_id: ChainId) {
         chain_id,
         action: ToggleAction::Deactivate,
     });
-    proposal::execute_proposal(vec![proposal]).await;
+    proposal::execute_proposal(vec![proposal]).await
 }
 
 #[update(guard = "is_controller")]
@@ -480,6 +480,27 @@ pub async fn get_pending_tickets(
             .collect::<Vec<_>>()
     });
     Ok(pending_tickets)
+}
+
+#[query]
+pub fn flow_limit(flow_limit_key: FlowLimitKey) -> Result<(), String> {
+    let Some(limit) = with_state(|s|s.flow_limit.get(&flow_limit_key).cloned()) else {
+        return Ok(());
+    };
+    let total_amt_past_hour = with_state(|s|s.get_total_transfer_amt_past_hour(flow_limit_key));
+    if total_amt_past_hour > limit {
+        return Err(format!("flow limit exceed, limit: {}, total flow past hour: {} ", limit, total_amt_past_hour));
+    }
+    return Ok(())
+}
+
+#[update(guard = "is_controller")]
+pub fn admin_flow_limit(flow_limit_key: FlowLimitKey, is_add: bool, limit: Option<u128>) {
+    if is_add {
+        with_state_mut(|s|s.flow_limit.insert(flow_limit_key, limit.unwrap()));
+    }else {
+        with_state_mut(|s|s.flow_limit.remove(&flow_limit_key));
+    }
 }
 
 fn main() {}
